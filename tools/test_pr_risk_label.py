@@ -19,8 +19,8 @@ Offline regression tests for tools/pr_risk_label.py.
 
 Each test pins one scoring rule or one safety property: if a rule is weakened or deleted, the matching
 test turns red. Several fixtures mirror real PRs (a moved option key, an already-used pinned dependency
-version, a labeler edit) that an earlier keyword-based version scored wrongly. The GitHub client is
-replaced by an in-memory fake, so no network is needed.
+version, a labeler edit, multi-line option declarations) that earlier versions scored wrongly. The
+GitHub client is replaced by an in-memory fake, so no network is needed.
 Run with: python3 -I tools/test_pr_risk_label.py
 """
 
@@ -33,7 +33,8 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pr_risk_label as risk  # noqa: E402
 
-PR = {"title": "[Fix][Connector-V2] fix", "body": "", "base": "dev", "author_association": "MEMBER"}
+LOW, MEDIUM, HIGH = risk.LOW, risk.MEDIUM, risk.HIGH
+PR = {"title": "[Fix][Connector-V2] fix", "body": "", "base": "dev"}
 KNOWN = risk.Known({"httpclient", "commons-lang3", "maven-shade-plugin"}, {("httpclient", "4.5.13")},
                    {("activemq.version", "5.15.16")})
 
@@ -76,101 +77,110 @@ def points(result, rule):
 
 
 class BaseLevelTest(unittest.TestCase):
-    def test_docs_examples_and_labeler_metadata_are_trivial(self):
+    def test_docs_examples_and_labeler_metadata_are_low(self):
         for path in ("docs/en/connectors/source/Foo.md", ".github/workflows/labeler/label-scope-conf.yml",
                      "seatunnel-examples/seatunnel-engine-examples/src/main/resources/examples/a.conf"):
             result = score([f(path, "@@ -1 +1 @@\n-old\n+new\n", dele=1)])
-            self.assertEqual((result["level"], result["class"]), (1, "docs"), path)
+            self.assertEqual((result["level"], result["class"]), (LOW, "docs"), path)
 
     def test_every_file_under_docs_is_documentation(self):
         # Found on a real PR: docs/sidebars.js was "unclassified" and would have made a docs-only PR medium.
         for path in ("docs/sidebars.js", "docs/en/images/a.png", "docs/zh/i18n.json"):
             result = score([f(path)])
-            self.assertEqual((result["level"], result["class"]), (1, "docs"), path)
+            self.assertEqual((result["level"], result["class"]), (LOW, "docs"), path)
 
-    def test_github_templates_and_markdown_are_docs_but_workflows_and_actions_are_critical(self):
+    def test_github_templates_and_markdown_are_docs_but_workflows_and_actions_are_high(self):
         # A documentation change that mentions CI must not be classified as a CI change.
         for path in (".github/PULL_REQUEST_TEMPLATE.md", ".github/ISSUE_TEMPLATE/bug-report.yml", ".github/CONTRIBUTING.md"):
             result = score([f(path, "@@ -1 +1 @@\n-old\n+see the CI workflow\n", dele=1)])
-            self.assertEqual((result["level"], result["class"]), (1, "docs"), path)
+            self.assertEqual((result["level"], result["class"]), (LOW, "docs"), path)
         for path in (".github/workflows/backend.yml", ".github/actions/upload-test-reports/action.yml",
                      ".github/workflows/README.md"):
-            self.assertEqual(score([f(path)])["level"], 5, path)
+            self.assertEqual(score([f(path)])["level"], HIGH, path)
 
-    def test_tests_only_is_trivial(self):
+    def test_tests_only_is_low(self):
         result = score([TEST])
-        self.assertEqual((result["level"], result["class"]), (1, "tests"))
+        self.assertEqual((result["level"], result["class"]), (LOW, "tests"))
 
     def test_connector_fix_with_test_is_low(self):
         result = score([FIX, TEST])
-        self.assertEqual((result["level"], result["class"], result["units"]), (2, "connector", ["connector-kafka"]))
+        self.assertEqual((result["level"], result["class"], result["units"]), (LOW, "connector", ["connector-kafka"]))
         self.assertEqual(result["adjustments"], [])
 
-    def test_platform_paths_are_critical_and_fixed(self):
-        for module in ("seatunnel-engine/seatunnel-engine-server", "seatunnel-api", "seatunnel-core/seatunnel-starter",
-                       "seatunnel-common", "seatunnel-transforms-v2", "seatunnel-formats", "seatunnel-translation",
-                       "seatunnel-dist"):
+    def test_any_change_under_engine_or_api_is_high_including_tests_and_docs(self):
+        for path in ("seatunnel-engine/seatunnel-engine-server/src/main/java/A.java",
+                     "seatunnel-engine/seatunnel-engine-server/src/test/java/ATest.java",
+                     "seatunnel-engine/README.md", "seatunnel-engine/pom.xml",
+                     "seatunnel-api/src/main/java/A.java", "seatunnel-api/src/test/java/ATest.java",
+                     "seatunnel-api/src/test/resources/a.conf"):
+            result = score([f(path, "@@ -1 +1 @@\n-a\n+b\n", dele=1)])
+            self.assertEqual((result["level"], result["class"]), (HIGH, "platform"), path)
+
+    def test_other_platform_paths_are_high(self):
+        for module in ("seatunnel-core/seatunnel-starter", "seatunnel-common", "seatunnel-transforms-v2",
+                       "seatunnel-formats", "seatunnel-translation", "seatunnel-dist"):
             result = score([f("%s/src/main/java/A.java" % module), TEST])
-            self.assertEqual((result["level"], result["class"]), (5, "platform"), module)
-        for path in (".github/workflows/backend.yml", "tools/x.py", "pom.xml", "seatunnel-engine/pom.xml", "LICENSE",
-                     "config/seatunnel.yaml"):
-            self.assertEqual(score([f(path)])["level"], 5, path)
+            self.assertEqual((result["level"], result["class"]), (HIGH, "platform"), module)
+        for path in ("tools/x.py", "pom.xml", "LICENSE", "config/seatunnel.yaml", ".asf.yaml", "mvnw",
+                     "seatunnel-edge-agent/src/main/java/A.java"):
+            self.assertEqual(score([f(path)])["level"], HIGH, path)
 
-    def test_test_only_changes_in_platform_modules_are_trivial_not_critical(self):
-        # 8 of 150 recent merged PRs only touched engine/e2e tests and were wrongly critical.
-        for path in ("seatunnel-engine/seatunnel-engine-server/src/test/java/ATest.java",
+    def test_test_only_changes_in_other_platform_modules_are_low(self):
+        for path in ("seatunnel-core/seatunnel-starter/src/test/java/ATest.java",
                      "seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/java/AIT.java",
-                     "seatunnel-api/src/test/java/ATest.java"):
-            patch = "@@ -0,0 +1 @@\n+@Test\n"
-            result = score([f(path, patch, status="added")])
-            self.assertEqual((result["level"], result["class"]), (1, "tests"), path)
+                     "seatunnel-common/src/test/java/ATest.java"):
+            result = score([f(path, "@@ -0,0 +1 @@\n+@Test\n", status="added")])
+            self.assertEqual((result["level"], result["class"]), (LOW, "tests"), path)
         # ... but a pom of a platform test module is still a build change.
-        self.assertEqual(score([f("seatunnel-e2e/seatunnel-engine-e2e/pom.xml")])["level"], 5)
+        self.assertEqual(score([f("seatunnel-e2e/seatunnel-engine-e2e/pom.xml")])["level"], HIGH)
 
-    def test_tooling_around_the_runtime_is_medium_or_high_not_critical(self):
-        for path, level in (("seatunnel-cli/src/cli.py", 3), ("seatunnel-benchmarks/src/B.java", 3),
-                            ("deploy/kubernetes/a.yaml", 3), (".asf.yaml", 4), ("mvnw", 4),
-                            ("seatunnel-edge-agent/src/main/java/A.java", 4)):
+    def test_tooling_around_the_runtime_is_medium(self):
+        for path in ("seatunnel-cli/src/cli.py", "seatunnel-benchmarks/src/B.java", "deploy/kubernetes/a.yaml"):
             result = score([f(path)])
-            self.assertEqual((result["level"], result["class"]), (level, "tooling"), path)
+            self.assertEqual((result["level"], result["class"]), (MEDIUM, "tooling"), path)
 
-    def test_platform_stays_five_even_with_no_adjustments_and_never_exceeds_five(self):
+    def test_high_never_exceeds_high(self):
         result = score([f("seatunnel-api/src/main/java/A.java", lines(5000)), FIX])
-        self.assertEqual(result["level"], 5)
+        self.assertEqual(result["level"], HIGH)
 
     def test_shared_modules_are_high(self):
         for module in ("connector-common", "connector-fake", "connector-assert", "connector-console",
                        "connector-cdc/connector-cdc-base", "connector-file/connector-file-base"):
             result = score([f("seatunnel-connectors-v2/%s/src/main/java/a/B.java" % module), TEST])
-            self.assertEqual((result["level"], result["class"]), (4, "shared"), module)
-        core = score([f(JDBC + "internal/dialect/JdbcDialect.java"), TEST])
-        self.assertEqual(core["level"], 4)
+            self.assertEqual((result["level"], result["class"]), (HIGH, "shared"), module)
+        self.assertEqual(score([f(JDBC + "internal/dialect/JdbcDialect.java"), TEST])["level"], HIGH)
 
     def test_jdbc_dialect_is_a_connector_unit_but_jdbc_core_is_shared(self):
         dialect = score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST])
-        self.assertEqual((dialect["level"], dialect["units"]), (2, ["connector-jdbc:mysql"]))
+        self.assertEqual((dialect["level"], dialect["units"]), (LOW, ["connector-jdbc:mysql"]))
 
     def test_unknown_path_is_medium(self):
         result = score([f(".dlc.json")])
-        self.assertEqual((result["level"], result["class"]), (3, "other"))
+        self.assertEqual((result["level"], result["class"]), (MEDIUM, "other"))
 
     def test_registration_only_change_is_low(self):
         result = score([f("plugin-mapping.properties", "@@ -1 +1 @@\n+seatunnel.sink.Foo = connector-kafka\n")])
-        self.assertEqual((result["level"], result["class"]), (2, "registration"))
+        self.assertEqual((result["level"], result["class"]), (LOW, "registration"))
 
-    def test_non_default_base_branch_has_a_floor_of_three(self):
-        self.assertEqual(score([f("docs/en/a.md")], dict(PR, base="2.3.12-release"))["level"], 3)
-        self.assertEqual(score([f("docs/en/a.md")])["level"], 1)
+    def test_non_default_base_branch_is_at_least_medium(self):
+        self.assertEqual(score([f("docs/en/a.md")], dict(PR, base="2.3.12-release"))["level"], MEDIUM)
+        self.assertEqual(score([f("docs/en/a.md")])["level"], LOW)
+
+    def test_author_association_plays_no_role(self):
+        # Removed on purpose: being new is not a technical risk, so the field must be ignored even if present.
+        for assoc in ("FIRST_TIME_CONTRIBUTOR", "NONE", "MEMBER"):
+            result = score([FIX, TEST], dict(PR, author_association=assoc))
+            self.assertEqual((result["level"], result["adjustments"], result["notes"]), (LOW, [], []), assoc)
+        self.assertFalse(hasattr(risk, "TRUSTED_ASSOCIATIONS"))
 
 
 class CriticalFactTest(unittest.TestCase):
-    def test_credential_handling_in_existing_code_is_critical_even_in_a_connector(self):
+    def test_credential_handling_in_existing_code_is_high_even_in_a_connector(self):
         for line in ("if (!StringUtils.isEmpty(password)) { login(password); }", "log.info(\"token=\" + apiToken);",
                      "props.put(\"sasl.jaas.config\", jaas);", "String accessKey = conf.get(ACCESS_KEY);"):
             patch = "@@ -0,0 +1 @@\n+%s\n" % line
             result = score([f(KAFKA + "x/Plain.java", patch), TEST])
-            self.assertEqual(result["level"], 5, line)
-            self.assertIn("credential-handling", rules(result), line)
+            self.assertEqual(result["level"], HIGH, line)
             self.assertTrue(next(a["critical"] for a in result["adjustments"] if a["rule"] == "credential-handling"))
 
     def test_option_declarations_naming_a_credential_are_not_credential_handling(self):
@@ -178,32 +188,31 @@ class CriticalFactTest(unittest.TestCase):
         for line in (".required(USERNAME, PASSWORD)", "public static final String PASSWORD_KEY = \"password\";",
                      'Options.key("password").stringType().noDefaultValue();'):
             patch = "@@ -0,0 +1 @@\n+%s\n" % line
-            result = score([f(KAFKA + "x/Plain.java", patch), TEST])
-            self.assertEqual(result["level"], 2, line)
+            self.assertEqual(score([f(KAFKA + "x/Plain.java", patch), TEST])["level"], LOW, line)
 
     def test_constant_lists_from_multi_line_option_rules_are_declarations(self):
         # Real lines from TDengine, SQL Server CDC, DynamoDB and JDBC PRs: `.required(` is on the previous line.
         for line in ("                        TDengineSinkOptions.PASSWORD,", "SqlServerIncrementalSourceOptions.PASSWORD)",
                      "Arrays.asList(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY);", "JdbcSinkOptions.USE_KERBEROS,"):
             patch = "@@ -0,0 +1 @@\n+%s\n" % line
-            self.assertEqual(score([f(KAFKA + "x/Plain.java", patch), TEST])["level"], 2, line)
+            self.assertEqual(score([f(KAFKA + "x/Plain.java", patch), TEST])["level"], LOW, line)
         # ... but a value being used is handling, however it is spelled.
         for line in ("String password = config.get(PASSWORD);", "if (apiKey != null && !apiKey.isEmpty()) {",
                      "client.auth(SECRET_ACCESS_KEY.get(conf));"):
             patch = "@@ -0,0 +1 @@\n+%s\n" % line
-            self.assertEqual(score([f(KAFKA + "x/Plain.java", patch), TEST])["level"], 5, line)
+            self.assertEqual(score([f(KAFKA + "x/Plain.java", patch), TEST])["level"], HIGH, line)
 
     def test_credential_words_in_a_brand_new_file_are_a_note(self):
         patch = "@@ -0,0 +1 @@\n+String password = p; client.login(password);\n"
         result = score([f(KAFKA + "x/Plain.java", patch, status="added"), TEST])
-        self.assertEqual(result["level"], 2)
+        self.assertEqual(result["level"], LOW)
         self.assertIn("credential-handling", notes(result))
 
     def test_credential_lines_that_only_moved_are_neutral(self):
         line = "    private String apiToken = config.get(API_TOKEN_OPTION);"
         moved = [f(KAFKA + "a/Old.java", "@@ -1 +0,0 @@\n-%s\n" % line, add=0, dele=1),
                  f(KAFKA + "a/New.java", "@@ -0,0 +1 @@\n+%s\n" % line, status="added")]
-        self.assertEqual(score(moved + [TEST])["level"], 2)
+        self.assertEqual(score(moved + [TEST])["level"], LOW)
 
 
 class ContractAdjustmentTest(unittest.TestCase):
@@ -216,11 +225,10 @@ class ContractAdjustmentTest(unittest.TestCase):
         moved = f(self.CONFIG, '@@ -0,0 +1 @@\n+    Options.key("email").stringType().noDefaultValue();\n', status="added")
         self.assertNotIn("option-removed", rules(score([removed, moved, TEST])))
 
-    def test_option_key_that_vanished_is_plus_two(self):
+    def test_option_key_that_vanished_is_plus_two_and_high(self):
         removed = f(self.OPTIONS, '@@ -1 +0,0 @@\n-    Options.key("topic").stringType().noDefaultValue();\n', add=0, dele=1)
         result = score([removed, TEST])
-        self.assertEqual(points(result, "option-removed"), 2)
-        self.assertEqual(result["level"], 4)
+        self.assertEqual((points(result, "option-removed"), result["level"]), (2, HIGH))
 
     def test_changed_default_or_type_of_a_staying_key_is_plus_two(self):
         patch = ('@@ -1 +1 @@\n-    Options.key("size").intType().defaultValue(10);\n'
@@ -259,7 +267,7 @@ class ContractAdjustmentTest(unittest.TestCase):
         for line in ("synchronized (lock) {", "sslContext = buildSslContext();", "Class.forName(name);"):
             patch = "@@ -0,0 +1 @@\n+" + line + "\n"
             result = score([f(KAFKA + "x/Plain.java", patch), TEST])
-            self.assertEqual((points(result, "sensitive-code"), result["level"]), (1, 3), line)
+            self.assertEqual((points(result, "sensitive-code"), result["level"]), (1, MEDIUM), line)
         comment = "@@ -0,0 +1 @@\n+// uses ssl\n"
         self.assertNotIn("sensitive-code", rules(score([f(KAFKA + "x/Plain.java", comment), TEST])))
         patch = "@@ -0,0 +1 @@\n+synchronized (lock) {\n"
@@ -267,14 +275,21 @@ class ContractAdjustmentTest(unittest.TestCase):
 
     def test_hot_path_and_type_mapping_are_notes_only(self):
         result = score([f(KAFKA + "source/KafkaRecordConverter.java"), TEST])
-        self.assertEqual(result["level"], 2)
+        self.assertEqual(result["level"], LOW)
         self.assertEqual(notes(result), {"hot-path", "type-mapping"})
 
 
 class EvidenceAdjustmentTest(unittest.TestCase):
-    def test_production_change_without_a_test_is_plus_one(self):
+    def test_production_change_without_a_test_is_plus_one_and_medium(self):
         result = score([FIX])
-        self.assertEqual((points(result, "no-regression-test"), result["level"]), (1, 3))
+        self.assertEqual((points(result, "no-regression-test"), result["level"]), (1, MEDIUM))
+
+    def test_two_plus_one_facts_make_a_small_fix_high(self):
+        # A new option without docs and no test: two evidence gaps on one contained change.
+        patch = '@@ -0,0 +1 @@\n+    Options.key("x").intType().defaultValue(1);\n'
+        result = score([f(KAFKA + "config/KafkaSinkOptions.java", patch)])
+        self.assertEqual(rules(result), {"no-regression-test", "option-without-docs"})
+        self.assertEqual(result["level"], HIGH)
 
     def test_assertion_added_to_an_existing_test_method_counts_as_evidence(self):
         # Project guideline: extend the existing test class rather than add a new @Test.
@@ -288,13 +303,13 @@ class EvidenceAdjustmentTest(unittest.TestCase):
 
     def test_comment_only_production_change_needs_no_test(self):
         patch = "@@ -1 +1 @@\n-// old\n+// new\n"
-        self.assertEqual(score([f(KAFKA + "x/Plain.java", patch, dele=1, add=1)])["level"], 2)
+        self.assertEqual(score([f(KAFKA + "x/Plain.java", patch, dele=1, add=1)])["level"], LOW)
 
     def test_size_threshold_is_plus_one_just_above_250_lines(self):
         at = score([f(KAFKA + "x/Plain.java", lines(250), add=250), TEST])
         over = score([f(KAFKA + "x/Plain.java", lines(251), add=251), TEST])
         self.assertNotIn("size", rules(at))
-        self.assertEqual(points(over, "size"), 1)
+        self.assertEqual((points(over, "size"), over["level"]), (1, MEDIUM))
 
     def test_fewer_assertion_lines_in_a_test_file_is_plus_two(self):
         patch = "@@ -1 +1 @@\n-    Assertions.assertEquals(1, x);\n-    Assertions.assertEquals(2, y);\n+    int y = 0;\n"
@@ -357,21 +372,13 @@ class EvidenceAdjustmentTest(unittest.TestCase):
         text = "@@ -0,0 +1 @@\n+Set the system prompt. See the ai-merge discussion.\n"
         self.assertNotIn("untrusted-instruction", rules(score([f("docs/en/a.md", text)])))
 
-    def test_new_contributor_is_a_note_and_never_changes_the_level(self):
-        pr = dict(PR, author_association="FIRST_TIME_CONTRIBUTOR")
-        result = score([f("docs/en/a.md")], pr)
-        self.assertEqual(result["level"], 1)
-        self.assertNotIn("new-contributor", rules(result))
-        self.assertIn("new-contributor", notes(result))
-        self.assertNotIn("new-contributor", notes(score([f("docs/en/a.md")])))
-
-    def test_level_is_capped_at_four_for_non_platform_prs_without_a_critical_fact(self):
+    def test_level_is_capped_at_high(self):
         patch = '@@ -1 +0,0 @@\n-    Options.key("topic").stringType().noDefaultValue();\n'
         files = [f(KAFKA + "config/KafkaSinkOptions.java", patch, add=0, dele=1),
                  f(KAFKA + "x/KafkaSourceState.java"), f("seatunnel-connectors-v2/connector-redis/src/main/java/a/B.java")]
         result = score(files)
         self.assertGreater(sum(a["points"] for a in result["adjustments"]), 2)
-        self.assertEqual(result["level"], 4)
+        self.assertEqual(result["level"], HIGH)
 
 
 NEW_POM = (
@@ -409,14 +416,14 @@ def replace(files, path, **changes):
 class NewConnectorTest(unittest.TestCase):
     def test_complete_new_connector_is_low_with_no_adjustments(self):
         result = score(new_connector_files())
-        self.assertEqual((result["level"], result["class"], result["units"]), (2, "new-connector", ["connector-foo"]))
+        self.assertEqual((result["level"], result["class"], result["units"]), (LOW, "new-connector", ["connector-foo"]))
         self.assertEqual(result["adjustments"], [])
 
     def test_new_state_class_credentials_and_threads_are_notes_not_points(self):
         patch = "@@ -0,0 +1 @@\n+String password = o.get(); client.login(password); synchronized (this) {}\n"
         files = new_connector_files() + [f(NEW_JAVA + "source/Plain.java", patch, status="added")]
         result = score(files)
-        self.assertEqual(result["level"], 2)
+        self.assertEqual(result["level"], LOW)
         self.assertTrue({"credential-handling", "concurrency"} <= notes(result))
 
     def test_already_used_pinned_versions_do_not_count_as_supply_chain(self):
@@ -424,22 +431,22 @@ class NewConnectorTest(unittest.TestCase):
         pom = NEW_POM + "+<dependency>\n+<artifactId>httpclient</artifactId>\n+<version>4.5.13</version>\n+</dependency>\n"
         result = score(new_connector_files(pom))
         self.assertNotIn("new-supply-chain", rules(result))
-        self.assertEqual(result["level"], 2)
+        self.assertEqual(result["level"], LOW)
 
-    def test_unknown_artifact_or_unknown_version_pair_is_plus_two(self):
+    def test_unknown_artifact_or_unknown_version_pair_is_plus_two_and_high(self):
         brand_new = NEW_POM + "+<dependency>\n+<artifactId>brand-new-sdk</artifactId>\n+</dependency>\n"
         self.assertEqual(points(score(new_connector_files(brand_new)), "new-supply-chain"), 2)
         other_version = NEW_POM + "+<dependency>\n+<artifactId>httpclient</artifactId>\n+<version>4.5.99</version>\n+</dependency>\n"
-        self.assertEqual(score(new_connector_files(other_version))["level"], 4)
-        self.assertEqual(score(new_connector_files(), known=None)["level"], 4)
+        self.assertEqual(score(new_connector_files(other_version))["level"], HIGH)
+        self.assertEqual(score(new_connector_files(), known=None)["level"], HIGH)
 
     def test_build_logic_in_a_pom_is_plus_two(self):
         for extra in ("+<artifactId>maven-antrun-plugin</artifactId>\n", "+<repository>\n", "+<scope>system</scope>\n"):
-            self.assertEqual(score(new_connector_files(NEW_POM + extra))["level"], 4, extra)
+            self.assertEqual(score(new_connector_files(NEW_POM + extra))["level"], HIGH, extra)
 
     def test_shade_plugin_that_is_already_used_is_fine(self):
         pom = NEW_POM + "+<plugin>\n+<artifactId>maven-shade-plugin</artifactId>\n+</plugin>\n"
-        self.assertEqual(score(new_connector_files(pom))["level"], 2)
+        self.assertEqual(score(new_connector_files(pom))["level"], LOW)
 
     def test_missing_docs_and_missing_tests_are_plus_one(self):
         no_docs = [x for x in new_connector_files() if not x["filename"].startswith("docs/")]
@@ -461,19 +468,18 @@ class NewConnectorTest(unittest.TestCase):
         e2e = "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fooapi-e2e/"
         files += [f(e2e + "pom.xml", "@@ -0,0 +1 @@\n+<artifactId>connector-fooapi-e2e</artifactId>\n", status="added"),
                   f(e2e + "src/test/java/FooIT.java", "@@ -0,0 +1 @@\n+@TestTemplate\n", status="added")]
-        self.assertEqual(score(files)["level"], 2)
+        self.assertEqual(score(files)["level"], LOW)
 
     def test_new_connector_plus_an_existing_unit_is_plus_one(self):
         self.assertEqual(points(score(new_connector_files() + [FIX]), "multi-unit"), 1)
 
-    def test_removing_a_registration_entry_is_plus_two(self):
+    def test_removing_a_registration_entry_is_plus_two_and_high(self):
         # The Hudi accident class: an unrelated connector silently loses its registration.
         for path, patch in (("plugin-mapping.properties", "@@ -1 +0,0 @@\n-seatunnel.source.Hudi = connector-hudi\n"),
                             ("config/plugin_config", "@@ -1 +0,0 @@\n-connector-hudi\n"),
                             ("seatunnel-connectors-v2/pom.xml", "@@ -1 +0,0 @@\n-<module>connector-hudi</module>\n")):
             result = score([f(path, patch, add=0, dele=1)])
-            self.assertEqual(points(result, "registration-removed"), 2, path)
-            self.assertEqual(result["level"], 4, path)
+            self.assertEqual((points(result, "registration-removed"), result["level"]), (2, HIGH), path)
         service = NEW + "src/main/resources/META-INF/services/x"
         self.assertIn("registration-removed", rules(score([f(service, "@@ -1 +0,0 @@\n-a.B\n", add=0, dele=1)])))
 
@@ -481,13 +487,13 @@ class NewConnectorTest(unittest.TestCase):
         # Mirrors PayPal: the only non-additive change was a labeler config line.
         files = new_connector_files() + [
             f(".github/workflows/labeler/label-scope-conf.yml", "@@ -1 +1 @@\n-  - old\n+  - new\n", dele=1)]
-        self.assertEqual(score(files)["level"], 2)
+        self.assertEqual(score(files)["level"], LOW)
 
     def test_existing_connector_pom_change_is_dependency_change_plus_one(self):
         pom = f("seatunnel-connectors-v2/connector-kafka/pom.xml",
                 "@@ -1 +1 @@\n-<version>4.5.13</version>\n+<version>4.5.13</version>\n", dele=1, add=1)
         result = score([pom, TEST])
-        self.assertEqual(points(result, "dependency-change"), 1)
+        self.assertEqual((points(result, "dependency-change"), result["level"]), (1, MEDIUM))
         unknown = f("seatunnel-connectors-v2/connector-kafka/pom.xml",
                     "@@ -1 +1 @@\n+<artifactId>mystery</artifactId>\n+<version>9</version>\n")
         self.assertEqual(points(score([unknown, TEST]), "new-supply-chain"), 2)
@@ -506,7 +512,7 @@ class NewConnectorTest(unittest.TestCase):
         result = score([bump, TEST])
         self.assertEqual(points(result, "dependency-change"), 1)
         self.assertEqual(points(result, "new-supply-chain"), 2)
-        self.assertEqual(result["level"], 4)
+        self.assertEqual(result["level"], HIGH)
         same = f(pom, "@@ -1 +1 @@\n-  <activemq.version>5.15.16</activemq.version>\n"
                       "+  <activemq.version>5.15.16</activemq.version>\n", dele=1, add=1)
         self.assertNotIn("new-supply-chain", rules(score([same, TEST])))
@@ -529,8 +535,7 @@ class ZendeskLikeTest(unittest.TestCase):
             f("plugin-mapping.properties", "@@ -1 +1 @@\n+seatunnel.sink.Zendesk = connector-http-zendesk\n"),
         ]
         result = score(files)
-        self.assertEqual(rules(result), {"size"})
-        self.assertEqual(result["level"], 3)
+        self.assertEqual((rules(result), result["level"]), ({"size"}, MEDIUM))
 
 
 class MovedLinesTest(unittest.TestCase):
@@ -554,16 +559,17 @@ class MovedLinesTest(unittest.TestCase):
 class ReportTest(unittest.TestCase):
     def test_report_shows_the_arithmetic_and_the_result(self):
         report = risk.render_report(score([FIX]), "abcdef1234567890")
-        self.assertIn("### PR risk: `risk: 3-medium`", report)
-        self.assertIn("| base | 2 |", report)
+        self.assertIn("### PR risk: `risk: medium`", report)
+        self.assertIn("| base | 1 |", report)
         self.assertIn("| no-regression-test | +1 |", report)
-        self.assertIn("| **result** | **3** |", report)
+        self.assertIn("| **result** | **medium** |", report)
         self.assertIn("does not approve, block, merge or comment", report)
 
     def test_critical_fact_is_rendered_as_critical(self):
         patch = "@@ -0,0 +1 @@\n+client.login(password);\n"
         report = risk.render_report(score([f(KAFKA + "x/Plain.java", patch), TEST]), "abc")
         self.assertIn("| credential-handling | critical |", report)
+        self.assertIn("| **result** | **high** |", report)
 
     def test_pr_controlled_text_is_inert_in_the_report(self):
         # A changed line and a file path are chosen by the contributor: they must not break the table, mention
@@ -612,8 +618,7 @@ class FakeGitHub(object):
 
 
 def fake_pr(head="f" * 40):
-    return {"number": 7, "title": "t", "body": "", "base": {"ref": "dev"}, "author_association": "MEMBER",
-            "head": {"sha": head}}
+    return {"number": 7, "title": "t", "body": "", "base": {"ref": "dev"}, "head": {"sha": head}}
 
 
 class ApplyTest(unittest.TestCase):
@@ -629,11 +634,11 @@ class ApplyTest(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_apply_replaces_the_risk_label_and_writes_the_summary(self):
-        gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], ["bug", "risk: 4-high"])
+        gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], ["bug", "risk: high"])
         self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({}), apply=True), "applied")
-        self.assertEqual(gh.writes, [("POST", "7/labels", {"labels": ["risk: 1-trivial"]}),
-                                     ("DELETE", "7/labels/risk%3A%204-high", None)])
-        self.assertIn("### PR risk: `risk: 1-trivial`", open(self.tmp.name).read())
+        self.assertEqual(gh.writes, [("POST", "7/labels", {"labels": ["risk: low"]}),
+                                     ("DELETE", "7/labels/risk%3A%20high", None)])
+        self.assertIn("### PR risk: `risk: low`", open(self.tmp.name).read())
 
     def test_apply_does_nothing_when_the_head_moved(self):
         gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])
@@ -650,7 +655,7 @@ class ApplyTest(unittest.TestCase):
         gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], [])
         self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({})), "reported")
         self.assertEqual(gh.writes, [])
-        self.assertIn("risk: 1-trivial", open(self.tmp.name).read())
+        self.assertIn("risk: low", open(self.tmp.name).read())
 
     def test_failed_write_fails_the_run(self):
         gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], [], fail="POST")
@@ -667,19 +672,19 @@ class ApplyTest(unittest.TestCase):
 
 class LabelPlanTest(unittest.TestCase):
     def test_exactly_one_risk_label_remains_and_other_labels_are_untouched(self):
-        add, remove = risk.plan_label_changes(["risk: 1-trivial", "bug", "risk: 3-medium"], 3)
-        self.assertEqual((add, remove), ([], ["risk: 1-trivial"]))
-        add, remove = risk.plan_label_changes(["bug", "connector"], 4)
-        self.assertEqual((add, remove), (["risk: 4-high"], []))
+        add, remove = risk.plan_label_changes(["risk: low", "bug", "risk: medium"], MEDIUM)
+        self.assertEqual((add, remove), ([], ["risk: low"]))
+        add, remove = risk.plan_label_changes(["bug", "connector"], HIGH)
+        self.assertEqual((add, remove), (["risk: high"], []))
 
-    def test_label_names_and_metadata_cover_every_level(self):
-        self.assertEqual([risk.label_name(n) for n in range(1, 6)],
-                         ["risk: 1-trivial", "risk: 2-low", "risk: 3-medium", "risk: 4-high", "risk: 5-critical"])
-        self.assertEqual(sorted(risk.LEVEL_META), [1, 2, 3, 4, 5])
+    def test_label_names_and_metadata_cover_exactly_three_levels(self):
+        self.assertEqual([risk.label_name(n) for n in (LOW, MEDIUM, HIGH)], ["risk: low", "risk: medium", "risk: high"])
+        self.assertEqual(sorted(risk.LEVEL_META), [LOW, MEDIUM, HIGH])
+        self.assertEqual(sorted(risk.LEVEL_NAMES), [1, 2, 3])
 
     def test_label_commands_cover_every_level_for_the_one_time_committer_step(self):
         commands = risk.label_commands("apache/seatunnel")
-        self.assertEqual(len(commands), 5)
+        self.assertEqual(len(commands), 3)
         self.assertTrue(all(c.startswith('gh label create "risk: ') and "--repo apache/seatunnel" in c for c in commands))
 
 

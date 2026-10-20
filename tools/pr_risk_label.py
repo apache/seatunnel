@@ -17,25 +17,26 @@
 """
 Risk triage labels for pull requests.
 
-Every PR gets exactly one label `risk: <1..5>-<name>`, and the reasoning is written to the Actions
+Every PR gets exactly one label `risk: low|medium|high`, and the reasoning is written to the Actions
 job summary, so committers can process the review queue sorted by risk. Nothing here approves,
 blocks, merges or comments on a PR: merge permission stays with committers.
 
 How the level is computed (see compute_level):
 
-  level = 5                            when the base is 5 (platform code) or a critical fact is present
-  level = min(4, base + adjustments)   otherwise
+  level = high                               when a critical fact is present
+  level = min(high, base + adjustments)      otherwise      (low = 1, medium = 2, high = 3)
 
   base (who is affected if the PR is wrong)
-    1  nothing at runtime: docs (including .github templates), examples, labeler metadata, tests
-    2  a brand-new connector, or one existing connector unit, or a registration-only change
-    3  an unclassified path, or tooling around the runtime (CLI, benchmarks, examples, deploy)
-    4  a shared connector module (connector-common, *-base, JDBC core, fake/assert/console),
-       edge agent, build wrapper and repository settings
-    5  platform: engine, api, core, common, config, formats, transforms, translation, dist, CI
-       workflows and actions, tools, license files, root or non-connector pom.xml
+    low     docs (including .github templates), examples, labeler metadata, tests; a brand-new
+            connector; one existing connector unit; a registration-only change
+    medium  tooling around the runtime (CLI, benchmarks, examples, deploy); an unclassified path
+    high    any change under seatunnel-engine or seatunnel-api (tests and docs included); other
+            platform code: core, common, config, formats, transforms, translation, dist, CI
+            workflows and actions, tools, license files, root or non-connector pom.xml; a shared
+            connector module (connector-common, *-base, JDBC core, fake/assert/console); edge
+            agent, build wrapper and repository settings
 
-  critical facts (level 5 regardless of base)
+  critical facts (high regardless of base)
     credential handling changed in existing production code (password, secret, token, keytab, ...;
     option declarations that only name such an option do not count)
 
@@ -53,14 +54,11 @@ How the level is computed (see compute_level):
     +1  several connector units, or production file deleted/renamed
     +1  new connector without docs, or new option without docs
     +1  dependency or version line of an existing pom changed (known values)
-  A PR to a branch other than the default branch gets a floor of 3.
+  A PR to a branch other than the default branch is at least medium.
 
-The author's association with the project is reported as a note so reviewers can offer support; it
-never changes the level. Keyword findings that are only suggestive (hot-path readers/writers, type
-mapping, empty catch, removed throw, credentials in a brand-new connector) are notes too.
-
-The five levels are provisional: a replay of 150 merged PRs separated level 5 from the rest on
-review effort, but not levels 1 to 4 from each other.
+The author's association with the project plays no role. Keyword findings that are only suggestive
+(hot-path readers/writers, type mapping, empty catch, removed throw, credentials in a brand-new
+connector) are notes and never change the level.
 
 SECURITY MODEL: the script only reads the PR through the GitHub API; it never checks out or executes
 PR code. The workflows follow the ASF policy for untrusted PRs: `pull_request` (read-only token,
@@ -74,7 +72,7 @@ Sub-commands:
                  replace the PR's risk label; with --expect-head, do nothing unless the PR head is
                  still that commit.
   classify --files-json F     Offline evaluation of a saved `pulls/N/files` payload.
-  labels                      Print the `gh label create` commands for the five labels (one-time
+  labels                      Print the `gh label create` commands for the three labels (one-time
                               committer step; the workflow does not create labels).
 
 Configuration (env):
@@ -94,49 +92,47 @@ import urllib.parse
 import urllib.request
 
 LABEL_PREFIX = "risk: "
-LEVEL_NAMES = {1: "trivial", 2: "low", 3: "medium", 4: "high", 5: "critical"}
+LOW, MEDIUM, HIGH = 1, 2, 3
+LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
 LEVEL_META = {
-    1: ("0e8a16", "No runtime effect: docs, examples, metadata, tests"),
-    2: ("7bc043", "Contained: new connector or one existing connector unit"),
-    3: ("fbca04", "Needs a focused read: sizeable change or missing evidence"),
-    4: ("f9841c", "Touches a contract, shared module, supply chain or several units"),
-    5: ("d73a4a", "Platform code, CI workflows, credential handling, build or license files"),
+    LOW: ("0e8a16", "Docs, tests, a new connector or one connector unit, with no risk facts"),
+    MEDIUM: ("fbca04", "Tooling, an unclassified path, or a contained change with one risk fact"),
+    HIGH: ("d73a4a", "Engine, API, platform, CI, shared modules, credential handling, or a contract change"),
 }
-
-# Author associations that need no "offer support" note.
-TRUSTED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"}
 
 # ------------------------------------------------------------------------------------------
 # Path policy
 # ------------------------------------------------------------------------------------------
 
-# Platform and tooling paths: (regex, reason, base level). 5 means a mistake affects every job or the
-# build itself; lower levels are tooling around the runtime (CLI, benchmarks, examples, Helm, wrappers).
+# Any change under these modules is high, tests and docs included.
+ALWAYS_HIGH_RE = re.compile(r"^seatunnel-(engine|api)/")
+# Platform and tooling paths: (regex, reason, base level). HIGH means a mistake affects every job or the
+# build itself; MEDIUM is tooling around the runtime (CLI, benchmarks, examples, Helm).
 PLATFORM_BLOCKS = [
-    (r"(^|/)pom\.xml$", "root or non-connector pom.xml (build and dependency graph)", 5),
-    (r"^\.github/", "CI workflows, actions and repository automation", 5),
-    (r"^tools/", "CI, release and compatibility tooling", 5),
-    (r"^seatunnel-engine/", "engine runtime (Zeta): scheduling, checkpoint, state, RPC", 5),
-    (r"^seatunnel-api/", "public API / SPI contract", 5),
-    (r"^seatunnel-core/", "core runtime and CLI wiring", 5),
-    (r"^seatunnel-common/", "shared common code used by every module", 5),
-    (r"^seatunnel-config/", "config framework", 5),
-    (r"^seatunnel-formats/", "shared format code", 5),
-    (r"^seatunnel-transforms-v2/", "transform runtime", 5),
-    (r"^seatunnel-translation/", "Flink/Spark translation layer", 5),
-    (r"^seatunnel-plugin-discovery/", "plugin discovery", 5),
-    (r"^seatunnel-dist/", "distribution packaging", 5),
-    (r"^seatunnel-ci-tools/", "CI tooling module", 5),
-    (r"^seatunnel-(edge-agent|trace)/", "edge agent and tracing runtime", 4),
-    (r"^seatunnel-(cli|benchmarks|examples)/", "CLI, benchmarks and examples (tooling around the runtime)", 3),
-    (r"^deploy/", "deployment charts and manifests", 3),
-    (r"^(mvnw|\.mvn/|\.asf\.yaml|CODEOWNERS)", "build wrapper and repository settings", 4),
+    (r"(^|/)pom\.xml$", "root or non-connector pom.xml (build and dependency graph)", HIGH),
+    (r"^\.github/", "CI workflows, actions and repository automation", HIGH),
+    (r"^tools/", "CI, release and compatibility tooling", HIGH),
+    (r"^seatunnel-engine/", "engine runtime (Zeta): scheduling, checkpoint, state, RPC", HIGH),
+    (r"^seatunnel-api/", "public API / SPI contract", HIGH),
+    (r"^seatunnel-core/", "core runtime and CLI wiring", HIGH),
+    (r"^seatunnel-common/", "shared common code used by every module", HIGH),
+    (r"^seatunnel-config/", "config framework", HIGH),
+    (r"^seatunnel-formats/", "shared format code", HIGH),
+    (r"^seatunnel-transforms-v2/", "transform runtime", HIGH),
+    (r"^seatunnel-translation/", "Flink/Spark translation layer", HIGH),
+    (r"^seatunnel-plugin-discovery/", "plugin discovery", HIGH),
+    (r"^seatunnel-dist/", "distribution packaging", HIGH),
+    (r"^seatunnel-ci-tools/", "CI tooling module", HIGH),
+    (r"^seatunnel-(edge-agent|trace)/", "edge agent and tracing runtime", HIGH),
+    (r"^seatunnel-(cli|benchmarks|examples)/", "CLI, benchmarks and examples (tooling around the runtime)", MEDIUM),
+    (r"^deploy/", "deployment charts and manifests", MEDIUM),
+    (r"^(mvnw|\.mvn/|\.asf\.yaml|CODEOWNERS)", "build wrapper and repository settings", HIGH),
     (r"^(plugin-mapping\.properties|config/|bin/|plugins/|LICENSE|NOTICE|licenses/)",
-     "distribution, startup scripts or license files", 5),
-    (r"META-INF/services/", "SPI service registration outside connectors", 5),
-    (r"(^|/)CODEOWNERS$", "code ownership", 4),
+     "distribution, startup scripts or license files", HIGH),
+    (r"META-INF/services/", "SPI service registration outside connectors", HIGH),
+    (r"(^|/)CODEOWNERS$", "code ownership", HIGH),
 ]
-# Test suites of platform modules: test-only changes cannot alter runtime behavior.
+# Test suites of platform modules other than engine/api: test-only changes cannot alter runtime behavior.
 PLATFORM_TEST_RE = re.compile(
     r"^seatunnel-e2e/(seatunnel-engine-e2e|seatunnel-core-e2e|seatunnel-transforms-v2-e2e|seatunnel-edge-agent-e2e)/.*"
     r"|^seatunnel-[a-z0-9-]+(/[^/]+)*/src/test/.*"
@@ -260,7 +256,6 @@ class Config(object):
     def __init__(self, env=None):
         env = os.environ if env is None else env
         self.default_base = env.get("PR_RISK_DEFAULT_BASE") or "dev"
-        self.trusted_associations = set(TRUSTED_ASSOCIATIONS)
 
 
 class Known(object):
@@ -291,7 +286,7 @@ def load_known(root):
 
 
 def label_name(level):
-    return "%s%d-%s" % (LABEL_PREFIX, level, LEVEL_NAMES[level])
+    return LABEL_PREFIX + LEVEL_NAMES[level]
 
 
 def _resolve_connector(path):
@@ -324,6 +319,8 @@ def classify_path(path):
 
     kind is one of doc|metadata|registration|pom|services|test|main|shared|platform|other.
     """
+    if ALWAYS_HIGH_RE.match(path):
+        return "platform", None, None, "any change under seatunnel-engine or seatunnel-api is high"
     if GITHUB_DOC_RE.match(path) or (DOC_RE.search(path) and not GITHUB_CI_RE.match(path)):
         return "doc", None, None, None
     if path in METADATA_FILES or EXAMPLE_RE.match(path):
@@ -367,7 +364,7 @@ def platform_level(path):
     for pattern, _reason, level in PLATFORM_BLOCKS:
         if re.search(pattern, path):
             return level
-    return 5
+    return HIGH
 
 
 def changed_lines(patch):
@@ -417,7 +414,7 @@ class Scorer(object):
 def evaluate(pr, files, cfg=None, known=None):
     """Pure risk evaluation.
 
-    `pr` needs title/body/base/author_association. `known` is a Known set learned from the base
+    `pr` needs title/body/base. `known` is a Known set learned from the base
     branch; without it every third-party artifact of a pom change counts as new.
     """
     cfg = cfg or Config({})
@@ -536,21 +533,21 @@ def evaluate(pr, files, cfg=None, known=None):
     # ---- base level
     if platform:
         base = max(level for _p, _r, level in platform)
-        pr_class = "platform" if base == 5 else "tooling"
+        pr_class = "platform" if base == HIGH else "tooling"
     elif other:
-        base, pr_class = 3, "other"
+        base, pr_class = MEDIUM, "other"
     elif shared_units:
-        base, pr_class = 4, "shared"
+        base, pr_class = HIGH, "shared"
     elif new_modules:
-        base, pr_class = 2, "new-connector"
+        base, pr_class = LOW, "new-connector"
     elif units:
-        base, pr_class = 2, "connector"
+        base, pr_class = LOW, "connector"
     elif registration_touched:
-        base, pr_class = 2, "registration"
+        base, pr_class = LOW, "registration"
     elif tests:
-        base, pr_class = 1, "tests"
+        base, pr_class = LOW, "tests"
     else:
-        base, pr_class = 1, "docs"
+        base, pr_class = LOW, "docs"
 
     # ---- whole-PR adjustments
     if len(units | shared_units) > 1:
@@ -566,9 +563,6 @@ def evaluate(pr, files, cfg=None, known=None):
         sc.adjust(1, "option-without-docs", "-", "new option added to an existing connector but no docs changed")
 
     # ---- notes (never change the level)
-    if pr.get("author_association") not in cfg.trusted_associations:
-        sc.note("new-contributor", "-", "author association %s: consider offering support; this is not a risk"
-                % pr.get("author_association"))
     if new_modules and not has_e2e_test:
         sc.note("no-e2e", "-", "new connector has no added E2E test method")
     if shared_units:
@@ -580,10 +574,10 @@ def evaluate(pr, files, cfg=None, known=None):
         sc.note("unclassified-path", path, why)
 
     level, adjustments = compute_level(base, sc.adjustments.values())
-    if pr.get("base") != cfg.default_base and level < 3:
-        level = 3
-        adjustments = adjustments + [{"points": 0, "rule": "non-default-base", "file": "-",
-                                      "detail": "target branch %s is not %s: floor of 3" % (pr.get("base"), cfg.default_base),
+    if pr.get("base") != cfg.default_base and level < MEDIUM:
+        level = MEDIUM
+        adjustments = adjustments + [{"points": 0, "rule": "non-default-base", "file": "-", "critical": False,
+                                      "detail": "target branch %s is not %s: at least medium" % (pr.get("base"), cfg.default_base),
                                       "more": 0}]
     return {
         "level": level,
@@ -598,11 +592,11 @@ def evaluate(pr, files, cfg=None, known=None):
 
 
 def compute_level(base, adjustments):
-    """5 when the base is 5 or a critical fact is present; otherwise base plus adjustments, capped at 4."""
+    """High when a critical fact is present; otherwise base plus adjustments, capped at high."""
     adjustments = sorted(adjustments, key=lambda a: (not a["critical"], -a["points"], a["rule"]))
-    if base >= 5 or any(a["critical"] for a in adjustments):
-        return 5, adjustments
-    return min(4, base + sum(a["points"] for a in adjustments)), adjustments
+    if any(a["critical"] for a in adjustments):
+        return HIGH, adjustments
+    return min(HIGH, base + sum(a["points"] for a in adjustments)), adjustments
 
 
 def _supply_facts(sc, path, added, known):
@@ -754,7 +748,8 @@ def render_report(result, head_sha):
         more = " (and %d more)" % a["more"] if a["more"] else ""
         points = "critical" if a["critical"] else ("+%d" % a["points"] if a["points"] else "floor")
         lines.append("| %s | %s | %s%s%s |" % (a["rule"], points, where, _md(a["detail"]), more))
-    lines.append("| **result** | **%d** | 5 for platform code or a critical fact, otherwise capped at 4 |" % result["level"])
+    lines.append("| **result** | **%s** | high for a critical fact, otherwise base plus points, capped at high (low 1, medium 2, high 3) |"
+                 % LEVEL_NAMES[result["level"]])
     if result["notes"]:
         lines += ["", "Notes for the reviewer (they do not change the level):"]
         for n in result["notes"]:
@@ -774,7 +769,7 @@ BASE_REASON = {
     "new-connector": "brand-new connector module",
     "shared": "shared connector module (dependents are affected)",
     "other": "path outside every known area",
-    "platform": "platform code (fixed)",
+    "platform": "engine, API or other platform code (always high)",
     "tooling": "tooling around the runtime (CLI, benchmarks, examples, deploy, repository settings)",
 }
 
@@ -848,8 +843,7 @@ class GitHub(object):
 def evaluate_pr(gh, number, cfg):
     pr = gh.get("/repos/%s/pulls/%d" % (gh.repo, number))
     files = gh.paginate("/repos/%s/pulls/%d/files" % (gh.repo, number))
-    view = {"title": pr.get("title"), "body": pr.get("body"), "base": pr["base"]["ref"],
-            "author_association": pr.get("author_association")}
+    view = {"title": pr.get("title"), "body": pr.get("body"), "base": pr["base"]["ref"]}
     # The workflow checks out the base branch, so these are the artifacts that are already vetted.
     known = load_known(os.environ.get("PR_RISK_REPO_ROOT", "."))
     return pr, evaluate(view, files, cfg, known)
@@ -909,7 +903,6 @@ def main(argv=None):
     parser.add_argument("--title", default="")
     parser.add_argument("--body", default="")
     parser.add_argument("--base", default="dev")
-    parser.add_argument("--author-association", default="MEMBER")
     args = parser.parse_args(argv)
     cfg = Config()
 
@@ -919,7 +912,7 @@ def main(argv=None):
     if args.command == "classify":
         with open(args.files_json) as fh:
             files = json.load(fh)
-        pr = {"title": args.title, "body": args.body, "base": args.base, "author_association": args.author_association}
+        pr = {"title": args.title, "body": args.body, "base": args.base}
         result = evaluate(pr, files, cfg, load_known(os.environ.get("PR_RISK_REPO_ROOT", ".")))
         print(json.dumps(result, indent=2))
         return 0
