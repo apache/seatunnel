@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
 import com.hazelcast.cluster.Address;
@@ -82,7 +83,23 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
             String applicationId,
             ApplicationSpecification specification,
             ResourceManagerDriver<WorkerType> driver) {
-        super(nodeEngine, engineConfig);
+        this(
+                nodeEngine,
+                engineConfig,
+                applicationId,
+                specification,
+                driver,
+                AutoscalerConfig.defaults());
+    }
+
+    protected ApplicationResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            String applicationId,
+            ApplicationSpecification specification,
+            ResourceManagerDriver<WorkerType> driver,
+            AutoscalerConfig autoscalerRuntimeConfig) {
+        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
         this.applicationId = Objects.requireNonNull(applicationId, "applicationId");
         this.specification = Objects.requireNonNull(specification, "specification");
         this.driver = Objects.requireNonNull(driver, "driver");

@@ -286,7 +286,8 @@ public class CoordinatorService {
                 seaTunnelServer,
                 engineContext,
                 engineConfig,
-                new ResourceManagerFactory());
+                new ResourceManagerFactory(),
+                AutoscalerConfig.defaults());
     }
 
     public CoordinatorService(
@@ -295,6 +296,37 @@ public class CoordinatorService {
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig,
             ResourceManagerFactory resourceManagerFactory) {
+        this(
+                nodeEngine,
+                seaTunnelServer,
+                engineContext,
+                engineConfig,
+                resourceManagerFactory,
+                AutoscalerConfig.defaults());
+    }
+
+    public CoordinatorService(
+            @NonNull NodeEngineImpl nodeEngine,
+            @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
+            EngineConfig engineConfig,
+            AutoscalerConfig autoscalerRuntimeConfig) {
+        this(
+                nodeEngine,
+                seaTunnelServer,
+                engineContext,
+                engineConfig,
+                new ResourceManagerFactory(),
+                autoscalerRuntimeConfig);
+    }
+
+    public CoordinatorService(
+            @NonNull NodeEngineImpl nodeEngine,
+            @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
+            EngineConfig engineConfig,
+            ResourceManagerFactory resourceManagerFactory,
+            AutoscalerConfig autoscalerRuntimeConfig) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
@@ -1409,7 +1441,8 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            resourceManagerFactory.createResourceManager(nodeEngine, engineConfig);
+                            resourceManagerFactory.createResourceManager(
+                                    nodeEngine, engineConfig, autoscalerRuntimeConfig);
                     manager.init();
                     resourceManager = manager;
                 }

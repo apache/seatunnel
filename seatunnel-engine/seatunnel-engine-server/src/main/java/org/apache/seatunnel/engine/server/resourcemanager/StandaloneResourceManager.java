@@ -30,6 +30,13 @@ public class StandaloneResourceManager extends AbstractResourceManager {
         super(nodeEngine, engineConfig);
     }
 
+    public StandaloneResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            AutoscalerConfig autoscalerRuntimeConfig) {
+        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
+    }
+
     /** Synchronizes existing worker slots without creating external worker processes. */
     @Override
     public synchronized void init() {

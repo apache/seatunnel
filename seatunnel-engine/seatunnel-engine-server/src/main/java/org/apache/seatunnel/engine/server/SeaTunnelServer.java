@@ -125,12 +125,25 @@ public class SeaTunnelServer
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, new ResourceManagerFactory());
+        this(seaTunnelConfig, new ResourceManagerFactory(), AutoscalerConfig.defaults());
     }
 
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
+        this(seaTunnelConfig, resourceManagerFactory, AutoscalerConfig.defaults());
+    }
+
+    public SeaTunnelServer(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull AutoscalerConfig autoscalerRuntimeConfig) {
+        this(seaTunnelConfig, new ResourceManagerFactory(), autoscalerRuntimeConfig);
+    }
+
+    public SeaTunnelServer(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull ResourceManagerFactory resourceManagerFactory,
+            @NonNull AutoscalerConfig autoscalerRuntimeConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.resourceManagerFactory = resourceManagerFactory;
@@ -229,7 +242,8 @@ public class SeaTunnelServer
                         this,
                         engineContext,
                         seaTunnelConfig.getEngineConfig(),
-                        resourceManagerFactory);
+                        resourceManagerFactory,
+                        autoscalerRuntimeConfig);
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

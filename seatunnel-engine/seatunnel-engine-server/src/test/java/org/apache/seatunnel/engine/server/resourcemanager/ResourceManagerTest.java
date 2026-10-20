@@ -105,6 +105,19 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    void testFactoryPassesAutoscalerConfigToStandaloneManager() {
+        AutoscalerConfig autoscalerConfig = AutoscalerConfig.builder().enabled(true).build();
+        ResourceManager manager =
+                new ResourceManagerFactory()
+                        .createResourceManager(nodeEngine, new EngineConfig(), autoscalerConfig);
+
+        Assertions.assertSame(
+                autoscalerConfig,
+                ((StandaloneResourceManager) manager).getAutoscalerRuntimeConfig());
+        manager.close();
+    }
+
+    @Test
     void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
         ApplicationSpecification specification = applicationSpecification(DeployType.KUBERNETES);
         ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);

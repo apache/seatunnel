@@ -21,8 +21,6 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManager;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -58,8 +56,16 @@ public class ResourceManagerFactory {
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        return createResourceManager(nodeEngine, engineConfig, AutoscalerConfig.defaults());
+    }
+
+    /** Creates an uninitialized manager with the coordinator's autoscaler settings. */
+    public ResourceManager createResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            AutoscalerConfig autoscalerRuntimeConfig) {
         if (DeployType.STANDALONE.equals(deployType)) {
-            return new StandaloneResourceManager(nodeEngine, engineConfig);
+            return new StandaloneResourceManager(nodeEngine, engineConfig, autoscalerRuntimeConfig);
         }
         if (DeployType.KUBERNETES.equals(deployType)) {
             if (applicationId == null || specification == null || driver == null) {
@@ -67,7 +73,12 @@ public class ResourceManagerFactory {
                         "Application deployment requires an application ID, specification and driver");
             }
             return new ApplicationResourceManager<>(
-                    nodeEngine, engineConfig, applicationId, specification, driver);
+                    nodeEngine,
+                    engineConfig,
+                    applicationId,
+                    specification,
+                    driver,
+                    autoscalerRuntimeConfig);
         }
         throw new UnsupportedDeployTypeException(deployType);
     }
