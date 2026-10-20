@@ -115,8 +115,12 @@ public class EnvironmentCredentialConfigurationTest {
         Assertions.assertNull(hadoopConf.get("fs.cosn.userinfo.secretKey"));
     }
 
+    /**
+     * Guards that the provider classes are present on the test classpath; the tests below verify
+     * that they actually read the environment variables.
+     */
     @Test
-    public void testEnvironmentCredentialProvidersAreAvailable() {
+    public void testEnvironmentCredentialProviderClassesAreOnTestClasspath() {
         Assertions.assertDoesNotThrow(() -> Class.forName(S3_ENV_PROVIDER));
         Assertions.assertDoesNotThrow(() -> Class.forName(OSS_ENV_PROVIDER));
         Assertions.assertDoesNotThrow(() -> Class.forName(COS_ENV_PROVIDER));
