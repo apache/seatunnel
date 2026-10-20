@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-typesense.md';
 | data_save_mode           | string | 是    | APPEND_DATA                  | 写入前如何处理目标 collection 中已有文档。                      |
 | primary_keys             | array  | 否    | -                            | 用于生成 Typesense 文档 `id` 的源字段。                     |
 | key_delimiter            | string | 否    | `_`                          | `primary_keys` 配置多个字段时使用的拼接分隔符。                  |
+| key_encoding             | enum   | 否    | LEGACY                       | 可选的复合文档 ID 防冲突编码方式。                             |
 | api_key                  | string | 是    | -                            | Typesense API Key。                                 |
 | max_retry_count          | int    | 否    | 3                            | 单个批量请求的最大重试次数。                                  |
 | max_batch_size           | int    | 否    | 10                           | 单个批量请求最多写入的文档数量。                                |
@@ -53,6 +54,12 @@ Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:810
 ### key_delimiter [string]
 
 设定复合键的分隔符（默认为 `_`）。
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有 ID 不变，但字段值包含 `key_delimiter` 时复合键可能发生 ID 冲突。`LENGTH_PREFIXED` 将每个格式化后的字段值按 `<长度>:<值>` 编码：`["1_1", "2"]` 生成 `3:1_11:2`，`["1", "1_2"]` 生成 `1:13:1_2`。该模式忽略 `key_delimiter`，单字段主键的 ID 不变。
+
+对已有复合键 collection 切换此选项会改变文档 ID。切换前应迁移或重新创建已有文档，否则后续写入可能创建重复文档，而不是更新原文档。
 
 ### api_key [string]
 
