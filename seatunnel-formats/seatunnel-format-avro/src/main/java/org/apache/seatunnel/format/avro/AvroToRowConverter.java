@@ -80,7 +80,9 @@ public class AvroToRowConverter implements Serializable {
      *
      * <p>{@code BYTES} field values are interpreted according to the {@link ByteBuffer#position()}
      * and {@link ByteBuffer#limit()} of the supplied buffer, so only the remaining logical bytes
-     * are returned. The supplied buffer is neither consumed nor modified by this conversion.
+     * are read, and they are returned in a newly allocated array. The supplied buffer's position
+     * and limit are left untouched. Because the returned array never aliases the supplied buffer, a
+     * converted row keeps its own bytes even if the reader reuses that buffer for a later record.
      *
      * @param record the Avro record to convert
      * @param rowType the target row type
@@ -119,13 +121,9 @@ public class AvroToRowConverter implements Serializable {
                 return val;
             case BYTES:
                 ByteBuffer buffer = (ByteBuffer) val;
-                if (buffer.hasArray()
-                        && buffer.arrayOffset() == 0
-                        && buffer.remaining() == buffer.array().length) {
-                    // Zero-copy fast path: the buffer exposes its whole backing array.
-                    return buffer.array();
-                }
-                // Copy exactly the remaining bytes without consuming the supplied buffer.
+                // Always copy: a reader may reuse this buffer for the next value, which would
+                // silently rewrite the bytes of an already converted row. duplicate() keeps the
+                // supplied buffer's position and limit unchanged.
                 byte[] bytes = new byte[buffer.remaining()];
                 buffer.duplicate().get(bytes);
                 return bytes;

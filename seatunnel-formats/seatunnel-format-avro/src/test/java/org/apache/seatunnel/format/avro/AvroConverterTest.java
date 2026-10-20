@@ -54,6 +54,20 @@ class AvroConverterTest {
 
     private static final byte[] BYTES_PAYLOAD = new byte[] {10, 11, 12, 13, 14, 15, 16, 17};
 
+    // Reader-reuse tests: the first value is 64 bytes long, the second value is either the same
+    // length or shorter, so Avro reuses the previous record's ByteBuffer in both cases.
+    private static final byte[] FIRST_PAYLOAD = sequentialPayload(64, 1);
+    private static final byte[] SAME_LENGTH_PAYLOAD = sequentialPayload(64, 101);
+    private static final byte[] SHORTER_PAYLOAD = new byte[] {101, 102, 103};
+
+    private static byte[] sequentialPayload(int length, int firstValue) {
+        byte[] payload = new byte[length];
+        for (int i = 0; i < length; i++) {
+            payload[i] = (byte) (firstValue + i);
+        }
+        return payload;
+    }
+
     private SeaTunnelRow buildSeaTunnelRow() {
         SeaTunnelRow subSeaTunnelRow = new SeaTunnelRow(14);
         Map<String, String> map = new HashMap<String, String>();
@@ -280,34 +294,97 @@ class AvroConverterTest {
     }
 
     @Test
-    public void testConverterBytesAfterAvroReaderRecordReuse() throws IOException {
+    public void testConverterBytesMustNotAliasWholeHeapBuffer() {
+        SeaTunnelRowType rowType = buildBytesRowType();
+        byte[] payload = BYTES_PAYLOAD.clone();
+        ByteBuffer sourceBuffer = ByteBuffer.wrap(payload.clone());
+        RowToAvroConverter rowToAvroConverter = new RowToAvroConverter(rowType);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(new Object[] {payload.clone(), 42});
+        GenericRecord record = rowToAvroConverter.convertRowToGenericRecord(sourceRow);
+        record.put("c_bytes", sourceBuffer);
+
+        AvroToRowConverter avroToRowConverter = new AvroToRowConverter(rowType);
+        SeaTunnelRow convertedRow = avroToRowConverter.converter(record, rowType);
+        Assertions.assertEquals(42, convertedRow.getField(1));
+
+        // A reader may reuse the buffer it handed out earlier, overwriting it in place.
+        sourceBuffer.array()[0] = (byte) 0x7F;
+
+        Assertions.assertArrayEquals(
+                payload,
+                (byte[]) convertedRow.getField(0),
+                "converted bytes must not alias the source ByteBuffer");
+    }
+
+    private static Stream<Arguments> readerReuseCases() {
+        return Stream.of(
+                Arguments.of("equal-length reuse: 64 bytes then 64 bytes", SAME_LENGTH_PAYLOAD),
+                Arguments.of("shorter reuse: 64 bytes then 3 bytes", SHORTER_PAYLOAD));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("readerReuseCases")
+    public void testConverterBytesAfterAvroReaderRecordReuse(String caseName, byte[] nextPayload)
+            throws IOException {
         SeaTunnelRowType rowType = buildBytesRowType();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
-        byte[] longPayload = new byte[64];
-        for (int i = 0; i < longPayload.length; i++) {
-            longPayload[i] = (byte) (i + 1);
-        }
-        byte[] shortPayload = new byte[] {101, 102, 103};
-        byte[] longMessage =
-                serializationSchema.serialize(new SeaTunnelRow(new Object[] {longPayload, 1}));
-        byte[] shortMessage =
-                serializationSchema.serialize(new SeaTunnelRow(new Object[] {shortPayload, 2}));
+        SeaTunnelRow firstSourceRow = new SeaTunnelRow(new Object[] {FIRST_PAYLOAD, 1});
+        SeaTunnelRow secondSourceRow = new SeaTunnelRow(new Object[] {nextPayload, 2});
+        byte[] firstMessage = serializationSchema.serialize(firstSourceRow);
+        byte[] secondMessage = serializationSchema.serialize(secondSourceRow);
 
         AvroToRowConverter avroToRowConverter = new AvroToRowConverter(rowType);
         DatumReader<GenericRecord> reader = avroToRowConverter.getReader();
 
-        BinaryDecoder firstDecoder = DecoderFactory.get().binaryDecoder(longMessage, null);
+        BinaryDecoder firstDecoder = DecoderFactory.get().binaryDecoder(firstMessage, null);
         GenericRecord firstRecord = reader.read(null, firstDecoder);
+        ByteBuffer firstBuffer = (ByteBuffer) firstRecord.get("c_bytes");
         SeaTunnelRow firstRow = avroToRowConverter.converter(firstRecord, rowType);
-        Assertions.assertArrayEquals(longPayload, (byte[]) firstRow.getField(0));
+        Assertions.assertArrayEquals(
+                FIRST_PAYLOAD, (byte[]) firstRow.getField(0), caseName + ": first row bytes");
 
         // Avro reuses the previous record's ByteBuffer when the new value fits its capacity.
-        BinaryDecoder reuseDecoder = DecoderFactory.get().binaryDecoder(shortMessage, null);
-        GenericRecord reusedRecord = reader.read(firstRecord, reuseDecoder);
+        BinaryDecoder secondDecoder = DecoderFactory.get().binaryDecoder(secondMessage, null);
+        GenericRecord reusedRecord = reader.read(firstRecord, secondDecoder);
+        // Precondition, not a value assertion: without record reuse this test proves nothing.
+        Assertions.assertSame(
+                firstBuffer,
+                reusedRecord.get("c_bytes"),
+                caseName + ": Avro must reuse the record's ByteBuffer");
         SeaTunnelRow reusedRow = avroToRowConverter.converter(reusedRecord, rowType);
 
         Assertions.assertEquals(2, reusedRow.getField(1));
-        Assertions.assertArrayEquals(shortPayload, (byte[]) reusedRow.getField(0));
+        Assertions.assertArrayEquals(
+                nextPayload, (byte[]) reusedRow.getField(0), caseName + ": reused row bytes");
+        // The retained row was converted before the reuse read, so it must keep its own bytes.
+        Assertions.assertArrayEquals(
+                FIRST_PAYLOAD,
+                (byte[]) firstRow.getField(0),
+                caseName + ": retained first row bytes after reuse");
+    }
+
+    @Test
+    public void testDeserializeRetainsFirstRowBytesAcrossMessages() throws IOException {
+        SeaTunnelRowType rowType = buildBytesRowType();
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
+        // Both messages carry 64-byte values, the case where a reusing reader aliases buffers.
+        SeaTunnelRow firstSourceRow = new SeaTunnelRow(new Object[] {FIRST_PAYLOAD, 1});
+        SeaTunnelRow secondSourceRow = new SeaTunnelRow(new Object[] {SAME_LENGTH_PAYLOAD, 2});
+        byte[] firstMessage = serializationSchema.serialize(firstSourceRow);
+        byte[] secondMessage = serializationSchema.serialize(secondSourceRow);
+
+        AvroDeserializationSchema deserializationSchema =
+                new AvroDeserializationSchema(catalogTable);
+        SeaTunnelRow firstRow = deserializationSchema.deserialize(firstMessage);
+        SeaTunnelRow secondRow = deserializationSchema.deserialize(secondMessage);
+
+        Assertions.assertEquals(2, secondRow.getField(1));
+        Assertions.assertArrayEquals(SAME_LENGTH_PAYLOAD, (byte[]) secondRow.getField(0));
+        Assertions.assertArrayEquals(
+                FIRST_PAYLOAD,
+                (byte[]) firstRow.getField(0),
+                "retained first row bytes after the second message");
     }
 
     @Test
