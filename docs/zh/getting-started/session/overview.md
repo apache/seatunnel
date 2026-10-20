@@ -149,7 +149,7 @@ kubernetes:
 
 :::caution 固定 slot
 
-`session.worker.slots` 必须等于 worker `seatunnel.yaml` 的 `slot-service.slot-num`；
+`session.worker.slots` 必须等于共享 `seatunnel.yaml` 的 `slot-service.slot-num`；
 `session.worker.config-map` 必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、
 `log4j2.properties`、`jvm_worker_options`。
 

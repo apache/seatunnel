@@ -144,12 +144,7 @@ public final class SeatunnelKubernetesSessionMasterCli {
         }
     }
 
-    /**
-     * Checks the fixed-slot contract against the engine configuration shared by master and workers.
-     *
-     * <p>The sample uses one {@code seatunnel.yaml} for both roles. Keep the worker slot settings
-     * aligned if a deployment provides a separate worker ConfigMap.
-     */
+    /** Checks the fixed-slot contract against the shared engine configuration. */
     private static void validateFixedSlots(
             KubernetesSessionConfig config, SeaTunnelConfig engineConfiguration) {
         SlotServiceConfig slotService =
