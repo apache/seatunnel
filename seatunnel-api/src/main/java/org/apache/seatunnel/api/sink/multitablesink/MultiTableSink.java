@@ -191,6 +191,9 @@ public class MultiTableSink
                 if (skippedTables.contains(row.getTableId())) {
                     return 0;
                 }
+                if (routes.size() == 1 && skippedTables.isEmpty()) {
+                    return routes.values().iterator().next().select(row);
+                }
                 throw new IllegalArgumentException(
                         "Unknown table in bucket-routed multi-table sink: " + row.getTableId());
             }

@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkDataPartitioner;
 import org.apache.seatunnel.api.sink.SupportSinkDataPartition;
@@ -33,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -55,6 +60,59 @@ class MultiTableWriteRoutingTest {
         row.setTableId("database.second");
         assertEquals(1, routing.select(row));
         row.setTableId("database.missing");
+        assertThrows(IllegalArgumentException.class, () -> routing.select(row));
+    }
+
+    @Test
+    void shouldFallbackToSingleRouteForMissingTableIds() {
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("database", "only"), sink("target-only", 1));
+        SinkDataPartitioner<SeaTunnelRow> routing =
+                SupportSinkDataPartition.resolve(multiTable(sinks, 1), 2).get();
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+
+        row.setTableId("database.only");
+        assertEquals(1, routing.select(row));
+
+        row.setTableId("");
+        assertEquals(1, routing.select(row));
+        assertEquals("", row.getTableId());
+
+        row.setTableId(null);
+        assertEquals(1, routing.select(row));
+        assertNull(row.getTableId());
+
+        row.setTableId("database.unknown");
+        assertEquals(1, routing.select(row));
+        assertEquals("database.unknown", row.getTableId());
+    }
+
+    @Test
+    void shouldKeepSkippedTableHandlingAndRejectUnsafeSingleRouteFallback() {
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("database", "skipped"), sink("target-skipped", 0));
+        sinks.put(TablePath.of("database", "active"), sink("target-active", 1));
+        MultiTableFailedTable skippedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        "database.skipped",
+                        MultiTableFailurePhase.SINK_INIT,
+                        "paimon",
+                        new RuntimeException("table initialization failed"));
+        SinkDataPartitioner<SeaTunnelRow> routing =
+                SupportSinkDataPartition.resolve(multiTable(sinks, 1, skippedTable), 2).get();
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("database.active");
+        assertEquals(1, routing.select(row));
+
+        row.setTableId("database.skipped");
+        assertEquals(0, routing.select(row));
+
+        row.setTableId("");
+        assertThrows(IllegalArgumentException.class, () -> routing.select(row));
+        row.setTableId(null);
+        assertThrows(IllegalArgumentException.class, () -> routing.select(row));
+        row.setTableId("database.unknown");
         assertThrows(IllegalArgumentException.class, () -> routing.select(row));
     }
 
@@ -86,12 +144,26 @@ class MultiTableWriteRoutingTest {
     }
 
     private MultiTableSink multiTable(Map<TablePath, SeaTunnelSink> sinks, int replicas) {
+        return multiTable(sinks, replicas, null);
+    }
+
+    private MultiTableSink multiTable(
+            Map<TablePath, SeaTunnelSink> sinks, int replicas, MultiTableFailedTable failedTable) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("multi_table_sink_replica", replicas);
+        if (failedTable != null) {
+            options.put(
+                    MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                    "CONTINUE_OTHER_TABLES");
+        }
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+        if (failedTable != null) {
+            config =
+                    MultiTableFailureHelper.withFailedTables(
+                            config, Collections.singletonList(failedTable));
+        }
         return new MultiTableSink(
-                new MultiTableFactoryContext(
-                        ReadonlyConfig.fromMap(
-                                Collections.singletonMap("multi_table_sink_replica", replicas)),
-                        getClass().getClassLoader(),
-                        sinks));
+                new MultiTableFactoryContext(config, getClass().getClassLoader(), sinks));
     }
 
     private SeaTunnelSink sink(String target, int owner) {

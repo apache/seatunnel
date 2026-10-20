@@ -758,6 +758,8 @@ For `HASH_FIXED` tables, Flink routes each physical partition/bucket to one sink
 
 A routed multi-table sink requires `multi_table_sink_replica = 1`. Put fixed-bucket and other bucket modes in separate sink definitions; multiple independent source-table writers must not target the same physical Paimon table. These configurations fail at job initialization instead of allowing conflicting bucket owners.
 
+When a fixed-bucket sink has exactly one active target and no skipped tables, an empty or unknown row table ID falls back to that target's bucket partitioner. Multi-table routing requires a matching table ID; an unknown ID fails instead of being routed to an arbitrary table. If any table is skipped, an unknown ID is not eligible for the single-target fallback.
+
 The partitioner uses the initial source and target schemas. This change does not add full online DDL handling. Schema-control rows retain their original `schema_subtask_id` and bypass data conversion so each sink subtask receives its own control message. This change does not alter checkpoint serializers, global commit recovery, or rescaling behavior.
 
 ## Changelog
