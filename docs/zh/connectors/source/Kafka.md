@@ -603,6 +603,11 @@ source {
 ```
 注意：key/value是byte[]类型。
 
+### 墓碑消息（tombstone）
+
+墓碑消息是只有 key、没有 value 的 Kafka 记录，压缩主题用它标记某个 key 已被删除。源端把墓碑消息读取为不产生任何数据行的记录：它不属于格式错误，因此无论
+`format_error_handle_way` 取何值都会被跳过，并且位点会继续向前推进。
+
 ### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
 
 常见的长时间运行模式：使用 Kafka 源读取数据并写入 Kafka sink，配合 checkpoint 与 `semantics = EXACTLY_ONCE` 实现端到端精确一次。开启 `partition-discovery.interval-millis` 后，新增分区会被自动发现，无需重启作业。

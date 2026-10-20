@@ -355,6 +355,30 @@ class AvroSerializationSchemaTest {
     }
 
     @Test
+    public void testDeserializeTombstoneIsSkippedInsteadOfThrowing() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+
+        // A Kafka tombstone carries a key and a null value. Every other SeaTunnel format
+        // returns null for it rather than failing, so Avro must not raise a
+        // NullPointerException from message.length.
+        Assertions.assertNull(new AvroDeserializationSchema(catalogTable).deserialize(null));
+        Assertions.assertNull(new AvroDeserializationSchema(catalogTable).deserialize(new byte[0]));
+
+        // The same holds when the Confluent header is being stripped.
+        AvroDeserializationSchema framedSchema =
+                new AvroDeserializationSchema(
+                        catalogTable,
+                        "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}",
+                        true);
+        Assertions.assertNull(framedSchema.deserialize(null));
+        Assertions.assertNull(framedSchema.deserialize(new byte[0]));
+    }
+
+    @Test
     public void testDeserializeConfluentSchemaRegistryHeaderRejectsInvalidHeader() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(

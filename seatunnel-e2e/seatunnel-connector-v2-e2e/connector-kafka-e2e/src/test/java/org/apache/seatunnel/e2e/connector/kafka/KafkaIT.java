@@ -1762,6 +1762,35 @@ public class KafkaIT extends AbstractKafkaIT {
     }
 
     @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroTombstoneToAssert(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_avro_tombstone_topic",
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
+
+        // A tombstone in the middle of the topic. The reader has to carry on past the
+        // record that has no value, so all 100 real records must still arrive. Leaving the
+        // offset on the tombstone would make it be replayed after every restart instead.
+        generateTestData(row -> serializer.serializeRow(row), 0, 50);
+        producer.send(
+                        new ProducerRecord<>(
+                                "test_avro_tombstone_topic",
+                                "tombstone-key".getBytes(StandardCharsets.UTF_8),
+                                null))
+                .get();
+        generateTestData(row -> serializer.serializeRow(row), 50, 100);
+
+        Container.ExecResult execResult =
+                container.executeJob("/avro/kafka_avro_tombstone_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testFakeSourceToKafkaProtobufFormat(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
 
