@@ -303,6 +303,9 @@ public class ResourceRequestHandler {
     private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
+        // resultSlotProfiles is keyed by the original request index and can be sparse. Iterate the
+        // full request list; using its size as the upper bound would skip missing indexes after the
+        // first successful assignment and would collect nothing when no slot was assigned.
         for (int i = 0; i < resourceProfile.size(); i++) {
             if (!resultSlotProfiles.containsKey(i)) {
                 needApplyResource.add(resourceProfile.get(i));
