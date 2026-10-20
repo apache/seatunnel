@@ -73,8 +73,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     public static final String TABLE_OPTION_CHARSET = "charset";
     public static final String TABLE_OPTION_COLLATE = "collate";
     static final String TABLE_OPTION_INDEX_TYPE_PREFIX = "mysql.index.type.";
-    static final String TABLE_OPTION_INDEX_COLUMN_SUB_PART_PREFIX =
-            "mysql.index.column.sub_part.";
+    static final String TABLE_OPTION_INDEX_COLUMN_SUB_PART_PREFIX = "mysql.index.column.sub_part.";
 
     private MySqlVersion version;
     private MySqlTypeConverter typeConverter;
@@ -253,8 +252,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                     Object subPart = rs.getObject("SUB_PART");
                     if (subPart != null) {
                         options.put(
-                                indexColumnSubPartOptionKey(
-                                        indexName, rs.getInt("SEQ_IN_INDEX")),
+                                indexColumnSubPartOptionKey(indexName, rs.getInt("SEQ_IN_INDEX")),
                                 String.valueOf(subPart));
                     }
                 }

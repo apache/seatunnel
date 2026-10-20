@@ -220,7 +220,8 @@ public class MysqlCreateTableSqlBuilderTest {
                                                 Lists.newArrayList(
                                                         ConstraintKey.ConstraintKeyColumn.of(
                                                                 "destination",
-                                                                ConstraintKey.ColumnSortType.ASC)))))
+                                                                ConstraintKey.ColumnSortType
+                                                                        .ASC)))))
                         .build();
         Map<String, String> options = new HashMap<>();
         options.put(MySqlCatalog.indexTypeOptionKey("idx_billing_id"), "FULLTEXT");
