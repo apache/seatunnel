@@ -127,7 +127,7 @@ class JobImmutableInformationCompatibilityTest {
     }
 
     @Test
-    void restoreMode_shouldMatchLegacySavepointFlag() throws Exception {
+    void restoreModeShouldMatchLegacySavepointFlag() throws Exception {
         for (RestoreMode restoreMode : EnumSet.allOf(RestoreMode.class)) {
             JobImmutableInformation jobImmutableInformation =
                     new JobImmutableInformation(
