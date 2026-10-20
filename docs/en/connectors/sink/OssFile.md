@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -121,7 +121,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                                       |
 | sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
-| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                                       |
+| sheet_name                            | string  | no       | Sheet0                      | Only used when file_format_type is excel.                                                                                                                                       |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                              |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                              |

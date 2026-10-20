@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.SECRET;
 import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.URL;
 
@@ -37,7 +38,10 @@ public class DingTalkSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URL, SECRET).build();
+        return OptionRule.builder()
+                .required(URL, notBlank(URL))
+                .required(SECRET, notBlank(SECRET))
+                .build();
     }
 
     @Override

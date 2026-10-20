@@ -166,11 +166,11 @@ UpstreamFlow
 
 为支持“默认容量 + override”，做了两层透传：
 
-1. `IntermediateQueue` 新增字段 `capacity`（0 表示使用默认）  
+1. `IntermediateQueue` 新增字段 `capacity`（0 表示使用默认）
    - `seatunnel-engine/seatunnel-engine-core/.../IntermediateQueue.java`
-2. `IntermediateQueueConfig` 新增字段 `capacity`，并在 `setFlowConfig` 时从 `IntermediateQueue` 写入  
+2. `IntermediateQueueConfig` 新增字段 `capacity`，并在 `setFlowConfig` 时从 `IntermediateQueue` 写入
    - `seatunnel-engine/seatunnel-engine-server/.../IntermediateQueueConfig.java`
-3. `SeaTunnelTask` 创建 `IntermediateQueueFlowLifeCycle` 时把 `capacity` 传给 TaskGroup，最终决定运行时队列容量  
+3. `SeaTunnelTask` 创建 `IntermediateQueueFlowLifeCycle` 时把 `capacity` 传给 TaskGroup，最终决定运行时队列容量
    - `seatunnel-engine/seatunnel-engine-server/.../SeaTunnelTask.java`
 
 容量选择规则：

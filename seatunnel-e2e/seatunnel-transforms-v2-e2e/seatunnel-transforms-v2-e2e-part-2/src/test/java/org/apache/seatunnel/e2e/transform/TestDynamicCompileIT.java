@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -84,15 +85,9 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Fake/lib && cd /tmp/seatunnel/plugins/Fake/lib && wget  "
-                                        + "https://repo1.maven.org/maven2/cn/hutool/hutool-all/5.3.6/hutool-all-5.3.6.jar");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(cn.hutool.core.util.StrUtil.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Fake/lib");
 
     @AfterAll
     @Override
@@ -264,5 +259,16 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                 execResult.getExitCode(),
                 "Mixed three languages (Java + Groovy + Scala) compilation test failed. Error: "
                         + execResult.getStderr());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        basePath
+                                + "single_dynamic_java_compile_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

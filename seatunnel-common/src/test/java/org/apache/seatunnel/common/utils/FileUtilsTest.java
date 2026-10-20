@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.NonNull;
 
@@ -28,11 +29,17 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileUtilsTest {
+
+    /** The character a UTF-8 decoder emits when it is handed a partial character. */
+    private static final String REPLACEMENT_CHAR = "\uFFFD";
+
     @Test
     public void testGetFileLineNumber() throws Exception {
         String filePath = "/tmp/test/file_utils/file1.txt";
@@ -144,5 +151,156 @@ public class FileUtilsTest {
         Assertions.assertEquals(
                 "",
                 FileUtils.readFileToStr(Paths.get("/tmp/newfolder/newfolder2/newfolde3/test.txt")));
+    }
+
+    @Test
+    void readFileTailToStrReturnsWholeFileWhenItFitsTheLimit(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("small.log");
+        String content = "first line\nsecond line\n";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+        long size = Files.size(file);
+
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, size + 1));
+        // The limit is inclusive, so a file of exactly the limit is still returned whole.
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, size));
+    }
+
+    @Test
+    void readFileTailToStrTreatsNonPositiveLimitAsUnlimited(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("unlimited.log");
+        String content = "first line\nsecond line\n";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, 0));
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, -1));
+    }
+
+    @Test
+    void readFileTailToStrHandlesEmptyFile(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("empty.log");
+        Files.write(file, new byte[0]);
+
+        Assertions.assertEquals("", FileUtils.readFileTailToStr(file, 16));
+    }
+
+    @Test
+    void readFileTailToStrKeepsTheTailAlignedToALineBoundary(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("aligned.log");
+        StringBuilder content = new StringBuilder();
+        for (int i = 0; i < 100; i++) {
+            content.append("line ").append(i).append('\n');
+        }
+        Files.write(file, content.toString().getBytes(StandardCharsets.UTF_8));
+
+        String tail = FileUtils.readFileTailToStr(file, 40);
+
+        Assertions.assertTrue(content.toString().endsWith(tail), "tail must be a suffix");
+        Assertions.assertTrue(tail.length() < 40, "tail must be smaller than the limit");
+        Assertions.assertTrue(tail.startsWith("line "), "tail must start at a line boundary");
+        Assertions.assertTrue(tail.endsWith("line 99\n"), "tail must reach the end of the file");
+    }
+
+    @Test
+    void readFileTailToStrNeverSplitsAMultiByteCharacter(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("cjk.log");
+        StringBuilder content = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            content.append("第").append(i).append("行日志内容").append('\n');
+        }
+        Files.write(file, content.toString().getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(Files.size(file) > 400, "test data must exceed the limits swept");
+
+        // Every character here is three bytes wide, so sweeping the limit guarantees that some of
+        // these cut points land inside a character.
+        for (long maxBytes = 100; maxBytes <= 400; maxBytes++) {
+            String tail = FileUtils.readFileTailToStr(file, maxBytes);
+            Assertions.assertFalse(
+                    tail.contains(REPLACEMENT_CHAR), "character split at maxBytes=" + maxBytes);
+            Assertions.assertTrue(
+                    content.toString().endsWith(tail), "not a suffix at maxBytes=" + maxBytes);
+            Assertions.assertTrue(
+                    tail.startsWith("第"), "not aligned to a line at maxBytes=" + maxBytes);
+        }
+    }
+
+    @Test
+    void readFileTailToStrHandlesALineLongerThanTheLimit(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("single-line.log");
+        StringBuilder content = new StringBuilder();
+        for (int i = 0; i < 500; i++) {
+            content.append("啊");
+        }
+        Files.write(file, content.toString().getBytes(StandardCharsets.UTF_8));
+
+        // There is no line break to align to. 100 is not a multiple of the 3-byte character width,
+        // so the raw slice would begin on a continuation byte.
+        String tail = FileUtils.readFileTailToStr(file, 100);
+
+        Assertions.assertFalse(
+                tail.contains(REPLACEMENT_CHAR), "character split without a line boundary");
+        Assertions.assertTrue(content.toString().endsWith(tail), "tail must be a suffix");
+        Assertions.assertEquals(33, tail.length());
+    }
+
+    @Test
+    void readFileTailToStrKeepsALineTerminatedAtTheEndOfTheWindow(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("trailing-newline.log");
+        // A log whose last entry is longer than the limit - a stack trace, say - leaves a window
+        // whose only line break is the file's own trailing one. That break terminates the retained
+        // line rather than starting a new one, so aligning to it would leave nothing to return.
+        String content = "earlier line\nabcdefghijklmnopqrstuvwxyz\n";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+
+        String tail = FileUtils.readFileTailToStr(file, 10);
+
+        Assertions.assertEquals("rstuvwxyz\n", tail);
+    }
+
+    @Test
+    void readFileTailToStrAlignsOnABreakThatIsNotTheLastByte(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("no-trailing-newline.log");
+        String content = "earlier line\nlast line without a terminator";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+
+        // The window is "line\nlast line without a terminator", so there is a real boundary to
+        // align to and the partial word before it has to be dropped.
+        String tail = FileUtils.readFileTailToStr(file, 35);
+
+        Assertions.assertEquals("last line without a terminator", tail);
+    }
+
+    @Test
+    void readFileTailToStrDecodesUtf8WhateverThePlatformCharsetIs(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("charset.log");
+        String content = "日志内容\n";
+        byte[] utf8 = content.getBytes(StandardCharsets.UTF_8);
+        Files.write(file, utf8);
+
+        // Under the limit, at the limit and unlimited all take a different branch, and all three
+        // have to agree with the over-limit branch about the encoding - otherwise the same file
+        // would change encoding as it grew.
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, utf8.length + 1));
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, utf8.length));
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, 0));
+    }
+
+    @Test
+    void effectiveTailLimitClampsALimitTooLargeToBeRead() {
+        Assertions.assertEquals(64L * 1024 * 1024, FileUtils.effectiveTailLimit(64L * 1024 * 1024));
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(FileUtils.MAX_TAIL_BYTES));
+        // A limit a byte array cannot hold has to be clamped rather than honoured: a file sized
+        // between the clamp and the configured limit must still be read as a tail, because reading
+        // it whole would fail with "Required array size too large" however much heap is available.
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(8L * 1024 * 1024 * 1024));
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(Long.MAX_VALUE));
     }
 }

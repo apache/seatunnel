@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -57,9 +58,11 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
+import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.Lsn;
+import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -68,10 +71,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -136,6 +139,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      */
     private static final long DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS = 180L;
 
+    /**
+     * Budget for assertions made immediately after a savepoint restore.
+     *
+     * <p>The plain 60s used elsewhere in this class only has to cover a CDC round trip on an
+     * already-running job. A post-restore assertion additionally has to absorb the restore itself -
+     * cluster restart, connector re-initialization and replication slot reattach - before the round
+     * trip it asserts on can even begin. On a loaded runner the restore alone can consume the whole
+     * 60s, so these waits get their own budget rather than sharing the round-trip one.
+     */
+    private static final long RESTORE_ASSERT_TIMEOUT_MILLIS = 180000L;
+
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -180,34 +194,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p " + POSTGRES_CDC_PLUGIN_LIB);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-
-                Path driverJarPath = postgresDriverJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        POSTGRES_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-            };
-
-    private Path postgresDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            org.postgresql.Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(org.postgresql.Driver.class)
+                            .copyTo(container, POSTGRES_CDC_PLUGIN_LIB);
 
     @BeforeAll
     @Override
@@ -499,16 +488,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                                 Assertions.assertEquals(1, seedRows.size());
                             });
-            String postSeedLsn = getCurrentWalLsn();
-            await().atMost(30000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            isLsnGreaterThanOrEqual(
-                                                    getReplicationSlotCommittedLsn(
-                                                            committedSlotName),
-                                                    postSeedLsn)));
-            container.cancelJob(String.valueOf(seedJobId));
+            // Use a completed checkpoint as the committed-offset seed. The global WAL also
+            // contains filtered sink writes and is not itself a source checkpoint boundary.
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(seedJobId)).getExitCode());
             seedJob.get(30, TimeUnit.SECONDS);
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -604,11 +587,31 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                         + " where id = 14"));
                             });
 
+            // Drain the earlier writes before saving. With a quiet WAL, the next transaction's
+            // BEGIN/INSERT can share the saved COMMIT LSN (the DBZ-6204 recovery boundary).
+            String quietBoundaryLsn = getCurrentWalLsn();
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isLsnGreaterThanOrEqual(
+                                                    getReplicationSlotCommittedLsn(
+                                                            committedSlotName),
+                                                    quietBoundaryLsn)));
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // The completed job can retain the replication slot briefly after savepoint creation.
+            // Wait for that connection to close so the next active state belongs to the restored
+            // job.
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isReplicationSlotActive(committedSlotName)));
 
+            // Changes committed while stopped must be replayed even at the saved commit LSN.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
             committedOffsetJob =
                     CompletableFuture.runAsync(
                             () -> {
@@ -625,7 +628,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
-            await().atMost(120, TimeUnit.SECONDS)
+            waitForReplicationSlotActive(committedSlotName);
+            // Also verify that live changes continue after recovery.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 16);
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
@@ -637,6 +643,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                 + "."
                                                                 + SINK_TABLE_1
                                                                 + " where id = 15")
+                                                .size());
+                                Assertions.assertEquals(
+                                        1,
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id = 16")
                                                 .size());
                             });
         } finally {
@@ -921,7 +936,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(
@@ -966,7 +981,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFieldWithRestore(TestContainer container)
+    public void testAddColumnSchemaEvolutionWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         String slotVariable = toSlotVariable(createSlotName());
@@ -1002,9 +1017,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add field add insert source table data
+            // Change only the source table. The restored job must evolve the sink before writing
+            // the first row that contains the new column.
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
-            addFieldsForTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
 
             // Restore job
@@ -1023,7 +1038,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(
@@ -1036,7 +1051,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                             query(
                                                                     getQuerySQL(
                                                                             POSTGRESQL_SCHEMA,
-                                                                            SINK_TABLE_3)))));
+                                                                            SINK_TABLE_3))),
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            Collections.singletonList(
+                                                                    Collections.singletonList(
+                                                                            "bigint")),
+                                                            query(
+                                                                    getColumnDataTypeQuery(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_3,
+                                                                            "f_big")))));
 
             log.info("****************** container logs start ******************");
             String containerLogs = container.getServerLogs();
@@ -1048,6 +1073,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Clear related content to ensure that multiple operations are not affected
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
+            // Drop the columns after deleting rows so the running CDC job does not observe a
+            // cleanup DML under the intentionally unsupported DROP COLUMN relation.
+            dropFieldIfExists(POSTGRESQL_SCHEMA, SOURCE_TABLE_3, "f_big");
+            dropFieldIfExists(POSTGRESQL_SCHEMA, SINK_TABLE_3, "f_big");
         }
     }
 
@@ -1236,7 +1265,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             Collections.singletonList(
                                                     TableId.parse(SINK_TABLE_1))));
             Assertions.assertEquals(
-                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL;",
+                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL; "
+                            + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                     exception.getMessage());
         }
     }
@@ -1246,6 +1276,75 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 POSTGRES_CONTAINER.getJdbcUrl(),
                 POSTGRES_CONTAINER.getUsername(),
                 POSTGRES_CONTAINER.getPassword());
+    }
+
+    @Test
+    public void shouldResolveNewTypesUsingPostgresSearchPath() throws SQLException {
+        JdbcConfiguration config =
+                JdbcConfiguration.create()
+                        .withHostname(POSTGRES_CONTAINER.getHost())
+                        .withPort(
+                                POSTGRES_CONTAINER.getMappedPort(
+                                        PostgreSQLContainer.POSTGRESQL_PORT))
+                        .withDatabase(POSTGRES_CONTAINER.getDatabaseName())
+                        .withUser(POSTGRES_CONTAINER.getUsername())
+                        .withPassword(POSTGRES_CONTAINER.getPassword())
+                        .build();
+
+        try (PostgresConnection connection =
+                new PostgresConnection(config, "type-registry-search-path-test")) {
+            // Create the types after priming so get(String) exercises SQL_NAME_LOOKUP.
+            TypeRegistry registry = new TypeRegistry(connection);
+            try (Statement statement = connection.connection().createStatement()) {
+                try {
+                    statement.execute("CREATE SCHEMA type_lookup_a");
+                    statement.execute("CREATE SCHEMA type_lookup_b");
+                    statement.execute("CREATE TYPE type_lookup_b.late_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.late_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "late_mood"),
+                            registry.get("late_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_a.reverse_mood AS ENUM ('a')");
+                    statement.execute("CREATE TYPE type_lookup_b.reverse_mood AS ENUM ('b')");
+                    statement.execute("SET search_path TO type_lookup_b, type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "reverse_mood"),
+                            registry.get("reverse_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_b.hidden_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.hidden_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO public");
+                    try (ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT MIN(oid) FROM pg_catalog.pg_type WHERE typname = 'hidden_mood'")) {
+                        Assertions.assertTrue(resultSet.next());
+                        // Keep the old fallback of returning a type even when none is visible.
+                        Assertions.assertEquals(
+                                resultSet.getInt(1), registry.get("hidden_mood").getOid());
+                    }
+
+                    int otherOid =
+                            visibleTypeOid(connection.connection(), "type_lookup_a.reverse_mood");
+                    Assertions.assertEquals(otherOid, registry.get(otherOid).getOid());
+                } finally {
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_a CASCADE");
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_b CASCADE");
+                }
+            }
+        }
+    }
+
+    private int visibleTypeOid(Connection connection, String name) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement("SELECT to_regtype(?)::oid")) {
+            statement.setString(1, name);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                return resultSet.getInt(1);
+            }
+        }
     }
 
     /**
@@ -1458,8 +1557,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void addFieldsForTable(String database, String tableName) {
-
         executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
+    }
+
+    private void dropFieldIfExists(String database, String tableName, String fieldName) {
+        executeSql(
+                "ALTER TABLE "
+                        + database
+                        + "."
+                        + tableName
+                        + " DROP COLUMN IF EXISTS "
+                        + fieldName);
     }
 
     private void insertSourceTableForAddFields(String database, String tableName) {
@@ -1543,6 +1651,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String getColumnDataTypeQuery(String schemaName, String tableName, String columnName) {
+        return String.format(
+                "SELECT data_type FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                schemaName, tableName, columnName);
     }
 
     @Override
