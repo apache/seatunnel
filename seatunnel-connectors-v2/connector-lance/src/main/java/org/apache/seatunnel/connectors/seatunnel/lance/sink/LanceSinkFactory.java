@@ -36,6 +36,9 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class LanceSinkFactory implements TableSinkFactory {
     @Override
@@ -55,7 +58,13 @@ public class LanceSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        LanceCommonOptions.KEY_DATASET_PATH, LanceCommonOptions.KEY_NAMESPACE_TYPE)
+                        LanceCommonOptions.KEY_DATASET_PATH,
+                        LanceCommonOptions.KEY_NAMESPACE_TYPE,
+                        notBlank(LanceCommonOptions.KEY_DATASET_PATH),
+                        notBlank(LanceCommonOptions.KEY_NAMESPACE_TYPE))
+                .optional(
+                        LanceSinkOptions.WRITE_BATCH_SIZE,
+                        greaterThan(LanceSinkOptions.WRITE_BATCH_SIZE, 0))
                 .optional(
                         LanceCommonOptions.KEY_NAMESPACE_ID,
                         LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE,

@@ -41,6 +41,14 @@ import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.MetadataUtil.isMetadataField;
 
+/**
+ * Projects logical row metadata into physical columns.
+ *
+ * <p>A {@code metadata_fields} key is accepted when it is globally registered in {@link
+ * MetadataUtil} or explicitly declared by the input table's {@link MetadataSchema}. Keys that exist
+ * only in {@code SeaTunnelRow.options} are rejected so that {@link MetadataSchema} remains the type
+ * and trust boundary for connector-specific fields.
+ */
 public class MetadataTransform extends MultipleFieldOutputTransform {
 
     private List<String> fieldNames;
@@ -52,13 +60,23 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
         initOutputFields(inputCatalogTable, config.get(MetadataTransformConfig.METADATA_FIELDS));
     }
 
+    /**
+     * Validates {@code metadata_fields} mappings and records the projection order.
+     *
+     * <p>Connector-specific keys must be declared in the input {@link MetadataSchema}. Matching is
+     * case-sensitive. Duplicate physical output names are still rejected.
+     *
+     * @param inputCatalogTable upstream catalog table that supplies the metadata schema
+     * @param fields mapping from logical metadata key to physical output name
+     */
     private void initOutputFields(CatalogTable inputCatalogTable, Map<String, String> fields) {
         List<String> sourceTableFiledNames =
                 Arrays.asList(inputCatalogTable.getTableSchema().getFieldNames());
+        this.metadataSchema = inputCatalogTable.getMetadataSchema();
         List<String> fieldNames = new ArrayList<>();
         for (Map.Entry<String, String> field : fields.entrySet()) {
             String srcField = field.getKey();
-            if (!isMetadataField(srcField)) {
+            if (!isProjectableMetadataField(srcField)) {
                 throw TransformCommonError.cannotFindMetadataFieldError(getPluginName(), srcField);
             }
             String targetField = field.getValue();
@@ -68,8 +86,24 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
             fieldNames.add(field.getKey());
         }
         this.fieldNames = fieldNames;
-        this.metadataSchema = inputCatalogTable.getMetadataSchema();
         this.metadataFieldMapping = fields;
+    }
+
+    /**
+     * Returns whether {@code fieldName} can be projected by this transform.
+     *
+     * <p>Globally registered keys keep their existing behavior. Connector-specific keys are allowed
+     * only when the input {@link MetadataSchema} declares them. Physical columns that happen to use
+     * the same name are not treated as metadata.
+     *
+     * @param fieldName logical metadata key from {@code metadata_fields}
+     * @return {@code true} if the key is globally registered or schema-declared
+     */
+    private boolean isProjectableMetadataField(String fieldName) {
+        if (isMetadataField(fieldName)) {
+            return true;
+        }
+        return metadataSchema != null && metadataSchema.contains(fieldName);
     }
 
     @Override
@@ -83,21 +117,7 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
         for (Map.Entry<String, String> mapping : metadataFieldMapping.entrySet()) {
             String metadataFieldName = mapping.getKey();
             int i = fieldNames.indexOf(metadataFieldName);
-            Object fieldValue;
-            switch (CommonOptions.fromName(metadataFieldName)) {
-                case DATABASE:
-                    fieldValue = MetadataUtil.getDatabase(inputRow);
-                    break;
-                case TABLE:
-                    fieldValue = MetadataUtil.getTable(inputRow);
-                    break;
-                case ROW_KIND:
-                    fieldValue = MetadataUtil.getRowKind(inputRow);
-                    break;
-                default:
-                    fieldValue = inputRow.getOptions().get(metadataFieldName);
-            }
-            value[i] = fieldValue;
+            value[i] = getMetadataFieldValue(metadataFieldName, inputRow);
         }
         return value;
     }
@@ -111,36 +131,49 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
             int i = fieldNames.indexOf(metadataFieldName);
             Column column;
 
-            switch (CommonOptions.fromName(metadataFieldName)) {
-                case DATABASE:
-                case TABLE:
-                case ROW_KIND:
-                    column =
-                            PhysicalColumn.of(
-                                    mappingFieldName,
-                                    BasicType.STRING_TYPE,
-                                    (Long) null,
-                                    null,
-                                    true,
-                                    null,
-                                    null);
-                    break;
-                default:
-                    if (metadataSchema.contains(metadataFieldName)) {
-                        column =
-                                ((MetadataColumn)
-                                                metadataSchema
-                                                        .getColumn(metadataFieldName)
-                                                        .rename(mappingFieldName))
-                                        .toPhysicalColumn();
-                    } else {
-                        throw TransformCommonError.cannotFindMetadataFieldError(
-                                getPluginName(), mappingFieldName);
-                    }
+            if (isComputedCommonMetadataField(metadataFieldName)) {
+                column =
+                        PhysicalColumn.of(
+                                mappingFieldName,
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                null,
+                                true,
+                                null,
+                                null);
+            } else if (metadataSchema != null && metadataSchema.contains(metadataFieldName)) {
+                column =
+                        ((MetadataColumn)
+                                        metadataSchema
+                                                .getColumn(metadataFieldName)
+                                                .rename(mappingFieldName))
+                                .toPhysicalColumn();
+            } else {
+                throw TransformCommonError.cannotFindMetadataFieldError(
+                        getPluginName(), metadataFieldName);
             }
             columns[i] = column;
         }
         return columns;
+    }
+
+    private Object getMetadataFieldValue(String metadataFieldName, SeaTunnelRowAccessor inputRow) {
+        if (CommonOptions.DATABASE.getName().equals(metadataFieldName)) {
+            return MetadataUtil.getDatabase(inputRow);
+        }
+        if (CommonOptions.TABLE.getName().equals(metadataFieldName)) {
+            return MetadataUtil.getTable(inputRow);
+        }
+        if (CommonOptions.ROW_KIND.getName().equals(metadataFieldName)) {
+            return MetadataUtil.getRowKind(inputRow);
+        }
+        return inputRow.getOptions().get(metadataFieldName);
+    }
+
+    private boolean isComputedCommonMetadataField(String metadataFieldName) {
+        return CommonOptions.DATABASE.getName().equals(metadataFieldName)
+                || CommonOptions.TABLE.getName().equals(metadataFieldName)
+                || CommonOptions.ROW_KIND.getName().equals(metadataFieldName);
     }
 
     @VisibleForTesting

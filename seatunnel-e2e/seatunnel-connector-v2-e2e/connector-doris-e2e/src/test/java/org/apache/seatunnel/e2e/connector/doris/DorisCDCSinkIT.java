@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -88,9 +89,9 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                copyMySQLDriverToContainer(container, "/tmp/seatunnel/plugins/Doris-CDC/lib");
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Doris-CDC/lib");
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(

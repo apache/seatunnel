@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.tidb;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.RandomUtils;
-
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionTimeoutException;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -64,17 +62,16 @@ public class TiDBTestBase extends TestSuiteBase {
     public static final int TIDB_PORT = 4000;
     public static final int TIKV_PORT_ORIGIN = 20160;
     public static final int PD_PORT_ORIGIN = 2379;
-    public static int pdPort = PD_PORT_ORIGIN + RandomUtils.nextInt(0, 1000);
 
     public static final GenericContainer<?> PD =
-            new FixedHostPortGenericContainer<>("pingcap/pd:v6.1.0")
+            new GenericContainer<>("pingcap/pd:v6.1.0")
                     .withFileSystemBind("src/test/resources/config/pd.toml", "/pd.toml")
-                    .withFixedExposedPort(pdPort, PD_PORT_ORIGIN)
+                    .withExposedPorts(PD_PORT_ORIGIN)
                     .withCommand(
                             "--name=pd0",
-                            "--client-urls=http://0.0.0.0:" + pdPort + ",http://0.0.0.0:2379",
+                            "--client-urls=http://0.0.0.0:2379",
                             "--peer-urls=http://0.0.0.0:2380",
-                            "--advertise-client-urls=http://pd0:" + pdPort + ",http://pd0:2379",
+                            "--advertise-client-urls=http://pd0:2379",
                             "--advertise-peer-urls=http://pd0:2380",
                             "--initial-cluster=pd0=http://pd0:2380",
                             "--data-dir=/data/pd0",
@@ -86,8 +83,8 @@ public class TiDBTestBase extends TestSuiteBase {
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
     public static final GenericContainer<?> TIKV =
-            new FixedHostPortGenericContainer<>("pingcap/tikv:v6.1.0")
-                    .withFixedExposedPort(TIKV_PORT_ORIGIN, TIKV_PORT_ORIGIN)
+            new GenericContainer<>("pingcap/tikv:v6.1.0")
+                    .withExposedPorts(TIKV_PORT_ORIGIN)
                     .withFileSystemBind("src/test/resources/config/tikv.toml", "/tikv.toml")
                     .withCommand(
                             "--addr=0.0.0.0:20160",
@@ -117,12 +114,24 @@ public class TiDBTestBase extends TestSuiteBase {
                     .withStartupTimeout(Duration.ofSeconds(120))
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
-    public static void startContainers() throws Exception {
-        // Add jvm dns cache for flink to invoke pd interface.
-        DnsCacheManipulator.setDnsCache(PD_SERVICE_NAME, "127.0.0.1");
-        DnsCacheManipulator.setDnsCache(TIKV_SERVICE_NAME, "127.0.0.1");
+    public void startContainers() throws Exception {
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(PD, TIKV, TIDB)).join();
+        ContainerTcpProxy proxy =
+                startContainerTcpProxy(
+                        Arrays.asList(
+                                ContainerTcpProxy.PortMapping.of(
+                                        PD_PORT_ORIGIN,
+                                        PD.getHost(),
+                                        PD.getMappedPort(PD_PORT_ORIGIN)),
+                                ContainerTcpProxy.PortMapping.of(
+                                        TIKV_PORT_ORIGIN,
+                                        TIKV.getHost(),
+                                        TIKV.getMappedPort(TIKV_PORT_ORIGIN))));
+        // PD returns its advertised PD and TiKV addresses to clients. Resolve those Docker aliases
+        // to the isolated TCP proxy in this JVM while containers keep using Docker DNS.
+        DnsCacheManipulator.setDnsCache(PD_SERVICE_NAME, proxy.getLoopbackAddress());
+        DnsCacheManipulator.setDnsCache(TIKV_SERVICE_NAME, proxy.getLoopbackAddress());
         log.info("Containers are started.");
     }
 

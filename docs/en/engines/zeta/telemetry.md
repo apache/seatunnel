@@ -135,6 +135,8 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 ### Thread Pool Status
 
+These metrics are exported by the active master only; scraping a worker node's endpoint will not return them.
+
 | MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |
 |-------------------------------------|---------|--------------------------------------------------------------------|--------------------------------------------------------------------------------|
 | job_thread_pool_activeCount         | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The activeCount of seatunnel coordinator job's executor cached thread pool     |
@@ -147,6 +149,14 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
 
 ### Report Metrics Operation
+
+Metrics snapshot writes and deletions attempt at most 10 conditional updates per bucket. If contention
+persists, the operation fails with `Failed to update metrics partition ... after 10 concurrent
+modifications`. A failed worker report is logged and counted in
+`report_metrics_operation_total{result="failure"}`; subsequent scheduled reports can retry while
+the task context is retained. Pending pipeline cleanup retains its record when metrics deletion
+fails. This limit bounds conflict retries, not network latency: individual Hazelcast invocations
+still use their configured timeouts. The metrics format and checkpoint/savepoint state are unchanged.
 
 | MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
 |---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -182,6 +192,8 @@ The `result` label has the following meanings:
 
 ### Job info detail
 
+This metric is exported by the active master only. It reports only an aggregate count per status and has no per-job label, so it cannot be used to alert on a specific job by ID or name -- only on cluster-wide totals such as `job_count{type="failed"}`.
+
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |
 |------------|-------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
 | job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | All job counts of seatunnel cluster |
@@ -203,7 +215,7 @@ The `result` label has the following meanings:
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**,including: "Code Cache" "PS Eden Space" "PS Old Ge" "PS Survivor Space" "Compressed Class Space" "Metaspace"                                 | Total bytes allocated in a given JVM memory pool. Only updated after GC, not continuously              |
 | jvm_gc_collection_seconds_count            | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
-| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "1.8.0_212-b10" | VM version info                                                                                        |
+| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "11.0.22+7"    | VM version info                                                                                        |
 | process_cpu_seconds_total                  | Counter | -                                                                                                                                                     | Total user and system CPU time spent in seconds                                                        |
 | process_start_time_seconds                 | Gauge   | -                                                                                                                                                     | Start time of the process since unix epoch in seconds                                                  |
 | process_open_fds                           | Gauge   | -                                                                                                                                                     | Number of open file descriptors                                                                        |
