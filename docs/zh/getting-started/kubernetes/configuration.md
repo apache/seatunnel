@@ -346,7 +346,7 @@ SeaTunnel 对不同插件类型使用不同的加载路径。`plugins/` 目录�
 稳定生产环境推荐将自定义连接器插件 jar、Transform 插件 jar 和必需的 runtime extension jar 构建到 SeaTunnel 镜像中：
 
 ```Dockerfile
-FROM seatunnel:3.0.0
+FROM seatunnel:3.0.1
 
 # 可选：自定义连接器插件 jar 或插件包。
 COPY plugins/ /opt/seatunnel/plugins/

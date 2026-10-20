@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.rest.service.LogService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -50,21 +51,28 @@ import io.restassured.common.mapper.TypeRef;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -108,6 +116,8 @@ public class RestApiIT {
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        node1Config.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
+        node1Config.getEngineConfig().getHttpConfig().setLogResponseMaxSizeMb(1);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
@@ -120,9 +130,9 @@ public class RestApiIT {
         node2Tags.setAttribute("node", "node2");
         Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
         node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        // Dynamically generated port
-        node2Config.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
-        node2Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        // Both members deliberately share the same configured port and mutable HTTP bean.
+        // Node2 must bind another port without changing what either member advertises.
+        node2Config.getEngineConfig().setHttpConfig(node1Config.getEngineConfig().getHttpConfig());
         node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node2Config.setHazelcastConfig(node2hzconfig);
@@ -162,12 +172,51 @@ public class RestApiIT {
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, batchJobProxy.getJobStatus()));
         ports = new HashMap<>();
-        ports.put(
-                node1.getCluster().getLocalMember().getAddress().getPort(),
-                node1Config.getEngineConfig().getHttpConfig().getPort());
-        ports.put(
-                node2.getCluster().getLocalMember().getAddress().getPort(),
-                node2Config.getEngineConfig().getHttpConfig().getPort());
+        ports.put(node1.getCluster().getLocalMember().getAddress().getPort(), httpPort(node1));
+        ports.put(node2.getCluster().getLocalMember().getAddress().getPort(), httpPort(node2));
+    }
+
+    @Test
+    public void testLogResponseLimitIsAppliedToV1AndV2() throws Exception {
+        Path directory = Paths.get(new LogService(node1.node.getNodeEngine()).getLogPath());
+        Path file = Files.createTempFile(directory, "rest-response-limit-", ".log");
+        StringBuilder content = new StringBuilder("FIRST-RECORD-MUST-BE-TRUNCATED\n");
+        for (int i = 0; i < 40000; i++) {
+            content.append("日志0123456789abcdefghijklmnopqrstuvwxyz\n");
+        }
+        content.append("END-OF-LOG\n");
+        String original = content.toString();
+        int limit = 1024 * 1024;
+        Files.write(file, original.getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(Files.size(file) > limit);
+        String v1 =
+                HOST + node1.getCluster().getLocalMember().getAddress().getPort() + CONTEXT_PATH;
+        String v2 = buildHttpBaseUrl(httpPort(node1));
+        try {
+            for (String base : Arrays.asList(v1, v2)) {
+                for (String endpoint :
+                        Arrays.asList(RestConstant.REST_URL_LOG, RestConstant.REST_URL_LOGS)) {
+                    String response =
+                            given().get(base + endpoint + "/" + file.getFileName())
+                                    .then()
+                                    .statusCode(200)
+                                    .extract()
+                                    .asString();
+                    String[] parts = response.split("\n", 2);
+                    Assertions.assertTrue(parts[0].startsWith("[SeaTunnel] Log truncated:"));
+                    Assertions.assertEquals(2, parts.length);
+                    String tail = parts[1];
+                    Assertions.assertTrue(tail.getBytes(StandardCharsets.UTF_8).length <= limit);
+                    Assertions.assertTrue(original.endsWith(tail));
+                    Assertions.assertTrue(tail.endsWith("END-OF-LOG\n"));
+                    Assertions.assertTrue(tail.contains("日志"));
+                    Assertions.assertFalse(tail.contains("\uFFFD"));
+                    Assertions.assertFalse(tail.contains("FIRST-RECORD-MUST-BE-TRUNCATED"));
+                }
+            }
+        } finally {
+            Files.deleteIfExists(file);
+        }
     }
 
     @Test
@@ -248,10 +297,60 @@ public class RestApiIT {
     }
 
     @Test
+    public void testDynamicHttpPortIsResolvableByPeers() throws Exception {
+        int node1HttpPort = httpPort(node1);
+        int node2HttpPort = httpPort(node2);
+
+        Assertions.assertSame(
+                node1Config.getEngineConfig().getHttpConfig(),
+                node2Config.getEngineConfig().getHttpConfig());
+        Assertions.assertEquals(8080, node2Config.getEngineConfig().getHttpConfig().getPort());
+        Assertions.assertNotEquals(
+                node1HttpPort,
+                node2HttpPort,
+                "node2 must expose the dynamically chosen REST port, not the configured one");
+
+        // Embedded members share the Log4j context and job-log directory. Both must have a
+        // log to list, otherwise counting distinct nodes could hide a fan-out regression.
+        Path node1LogPath =
+                Paths.get(new LogService(node1.node.getNodeEngine()).getLogPath()).toRealPath();
+        Path node2LogPath =
+                Paths.get(new LogService(node2.node.getNodeEngine()).getLogPath()).toRealPath();
+        Assertions.assertEquals(node1LogPath, node2LogPath);
+        Assertions.assertTrue(
+                node1LogPath
+                        .resolve("job-" + clientJobProxy.getJobId() + ".log")
+                        .toFile()
+                        .isFile());
+
+        List<Map<String, Object>> logEntries =
+                given().get(
+                                buildHttpBaseUrl(node1HttpPort)
+                                        + RestConstant.REST_URL_LOGS
+                                        + "?format=JSON")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+
+        Set<String> reportedNodes =
+                logEntries.stream()
+                        .map(entry -> String.valueOf(entry.get("node")))
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                new HashSet<>(expectedNodeIds()),
+                reportedNodes,
+                "GET /logs must enumerate both members, got " + reportedNodes);
+        Assertions.assertTrue(
+                reportedNodes.stream().anyMatch(node -> node.endsWith(":" + node2HttpPort)),
+                "GET /logs must report node2 on its dynamic port, got " + reportedNodes);
+    }
+
+    @Test
     public void testLoggers() {
         String loggersUrl =
                 HOST
-                        + node1Config.getEngineConfig().getHttpConfig().getPort()
+                        + httpPort(node1)
                         + node1Config.getEngineConfig().getHttpConfig().getContextPath()
                         + RestConstant.REST_URL_LOGGERS;
         // a logger of this test only, so that changing its level cannot hide job logs
@@ -328,7 +427,8 @@ public class RestApiIT {
                 .statusCode(200)
                 .body("scope", equalTo("cluster"))
                 .body("status", equalTo("SUCCESS"))
-                .body("nodes", hasSize(ports.size()));
+                .body("nodes", hasSize(ports.size()))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])));
 
         given().post(loggersUrl + "/" + logger + "?scope=cluster&level=TRACE")
                 .then()
@@ -337,6 +437,7 @@ public class RestApiIT {
                 .body("status", equalTo("SUCCESS"))
                 .body("level", equalTo("TRACE"))
                 .body("nodes", hasSize(ports.size()))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])))
                 .body("nodes[0].level", equalTo("TRACE"))
                 .body("nodes[0].origin", equalTo("runtime-override"));
 
@@ -345,7 +446,24 @@ public class RestApiIT {
                 .statusCode(200)
                 .body("scope", equalTo("cluster"))
                 .body("status", equalTo("SUCCESS"))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])))
                 .body("nodes[0].origin", equalTo("file"));
+    }
+
+    private int httpPort(HazelcastInstanceImpl instance) {
+        SeaTunnelServer server =
+                instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getHttpPort();
+    }
+
+    private List<String> expectedNodeIds() {
+        return Arrays.asList(node1, node2).stream()
+                .map(
+                        instance ->
+                                instance.getCluster().getLocalMember().getAddress().getHost()
+                                        + ":"
+                                        + httpPort(instance))
+                .collect(Collectors.toList());
     }
 
     private CheckpointMonitorService resolveCheckpointMonitorService(
@@ -1350,8 +1468,7 @@ public class RestApiIT {
                 .until(
                         () -> {
                             Map<String, Object> overview =
-                                    getCheckpointOverview(
-                                            jobId, buildHttpBaseUrl(httpPorts.get(0)));
+                                    getCheckpointOverview(jobId, buildHttpBaseUrl(httpPort(node1)));
                             List<Map<String, Object>> pipelines =
                                     castList(overview.get("pipelines"));
                             if (pipelines.isEmpty()) {
