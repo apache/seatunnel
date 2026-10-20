@@ -81,17 +81,13 @@ public class CompileDescriptor {
         String targetDesc = tmpDir + "/.desc";
         new File(targetDesc).deleteOnExit();
 
-        List<String> protocArgs = new ArrayList<>();
-        if (isMacOsArm64()) {
-            // protoc-jar consumes "-v<version>" itself and resolves that exact compiler release
-            // instead of its bundled one, which has no macOS ARM64 binary.
-            protocArgs.add("-v" + MACOS_ARM64_PROTOC_VERSION);
-        }
-        protocArgs.add("--proto_path=" + protoFile.getParent());
-        protocArgs.add("--descriptor_set_out=" + targetDesc);
-        protocArgs.add(protoFile.getPath());
-
-        int exitCode = Protoc.runProtoc(protocArgs.toArray(new String[0]));
+        int exitCode =
+                Protoc.runProtoc(
+                        buildProtocArgs(
+                                protoFile,
+                                targetDesc,
+                                System.getProperty("os.name", ""),
+                                System.getProperty("os.arch", "")));
 
         if (exitCode != 0) {
             throw new SeaTunnelProtobufFormatException(
@@ -101,15 +97,47 @@ public class CompileDescriptor {
         return targetDesc;
     }
 
-    /** macOS JVMs may report either arm64 or aarch64 for Apple Silicon. */
-    private static boolean isMacOsArm64() {
-        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        boolean macOs = osName.startsWith("mac os x") || osName.startsWith("macosx");
+    /**
+     * Builds the complete protoc argument list for one schema compilation.
+     *
+     * <p>Kept pure and package-private so the platform gate is assertable on any CI host. The
+     * compiler version selector is prepended only on macOS ARM64; every other platform keeps the
+     * earlier arguments in the earlier order.
+     *
+     * @param protoFile schema file to compile
+     * @param targetDesc descriptor file protoc writes
+     * @param osName value of the {@code os.name} system property
+     * @param osArch value of the {@code os.arch} system property
+     * @return protoc arguments, with the version selector first when one is selected
+     */
+    static String[] buildProtocArgs(
+            File protoFile, String targetDesc, String osName, String osArch) {
+        List<String> protocArgs = new ArrayList<>();
+        if (isMacOsArm64(osName, osArch)) {
+            // protoc-jar consumes "-v<version>" itself and resolves that exact compiler release
+            // instead of its bundled one, which has no macOS ARM64 binary.
+            protocArgs.add("-v" + MACOS_ARM64_PROTOC_VERSION);
+        }
+        protocArgs.add("--proto_path=" + protoFile.getParent());
+        protocArgs.add("--descriptor_set_out=" + targetDesc);
+        protocArgs.add(protoFile.getPath());
+        return protocArgs.toArray(new String[0]);
+    }
+
+    /**
+     * Detects macOS ARM64 for compiler selection.
+     *
+     * <p>Accepting {@code arm64} is a defensive superset only: protoc-jar 3.11.4 normalizes {@code
+     * aarch64} to its native classifier and has no such mapping for {@code arm64}.
+     */
+    private static boolean isMacOsArm64(String osName, String osArch) {
+        String name = osName.toLowerCase(Locale.ROOT);
+        boolean macOs = name.startsWith("mac os x") || name.startsWith("macosx");
         if (!macOs) {
             return false;
         }
-        String osArch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
-        return "arm64".equals(osArch) || "aarch64".equals(osArch);
+        String arch = osArch.toLowerCase(Locale.ROOT);
+        return "arm64".equals(arch) || "aarch64".equals(arch);
     }
 
     private static Descriptors.FileDescriptor[] buildFileDescriptors(

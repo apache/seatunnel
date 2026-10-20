@@ -6,9 +6,11 @@ Currently, Protobuf format can be used with Kafka.
 
 ## Compiler availability
 
-SeaTunnel compiles `protobuf_schema` at runtime. On macOS ARM64 (Apple Silicon), it uses protoc `3.25.3` because the older compiler bundled by protoc-jar has no native binary for that platform.
+SeaTunnel compiles `protobuf_schema` at runtime. On macOS ARM64 (Apple Silicon) with a JVM reporting `os.arch=aarch64`, it uses protoc `3.25.3` because the compiler bundled by protoc-jar has no native binary for that platform. Other platforms keep their existing compiler and arguments.
 
-When the binary is missing from protoc-jar's temporary cache, schema compilation needs network access to download it from Maven Central. The temporary cache can be cleared, so a later compilation may need to download it again. Compiler selection on other platforms is unchanged.
+If the compiler is missing from protoc-jar's temporary cache, compilation downloads it from Maven Central or a matching `mirror` in `~/.m2/settings.xml` (`mirrorOf=central` or a value containing `*`). The temporary cache may be cleared, requiring another download. A failed download can surface as `Unsupported platform: protoc-3.25.3-osx-aarch_64.exe`; check network access and whether the mirror serves that artifact. protoc-jar uses a simplified settings parser, not full Maven mirror resolution.
+
+SeaTunnel's platform selector also accepts `os.arch=arm64` defensively, but protoc-jar 3.11.4 does not normalize that alias to its native classifier. This does not provide end-to-end support for JVMs reporting `arm64`.
 
 For schemas shared across platforms, use features accepted by the compiler on every target platform; a schema accepted by the newer macOS ARM64 compiler may not compile with the older compiler elsewhere.
 

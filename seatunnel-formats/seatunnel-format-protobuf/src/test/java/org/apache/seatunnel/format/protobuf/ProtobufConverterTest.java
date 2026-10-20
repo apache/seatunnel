@@ -28,15 +28,25 @@ import org.apache.seatunnel.format.protobuf.exception.SeaTunnelProtobufFormatExc
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class ProtobufConverterTest {
+
+    /** Holds the schema and descriptor paths the argument matrix asserts on. */
+    @TempDir Path tempDir;
 
     private SeaTunnelRow buildSeaTunnelRow() {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(10);
@@ -239,5 +249,40 @@ class ProtobufConverterTest {
         Assertions.assertTrue(
                 exception.getMessage().contains("Protoc compile error, exit code: "),
                 exception.getMessage());
+    }
+
+    /**
+     * Guards the compiler selection of the new macOS ARM64 branch on the hosts CI actually runs on.
+     * The matrix asserts the complete argument list, so every other platform must stay on the
+     * previous three arguments in the previous order. No protoc process is started.
+     */
+    @ParameterizedTest(name = "os.name={0}, os.arch={1}, macOS ARM64={2}")
+    @CsvSource({
+        "Mac OS X, aarch64, true",
+        "Mac OS X, arm64, true",
+        "macOSX, AARCH64, true",
+        "Mac OS X, x86_64, false",
+        "Linux, x86_64, false",
+        "Linux, aarch64, false",
+        "Windows 11, amd64, false",
+        "Unknown OS, '', false",
+        "'', '', false"
+    })
+    void testBuildProtocArgsSelectsMacOsArm64Compiler(
+            String osName, String osArch, boolean macOsArm64) {
+        File protoFile = tempDir.resolve("platform.proto").toFile();
+        String targetDesc = tempDir.resolve("platform.desc").toString();
+
+        List<String> expected = new ArrayList<>();
+        if (macOsArm64) {
+            expected.add("-v3.25.3");
+        }
+        expected.add("--proto_path=" + protoFile.getParent());
+        expected.add("--descriptor_set_out=" + targetDesc);
+        expected.add(protoFile.getPath());
+
+        Assertions.assertArrayEquals(
+                expected.toArray(new String[0]),
+                CompileDescriptor.buildProtocArgs(protoFile, targetDesc, osName, osArch));
     }
 }
