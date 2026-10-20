@@ -50,14 +50,19 @@ public interface ConditionExtension<T> {
      * Evaluates whether {@code value} passes this validation rule.
      *
      * <p>Return {@code false} for simple failure — the framework composes the error from {@link
-     * #description()} automatically. Throw {@link OptionValidationException} when a richer,
-     * context-specific message is needed. Avoid other unchecked exceptions — they propagate
-     * unwrapped.
+     * #description()} automatically and continues collecting other validation errors.
+     *
+     * <p>Throw {@link OptionValidationException} when a richer, context-specific message is needed.
+     * The framework catches the exception, extracts its message, and adds it to the aggregated
+     * error list — subsequent validations still run. Use this when you need a more descriptive
+     * error message than {@link #description()} alone provides.
+     *
+     * <p>Avoid other unchecked exceptions — they propagate unwrapped.
      *
      * @param config full configuration context (read-only), available for cross-field checks
      * @param value the resolved option value; may be {@code null}
      * @return {@code true} if valid
-     * @throws OptionValidationException for detailed error reporting
+     * @throws OptionValidationException for detailed, context-specific error reporting
      */
     boolean evaluate(ReadonlyConfig config, T value) throws OptionValidationException;
 }

@@ -172,6 +172,7 @@ Before running a job, verify these points:
 ## Next Steps
 
 - Need a runnable first example: [Quick Start With SeaTunnel Engine](./locally/quick-start-seatunnel-engine.md)
+- Need end-to-end examples built from real connectors: [Scenario Recipes](./recipes/overview.md)
 - Need connector parameters: [Source Connectors](../connectors/source) and [Sink Connectors](../connectors/sink)
 - Need transform capabilities: [Transforms](../transforms)
 - Need engine-level details: [Engine Overview](../engines/overview.md)

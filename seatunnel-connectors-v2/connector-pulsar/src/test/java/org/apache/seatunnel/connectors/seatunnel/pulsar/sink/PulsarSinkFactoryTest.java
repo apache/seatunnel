@@ -18,6 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -25,7 +29,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -33,16 +39,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+/** Verifies the Pulsar sink factory metadata required by connector specification checks. */
 public class PulsarSinkFactoryTest {
 
     @Test
     public void testCreateSinkRequiresTopicForSingleTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
 
-        assertThrows(
+        Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         factory.createSink(
@@ -54,11 +58,100 @@ public class PulsarSinkFactoryTest {
     public void testCreateSinkAllowsMissingTopicForMultiTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
 
-        assertDoesNotThrow(
+        Assertions.assertDoesNotThrow(
                 () ->
                         factory.createSink(
                                 new TableSinkFactoryContext(
                                         null, config(), getClass().getClassLoader())));
+    }
+
+    /** Ensures the factory still exposes the documented Pulsar identifier. */
+    @Test
+    void factoryIdentifier() {
+        PulsarSinkFactory pulsarSinkFactory = new PulsarSinkFactory();
+        Assertions.assertEquals(
+                PulsarSinkOptions.IDENTIFIER, pulsarSinkFactory.factoryIdentifier());
+    }
+
+    /** Guards the option metadata that connector specification checks validate in CI. */
+    @Test
+    void optionRuleContainsMultiTableReplica() {
+        PulsarSinkFactory pulsarSinkFactory = new PulsarSinkFactory();
+        OptionRule optionRule = pulsarSinkFactory.optionRule();
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA));
+    }
+
+    @Test
+    void testValidSinkConfig() {
+        Map<String, Object> options = validSinkOptions();
+        Assertions.assertDoesNotThrow(() -> validate(options));
+    }
+
+    @Test
+    void testMissingClientServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.remove(PulsarSinkOptions.CLIENT_SERVICE_URL.key());
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.CLIENT_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testMissingAdminServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.remove(PulsarSinkOptions.ADMIN_SERVICE_URL.key());
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.ADMIN_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testAuthOptionsMustBeBundled() {
+        Map<String, Object> options = validSinkOptions();
+        options.put(
+                PulsarSinkOptions.AUTH_PLUGIN_CLASS.key(),
+                "org.apache.pulsar.client.impl.auth.AuthenticationToken");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(exception.getMessage().contains("bundled"));
+    }
+
+    @Test
+    void testBlankClientServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.put(PulsarSinkOptions.CLIENT_SERVICE_URL.key(), "");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.CLIENT_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testBlankAdminServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.put(PulsarSinkOptions.ADMIN_SERVICE_URL.key(), "   ");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.ADMIN_SERVICE_URL.key()));
+    }
+
+    private Map<String, Object> validSinkOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(PulsarSinkOptions.CLIENT_SERVICE_URL.key(), "pulsar://localhost:6650");
+        options.put(PulsarSinkOptions.ADMIN_SERVICE_URL.key(), "http://localhost:8080");
+        options.put(PulsarSinkOptions.TOPIC.key(), "test-topic");
+        return options;
+    }
+
+    private void validate(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new PulsarSinkFactory().optionRule());
     }
 
     private ReadonlyConfig config() {

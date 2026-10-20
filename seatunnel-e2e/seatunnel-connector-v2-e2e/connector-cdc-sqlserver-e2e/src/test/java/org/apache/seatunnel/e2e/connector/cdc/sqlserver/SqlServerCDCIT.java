@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
@@ -30,6 +28,8 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -46,6 +46,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -195,27 +196,18 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(SQLServerDriver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/SqlServer-CDC/lib",
+                                    "mssql-jdbc-9.4.1.jre8.jar");
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
-        MSSQL_SERVER_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(MSSQL_SERVER_CONTAINER)).join();
         log.info("Containers are started.");
@@ -265,6 +257,34 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "The configuration-only --check command is provided by Zeta")
+    public void testBlankSourceUrlRejectedByConfigCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        String configResource = "/sqlservercdc_blank_url.conf";
+        container.executeExtraCommands(
+                engineContainer ->
+                        ContainerUtil.copyConnectorJarToContainer(
+                                engineContainer,
+                                configResource,
+                                "seatunnel-connectors-v2",
+                                "connector-",
+                                "seatunnel",
+                                "/tmp/seatunnel"));
+        String configPath = "/tmp/seatunnel/config/sqlservercdc_blank_url.conf";
+        container.copyFileToContainer(configResource, configPath);
+
+        Container.ExecResult result =
+                container.executeBaseCommand(new String[] {"--config", configPath, "--check"});
+        String output = result.getStdout() + result.getStderr();
+
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains("url") && output.contains("blank"), output);
     }
 
     /**
@@ -559,7 +579,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         JdbcSourceConfigFactory factory =
                 new SqlServerSourceConfigFactory()
                         .hostname(MSSQL_SERVER_CONTAINER.getHost())
-                        .port(PORT)
+                        .port(MSSQL_SERVER_CONTAINER.getMappedPort(PORT))
                         .username("sa")
                         .password("Password!")
                         .databaseList(DATABASE_NAME);

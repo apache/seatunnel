@@ -137,6 +137,14 @@ seatunnel:
     state-cleanup-delay-ms: 60000
 ```
 
+The `/system-monitoring-information` REST API asks every cluster member for its health metrics. All members share one deadline controlled by `health-metrics-timeout-seconds`, whose default value is `3` seconds. A member that does not answer within this deadline is reported with its address and a `timeout` marker instead of blocking the whole response, so the total latency of the API no longer grows with the number of unreachable members.
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 Class Loader Cache Mode
 
 This configuration primarily addresses the issue of resource leakage caused by constantly creating and attempting to destroy the class loader.
@@ -319,6 +327,11 @@ map:
            fs.defaultFS: file:///
 ```
 
+Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
+intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
+avoids excessive WAL growth for observability-only state. After an engine restart, running-job
+metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+
 If using OSS, you can configure it as follows:
 
 ```yaml
@@ -342,13 +355,15 @@ map:
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
+The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
+
 ```
 aliyun-sdk-oss-3.13.2.jar
 hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
+netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
 It is possible to utilize S3 for IMAP storage. 
@@ -381,11 +396,44 @@ map:
 
 Notice: When using S3, make sure that the following jars are in the lib directory.
 
+Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project:
+- `seatunnel-shade-hadoop3-uber` — shaded Hadoop client with relocated packages
+- `seatunnel-shade-hadoop-aws` — shaded Hadoop AWS connector with relocated packages
+
+The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file names in your SeaTunnel distribution package for the exact version.
+
 ```
-seatunnel-hadoop3-3.1.4-uber.jar
-seatunnel-hadoop-aws.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
+If you use GCS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # optional, Application Default Credentials (e.g. GKE Workload Identity) are used when absent
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+Notice: The IMap WAL writer rewrites its current object on every update (the same as for S3 and OSS), and GCS allows about one write per second to the same object name. GCS IMap persistence is therefore best suited to low or moderate IMap update rates.
+
+Notice: When using GCS, make sure that the following jars are in the lib directory.
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
 
 ## 6. Configure The SeaTunnel Engine Client
 

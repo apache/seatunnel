@@ -10,12 +10,12 @@ import ChangeLog from '../changelog/connector-edge-socket.md';
 
 ## 主要特性
 
-- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -87,6 +87,51 @@ sink {
   }
 }
 ```
+
+### 常见下游模式
+
+EdgeSocket 输出的是 `STRING`（或声明 schema 后的结构化类型）记录。生产环境最常见的组合是先
+用 `Sql` 转换把单行字符串处理一下，再写入数据库 Sink，这样每个批次最终都会落到目标表的多条
+记录中。下面这段配置和仓库自带 e2e 中的用法保持一致：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 3000
+}
+
+source {
+  EdgeSocket {
+    port = 10091
+    auth_type = "TOKEN"
+    token = "edge-token"
+    packet_mode = "RAW"
+    max_retries = 3
+    reconnect_interval_ms = 2000
+    accept_timeout_ms = 5000
+  }
+}
+
+transform {
+  Sql {
+    query = "SELECT CONCAT(value, '_transformed') AS value_text FROM source_table"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&allowPublicKeyRetrieval=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "mysqlpw"
+    query = "insert into edge_socket_sink(value_text) values (?)"
+  }
+}
+```
+
+其它数据库 Sink（例如 `Postgres`、`ClickHouse`、`Kafka` 等）都可以按同样方式接在 EdgeSocket
+后面；Source 与具体 Sink 之间并不存在强绑定关系，请按业务需要选择目标。
 
 ## Schema 模式
 
@@ -357,6 +402,7 @@ Source 回复：
 下图展示采集端完整生命周期，包含所有响应分支和对应操作。
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 sequenceDiagram
     participant C as Collector
     participant S as EdgeSocket Source

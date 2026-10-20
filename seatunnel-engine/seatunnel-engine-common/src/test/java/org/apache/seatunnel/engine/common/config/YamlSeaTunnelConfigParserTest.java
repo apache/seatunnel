@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -81,10 +82,32 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
         Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        // An http option without a matching branch in parseHttpConfig is silently dropped with an
+        // "Unrecognized element" warning, so parsing it is worth asserting explicitly.
+        Assertions.assertEquals(
+                32, config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeMb());
+        Assertions.assertEquals(
+                32L * 1024 * 1024,
+                config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeBytes());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
                 1000, config.getEngineConfig().getCoordinatorServiceConfig().getMaxThreadNum());
+    }
+
+    @Test
+    public void testLogResponseLimitByteConversion() {
+        HttpConfig httpConfig = new HttpConfig();
+        Assertions.assertEquals(64L * 1024 * 1024, httpConfig.getLogResponseMaxSizeBytes());
+
+        for (int unlimited : new int[] {0, -1, Integer.MIN_VALUE}) {
+            httpConfig.setLogResponseMaxSizeMb(unlimited);
+            Assertions.assertEquals(-1L, httpConfig.getLogResponseMaxSizeBytes());
+        }
+
+        httpConfig.setLogResponseMaxSizeMb(Integer.MAX_VALUE);
+        Assertions.assertEquals(
+                Integer.MAX_VALUE * 1024L * 1024L, httpConfig.getLogResponseMaxSizeBytes());
     }
 
     @Test

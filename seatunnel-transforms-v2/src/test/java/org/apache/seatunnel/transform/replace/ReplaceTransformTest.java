@@ -18,6 +18,9 @@
 package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -114,22 +117,17 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testRejectConflictingReplaceFieldKeys() {
+    void testFallbackKeyUsedWhenPrimaryAbsent() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("replace_field", "name");
-        configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
 
-        TransformException exception =
-                Assertions.assertThrows(
-                        TransformException.class,
-                        () ->
-                                new ReplaceTransform(
-                                        ReadonlyConfig.fromMap(configMap), catalogTable));
-
-        Assertions.assertTrue(exception.getMessage().contains("cannot be configured together"));
+        ReplaceTransform transform =
+                new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "before name", "title"});
+        SeaTunnelRow output = transform.transformRow(input);
+        Assertions.assertEquals("after name", output.getField(1));
     }
 
     @Test
@@ -180,19 +178,20 @@ class ReplaceTransformTest {
 
     @Test
     void testEmptyReplaceFieldsValidation() {
+        OptionRule rule = new ReplaceTransformFactory().optionRule();
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), new ArrayList<String>());
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
 
-        TransformException exception =
+        OptionValidationException exception =
                 Assertions.assertThrows(
-                        TransformException.class,
-                        () ->
-                                new ReplaceTransform(
-                                        ReadonlyConfig.fromMap(configMap), catalogTable));
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(configMap)).validate(rule));
 
-        Assertions.assertTrue(exception.getMessage().contains("must not be empty"));
+        Assertions.assertTrue(
+                exception.getMessage().contains("replace_fields"),
+                "Should mention replace_fields: " + exception.getMessage());
     }
 
     @Test

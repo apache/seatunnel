@@ -176,7 +176,7 @@ public class PhysicalPlanGenerator {
                     new PipelineLocation(jobImmutableInformation.getJobId(), pipeline.getId());
             PipelineStatus pipelineStatus =
                     (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (jobImmutableInformation.isStartWithSavePoint()
+            if (jobImmutableInformation.isRestoreJob()
                     || !PipelineStatus.FINISHED.equals(pipelineStatus)) {
                 unclosedPipelines.add(pipeline);
             }
@@ -457,7 +457,10 @@ public class PhysicalPlanGenerator {
                                                                                 .getJobId(),
                                                                         taskLocation,
                                                                         finalParallelismIndex,
-                                                                        f);
+                                                                        f,
+                                                                        jobImmutableInformation
+                                                                                .getJobConfig()
+                                                                                .getEnvOptions());
                                                             }
                                                         })
                                                 .peek(this::fillCheckpointPlan)

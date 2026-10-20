@@ -19,19 +19,23 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
@@ -326,6 +330,14 @@ public interface JdbcDialect extends Serializable {
                 });
     }
 
+    /**
+     * Applies dialect-specific connection parameters for JDBC source connections without changing
+     * sink connection behavior.
+     */
+    default void configureSourceConnection(String url, Map<String, String> info) {
+        connectionUrlParse(url, info, defaultParameter());
+    }
+
     default TablePath parse(String tablePath) {
         return TablePath.of(tablePath);
     }
@@ -363,6 +375,17 @@ public interface JdbcDialect extends Serializable {
     }
 
     default boolean supportHashSplitter() {
+        return true;
+    }
+
+    /**
+     * Whether this dialect can safely create split boundaries by sampling a table column.
+     *
+     * <p>Sampling remains enabled by default to preserve existing connector behavior. Dialects
+     * whose drivers may eagerly buffer the complete sampling result set in memory should disable it
+     * and let the splitter fall back to bounded chunk-boundary queries.
+     */
+    default boolean supportsSamplingSharding() {
         return true;
     }
 
@@ -554,6 +577,13 @@ public interface JdbcDialect extends Serializable {
                     return;
                 }
                 applySchemaChange(connection, tablePath, dropColumnEvent);
+            } else if (event instanceof AlterTableCommentEvent
+                    || event instanceof AlterColumnCommentEvent) {
+                // Comment-only changes are not supported by JDBC sink, safely ignore
+                log.info(
+                        "Ignoring comment change event for table {} - JDBC sink does not support comment sync: {}",
+                        tablePath.getFullName(),
+                        event.getClass().getSimpleName());
             } else {
                 throw new UnsupportedOperationException("Unsupported schemaChangeEvent: " + event);
             }
@@ -903,5 +933,22 @@ public interface JdbcDialect extends Serializable {
 
     default String dualTable() {
         return "";
+    }
+
+    /**
+     * Validate sink table options for auto-create mode.
+     *
+     * <p>Default behavior is fail-fast for any non-empty table options. Dialects should override
+     * this when they support sink-specific table options.
+     */
+    default void validateTableOptions(Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+        throw new JdbcConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "JDBC table_options are not supported for dialect '%s' yet.",
+                        dialectName()));
     }
 }

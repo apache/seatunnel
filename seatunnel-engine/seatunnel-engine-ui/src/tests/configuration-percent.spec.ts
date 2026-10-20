@@ -66,4 +66,3 @@ describe("Configuration ratio formatting", () => {
     expect(text).toContain("10%")
   })
 })
-

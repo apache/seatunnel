@@ -102,16 +102,28 @@ public class ElasticsearchSourceReader
         // SQL client
         if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
             log.info("Using SQL query for index: {}", sourceIndexInfo.getIndex());
-            ScrollResult scrollResult =
-                    esRestClient.searchBySql(
-                            sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
+            String cursor = null;
+            try {
+                ScrollResult scrollResult =
+                        esRestClient.searchBySql(
+                                sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
 
-            outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
-            while (StringUtils.isNotEmpty(scrollResult.getScrollId())) {
-                scrollResult =
-                        esRestClient.searchWithSql(
-                                scrollResult.getScrollId(), scrollResult.getColumnNodes());
                 outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                cursor = scrollResult.getScrollId();
+                while (StringUtils.isNotEmpty(cursor)) {
+                    scrollResult =
+                            esRestClient.searchWithSql(cursor, scrollResult.getColumnNodes());
+                    outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                    cursor = scrollResult.getScrollId();
+                }
+            } finally {
+                if (StringUtils.isNotEmpty(cursor)) {
+                    try {
+                        esRestClient.closeSqlCursor(cursor);
+                    } catch (Exception e) {
+                        log.warn("Failed to close SQL cursor: {}", cursor, e);
+                    }
+                }
             }
         } else {
             // Check if we should use PIT API

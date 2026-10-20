@@ -35,6 +35,8 @@ import java.io.Serializable;
 @NoArgsConstructor
 @EqualsAndHashCode
 public class TiDBSourceConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String databaseName;
     private String tableName;
     private StartupMode startupMode;

@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -57,13 +59,17 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             new TableSchemaChangeEventDispatcher();
 
     public StarRocksSinkWriter(
-            SinkConfig sinkConfig, TableSchema tableSchema, TablePath tablePath) {
+            SinkWriter.Context context,
+            SinkConfig sinkConfig,
+            TableSchema tableSchema,
+            TablePath tablePath) {
         this.tableSchema = tableSchema;
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
         this.sinkConfig = sinkConfig;
         this.sinkTablePath = tablePath;
+        context.registerFlushAction(this::timerFlush);
     }
 
     @Override
@@ -82,6 +88,17 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.tableSchema = tableSchemaChangeEventDispatcher.reset(tableSchema).apply(event);
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
+
+        if (event instanceof RestoreTableSchemaEvent) {
+            try {
+                this.manager.close();
+            } catch (IOException e) {
+                throw CommonError.closeFailed(StarRocksBaseOptions.CONNECTOR_IDENTITY, e);
+            }
+            this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
+            return;
+        }
+
         this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
 
         try {
@@ -102,12 +119,25 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
+    /**
+     * Exposes the resolved StarRocks target table so shared-sink schema changes can be broadcast to
+     * every sibling writer that commits to the same physical table.
+     */
+    @Override
+    public Optional<String> getPhysicalSinkTableIdentifier() {
+        return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
+    }
+
     @SneakyThrows
     @Override
     public Optional<Void> prepareCommit() {
         // Flush to storage before snapshot state is performed
         manager.flush();
         return super.prepareCommit();
+    }
+
+    private void timerFlush() throws IOException {
+        manager.flush();
     }
 
     @Override

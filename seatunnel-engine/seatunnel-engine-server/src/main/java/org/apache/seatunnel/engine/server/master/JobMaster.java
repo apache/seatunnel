@@ -61,10 +61,13 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -182,6 +185,9 @@ public class JobMaster {
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
+    /** Whether this JobMaster was recreated after an active-master switch. */
+    private volatile boolean masterFailoverRestore;
+
     private CheckpointConfig jobCheckpointConfig;
 
     @Getter private Long jobId;
@@ -226,6 +232,7 @@ public class JobMaster {
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
         this.initializationTimestamp = initializationTimestamp;
+        this.masterFailoverRestore = restart;
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
@@ -331,7 +338,9 @@ public class JobMaster {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint() || restart,
+                        jobImmutableInformation.isRestoreJob() || restart,
+                        jobImmutableInformation.getRestoreMode(),
+                        jobImmutableInformation.getRestoreSourceJobId(),
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -339,6 +348,7 @@ public class JobMaster {
                         checkpointStorage,
                         executorService,
                         runningJobStateIMap,
+                        seaTunnelServer.getEngineContext(),
                         seaTunnelServer.getCheckpointMonitorService());
     }
 
@@ -355,7 +365,7 @@ public class JobMaster {
                 jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
         boolean startWithSavePoint =
                 jobImmutableInformation != null
-                        && (jobImmutableInformation.isStartWithSavePoint() || restart);
+                        && (jobImmutableInformation.isRestoreJob() || restart);
 
         if (checkpointEnabled && startWithSavePoint) {
             throw new IllegalStateException(
@@ -436,6 +446,8 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRetainAfterJobCancelled(
+                defaultCheckpointConfig.isRetainAfterJobCancelled());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -464,6 +476,12 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointMinPause(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            jobCheckpointConfig.setRetainAfterJobCancelled(
+                    Boolean.parseBoolean(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                                    .toString()));
         }
         return jobCheckpointConfig;
     }
@@ -519,13 +537,18 @@ public class JobMaster {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
+        // Value-based membership (SlotProfile#equals keys on worker+slotID+sequence) so the
+        // cleanup filter below still excludes a reused slot even if a future code path re-reads
+        // or copies the profile between pre-apply and cleanup, instead of relying on the exact
+        // object instance surviving unchanged.
+        Set<SlotProfile> reusedSlotProfiles = new HashSet<>();
 
         boolean isSubPlan = Objects.nonNull(subPlan);
 
         if (isSubPlan) {
-            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures);
+            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         } else {
-            preApplyResourcesForAll(preApplyResourceFutures);
+            preApplyResourcesForAll(preApplyResourceFutures, reusedSlotProfiles);
         }
 
         AtomicLong successCount = new AtomicLong(0);
@@ -580,6 +603,9 @@ public class JobMaster {
                 // Adequate resources, pass on resources to the plan
                 physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
             }
+            // Retained slots are valid only for the first successful allocation after failover.
+            // A later pipeline retry must obtain a fresh allocation instead of reusing them.
+            masterFailoverRestore = false;
         } else {
             // Release the resource that has been applied
             try {
@@ -610,6 +636,10 @@ public class JobMaster {
                                                                 }
                                                             })
                                                     .map(CompletableFuture::join)
+                                                    .filter(
+                                                            slotProfile ->
+                                                                    !reusedSlotProfiles.contains(
+                                                                            slotProfile))
                                                     .collect(Collectors.toList()))
                                     .join();
                             return null;
@@ -629,39 +659,98 @@ public class JobMaster {
         return enoughResource;
     }
 
-    private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourcesForAll(
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+    /**
+     * Pre-applies resources for every pipeline in this job.
+     *
+     * <p>Both maps are populated in place; there is nothing to return because the caller already
+     * holds the references it passed in.
+     *
+     * @param preApplyResourceFutures target map for each task group's resource future, mutated in
+     *     place
+     * @param reusedSlotProfiles set collecting slots retained from the previous master; these slots
+     *     must not be released when part of the pre-apply operation fails
+     */
+    private void preApplyResourcesForAll(
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
+            Set<SlotProfile> reusedSlotProfiles) {
         for (SubPlan subPlan : physicalPlan.getPipelineList()) {
-            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures);
+            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         }
-        return preApplyResourceFutures;
     }
 
+    /**
+     * Pre-applies resources for one pipeline.
+     *
+     * @param subPlan pipeline whose task groups need resources
+     * @param preApplyResourceFutures target map for each task group's resource future, mutated in
+     *     place
+     * @param reusedSlotProfiles set collecting slots retained from the previous master; these slots
+     *     must not be released when part of the pre-apply operation fails
+     */
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
+            Set<SlotProfile> reusedSlotProfiles) {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures = new HashMap<>();
         subPlan.getCoordinatorVertexList()
                 .forEach(
-                        coordinator ->
-                                coordinatorFutures.put(
-                                        coordinator.getTaskGroupLocation(),
-                                        ResourceUtils.applyResourceForTask(
-                                                resourceManager, coordinator, subPlan.getTags())));
+                        coordinator -> {
+                            SlotProfile reusableSlot =
+                                    getReusableSlot(coordinator.getTaskGroupLocation());
+                            coordinatorFutures.put(
+                                    coordinator.getTaskGroupLocation(),
+                                    reusableSlot == null
+                                            ? ResourceUtils.applyResourceForTask(
+                                                    resourceManager, coordinator, subPlan.getTags())
+                                            : CompletableFuture.completedFuture(reusableSlot));
+                            if (reusableSlot != null) {
+                                reusedSlotProfiles.add(reusableSlot);
+                            }
+                        });
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> taskFutures = new HashMap<>();
         subPlan.getPhysicalVertexList()
                 .forEach(
-                        task ->
-                                taskFutures.put(
-                                        task.getTaskGroupLocation(),
-                                        ResourceUtils.applyResourceForTask(
-                                                resourceManager, task, subPlan.getTags())));
+                        task -> {
+                            SlotProfile reusableSlot = getReusableSlot(task.getTaskGroupLocation());
+                            taskFutures.put(
+                                    task.getTaskGroupLocation(),
+                                    reusableSlot == null
+                                            ? ResourceUtils.applyResourceForTask(
+                                                    resourceManager, task, subPlan.getTags())
+                                            : CompletableFuture.completedFuture(reusableSlot));
+                            if (reusableSlot != null) {
+                                reusedSlotProfiles.add(reusableSlot);
+                            }
+                        });
 
         preApplyResourceFutures.putAll(coordinatorFutures);
         preApplyResourceFutures.putAll(taskFutures);
         LOGGER.fine("preApplyResourceFutures size: " + preApplyResourceFutures.size());
+    }
+
+    /**
+     * Reuses an active slot retained by a Worker while the active master was unavailable.
+     *
+     * <p>The slot-to-task mapping is stored in Hazelcast before task deployment. After a master
+     * failover, requesting those slots again cannot succeed with fixed slots because Workers still
+     * own them for this job. A slot is reused only after the current ResourceManager confirms that
+     * the Worker still has the matching allocation sequence and that the slot's owner job ID still
+     * matches this job (see {@link ResourceManager#slotActiveCheck}).
+     *
+     * @param taskGroupLocation task group whose previously persisted slot assignment is checked
+     * @return the persisted {@link SlotProfile} if the Worker still actively holds it for this job,
+     *     or {@code null} if this is not a post-failover restore or the slot is no longer valid
+     */
+    private SlotProfile getReusableSlot(TaskGroupLocation taskGroupLocation) {
+        if (!masterFailoverRestore) {
+            return null;
+        }
+        SlotProfile slotProfile = getOwnedSlotProfiles(taskGroupLocation);
+        return slotProfile != null && resourceManager.slotActiveCheck(slotProfile)
+                ? slotProfile
+                : null;
     }
 
     public void run() {
@@ -1113,8 +1202,11 @@ public class JobMaster {
                 PipelineStatus.FINISHED.equals(pipelineStatus)
                         && checkpointManager != null
                         && checkpointManager.isPipelineSavePointEnd(pipelineLocation);
+        // Failed pipelines also need cleanup so their distributed metrics do not leak into later
+        // task recovery or re-submission flows.
         boolean shouldCleanup =
-                PipelineStatus.CANCELED.equals(pipelineStatus)
+                PipelineStatus.FAILED.equals(pipelineStatus)
+                        || PipelineStatus.CANCELED.equals(pipelineStatus)
                         || (PipelineStatus.FINISHED.equals(pipelineStatus) && !savepointEnd);
         if (!shouldCleanup) {
             return;
@@ -1171,7 +1263,8 @@ public class JobMaster {
 
     public void removeMetricsContext(
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
-        if ((pipelineStatus.equals(PipelineStatus.FINISHED)
+        if (pipelineStatus.equals(PipelineStatus.FAILED)
+                || (pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 
@@ -1269,20 +1362,180 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
-        physicalPlan.savepointJob();
-        PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-                checkpointManager.triggerSavePoints();
         return CompletableFuture.supplyAsync(
-                () ->
-                        Arrays.stream(passiveCompletableFutures)
-                                .allMatch(
-                                        future -> {
-                                            try {
-                                                return future.get() != null;
-                                            } catch (Exception e) {
-                                                throw new SeaTunnelEngineException(e);
-                                            }
-                                        }));
+                () -> {
+                    boolean savepointCompleted = false;
+                    SavepointCompletionResult savepointCompletionResult = null;
+                    try {
+                        physicalPlan.savepointJob();
+                        PassiveCompletableFuture<CheckpointCoordinatorState>[]
+                                passiveCompletableFutures =
+                                        checkpointManager.triggerSavePointsAndWaitComplete();
+                        savepointCompletionResult =
+                                waitSavepointCompleted(passiveCompletableFutures);
+                        savepointCompleted = savepointCompletionResult.isCompleted();
+                        Optional<Exception> failureException =
+                                getSavepointFailureException(savepointCompletionResult);
+                        if (failureException.isPresent()) {
+                            throw new SeaTunnelEngineException(failureException.get());
+                        }
+                        return savepointCompleted;
+                    } finally {
+                        if (!savepointCompleted) {
+                            if (isSavepointStartPreconditionFailure(savepointCompletionResult)) {
+                                LOGGER.info(
+                                        String.format(
+                                                "Savepoint for Job %s (%s) could not start because the checkpoint coordinator is not ready; restore job status to RUNNING for retry.",
+                                                jobImmutableInformation.getJobConfig().getName(),
+                                                jobImmutableInformation.getJobId()));
+                                restoreRunningAfterSavepointStartFailure();
+                            } else {
+                                // At least one pipeline failed its final checkpoint. Some other
+                                // pipelines may already have completed the savepoint and stopped,
+                                // so the job must leave DOING_SAVEPOINT through a deterministic
+                                // stop path instead of being reported as RUNNING.
+                                physicalPlan.savepointFailed();
+                            }
+                        }
+                    }
+                });
+    }
+
+    private Optional<Exception> getSavepointFailureException(
+            SavepointCompletionResult savepointCompletionResult) {
+        Optional<Exception> nonPreconditionFailure =
+                savepointCompletionResult.getExceptions().stream()
+                        .filter(exception -> !isSavepointStartPreconditionException(exception))
+                        .findFirst();
+        return nonPreconditionFailure.isPresent()
+                ? nonPreconditionFailure
+                : savepointCompletionResult.getFirstException();
+    }
+
+    private void restoreRunningAfterSavepointStartFailure() {
+        if (physicalPlan.getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+            physicalPlan.updateJobState(JobStatus.RUNNING);
+        }
+    }
+
+    /**
+     * Waits for every pipeline savepoint future and preserves all failures for the job-level
+     * decision.
+     *
+     * <p>A stop-with-savepoint request fans out to independent checkpoint coordinators. The cleanup
+     * decision must therefore be based on the whole result set, not on whichever pipeline fails
+     * first or appears first in the pipeline list.
+     */
+    private SavepointCompletionResult waitSavepointCompleted(
+            PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
+        try {
+            CompletableFuture.allOf(passiveCompletableFutures).join();
+        } catch (Exception e) {
+            // Inspect every pipeline future below so a fast failure does not short-circuit the
+            // stop-with-savepoint decision while another pipeline is still completing.
+            LOGGER.fine(
+                    "Savepoint aggregate future completed exceptionally; inspect every pipeline future before deciding stop-with-savepoint result",
+                    e);
+        }
+
+        boolean savepointCompleted = true;
+        boolean anyPipelineSuspended = false;
+        List<Exception> exceptions = new ArrayList<>();
+        for (PassiveCompletableFuture<CheckpointCoordinatorState> future :
+                passiveCompletableFutures) {
+            try {
+                CheckpointCoordinatorState state = future.get();
+                if (state == null
+                        || state.getCheckpointCoordinatorStatus()
+                                != CheckpointCoordinatorStatus.SUSPEND) {
+                    savepointCompleted = false;
+                } else {
+                    anyPipelineSuspended = true;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                savepointCompleted = false;
+                exceptions.add(e);
+            } catch (Exception e) {
+                savepointCompleted = false;
+                exceptions.add(e);
+            }
+        }
+        return new SavepointCompletionResult(savepointCompleted, exceptions, anyPipelineSuspended);
+    }
+
+    /**
+     * Returns true only when the savepoint failed before any pipeline could start a checkpoint.
+     *
+     * <p>These pre-start failures are safe to retry: no pipeline has reached {@link
+     * CheckpointCoordinatorStatus#SUSPEND}, and every reported failure reason comes from a
+     * checkpoint coordinator that rejected the request before creating a pending checkpoint. Any
+     * genuine checkpoint failure, partial suspension, or non-exceptional non-suspend state must use
+     * the deterministic stop fallback instead.
+     */
+    private boolean isSavepointStartPreconditionFailure(
+            SavepointCompletionResult savepointCompletionResult) {
+        if (savepointCompletionResult == null
+                || savepointCompletionResult.isAnyPipelineSuspended()
+                || savepointCompletionResult.getExceptions().isEmpty()) {
+            return false;
+        }
+
+        return savepointCompletionResult.getExceptions().stream()
+                .allMatch(this::isSavepointStartPreconditionException);
+    }
+
+    /**
+     * Returns true for checkpoint coordinator failures that happen before a savepoint checkpoint is
+     * created.
+     */
+    private boolean isSavepointStartPreconditionException(Exception exception) {
+        Throwable rootException = ExceptionUtils.getRootException(exception);
+        if (!(rootException instanceof CheckpointException)) {
+            return false;
+        }
+
+        CheckpointCloseReason failureReason =
+                ((CheckpointException) rootException).getCheckpointFailureReason();
+        return failureReason == CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT
+                || failureReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN;
+    }
+
+    /**
+     * Aggregated outcome of all pipeline savepoint futures.
+     *
+     * <p>The job can be restored to RUNNING only when all failures are retryable pre-start
+     * rejections. A single genuine checkpoint failure or already-suspended pipeline means some
+     * pipeline state may have changed, so the job must use the stop fallback.
+     */
+    private static class SavepointCompletionResult {
+
+        private final boolean completed;
+        private final List<Exception> exceptions;
+        private final boolean anyPipelineSuspended;
+
+        private SavepointCompletionResult(
+                boolean completed, List<Exception> exceptions, boolean anyPipelineSuspended) {
+            this.completed = completed;
+            this.exceptions = exceptions;
+            this.anyPipelineSuspended = anyPipelineSuspended;
+        }
+
+        private boolean isCompleted() {
+            return completed;
+        }
+
+        private Optional<Exception> getFirstException() {
+            return exceptions.stream().findFirst();
+        }
+
+        private List<Exception> getExceptions() {
+            return exceptions;
+        }
+
+        private boolean isAnyPipelineSuspended() {
+            return anyPipelineSuspended;
+        }
     }
 
     public void setOwnedSlotProfiles(

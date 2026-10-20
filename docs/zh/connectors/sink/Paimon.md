@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon 数据连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Apache Paimon数据连接器。支持cdc写以及自动建表。
@@ -55,38 +61,70 @@ libfb303-xxx.jar
 
 ## 主要特性
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 连接器选项
 
 | 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
 |------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
-| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                   |
+| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径，不能为空白字符串。                                                                          |
 | catalog_name                 | 字符串  | 否    | paimon                       | Paimon catalog名称                                                                                     |
 | catalog_type                 | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
-| catalog_uri                  | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                          |
-| database                     | 字符串  | 是    | -                            | 数据库名称                                                                                                |
-| table                        | 字符串  | 是    | -                            | 表名                                                                                                   |
+| catalog_uri                  | 字符串  | 当 `catalog_type` 为 `hive` 时是 | -                            | Paimon catalog 的 URI。当 `catalog_type` 为 `hive` 时必须配置。                                                |
+| database                     | 字符串  | 是    | -                            | 数据库名称，不能为空白字符串。                                                                                        |
+| table                        | 字符串  | 是    | -                            | 表名，不能为空白字符串。                                                                                          |
 | user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
 | password                     | 字符串  | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
-| hdfs_site_path               | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                    |
+| hdfs_site_path               | 字符串  | 否    | -                            | 已废弃。hdfs-site.xml 文件路径。新作业建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`                         |
 | schema_save_mode             | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
 | data_save_mode               | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
 | paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
 | paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
 | paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
+| table_options                | Map  | 否    | -                            | Sink 侧表属性，仅用于 SaveMode 自动建表（不进入运行时 write-props）。详见下文。                                          |
 | paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
 | paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
-| paimon.table.non-primary-key | Boolean | false    | -                            | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
-| branch                       | 字符串  | 否    | main                         | 要写入数据的Paimon表分支名称。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
+| paimon.table.non-primary-key | Boolean | 否    | false                        | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
+| branch                       | 字符串  | 否    | -                            | 要写入数据的 Paimon 表分支名称。不配置时写入 main 分支。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
+| multi_table_sink_replica     | int    | 否    | 1                            | 多表写入模式下每张表的 writer 副本数。当一个上游作业写入多张 Paimon 表、且每张表需要多个 sink writer 时使用。                                      |
+
+### table_options [Map]
+
+Sink 侧表属性，仅在 SaveMode 自动建表时生效（例如 `schema_save_mode` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 或 `RECREATE_SCHEMA`）。**不会**对已存在表执行 ALTER，也**不会**改变由 `paimon.table.write-props` 派生的运行时 writer 设置（例如 `changelog-producer` / `changelog-tmp-path`）。
+
+`table_options` 会合并进自动建表使用的 schema options。**键冲突时以 `paimon.table.write-props` 为准**，保证仅配置 write-props 的存量作业行为不变。`paimon.table.write-props` 仍作为运行时 writer 配置。键名使用 [Paimon CoreOptions](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)；SeaTunnel 不维护白名单，非法键在 Paimon 建表时失败。空白键与 null 值会在作业提交阶段被拒绝。
+
+示例：
+
+```hocon
+sink {
+  Paimon {
+    warehouse = "file:///tmp/paimon"
+    database = "seatunnel"
+    table = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      bucket = "4"
+      file.format = "parquet"
+    }
+    # 同名键时覆盖 table_options
+    paimon.table.write-props = {
+      bucket = "8"
+    }
+  }
+}
+```
 
 ## 批模式下的checkpoint
 
 当您在批处理模式下将`checkpoint.interval`设置为大于0的值时，在写入一定数量的记录后checkpoint触发时，paimon连接器将把数据提交到paimon表。此时，写入的数据是可见的。
 但是，如果您没有在批处理模式下设置`checkpoint.interval`，则在写入所有记录之后，paimon sink连接器将提交数据。到批任务完成之前，写入的数据都是不可见的。
 
-## 更新日志
-你必须配置`changelog-producer=input`来启用paimon表的changelog产生模式。如果你使用了paimon sink的自动建表功能，你可以在`paimon.table.write-props`中指定这个属性。
+## Changelog 生产者
+配置 `changelog-producer` 以启用 Paimon 表的 changelog 生产者模式。如果你使用了 Paimon sink 的自动建表功能，请在 `paimon.table.write-props` 或 `table_options` 中设置该属性；对于在 SeaTunnel 之外创建的已存在表，请直接在该表上设置。
 
 Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/)，分别是`none`、`input`、`lookup` 和 `full-compaction`。
 
@@ -97,11 +135,11 @@ Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/mast
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
 > 注意：
-> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#changelog)。
+> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#读取-paimon-表的-changelog)。
 
 ## 文件系统
 Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs和s3。
-如果您使用s3文件系统。您可以配置`fs.s3a.access-key `， `fs.s3a.secret-key`， `fs.s3a.endpoint`， `fs.s3a.path.style.access`， `fs.s3a.aws.credentials`。在`paimon.hadoop.conf`选项中设置提供程序的属性。
+如果您使用s3文件系统。您可以配置`fs.s3a.access-key `， `fs.s3a.secret-key`， `fs.s3a.endpoint`， `fs.s3a.path.style.access`， `fs.s3a.aws.credentials.provider`。在`paimon.hadoop.conf`选项中设置提供程序的属性。
 除此之外，warehouse应该以`s3a://`开头。
 
 ## 模式演变
@@ -624,6 +662,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Paimon Sink 连接器是否支持自动建表？
+
+支持。当配置 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
+
+### Paimon Sink 如何保证精确一次（Exactly-Once）写入？
+
+Paimon Sink 深度集成了 SeaTunnel Zeta、Flink 以及 Spark 的两阶段提交（2PC）检查点机制。在一个 Checkpoint 周期内写入的数据，会在 Checkpoint 屏障对齐并确认成功后作为快照正式提交。
+
+### Paimon Sink 支持哪些表模式（主键表与追加表）？
+
+两种表模式均受支持。若目标表配置了主键（`paimon.table.primary-keys`），Sink 将按主键执行 Upsert/Delete 逻辑；若未声明主键，则以 Append-Only 追加模式写入。
 
 ## 变更日志
 

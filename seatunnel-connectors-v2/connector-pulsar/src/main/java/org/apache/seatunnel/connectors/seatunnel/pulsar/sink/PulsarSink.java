@@ -70,8 +70,7 @@ public class PulsarSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> createWriter(
-            SinkWriter.Context context) {
+    public PulsarSinkWriter createWriter(SinkWriter.Context context) {
         return new PulsarSinkWriter(
                 context,
                 clientConfig,

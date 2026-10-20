@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.checkpoint.monitor;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
@@ -31,61 +30,41 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatistics;
 import org.apache.seatunnel.engine.server.checkpoint.TaskStatistics;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
 
-import com.hazelcast.core.EntryEvent;
-import com.hazelcast.map.IMap;
-import com.hazelcast.map.listener.EntryAddedListener;
-import com.hazelcast.map.listener.EntryExpiredListener;
-import com.hazelcast.map.listener.EntryRemovedListener;
-import com.hazelcast.map.listener.EntryUpdatedListener;
-import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class CheckpointMonitorService {
 
-    private final NodeEngine nodeEngine;
-    private volatile IMap<Long, CheckpointOverview> overviewMap;
+    private final SeaTunnelEngineContext engineContext;
     private final int maxHistorySize;
-    private final AtomicLong overviewJobCount = new AtomicLong();
-    private final AtomicLong inProgressCheckpointCount = new AtomicLong();
-    private final AtomicLong retainedHistoryCount = new AtomicLong();
-    private final Object overviewStatsLock = new Object();
-    private final Set<Long> overviewDirtyJobIds = ConcurrentHashMap.newKeySet();
-    private final Map<Long, CheckpointOverviewStats> overviewStatsByJobId = new HashMap<>();
-    private final AtomicBoolean overviewStatsInitializing = new AtomicBoolean(false);
-    private volatile UUID overviewListenerId;
 
-    public CheckpointMonitorService(NodeEngine nodeEngine, int maxHistorySize) {
-        this.nodeEngine = nodeEngine;
+    private volatile CheckpointOverviewStateStore overviewMap;
+
+    public CheckpointMonitorService(SeaTunnelEngineContext engineContext, int maxHistorySize) {
+        this.engineContext = engineContext;
         this.maxHistorySize = maxHistorySize;
     }
 
-    private IMap<Long, CheckpointOverview> getOverviewMap() {
+    private CheckpointOverviewStateStore getOverviewMap() {
         if (overviewMap == null) {
             synchronized (this) {
                 if (overviewMap == null) {
                     overviewMap =
-                            nodeEngine
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_CHECKPOINT_MONITOR);
-                    initOverviewStats();
+                            engineContext
+                                    .getStateStores()
+                                    .auxiliary()
+                                    .checkpointOverviewStateStore();
                 }
             }
         }
@@ -259,184 +238,24 @@ public class CheckpointMonitorService {
     }
 
     public long getOverviewJobCount() {
-        return overviewJobCount.get();
+        return getOverviewMap().getOverviewJobCount();
     }
 
     public long getInProgressCheckpointCount() {
-        return inProgressCheckpointCount.get();
+        return getOverviewMap().getInProgressCheckpointCount();
     }
 
     public long getRetainedHistoryCount() {
-        return retainedHistoryCount.get();
+        return getOverviewMap().getRetainedHistoryCount();
     }
 
     private void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> consumer) {
-        getOverviewMap()
-                .compute(
-                        jobId,
-                        (id, overview) -> {
-                            CheckpointOverview snapshot =
-                                    overview == null ? new CheckpointOverview(jobId) : overview;
-                            PipelineCheckpointOverview pipeline =
-                                    snapshot.getOrCreatePipeline(pipelineId);
-                            consumer.accept(pipeline);
-                            snapshot.setUpdatedAt(System.currentTimeMillis());
-                            return snapshot;
-                        });
+        getOverviewMap().updateOverview(jobId, pipelineId, consumer);
     }
 
     private void removeInProgressIfExists(PipelineCheckpointOverview pipeline, long checkpointId) {
         pipeline.getInProgress().removeIf(cp -> cp.getCheckpointId() == checkpointId);
-    }
-
-    private void initOverviewStats() {
-        removeOverviewListener();
-        overviewListenerId =
-                overviewMap.addEntryListener(new CheckpointOverviewEntryListener(), true);
-        overviewStatsInitializing.set(true);
-        overviewDirtyJobIds.clear();
-
-        Map<Long, CheckpointOverviewStats> snapshotStats = new HashMap<>();
-        overviewMap.forEach(
-                (jobId, overview) -> snapshotStats.put(jobId, toOverviewStats(overview)));
-
-        Set<Long> dirtyJobIds = new HashSet<>(overviewDirtyJobIds);
-        for (Long jobId : dirtyJobIds) {
-            snapshotStats.put(jobId, toOverviewStats(overviewMap.get(jobId)));
-        }
-
-        synchronized (overviewStatsLock) {
-            overviewStatsByJobId.clear();
-            overviewJobCount.set(0L);
-            inProgressCheckpointCount.set(0L);
-            retainedHistoryCount.set(0L);
-            snapshotStats.forEach(this::replaceOverviewStatsLocked);
-            overviewStatsInitializing.set(false);
-
-            Set<Long> postSnapshotDirtyJobIds = new HashSet<>(overviewDirtyJobIds);
-            overviewDirtyJobIds.clear();
-            for (Long jobId : postSnapshotDirtyJobIds) {
-                replaceOverviewStatsLocked(jobId, toOverviewStats(overviewMap.get(jobId)));
-            }
-        }
-    }
-
-    private void removeOverviewListener() {
-        if (overviewMap != null && overviewListenerId != null) {
-            overviewMap.removeEntryListener(overviewListenerId);
-            overviewListenerId = null;
-        }
-        overviewStatsInitializing.set(false);
-        overviewDirtyJobIds.clear();
-        synchronized (overviewStatsLock) {
-            overviewStatsByJobId.clear();
-        }
-        overviewJobCount.set(0L);
-        inProgressCheckpointCount.set(0L);
-        retainedHistoryCount.set(0L);
-    }
-
-    private CheckpointOverviewStats toOverviewStats(CheckpointOverview overview) {
-        if (overview == null) {
-            return CheckpointOverviewStats.EMPTY;
-        }
-        return new CheckpointOverviewStats(
-                1L, getInProgressCount(overview), getHistoryCount(overview));
-    }
-
-    private void replaceOverviewStatsLocked(Long jobId, CheckpointOverviewStats stats) {
-        CheckpointOverviewStats currentStats = overviewStatsByJobId.get(jobId);
-        if (currentStats != null) {
-            overviewJobCount.addAndGet(-currentStats.jobCount);
-            inProgressCheckpointCount.addAndGet(-currentStats.inProgressCheckpointCount);
-            retainedHistoryCount.addAndGet(-currentStats.retainedHistoryCount);
-        }
-
-        if (stats.isEmpty()) {
-            overviewStatsByJobId.remove(jobId);
-            return;
-        }
-
-        overviewStatsByJobId.put(jobId, stats);
-        overviewJobCount.addAndGet(stats.jobCount);
-        inProgressCheckpointCount.addAndGet(stats.inProgressCheckpointCount);
-        retainedHistoryCount.addAndGet(stats.retainedHistoryCount);
-    }
-
-    private long getInProgressCount(CheckpointOverview overview) {
-        return overview.getPipelines().values().stream()
-                .filter(Objects::nonNull)
-                .mapToLong(pipelineOverview -> pipelineOverview.getInProgress().size())
-                .sum();
-    }
-
-    private long getHistoryCount(CheckpointOverview overview) {
-        return overview.getPipelines().values().stream()
-                .filter(Objects::nonNull)
-                .mapToLong(pipelineOverview -> pipelineOverview.getHistory().size())
-                .sum();
-    }
-
-    private final class CheckpointOverviewEntryListener
-            implements EntryAddedListener<Long, CheckpointOverview>,
-                    EntryUpdatedListener<Long, CheckpointOverview>,
-                    EntryRemovedListener<Long, CheckpointOverview>,
-                    EntryExpiredListener<Long, CheckpointOverview> {
-
-        @Override
-        public void entryAdded(EntryEvent<Long, CheckpointOverview> event) {
-            replaceOverviewStats(event.getKey(), event.getValue());
-        }
-
-        @Override
-        public void entryUpdated(EntryEvent<Long, CheckpointOverview> event) {
-            replaceOverviewStats(event.getKey(), event.getValue());
-        }
-
-        @Override
-        public void entryRemoved(EntryEvent<Long, CheckpointOverview> event) {
-            replaceOverviewStats(event.getKey(), null);
-        }
-
-        @Override
-        public void entryExpired(EntryEvent<Long, CheckpointOverview> event) {
-            replaceOverviewStats(event.getKey(), null);
-        }
-    }
-
-    private void replaceOverviewStats(Long jobId, CheckpointOverview overview) {
-        if (overviewStatsInitializing.get()) {
-            overviewDirtyJobIds.add(jobId);
-            return;
-        }
-        synchronized (overviewStatsLock) {
-            if (overviewStatsInitializing.get()) {
-                overviewDirtyJobIds.add(jobId);
-                return;
-            }
-            replaceOverviewStatsLocked(jobId, toOverviewStats(overview));
-        }
-    }
-
-    private static final class CheckpointOverviewStats {
-        private static final CheckpointOverviewStats EMPTY =
-                new CheckpointOverviewStats(0L, 0L, 0L);
-
-        private final long jobCount;
-        private final long inProgressCheckpointCount;
-        private final long retainedHistoryCount;
-
-        private CheckpointOverviewStats(
-                long jobCount, long inProgressCheckpointCount, long retainedHistoryCount) {
-            this.jobCount = jobCount;
-            this.inProgressCheckpointCount = inProgressCheckpointCount;
-            this.retainedHistoryCount = retainedHistoryCount;
-        }
-
-        private boolean isEmpty() {
-            return jobCount == 0L && inProgressCheckpointCount == 0L && retainedHistoryCount == 0L;
-        }
     }
 
     public static long calculateStateSize(CompletedCheckpoint checkpoint) {

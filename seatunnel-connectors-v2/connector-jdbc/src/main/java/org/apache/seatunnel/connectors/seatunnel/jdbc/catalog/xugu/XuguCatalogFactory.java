@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
@@ -40,7 +39,7 @@ public class XuguCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
-        JdbcUrlUtil.UrlInfo urlInfo = OracleURLParser.parse(urlWithDatabase);
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         return new XuguCatalog(
                 catalogName,
                 options.get(JdbcCommonOptions.USERNAME),
@@ -52,6 +51,6 @@ public class XuguCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
+        return JdbcCommonOptions.baseCatalogRule().build();
     }
 }

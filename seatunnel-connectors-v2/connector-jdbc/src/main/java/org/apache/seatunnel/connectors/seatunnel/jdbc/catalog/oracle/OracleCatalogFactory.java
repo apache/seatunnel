@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -53,6 +57,31 @@ public class OracleCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
+        return JdbcCommonOptions.baseCatalogRule(new OracleUrlValidator()).build();
+    }
+
+    static class OracleUrlValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "Oracle JDBC URL must contain a service name (e.g. jdbc:oracle:thin:@host:port/service)";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String url) {
+            if (url == null || url.trim().isEmpty()) {
+                return false;
+            }
+            try {
+                JdbcUrlUtil.UrlInfo info = OracleURLParser.parse(url);
+                return StringUtils.isNotBlank(info.getHost())
+                        && info.getDefaultDatabase().isPresent();
+            } catch (IllegalArgumentException e) {
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid Oracle JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:oracle:thin:@host:port/service",
+                                url));
+            }
+        }
     }
 }
