@@ -456,9 +456,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
      * <p>Note on divergence from the hybrid restore path (intentional): unlike the hybrid {@code
      * restore(...)} path, which reconciles the checkpoint's table set with live discovery, a
      * snapshot-only restore deliberately uses the checkpoint's table set verbatim. Tables dropped
-     * after the checkpoint are still in the set and their (empty) pending splits resolve at read
-     * time, while tables added after the checkpoint are intentionally not picked up — the job is
-     * completing its original bounded snapshot, not expanding to new tables.
+     * after the checkpoint are not reconciled against live discovery; their behavior is whatever
+     * the snapshot read of their pending splits does. Tables added after the checkpoint are
+     * intentionally not picked up: the job is completing its original bounded snapshot, not
+     * expanding to new tables.
      *
      * @param snapshotState the checkpoint snapshot phase state
      * @return the set of table IDs captured by this checkpoint

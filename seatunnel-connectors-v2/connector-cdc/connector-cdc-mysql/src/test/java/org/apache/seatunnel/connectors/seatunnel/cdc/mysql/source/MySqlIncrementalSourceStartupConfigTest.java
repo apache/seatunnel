@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
@@ -68,9 +69,7 @@ public class MySqlIncrementalSourceStartupConfigTest {
                 MySqlIncrementalSource.createStartupConfig(
                         config(SourceOptions.STARTUP_MODE_KEY, "snapshot-only"));
 
-        Assertions.assertEquals(
-                org.apache.seatunnel.connectors.cdc.base.option.StartupMode.SNAPSHOT_ONLY,
-                startupConfig.getStartupMode());
+        Assertions.assertEquals(StartupMode.SNAPSHOT_ONLY, startupConfig.getStartupMode());
     }
 
     @Test

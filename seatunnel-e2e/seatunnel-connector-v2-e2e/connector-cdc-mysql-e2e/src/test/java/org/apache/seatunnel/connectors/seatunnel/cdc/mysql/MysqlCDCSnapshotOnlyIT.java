@@ -67,7 +67,7 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
-    private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_snapshot_only";
+    private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
     private static final String CONF_FILE = "/mysqlcdc_snapshot_only_to_mysql.conf";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
@@ -168,7 +168,10 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                 statement.execute("TRUNCATE TABLE " + database + "." + tableName);
             }
         } catch (SQLException e) {
-            log.warn("Failed to truncate table {}.{}: {}", database, tableName, e.getMessage());
+            // Fail fast: a sink table that cannot be truncated means the test setup is wrong
+            // (missing table, wrong name or privileges) and the final comparison would be
+            // meaningless.
+            throw new RuntimeException("Failed to truncate table " + database + "." + tableName, e);
         }
     }
 
