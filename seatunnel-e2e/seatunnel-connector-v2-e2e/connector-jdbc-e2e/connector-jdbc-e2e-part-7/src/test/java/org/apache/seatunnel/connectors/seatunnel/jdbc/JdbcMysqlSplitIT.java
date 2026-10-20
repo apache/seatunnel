@@ -922,6 +922,82 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testCompositeKeyWithDateColumn() throws Exception {
+        String compositeTable = "composite_date_test";
+        Set<String> expectedKeys = new HashSet<>();
+        LocalDate startDate = LocalDate.of(2020, 1, 1);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE IF NOT EXISTS "
+                            + MYSQL_DATABASE
+                            + "."
+                            + compositeTable
+                            + " (order_id BIGINT NOT NULL, event_date DATE NOT NULL, "
+                            + "payload VARCHAR(20), PRIMARY KEY (order_id, event_date))");
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, event_date, payload) VALUES (?, ?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                long orderId = i % 3;
+                LocalDate eventDate = startDate.plusDays(i / 3);
+                statement.setLong(1, orderId);
+                statement.setDate(2, java.sql.Date.valueOf(eventDate));
+                statement.setString(3, "p" + i);
+                expectedKeys.add(orderId + "|" + eventDate);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + compositeTable);
+        configMap.put("split.size", "10");
+
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, compositeTable);
+        MySqlCatalog catalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        catalog.open();
+        CatalogTable table = catalog.getTable(tablePath);
+        JdbcSourceTable sourceTable =
+                JdbcSourceTable.builder().tablePath(tablePath).catalogTable(table).build();
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+        JdbcSourceSplit[] splits =
+                splitter.generateSplits(sourceTable).toArray(new JdbcSourceSplit[0]);
+
+        Assertions.assertTrue(
+                splits.length > 1, "Numeric+DATE key should split into multiple chunks");
+        Assertions.assertEquals("order_id,event_date", splits[0].getSplitKeyName());
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement statement =
+                            splitter.generateSplitStatement(split, table.getTableSchema());
+                    ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    readCount++;
+                    readKeys.add(
+                            resultSet.getLong("order_id") + "|" + resultSet.getDate("event_date"));
+                }
+            }
+        }
+        Assertions.assertEquals(300, readCount, "All rows must be read through the splits");
+        Assertions.assertEquals(
+                expectedKeys, readKeys, "No composite numeric+DATE key may be lost or duplicated");
+        catalog.close();
+    }
+
+    @Test
     public void testCompositeKeyWithStringColumnFallsBackToSingleColumn() throws Exception {
         String compositeTable = "composite_string_test";
         Set<String> expectedKeys = new HashSet<>();
