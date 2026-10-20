@@ -14,19 +14,19 @@ worker set for one job.
 
 ## Topology
 
-```text
-kubectl apply -k deploy/kubernetes/session
-  -> 2 Master Pods (StatefulSet)
-  -> active master creates min-workers Worker Pods
-  -> workers register slots
-  -> submit jobs through REST or the native client
+```mermaid
+flowchart LR
+  U[User] -->|kubectl apply -k| M[Kubernetes manifests]
+  M --> A[Active master<br/>StatefulSet]
+  M --> S[Standby master<br/>StatefulSet]
+  A <-->|Hazelcast active/standby| S
+  A -->|create / adopt| W[Bare worker Pods<br/>min-workers..max-workers]
+  W -->|register slots| A
+  U -->|REST / native client| A
 ```
 
-- Masters: StatefulSet, 2 replicas, `backup-count: 1`.
-- Workers: bare Pods owned by the root ConfigMap. There is no worker Deployment or StatefulSet.
-- Slots: fixed mode only; `session.worker.slots` must equal worker `slot-service.slot-num`.
-- Scale-up: `ceil(missingSlots / slotsPerWorker)`, capped by `max-workers`.
-- Scale-down: not supported.
+Masters run as a two-replica StatefulSet. Workers are bare Pods owned by the root ConfigMap.
+Slots are fixed; scale-up is capped by `max-workers`, and scale-down is not supported.
 
 ## Deploy
 
@@ -57,52 +57,26 @@ fail master startup.
 
 ```yaml
 session:
-  # Required DNS-1123 label, max 40 chars; unique per namespace.
   name: seatunnel-session-cluster
-
-  # Default: seatunnel-session-<name>.
   cluster-name: seatunnel-session-cluster
-
-  # Default: seatunnel-session-<name>-meta. Must already exist and have a UID.
   root-config-map: seatunnel-session-cluster-meta
 
   master:
-    # Default: 5801. Keep Services and client config aligned.
     port: 5801
 
   worker:
-    # Required. The master image is configured in the StatefulSet.
     image: apache/seatunnel:3.0.1
-
-    # Defaults: min-workers=2, max-workers=32.
     min-workers: 2
     max-workers: 32
-
-    # Fixed slots; must equal seatunnel.yaml slot-service.slot-num.
     slots: 8
-
-    # Defaults: cpu-cores=1, memory-mb=1024.
     cpu-cores: 2
     memory-mb: 4096
-
-    # Default: 3/4 of memory-mb; must be < memory-mb.
     heap-mb: 3072
-
-    # Default: -Xms<heap>m -Xmx<heap>m.
     jvm-options: "-Xms3g -Xmx3g"
-
-    # Defaults: IfNotPresent, default, /opt/seatunnel.
     image-pull-policy: IfNotPresent
     service-account: default
     seatunnel-home: /opt/seatunnel
-
-    # Must contain seatunnel.yaml, hazelcast-worker.yaml, log4j2.properties,
-    # and jvm_worker_options.
     config-map: seatunnel-session-cluster-config
-
-    # Optional Pod metadata.
-    # labels: {}
-    # annotations: {}
 
     # Optional. Values are literals or secret:name/key and configmap:name/key.
     # env:
@@ -110,26 +84,37 @@ session:
     # env-from:
     #   secret: s3-credentials
     #   configmap: shared-settings
-
-    # Optional existing Secret mount.
     # secret-ref: session-secret
     # secret-directory: /etc/seatunnel-secrets/session
 
   dynamic-worker:
-    # Default: false. Creates workers from pending-job demand when true.
     enabled: true
-    # Defaults: 120000 and 3000; both must be > 0.
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
 
 kubernetes:
-  # Default: default. Must contain all Session resources.
   namespace: seatunnel
 ```
 
-The worker `seatunnel.yaml` must set `slot-service.dynamic-slot: false`. Use the master/worker
-engine and Hazelcast configuration from [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md);
-the sample `file:///tmp/` storage is for local validation only.
+:::caution Fixed slots
+
+`session.worker.slots` must equal worker `seatunnel.yaml` `slot-service.slot-num`, and
+`session.worker.config-map` must contain `seatunnel.yaml`, `hazelcast-worker.yaml`,
+`log4j2.properties`, and `jvm_worker_options`.
+
+:::
+
+:::tip Session identity
+
+`session.name` is a DNS-1123 label of at most 40 characters and must be unique when Sessions share
+a namespace. `session.root-config-map` must already exist and have a server-assigned UID.
+
+:::
+
+`min-workers` defaults to `2`, `max-workers` to `32`, and `dynamic-worker.enabled` to `false`. Use
+the master/worker engine and Hazelcast configuration from
+[Separated Cluster Mode](../kubernetes/separated-cluster-mode.md); the sample `file:///tmp/` storage
+is for local validation only.
 
 ## Start
 

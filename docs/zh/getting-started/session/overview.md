@@ -12,19 +12,19 @@ Session 集群是一个长期存活的 Zeta 集群，多个 job 共享同一组 
 
 ## 拓扑
 
-```text
-kubectl apply -k deploy/kubernetes/session
-  -> 2 个 Master Pod（StatefulSet）
-  -> active master 创建 min-workers 个 Worker Pod
-  -> Worker 注册 slot
-  -> 通过 REST 或原生客户端提交 job
+```mermaid
+flowchart LR
+  U[User] -->|kubectl apply -k| M[Kubernetes manifests]
+  M --> A[Active master<br/>StatefulSet]
+  M --> S[Standby master<br/>StatefulSet]
+  A <-->|Hazelcast active/standby| S
+  A -->|create / adopt| W[Bare worker Pods<br/>min-workers..max-workers]
+  W -->|register slots| A
+  U -->|REST / native client| A
 ```
 
-- Master：StatefulSet，2 副本，`backup-count: 1`。
-- Worker：由 root ConfigMap 拥有的 bare Pod，不是 Deployment/StatefulSet。
-- Slot：仅支持固定 slot；`session.worker.slots` 必须等于 worker 的 `slot-service.slot-num`。
-- 扩容：`ceil(missingSlots / slotsPerWorker)`，不超过 `max-workers`。
-- 缩容：不支持。
+Master 使用 2 副本 StatefulSet；Worker 是由 root ConfigMap 拥有的 bare Pod。Slot 固定，
+扩容上限为 `max-workers`，不支持缩容。
 
 ## 部署
 
@@ -54,52 +54,26 @@ kubectl apply -k /tmp/payments-session
 
 ```yaml
 session:
-  # 必填，DNS-1123 label，最长 40 个字符；同 namespace 内唯一。
   name: seatunnel-session-cluster
-
-  # 默认 seatunnel-session-<name>。
   cluster-name: seatunnel-session-cluster
-
-  # 默认 seatunnel-session-<name>-meta；必须已存在且有 UID。
   root-config-map: seatunnel-session-cluster-meta
 
   master:
-    # 默认 5801；修改时同步 Service 和 client 配置。
     port: 5801
 
   worker:
-    # 必填；master 镜像在 StatefulSet 中配置。
     image: apache/seatunnel:3.0.1
-
-    # 默认 min-workers=2、max-workers=32。
     min-workers: 2
     max-workers: 32
-
-    # 固定 slot；必须等于 seatunnel.yaml 的 slot-service.slot-num。
     slots: 8
-
-    # 默认 cpu-cores=1、memory-mb=1024。
     cpu-cores: 2
     memory-mb: 4096
-
-    # 默认 memory-mb 的 3/4；必须小于 memory-mb。
     heap-mb: 3072
-
-    # 默认 -Xms<heap>m -Xmx<heap>m。
     jvm-options: "-Xms3g -Xmx3g"
-
-    # 默认 IfNotPresent、default、/opt/seatunnel。
     image-pull-policy: IfNotPresent
     service-account: default
     seatunnel-home: /opt/seatunnel
-
-    # 必须包含 seatunnel.yaml、hazelcast-worker.yaml、
-    # log4j2.properties、jvm_worker_options。
     config-map: seatunnel-session-cluster-config
-
-    # 可选 Pod 元数据。
-    # labels: {}
-    # annotations: {}
 
     # 可选。值是字面量或 secret:name/key、configmap:name/key。
     # env:
@@ -107,26 +81,36 @@ session:
     # env-from:
     #   secret: s3-credentials
     #   configmap: shared-settings
-
-    # 可选已有 Secret 挂载。
     # secret-ref: session-secret
     # secret-directory: /etc/seatunnel-secrets/session
 
   dynamic-worker:
-    # 默认 false；开启后根据 pending job 需求创建 Worker。
     enabled: true
-    # 默认 120000 和 3000；均必须大于 0。
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
 
 kubernetes:
-  # 默认 default；必须包含所有 Session 资源。
   namespace: seatunnel
 ```
 
-Worker 的 `seatunnel.yaml` 必须设置 `slot-service.dynamic-slot: false`。master/worker 的 engine
-和 Hazelcast 配置请参考 [分离集群模式](../kubernetes/separated-cluster-mode.md)；示例的
-`file:///tmp/` 存储仅用于本地验证。
+:::caution 固定 slot
+
+`session.worker.slots` 必须等于 worker `seatunnel.yaml` 的 `slot-service.slot-num`；
+`session.worker.config-map` 必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、
+`log4j2.properties`、`jvm_worker_options`。
+
+:::
+
+:::tip Session 标识
+
+`session.name` 是 DNS-1123 label，最长 40 个字符；同 namespace 多个 Session 时必须唯一。
+`session.root-config-map` 必须已存在且有 server-assigned UID。
+
+:::
+
+`min-workers` 默认 `2`，`max-workers` 默认 `32`，`dynamic-worker.enabled` 默认 `false`。
+master/worker 的 engine 和 Hazelcast 配置请参考
+[分离集群模式](../kubernetes/separated-cluster-mode.md)；示例的 `file:///tmp/` 存储仅用于本地验证。
 
 ## 启动
 
