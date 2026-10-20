@@ -89,6 +89,67 @@ session:
 `min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
 slot 缺口扩容，且不超过 `max-workers`。
 
+### 配置项参考
+
+master 启动时解析该文件；未知字段会被忽略，非法值会在 coordinator 发布前导致启动失败。
+
+#### Session 与 Kubernetes
+
+| 配置项 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `session.name` | 是 | — | DNS-1123 label，最长 40 个字符。用于 Session 标签以及默认 worker/root 资源名；同 namespace 多个 Session 时必须唯一。 |
+| `session.cluster-name` | 否 | `seatunnel-session-<name>` | master 和 worker 共享的 Hazelcast 集群名。 |
+| `session.root-config-map` | 否 | `seatunnel-session-<name>-meta` | 已存在的 root ConfigMap，master 启动前必须存在且有 UID；Worker Pod 以它为 owner。 |
+| `session.master.port` | 否 | `5801` | master Hazelcast 端口。修改时要同步 Service、StatefulSet 和客户端配置。 |
+| `kubernetes.namespace` | 否 | `default` | master Kubernetes 客户端使用的 namespace；Session 资源必须部署在这里。 |
+
+master StatefulSet、Service、PDB、master ConfigMap 的名称由 manifest 定义，运行时不会根据
+`session.name` 自动改名。复制示例部署另一个 Session 时，要一起修改这些资源名和 DNS。
+
+#### Worker 模板
+
+| 配置项 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `session.worker.image` | 是 | — | Worker 容器镜像。master 镜像在 StatefulSet 中单独配置。 |
+| `session.worker.min-workers` | 否 | `2` | active master 初始化时创建的 Worker 数，至少为 1。 |
+| `session.worker.max-workers` | 否 | `32` | 自动扩容的上限，必须不小于 `min-workers`。 |
+| `session.worker.slots` | 否 | `1` | 每个 Worker 的固定 slot 数，必须等于 worker `seatunnel.yaml` 的 `slot-service.slot-num`。 |
+| `session.worker.cpu-cores` | 否 | `1` | 每个 Worker 容器的 CPU request/limit。 |
+| `session.worker.memory-mb` | 否 | `1024` | 每个 Worker 容器的内存 request/limit，单位 MiB。 |
+| `session.worker.heap-mb` | 否 | `memory-mb * 3 / 4` | JVM heap，单位 MiB；必须大于 0 且小于 `memory-mb`。 |
+| `session.worker.jvm-options` | 否 | `-Xms<heap>m -Xmx<heap>m` | 传给 Worker 启动脚本的额外 JVM 参数。 |
+| `session.worker.image-pull-policy` | 否 | `IfNotPresent` | Kubernetes 镜像拉取策略：`Always`、`IfNotPresent`、`Never`。 |
+| `session.worker.service-account` | 否 | `default` | Worker Pod 使用的 ServiceAccount；普通作业不需要 Kubernetes API 权限。 |
+| `session.worker.config-map` | 否 | `seatunnel-session-<name>-worker` | 已存在的 Worker ConfigMap，必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、`jvm_worker_options`。 |
+| `session.worker.seatunnel-home` | 否 | `/opt/seatunnel` | 容器内 SeaTunnel 安装目录。 |
+| `session.worker.labels` | 否 | 空 | 附加到 Worker Pod 的标签；Session 和 role 标签始终会添加。 |
+| `session.worker.annotations` | 否 | 空 | 附加到 Worker Pod 的 annotation。 |
+| `session.worker.env` | 否 | 空 | 环境变量 map；值是字面量，或 `secret:<name>/<key>` / `configmap:<name>/<key>` 引用。 |
+| `session.worker.env-from` | 否 | 空 | 用 `secret:` 或 `configmap:` 指定逗号分隔的对象名，对象的所有 key 注入为环境变量。 |
+| `session.worker.secret-ref` | 否 | — | 挂载到 Worker Pod 的已有 Secret 名称。 |
+| `session.worker.secret-directory` | 否 | `/etc/seatunnel-secrets/session` | `secret-ref` 的挂载目录。 |
+
+#### 动态 Worker
+
+| 配置项 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `session.dynamic-worker.enabled` | 否 | `false` | 开启后，pending job slot 不足时自动创建 Worker。 |
+| `session.dynamic-worker.startup-timeout-millis` | 否 | `120000` | 等待新 Worker 注册的超时时间，必须大于 0。 |
+| `session.dynamic-worker.retry-interval-millis` | 否 | `3000` | 检查 Worker 注册的间隔，必须大于 0。 |
+
+例如：
+
+```yaml
+session:
+  worker:
+    env:
+      AWS_REGION: us-east-1
+      S3_SECRET: secret:s3-credentials/secret-key
+    env-from:
+      secret: s3-credentials
+      configmap: shared-settings
+```
+
 ### Worker seatunnel.yaml
 
 ```yaml
@@ -109,6 +170,10 @@ seatunnel:
           fs.defaultFS: hdfs://namenode:8020
 ```
 
+Worker ConfigMap 还必须包含 `hazelcast-worker.yaml`、`log4j2.properties`、
+`jvm_worker_options`。`slot-service.dynamic-slot: false`，且 `slot-num` 必须等于
+`session.worker.slots`；不一致时 master 会拒绝启动 Session。
+
 ### Master seatunnel.yaml
 
 ```yaml
@@ -121,7 +186,9 @@ seatunnel:
       port: 8080
 ```
 
-Master 不提供 slot，只运行 coordinator 和 REST 服务。
+Master 不提供 slot，只运行 coordinator 和 REST 服务。master ConfigMap 必须包含 `session.yaml`、
+`seatunnel.yaml`、`hazelcast-master.yaml`、`hazelcast-client.yaml`、`log4j2.properties`、
+`jvm_master_options`；示例 StatefulSet 会以只读方式挂载整个 config 目录。
 
 ## 启动
 
