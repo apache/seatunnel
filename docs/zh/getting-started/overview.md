@@ -31,8 +31,9 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 
 - **常驻集群**：部署并维护共享的 Zeta 集群，再向集群提交作业。参见 [Zeta 安装部署](../engines/zeta/deployment.md)。
 - **Application Mode（实验性）**：在 Kubernetes 上为一个作业启动独立的 Master 和固定数量的 Worker，应用结束后释放计算资源。参见 [Application Mode 总览](./application/overview.md)。
+- **Kubernetes Session 集群（MVP）**：部署长期存活的 2 Master Session 集群，由 active master 按需创建 Worker，再通过 REST 提交作业。参见 [Session 集群总览](./session/overview.md)。
 
-如果已有 Kubernetes 资源平台，可以直接阅读 [Kubernetes 快速开始](./application/kubernetes/quick-start.md)。Application Mode 是 Zeta 的一种部署模式，不是另一种执行引擎。
+如果已有 Kubernetes 资源平台，可以直接阅读 [Kubernetes 快速开始](./application/kubernetes/quick-start.md)。Application Mode 和 Session 集群都是 Zeta 的部署模式，不是另一种执行引擎。
 
 ## 最短首跑路径
 
@@ -88,5 +89,6 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 - [场景教程](./recipes/overview.md)
 - [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
 - [Kubernetes Application Mode](./application/overview.md)
+- [Kubernetes Session 集群](./session/overview.md)
 - [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

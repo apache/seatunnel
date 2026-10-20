@@ -303,7 +303,7 @@ public class ResourceRequestHandler {
     private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
-        for (int i = 0; i < resultSlotProfiles.size(); i++) {
+        for (int i = 0; i < resourceProfile.size(); i++) {
             if (!resultSlotProfiles.containsKey(i)) {
                 needApplyResource.add(resourceProfile.get(i));
                 needApplyIndex.add(i);

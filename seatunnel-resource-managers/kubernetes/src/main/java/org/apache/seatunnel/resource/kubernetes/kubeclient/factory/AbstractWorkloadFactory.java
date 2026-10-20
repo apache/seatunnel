@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesToleration;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesWorkloadConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import io.kubernetes.client.custom.Quantity;
@@ -48,9 +48,9 @@ import java.util.stream.Collectors;
  */
 public abstract class AbstractWorkloadFactory {
 
-    protected final KubernetesApplicationConfig parameters;
+    protected final KubernetesWorkloadConfig parameters;
 
-    protected AbstractWorkloadFactory(KubernetesApplicationConfig parameters) {
+    protected AbstractWorkloadFactory(KubernetesWorkloadConfig parameters) {
         this.parameters = parameters;
     }
 

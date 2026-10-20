@@ -47,18 +47,32 @@ import java.util.Set;
  */
 public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
-    private final KubernetesApplicationConfig parameters;
+    private final List<KubernetesConfigMapEntry> configMaps;
 
     public ConfigMapDecorator(String applicationId, KubernetesApplicationConfig parameters) {
+        this(applicationId, parameters.getConfigMaps());
+    }
+
+    /**
+     * Creates a decorator for a caller-provided list of ConfigMap entries.
+     *
+     * <p>Session clusters use the same decorator chain as application deployments, but their worker
+     * ConfigMap is user-owned and already exists. Passing the entries directly keeps the mount
+     * behavior identical without requiring an application specification object.
+     *
+     * @param applicationId deployment id used for names of created ConfigMaps
+     * @param configMaps ConfigMap entries to mount
+     */
+    public ConfigMapDecorator(String applicationId, List<KubernetesConfigMapEntry> configMaps) {
         this.applicationId = applicationId;
-        this.parameters = parameters;
+        this.configMaps = configMaps;
     }
 
     @Override
     public V1Pod decorate(V1Pod pod) {
         V1PodSpec podSpec = pod.getSpec();
         int index = 0;
-        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+        for (KubernetesConfigMapEntry entry : configMaps) {
             String volumeName = KubernetesConstants.CONFIG_VOLUME + "-" + index++;
             podSpec.addVolumesItem(
                     new V1Volume()
@@ -80,10 +94,10 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
 
     @Override
     public List<KubernetesResource<?>> build() {
-        List<KubernetesResource<?>> configMaps = new ArrayList<>();
-        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+        List<KubernetesResource<?>> resources = new ArrayList<>();
+        for (KubernetesConfigMapEntry entry : configMaps) {
             if (!entry.isReference()) {
-                configMaps.add(
+                resources.add(
                         new KubernetesConfigMap(
                                 new V1ConfigMap()
                                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
@@ -96,7 +110,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
                                         .data(new LinkedHashMap<>(entry.getData()))));
             }
         }
-        return configMaps;
+        return resources;
     }
 
     /**

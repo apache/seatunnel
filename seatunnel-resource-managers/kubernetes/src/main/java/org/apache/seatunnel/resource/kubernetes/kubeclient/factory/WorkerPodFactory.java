@@ -21,11 +21,18 @@ import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1Pod;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Creates one worker Pod skeleton, owned by the application Job.
@@ -36,8 +43,11 @@ import io.kubernetes.client.openapi.models.V1Pod;
  */
 public final class WorkerPodFactory extends AbstractWorkloadFactory {
 
+    private final KubernetesApplicationConfig parameters;
+
     private WorkerPodFactory(KubernetesApplicationConfig parameters) {
         super(parameters);
+        this.parameters = parameters;
     }
 
     /** Builds the worker Pod skeleton: identity, owner reference, container and command. */
@@ -73,16 +83,26 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
                         clusterName,
                         masterAddress,
                         Integer.toString(resources.getSlots())));
-        return new V1Pod()
-                .apiVersion(KubernetesConstants.CORE_API_VERSION)
-                .kind(KubernetesConstants.POD_KIND)
-                .metadata(
-                        KubernetesResourceIdentity.podMetadata(
-                                owner,
-                                name,
-                                KubernetesConstants.WORKER_ROLE,
-                                parameters.getWorkerLabels(),
-                                parameters.getWorkerAnnotations()))
-                .spec(podSpec(container, false));
+        V1Pod pod =
+                new V1Pod()
+                        .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                        .kind(KubernetesConstants.POD_KIND)
+                        .metadata(
+                                KubernetesResourceIdentity.podMetadata(
+                                        owner,
+                                        name,
+                                        KubernetesConstants.WORKER_ROLE,
+                                        parameters.getWorkerLabels(),
+                                        parameters.getWorkerAnnotations()))
+                        .spec(podSpec(container, false));
+        List<KubernetesStepDecorator> decorators =
+                Arrays.asList(
+                        new EnvironmentDecorator(parameters),
+                        new SecretDecorator(owner.getName(), parameters),
+                        new ConfigMapDecorator(owner.getName(), parameters));
+        for (KubernetesStepDecorator decorator : decorators) {
+            pod = decorator.decorate(pod);
+        }
+        return pod;
     }
 }

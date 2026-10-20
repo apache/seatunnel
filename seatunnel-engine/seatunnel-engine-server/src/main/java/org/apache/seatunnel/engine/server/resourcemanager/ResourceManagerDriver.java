@@ -23,6 +23,8 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -72,6 +74,31 @@ public interface ResourceManagerDriver<WorkerType extends ResourceIDRetrievable>
      * @return a non-null future containing the launched worker's platform identity
      */
     CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
+
+    /**
+     * Lists workers that already exist on the platform and belong to this resource owner.
+     *
+     * <p>Application deployments normally return an empty list because the Job owner already
+     * defines the worker set. Session deployments use this method to adopt workers left by a
+     * previous active master after failover.
+     *
+     * @return existing owned workers, or an empty list when the platform has no adoption support
+     * @throws Exception if the platform cannot list workers
+     */
+    default List<WorkerType> listWorkers() throws Exception {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Marks already running workers as owned by the current runtime without creating or deleting
+     * them.
+     *
+     * <p>Session deployments call this after failover so the new active master can replace a
+     * terminated worker and keep enforcing the configured worker bounds.
+     *
+     * @param workers workers discovered through {@link #listWorkers()}
+     */
+    default void adoptWorkers(List<WorkerType> workers) {}
 
     /**
      * Releases a worker belonging to this application; repeated release must be harmless.

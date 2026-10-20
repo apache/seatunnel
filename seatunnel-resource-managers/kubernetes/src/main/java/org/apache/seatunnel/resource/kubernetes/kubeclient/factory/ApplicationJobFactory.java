@@ -50,8 +50,11 @@ import io.kubernetes.client.openapi.models.V1VolumeMount;
  */
 public final class ApplicationJobFactory extends AbstractWorkloadFactory {
 
+    private final KubernetesApplicationConfig parameters;
+
     private ApplicationJobFactory(KubernetesApplicationConfig parameters) {
         super(parameters);
+        this.parameters = parameters;
     }
 
     /** Builds the master Pod skeleton: container, JVM command, probes and the checkpoint claim. */

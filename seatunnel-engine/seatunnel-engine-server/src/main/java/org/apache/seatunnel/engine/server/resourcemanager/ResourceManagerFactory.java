@@ -19,20 +19,35 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.SessionSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
-/** Creates the standalone or application resource manager owned by one Engine coordinator. */
+/**
+ * Creates the standalone, application or session resource manager owned by one Engine coordinator.
+ */
 public class ResourceManagerFactory {
     private final DeployType deployType;
     private final String applicationId;
     private final ApplicationSpecification specification;
     private final ResourceManagerDriver<?> driver;
+    private final SessionSpecification sessionSpecification;
 
     /** Creates a factory for the default standalone deployment. */
     public ResourceManagerFactory() {
-        this(DeployType.STANDALONE, null, null, null);
+        this(DeployType.STANDALONE, null, null, null, null);
+    }
+
+    /**
+     * Creates a factory for a Kubernetes session cluster.
+     *
+     * @param sessionSpecification immutable session worker bounds and template settings
+     * @param driver platform driver that creates and adopts workers
+     */
+    public ResourceManagerFactory(
+            SessionSpecification sessionSpecification, ResourceManagerDriver<?> driver) {
+        this(DeployType.KUBERNETES_SESSION, null, null, driver, sessionSpecification);
     }
 
     /**
@@ -47,10 +62,25 @@ public class ResourceManagerFactory {
             String applicationId,
             ApplicationSpecification specification,
             ResourceManagerDriver<?> driver) {
+        this(deployType, applicationId, specification, driver, null);
+    }
+
+    private ResourceManagerFactory(
+            DeployType deployType,
+            String applicationId,
+            ApplicationSpecification specification,
+            ResourceManagerDriver<?> driver,
+            SessionSpecification sessionSpecification) {
         this.deployType = deployType;
         this.applicationId = applicationId;
         this.specification = specification;
         this.driver = driver;
+        this.sessionSpecification = sessionSpecification;
+    }
+
+    /** @return whether this deployment manages a long-lived worker pool itself */
+    public boolean isSessionDeployment() {
+        return DeployType.KUBERNETES_SESSION.equals(deployType);
     }
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
@@ -66,6 +96,19 @@ public class ResourceManagerFactory {
             return new ApplicationResourceManager<>(
                     nodeEngine, engineConfig, applicationId, specification, driver);
         }
+        if (DeployType.KUBERNETES_SESSION.equals(deployType)) {
+            if (sessionSpecification == null || driver == null) {
+                throw new IllegalStateException(
+                        "Session deployment requires a session specification and driver");
+            }
+            return createSessionResourceManager(nodeEngine, engineConfig);
+        }
         throw new UnsupportedDeployTypeException(deployType);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private ResourceManager createSessionResourceManager(
+            NodeEngine nodeEngine, EngineConfig engineConfig) {
+        return new SessionResourceManager(nodeEngine, engineConfig, sessionSpecification, driver);
     }
 }

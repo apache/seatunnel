@@ -1,0 +1,113 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seatunnel-session-cluster-master
+  namespace: seatunnel
+  labels:
+    seatunnel.apache.org/session: seatunnel-session-cluster
+    seatunnel.apache.org/component: master
+spec:
+  serviceName: seatunnel-session-cluster-headless
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      seatunnel.apache.org/session: seatunnel-session-cluster
+      seatunnel.apache.org/component: master
+  template:
+    metadata:
+      labels:
+        seatunnel.apache.org/session: seatunnel-session-cluster
+        seatunnel.apache.org/component: master
+    spec:
+      serviceAccountName: seatunnel-session-master
+      terminationGracePeriodSeconds: 120
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    seatunnel.apache.org/session: seatunnel-session-cluster
+                    seatunnel.apache.org/component: master
+      containers:
+        - name: master
+          image: apache/seatunnel:3.0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/seatunnel/bin/seatunnel-session-cluster.sh
+          env:
+            - name: SEATUNNEL_HOME
+              value: /opt/seatunnel
+            - name: SEATUNNEL_SESSION_MASTER_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: hazelcast
+              containerPort: 5801
+            - name: rest
+              containerPort: 8080
+          startupProbe:
+            tcpSocket:
+              port: hazelcast
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: hazelcast
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: hazelcast
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "2"
+              memory: 6Gi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+          volumeMounts:
+            - name: master-config
+              mountPath: /opt/seatunnel/config
+              readOnly: true
+      volumes:
+        - name: master-config
+          configMap:
+            name: seatunnel-session-cluster-master-config
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: seatunnel-session-cluster-master
+  namespace: seatunnel
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      seatunnel.apache.org/session: seatunnel-session-cluster
+      seatunnel.apache.org/component: master

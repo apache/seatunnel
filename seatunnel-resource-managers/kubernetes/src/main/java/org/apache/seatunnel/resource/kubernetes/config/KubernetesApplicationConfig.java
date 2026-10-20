@@ -60,7 +60,8 @@ import java.util.stream.Collectors;
  */
 @Getter
 @Slf4j
-public final class KubernetesApplicationConfig {
+public final class KubernetesApplicationConfig
+        implements KubernetesEnvironmentConfig, KubernetesSecretConfig, KubernetesWorkloadConfig {
 
     /** Prefixes of options whose keys are dynamic, for example {@code kubernetes.env.<NAME>}. */
     private static final List<String> DYNAMIC_OPTION_PREFIXES =

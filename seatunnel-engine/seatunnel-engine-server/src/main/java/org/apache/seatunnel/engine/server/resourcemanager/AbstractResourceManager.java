@@ -189,6 +189,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throws NoEnoughResourceException {
         waitingWorkerRegister();
         ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
+        if (matchedWorker.isEmpty() && supportDynamicWorker()) {
+            findNewWorker(resourceProfile, tagFilter);
+            matchedWorker = filterWorkerByTag(tagFilter);
+        }
         if (matchedWorker.isEmpty()) {
             log.error("No matched worker with tag filter {}.", tagFilter);
             throw new NoEnoughResourceException();

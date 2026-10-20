@@ -154,6 +154,7 @@ public final class KubernetesConstants {
 
     public static final String MASTER_HOST_ENV = "SEATUNNEL_APPLICATION_MASTER_HOST";
     public static final String SEATUNNEL_HOME_ENV = "SEATUNNEL_HOME";
+    public static final String DEFAULT_SEATUNNEL_HOME = "/opt/seatunnel";
 
     /** Kubernetes resource keys and units used for pod requests and limits. */
     public static final String MEMORY_RESOURCE = "memory";
