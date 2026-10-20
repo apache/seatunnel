@@ -224,6 +224,78 @@ public class MySqlIncrementalSourceFactoryTest {
         }
     }
 
+    @Test
+    public void testSnapshotOnlyWithoutStreamingOptionsIsValid() {
+        assertValid(snapshotOnlyOptions());
+
+        Map<String, Object> explicitNever = snapshotOnlyOptions();
+        explicitNever.put(MySqlIncrementalSourceOptions.STOP_MODE.key(), "never");
+        assertValid(explicitNever);
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsStopMode() {
+        for (String stopMode : Arrays.asList("latest", "specific")) {
+            Map<String, Object> options = snapshotOnlyOptions();
+            options.put(MySqlIncrementalSourceOptions.STOP_MODE.key(), stopMode);
+            if ("specific".equals(stopMode)) {
+                options.put(SourceOptions.STOP_SPECIFIC_OFFSET_FILE.key(), "mysql-bin.000004");
+                options.put(SourceOptions.STOP_SPECIFIC_OFFSET_POS.key(), 8937L);
+            }
+            OptionValidationException error = assertValidationFails(options);
+            Assertions.assertTrue(
+                    error.getMessage().contains("'stop.mode = " + stopMode + "'"),
+                    () ->
+                            "snapshot-only must reject stop.mode "
+                                    + stopMode
+                                    + ": "
+                                    + error.getMessage());
+        }
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsStartupTimestamp() {
+        Map<String, Object> options = snapshotOnlyOptions();
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
+
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage()
+                        .contains(
+                                "startup offset option '"
+                                        + SourceOptions.STARTUP_TIMESTAMP.key()
+                                        + "' is not allowed"),
+                () -> "snapshot-only must reject startup.timestamp: " + error.getMessage());
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsEverySpecificOffset() {
+        for (String optionKey : SPECIFIC_OFFSET_OPTION_KEYS) {
+            Map<String, Object> options = snapshotOnlyOptions();
+            options.put(optionKey, sampleValue(optionKey));
+            OptionValidationException error = assertValidationFails(options);
+            Assertions.assertTrue(
+                    error.getMessage().contains("current mode is 'SNAPSHOT_ONLY'"),
+                    () -> "snapshot-only must reject '" + optionKey + "': " + error.getMessage());
+        }
+    }
+
+    @Test
+    public void testTimestampModeStillRequiresStartupTimestamp() {
+        Map<String, Object> options = basicOptions();
+        options.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "timestamp");
+        assertValidationFails(options);
+
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
+        assertValid(options);
+    }
+
+    private static Map<String, Object> snapshotOnlyOptions() {
+        Map<String, Object> options = basicOptions();
+        options.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "snapshot-only");
+        return options;
+    }
+
     private static Map<String, Object> basicOptions() {
         Map<String, Object> options = new HashMap<>();
         options.put(MySqlIncrementalSourceOptions.USERNAME.key(), "root");

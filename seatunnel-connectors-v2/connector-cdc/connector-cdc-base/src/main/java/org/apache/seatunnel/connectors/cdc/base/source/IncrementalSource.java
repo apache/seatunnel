@@ -117,60 +117,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         this.readonlyConfig = options;
+        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
-        validateSnapshotOnlyConfig(readonlyConfig);
-        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
-    }
-
-    /**
-     * Fail fast when snapshot-only startup mode is combined with options that only make sense for
-     * incremental/binlog streaming. Snapshot-only is a bounded bootstrap job: it reads the snapshot
-     * and may perform bounded backfill, but it never enters continuous binlog streaming. Stop-mode
-     * and user-supplied binlog startup offsets are therefore rejected rather than silently ignored.
-     */
-    private void validateSnapshotOnlyConfig(ReadonlyConfig config) {
-        if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY) {
-            return;
-        }
-        config.getOptional(getStopModeOption())
-                .filter(mode -> mode != StopMode.NEVER)
-                .ifPresent(
-                        mode -> {
-                            throw new IllegalArgumentException(
-                                    String.format(
-                                            "'%s' startup mode is a bounded snapshot-only job and does not enter continuous change log streaming, "
-                                                    + "so it is incompatible with '%s = %s'. Remove the stop mode option.",
-                                            StartupMode.SNAPSHOT_ONLY,
-                                            SourceOptions.STOP_MODE_KEY,
-                                            mode.name().toLowerCase()));
-                        });
-        boolean specificOffsetPresent =
-                config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
-                        || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                                .isPresent();
-        if (specificOffsetPresent) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup change log offsets, "
-                                    + "so startup offset options ('%s', '%s') are not allowed.",
-                            StartupMode.SNAPSHOT_ONLY,
-                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
-                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
-        }
-        if (config.getOptional(SourceOptions.STARTUP_TIMESTAMP).isPresent()) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup change log offsets, "
-                                    + "so startup offset option '%s' is not allowed.",
-                            StartupMode.SNAPSHOT_ONLY, SourceOptions.STARTUP_TIMESTAMP.key()));
-        }
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {

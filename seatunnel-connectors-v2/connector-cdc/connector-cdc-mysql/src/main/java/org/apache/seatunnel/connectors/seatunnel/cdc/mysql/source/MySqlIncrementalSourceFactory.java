@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSnapshotOnlyGuards;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSpecificOffsetGuards;
 
@@ -116,6 +117,17 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.SNAPSHOT_ONLY,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STOP_MODE,
+                                MySqlSnapshotOnlyGuards.stopModeGuard(
+                                        MySqlIncrementalSourceOptions.STOP_MODE)),
+                        Conditions.extension(
+                                SourceOptions.STARTUP_TIMESTAMP,
+                                MySqlSnapshotOnlyGuards.startupTimestampGuard(
+                                        SourceOptions.STARTUP_TIMESTAMP)))
                 .optional(
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         Conditions.extension(
