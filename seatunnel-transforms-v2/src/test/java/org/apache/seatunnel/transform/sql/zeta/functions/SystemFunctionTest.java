@@ -406,6 +406,33 @@ public class SystemFunctionTest {
     }
 
     @Test
+    public void testCoalesceAndIfNullRoundInferredDecimalLikeCast() {
+        // COALESCE and IFNULL convert the result to the type of their first argument that is not
+        // a NULL literal, through the same DECIMAL branch as CAST, so a dropped digit rounds half
+        // away from zero there too: 1.2345 into DECIMAL(20,2) is 1.23 (it was 1.24 with CEILING).
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dec2_col", "dec4_col"},
+                        new SeaTunnelDataType[] {new DecimalType(20, 2), new DecimalType(20, 4)});
+
+        SeaTunnelRow coalesced =
+                runSql(
+                        "SELECT COALESCE(dec2_col, dec4_col) AS r FROM dual",
+                        rowType,
+                        null,
+                        new BigDecimal("1.2345"));
+        Assertions.assertEquals(new BigDecimal("1.23"), coalesced.getField(0));
+
+        SeaTunnelRow ifNull =
+                runSql(
+                        "SELECT IFNULL(dec2_col, dec4_col) AS r FROM dual",
+                        rowType,
+                        null,
+                        new BigDecimal("-1.2350"));
+        Assertions.assertEquals(new BigDecimal("-1.24"), ifNull.getField(0));
+    }
+
+    @Test
     public void testCoalesceRespectsTargetType() {
         SeaTunnelDataType<?> targetType = BasicType.INT_TYPE;
         Object result = SystemFunction.coalesce(Arrays.asList(null, "123"), targetType);
