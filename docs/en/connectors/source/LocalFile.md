@@ -323,6 +323,12 @@ For example, set like following:
 
 then SeaTunnel will skip the first 2 lines from source files
 
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
+
 ### schema [config]
 
 Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
