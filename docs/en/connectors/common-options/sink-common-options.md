@@ -17,14 +17,14 @@ The old configuration name `source_table_name` is deprecated, please migrate to 
 
 | Name          | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                  |
 |---------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| plugin_input  | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.                                                                   |
+| plugin_input  | list   | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in processes the data set corresponding to this parameter. The value can be a single upstream dataset name or an array of names; with several names the Zeta engine unions those upstream data sets into this sink. |
 | metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information. |
 
-### plugin_input [string]
+### plugin_input [list]
 
 When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file.
 
-When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.
+When `plugin_input` is specified, the current plug-in processes the data set corresponding to this parameter. The value can be a single upstream dataset name (a string) or an array of names.
 
 ### metadata_datasource_id [string]
 
@@ -32,7 +32,7 @@ The data source ID for retrieving connection configuration from Metadata Center.
 
 # Important note
 
-When the job configuration `plugin_input` you must set the `plugin_output` parameter
+A sink only consumes data sets, so it has no `plugin_output` option. The `plugin_input` value must match the `plugin_output` declared by an upstream source or transform; see the note at the end of this page for when it is mandatory.
 
 ## Task Example
 
@@ -42,10 +42,15 @@ When the job configuration `plugin_input` you must set the `plugin_output` param
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       plugin_output = "fake"
-      field_name = "name,age"
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
     }
 }
 

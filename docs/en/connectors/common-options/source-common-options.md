@@ -20,7 +20,7 @@ The old configuration name `result_table_name` is deprecated, please migrate to 
 
 # Important note
 
-When the job configuration `plugin_output` you must set the `plugin_input` parameter
+`plugin_output` registers the data set produced by this source as a temporary table that downstream transforms or sinks can reference through `plugin_input`. A source itself never takes `plugin_input`. If the job has only one source, at most one transform and one sink, both options are optional; if any of source, transform or sink appears more than once, every plugin must declare `plugin_output`/`plugin_input` so the engine can build the DAG.
 
 ## Task Example
 
@@ -30,7 +30,7 @@ When the job configuration `plugin_output` you must set the `plugin_input` param
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
         plugin_output = "fake_table"
     }
 }

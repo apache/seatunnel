@@ -19,7 +19,7 @@ more.
 | prompt                 | string | yes      |               |
 | inference_columns      | list   | no       |               |
 | model                  | string | yes      |               |
-| api_key                | string | yes      |               |
+| api_key                | string | conditional |            |
 | api_path               | string | no       |               |
 | custom_config          | map    | no       |               |
 | custom_response_parse  | string | no       |               |
@@ -116,7 +116,7 @@ If you use an OpenAI model, please refer to https://developers.openai.com/api/do
 The API key to use for the model provider.
 If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
-This option is not used when `model_provider` is `CUSTOM`; in that case the request is fully described by `custom_config`.
+This option is conditionally required: the option rule enforces it for `OPENAI`, `DOUBAO` and `MICROSOFT`, and other providers that authenticate with a key need it to work at runtime. It is not used when `model_provider` is `CUSTOM`; in that case the request is fully described by `custom_config`.
 
 ### api_path
 

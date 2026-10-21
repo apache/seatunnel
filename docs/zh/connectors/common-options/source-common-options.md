@@ -20,7 +20,7 @@ sidebar_position: 3
 
 # 重要提示
 
-在作业配置中使用 `plugin_output` 时，必须设置 `plugin_input` 参数。
+`plugin_output` 会把当前 source 产生的数据集注册为临时表，供下游 transform 或 sink 通过 `plugin_input` 引用。source 自身不需要也不会使用 `plugin_input`。如果作业只有一个 source、最多一个 transform 和一个 sink，这两个参数都可以省略；如果 source、transform 或 sink 中任意一类的数量大于 1，则每个插件都必须声明 `plugin_output`/`plugin_input`，引擎才能正确构建 DAG。
 
 ## 任务示例
 
@@ -30,7 +30,7 @@ sidebar_position: 3
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
         plugin_output = "fake_table"
     }
 }
