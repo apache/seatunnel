@@ -188,6 +188,10 @@ public class BaseServlet extends HttpServlet {
     }
 
     private static String decodeQueryComponent(String component) {
+        // UnsupportedEncodingException cannot occur for UTF-8, it is only declared by this
+        // overload. IllegalArgumentException means a malformed escape such as "%zz". Both are
+        // rethrown as IllegalArgumentException naming the component, which ExceptionHandlingFilter
+        // turns into HTTP 400 instead of a 500.
         try {
             return URLDecoder.decode(component, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException | IllegalArgumentException e) {
