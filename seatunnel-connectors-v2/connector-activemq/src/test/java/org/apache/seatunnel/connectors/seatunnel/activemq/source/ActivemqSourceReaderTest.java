@@ -371,9 +371,9 @@ class ActivemqSourceReaderTest {
         options.put("consumer_expiry_check_enabled", false);
 
         ActiveMQConnectionFactory factory =
-                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options));
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
 
-        assertEquals("source-client", factory.getClientID());
+        assertEquals("source-client-0", factory.getClientID());
         assertEquals(3000, factory.getCloseTimeout());
         assertEquals(8000, factory.getConnectResponseTimeout());
         assertFalse(factory.isAlwaysSessionAsync());
@@ -381,6 +381,26 @@ class ActivemqSourceReaderTest {
         assertFalse(factory.isDispatchAsync());
         assertEquals(1000, factory.getWarnAboutUnstartedConnectionTimeout());
         assertFalse(factory.isConsumerExpiryCheckEnabled());
+    }
+
+    @Test
+    void clientIdAppendsSubtaskIndexForParallelReaders() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", "tcp://localhost:61616");
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        options.put("client_id", "source-client");
+
+        ActiveMQConnectionFactory factory0 =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
+        ActiveMQConnectionFactory factory1 =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 1);
+
+        assertEquals("source-client-0", factory0.getClientID());
+        assertEquals("source-client-1", factory1.getClientID());
     }
 
     @Test
@@ -396,7 +416,7 @@ class ActivemqSourceReaderTest {
                 Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
 
         ActiveMQConnectionFactory factory =
-                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options));
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
         assertEquals(5000, factory.getCloseTimeout());
     }
 
@@ -413,7 +433,7 @@ class ActivemqSourceReaderTest {
                 Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
 
         ActiveMQConnectionFactory factory =
-                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options));
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
         assertEquals(10000, factory.getConnectResponseTimeout());
     }
 
