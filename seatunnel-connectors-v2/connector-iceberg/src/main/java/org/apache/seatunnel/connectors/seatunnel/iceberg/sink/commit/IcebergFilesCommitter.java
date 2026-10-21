@@ -133,6 +133,10 @@ public class IcebergFilesCommitter implements Serializable {
                     return committed;
                 }
                 committed.add(Integer.parseInt(group));
+                if (committed.size() == groups.size()) {
+                    // every group is already in the table, no need to walk older history
+                    return committed;
+                }
             }
             Long parentId = current.parentId();
             current = parentId != null ? table.snapshot(parentId) : null;
