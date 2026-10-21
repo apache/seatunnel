@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatab
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -249,12 +250,13 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, addField1, addField2, addField3);
         executeSql(insertMultiColumnSql);
 
-        sleep(30000); // Wait for source capture data
-
-        // Verify that multiple columns were added and data is correct
+        // Verify that multiple columns were added and data is correct.
+        // The wait below already polls for the CDC data, so the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s) instead of blocking
+        // unconditionally first.
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -354,12 +356,12 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyTypeField1, modifyTypeField2);
         executeSql(insertAfterModifyTypesSql);
 
-        sleep(30000); // Wait for source capture data
-
-        // Verify that column types were modified and data is correct
+        // Verify that column types were modified and data is correct.
+        // The wait below already polls for the CDC data; the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s).
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -455,12 +457,12 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
         executeSql(insertAfterModifySql);
 
-        sleep(30000); // Wait for source capture data
-
-        // Verify that columns were modified and data is correct
+        // Verify that columns were modified and data is correct.
+        // The wait below already polls for the CDC data; the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s).
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -507,13 +509,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         // Init table data
         addTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAddColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
-        // stream stage
+        // stream stage; the wait below already polls for the CDC data, the former
+        // fixed 30s pre-wait was folded into the budget (120s + 30s)
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -534,12 +534,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         String modifyField = "f_varchar";
         modifyTableColumn(MYSQL_DATABASE, SOURCE_TABLE, modifyField, "text");
         insertModifyColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
+        // the wait below already polls for the CDC data, the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s)
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             List<Record> records = loadIcebergTable();
@@ -557,12 +556,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
 
         dropTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAfterDropColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
+        // the wait below already polls for the CDC data, the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s)
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -648,12 +646,12 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, newColumnName);
         executeSql(insertAfterRenameSql);
 
-        sleep(30000); // Wait for source capture data
-
-        // Verify that column was renamed and data is correct
+        // Verify that column was renamed and data is correct.
+        // The wait below already polls for the CDC data; the former fixed 30s
+        // pre-wait was folded into the budget (120s + 30s).
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -692,13 +690,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     private void upsertAndCheckData(TestContainer container)
             throws InterruptedException, IOException {
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
-        // stream stage
+        // stream stage; the wait below already polls for the CDC data, the former
+        // fixed 30s pre-wait was folded into the budget (120s + 30s)
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(150000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             List<Record> records = loadIcebergTable();
@@ -717,13 +713,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
             throws InterruptedException, IOException {
         // Init table data
         initSourceTableData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
-        // stream stage
+        // stream stage; the wait below already polls for the CDC data, the former
+        // fixed 30s pre-wait was folded into the budget (60s + 30s)
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(3, loadIcebergTable().size());
@@ -759,6 +753,8 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");

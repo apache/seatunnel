@@ -2,6 +2,10 @@
 
 Seatunnel 的 Kafka 连接器支持解析通过 Kafka Connect Source 抽取的数据，特别是从 Kafka Connect JDBC 和 Kafka Connect Debezium 抽取的数据
 
+## 限制
+
+更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
+
 # 如何使用
 
 ## Kafka 流入 Mysql
