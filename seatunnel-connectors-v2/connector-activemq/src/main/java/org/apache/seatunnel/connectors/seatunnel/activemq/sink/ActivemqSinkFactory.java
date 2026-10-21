@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.ALWAYS_SESSION_ASYNC;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CHECK_FOR_DUPLICATE;
@@ -80,9 +79,9 @@ public class ActivemqSinkFactory implements TableSinkFactory {
                         PRIORITY,
                         PRODUCER_WINDOW_SIZE,
                         TIME_TO_LIVE,
-                        USE_ASYNC_SEND)
-                .optional(CLOSE_TIMEOUT, greaterOrEqual(CLOSE_TIMEOUT, 0))
-                .optional(CONNECT_RESPONSE_TIMEOUT, greaterOrEqual(CONNECT_RESPONSE_TIMEOUT, 0))
+                        USE_ASYNC_SEND,
+                        CLOSE_TIMEOUT,
+                        CONNECT_RESPONSE_TIMEOUT)
                 .build();
     }
 

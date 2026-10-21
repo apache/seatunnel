@@ -134,7 +134,7 @@ class ActivemqFactoryTest {
             config.put("max_in_flight_messages", value);
             Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
         }
-        for (int value : new int[] {0, -1}) {
+        for (int value : new int[] {0, -1, 30001}) {
             Map<String, Object> config = sourceConfig();
             config.put("receive_timeout", value);
             Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
@@ -165,6 +165,18 @@ class ActivemqFactoryTest {
         config.put("warn_about_unstarted_connection_timeout", 1000);
         config.put("consumer_expiry_check_enabled", false);
         Assertions.assertDoesNotThrow(() -> createSource(config));
+
+        // Verify the option rule rejects unknown keys so a regressed rule does not
+        // silently accept typos or misspelled option names.
+        Map<String, Object> unknownConfig = sourceConfig();
+        unknownConfig.put("nonexistent_option_key", "value");
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(unknownConfig),
+                                new ActivemqSourceFactory().optionRule(),
+                                "ActiveMQ"));
     }
 
     @Test

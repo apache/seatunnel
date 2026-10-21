@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.activemq;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -213,6 +217,30 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testSourceParallelConsumersWithClientId() throws Exception {
+        String queue = newQueue();
+        try (SourceReader<SeaTunnelRow, Split> first =
+                        createReaderWithClientId(queue, "JSON", 1, "parallel-client", 0);
+                SourceReader<SeaTunnelRow, Split> second =
+                        createReaderWithClientId(queue, "JSON", 1, "parallel-client", 1)) {
+            RowCollector firstRows = new RowCollector();
+            RowCollector secondRows = new RowCollector();
+            // Register both consumers before publishing so neither prefetches the whole queue.
+            first.pollNext(firstRows);
+            second.pollNext(secondRows);
+            publish(queue, "{\"value\":\"first\"}");
+            publish(queue, "{\"value\":\"second\"}");
+            awaitRows(first, firstRows, 1);
+            awaitRows(second, secondRows, 1);
+            first.snapshotState(1);
+            second.snapshotState(1);
+            first.notifyCheckpointComplete(1);
+            second.notifyCheckpointComplete(1);
+        }
+        assertNull(receive(queue));
+    }
+
+    @Test
     public void testSourceMessageSelectorFiltersMessages() throws Exception {
         String queue = newQueue();
         publish(queue, "{\"value\":\"match\"}", "msg_type", "car");
@@ -355,6 +383,36 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         return reader;
     }
 
+    private SourceReader<SeaTunnelRow, Split> createReaderWithClientId(
+            String queue, String format, int inFlight, String clientId, int subtaskIndex)
+            throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", brokerUrl());
+        options.put("queue_name", queue);
+        options.put("format", format);
+        options.put("max_in_flight_messages", inFlight);
+        options.put("client_id", clientId);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        ActivemqSource source =
+                (ActivemqSource)
+                        new ActivemqSourceFactory()
+                                .<SeaTunnelRow, Split,
+                                        org.apache.seatunnel.connectors.seatunnel.activemq.source
+                                                .ActivemqSourceEnumerator.State>
+                                        createSource(
+                                                new TableSourceFactoryContext(
+                                                        ReadonlyConfig.fromMap(options),
+                                                        getClass().getClassLoader()))
+                                .createSource();
+        SourceReader<SeaTunnelRow, Split> reader =
+                source.createReader(new TestReaderContext(subtaskIndex));
+        reader.open();
+        reader.addSplits(Collections.singletonList(new Split(0)));
+        return reader;
+    }
+
     private void awaitRows(SourceReader<SeaTunnelRow, Split> reader, RowCollector rows, int count)
             throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
@@ -418,6 +476,43 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         @Override
         public Object getCheckpointLock() {
             return lock;
+        }
+    }
+
+    private static final class TestReaderContext implements SourceReader.Context {
+        private final int subtaskIndex;
+
+        private TestReaderContext(int subtaskIndex) {
+            this.subtaskIndex = subtaskIndex;
+        }
+
+        @Override
+        public int getIndexOfSubtask() {
+            return subtaskIndex;
+        }
+
+        @Override
+        public Boundedness getBoundedness() {
+            return Boundedness.UNBOUNDED;
+        }
+
+        @Override
+        public void signalNoMoreElement() {}
+
+        @Override
+        public void sendSplitRequest() {}
+
+        @Override
+        public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
         }
     }
 }

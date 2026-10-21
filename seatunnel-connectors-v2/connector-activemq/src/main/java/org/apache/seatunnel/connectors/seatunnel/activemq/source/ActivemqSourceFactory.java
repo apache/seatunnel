@@ -42,6 +42,7 @@ import java.net.URISyntaxException;
 
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.ALWAYS_SESSION_ASYNC;
@@ -82,7 +83,10 @@ public class ActivemqSourceFactory implements TableSourceFactory {
                 .optional(FIELD_DELIMITER, notBlank(FIELD_DELIMITER))
                 .optional(MAX_IN_FLIGHT_MESSAGES, greaterThan(MAX_IN_FLIGHT_MESSAGES, 0))
                 .optional(MESSAGE_SELECTOR, notBlank(MESSAGE_SELECTOR))
-                .optional(RECEIVE_TIMEOUT, greaterThan(RECEIVE_TIMEOUT, 0))
+                .optional(
+                        RECEIVE_TIMEOUT,
+                        greaterThan(RECEIVE_TIMEOUT, 0),
+                        lessOrEqual(RECEIVE_TIMEOUT, 30000))
                 .optional(CLIENT_ID, notBlank(CLIENT_ID))
                 .optional(CLOSE_TIMEOUT, greaterOrEqual(CLOSE_TIMEOUT, 0))
                 .optional(CONNECT_RESPONSE_TIMEOUT, greaterOrEqual(CONNECT_RESPONSE_TIMEOUT, 0))

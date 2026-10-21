@@ -78,20 +78,19 @@ public class ActivemqBaseOptions extends ConnectorCommonOptions {
     public static final Option<Integer> CLOSE_TIMEOUT =
             Options.key("close_timeout")
                     .intType()
-                    .defaultValue(5000)
+                    .noDefaultValue()
                     .withDescription(
                             "Sets the timeout, in milliseconds, before a close is considered complete. "
                                     + "Normally a close() on a connection waits for confirmation from the broker. "
-                                    + "This allows the close operation to timeout preventing the client from hanging when no broker is available. "
-                                    + "Defaults to 5000.");
+                                    + "This allows the close operation to timeout preventing the client from hanging when no broker is available.");
 
     public static final Option<Integer> CONNECT_RESPONSE_TIMEOUT =
             Options.key("connect_response_timeout")
                     .intType()
-                    .defaultValue(10000)
+                    .noDefaultValue()
                     .withDescription(
                             "Timeout in milliseconds for the connection establishment response "
-                                    + "from the broker. Defaults to 10000.");
+                                    + "from the broker.");
 
     public static final Option<Boolean> DISPATCH_ASYNC =
             Options.key("dispatch_async")

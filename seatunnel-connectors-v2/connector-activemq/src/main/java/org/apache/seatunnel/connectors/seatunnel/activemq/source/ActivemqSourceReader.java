@@ -96,8 +96,10 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
     private MessageConsumer consumer;
 
     public ActivemqSourceReader(
-            ReadonlyConfig config, DeserializationSchema<SeaTunnelRow> deserializer) {
-        this(config, deserializer, createConnectionFactory(config));
+            ReadonlyConfig config,
+            DeserializationSchema<SeaTunnelRow> deserializer,
+            int subtaskIndex) {
+        this(config, deserializer, createConnectionFactory(config, subtaskIndex));
     }
 
     ActivemqSourceReader(
@@ -112,7 +114,8 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
     }
 
     // Package-private so the factory wiring can be exercised in tests without a live broker.
-    static ActiveMQConnectionFactory createConnectionFactory(ReadonlyConfig config) {
+    static ActiveMQConnectionFactory createConnectionFactory(
+            ReadonlyConfig config, int subtaskIndex) {
         ActivemqSourceFactory.validate(config);
         ActiveMQConnectionFactory factory =
                 new ActiveMQConnectionFactory(config.get(URI) + "?connectionTimeout=10000");
@@ -124,9 +127,11 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
         factory.setWatchTopicAdvisories(false);
         factory.setTrustAllPackages(false);
         factory.setTrustedPackages(Collections.emptyList());
-        factory.setCloseTimeout(config.get(CLOSE_TIMEOUT));
-        factory.setConnectResponseTimeout(config.get(CONNECT_RESPONSE_TIMEOUT));
-        config.getOptional(CLIENT_ID).ifPresent(factory::setClientID);
+        factory.setCloseTimeout(config.getOptional(CLOSE_TIMEOUT).orElse(5000));
+        factory.setConnectResponseTimeout(
+                config.getOptional(CONNECT_RESPONSE_TIMEOUT).orElse(10000));
+        config.getOptional(CLIENT_ID)
+                .ifPresent(clientId -> factory.setClientID(clientId + "-" + subtaskIndex));
         config.getOptional(ALWAYS_SESSION_ASYNC).ifPresent(factory::setAlwaysSessionAsync);
         config.getOptional(CHECK_FOR_DUPLICATE).ifPresent(factory::setCheckForDuplicates);
         config.getOptional(DISPATCH_ASYNC).ifPresent(factory::setDispatchAsync);

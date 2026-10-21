@@ -92,11 +92,11 @@ limitations under the License.
 
 ### receive_timeout [int]
 
-`consumer.receive()` 在每批首次轮询时的超时时间（毫秒）。值越小检查点响应越快，但队列空闲时 CPU 占用越高。默认为 200。
+`consumer.receive()` 在每批首次轮询时的超时时间（毫秒）。值越小检查点响应越快，但队列空闲时 CPU 占用越高。此超时在 reader 的 checkpoint 锁内执行；接近 checkpoint 间隔的值可能延迟 barrier 处理和 checkpoint 完成。最大允许值为 30000。默认为 200。
 
 ### client_id [string]
 
-设置连接的 JMS 客户端 ID。某些代理认证和审计策略要求设置非空 clientID；持久订阅也要求设置（不适用于队列源）。必须在代理的所有连接中唯一，重复会导致连接错误。
+设置连接的 JMS 客户端 ID。某些代理认证和审计策略要求设置非空 clientID；持久订阅也要求设置（不适用于队列源）。source 会在配置值后追加 reader 的 subtask 索引（例如 `my-client` 在第一个 reader 变为 `my-client-0`，第二个变为 `my-client-1`），使并行 reader 不会冲突。不设置时每个 reader 使用代理生成的连接 ID。
 
 ### close_timeout [int]
 
