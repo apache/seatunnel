@@ -126,7 +126,7 @@ Set `flush_row_size` to complete the task writer after it has handled this many 
 
 Equality deletes written after a rotation must apply to rows written before it, which Iceberg only does for files committed in an earlier snapshot. So when a checkpoint contains equality deletes written after a rotation, it is committed as several snapshots in the order the task writers were completed, instead of one. Readers can see these snapshots one by one; each of them holds a prefix of the changes of the checkpoint. A job restored from that checkpoint only commits the snapshots that are missing. Append-only writes are still committed as one snapshot per checkpoint.
 
-Smaller values use less memory but produce more and smaller files, and for upsert or CDC writes more snapshots. Choose a value that matches the available memory, for example a few hundred thousand to a few million rows.
+Smaller values use less memory but produce more and smaller files. A rotation completes the files of all open partitions of a partitioned table, not only of the current one. In upsert mode every row writes an equality delete, so every rotation becomes its own snapshot: a checkpoint is committed as about (rows per writer in the checkpoint / `flush_row_size`) snapshots. CDC writes split a checkpoint at each rotation that is followed by updates or deletes. Too small a value can therefore bloat the table metadata and slow down planning; keep it large, for example a few hundred thousand to a few million rows, and expire old snapshots regularly.
 
 ```hocon
 sink {
