@@ -45,6 +45,12 @@ public class CalciteMultiCatalogTransform extends AbstractMultiCatalogFlatMapTra
         return new CalciteTransform(config, inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, CalciteTransformConfig.SQL);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityFlatMapTransform(catalogTable);

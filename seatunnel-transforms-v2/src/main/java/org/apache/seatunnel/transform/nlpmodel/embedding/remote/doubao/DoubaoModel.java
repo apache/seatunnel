@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class DoubaoModel extends MultimodalModel {
 
@@ -385,7 +386,7 @@ public class DoubaoModel extends MultimodalModel {
                 fieldValue =
                         String.format(
                                 BASE64_PARAM_TEMPLATE,
-                                fieldSpecModalityType.getGroup().name().toLowerCase(),
+                                fieldSpecModalityType.getGroup().name().toLowerCase(Locale.ROOT),
                                 fieldSpecModalityType.getName(),
                                 srcField.toBase64());
             }

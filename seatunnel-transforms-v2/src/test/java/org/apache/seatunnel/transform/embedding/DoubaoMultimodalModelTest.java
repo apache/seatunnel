@@ -36,6 +36,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -471,5 +472,72 @@ public class DoubaoMultimodalModelTest {
         ObjectNode result = model.multimodalBody(multimodalFieldValue);
         ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("image_url", inputNode.get("type").asText());
+    }
+
+    @Test
+    void testBinaryBase64MimeTypeIsLocaleIndependent() {
+        // The base64 payload embeds the modality group as a MIME type. Lower-casing IMAGE under a
+        // Turkish default locale yields a dotless i, so the wire value would carry a mangled
+        // MIME type instead of "data:image/png".
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            Map<String, Object> fieldConfig = new HashMap<>();
+            fieldConfig.put("field", "binary_image_field");
+            fieldConfig.put("modality", "png");
+            fieldConfig.put("format", "binary");
+            Map.Entry<String, Object> entry =
+                    new java.util.AbstractMap.SimpleEntry<>("binary_image_vector", fieldConfig);
+
+            VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(entry);
+            byte[] imageData = "mock-image-data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            MultimodalFieldValue value =
+                    new MultimodalFieldValue(
+                            Collections.singletonList(
+                                    new SrcField(
+                                            vectorFieldSpec.getSrcFieldSpecs().get(0), imageData)));
+
+            ObjectNode result = model.multimodalBody(value);
+            String url =
+                    ((ObjectNode) result.get("input").get(0)).get("image_url").get("url").asText();
+            Assertions.assertTrue(
+                    url.startsWith("data:image/png;base64,"),
+                    "MIME type must not depend on the default locale, but was: "
+                            + url.substring(0, Math.min(url.length(), 24)));
+            Assertions.assertTrue(url.endsWith(Base64.getEncoder().encodeToString(imageData)));
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
+
+    @Test
+    void testFileSuffixModalityDetectionIsLocaleIndependent() {
+        // An upper-case suffix is lower-cased before it is matched against the extension list.
+        // Under a Turkish default locale the I becomes a dotless i, so the suffix matches no
+        // known extension and the modality is silently not detected.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            Map<String, Object> fieldConfig = new HashMap<>();
+            fieldConfig.put("field", "image_field");
+            fieldConfig.put("format", "url");
+            Map.Entry<String, Object> entry =
+                    new java.util.AbstractMap.SimpleEntry<>("image_vector", fieldConfig);
+
+            VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(entry);
+            MultimodalFieldValue value =
+                    new MultimodalFieldValue(
+                            Collections.singletonList(
+                                    new SrcField(
+                                            vectorFieldSpec.getSrcFieldSpecs().get(0),
+                                            "https://example.com/photo.GIF")));
+
+            Assertions.assertEquals(
+                    ModalityType.GIF, value.getSrcFields().get(0).getFieldSpec().getModalityType());
+            Assertions.assertTrue(ModalityType.TIFF.supportsExtension("TIF"));
+            Assertions.assertTrue(ModalityType.AVI.supportsExtension("AVI"));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

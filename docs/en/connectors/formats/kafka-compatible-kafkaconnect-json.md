@@ -10,6 +10,10 @@ Seatunnel connector kafka supports parsing data extracted through kafka connect 
 | key_converter_schema_enabled  | true    | no       | Whether the Kafka Connect key converter carries its schema in the JSON payload. |
 | value_converter_schema_enabled| true    | no       | Whether the Kafka Connect value converter carries its schema in the JSON payload. |
 
+## Limitations
+
+UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
+
 # How To Use
 
 ## Kafka Sink Mysql
