@@ -78,11 +78,15 @@ jobs:
                 output: {
                   title: 'Workflow run detection failed',
                   summary: `
-            Unable to detect the workflow run for testing the changes in your PR.
+            Unable to detect the workflow run for testing the changes in your PR. The build for a PR runs in your fork, and no \`Build\` workflow run was found there for the PR head commit.
 
-            1. If you did not enable GitHub Actions in your forked repository, please enable it by clicking the button as shown in the image below. See also [Disabling or limiting GitHub Actions for a repository](https://docs.github.com/en/github/administering-a-repository/disabling-or-limiting-github-actions-for-a-repository) for more details.
-            2. Create and push an empty commit to trigger the workflow.
-            3. It is possible your branch is based on the old \`dev\` branch in Apache SeaTunnel, please sync your branch to the latest dev branch. For example as below:
+            1. Open the **Actions** tab of your fork. If it shows the enable button below (GitHub Actions was never enabled or was disabled, e.g. by a billing or spending-limit hold on the account), enable it, then start a run as in step 2. While Actions is disabled, nothing runs in the fork — including this build. See also [Disabling or limiting GitHub Actions for a repository](https://docs.github.com/en/github/administering-a-repository/disabling-or-limiting-github-actions-for-a-repository) for more details.
+            2. GitHub did not create a run for your push (a lost trigger — nothing is wrong with your changes). Start one by hand: select the **Build** workflow in your fork's **Actions** tab, click **Run workflow** and pick this PR branch. The scheduled \`Update build status workflow\` then adopts the run for this check within 15 minutes. Alternatively, create and push an empty commit:
+                \`\`\`bash
+                git commit --allow-empty -m "Trigger CI"
+                git push
+                \`\`\`
+            3. If your branch is based on the old \`dev\` branch in Apache SeaTunnel, please sync your branch to the latest dev branch and push again. For example as below:
                 \`\`\`bash
                 git fetch upstream
                 git rebase upstream/dev

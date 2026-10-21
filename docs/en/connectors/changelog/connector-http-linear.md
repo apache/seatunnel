@@ -2,6 +2,6 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-| [Feature] [connector-http-linear] Add Linear HTTP Source Connector and Unit Test (#12270) | https://github.com/apache/seatunnel/commit/56cfbca0fb | dev |
+|[Feature][Connector-V2] Add Linear HTTP source connector|[https://github.com/apache/seatunnel/commit/56cfbca0fb](https://github.com/apache/seatunnel/commit/56cfbca0fb)|Next|
 
 </details>

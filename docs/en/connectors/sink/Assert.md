@@ -55,6 +55,7 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | no       | -       |
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | no       | -       |
 | rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | no       | -       |
+| rules.catalog_table_rule.column_rule.sink_type                                                 | string                                          | no       | -       |
 | rules.table-names                                                                              | ConfigList                                      | no       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | no       | -       |
@@ -78,6 +79,8 @@ field name（string）
 ### field_type [string | ConfigMap]
 
 Field type declarations should adhere to this [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
+
+This option is optional. If it is not configured, the connector checks a field value against the actual field type of the incoming row (the upstream schema), so you do not have to repeat the type declaration. If it is configured, the field value must match the declared type; a mismatch makes the row fail the rule and the job fails. In both cases the type check only applies to non-null values, and the rules in `field_value` are always evaluated with the field type of the incoming row. Whether a null value is allowed is decided by the `NOT_NULL` and `NULL` rules in `field_value`.
 
 ### field_value [ConfigList]
 
@@ -110,6 +113,11 @@ The value related to rule type. When the `rule_type` is `MIN`, `MAX`, `MIN_LENGT
 ### catalog_table_rule [ConfigMap]
 
 Used to assert that the actual catalog table metadata is the same as the user-defined table metadata.
+
+`column_rule` compares the produced columns with the declared ones. `sink_type` is optional: when it
+is declared, the sink type of the produced column has to match it, which is useful for transforms
+that declare sink types, for example [DefineSinkType](../../transforms/define-sink-type.md). When it is
+omitted, the sink type of the column is not checked.
 
 ### table-names [ConfigList]
 

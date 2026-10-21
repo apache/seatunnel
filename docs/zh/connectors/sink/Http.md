@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-http.md';
 
 |             名称              |   类型   | 是否必须 |  默认值  |                             描述                             |
 |-----------------------------|--------|------|-------|------------------------------------------------------------|
-| url                         | String | 是    | -     | Http 请求链接                                                  |
+| url                         | String | 是    | -     | HTTP 请求链接，不能为空或仅包含空白字符。                                      |
 | headers                     | Map    | 否    | -     | Http 请求头                                                    |
 | params                      | Map    | 否    | -     | 该参数会通过参数校验。当前 Sink 写入器会把数据作为请求体 POST 到最终 URL，如需查询参数，建议直接写在 `url` 中。 |
 | retry                       | Int    | 否    | -     | 如果请求http返回`IOException`的最大重试次数                             |
