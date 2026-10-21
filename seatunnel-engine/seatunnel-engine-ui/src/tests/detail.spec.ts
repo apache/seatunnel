@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createApp, h } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
@@ -82,6 +82,10 @@ describe('detail', () => {
     const pinia = createPinia()
     app.use(pinia)
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   test('should not display NaN when tablePaths does not match metrics keys', async () => {
@@ -189,7 +193,6 @@ describe('detail', () => {
     await flushPromises()
 
     expect(getJobInfo).toHaveBeenCalledTimes(1)
-    vi.useRealTimers()
   })
 
   test('should treat two status-less responses from an older server as missing', async () => {
@@ -220,7 +223,6 @@ describe('detail', () => {
 
     expect(getJobInfo).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Job not found')
-    vi.useRealTimers()
   })
 
   test('should recover from one status-less response', async () => {
@@ -263,7 +265,6 @@ describe('detail', () => {
 
     expect(getJobInfo).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Recovered')
-    vi.useRealTimers()
   })
 
   test('should show an error result when getJobInfo rejects', async () => {
@@ -338,7 +339,6 @@ describe('detail', () => {
 
     expect(getJobInfo).toHaveBeenCalledTimes(3)
     expect(wrapper.text()).toContain('Recovered')
-    vi.useRealTimers()
   })
 
   test('should warn once per error streak and reset after a successful refresh', async () => {
@@ -400,6 +400,5 @@ describe('detail', () => {
     vi.advanceTimersByTime(5000)
     await flushPromises()
     expect(warningSpy).toHaveBeenCalledTimes(3)
-    vi.useRealTimers()
   })
 })
