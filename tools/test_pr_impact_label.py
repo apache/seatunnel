@@ -682,6 +682,12 @@ class LabelPlanTest(unittest.TestCase):
         self.assertEqual([impact.label_name(n) for n in (LOW, MEDIUM, HIGH)], ["impact: low", "impact: medium", "impact: high"])
         self.assertEqual((sorted(impact.LEVEL_META), sorted(impact.LEVEL_NAMES)), ([LOW, MEDIUM, HIGH], [1, 2, 3]))
 
+    def test_label_descriptions_fit_the_github_limit(self):
+        # Found live: `gh label create` rejected a 101-character description, leaving the label without one.
+        for level, (color, description) in impact.LEVEL_META.items():
+            self.assertLessEqual(len(description), 100, level)
+            self.assertRegex(color, r"^[0-9a-f]{6}$")
+
     def test_label_commands_cover_every_level_for_the_one_time_committer_step(self):
         commands = impact.label_commands("apache/seatunnel")
         self.assertEqual(len(commands), 3)

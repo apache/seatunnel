@@ -98,10 +98,11 @@ import urllib.request
 LABEL_PREFIX = "impact: "
 LOW, MEDIUM, HIGH = 1, 2, 3
 LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
+# GitHub limits a label description to 100 characters.
 LEVEL_META = {
     LOW: ("0e8a16", "Docs, tests, tooling, a new connector, or an internal change to one connector"),
-    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with impact facts (new option, credentials, weakened tests, supply chain)"),
-    HIGH: ("d73a4a", "Engine, API, platform, CI, or a public core class / option contract of an existing connector"),
+    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with impact facts (new option, credentials...)"),
+    HIGH: ("d73a4a", "Engine, API, platform, CI, or a public core class / option contract of a connector"),
 }
 
 # ------------------------------------------------------------------------------------------
