@@ -23,42 +23,46 @@ blocks, merges or comments on a PR: merge permission stays with committers.
 
 How the level is computed (see compute_level):
 
-  level = high                               when a critical fact is present
-  level = min(high, base + adjustments)      otherwise      (low = 1, medium = 2, high = 3)
+  high    only from WHAT was touched:
+            - any file under seatunnel-engine or seatunnel-api (tests and docs included)
+            - other platform code: core, common, config, formats, transforms, translation, dist, CI
+              workflows and actions, tools, license files, root or non-connector pom.xml, build
+              wrapper and repository settings
+            - a public core class of an existing connector modified or deleted: *Source, *Sink,
+              *Factory, *Catalog, and the persisted *Split, *State, *CommitInfo, *Serializer classes
+              (shared base modules included), or serialVersionUID touched. A *Factory edit that only
+              touches option-rule declarations is an option-surface change (medium), not a core change
+            - the option contract broken: an option key removed, or its default/type changed
+  medium  a shared connector module's internal file (connector-common, *-base, JDBC core,
+          fake/assert/console), deploy manifests, an unclassified path, a PR to a non-default
+          branch, or a low PR with at least two points of facts:
+            +2  option key added to an existing connector (new user surface)
+            +2  public core class added to an existing connector (new entry point)
+            +2  factory option rule changed (required/optional declarations only)
+            +2  existing credential-handling code changed (declarations that only name an option
+                do not count)
+            +2  new supply chain: an artifact, (artifact, version) pair or version property value
+                that no pom of the base branch uses; repositories/profiles/antrun/exec in a pom
+            +2  existing tests weakened (fewer assertions, test disabled, tolerance loosened, file
+                deleted)
+            +2  registration entry removed (module, dist dependency, plugin mapping, service,
+                plugin_config)
+            +2  diff cannot be inspected, or text addressed to a reviewer/AI
+            +1  TLS/auth, concurrency or classloading words in modified existing code
+            +1  production code larger than 250 lines (1500 for a brand-new connector)
+            +1  production code changed without any added or changed test
+            +1  several connector units, or production file deleted/renamed
+            +1  new connector without docs
+            +1  dependency or version line of an existing pom changed (known values)
+  low     everything else: docs, examples, metadata, tests, tooling (CLI, benchmarks, examples), a
+          brand-new connector, a registration-only change, and any internal change to one existing
+          connector with fewer than two points of facts.
 
-  base (who is affected if the PR is wrong)
-    low     docs (including .github templates), examples, labeler metadata, tests; a brand-new
-            connector; one existing connector unit; a registration-only change
-    medium  tooling around the runtime (CLI, benchmarks, examples, deploy); an unclassified path
-    high    any change under seatunnel-engine or seatunnel-api (tests and docs included); other
-            platform code: core, common, config, formats, transforms, translation, dist, CI
-            workflows and actions, tools, license files, root or non-connector pom.xml; a shared
-            connector module (connector-common, *-base, JDBC core, fake/assert/console); edge
-            agent, build wrapper and repository settings
-
-  critical facts (high regardless of base)
-    credential handling changed in existing production code (password, secret, token, keytab, ...;
-    option declarations that only name such an option do not count)
-
-  adjustments (each rule counts once per PR, computed from the whole PR, not from single lines)
-    +2  option key removed, or default/type changed (a key that only moved between files is neutral)
-    +2  existing checkpoint/split/state/commit-info class or serialVersionUID modified
-    +2  new supply chain: an artifact, (artifact, version) pair or version property value that no
-        pom of the base branch uses; repositories/profiles/antrun/exec in a pom
-    +2  existing tests weakened (fewer assertions, test disabled, tolerance loosened, file deleted)
-    +2  registration entry removed (module, dist dependency, plugin mapping, service, plugin_config)
-    +2  diff cannot be inspected (binary or oversized), or text addressed to a reviewer/AI
-    +1  TLS/auth, concurrency or classloading words in modified existing code
-    +1  production code larger than 250 lines (1500 for a brand-new connector)
-    +1  production code changed without any added or changed test (method, assertion or fixture)
-    +1  several connector units, or production file deleted/renamed
-    +1  new connector without docs, or new option without docs
-    +1  dependency or version line of an existing pom changed (known values)
-  A PR to a branch other than the default branch is at least medium.
-
-The author's association with the project plays no role. Keyword findings that are only suggestive
-(hot-path readers/writers, type mapping, empty catch, removed throw, credentials in a brand-new
-connector) are notes and never change the level.
+Each fact counts once per PR and is computed from the whole PR, not from single lines; lines that
+only moved within the PR are ignored. The author's association with the project plays no role.
+Suggestive findings (hot-path readers/writers, type mapping, empty catch, removed throw, a new
+option without a docs change, credentials in a brand-new connector) are notes and never change
+the level.
 
 SECURITY MODEL: the script only reads the PR through the GitHub API; it never checks out or executes
 PR code. The workflows follow the ASF policy for untrusted PRs: `pull_request` (read-only token,
@@ -95,9 +99,9 @@ LABEL_PREFIX = "risk: "
 LOW, MEDIUM, HIGH = 1, 2, 3
 LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
 LEVEL_META = {
-    LOW: ("0e8a16", "Docs, tests, a new connector or one connector unit, with no risk facts"),
-    MEDIUM: ("fbca04", "Tooling, an unclassified path, or a contained change with one risk fact"),
-    HIGH: ("d73a4a", "Engine, API, platform, CI, shared modules, credential handling, or a contract change"),
+    LOW: ("0e8a16", "Docs, tests, tooling, a new connector, or an internal change to one connector"),
+    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with risk facts (new option, credentials, weakened tests, supply chain)"),
+    HIGH: ("d73a4a", "Engine, API, platform, CI, or a public core class / option contract of an existing connector"),
 }
 
 # ------------------------------------------------------------------------------------------
@@ -124,7 +128,7 @@ PLATFORM_BLOCKS = [
     (r"^seatunnel-dist/", "distribution packaging", HIGH),
     (r"^seatunnel-ci-tools/", "CI tooling module", HIGH),
     (r"^seatunnel-(edge-agent|trace)/", "edge agent and tracing runtime", HIGH),
-    (r"^seatunnel-(cli|benchmarks|examples)/", "CLI, benchmarks and examples (tooling around the runtime)", MEDIUM),
+    (r"^seatunnel-(cli|benchmarks|examples)/", "CLI, benchmarks and examples (tooling around the runtime)", LOW),
     (r"^deploy/", "deployment charts and manifests", MEDIUM),
     (r"^(mvnw|\.mvn/|\.asf\.yaml|CODEOWNERS)", "build wrapper and repository settings", HIGH),
     (r"^(plugin-mapping\.properties|config/|bin/|plugins/|LICENSE|NOTICE|licenses/)",
@@ -182,10 +186,22 @@ JDBC_SHARED_DIRS = {"dialectenum", "utils"}
 # Content facts (applied to changed lines only)
 # ------------------------------------------------------------------------------------------
 
-# Classes whose objects are persisted by checkpoints or savepoints; modifying them can break restore.
-PERSISTED_FILE_RE = re.compile(
-    r"(Split|State|CommitInfo|Checkpoint)\.java$|(SplitSerializer|StateSerializer|CommitInfoSerializer)\.java$|/state/"
+# Public core classes of a connector: the entry points and lifecycle classes that implement the SeaTunnel
+# API (Source, Sink, Factory, Catalog) and the classes whose objects are persisted by checkpoints (Split,
+# State, CommitInfo, Serializer). Readers, writers, enumerators, committers, clients and utilities are
+# implementation detail and are not matched.
+CORE_CLASS_RE = re.compile(r"(Source|Sink|Factory|Catalog|Split|State|CommitInfo|Serializer)\.java$")
+# Lines a Factory edit may consist of without touching the connector's wiring: option-rule declarations,
+# option constants, and structural lines. A Factory diff made only of these is an option-surface change
+# (medium), not a public core class change (high).
+OPTION_RULE_LINE_RE = re.compile(
+    r"OptionRule|\bOptions\b|\.key\(|\.(required|optional|exclusive|conditional|bundled|build)\(|optionRule\(\)"
+    r"|\bConditions\.|\b(notBlank|notNull|notEmpty|extension)\(|^\s*[)\]};]*\s*$|^\s*@Override\s*$"
 )
+
+
+def is_option_rule_line(text):
+    return bool(OPTION_RULE_LINE_RE.search(text) or CONSTANT_LIST_RE.match(text))
 SERIAL_RE = re.compile(r"serialVersionUID")
 OPTION_FILE_RE = re.compile(r"(Option|Options|Config|Configs|Factory|Rule)[A-Za-z0-9]*\.java$")
 OPTION_KEY_RE = re.compile(r"Options\.key\(\"([^\"]+)\"\)")
@@ -342,7 +358,7 @@ def classify_path(path):
         top = path[len(E2E_ROOT):].split("/")[0]
         match = re.match(r"^(connector-.+)-e2e$", top)
         if not match:
-            return "shared", None, "shared:connector-e2e-infra", "shared connector E2E infrastructure"
+            return "test", None, None, None  # shared E2E infrastructure is test code
         return "test", match.group(1), None, None
 
     if path.startswith(CONNECTORS_ROOT):
@@ -437,9 +453,8 @@ def evaluate(pr, files, cfg=None, known=None):
     registration_touched = False
     total_lines = main_code_lines = 0
     test_evidence = has_e2e_test = False
-    option_removed, option_added = {}, set()
+    option_removed, option_added, option_added_in_existing = {}, set(), set()
     option_tokens = {}  # path -> (removed tokens, added tokens, keys on both sides)
-    new_option_in_existing = False
 
     for f in files:
         path = f["filename"]
@@ -502,7 +517,7 @@ def evaluate(pr, files, cfg=None, known=None):
             if gone:
                 sc.adjust(1, "production-removed", path, "production file deleted or renamed")
             if java:
-                _main_facts(sc, path, status, fresh, added, removed, moved)
+                _main_facts(sc, path, status, fresh, gone, added, removed, moved)
                 if OPTION_FILE_RE.search(path):
                     for x in removed:
                         for key in OPTION_KEY_RE.findall(x):
@@ -512,7 +527,7 @@ def evaluate(pr, files, cfg=None, known=None):
                         for key in OPTION_KEY_RE.findall(x):
                             option_added.add(key)
                             if status == "modified":
-                                new_option_in_existing = True
+                                option_added_in_existing.add(key)
                     if status == "modified":
                         option_tokens[path] = (
                             sorted(t for x in removed for t in OPTION_TOKEN_RE.findall(x)),
@@ -522,22 +537,27 @@ def evaluate(pr, files, cfg=None, known=None):
                         )
 
     # Option contract: a key that only moved to another file is neutral; a vanished key or a changed
-    # default/type of a key that stays in the same file is a break for existing jobs.
+    # default/type of a key that stays in the same file breaks existing jobs (high); a new key is new
+    # user surface (medium).
     for key, path in sorted(option_removed.items()):
         if key not in option_added:
-            sc.adjust(2, "option-removed", path, "option key %s no longer exists in the PR" % key)
+            sc.adjust(0, "option-removed", path, "option key %s no longer exists in the PR" % key, critical=True)
     for path, (old, new, both) in sorted(option_tokens.items()):
         if both and old != new:
-            sc.adjust(2, "option-changed", path, "default value or type of an existing option changed")
+            sc.adjust(0, "option-changed", path, "default value or type of an existing option changed", critical=True)
+    # A key is new only if no file of the PR removed it (a re-declared or moved key is not new surface).
+    new_keys = option_added_in_existing - set(option_removed)
+    if new_keys:
+        sc.adjust(2, "option-added", "-", "new option key(s) added to an existing connector: %s" % ", ".join(sorted(new_keys)))
 
     # ---- base level
     if platform:
         base = max(level for _p, _r, level in platform)
-        pr_class = "platform" if base == HIGH else "tooling"
+        pr_class = {HIGH: "platform", MEDIUM: "tooling", LOW: "tooling"}[base]
     elif other:
         base, pr_class = MEDIUM, "other"
     elif shared_units:
-        base, pr_class = HIGH, "shared"
+        base, pr_class = MEDIUM, "shared"
     elif new_modules:
         base, pr_class = LOW, "new-connector"
     elif units:
@@ -559,10 +579,10 @@ def evaluate(pr, files, cfg=None, known=None):
         sc.adjust(1, "no-regression-test", "-", "production code changed but no test method, assertion or fixture was added or changed")
     if new_modules and not added_docs:
         sc.adjust(1, "no-docs", "-", "a new connector should add its page under docs/en/connectors/")
-    if new_option_in_existing and not docs:
-        sc.adjust(1, "option-without-docs", "-", "new option added to an existing connector but no docs changed")
 
     # ---- notes (never change the level)
+    if new_keys and not docs:
+        sc.note("option-without-docs", "-", "new option added to an existing connector but no docs changed")
     if new_modules and not has_e2e_test:
         sc.note("no-e2e", "-", "new connector has no added E2E test method")
     if shared_units:
@@ -592,11 +612,14 @@ def evaluate(pr, files, cfg=None, known=None):
 
 
 def compute_level(base, adjustments):
-    """High when a critical fact is present; otherwise base plus adjustments, capped at high."""
+    """High only from what was touched (base high, or a critical fact); medium from a medium base or at
+    least two points of facts; otherwise low."""
     adjustments = sorted(adjustments, key=lambda a: (not a["critical"], -a["points"], a["rule"]))
-    if any(a["critical"] for a in adjustments):
+    if base == HIGH or any(a["critical"] for a in adjustments):
         return HIGH, adjustments
-    return min(HIGH, base + sum(a["points"] for a in adjustments)), adjustments
+    if base == MEDIUM or sum(a["points"] for a in adjustments) >= 2:
+        return MEDIUM, adjustments
+    return LOW, adjustments
 
 
 def _supply_facts(sc, path, added, known):
@@ -681,18 +704,27 @@ def moved_lines(files):
     return {x for x in added_all & removed_all if len(x) >= MOVED_MIN_LENGTH}
 
 
-def _main_facts(sc, path, status, fresh, added, removed, moved):
+def _main_facts(sc, path, status, fresh, gone, added, removed, moved):
     code = [x for x in added + removed if is_code_line(x, True) and x.strip() not in moved]
+    core = bool(CORE_CLASS_RE.search(path))
+    if fresh:
+        pass  # a brand-new connector has no public contract yet
+    elif core and gone:
+        sc.adjust(0, "core-class-removed", path, "public core class of an existing connector deleted or renamed",
+                  critical=True)
+    elif core and status == "added":
+        sc.adjust(2, "core-class-added", path, "public core class added to an existing connector (new entry point)")
+    elif core and code and path.endswith("Factory.java") and all(is_option_rule_line(x) for x in code):
+        sc.adjust(2, "factory-option-rule", path, "factory option rule changed (option surface, not wiring)")
+    elif core and code:
+        sc.adjust(0, "core-class", path, "public core class of an existing connector modified", critical=True)
     if not fresh and status == "modified":
-        if PERSISTED_FILE_RE.search(path) and code:
-            sc.adjust(2, "persisted-format", path, "checkpoint / split / state / commit-info class modified")
         if any(SERIAL_RE.search(x) for x in code):
-            sc.adjust(2, "persisted-format", path, "serialVersionUID touched")
-        # Credential handling in existing code is critical; declarations that only name an option are not.
+            sc.adjust(0, "persisted-format", path, "serialVersionUID touched", critical=True)
+        # Credential handling in existing code; declarations that only name an option are not.
         for text in code:
             if CREDENTIAL_RE.search(text) and not is_declaration(text):
-                sc.adjust(0, "credential-handling", path, "existing credential handling changed: %s" % text.strip(),
-                          critical=True)
+                sc.adjust(2, "credential-handling", path, "existing credential handling changed: %s" % text.strip())
                 break
         for name, regex, detail in (
             ("concurrency", CONCURRENCY_RE, "threading / locking / async primitive touched"),
@@ -741,15 +773,15 @@ def render_report(result, head_sha):
         "",
         "| Step | Points | Why |",
         "|---|---|---|",
-        "| base | %d | %s |" % (result["base"], BASE_REASON[result["class"]]),
+        "| base | %s | %s |" % (LEVEL_NAMES[result["base"]], BASE_REASON[result["class"]]),
     ]
     for a in result["adjustments"]:
         where = "" if a["file"] == "-" else "%s: " % _md(a["file"])
         more = " (and %d more)" % a["more"] if a["more"] else ""
         points = "critical" if a["critical"] else ("+%d" % a["points"] if a["points"] else "floor")
         lines.append("| %s | %s | %s%s%s |" % (a["rule"], points, where, _md(a["detail"]), more))
-    lines.append("| **result** | **%s** | high for a critical fact, otherwise base plus points, capped at high (low 1, medium 2, high 3) |"
-                 % LEVEL_NAMES[result["level"]])
+    lines.append("| **result** | **%s** | high only for engine/api/platform or a public core class / option contract; "
+                 "medium for a medium base or at least 2 points; otherwise low |" % LEVEL_NAMES[result["level"]])
     if result["notes"]:
         lines += ["", "Notes for the reviewer (they do not change the level):"]
         for n in result["notes"]:
@@ -767,10 +799,10 @@ BASE_REASON = {
     "registration": "registration files only",
     "connector": "one existing connector unit",
     "new-connector": "brand-new connector module",
-    "shared": "shared connector module (dependents are affected)",
+    "shared": "internal file of a shared connector module (dependents are affected)",
     "other": "path outside every known area",
     "platform": "engine, API or other platform code (always high)",
-    "tooling": "tooling around the runtime (CLI, benchmarks, examples, deploy, repository settings)",
+    "tooling": "tooling around the runtime (CLI, benchmarks, examples, deploy)",
 }
 
 
