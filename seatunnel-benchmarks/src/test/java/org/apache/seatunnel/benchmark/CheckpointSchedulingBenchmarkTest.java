@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Threads;
 
 import java.util.Arrays;
@@ -51,5 +52,25 @@ class CheckpointSchedulingBenchmarkTest {
                                         .getAnnotation(Fork.class)
                                         .jvmArgsAppend())
                         .contains("-XX:CompileThresholdScaling=0.05"));
+    }
+
+    @Test
+    void shouldOnlySweepPipelineCountsTheIntervalFloorDoesNotSlowDown() throws Exception {
+        String[] pipelineNums = paramValues("pipelineNum");
+        long triggerSpacingMillis = Long.parseLong(paramValues("triggerSpacingMillis")[0]);
+
+        for (String pipelineNum : pipelineNums) {
+            assertTrue(
+                    Integer.parseInt(pipelineNum) * triggerSpacingMillis
+                            >= CheckpointSchedulingBenchmark.MIN_MEASURABLE_INTERVAL_MILLIS,
+                    "pipelineNum=" + pipelineNum + " would trigger below the sweep's rate");
+        }
+    }
+
+    private static String[] paramValues(String field) throws NoSuchFieldException {
+        return CheckpointSchedulingBenchmark.CoordinatorsState.class
+                .getDeclaredField(field)
+                .getAnnotation(Param.class)
+                .value();
     }
 }
