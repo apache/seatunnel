@@ -152,6 +152,26 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### SQL ARRAY_MAX and ARRAY_MIN Precision
+
+- **Behavior correction: exact integral and DECIMAL array extrema**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform with
+    `engine = ZETA` (default) or `INTERNAL`, on Zeta, Flink and Spark execution engines.
+  - **Description**: Arrays containing only Byte, Short, Integer, Long and BigDecimal
+    values are compared exactly, including mixtures of integral and DECIMAL values.
+    For example, `ARRAY_MAX` over BIGINT values `[9007199254740992, 9007199254740993]`
+    now selects `9007199254740993`. A Long `1` and BigDecimal
+    `1.00000000000000000001` no longer compare equal. If any Float, Double or other
+    Number subtype (including BigInteger) is present, the whole array retains
+    legacy double-based ordering and its possible precision loss.
+  - **Impact**: Jobs relying on rounded comparisons may select different values.
+    The selected original element retains its type and DECIMAL scale, so a different
+    result may also have a different original scale. Equal values retain the first
+    element. Declared output types, input coercion, null handling and floating-point
+    ordering are unchanged.
+  - **Migration Guide**: No configuration or state migration is required. Review
+    downstream expectations that depended on the previous rounded results.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
@@ -206,6 +226,15 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
   values and previously ran successfully will now fail fast at startup with a validation
   error.
+
+### DataValidator Array Length
+
+The `LENGTH` rule now counts array elements rather than characters in the
+array's Java identity string. This can change which array-valued rows pass
+validation. Review array length limits that were adjusted to the previous
+behavior, and check previously skipped or routed data before replaying it.
+String, collection, binary and null handling remain unchanged. No configuration
+or state format migration is required.
 
 ### Zeta REST Pagination Parameter Validation
 

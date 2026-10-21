@@ -130,6 +130,22 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
     （5801）的访问。升级后重启 Pod 以应用新配置。
 
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
@@ -168,6 +184,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
+
+### DataValidator 数组长度
+
+`LENGTH` 规则现在计算数组元素个数，而非数组的 Java 标识字符串长度。
+因此，包含数组的行可能得到与此前不同的验证结果。请检查曾为适应旧行为而调整的数组长度限制，
+并在重放数据前核对此前被跳过或路由到错误表的数据。
+字符串、集合、二进制值和空值的处理保持不变，无需迁移配置或状态格式。
 
 ### Zeta REST 分页参数校验
 
