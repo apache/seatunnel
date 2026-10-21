@@ -54,10 +54,16 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 | 名称                      | 类型       | 是否必须   | 默认值 | 描述 |
 |-------------------------|----------|--------|---------------|---|
-| warehouse               | String   | 是      | -             | Paimon warehouse 路径，不能为空白字符串。 |
+| warehouse               | String   | 是      | -             | Paimon warehouse 路径，不能为空白字符串；`rest` 类型使用托管 warehouse 名称而不是路径。 |
 | catalog_name            | String   | 否      | paimon        | Paimon Catalog 名称。 |
-| catalog_type            | String   | 否      | filesystem    | Paimon Catalog 类型，支持 `filesystem` 和 `hive`。 |
-| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 时是 | -             | Paimon Catalog URI；`catalog_type` 为 `hive` 时必须配置。 |
+| catalog_type            | String   | 否      | filesystem    | Paimon Catalog 类型，支持 `filesystem`、`hive` 和 `rest`。 |
+| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 或 `rest` 时是 | -             | Paimon Catalog URI：Hive Metastore 地址或 REST Catalog 端点；`catalog_type` 为 `hive` 或 `rest` 时必须配置。 |
+| token.provider          | String   | `catalog_type` 为 `rest` 时是 | -             | REST Catalog 的认证方式，只能是 `bear` 或 `dlf`。 |
+| token                   | String   | `token.provider` 为 `bear` 时是 | -             | REST Catalog 的 Bearer token。 |
+| dlf.access-key-id       | String   | `token.provider` 为 `dlf` 时是 | -             | DLF 的 Access Key ID。 |
+| dlf.access-key-secret   | String   | `token.provider` 为 `dlf` 时是 | -             | DLF 的 Access Key Secret。 |
+| dlf.security-token      | String   | 否 | -             | 可选的 DLF 临时安全令牌。 |
+| dlf.region              | String   | 否 | -             | DLF 区域；未配置时从 `catalog_uri` 推断。 |
 | database                | String   | 是      | -             | 需要访问的数据库。 |
 | table                   | String   | 未配置 `table_list` 时是 | -             | 需要访问的表；必须在 `table` 和 `table_list` 中选择一个配置。 |
 | table_list              | array    | 未配置 `table` 时是 | -             | 需要读取的表列表；每项必须包含 `database` 和 `table`，可单独配置 `query`。 |
@@ -70,15 +76,15 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ### warehouse [string]
 
-Paimon warehouse 路径，不能为空白字符串。
+Paimon warehouse 路径；REST catalog 使用托管 warehouse 名称。不能为空白字符串。
 
 ### catalog_type [string]
 
-Paimon Catalog 类型，支持 filesystem 和 hive
+Paimon Catalog 类型，支持 `filesystem`、`hive` 和 `rest`。
 
 ### catalog_uri [string]
 
-Paimon 的 catalog URI。当 `catalog_type` 为 `hive` 时必须配置。
+Hive metastore URI 或 REST catalog 端点。当 `catalog_type` 为 `hive` 或 `rest` 时必须配置。
 
 ### database [string]
 
@@ -142,6 +148,58 @@ Paimon 连接器支持从多个文件系统读取数据。目前，支持的文�
 如果使用 `s3` 文件系统，可以在 `paimon.hadoop.conf` 中配置`fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` 属性，数仓地址应该以 `s3a://` 开头。
 
 ## 示例
+
+### REST catalog 认证
+
+`catalog_type = "rest"` 使用 Paimon 1.1.1 内置的 REST 实现。`catalog_uri` 为 HTTPS catalog 端点，`warehouse` 为托管 warehouse **名称**，而不是 HDFS/S3 路径。表的存储位置由 REST 服务返回；worker 仍需具有底层存储的访问权限和凭证。现有 filesystem 和 Hive 配置保持不变。
+
+REST 的 `catalog_uri` 必须是包含主机且不含用户信息的 HTTP 或 HTTPS URL。除回环地址测试外，请使用 HTTPS：非回环主机使用 HTTP 会产生警告，因为认证凭证会明文传输。`token.provider` 必填，且仅接受小写 `bear` 或 `dlf`。`bear` 要求非空白的 `token`；`dlf` 要求同时配置 `dlf.access-key-id` 和 `dlf.access-key-secret`。
+
+Bearer token 和 DLF 凭证在解析后的配置日志中自动脱敏。配置加密时，`token` 默认包含在 `shade.identifier` 的处理范围内；DLF 密钥必须显式加入 `shade.options` 才能加密和解密。日志脱敏本身不会加密配置。不要在端点 URL 中放置凭证。请通过环境变量或部署环境的密钥机制传入。
+
+REST 仅转发显式配置的 Hadoop 存储参数。`paimon.hadoop.conf` 和指定的 Hadoop XML 文件中禁止配置 catalog 和认证键（`uri`、`warehouse`、`metastore`、`token`、`token.*`、`dlf.*`，包括带 `hadoop.` 前缀的形式）。请通过下方的顶层选项配置 REST 认证。此版本不支持 `dlf.token-path`、`dlf.token-loader`、`dlf.token-ecs-*` 和 `token.refresh-time`，也不能通过 `paimon.hadoop.conf` 启用它们。
+
+解析后的配置脱敏不会过滤依赖库日志。Paimon 1.1.1 在 `org.apache.paimon.utils.HadoopUtils` 启用 DEBUG 日志时会记录 Hadoop 存储参数的值，其中可能包含凭据。使用包含凭据的存储配置时，请将此日志级别保持为 INFO 或更高。
+
+Paimon 1.1.1 的共享 OkHttp 客户端会跟随跨主机重定向并转发 `x-dlf-security-token`，但会移除 bearer `Authorization`。请使用可信且不会重定向到其他主机的 catalog 端点，不要依赖重定向保护 DLF 临时凭证。此连接器没有修改该依赖库限制。
+
+Bearer 示例：
+
+```hocon
+source {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "bear"
+    token = ${PAIMON_REST_TOKEN}
+  }
+}
+```
+
+DLF 示例（将 `catalog_uri` 替换为实际 DLF 端点）：
+
+```hocon
+source {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "dlf"
+    "dlf.access-key-id" = ${DLF_ACCESS_KEY_ID}
+    "dlf.access-key-secret" = ${DLF_ACCESS_KEY_SECRET}
+    "dlf.security-token" = ${?DLF_SECURITY_TOKEN}
+    "dlf.region" = "cn-hangzhou"
+  }
+}
+```
+
+`dlf.security-token` 是可选参数，仅临时凭证需要。若 Paimon 可从 DLF 端点推断 region，则可省略 `dlf.region`。此实现传递静态凭证，不提供临时凭证自动刷新。请在目标部署环境中验证真实 DLF 认证及云存储权限。
+
 
 ### 简单示例
 
@@ -322,6 +380,8 @@ SeaTunnel Paimon 源连接器支持批处理快照读取与流式 changelog 消�
 ### 如何配置 Paimon 的存储路径与 Catalog？
 
 通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `catalog_type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
+
+使用 `catalog_type = "rest"` 时，`warehouse` 应为托管仓库名称而非存储路径，并按上述示例配置 `catalog_uri` 和 Catalog 认证参数。底层存储参数仍通过 `paimon.hadoop.conf` 配置，与 REST Catalog 凭据分开。
 
 ### Paimon 源连接器是否支持列投影？
 
