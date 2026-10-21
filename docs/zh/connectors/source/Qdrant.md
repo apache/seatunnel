@@ -86,6 +86,7 @@ Qdrant 实例的 gRPC 端口。
 ### api_key [string]
 
 连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
+通过不可信网络传输 API key 时，请设置 `use_tls = true`；否则密钥会通过未加密的 gRPC 连接发送。
 
 ### use_tls [bool]
 

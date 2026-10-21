@@ -21,10 +21,18 @@ import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.doris.backend.BackendClient;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.PartitionDefinition;
 import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
+import org.apache.seatunnel.connectors.doris.source.reader.DorisValueReader;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplitEnumerator;
 
@@ -36,10 +44,14 @@ import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -140,5 +152,80 @@ public class DorisSourceSplitEnumeratorTest {
         } else {
             return filesPerIteration;
         }
+    }
+
+    /**
+     * The asynchronous fetch thread cannot throw to the reader, so it records the failure and
+     * {@code hasNext()} must report it instead of returning an end of stream. Before the fix the
+     * reader polled forever in this case.
+     */
+    @Test
+    public void dorisValueReaderReportsAsyncFetchFailure() {
+        BackendClient client = Mockito.mock(BackendClient.class);
+        Mockito.when(client.getNext(Mockito.any()))
+                .thenThrow(
+                        new DorisConnectorException(
+                                DorisConnectorErrorCode.BACKEND_CLIENT_FAILED,
+                                "simulated backend failure"));
+        DorisValueReader reader = newAsyncValueReader(client);
+
+        // The asynchronous fetch fails while reading the first batch.
+        ReflectionUtils.invoke(reader, "asyncFetchBatches");
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () ->
+                                Assertions.assertTimeoutPreemptively(
+                                        Duration.ofSeconds(10), reader::hasNext));
+        Assertions.assertTrue(
+                String.valueOf(exception.getMessage()).contains("simulated backend failure"),
+                "the backend failure should be reported: " + exception);
+    }
+
+    /**
+     * {@code close()} must stop the asynchronous fetch, otherwise a reader waiting for its first
+     * batch keeps polling and {@code hasNext()} never returns.
+     */
+    @Test
+    public void dorisValueReaderCloseStopsAsyncFetch() {
+        BackendClient client = Mockito.mock(BackendClient.class);
+        DorisValueReader reader = newAsyncValueReader(client);
+        Thread asyncThread = Mockito.mock(Thread.class);
+        ReflectionUtils.setField(reader, DorisValueReader.class, "asyncThread", asyncThread);
+
+        reader.close();
+
+        Mockito.verify(asyncThread).interrupt();
+        Mockito.verify(client).closeScanner(Mockito.any());
+        Assertions.assertFalse(
+                Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10), reader::hasNext));
+    }
+
+    /**
+     * Builds a reader with the asynchronous read path enabled and a mocked backend, without running
+     * the constructor, which opens a real scan on a Doris backend.
+     */
+    private DorisValueReader newAsyncValueReader(BackendClient client) {
+        DorisValueReader reader = Mockito.mock(DorisValueReader.class, Mockito.CALLS_REAL_METHODS);
+        ReflectionUtils.setField(reader, DorisValueReader.class, "client", client);
+        ReflectionUtils.setField(reader, DorisValueReader.class, "clientLock", new ReentrantLock());
+        ReflectionUtils.setField(reader, DorisValueReader.class, "eos", new AtomicBoolean(false));
+        ReflectionUtils.setField(
+                reader,
+                DorisValueReader.class,
+                "rowBatchBlockingQueue",
+                new ArrayBlockingQueue<>(2));
+        ReflectionUtils.setField(
+                reader,
+                DorisValueReader.class,
+                "seaTunnelRowType",
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE}));
+        ReflectionUtils.setField(
+                reader, DorisValueReader.class, "deserializeArrowToRowBatchAsync", true);
+        ReflectionUtils.setField(reader, DorisValueReader.class, "asyncThreadStarted", true);
+        ReflectionUtils.setField(reader, DorisValueReader.class, "contextId", "test-context");
+        return reader;
     }
 }
