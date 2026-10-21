@@ -1765,9 +1765,15 @@ public class KafkaIT extends AbstractKafkaIT {
     @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
     public void testKafkaAvroTombstoneToAssert(TestContainer container)
             throws IOException, InterruptedException, ExecutionException {
+        // The Kafka broker is shared across all engine variants in this class, so this test
+        // needs its own topic. With a fixed name every later template run would also read the
+        // records written by the earlier ones and trip the exact-100-row assertion.
+        String topic = startModeTopic(container, "avro-tombstone");
+        createKafkaTopic(topic);
+
         DefaultSeaTunnelRowSerializer serializer =
                 DefaultSeaTunnelRowSerializer.create(
-                        "test_avro_tombstone_topic",
+                        topic,
                         SEATUNNEL_ROW_TYPE,
                         MessageFormat.AVRO,
                         DEFAULT_FIELD_DELIMITER,
@@ -1779,14 +1785,14 @@ public class KafkaIT extends AbstractKafkaIT {
         generateTestData(row -> serializer.serializeRow(row), 0, 50);
         producer.send(
                         new ProducerRecord<>(
-                                "test_avro_tombstone_topic",
-                                "tombstone-key".getBytes(StandardCharsets.UTF_8),
-                                null))
+                                topic, "tombstone-key".getBytes(StandardCharsets.UTF_8), null))
                 .get();
         generateTestData(row -> serializer.serializeRow(row), 50, 100);
 
         Container.ExecResult execResult =
-                container.executeJob("/avro/kafka_avro_tombstone_to_assert.conf");
+                container.executeJob(
+                        "/avro/kafka_avro_tombstone_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

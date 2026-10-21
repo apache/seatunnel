@@ -605,8 +605,12 @@ source {
 
 ### 墓碑消息（tombstone）
 
-墓碑消息是只有 key、没有 value 的 Kafka 记录，压缩主题用它标记某个 key 已被删除。源端把墓碑消息读取为不产生任何数据行的记录：它不属于格式错误，因此无论
-`format_error_handle_way` 取何值都会被跳过，并且位点会继续向前推进。
+墓碑消息是只有 key、没有 value 的 Kafka 记录，压缩主题用它标记某个 key 已被删除。对于 `json`、`text`、`canal_json`、
+`debezium_json`、`ogg_json`、`maxwell_json` 和 `avro` 格式，源端把墓碑消息读取为不产生任何数据行的记录：它不属于格式错误，因此无论
+`format_error_handle_way` 取何值都会被跳过，并且位点会继续向前推进。其中 `text`、`canal_json`、`debezium_json`、`ogg_json`
+和 `avro` 对空（长度为 0）的 value 也做同样处理；`json` 和 `maxwell_json` 仅跳过 null value。
+
+`protobuf` 格式没有这样的空值判断，不适用上述行为。
 
 ### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
 
