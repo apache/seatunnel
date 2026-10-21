@@ -75,7 +75,7 @@ This source uses the existing driver connection/authentication configuration and
 
 ## Notes
 
-- Use exactly one authentication method: username/password, bearer token, or Kerberos ticket.
+- Configure at least one authentication method: username/password, bearer token, or Kerberos ticket. If several are configured, username/password takes precedence, followed by bearer token and Kerberos ticket.
 - `query` controls which fields are returned. `schema.fields` must list the returned field names and their SeaTunnel types.
 - In multi-table mode, keep connection and authentication options at the root level. Each `tables_configs` item defines one `query` and one `schema`.
 - Every multi-table `schema` must set a unique `table`. Rows use this value as their table ID for downstream routing.
