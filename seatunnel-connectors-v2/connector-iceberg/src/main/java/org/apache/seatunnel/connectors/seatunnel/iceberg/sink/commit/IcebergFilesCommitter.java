@@ -38,8 +38,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
@@ -50,6 +52,16 @@ public class IcebergFilesCommitter implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public static final String SNAPSHOT_PROPERTY_CHECKPOINT_ID = "seatunnel.checkpoint-id";
+
+    /**
+     * Set when one checkpoint is committed as several ordered snapshots: the 0-based position of
+     * this snapshot, and how many there are. A snapshot that carries the checkpoint id but no group
+     * index covers the whole checkpoint.
+     */
+    public static final String SNAPSHOT_PROPERTY_COMMIT_GROUP = "seatunnel.commit-group";
+
+    public static final String SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT =
+            "seatunnel.commit-group-count";
 
     private IcebergTableLoader icebergTableLoader;
     private boolean caseSensitive;
@@ -68,7 +80,64 @@ public class IcebergFilesCommitter implements Serializable {
 
     public void doCommit(List<WriteResult> results, long checkpointId) {
         TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
-        commit(tableIdentifier, results, checkpointId);
+        commit(tableIdentifier, results, checkpointId, -1, 1);
+    }
+
+    /**
+     * Commits the groups of one checkpoint as separate snapshots, in order, so that equality
+     * deletes of a later group get a higher sequence number than the data files of the earlier
+     * ones. When restoring, groups that already reached the table are skipped.
+     */
+    public void doCommitInOrder(
+            List<List<WriteResult>> groups, long checkpointId, boolean skipCommittedGroups) {
+        TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
+        Set<Integer> committed =
+                skipCommittedGroups
+                        ? committedGroups(checkpointId, groups)
+                        : Collections.emptySet();
+        for (int group = 0; group < groups.size(); group++) {
+            if (committed.contains(group)) {
+                log.info(
+                        "Group {}/{} of checkpoint {} already committed to Iceberg table, skipping",
+                        group + 1,
+                        groups.size(),
+                        checkpointId);
+                continue;
+            }
+            commit(tableIdentifier, groups.get(group), checkpointId, group, groups.size());
+        }
+    }
+
+    private Set<Integer> committedGroups(long checkpointId, List<List<WriteResult>> groups) {
+        Set<Integer> committed = new HashSet<>();
+        if (checkpointId <= 0) {
+            for (int group = 0; group < groups.size(); group++) {
+                if (areFilesAlreadyCommitted(groups.get(group))) {
+                    committed.add(group);
+                }
+            }
+            return committed;
+        }
+        Table table = icebergTableLoader.loadTable();
+        String expected = String.valueOf(checkpointId);
+        Snapshot current = headSnapshot(table);
+        while (current != null) {
+            Map<String, String> summary = current.summary();
+            if (expected.equals(summary.get(SNAPSHOT_PROPERTY_CHECKPOINT_ID))) {
+                String group = summary.get(SNAPSHOT_PROPERTY_COMMIT_GROUP);
+                if (group == null) {
+                    // committed as a single snapshot before the job was restarted
+                    for (int i = 0; i < groups.size(); i++) {
+                        committed.add(i);
+                    }
+                    return committed;
+                }
+                committed.add(Integer.parseInt(group));
+            }
+            Long parentId = current.parentId();
+            current = parentId != null ? table.snapshot(parentId) : null;
+        }
+        return committed;
     }
 
     public boolean isAlreadyCommitted(long checkpointId, List<WriteResult> results) {
@@ -157,7 +226,11 @@ public class IcebergFilesCommitter implements Serializable {
     }
 
     private void commit(
-            TableIdentifier tableIdentifier, List<WriteResult> results, long checkpointId) {
+            TableIdentifier tableIdentifier,
+            List<WriteResult> results,
+            long checkpointId,
+            int group,
+            int groupCount) {
         List<DataFile> dataFiles =
                 results.stream()
                         .filter(payload -> payload.getDataFiles() != null)
@@ -185,6 +258,10 @@ public class IcebergFilesCommitter implements Serializable {
                 if (checkpointId > 0) {
                     append.set(SNAPSHOT_PROPERTY_CHECKPOINT_ID, String.valueOf(checkpointId));
                 }
+                if (group >= 0) {
+                    append.set(SNAPSHOT_PROPERTY_COMMIT_GROUP, String.valueOf(group));
+                    append.set(SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT, String.valueOf(groupCount));
+                }
                 dataFiles.forEach(append::appendFile);
                 append.commit();
             } else {
@@ -195,6 +272,10 @@ public class IcebergFilesCommitter implements Serializable {
                 delta.caseSensitive(caseSensitive);
                 if (checkpointId > 0) {
                     delta.set(SNAPSHOT_PROPERTY_CHECKPOINT_ID, String.valueOf(checkpointId));
+                }
+                if (group >= 0) {
+                    delta.set(SNAPSHOT_PROPERTY_COMMIT_GROUP, String.valueOf(group));
+                    delta.set(SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT, String.valueOf(groupCount));
                 }
                 dataFiles.forEach(delta::addRows);
                 deleteFiles.forEach(delta::addDeletes);
