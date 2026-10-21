@@ -42,12 +42,14 @@ hazelcast:
         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
         properties:
           type: hdfs
-          namespace: /tmp/seatunnel/imap
+          namespace: /seatunnel/imap
           clusterName: seatunnel-session-cluster
           storage.type: hdfs
-          # Pod-local example. Use shared storage for active/standby failover.
-          # fs.defaultFS: hdfs://namenode:8020/seatunnel/imap
-          fs.defaultFS: file:///tmp/
+          # Runnable default: shared PVC mounted at /opt/seatunnel/data.
+          # For S3/OSS/COS/GCS, keep type: hdfs (the IMap factory identifier)
+          # and change storage.type plus the matching bucket/credential keys;
+          # see docs/en/getting-started/kubernetes/configuration.md#imap-mapstore.
+          fs.defaultFS: file:///opt/seatunnel/data
   properties:
     hazelcast.invocation.max.retry.count: 20
     hazelcast.tcp.join.port.try.count: 30

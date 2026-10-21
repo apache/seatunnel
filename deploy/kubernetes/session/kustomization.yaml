@@ -21,6 +21,7 @@ resources:
   - root-configmap.yaml
   - rbac.yaml
   - services.yaml
+  - pvc.yaml
   - statefulset-master.yaml
 configMapGenerator:
   - name: seatunnel-session-cluster-config
@@ -33,7 +34,7 @@ configMapGenerator:
       - conf/jvm_master_options
       - conf/jvm_client_options
       - conf/jvm_worker_options
-      - conf/session.yaml
+      - session-cluster.yaml
     options:
       labels:
         seatunnel.apache.org/session: seatunnel-session-cluster

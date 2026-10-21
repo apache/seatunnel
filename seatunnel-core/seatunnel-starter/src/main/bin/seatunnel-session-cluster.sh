@@ -44,7 +44,7 @@ fi
 
 SEATUNNEL_CONFIG=${SEATUNNEL_CONFIG:-${CONF_DIR}/seatunnel.yaml}
 HAZELCAST_CONFIG=${HAZELCAST_CONFIG:-${CONF_DIR}/hazelcast-master.yaml}
-SEATUNNEL_SESSION_CONFIG=${SEATUNNEL_SESSION_CONFIG:-${CONF_DIR}/session.yaml}
+SEATUNNEL_SESSION_CONFIG=${SEATUNNEL_SESSION_CONFIG:-${CONF_DIR}/session-cluster.yaml}
 
 if [ ! -f "${SEATUNNEL_CONFIG}" ]; then
   echo "Error: File ${SEATUNNEL_CONFIG} does not exist." >&2

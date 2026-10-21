@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.config;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -74,40 +75,52 @@ public interface KubernetesWorkloadConfig {
      *
      * @return label map, or an empty map when no selector is configured
      */
-    Map<String, String> getMasterNodeSelector();
+    default Map<String, String> getMasterNodeSelector() {
+        return Collections.emptyMap();
+    }
 
     /**
      * Returns node selector labels applied to worker Pods.
      *
      * @return label map, or an empty map when no selector is configured
      */
-    Map<String, String> getWorkerNodeSelector();
+    default Map<String, String> getWorkerNodeSelector() {
+        return Collections.emptyMap();
+    }
 
     /**
      * Returns tolerations applied to master Pods.
      *
      * @return tolerations, or an empty list when none are configured
      */
-    List<KubernetesToleration> getMasterTolerations();
+    default List<KubernetesToleration> getMasterTolerations() {
+        return Collections.emptyList();
+    }
 
     /**
      * Returns tolerations applied to worker Pods.
      *
      * @return tolerations, or an empty list when none are configured
      */
-    List<KubernetesToleration> getWorkerTolerations();
+    default List<KubernetesToleration> getWorkerTolerations() {
+        return Collections.emptyList();
+    }
 
     /**
      * Returns an optional SeaTunnel configuration file path for a JVM system property.
      *
      * @return configuration path, or {@code null} to use the image default
      */
-    String getSeatunnelConfigFile();
+    default String getSeatunnelConfigFile() {
+        return null;
+    }
 
     /**
      * Returns an optional Log4j configuration file path for a JVM system property.
      *
      * @return configuration path, or {@code null} to use the image default
      */
-    String getLog4jConfigFile();
+    default String getLog4jConfigFile() {
+        return null;
+    }
 }

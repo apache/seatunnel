@@ -74,12 +74,24 @@ public class ResourceRequestHandler {
 
     private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final boolean allowDynamicWorker;
+
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
             ConcurrentMap<Address, WorkerProfile> registerWorker,
             AbstractResourceManager resourceManager,
             SlotAllocationStrategy slotAllocationStrategy) {
+        this(jobId, resourceProfile, registerWorker, resourceManager, slotAllocationStrategy, true);
+    }
+
+    ResourceRequestHandler(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            ConcurrentMap<Address, WorkerProfile> registerWorker,
+            AbstractResourceManager resourceManager,
+            SlotAllocationStrategy slotAllocationStrategy,
+            boolean allowDynamicWorker) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
@@ -89,6 +101,7 @@ public class ResourceRequestHandler {
         this.allocateStrategy =
                 resourceManager.getEngineConfig().getSlotServiceConfig().getAllocateStrategy();
         this.slotAllocationStrategy = slotAllocationStrategy;
+        this.allowDynamicWorker = allowDynamicWorker;
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
@@ -115,7 +128,15 @@ public class ResourceRequestHandler {
                                 LOGGER,
                                 (unused, error) -> {
                                     if (error != null) {
-                                        completeRequestWithException(toExternalException(error));
+                                        if (allowDynamicWorker
+                                                && resourceManager.supportDynamicWorker()
+                                                && unwrapCompletionException(error)
+                                                        instanceof NoEnoughResourceException) {
+                                            applyByDynamicWorker(tags);
+                                        } else {
+                                            completeRequestWithException(
+                                                    toExternalException(error));
+                                        }
                                     } else {
                                         List<ResourceProfile> needRequestResource =
                                                 stillNeedRequestResource();
@@ -135,7 +156,8 @@ public class ResourceRequestHandler {
                                             }
                                             if (requestSlotWithRetryError != null) {
                                                 // meaning have some slot not request success
-                                                if (resourceManager.supportDynamicWorker()) {
+                                                if (allowDynamicWorker
+                                                        && resourceManager.supportDynamicWorker()) {
                                                     applyByDynamicWorker(tags);
                                                 } else {
                                                     int failedIndex =
@@ -307,21 +329,36 @@ public class ResourceRequestHandler {
             needApplyResource.add(resourceProfile.get(index));
             needApplyIndex.add(index);
         }
-        resourceManager.findNewWorker(needApplyResource, tags);
-        resourceManager
-                .applyResources(jobId, needApplyResource, tags)
-                .whenComplete(
-                        withTryCatch(
-                                LOGGER,
-                                (s, e) -> {
-                                    if (e != null) {
-                                        completeRequestWithException(e);
-                                        return;
-                                    }
-                                    for (int i = 0; i < s.size(); i++) {
-                                        addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
-                                    }
-                                }));
+        if (needApplyResource.isEmpty()) {
+            completeRequestWithException(
+                    new NoEnoughResourceException(
+                            "No missing slot is available for dynamic worker allocation"));
+            return;
+        }
+        try {
+            resourceManager.findNewWorker(needApplyResource, tags);
+        } catch (RuntimeException failure) {
+            completeRequestWithException(toExternalException(failure));
+            return;
+        }
+        try {
+            resourceManager
+                    .applyResources(jobId, needApplyResource, tags, false)
+                    .whenComplete(
+                            withTryCatch(
+                                    LOGGER,
+                                    (s, e) -> {
+                                        if (e != null) {
+                                            completeRequestWithException(e);
+                                            return;
+                                        }
+                                        for (int i = 0; i < s.size(); i++) {
+                                            addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
+                                        }
+                                    }));
+        } catch (RuntimeException failure) {
+            completeRequestWithException(toExternalException(failure));
+        }
     }
 
     /**

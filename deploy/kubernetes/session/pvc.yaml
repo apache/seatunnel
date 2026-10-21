@@ -1,4 +1,3 @@
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,31 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-session:
-  name: seatunnel-session-cluster
-  cluster-name: seatunnel-session-cluster
-  root-config-map: seatunnel-session-cluster-meta
-  master:
-    port: 5801
-  worker:
-    min-workers: 2
-    max-workers: 32
-    slots: 8
-    cpu-cores: 2
-    memory-mb: 4096
-    heap-mb: 3072
-    image: apache/seatunnel:<session-enabled-image>
-    # Build this image from the current branch; a released 3.0.1 image does not
-    # contain the session cluster entrypoint or Kubernetes session provider.
-    image-pull-policy: IfNotPresent
-    service-account: default
-    config-map: seatunnel-session-cluster-config
-    jvm-options: "-Xms3g -Xmx3g"
-  dynamic-worker:
-    enabled: true
-    startup-timeout-millis: 120000
-    retry-interval-millis: 3000
-kubernetes:
+# Shared storage for checkpoints and Hazelcast IMAP state.
+# ReadWriteMany requires a storage class that supports shared volumes
+# (for example NFS, CephFS, or a cloud file-storage class).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seatunnel-session-cluster-data
   namespace: seatunnel
+  labels:
+    seatunnel.apache.org/session: seatunnel-session-cluster
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi

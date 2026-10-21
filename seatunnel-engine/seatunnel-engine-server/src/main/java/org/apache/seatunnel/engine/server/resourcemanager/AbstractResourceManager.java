@@ -187,6 +187,21 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public CompletableFuture<List<SlotProfile>> applyResources(
             long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {
+        return applyResources(jobId, resourceProfile, tagFilter, true);
+    }
+
+    /**
+     * Applies resources with an explicit dynamic-worker switch.
+     *
+     * <p>The follow-up allocation after a dynamic worker has been created must not recurse into
+     * dynamic provisioning again; otherwise a failed allocation keeps creating new workers.
+     */
+    protected CompletableFuture<List<SlotProfile>> applyResources(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            Map<String, String> tagFilter,
+            boolean allowDynamicWorker)
+            throws NoEnoughResourceException {
         waitingWorkerRegister();
         ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
         if (matchedWorker.isEmpty()) {
@@ -194,7 +209,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(
-                        jobId, resourceProfile, matchedWorker, this, slotAllocationStrategy)
+                        jobId,
+                        resourceProfile,
+                        matchedWorker,
+                        this,
+                        slotAllocationStrategy,
+                        allowDynamicWorker)
                 .request(tagFilter);
     }
 

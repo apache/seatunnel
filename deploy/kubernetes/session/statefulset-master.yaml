@@ -96,10 +96,15 @@ spec:
             - name: master-config
               mountPath: /opt/seatunnel/config
               readOnly: true
+            - name: session-data
+              mountPath: /opt/seatunnel/data
       volumes:
         - name: master-config
           configMap:
             name: seatunnel-session-cluster-config
+        - name: session-data
+          persistentVolumeClaim:
+            claimName: seatunnel-session-cluster-data
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

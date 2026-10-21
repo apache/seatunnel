@@ -70,6 +70,9 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
     private volatile ScheduledFuture<?> reconcileTask;
 
     private static final long MAX_RECONCILE_DELAY_MILLIS = 60_000L;
+    private static final long MIN_RECONCILE_DELAY_MILLIS = 1L;
+    private static final long REGISTRATION_POLL_INTERVAL_MILLIS = 200L;
+    private static final int MAX_BACKOFF_SHIFT = 6;
 
     public SessionResourceManager(
             NodeEngine nodeEngine,
@@ -143,36 +146,42 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
     public CompletableFuture<List<SlotProfile>> applyResources(
             long jobId, List<ResourceProfile> resourceProfiles, Map<String, String> tagFilter)
             throws NoEnoughResourceException {
-        if (supportDynamicWorker()) {
+        return applyResources(jobId, resourceProfiles, tagFilter, true);
+    }
+
+    @Override
+    protected CompletableFuture<List<SlotProfile>> applyResources(
+            long jobId,
+            List<ResourceProfile> resourceProfiles,
+            Map<String, String> tagFilter,
+            boolean allowDynamicWorker)
+            throws NoEnoughResourceException {
+        if (allowDynamicWorker && supportDynamicWorker()) {
             awaitInitialWorkerRegistration();
             if (workers.isEmpty() && pending.isEmpty()) {
                 findNewWorker(resourceProfiles, tagFilter);
             }
         }
-        return super.applyResources(jobId, resourceProfiles, tagFilter);
+        return super.applyResources(jobId, resourceProfiles, tagFilter, allowDynamicWorker);
     }
 
     /**
-     * Waits for the initially created worker set to register before a job can be rejected.
+     * Waits for the first registered worker only when the pool has no registered member yet.
      *
      * <p>The coordinator activates as soon as the worker Pods are launched, without waiting for
      * their Hazelcast heartbeats. A job submitted in that window would otherwise be rejected even
-     * though the minimum worker set is healthy and about to register. This wait is bounded by
-     * {@code startup-timeout-millis} and runs on the job scheduling thread, not under the manager
-     * monitor or on the coordinator activation path.
+     * though the minimum worker set is about to register. Once any worker is registered, partial
+     * shortages are left to the normal slot-deficit path so one slow or stuck Pod cannot block
+     * every job for the whole startup timeout.
      */
     private void awaitInitialWorkerRegistration() {
-        int targetPods;
-        synchronized (this) {
-            targetPods = Math.min(specification.getMinWorkers(), currentWorkerCount());
-        }
-        if (targetPods <= 0) {
+        if (workerCount(Collections.emptyMap()) > 0) {
             return;
         }
         long deadline =
                 System.nanoTime()
                         + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());
-        while (workers.size() < targetPods || workerCount(Collections.emptyMap()) < targetPods) {
+        while (workerCount(Collections.emptyMap()) == 0) {
             if (closed.get()) {
                 throw new NoEnoughResourceException(
                         "Session resource manager closed while waiting for the initial workers");
@@ -180,14 +189,14 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
             if (System.nanoTime() >= deadline) {
                 throw new NoEnoughResourceException(
                         String.format(
-                                "Timed out waiting for initial session workers: expected=%d, pods=%d, registered=%d, timeoutMs=%d",
-                                targetPods,
-                                workers.size(),
-                                workerCount(Collections.emptyMap()),
-                                specification.getStartupTimeoutMillis()));
+                                "Timed out waiting for the first session worker to register: pods=%d, timeoutMs=%d",
+                                workers.size(), specification.getStartupTimeoutMillis()));
             }
             try {
-                TimeUnit.MILLISECONDS.sleep(Math.min(200L, specification.getRetryIntervalMillis()));
+                TimeUnit.MILLISECONDS.sleep(
+                        Math.min(
+                                REGISTRATION_POLL_INTERVAL_MILLIS,
+                                specification.getRetryIntervalMillis()));
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 throw new NoEnoughResourceException(
@@ -203,6 +212,10 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
      * a slow or crash-looping Pod still consumes the {@code max-workers} budget. The reservation is
      * made under the manager monitor, but the registration wait runs after the monitor is released
      * so worker replacement and other jobs are not blocked behind one pending request.
+     *
+     * <p>When the budget is exhausted, this method returns without creating a worker so the caller
+     * can still use slots that became free on the existing workers; the subsequent allocation
+     * attempt reports the actual shortage.
      */
     @Override
     protected void findNewWorker(
@@ -219,26 +232,38 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
         int slotsPerWorker = specification.getWorkerSpecification().getSlots();
         int registeredBefore = workerCount(Collections.emptyMap());
         int launched;
+        boolean waitForPending;
+        boolean waitForUnregistered;
         synchronized (this) {
+            int current = currentWorkerCount();
             int create =
                     calculateWorkers(
                             resourceProfiles.size(),
                             slotsPerWorker,
-                            currentWorkerCount(),
+                            current,
                             specification.getMaxWorkers());
-            if (create <= 0) {
-                throw new NoEnoughResourceException(
-                        String.format(
-                                "Session cluster reached max-workers=%d before satisfying %d missing slots",
-                                specification.getMaxWorkers(), resourceProfiles.size()));
+            waitForPending = create <= 0 && !pending.isEmpty();
+            waitForUnregistered = create <= 0 && workerCount(Collections.emptyMap()) < current;
+            if (create <= 0 && !waitForPending && !waitForUnregistered) {
+                return;
             }
-            log.info(
-                    "Provisioning {} worker(s) for {} missing slot(s); live-or-pending workers={}, max-workers={}",
-                    create,
-                    resourceProfiles.size(),
-                    currentWorkerCount(),
-                    specification.getMaxWorkers());
-            launched = requestWorkers(create);
+            if (create > 0) {
+                log.info(
+                        "Provisioning {} worker(s) for {} missing slot(s); live-or-pending workers={}, max-workers={}",
+                        create,
+                        resourceProfiles.size(),
+                        currentWorkerCount(),
+                        specification.getMaxWorkers());
+                launched = requestWorkers(create);
+            } else {
+                launched = 0;
+            }
+        }
+        if (waitForPending || waitForUnregistered) {
+            // Another request already used the remaining worker budget, or a worker Pod exists
+            // but has not joined Hazelcast yet. Wait for that worker instead of failing the job.
+            awaitAnyRegistration(registeredBefore);
+            return;
         }
         if (launched <= 0) {
             throw new NoEnoughResourceException(
@@ -279,12 +304,28 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
         }
     }
 
+    /**
+     * Computes the next reconcile delay from the consecutive failure count.
+     *
+     * <p>The delay doubles up to {@link #MAX_RECONCILE_DELAY_MILLIS} and never goes below the
+     * configured retry interval.
+     *
+     * @return delay in milliseconds before the next desired-state check
+     */
     private long reconcileDelayMillis() {
-        int failures = Math.min(consecutiveRequestFailures.get(), 6);
-        long delay = Math.max(1L, specification.getRetryIntervalMillis());
+        int failures = Math.min(consecutiveRequestFailures.get(), MAX_BACKOFF_SHIFT);
+        long delay = Math.max(MIN_RECONCILE_DELAY_MILLIS, specification.getRetryIntervalMillis());
         return Math.min(delay << failures, MAX_RECONCILE_DELAY_MILLIS);
     }
 
+    /**
+     * Cancels the pending reconcile and schedules the next one on the single event thread.
+     *
+     * <p>All calls run on the event thread or from callbacks that already hold the manager lock, so
+     * reconcile execution cannot overlap.
+     *
+     * @param delayMillis delay before the next check
+     */
     private synchronized void rescheduleReconcile(long delayMillis) {
         if (closed.get()) {
             return;
@@ -334,7 +375,6 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
                                     consecutiveRequestFailures.incrementAndGet();
                                 } else if (worker != null) {
                                     workers.put(workerId(worker), worker);
-                                    consecutiveRequestFailures.set(0);
                                 }
                             }
                             if (failure != null) {
@@ -380,7 +420,10 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
                                 specification.getStartupTimeoutMillis()));
             }
             try {
-                TimeUnit.MILLISECONDS.sleep(Math.min(200L, specification.getRetryIntervalMillis()));
+                TimeUnit.MILLISECONDS.sleep(
+                        Math.min(
+                                REGISTRATION_POLL_INTERVAL_MILLIS,
+                                specification.getRetryIntervalMillis()));
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 throw new NoEnoughResourceException(
@@ -445,12 +488,19 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     /**
-     * A successful heartbeat proves the replacement is healthy enough to reset crash-loop backoff.
+     * Resets crash-loop backoff only on the first heartbeat from a newly registered worker.
+     *
+     * <p>Heartbeats from an already registered healthy worker must not mask a bad replacement. The
+     * inherited registration map distinguishes first registration from subsequent heartbeats, and
+     * Hazelcast removes an address when its member leaves, so the check needs no parallel set.
      */
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
+        boolean firstHeartbeat = !getRegisterWorker().containsKey(workerProfile.getAddress());
         super.heartbeat(workerProfile);
-        consecutiveRequestFailures.set(0);
+        if (firstHeartbeat) {
+            consecutiveRequestFailures.set(0);
+        }
     }
 
     /**

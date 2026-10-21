@@ -35,8 +35,10 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: /tmp/seatunnel/checkpoint_snapshot
+          namespace: /seatunnel/checkpoint_snapshot
           storage.type: hdfs
-          # Pod-local example. Use shared storage (HDFS/S3/PVC) for failover recovery.
-          # fs.defaultFS: hdfs://namenode:8020/seatunnel/checkpoints
-          fs.defaultFS: file:///tmp/
+          # Runnable default: shared PVC mounted at /opt/seatunnel/data.
+          # HDFS/S3/OSS/COS/GCS are supported by changing storage.type and
+          # adding the matching plugin-config keys; see
+          # docs/en/getting-started/kubernetes/configuration.md#checkpoint-storage.
+          fs.defaultFS: file:///opt/seatunnel/data

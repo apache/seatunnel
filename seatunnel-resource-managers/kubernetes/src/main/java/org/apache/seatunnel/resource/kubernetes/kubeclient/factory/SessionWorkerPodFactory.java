@@ -22,6 +22,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesSessionConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.DataVolumeDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
@@ -75,7 +76,7 @@ public final class SessionWorkerPodFactory extends AbstractWorkloadFactory {
     private V1Pod workerPod(KubernetesConfigMap root, String name, WorkerSpecification resources) {
         String sessionName = parameters.getSessionSpecification().getName();
         Map<String, String> labels = new LinkedHashMap<>(parameters.getWorkerLabels());
-        labels.put("seatunnel.apache.org/session", sessionName);
+        labels.put(KubernetesConstants.SESSION_LABEL, sessionName);
 
         V1Container container = container(resources.getMemoryMb(), resources.getCpuCores());
         container.setCommand(workerCommand());
@@ -96,6 +97,8 @@ public final class SessionWorkerPodFactory extends AbstractWorkloadFactory {
                         .spec(podSpec(container, false));
 
         List<KubernetesStepDecorator> decorators = new ArrayList<>();
+        decorators.add(
+                new DataVolumeDecorator(parameters.getDataClaim(), parameters.getDataMount()));
         decorators.add(new EnvironmentDecorator(parameters));
         decorators.add(new SecretDecorator(sessionName, parameters));
         decorators.add(new ConfigMapDecorator(sessionName, parameters.getWorkerConfigMapEntries()));
@@ -107,10 +110,10 @@ public final class SessionWorkerPodFactory extends AbstractWorkloadFactory {
 
     private List<String> workerCommand() {
         return Arrays.asList(
-                parameters.getSeatunnelHome() + "/bin/seatunnel-cluster.sh",
-                "-r",
-                "worker",
-                "-DJvmOption=" + parameters.getJvmOptions());
+                parameters.getSeatunnelHome() + "/" + KubernetesConstants.SESSION_ENTRYPOINT,
+                KubernetesConstants.NODE_ROLE_FLAG,
+                KubernetesConstants.WORKER_ROLE,
+                KubernetesConstants.JVM_OPTION_PREFIX + parameters.getJvmOptions());
     }
 
     private static V1OwnerReference ownerReference(KubernetesConfigMap root) {

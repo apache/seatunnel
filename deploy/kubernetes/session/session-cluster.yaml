@@ -1,0 +1,54 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+session:
+  name: seatunnel-session-cluster
+  cluster-name: seatunnel-session-cluster
+  root-config-map: seatunnel-session-cluster-meta
+  data-claim: seatunnel-session-cluster-data
+  data-mount: /opt/seatunnel/data
+  worker:
+    min-workers: 2
+    max-workers: 32
+    config-map: seatunnel-session-cluster-config
+    cpu-cores: 2
+    memory-mb: 4096
+    heap-mb: 3072
+    jvm-options: "-Xms3g -Xmx3g"
+  dynamic-worker:
+    enabled: true
+    startup-timeout-millis: 120000
+    retry-interval-millis: 3000
+kubernetes:
+  namespace: seatunnel
+  image: apache/seatunnel:<session-enabled-image>
+  image-pull-policy: IfNotPresent
+  service-account: default
+  seatunnel-home: /opt/seatunnel
+  worker:
+    # labels: "team:data"
+    # annotations: "example.com/owner:data-platform"
+    # node-selector: "pool:session"
+    # tolerations: "dedicated=session:NoSchedule"
+  # image-pull-secrets: registry-secret
+  # secret-ref: session-secret
+  # secret-directory: /etc/seatunnel-secrets/application
+  # env:
+  #   AWS_REGION: us-east-1
+  # env-from:
+  #   secret: s3-credentials
+  #   configmap: shared-settings

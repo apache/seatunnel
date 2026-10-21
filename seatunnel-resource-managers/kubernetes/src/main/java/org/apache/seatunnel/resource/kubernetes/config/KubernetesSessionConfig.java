@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionUtil;
 import org.apache.seatunnel.engine.common.config.spec.SessionSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
@@ -39,14 +42,16 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Parsed {@code session.yaml} used by the Kubernetes session master.
+ * Parsed Session policy and homogeneous worker template.
  *
- * <p>The file is a deployment document, not a job configuration. It contains the homogeneous worker
- * template, the session worker bounds and the Kubernetes resource settings. Job configurations stay
- * HOCON and are submitted through the existing REST API.
+ * <p>The YAML documents are flattened into option keys and read through {@link ReadonlyConfig}, the
+ * same mechanism used by {@link KubernetesApplicationConfig}. {@link KubernetesSessionOptions}
+ * declares every supported key once; the parser and the unknown-key check both use that class. The
+ * fixed slot count is read from the shared engine configuration.
  */
 @Getter
 public final class KubernetesSessionConfig
@@ -54,24 +59,38 @@ public final class KubernetesSessionConfig
 
     private static final Pattern DNS_LABEL = Pattern.compile("[a-z0-9]([-a-z0-9]*[a-z0-9])?");
     private static final int MAX_NAME_LENGTH = 40;
-    private static final int DEFAULT_MIN_WORKERS = 2;
-    private static final int DEFAULT_MAX_WORKERS = 32;
-    private static final int DEFAULT_MEMORY_MB = 1024;
-    private static final int DEFAULT_CPU_CORES = 1;
-    private static final int DEFAULT_SLOTS = 1;
-    private static final int DEFAULT_MASTER_PORT = 5801;
-    private static final long DEFAULT_STARTUP_TIMEOUT_MILLIS = 120_000L;
-    private static final long DEFAULT_RETRY_INTERVAL_MILLIS = 3_000L;
+    private static final int MAX_VOLUME_NAME_LENGTH = 63;
+    private static final String SESSION_NAME_PREFIX = "seatunnel-session-";
+    private static final String ROOT_CONFIG_SUFFIX = "-meta";
+    private static final String WORKER_CONFIG_SUFFIX = "-config";
+    private static final List<Option<?>> SESSION_KUBERNETES_OPTIONS =
+            Arrays.asList(
+                    KubernetesOptions.NAMESPACE,
+                    KubernetesOptions.IMAGE,
+                    KubernetesOptions.IMAGE_PULL_POLICY,
+                    KubernetesOptions.IMAGE_PULL_SECRETS,
+                    KubernetesOptions.SERVICE_ACCOUNT,
+                    KubernetesOptions.SEATUNNEL_HOME,
+                    KubernetesOptions.SECRET_REF,
+                    KubernetesOptions.SECRET_DIRECTORY,
+                    KubernetesOptions.WORKER_LABELS,
+                    KubernetesOptions.WORKER_ANNOTATIONS,
+                    KubernetesOptions.WORKER_NODE_SELECTOR,
+                    KubernetesOptions.WORKER_TOLERATIONS);
 
     private final SessionSpecification sessionSpecification;
     private final String namespace;
     private final String image;
     private final String imagePullPolicy;
+    private final List<String> imagePullSecrets;
     private final String serviceAccount;
+    private final Map<String, String> workerNodeSelector;
+    private final List<KubernetesToleration> workerTolerations;
     private final String rootConfigMap;
+    private final String dataClaim;
+    private final String dataMount;
     private final String workerConfigMap;
     private final String seatunnelHome;
-    private final int masterPort;
     private final int heapMb;
     private final String jvmOptions;
     private final Map<String, String> workerLabels;
@@ -81,112 +100,46 @@ public final class KubernetesSessionConfig
     private final String secretRef;
     private final String secretDirectory;
 
-    private KubernetesSessionConfig(
-            SessionSpecification sessionSpecification,
-            String namespace,
-            String image,
-            String imagePullPolicy,
-            String serviceAccount,
-            String rootConfigMap,
-            String workerConfigMap,
-            String seatunnelHome,
-            int masterPort,
-            int heapMb,
-            String jvmOptions,
-            Map<String, String> workerLabels,
-            Map<String, String> workerAnnotations,
-            List<KubernetesEnvironmentVariable> environmentVariables,
-            List<KubernetesEnvFromReference> envFromReferences,
-            String secretRef,
-            String secretDirectory) {
-        this.sessionSpecification = sessionSpecification;
-        this.namespace = namespace;
-        this.image = image;
-        this.imagePullPolicy = imagePullPolicy;
-        this.serviceAccount = serviceAccount;
-        this.rootConfigMap = rootConfigMap;
-        this.workerConfigMap = workerConfigMap;
-        this.seatunnelHome = seatunnelHome;
-        this.masterPort = masterPort;
-        this.heapMb = heapMb;
-        this.jvmOptions = jvmOptions;
-        this.workerLabels = workerLabels;
-        this.workerAnnotations = workerAnnotations;
-        this.environmentVariables = environmentVariables;
-        this.envFromReferences = envFromReferences;
-        this.secretRef = secretRef;
-        this.secretDirectory = secretDirectory;
-    }
+    private KubernetesSessionConfig(int slots, Map<String, String> rawOptions) {
+        validateDeclaredOptions(rawOptions);
+        ReadonlyConfig options = ReadonlyConfig.fromMap(new LinkedHashMap<>(rawOptions));
 
-    /**
-     * Reads one session deployment file.
-     *
-     * @param path mounted {@code session.yaml}
-     * @return validated session settings
-     * @throws IOException if the file cannot be read or parsed
-     */
-    public static KubernetesSessionConfig read(Path path) throws IOException {
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            return read(reader);
-        }
-    }
-
-    /**
-     * Parses one session deployment document.
-     *
-     * @param yaml session YAML content
-     * @return validated session settings
-     * @throws IOException if the document cannot be parsed
-     */
-    public static KubernetesSessionConfig read(String yaml) throws IOException {
-        return read(new StringReader(yaml));
-    }
-
-    private static KubernetesSessionConfig read(Reader reader) throws IOException {
-        Object loaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(reader);
-        Map<String, Object> root = asMap(loaded, "session document");
-        Map<String, Object> session = childMap(root, "session");
-        Map<String, Object> worker = childMap(session, "worker");
-        Map<String, Object> dynamicWorker = childMap(session, "dynamic-worker");
-        Map<String, Object> kubernetes = childMap(root, "kubernetes");
-
-        String name = requiredString(session, "name", "session.name");
+        String name = requireNonBlank(options, KubernetesSessionOptions.NAME);
         validateName(name);
-        String clusterName = optionalString(session, "cluster-name", "seatunnel-session-" + name);
+        String clusterName =
+                defaultIfNull(
+                        optionalNonBlank(options, KubernetesSessionOptions.CLUSTER_NAME),
+                        defaultClusterName(name));
         String rootConfigMap =
-                optionalString(session, "root-config-map", "seatunnel-session-" + name + "-meta");
-        String image = requiredString(worker, "image", "session.worker.image");
-        String namespace = optionalString(kubernetes, "namespace", "default");
-        String serviceAccount = optionalString(worker, "service-account", "default");
-        String imagePullPolicy = optionalString(worker, "image-pull-policy", "IfNotPresent");
+                defaultIfNull(
+                        optionalNonBlank(options, KubernetesSessionOptions.ROOT_CONFIG_MAP),
+                        defaultRootConfigMap(name));
+        String dataClaim = optionalNonBlank(options, KubernetesSessionOptions.DATA_CLAIM);
         String workerConfigMap =
-                optionalString(worker, "config-map", "seatunnel-session-" + name + "-config");
-        String seatunnelHome =
-                optionalString(
-                        worker, "seatunnel-home", KubernetesConstants.DEFAULT_SEATUNNEL_HOME);
+                defaultIfNull(
+                        optionalNonBlank(options, KubernetesSessionOptions.WORKER_CONFIG_MAP),
+                        defaultWorkerConfigMap(name));
 
-        int minWorkers = optionalInt(worker, "min-workers", DEFAULT_MIN_WORKERS);
-        int maxWorkers = optionalInt(worker, "max-workers", DEFAULT_MAX_WORKERS);
-        int memoryMb = optionalInt(worker, "memory-mb", DEFAULT_MEMORY_MB);
-        int cpuCores = optionalInt(worker, "cpu-cores", DEFAULT_CPU_CORES);
-        int slots = optionalInt(worker, "slots", DEFAULT_SLOTS);
-        int heapMb = optionalInt(worker, "heap-mb", Math.max(1, memoryMb * 3 / 4));
-        int masterPort = optionalInt(childMap(session, "master"), "port", DEFAULT_MASTER_PORT);
-        boolean dynamicEnabled = optionalBoolean(dynamicWorker, "enabled", false);
-        long startupTimeout =
-                optionalLong(
-                        dynamicWorker, "startup-timeout-millis", DEFAULT_STARTUP_TIMEOUT_MILLIS);
-        long retryInterval =
-                optionalLong(dynamicWorker, "retry-interval-millis", DEFAULT_RETRY_INTERVAL_MILLIS);
+        int memoryMb = requirePositiveInt(options, KubernetesSessionOptions.WORKER_MEMORY_MB);
+        int cpuCores = requirePositiveInt(options, KubernetesSessionOptions.WORKER_CPU_CORES);
+        Integer configuredHeap = options.get(KubernetesSessionOptions.WORKER_HEAP_MB);
+        int heapMb =
+                configuredHeap == null
+                        ? defaultHeapMb(memoryMb)
+                        : requirePositiveInt(
+                                KubernetesSessionOptions.WORKER_HEAP_MB, configuredHeap);
         String jvmOptions =
-                optionalString(worker, "jvm-options", "-Xms" + heapMb + "m -Xmx" + heapMb + "m");
-        Map<String, String> labels = stringMap(worker, "labels");
-        Map<String, String> annotations = stringMap(worker, "annotations");
-        List<KubernetesEnvironmentVariable> environmentVariables = environmentVariables(worker);
-        List<KubernetesEnvFromReference> envFromReferences = envFromReferences(worker);
-        String secretRef = optionalString(worker, "secret-ref", null);
-        String secretDirectory =
-                optionalString(worker, "secret-directory", "/etc/seatunnel-secrets/session");
+                defaultIfNull(
+                        optionalNonBlank(options, KubernetesSessionOptions.WORKER_JVM_OPTIONS),
+                        defaultJvmOptions(heapMb));
+
+        int minWorkers = requirePositiveInt(options, KubernetesSessionOptions.MIN_WORKERS);
+        int maxWorkers = requirePositiveInt(options, KubernetesSessionOptions.MAX_WORKERS);
+        boolean dynamicEnabled = options.get(KubernetesSessionOptions.DYNAMIC_WORKER_ENABLED);
+        long startupTimeout =
+                requirePositiveLong(options, KubernetesSessionOptions.STARTUP_TIMEOUT_MILLIS);
+        long retryInterval =
+                requirePositiveLong(options, KubernetesSessionOptions.RETRY_INTERVAL_MILLIS);
 
         WorkerSpecification workerSpecification =
                 new WorkerSpecification(memoryMb, cpuCores, slots);
@@ -201,45 +154,137 @@ public final class KubernetesSessionConfig
                         startupTimeout,
                         retryInterval);
 
-        if (heapMb <= 0 || heapMb >= memoryMb) {
+        if (heapMb >= memoryMb) {
             throw new IllegalArgumentException(
-                    "session.worker.heap-mb must be > 0 and less than session.worker.memory-mb");
+                    KubernetesSessionOptions.WORKER_HEAP_MB.key()
+                            + " must be less than "
+                            + KubernetesSessionOptions.WORKER_MEMORY_MB.key());
         }
-        validateDnsLabel(namespace, "kubernetes.namespace");
-        validateDnsLabel(rootConfigMap, "session.root-config-map");
-        validateDnsLabel(workerConfigMap, "session.worker.config-map");
-        if (masterPort <= 0 || masterPort > 65535) {
-            throw new IllegalArgumentException("session.master.port must be between 1 and 65535");
+        String namespace = dnsLabel(options, KubernetesOptions.NAMESPACE);
+        validateDnsLabel(rootConfigMap, KubernetesSessionOptions.ROOT_CONFIG_MAP.key());
+        validateDnsLabel(workerConfigMap, KubernetesSessionOptions.WORKER_CONFIG_MAP.key());
+        if (dataClaim != null) {
+            validateDataClaim(dataClaim);
+        }
+        String dataMount = absolutePath(options, KubernetesSessionOptions.DATA_MOUNT);
+        String seatunnelHome = absolutePath(options, KubernetesOptions.SEATUNNEL_HOME);
+        String secretDirectory = absolutePath(options, KubernetesOptions.SECRET_DIRECTORY);
+        String secretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
+        if (dataClaim != null) {
+            validateDataMount(dataMount, seatunnelHome, secretRef == null ? null : secretDirectory);
         }
 
-        return new KubernetesSessionConfig(
-                specification,
-                namespace,
-                image,
-                imagePullPolicy,
-                serviceAccount,
-                rootConfigMap,
-                workerConfigMap,
-                seatunnelHome,
-                masterPort,
-                heapMb,
-                jvmOptions,
-                labels,
-                annotations,
-                environmentVariables,
-                envFromReferences,
-                secretRef,
-                secretDirectory);
+        List<String> imagePullSecrets =
+                KubernetesOptionValues.parseList(
+                        options.get(KubernetesOptions.IMAGE_PULL_SECRETS),
+                        KubernetesOptions.IMAGE_PULL_SECRETS.key());
+        Map<String, String> workerNodeSelector =
+                KubernetesOptionValues.parsePairs(
+                        options.get(KubernetesOptions.WORKER_NODE_SELECTOR),
+                        KubernetesOptions.WORKER_NODE_SELECTOR.key());
+        List<KubernetesToleration> workerTolerations =
+                KubernetesToleration.parse(
+                        KubernetesOptions.WORKER_TOLERATIONS.key(),
+                        options.get(KubernetesOptions.WORKER_TOLERATIONS));
+        Map<String, String> workerLabels = workerLabels(options);
+        Map<String, String> workerAnnotations =
+                KubernetesOptionValues.parsePairs(
+                        options.get(KubernetesOptions.WORKER_ANNOTATIONS),
+                        KubernetesOptions.WORKER_ANNOTATIONS.key());
+
+        this.sessionSpecification = specification;
+        this.namespace = namespace;
+        this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
+        this.imagePullPolicy = imagePullPolicy(options);
+        this.imagePullSecrets = imagePullSecrets;
+        this.serviceAccount = requireNonBlank(options, KubernetesOptions.SERVICE_ACCOUNT);
+        this.workerNodeSelector = workerNodeSelector;
+        this.workerTolerations = workerTolerations;
+        this.rootConfigMap = rootConfigMap;
+        this.dataClaim = dataClaim;
+        this.dataMount = dataMount;
+        this.workerConfigMap = workerConfigMap;
+        this.seatunnelHome = seatunnelHome;
+        this.heapMb = heapMb;
+        this.jvmOptions = jvmOptions;
+        this.workerLabels = workerLabels;
+        this.workerAnnotations = workerAnnotations;
+        this.environmentVariables = environmentVariables(rawOptions);
+        this.envFromReferences = envFromReferences(rawOptions);
+        this.secretRef = secretRef;
+        this.secretDirectory = secretDirectory;
     }
 
-    /** @return worker creation timeout used by the session resource manager */
-    public long getStartupTimeoutMillis() {
-        return sessionSpecification.getStartupTimeoutMillis();
+    /**
+     * Reads the Session policy and worker template.
+     *
+     * @param sessionPath mounted {@code session-cluster.yaml}
+     * @param slots fixed slot count from the shared engine configuration
+     * @return validated session settings
+     * @throws IOException if the file cannot be read or parsed
+     */
+    public static KubernetesSessionConfig read(Path sessionPath, int slots) throws IOException {
+        Map<String, String> options = new LinkedHashMap<>();
+        flatten(readYaml(sessionPath, "session document"), "", "session document", options);
+        return read(options, slots);
     }
 
-    /** @return delay between worker registration checks */
-    public long getRetryIntervalMillis() {
-        return sessionSpecification.getRetryIntervalMillis();
+    /**
+     * Parses the Session policy and worker template document.
+     *
+     * @param sessionYaml Session YAML content
+     * @param slots fixed slot count from the shared engine configuration
+     * @return validated session settings
+     * @throws IOException if the document cannot be parsed
+     */
+    public static KubernetesSessionConfig read(String sessionYaml, int slots) throws IOException {
+        Map<String, String> options = new LinkedHashMap<>();
+        flatten(loadYaml(sessionYaml), "", "session document", options);
+        return read(options, slots);
+    }
+
+    private static KubernetesSessionConfig read(Map<String, String> options, int slots) {
+        if (slots <= 0) {
+            throw new IllegalArgumentException("seatunnel.yaml slot-num must be > 0");
+        }
+        return new KubernetesSessionConfig(slots, options);
+    }
+
+    private static Object readYaml(Path path, String document) throws IOException {
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            return loadYaml(reader, document);
+        }
+    }
+
+    private static Object loadYaml(String yaml) throws IOException {
+        return loadYaml(new StringReader(yaml), "document");
+    }
+
+    private static Object loadYaml(Reader reader, String document) throws IOException {
+        return new Yaml(new SafeConstructor(new LoaderOptions())).load(reader);
+    }
+
+    private static void flatten(
+            Object loaded, String prefix, String path, Map<String, String> result) {
+        Map<String, Object> values = asMap(loaded, path);
+        flattenMap(values, prefix, path, result);
+    }
+
+    private static void flattenMap(
+            Map<String, Object> values, String prefix, String path, Map<String, String> result) {
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            String childPath = path + "." + entry.getKey();
+            Object value = entry.getValue();
+            if (value instanceof Map) {
+                flattenMap(asMap(value, childPath), key, childPath, result);
+            } else if (value instanceof List) {
+                throw new IllegalArgumentException(
+                        childPath + " must be a scalar or an object, not a YAML list");
+            } else if (value != null) {
+                result.put(key, String.valueOf(value));
+            }
+        }
     }
 
     @Override
@@ -259,111 +304,174 @@ public final class KubernetesSessionConfig
 
     @Override
     public List<String> getImagePullSecrets() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public Map<String, String> getMasterNodeSelector() {
-        return Collections.emptyMap();
+        return imagePullSecrets;
     }
 
     @Override
     public Map<String, String> getWorkerNodeSelector() {
-        return Collections.emptyMap();
-    }
-
-    @Override
-    public List<KubernetesToleration> getMasterTolerations() {
-        return Collections.emptyList();
+        return workerNodeSelector;
     }
 
     @Override
     public List<KubernetesToleration> getWorkerTolerations() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public String getSeatunnelConfigFile() {
-        return seatunnelHome + "/config/seatunnel.yaml";
-    }
-
-    @Override
-    public String getLog4jConfigFile() {
-        return seatunnelHome + "/config/log4j2.properties";
-    }
-
-    private static List<KubernetesEnvironmentVariable> environmentVariables(
-            Map<String, Object> worker) {
-        Map<String, Object> env = childMap(worker, "env");
-        List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
-        env.forEach(
-                (name, value) ->
-                        variables.add(
-                                KubernetesEnvironmentVariable.fromValue(
-                                        name, String.valueOf(value))));
-        return Collections.unmodifiableList(variables);
-    }
-
-    private static List<KubernetesEnvFromReference> envFromReferences(Map<String, Object> worker) {
-        Map<String, Object> envFrom = childMap(worker, "env-from");
-        List<KubernetesEnvFromReference> references = new ArrayList<>();
-        addEnvFrom(references, envFrom, "secret", true);
-        addEnvFrom(references, envFrom, "configmap", false);
-        return Collections.unmodifiableList(references);
-    }
-
-    private static void addEnvFrom(
-            List<KubernetesEnvFromReference> references,
-            Map<String, Object> envFrom,
-            String key,
-            boolean secret) {
-        Object value = envFrom.get(key);
-        if (value == null) {
-            return;
-        }
-        for (String name : String.valueOf(value).split(",")) {
-            String trimmed = name.trim();
-            if (!trimmed.isEmpty()) {
-                references.add(
-                        secret
-                                ? KubernetesEnvFromReference.secret(trimmed)
-                                : KubernetesEnvFromReference.configMap(trimmed));
-            }
-        }
+        return workerTolerations;
     }
 
     /**
-     * Builds the decorator-chain entries for the worker runtime files.
+     * Builds the worker runtime-file mounts from the user-owned ConfigMap.
      *
-     * <p>The worker ConfigMap is user-owned and is mounted file-by-file through the same {@code
-     * ConfigMapDecorator} used by application mode. Keeping the list here makes the set of required
-     * files explicit instead of hiding the whole image config directory behind one mount.
+     * <p>The worker ConfigMap is part of the Session configuration, so the parsed configuration
+     * owns the required file list and mount paths. The factory only consumes the entries when it
+     * assembles the decorator chain.
      *
-     * @return ConfigMap entries in decorator order
+     * @return ConfigMap entries in decorator order, or an empty list when none is configured
      */
     public List<KubernetesConfigMapEntry> getWorkerConfigMapEntries() {
         if (workerConfigMap == null || workerConfigMap.trim().isEmpty()) {
             return Collections.emptyList();
         }
         Map<String, String> mounts = new LinkedHashMap<>();
-        for (String key :
-                Arrays.asList(
-                        "seatunnel.yaml",
-                        "hazelcast-worker.yaml",
-                        "log4j2.properties",
-                        "jvm_worker_options")) {
-            mounts.put(key, seatunnelHome + "/config/" + key);
+        for (String key : KubernetesConstants.SESSION_WORKER_CONFIG_FILES) {
+            mounts.put(key, seatunnelHome + "/" + KubernetesConstants.CONFIG_DIRECTORY + "/" + key);
         }
         return Collections.singletonList(
-                KubernetesConfigMapEntry.reference("worker", workerConfigMap, mounts));
+                KubernetesConfigMapEntry.reference(
+                        KubernetesConstants.WORKER_CONFIG_ENTRY, workerConfigMap, mounts));
+    }
+
+    private static List<KubernetesEnvironmentVariable> environmentVariables(
+            Map<String, String> rawOptions) {
+        List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
+        for (Map.Entry<String, String> entry : rawOptions.entrySet()) {
+            if (entry.getKey().startsWith(KubernetesConstants.ENV_PREFIX)) {
+                variables.add(
+                        KubernetesEnvironmentVariable.fromValue(
+                                entry.getKey().substring(KubernetesConstants.ENV_PREFIX.length()),
+                                entry.getValue()));
+            }
+        }
+        return Collections.unmodifiableList(variables);
+    }
+
+    private static List<KubernetesEnvFromReference> envFromReferences(
+            Map<String, String> rawOptions) {
+        List<KubernetesEnvFromReference> references = new ArrayList<>();
+        addEnvFrom(
+                references,
+                KubernetesOptionValues.parseList(
+                        rawOptions.get(KubernetesConstants.ENV_FROM_SECRET),
+                        KubernetesConstants.ENV_FROM_SECRET),
+                true);
+        addEnvFrom(
+                references,
+                KubernetesOptionValues.parseList(
+                        rawOptions.get(KubernetesConstants.ENV_FROM_CONFIGMAP),
+                        KubernetesConstants.ENV_FROM_CONFIGMAP),
+                false);
+        return Collections.unmodifiableList(references);
+    }
+
+    private static void addEnvFrom(
+            List<KubernetesEnvFromReference> references, List<String> names, boolean secret) {
+        for (String name : names) {
+            references.add(
+                    secret
+                            ? KubernetesEnvFromReference.secret(name)
+                            : KubernetesEnvFromReference.configMap(name));
+        }
+    }
+
+    /**
+     * Rejects unknown options so a misspelled key fails at startup instead of being ignored.
+     *
+     * <p>Session keys are declared by {@link KubernetesSessionOptions}. Shared Kubernetes keys are
+     * the ones this class actually consumes from {@link KubernetesOptions}; {@code
+     * kubernetes.env.*} is dynamic, while the two {@code kubernetes.env-from.*} keys are fixed.
+     *
+     * @param options flattened Session and Kubernetes options
+     * @throws IllegalArgumentException if a key is neither declared nor dynamic
+     */
+    private static void validateDeclaredOptions(Map<String, String> options) {
+        Set<String> sessionKeys = OptionUtil.getDeclaredOptionKeys(KubernetesSessionOptions.class);
+        for (String key : options.keySet()) {
+            if (sessionKeys.contains(key)
+                    || isSharedKubernetesKey(key)
+                    || key.startsWith(KubernetesConstants.ENV_PREFIX)
+                    || KubernetesConstants.ENV_FROM_SECRET.equals(key)
+                    || KubernetesConstants.ENV_FROM_CONFIGMAP.equals(key)) {
+                continue;
+            }
+            throw new IllegalArgumentException(
+                    "Unknown Session option " + key + "; check the option name");
+        }
+    }
+
+    private static boolean isSharedKubernetesKey(String key) {
+        for (Option<?> option : SESSION_KUBERNETES_OPTIONS) {
+            if (option.key().equals(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Map<String, String> workerLabels(ReadonlyConfig options) {
+        Map<String, String> labels =
+                KubernetesOptionValues.parsePairs(
+                        options.get(KubernetesOptions.WORKER_LABELS),
+                        KubernetesOptions.WORKER_LABELS.key());
+        if (labels.containsKey(KubernetesConstants.APPLICATION_LABEL)
+                || labels.containsKey(KubernetesConstants.ROLE_LABEL)
+                || labels.containsKey(KubernetesConstants.SESSION_LABEL)) {
+            throw new IllegalArgumentException(
+                    KubernetesOptions.WORKER_LABELS.key()
+                            + " must not override SeaTunnel ownership labels");
+        }
+        return labels;
     }
 
     private static void validateName(String name) {
         if (name.length() > MAX_NAME_LENGTH) {
             throw new IllegalArgumentException(
-                    "session.name must be at most " + MAX_NAME_LENGTH + " characters");
+                    KubernetesSessionOptions.NAME.key()
+                            + " must be at most "
+                            + MAX_NAME_LENGTH
+                            + " characters");
         }
-        validateDnsLabel(name, "session.name");
+        validateDnsLabel(name, KubernetesSessionOptions.NAME.key());
+    }
+
+    private static void validateDataClaim(String claim) {
+        String option = KubernetesSessionOptions.DATA_CLAIM.key();
+        validateDnsLabel(claim, option);
+        if (claim.length() > MAX_VOLUME_NAME_LENGTH) {
+            throw new IllegalArgumentException(
+                    option
+                            + " must be at most "
+                            + MAX_VOLUME_NAME_LENGTH
+                            + " characters because it is used as a volume name");
+        }
+        if (KubernetesConstants.APPLICATION_VOLUME.equals(claim)
+                || claim.startsWith(KubernetesConstants.CONFIG_VOLUME + "-")) {
+            throw new IllegalArgumentException(option + " must not use a reserved volume name");
+        }
+    }
+
+    private static void validateDataMount(
+            String dataMount, String seatunnelHome, String secretDirectory) {
+        String configDirectory = seatunnelHome + "/" + KubernetesConstants.CONFIG_DIRECTORY;
+        if (overlaps(dataMount, configDirectory)
+                || (secretDirectory != null && overlaps(dataMount, secretDirectory))) {
+            throw new IllegalArgumentException(
+                    KubernetesSessionOptions.DATA_MOUNT.key()
+                            + " must not overlap the worker config or Secret mount");
+        }
+    }
+
+    private static boolean overlaps(String first, String second) {
+        return first.equals(second)
+                || first.startsWith(second + "/")
+                || second.startsWith(first + "/");
     }
 
     private static void validateDnsLabel(String value, String option) {
@@ -380,66 +488,99 @@ public final class KubernetesSessionConfig
         return (Map<String, Object>) value;
     }
 
-    private static Map<String, Object> childMap(Map<String, Object> parent, String key) {
-        Object value = parent.get(key);
-        if (value == null) {
-            return Collections.emptyMap();
-        }
-        return asMap(value, key);
-    }
-
-    private static String requiredString(Map<String, Object> parent, String key, String option) {
-        String value = optionalString(parent, key, null);
+    private static String requireNonBlank(ReadonlyConfig options, Option<String> option) {
+        String value = options.get(option);
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(option + " must not be empty");
+            throw new IllegalArgumentException(option.key() + " is required");
         }
         return value.trim();
     }
 
-    private static String optionalString(
-            Map<String, Object> parent, String key, String defaultValue) {
-        Object value = parent.get(key);
-        return value == null ? defaultValue : String.valueOf(value).trim();
-    }
-
-    private static int optionalInt(Map<String, Object> parent, String key, int defaultValue) {
-        Object value = parent.get(key);
+    private static String optionalNonBlank(ReadonlyConfig options, Option<String> option) {
+        String value = options.get(option);
         if (value == null) {
-            return defaultValue;
+            return null;
         }
-        try {
-            return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException failure) {
-            throw new IllegalArgumentException(key + " must be an integer, was: " + value, failure);
+        if (value.trim().isEmpty()) {
+            throw new IllegalArgumentException(option.key() + " must not be empty");
         }
+        return value.trim();
     }
 
-    private static long optionalLong(Map<String, Object> parent, String key, long defaultValue) {
-        Object value = parent.get(key);
-        if (value == null) {
-            return defaultValue;
+    private static String absolutePath(ReadonlyConfig options, Option<String> option) {
+        String value = requireNonBlank(options, option);
+        if (!value.startsWith("/") || value.contains(":")) {
+            throw new IllegalArgumentException(
+                    option.key() + " must be an absolute path without ':'");
         }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException failure) {
-            throw new IllegalArgumentException(key + " must be an integer, was: " + value, failure);
-        }
+        return value;
     }
 
-    private static boolean optionalBoolean(
-            Map<String, Object> parent, String key, boolean defaultValue) {
-        Object value = parent.get(key);
-        return value == null ? defaultValue : Boolean.parseBoolean(String.valueOf(value));
+    private static String dnsLabel(ReadonlyConfig options, Option<String> option) {
+        String value = requireNonBlank(options, option);
+        validateDnsLabel(value, option.key());
+        return value;
     }
 
-    private static Map<String, String> stringMap(Map<String, Object> parent, String key) {
-        Object value = parent.get(key);
-        if (value == null) {
-            return Collections.emptyMap();
+    private static String imagePullPolicy(ReadonlyConfig options) {
+        String value = requireNonBlank(options, KubernetesOptions.IMAGE_PULL_POLICY);
+        if (!"Always".equals(value) && !"IfNotPresent".equals(value) && !"Never".equals(value)) {
+            throw new IllegalArgumentException(
+                    KubernetesOptions.IMAGE_PULL_POLICY.key()
+                            + " must be Always, IfNotPresent or Never");
         }
-        Map<String, Object> raw = asMap(value, key);
-        Map<String, String> result = new LinkedHashMap<>();
-        raw.forEach((name, item) -> result.put(name, String.valueOf(item)));
-        return Collections.unmodifiableMap(result);
+        return value;
+    }
+
+    private static int requirePositiveInt(ReadonlyConfig options, Option<Integer> option) {
+        return requirePositiveInt(option, options.get(option));
+    }
+
+    private static int requirePositiveInt(Option<Integer> option, Integer value) {
+        if (value == null || value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
+        }
+        return value;
+    }
+
+    private static long requirePositiveLong(ReadonlyConfig options, Option<Long> option) {
+        Long value = options.get(option);
+        if (value == null || value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
+        }
+        return value;
+    }
+
+    private static String defaultIfNull(String value, String defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    private static String defaultClusterName(String name) {
+        return SESSION_NAME_PREFIX + name;
+    }
+
+    private static String defaultRootConfigMap(String name) {
+        return defaultClusterName(name) + ROOT_CONFIG_SUFFIX;
+    }
+
+    private static String defaultWorkerConfigMap(String name) {
+        return defaultClusterName(name) + WORKER_CONFIG_SUFFIX;
+    }
+
+    private static int defaultHeapMb(int memoryMb) {
+        return Math.max(
+                KubernetesConstants.MINIMUM_JVM_HEAP_MB,
+                memoryMb
+                        * KubernetesConstants.JVM_HEAP_NUMERATOR
+                        / KubernetesConstants.JVM_HEAP_DENOMINATOR);
+    }
+
+    private static String defaultJvmOptions(int heapMb) {
+        return KubernetesConstants.JVM_MIN_HEAP_PREFIX
+                + heapMb
+                + "m "
+                + KubernetesConstants.JVM_MAX_HEAP_PREFIX
+                + heapMb
+                + "m";
     }
 }

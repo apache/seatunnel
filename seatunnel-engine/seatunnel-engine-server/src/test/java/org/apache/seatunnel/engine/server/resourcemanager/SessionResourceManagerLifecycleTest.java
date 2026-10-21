@@ -23,15 +23,19 @@ import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,11 +73,6 @@ class SessionResourceManagerLifecycleTest {
                         20L);
     }
 
-    @AfterEach
-    void tearDown() {
-        // Managers created by individual tests are closed in the test body.
-    }
-
     @Test
     void createsMinWorkersAndReplacesTerminatedWorker() {
         FakeDriver driver = new FakeDriver();
@@ -98,23 +97,108 @@ class SessionResourceManagerLifecycleTest {
     }
 
     @Test
-    void doesNotExceedMaxWorkersWhenCreatedPodsHaveNotRegistered() {
+    void doesNotCreateWorkersBeyondMaxWorkers() throws Exception {
         FakeDriver driver = new FakeDriver();
         SessionResourceManager<ResourceID> manager =
-                new SessionResourceManager<>(
-                        nodeEngine, new EngineConfig(), sessionSpecification(2, 2), driver);
+                new TestSessionResourceManager(
+                        nodeEngine, sessionSpecification(2, 2, 100L, 10L), driver);
         try {
             manager.init();
             await().atMost(5, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(2, driver.requested.get()));
 
-            Assertions.assertThrows(
-                    NoEnoughResourceException.class,
+            manager.heartbeat(new WorkerProfile(new Address("127.0.0.1", 6001)));
+            manager.heartbeat(new WorkerProfile(new Address("127.0.0.1", 6002)));
+            Assertions.assertDoesNotThrow(
                     () ->
                             manager.findNewWorker(
                                     Collections.singletonList(new ResourceProfile()),
                                     Collections.emptyMap()));
             Assertions.assertEquals(2, driver.requested.get());
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void repeatedHeartbeatsFromAnExistingWorkerDoNotResetBackoff() throws Exception {
+        FakeDriver driver = new FakeDriver();
+        SessionResourceManager<ResourceID> manager =
+                new TestSessionResourceManager(nodeEngine, specification, driver);
+        try {
+            manager.init();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(2, driver.requested.get()));
+
+            Field field =
+                    SessionResourceManager.class.getDeclaredField("consecutiveRequestFailures");
+            field.setAccessible(true);
+            AtomicInteger failures = (AtomicInteger) field.get(manager);
+            Address address = new Address("127.0.0.1", 6000);
+            WorkerProfile profile = new WorkerProfile(address);
+
+            failures.set(3);
+            manager.heartbeat(profile);
+            Assertions.assertEquals(0, failures.get());
+
+            failures.set(3);
+            manager.heartbeat(profile);
+            Assertions.assertEquals(3, failures.get());
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void initialWaitStopsAsSoonAsAnyWorkerRegisters() throws Exception {
+        FakeDriver driver = new FakeDriver();
+        SessionResourceManager<ResourceID> manager =
+                new TestSessionResourceManager(
+                        nodeEngine, sessionSpecification(2, 2, 100L, 10L), driver);
+        try {
+            manager.init();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(2, driver.requested.get()));
+
+            Method awaitRegistration =
+                    SessionResourceManager.class.getDeclaredMethod(
+                            "awaitInitialWorkerRegistration");
+            awaitRegistration.setAccessible(true);
+            InvocationTargetException timeout =
+                    Assertions.assertThrows(
+                            InvocationTargetException.class,
+                            () -> awaitRegistration.invoke(manager));
+            Assertions.assertInstanceOf(NoEnoughResourceException.class, timeout.getCause());
+
+            manager.heartbeat(new WorkerProfile(new Address("127.0.0.1", 6001)));
+            Assertions.assertDoesNotThrow(() -> awaitRegistration.invoke(manager));
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void successfulPodCreationDoesNotResetBackoff() throws Exception {
+        FakeDriver driver = new FakeDriver();
+        SessionResourceManager<ResourceID> manager = newManager(driver);
+        try {
+            manager.init();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(2, driver.requested.get()));
+
+            Field field =
+                    SessionResourceManager.class.getDeclaredField("consecutiveRequestFailures");
+            field.setAccessible(true);
+            AtomicInteger failures = (AtomicInteger) field.get(manager);
+            failures.set(3);
+
+            Method requestWorkers =
+                    SessionResourceManager.class.getDeclaredMethod("requestWorkers", int.class);
+            requestWorkers.setAccessible(true);
+            requestWorkers.invoke(manager, 1);
+
+            Assertions.assertEquals(3, driver.requested.get());
+            Assertions.assertEquals(3, failures.get());
         } finally {
             manager.close();
         }
@@ -154,6 +238,11 @@ class SessionResourceManagerLifecycleTest {
     }
 
     private static SessionSpecification sessionSpecification(int minWorkers, int maxWorkers) {
+        return sessionSpecification(minWorkers, maxWorkers, 5_000L, 20L);
+    }
+
+    private static SessionSpecification sessionSpecification(
+            int minWorkers, int maxWorkers, long startupTimeoutMillis, long retryIntervalMillis) {
         return new SessionSpecification(
                 "test-session",
                 "test-cluster",
@@ -161,8 +250,24 @@ class SessionResourceManagerLifecycleTest {
                 maxWorkers,
                 new WorkerSpecification(1024, 1, 8),
                 true,
-                5_000L,
-                20L);
+                startupTimeoutMillis,
+                retryIntervalMillis);
+    }
+
+    private static final class TestSessionResourceManager
+            extends SessionResourceManager<ResourceID> {
+
+        private TestSessionResourceManager(
+                NodeEngine nodeEngine,
+                SessionSpecification specification,
+                ResourceManagerDriver<ResourceID> driver) {
+            super(nodeEngine, new EngineConfig(), specification, driver);
+        }
+
+        @Override
+        protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     private static final class FakeDriver implements ResourceManagerDriver<ResourceID> {

@@ -65,6 +65,13 @@ import java.util.function.Supplier;
 public final class KubernetesSessionResourceManagerDriver
         implements ResourceManagerDriver<KubernetesWorkerNode> {
 
+    private static final long INITIAL_RECONNECT_DELAY_MILLIS = 1_000L;
+    private static final long MAX_RECONNECT_DELAY_MILLIS = 30_000L;
+    private static final long RECONNECT_BACKOFF_MULTIPLIER = 2L;
+    private static final int WORKER_NAME_SUFFIX_LENGTH = 8;
+    private static final String WORKER_NAME_INFIX = "-worker-";
+    private static final long LAUNCH_DRAIN_TIMEOUT_SECONDS = 25L;
+
     private final KubernetesClient api;
     private final KubernetesSessionConfig config;
     private final String sessionId;
@@ -83,7 +90,7 @@ public final class KubernetesSessionResourceManagerDriver
     private Executor ioExecutor;
     private KubernetesConfigMap root;
     private KubernetesWatch watch;
-    private volatile long reconnectDelayMillis = 1_000L;
+    private volatile long reconnectDelayMillis = INITIAL_RECONNECT_DELAY_MILLIS;
     private volatile ScheduledFuture<?> reconnectTask;
 
     private final PodWatchCallback watchCallback =
@@ -160,7 +167,7 @@ public final class KubernetesSessionResourceManagerDriver
             previous.close();
         }
         running.set(true);
-        reconnectDelayMillis = 1_000L;
+        reconnectDelayMillis = INITIAL_RECONNECT_DELAY_MILLIS;
         if (ioExecutor != null) {
             ioExecutor.execute(this::resyncWorkers);
         }
@@ -178,6 +185,9 @@ public final class KubernetesSessionResourceManagerDriver
                 }
             }
             for (String name : new ArrayList<>(workers)) {
+                if (pending.containsKey(name)) {
+                    continue;
+                }
                 if (!live.contains(name)) {
                     onWorkerGone(name, "Worker pod missing after watch reconnect");
                 }
@@ -207,7 +217,10 @@ public final class KubernetesSessionResourceManagerDriver
             return;
         }
         long delay = reconnectDelayMillis;
-        reconnectDelayMillis = Math.min(reconnectDelayMillis * 2, 30_000L);
+        reconnectDelayMillis =
+                Math.min(
+                        reconnectDelayMillis * RECONNECT_BACKOFF_MULTIPLIER,
+                        MAX_RECONNECT_DELAY_MILLIS);
         try {
             reconnectTask =
                     mainThreadExecutor.schedule(
@@ -245,7 +258,10 @@ public final class KubernetesSessionResourceManagerDriver
                     new IllegalStateException("Session Kubernetes driver is not running"));
             return future;
         }
-        String name = sessionId + "-worker-" + UUID.randomUUID().toString().substring(0, 8);
+        String name =
+                sessionId
+                        + WORKER_NAME_INFIX
+                        + UUID.randomUUID().toString().substring(0, WORKER_NAME_SUFFIX_LENGTH);
         KubernetesWorkerNode worker = new KubernetesWorkerNode(new ResourceID(name));
         workers.add(name);
         pending.put(name, future);
@@ -357,26 +373,36 @@ public final class KubernetesSessionResourceManagerDriver
 
     /** Stops observation without deleting workers; the shared Kubernetes client stays open. */
     @Override
-    public synchronized void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
+    public void close() {
+        List<CompletableFuture<Void>> inFlight;
+        synchronized (this) {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            running.set(false);
+            if (reconnectTask != null) {
+                reconnectTask.cancel(false);
+                reconnectTask = null;
+            }
+            for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
+                future.completeExceptionally(
+                        new CancellationException("Session master is stepping down"));
+            }
+            pending.clear();
+            if (watch != null) {
+                watch.close();
+            }
+            inFlight = new ArrayList<>(launches);
         }
-        running.set(false);
-        if (reconnectTask != null) {
-            reconnectTask.cancel(false);
-            reconnectTask = null;
-        }
-        for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
-            future.completeExceptionally(
-                    new CancellationException("Session master is stepping down"));
-        }
-        pending.clear();
-        if (watch != null) {
-            watch.close();
-        }
-        for (CompletableFuture<Void> launch : launches) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(LAUNCH_DRAIN_TIMEOUT_SECONDS);
+        for (CompletableFuture<Void> launch : inFlight) {
+            long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos <= 0) {
+                log.warn("Timed out draining session worker launches");
+                break;
+            }
             try {
-                launch.get(25, TimeUnit.SECONDS);
+                launch.get(remainingNanos, TimeUnit.NANOSECONDS);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 break;

@@ -91,11 +91,12 @@ Master 使用 2 副本 StatefulSet；Worker 是由 root ConfigMap 拥有的 bare
 kubectl apply -k deploy/kubernetes/session
 ```
 
-示例将 master/worker 配置都放在 `conf/`。Kustomize 生成一个 `<session-name>-config` ConfigMap；
-master 挂载整个 ConfigMap，worker 挂载自己需要的 key。
+示例将 engine、Hazelcast、日志和 JVM 配置放在 `conf/`；Session 策略和 worker 模板一起放在顶层
+`session-cluster.yaml`。Kustomize 将它们一起放入 `<session-name>-config` ConfigMap；master 挂载
+整个 ConfigMap，worker 挂载自己需要的 key。
 
 同 namespace 运行另一个 Session 时，复制目录并修改所有 Session 作用域内的资源名、标签、
-`session.yaml`、`configMapGenerator` 名称以及 Hazelcast/client DNS：
+`session-cluster.yaml`、`configMapGenerator` 名称以及 Hazelcast/client DNS：
 
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
@@ -105,47 +106,48 @@ kubectl apply -k /tmp/payments-session
 
 ## 配置
 
-`conf/session.yaml` 是 Session 配置。未知字段会被忽略；非法值会导致 master 启动失败。
+`session-cluster.yaml` 同时保存 Session 策略和同构 worker 模板。未知字段会在启动时被拒绝；非法值
+同样会导致 master 启动失败。worker slot 数不在这里重复配置，而是读取 `conf/seatunnel.yaml` 的
+`seatunnel.engine.slot-service.slot-num`，且 `dynamic-slot` 必须保持 `false`。
 
 ```yaml
 session:
   name: seatunnel-session-cluster
   cluster-name: seatunnel-session-cluster
   root-config-map: seatunnel-session-cluster-meta
-
-  master:
-    port: 5801
-
+  data-claim: seatunnel-session-cluster-data
+  data-mount: /opt/seatunnel/data
   worker:
-    image: apache/seatunnel:<session-enabled-image>
     min-workers: 2
     max-workers: 32
-    slots: 8
+    config-map: seatunnel-session-cluster-config
     cpu-cores: 2
     memory-mb: 4096
     heap-mb: 3072
     jvm-options: "-Xms3g -Xmx3g"
-    image-pull-policy: IfNotPresent
-    service-account: default
-    seatunnel-home: /opt/seatunnel
-    config-map: seatunnel-session-cluster-config
-
-    # 可选。值是字面量或 secret:name/key、configmap:name/key。
-    # env:
-    #   AWS_REGION: us-east-1
-    # env-from:
-    #   secret: s3-credentials
-    #   configmap: shared-settings
-    # secret-ref: session-secret
-    # secret-directory: /etc/seatunnel-secrets/session
-
   dynamic-worker:
     enabled: true
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
-
 kubernetes:
   namespace: seatunnel
+  image: apache/seatunnel:<session-enabled-image>
+  image-pull-policy: IfNotPresent
+  service-account: default
+  seatunnel-home: /opt/seatunnel
+  worker:
+    # labels: "team:data"
+    # annotations: "example.com/owner:data-platform"
+    # node-selector: "pool:session"
+    # tolerations: "dedicated=session:NoSchedule"
+  # image-pull-secrets: registry-secret
+  # secret-ref: session-secret
+  # secret-directory: /etc/seatunnel-secrets/application
+  # env:
+  #   AWS_REGION: us-east-1
+  # env-from:
+  #   secret: s3-credentials
+  #   configmap: shared-settings
 ```
 
 :::tip Session 标识
@@ -156,8 +158,13 @@ kubernetes:
 :::
 
 `min-workers` 默认 `2`，`max-workers` 默认 `32`，`dynamic-worker.enabled` 默认 `false`。
-master/worker 的 engine 和 Hazelcast 配置请参考
-[分离集群模式](../kubernetes/separated-cluster-mode.md)；示例的 `file:///tmp/` 存储仅用于本地验证。
+Hazelcast 成员端口读取自 `conf/hazelcast-master.yaml`，Kubernetes discovery service 端口会自动
+对齐，因此不需要单独的 Session master 端口配置。示例将共享 PVC 挂载到 `/opt/seatunnel/data`
+作为可直接运行的默认值；checkpoint 和 IMap 存储也支持通过 `storage.type` 使用 HDFS、S3、OSS、
+COS 和 GCS。`session.data-mount` 需要与 master StatefulSet 的 `volumeMounts.mountPath` 保持一致。
+参见 [Checkpoint 存储](../kubernetes/configuration.md#checkpoint-storage) 和
+[IMap MapStore](../kubernetes/configuration.md#imap-mapstore)。master/worker 的 engine 和
+Hazelcast 配置请参考 [分离集群模式](../kubernetes/separated-cluster-mode.md)。
 
 ## 启动
 
@@ -209,12 +216,13 @@ kubectl -n seatunnel delete service \
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 ```
 
-用户自有的 checkpoint、PVC、被引用的 ConfigMap/Secret 不会被删除。
+用户自有的 checkpoint 和被引用的 ConfigMap/Secret 不会被删除。示例数据 PVC 也会保留；只有在确认可以丢弃 checkpoint 和 IMAP 数据时才单独删除它。
 
 ## 实验性限制
 
 - Worker 模板不支持原地修改；修改配置需要新建 Session。
 - 不支持自动缩容和手动 scale/spec API。
 - 除 Hazelcast active/standby 和 StatefulSet 重建外，没有额外 HA 编排。
-- Worker Pod 在 master failover 后仍保留，但 streaming 任务恢复还需要共享的 checkpoint 和 IMAP 存储；示例中的 `file:///tmp/` 是 Pod 本地路径，仅用于验证。
+- Worker Pod 在 master failover 后仍保留。示例将 checkpoint 和 Hazelcast IMAP 状态存放在共享 PVC 上；多节点部署需要使用支持 `ReadWriteMany` 的 StorageClass。
+- 一直无法注册的 worker Pod（例如不可调度或 `ImagePullBackOff`）仍会占用 `max-workers` 配额；扩容前需要删除该 Pod 或修复其模板。
 - 不支持多租户配额、Kerberos 或 CPU 感知 slot 调度。

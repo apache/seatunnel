@@ -91,11 +91,12 @@ Read [Kubernetes Deployment](../kubernetes/kubernetes.mdx) and
 kubectl apply -k deploy/kubernetes/session
 ```
 
-The sample uses `conf/` for all master and worker configuration files. Kustomize generates one
+The sample keeps the engine, Hazelcast, logging and JVM files under `conf/`; the Session policy and
+worker template stay together in top-level `session-cluster.yaml`. Kustomize puts all of them in one
 `<session-name>-config` ConfigMap; the master mounts it whole and workers mount their required keys.
 
 To run another Session in the same namespace, copy the directory and rename every session-scoped
-resource, label, `session.yaml` value, `configMapGenerator` name, and Hazelcast/client DNS entry:
+resource, label, `session-cluster.yaml` value, `configMapGenerator` name, and Hazelcast/client DNS entry:
 
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
@@ -105,48 +106,49 @@ kubectl apply -k /tmp/payments-session
 
 ## Configure
 
-`conf/session.yaml` is the Session-specific configuration. Unknown keys are ignored; invalid values
-fail master startup.
+`session-cluster.yaml` contains both the Session policy and the homogeneous worker template.
+Unknown keys are rejected at startup; invalid values also fail master startup. The worker slot count
+is not duplicated here: it comes from `conf/seatunnel.yaml`
+`seatunnel.engine.slot-service.slot-num`, and `dynamic-slot` must remain `false`.
 
 ```yaml
 session:
   name: seatunnel-session-cluster
   cluster-name: seatunnel-session-cluster
   root-config-map: seatunnel-session-cluster-meta
-
-  master:
-    port: 5801
-
+  data-claim: seatunnel-session-cluster-data
+  data-mount: /opt/seatunnel/data
   worker:
-    image: apache/seatunnel:<session-enabled-image>
     min-workers: 2
     max-workers: 32
-    slots: 8
+    config-map: seatunnel-session-cluster-config
     cpu-cores: 2
     memory-mb: 4096
     heap-mb: 3072
     jvm-options: "-Xms3g -Xmx3g"
-    image-pull-policy: IfNotPresent
-    service-account: default
-    seatunnel-home: /opt/seatunnel
-    config-map: seatunnel-session-cluster-config
-
-    # Optional. Values are literals or secret:name/key and configmap:name/key.
-    # env:
-    #   AWS_REGION: us-east-1
-    # env-from:
-    #   secret: s3-credentials
-    #   configmap: shared-settings
-    # secret-ref: session-secret
-    # secret-directory: /etc/seatunnel-secrets/session
-
   dynamic-worker:
     enabled: true
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
-
 kubernetes:
   namespace: seatunnel
+  image: apache/seatunnel:<session-enabled-image>
+  image-pull-policy: IfNotPresent
+  service-account: default
+  seatunnel-home: /opt/seatunnel
+  worker:
+    # labels: "team:data"
+    # annotations: "example.com/owner:data-platform"
+    # node-selector: "pool:session"
+    # tolerations: "dedicated=session:NoSchedule"
+  # image-pull-secrets: registry-secret
+  # secret-ref: session-secret
+  # secret-directory: /etc/seatunnel-secrets/application
+  # env:
+  #   AWS_REGION: us-east-1
+  # env-from:
+  #   secret: s3-credentials
+  #   configmap: shared-settings
 ```
 
 :::tip Session identity
@@ -156,10 +158,15 @@ a namespace. `session.root-config-map` must already exist and have a server-assi
 
 :::
 
-`min-workers` defaults to `2`, `max-workers` to `32`, and `dynamic-worker.enabled` to `false`. Use
-the master/worker engine and Hazelcast configuration from
-[Separated Cluster Mode](../kubernetes/separated-cluster-mode.md); the sample `file:///tmp/` storage
-is for local validation only.
+`min-workers` defaults to `2`, `max-workers` to `32`, and `dynamic-worker.enabled` to `false`. The
+Hazelcast member port is read from `conf/hazelcast-master.yaml`; the Kubernetes discovery service
+port is aligned with it automatically, so there is no separate Session master-port setting. The
+sample mounts a shared PVC at `/opt/seatunnel/data` as the runnable default; checkpoint and IMap
+storage also support HDFS, S3, OSS, COS and GCS through `storage.type`. Keep `session.data-mount`
+aligned with the master StatefulSet's `volumeMounts.mountPath`. See [Checkpoint
+Storage](../kubernetes/configuration.md#checkpoint-storage) and [IMap
+MapStore](../kubernetes/configuration.md#imap-mapstore). Use the master/worker engine and Hazelcast
+configuration from [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md).
 
 ## Start
 
@@ -211,12 +218,14 @@ kubectl -n seatunnel delete service \
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 ```
 
-User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.
+User-owned checkpoints and referenced ConfigMaps/Secrets are not deleted. The sample data PVC is
+also retained; delete it separately only if its checkpoint and IMAP data can be discarded.
 
 ## Limitations
 
 - Worker template changes are not supported in place; create a new Session.
 - No automatic scale-down or manual scale/spec API.
 - No HA beyond the Hazelcast active/standby pair and StatefulSet restart.
-- Worker Pods survive master failover, but streaming recovery also requires shared checkpoint and IMAP storage. The sample `file:///tmp/` paths are Pod-local and are for validation only.
+- Worker Pods survive master failover. The sample stores checkpoints and Hazelcast IMAP state on a shared PVC; use a `ReadWriteMany` storage class so every master and worker can access it.
+- A worker Pod that never registers (for example an unschedulable Pod or an `ImagePullBackOff`) still counts against `max-workers`; delete the stuck Pod or fix its template before scaling further.
 - No multi-tenant quotas, Kerberos, or CPU-aware slot scheduling.

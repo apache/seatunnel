@@ -48,6 +48,7 @@ public final class KubernetesConstants {
     public static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
 
     public static final String ROLE_LABEL = "seatunnel.apache.org/role";
+    public static final String SESSION_LABEL = "seatunnel.apache.org/session";
     public static final String MASTER_ROLE = "master";
     public static final String WORKER_ROLE = "worker";
     public static final String CONFIGURATION_ROLE = "configuration";
@@ -86,7 +87,16 @@ public final class KubernetesConstants {
     public static final String ENV_VALUE_CONFIGMAP_PREFIX = "configmap:";
 
     /** Java launcher tokens of the master and worker container command. */
+    public static final String JVM_MIN_HEAP_PREFIX = "-Xms";
+
     public static final String JVM_MAX_HEAP_PREFIX = "-Xmx";
+
+    public static final String JVM_OPTION_PREFIX = "-DJvmOption=";
+
+    public static final String NODE_ROLE_FLAG = "-r";
+
+    /** Entrypoint of the Session worker/master distribution. */
+    public static final String SESSION_ENTRYPOINT = "bin/seatunnel-cluster.sh";
 
     public static final String JVM_EXIT_ON_OUT_OF_MEMORY = "-XX:+ExitOnOutOfMemoryError";
 
@@ -168,8 +178,29 @@ public final class KubernetesConstants {
     public static final int JVM_HEAP_NUMERATOR = 3;
     public static final int JVM_HEAP_DENOMINATOR = 4;
     public static final int MINIMUM_JVM_HEAP_MB = 1;
+    /** Hazelcast Kubernetes join property that aligns discovery with the member port. */
+    public static final String HAZELCAST_KUBERNETES_SERVICE_PORT_PROPERTY = "service-port";
+
     public static final String SEATUNNEL_CONFIG_FILE = "config/seatunnel.yaml";
+    public static final String SESSION_CONFIG_FILE = "config/session-cluster.yaml";
+    public static final String SESSION_LOG4J_CONFIG_FILE = "config/log4j2.properties";
     public static final String LOG4J_CONFIG_FILE = "log4j2_client.properties";
+
+    /** Runtime files mounted from the worker ConfigMap. */
+    public static final String CONFIG_DIRECTORY = "config";
+
+    public static final String SEATUNNEL_CONFIG_NAME = "seatunnel.yaml";
+    public static final String HAZELCAST_WORKER_CONFIG_NAME = "hazelcast-worker.yaml";
+    public static final String LOG4J2_CONFIG_NAME = "log4j2.properties";
+    public static final String WORKER_CONFIG_ENTRY = "worker";
+
+    public static final List<String> SESSION_WORKER_CONFIG_FILES =
+            Collections.unmodifiableList(
+                    Arrays.asList(
+                            SEATUNNEL_CONFIG_NAME,
+                            HAZELCAST_WORKER_CONFIG_NAME,
+                            LOG4J2_CONFIG_NAME,
+                            WORKER_JVM_OPTIONS_FILE));
     /**
      * Classpath of the application containers.
      *

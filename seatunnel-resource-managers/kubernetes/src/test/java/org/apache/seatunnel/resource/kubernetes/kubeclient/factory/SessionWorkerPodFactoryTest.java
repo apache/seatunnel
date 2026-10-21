@@ -36,24 +36,32 @@ class SessionWorkerPodFactoryTest {
                     + "  name: seatunnel-session-cluster\n"
                     + "  cluster-name: seatunnel-session-cluster\n"
                     + "  root-config-map: seatunnel-session-cluster-meta\n"
+                    + "  data-claim: seatunnel-session-cluster-data\n"
                     + "  worker:\n"
                     + "    min-workers: 2\n"
                     + "    max-workers: 8\n"
-                    + "    slots: 8\n"
+                    + "    config-map: seatunnel-session-cluster-worker\n"
                     + "    cpu-cores: 4\n"
                     + "    memory-mb: 16384\n"
                     + "    heap-mb: 8192\n"
-                    + "    image: apache/seatunnel:3.0.1\n"
-                    + "    config-map: seatunnel-session-cluster-worker\n"
-                    + "    env:\n"
-                    + "      SESSION_ENV: chain\n"
-                    + "    secret-ref: session-secret\n"
+                    + "  dynamic-worker:\n"
+                    + "    enabled: true\n"
+                    + "    startup-timeout-millis: 60000\n"
+                    + "    retry-interval-millis: 1000\n"
                     + "kubernetes:\n"
-                    + "  namespace: seatunnel\n";
+                    + "  namespace: seatunnel\n"
+                    + "  image: apache/seatunnel:3.0.1\n"
+                    + "  image-pull-secrets: registry-secret\n"
+                    + "  secret-ref: session-secret\n"
+                    + "  worker:\n"
+                    + "    node-selector: \"pool:session\"\n"
+                    + "    tolerations: \"dedicated=session:NoSchedule\"\n"
+                    + "  env:\n"
+                    + "    SESSION_ENV: chain\n";
 
     @Test
     void createsBarePodOwnedBySessionRoot() throws Exception {
-        KubernetesSessionConfig config = KubernetesSessionConfig.read(SESSION_YAML);
+        KubernetesSessionConfig config = KubernetesSessionConfig.read(SESSION_YAML, 8);
         KubernetesConfigMap root =
                 new KubernetesConfigMap(
                         new V1ConfigMap()
@@ -80,6 +88,11 @@ class SessionWorkerPodFactoryTest {
         Assertions.assertEquals(
                 KubernetesConstants.RESTART_POLICY_NEVER, pod.getSpec().getRestartPolicy());
         Assertions.assertEquals(
+                "registry-secret", pod.getSpec().getImagePullSecrets().get(0).getName());
+        Assertions.assertEquals("session", pod.getSpec().getNodeSelector().get("pool"));
+        Assertions.assertEquals("dedicated", pod.getSpec().getTolerations().get(0).getKey());
+        Assertions.assertEquals("NoSchedule", pod.getSpec().getTolerations().get(0).getEffect());
+        Assertions.assertEquals(
                 "/opt/seatunnel/bin/seatunnel-cluster.sh",
                 pod.getSpec().getContainers().get(0).getCommand().get(0));
         Assertions.assertFalse(pod.getSpec().getVolumes().isEmpty());
@@ -91,10 +104,22 @@ class SessionWorkerPodFactoryTest {
                                                 .equals("/opt/seatunnel/config/seatunnel.yaml")));
         Assertions.assertTrue(
                 pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
+                        .anyMatch(mount -> mount.getMountPath().equals("/opt/seatunnel/data")));
+        Assertions.assertTrue(
+                pod.getSpec().getVolumes().stream()
+                        .anyMatch(
+                                volume ->
+                                        "seatunnel-session-cluster-data".equals(volume.getName())
+                                                && "seatunnel-session-cluster-data"
+                                                        .equals(
+                                                                volume.getPersistentVolumeClaim()
+                                                                        .getClaimName())));
+        Assertions.assertTrue(
+                pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
                         .anyMatch(
                                 mount ->
                                         mount.getMountPath()
-                                                .equals("/etc/seatunnel-secrets/session")));
+                                                .equals("/etc/seatunnel-secrets/application")));
         Assertions.assertTrue(
                 pod.getSpec().getContainers().get(0).getEnv().stream()
                         .anyMatch(

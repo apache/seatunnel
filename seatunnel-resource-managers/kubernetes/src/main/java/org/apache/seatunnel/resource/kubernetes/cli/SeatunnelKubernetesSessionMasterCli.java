@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.cli;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesSessionConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +43,9 @@ import java.util.concurrent.CountDownLatch;
 public final class SeatunnelKubernetesSessionMasterCli {
 
     private static final String SESSION_CONFIG_ENV = "SEATUNNEL_SESSION_CONFIG";
-    private static final String DEFAULT_SESSION_CONFIG = "/opt/seatunnel/config/session.yaml";
+    private static final String SESSION_CONFIG_PROPERTY = "seatunnel.session.config";
+    private static final String SEATUNNEL_HOME_PROPERTY =
+            SeaTunnelProperties.SEATUNNEL_HOME.getName();
     private static final String MASTER_HOST_ENV = "SEATUNNEL_SESSION_MASTER_HOST";
 
     private SeatunnelKubernetesSessionMasterCli() {}
@@ -60,14 +64,17 @@ public final class SeatunnelKubernetesSessionMasterCli {
         HazelcastInstanceImpl master = null;
         try {
             Path path = sessionConfigPath(args);
-            KubernetesSessionConfig config = KubernetesSessionConfig.read(path);
+            // ConfigProvider loads seatunnel.yaml and Hazelcast; the Session schema is separate.
+            SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
+            int slots = engineConfiguration.getEngineConfig().getSlotServiceConfig().getSlotNum();
+            KubernetesSessionConfig config = KubernetesSessionConfig.read(path, slots);
             client =
                     KubernetesClientFactory.create(
                             Collections.singletonMap(
                                     KubernetesOptions.NAMESPACE.key(), config.getNamespace()),
                             true);
-            SeaTunnelConfig engineConfiguration = configureEngine(config);
-            validateFixedSlots(config, engineConfiguration);
+            configureEngine(config, engineConfiguration);
+            validateFixedSlots(engineConfiguration);
             final KubernetesClient sessionClient = client;
             master =
                     SeaTunnelServerStarter.createMasterHazelcastInstance(
@@ -92,39 +99,55 @@ public final class SeatunnelKubernetesSessionMasterCli {
         if (args.length > 0 && args[0] != null && !args[0].trim().isEmpty()) {
             return Paths.get(args[0]);
         }
-        String property = System.getProperty("seatunnel.session.config");
+        String property = System.getProperty(SESSION_CONFIG_PROPERTY);
         if (property != null && !property.trim().isEmpty()) {
             return Paths.get(property);
         }
         String environment = System.getenv(SESSION_CONFIG_ENV);
-        return Paths.get(
-                environment == null || environment.trim().isEmpty()
-                        ? DEFAULT_SESSION_CONFIG
-                        : environment);
+        return environment == null || environment.trim().isEmpty()
+                ? defaultSessionConfigPath()
+                : Paths.get(environment);
+    }
+
+    private static Path defaultSessionConfigPath() {
+        String home = System.getProperty(SEATUNNEL_HOME_PROPERTY);
+        if (home == null || home.trim().isEmpty()) {
+            home = System.getenv(KubernetesConstants.SEATUNNEL_HOME_ENV);
+        }
+        if (home == null || home.trim().isEmpty()) {
+            home = KubernetesConstants.DEFAULT_SEATUNNEL_HOME;
+        }
+        return Paths.get(home.trim(), KubernetesConstants.SESSION_CONFIG_FILE);
     }
 
     /**
-     * Applies the session cluster name, member port and pod public address to the shared engine
-     * config.
+     * Applies the session cluster name and pod public address to the shared engine config.
+     *
+     * <p>The Hazelcast member port is read from {@code hazelcast-master.yaml}; the Kubernetes join
+     * service port is aligned with it so discovery does not need a second duplicated setting.
      */
-    private static SeaTunnelConfig configureEngine(KubernetesSessionConfig config) {
-        SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
+    private static void configureEngine(
+            KubernetesSessionConfig config, SeaTunnelConfig engineConfiguration) {
         engineConfiguration
                 .getHazelcastConfig()
                 .setClusterName(config.getSessionSpecification().getClusterName());
+        int memberPort = engineConfiguration.getHazelcastConfig().getNetworkConfig().getPort();
         engineConfiguration
                 .getHazelcastConfig()
                 .getNetworkConfig()
-                .setPort(config.getMasterPort())
-                .setPortAutoIncrement(false);
+                .setPortAutoIncrement(false)
+                .getJoin()
+                .getKubernetesConfig()
+                .setProperty(
+                        KubernetesConstants.HAZELCAST_KUBERNETES_SERVICE_PORT_PROPERTY,
+                        Integer.toString(memberPort));
         String host = System.getenv(MASTER_HOST_ENV);
         if (host != null && !host.trim().isEmpty()) {
             engineConfiguration
                     .getHazelcastConfig()
                     .getNetworkConfig()
-                    .setPublicAddress(masterAddress(host.trim(), config.getMasterPort()));
+                    .setPublicAddress(masterAddress(host.trim(), memberPort));
         }
-        return engineConfiguration;
     }
 
     private static void awaitShutdown(HazelcastInstanceImpl master) throws InterruptedException {
@@ -152,21 +175,13 @@ public final class SeatunnelKubernetesSessionMasterCli {
     }
 
     /** Checks the fixed-slot contract against the shared engine configuration. */
-    private static void validateFixedSlots(
-            KubernetesSessionConfig config, SeaTunnelConfig engineConfiguration) {
+    private static void validateFixedSlots(SeaTunnelConfig engineConfiguration) {
         SlotServiceConfig slotService =
                 engineConfiguration.getEngineConfig().getSlotServiceConfig();
         if (slotService.isDynamicSlot()) {
             throw new IllegalArgumentException(
                     "Session Cluster supports fixed slots only; set "
                             + "seatunnel.engine.slot-service.dynamic-slot=false");
-        }
-        int configuredSlots = config.getSessionSpecification().getWorkerSpecification().getSlots();
-        if (slotService.getSlotNum() != configuredSlots) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "session.worker.slots=%d must equal seatunnel.yaml slot-num=%d",
-                            configuredSlots, slotService.getSlotNum()));
         }
     }
 

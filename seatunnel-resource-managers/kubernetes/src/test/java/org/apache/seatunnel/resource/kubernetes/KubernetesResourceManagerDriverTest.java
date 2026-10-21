@@ -563,13 +563,14 @@ class KubernetesResourceManagerDriverTest {
                                 + "  name: seatunnel-session-cluster\n"
                                 + "  root-config-map: seatunnel-session-cluster-meta\n"
                                 + "  worker:\n"
-                                + "    image: seatunnel:session\n"
                                 + "    min-workers: 1\n"
-                                + "    slots: 1\n"
+                                + "    max-workers: 1\n"
                                 + "    memory-mb: 1024\n"
                                 + "    heap-mb: 512\n"
                                 + "kubernetes:\n"
-                                + "  namespace: seatunnel\n");
+                                + "  namespace: seatunnel\n"
+                                + "  image: seatunnel:session\n",
+                        1);
         KubernetesSessionResourceManagerDriver driver =
                 new KubernetesSessionResourceManagerDriver(
                         api, config, "seatunnel-session-cluster");
@@ -584,9 +585,7 @@ class KubernetesResourceManagerDriverTest {
                     .onPodDeleted(pod(worker.getResourceID().getResourceIdString(), "Succeeded"));
             ArgumentCaptor<KubernetesWorkerNode> terminated =
                     ArgumentCaptor.forClass(KubernetesWorkerNode.class);
-            verify(events)
-                    .onWorkerTerminated(
-                            terminated.capture(), org.mockito.ArgumentMatchers.anyString());
+            verify(events).onWorkerTerminated(terminated.capture(), anyString());
             assertEquals(
                     worker.getResourceID().getResourceIdString(),
                     terminated.getValue().getResourceID().getResourceIdString());

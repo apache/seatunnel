@@ -137,7 +137,10 @@ public final class KubernetesApplicationConfig
         this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
         this.imagePullPolicy =
                 ImagePullPolicy.fromValue(options.get(KubernetesOptions.IMAGE_PULL_POLICY));
-        this.imagePullSecrets = parseList(options.get(KubernetesOptions.IMAGE_PULL_SECRETS));
+        this.imagePullSecrets =
+                KubernetesOptionValues.parseList(
+                        options.get(KubernetesOptions.IMAGE_PULL_SECRETS),
+                        KubernetesOptions.IMAGE_PULL_SECRETS.key());
         this.serviceAccount = requireNonBlank(options, KubernetesOptions.SERVICE_ACCOUNT);
         this.seatunnelHome = absolutePath(options, KubernetesOptions.SEATUNNEL_HOME);
         this.checkpointDirectory = absolutePath(options, KubernetesOptions.CHECKPOINT_DIRECTORY);
@@ -1052,22 +1055,6 @@ public final class KubernetesApplicationConfig
         return value;
     }
 
-    private static List<String> parseList(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<String> result = new ArrayList<>();
-        for (String item : value.split(",")) {
-            String trimmed = item.trim();
-            if (trimmed.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "kubernetes.image-pull-secrets must not contain empty entries");
-            }
-            result.add(trimmed);
-        }
-        return Collections.unmodifiableList(result);
-    }
-
     private static Map<String, String> labels(ReadonlyConfig options, Option<String> option) {
         Map<String, String> labels = pairs(options, option);
         if (labels.containsKey(KubernetesConstants.APPLICATION_LABEL)
@@ -1079,57 +1066,6 @@ public final class KubernetesApplicationConfig
     }
 
     private static Map<String, String> pairs(ReadonlyConfig options, Option<String> option) {
-        String value = options.get(option);
-        if (value == null || value.trim().isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<String, String> result = new LinkedHashMap<>();
-        for (String pair : splitPairs(value)) {
-            int separator = pair.indexOf(':');
-            if (separator <= 0 || separator == pair.length() - 1) {
-                throw new IllegalArgumentException(
-                        option.key() + " must contain comma-separated key:value pairs");
-            }
-            String key = pair.substring(0, separator).trim();
-            String configuredValue = pair.substring(separator + 1).trim().replace("\\,", ",");
-            if (key.isEmpty()
-                    || configuredValue.isEmpty()
-                    || result.put(key, configuredValue) != null) {
-                throw new IllegalArgumentException(
-                        option.key() + " contains an empty or duplicate key:value pair");
-            }
-        }
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Splits comma-separated pairs while keeping an escaped comma ({@code \,}) inside one pair.
-     *
-     * @param value configured pairs
-     * @return the raw pairs, with escapes preserved for the value parser
-     */
-    private static List<String> splitPairs(String value) {
-        List<String> pairs = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean escaped = false;
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            if (escaped) {
-                current.append('\\').append(character);
-                escaped = false;
-            } else if (character == '\\') {
-                escaped = true;
-            } else if (character == ',') {
-                pairs.add(current.toString());
-                current.setLength(0);
-            } else {
-                current.append(character);
-            }
-        }
-        if (escaped) {
-            current.append('\\');
-        }
-        pairs.add(current.toString());
-        return pairs;
+        return KubernetesOptionValues.parsePairs(options.get(option), option.key());
     }
 }
