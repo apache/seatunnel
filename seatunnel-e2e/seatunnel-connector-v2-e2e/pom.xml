@@ -52,6 +52,8 @@
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-asana-e2e</module>
+        <module>connector-intercom-e2e</module>
+        <module>connector-typeform-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-paypal-e2e</module>
         <module>connector-tiktok-ads-e2e</module>

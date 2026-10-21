@@ -67,6 +67,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | schema                     | config  | 否    | -                   |
 | sheet_name                 | string  | 否    | -                   |
 | excel_engine               | string  | 否    | POI                 |
+| excel_use_header_line      | boolean | 否    | false               |
 | poi_excel_max_file_size    | long    | 否    | 52428800            |
 | xml_row_tag                | string  | 否    | -                   |
 | xml_use_attr_format        | boolean | 否    | -                   |
@@ -314,7 +315,7 @@ PDF 特有的解析行为如下：
 
 ### skip_header_row_number [long]
 
-跳过前几行，但仅适用于 txt 和 csv。
+跳过 text、CSV 或 Excel 文件的前几行。
 
 例如，设置如下：
 
@@ -356,6 +357,12 @@ PDF 特有的解析行为如下：
 默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### excel_use_header_line [boolean]
+
+仅用于 `file_format_type` 为 `excel` 的源。默认值为 `false`，因此即使设置了 `skip_header_row_number`，Excel 仍按列位置读取。
+
+设置 `excel_use_header_line = true` 后，第一行作为表头，按列名映射到 schema 字段，并跳过第一行。如果同时设置了 `skip_header_row_number`，则以 `excel_use_header_line` 为准。表头中缺少的字段将产生 null 值并记录警告。
 
 ### poi_excel_max_file_size [long]
 

@@ -12,7 +12,7 @@ The DataValidator transform validates field values according to configured rules
 |-----------------|--------|----------|---------------|
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
-| field_rules     | array  | yes      |               |
+| field_rules     | array  | no       |               |
 
 ### row_error_handle_way [enum]
 
@@ -58,6 +58,8 @@ When using `ROUTE_TO_TABLE` mode, DataValidator automatically creates an error t
 ### field_rules [array]
 
 Array of field validation rules. Each rule defines validation criteria for a specific field.
+
+A single-table config must set `field_rules`. With `table_transform`, every entry declares its own `field_rules`; the transform level one is optional.
 
 #### Field Rule Structure
 
