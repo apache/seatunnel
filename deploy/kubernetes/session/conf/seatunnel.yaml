@@ -38,4 +38,5 @@ seatunnel:
           namespace: /tmp/seatunnel/checkpoint_snapshot
           storage.type: hdfs
           # Pod-local example. Use shared storage (HDFS/S3/PVC) for failover recovery.
+          # fs.defaultFS: hdfs://namenode:8020/seatunnel/checkpoints
           fs.defaultFS: file:///tmp/

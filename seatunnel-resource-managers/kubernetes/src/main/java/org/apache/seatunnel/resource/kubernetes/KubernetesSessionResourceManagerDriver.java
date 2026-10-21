@@ -284,6 +284,14 @@ public final class KubernetesSessionResourceManagerDriver
         }
     }
 
+    /**
+     * Lists non-terminating worker Pods owned by this session.
+     *
+     * <p>Used by the new active master during adoption after failover. The Pod list is the source
+     * of truth for the live worker budget, even when a worker has not sent a heartbeat yet.
+     *
+     * @return live worker Pod identities
+     */
     @Override
     public List<KubernetesWorkerNode> listWorkers() {
         List<KubernetesWorkerNode> result = new ArrayList<>();
@@ -295,6 +303,11 @@ public final class KubernetesSessionResourceManagerDriver
         return result;
     }
 
+    /**
+     * Records workers left by a previous active master without creating or deleting them.
+     *
+     * @param adopted live workers found during initialization
+     */
     @Override
     public void adoptWorkers(List<KubernetesWorkerNode> adopted) {
         for (KubernetesWorkerNode worker : adopted) {
@@ -320,6 +333,15 @@ public final class KubernetesSessionResourceManagerDriver
                 ioExecutor);
     }
 
+    /**
+     * Reports a worker that disappeared and was not intentionally released.
+     *
+     * <p>The callback runs on the manager's event thread. Repeated watch events for the same Pod
+     * are idempotent because the worker is removed from the tracked set before dispatch.
+     *
+     * @param name worker Pod name
+     * @param diagnostics observed Pod phase or watch event
+     */
     private void onWorkerGone(String name, String diagnostics) {
         if (!running.get() || releasing.contains(name) || !workers.remove(name)) {
             return;

@@ -303,6 +303,15 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
         }
     }
 
+    /**
+     * Reserves and launches up to {@code requested} workers within the configured budget.
+     *
+     * <p>Reservations are recorded in {@code pending} before the asynchronous launch starts, so
+     * concurrent callers cannot exceed {@code max-workers} while Pods are being created.
+     *
+     * @param requested desired worker count
+     * @return number of launch requests accepted
+     */
     private synchronized int requestWorkers(int requested) {
         if (closed.get()) {
             return 0;
