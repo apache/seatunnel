@@ -164,10 +164,11 @@ EXAMPLE_RE = re.compile(r"^seatunnel-examples/.*/src/main/resources/examples/[^/
 DOCS_CONNECTOR_RE = re.compile(r"^docs/en/(connectors|connector-v2)/")
 # Everything under docs/ is documentation (pages, images, sidebars.js, i18n json), plus Markdown anywhere.
 DOC_RE = re.compile(r"(\.md$)|(^docs/)")
-# pom of a connector module or of its E2E module; a freshly added one defines a new module.
+# pom of a connector module or of its E2E module (including split E2E sub-modules such as
+# connector-jdbc-e2e/connector-jdbc-e2e-part-3); a freshly added one defines a new module.
 MODULE_POM_RE = re.compile(
     r"^seatunnel-connectors-v2/(connector-[^/]+/)?connector-[^/]+/pom\.xml$"
-    r"|^seatunnel-e2e/seatunnel-connector-v2-e2e/connector-[^/]+-e2e/pom\.xml$"
+    r"|^seatunnel-e2e/seatunnel-connector-v2-e2e/connector-[^/]+-e2e(/connector-[^/]+)?/pom\.xml$"
 )
 SERVICES_RE = re.compile(r"^seatunnel-connectors-v2/.*/src/main/resources/META-INF/services/[^/]+$")
 MODULE_LINE_RE = re.compile(r"<module>")
@@ -528,7 +529,9 @@ def evaluate(pr, files, cfg=None, known=None):
             _pom_facts(sc, path, status, added, removed, known)
             if path in known.group_poms:
                 _parent_pom_facts(sc, path, added, removed, known)
-            if status != "added" and any(not MODULE_LINE_RE.search(x) for x in added + removed if x.strip()):
+            # A dependency change in a connector module's own pom belongs to that unit; E2E poms are tests.
+            if path.startswith(CONNECTORS_ROOT) and status != "added" \
+                    and any(not MODULE_LINE_RE.search(x) for x in added + removed if x.strip()):
                 units.add(path.split("/")[-2])
             if path.startswith(E2E_ROOT):
                 tests.append(path)

@@ -372,6 +372,16 @@ class ReviewFindingsTest(unittest.TestCase):
         e2e_parent = "seatunnel-e2e/seatunnel-connector-v2-e2e/pom.xml"
         self.assertEqual(score([f(e2e_parent, "@@ -1 +1 @@\n+<dependency>\n+<artifactId>httpclient</artifactId>\n+</dependency>\n")])["level"], MEDIUM)
 
+    def test_split_e2e_sub_module_pom_is_a_connector_e2e_pom_not_platform(self):
+        # Found on #11746: connector-jdbc-e2e/connector-jdbc-e2e-part-3/pom.xml fell through to "non-connector pom".
+        pom = "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-3/pom.xml"
+        patch = "@@ -1 +1 @@\n+<dependency>\n+<artifactId>httpclient</artifactId>\n+<version>4.5.13</version>\n+</dependency>\n"
+        result = score([f(pom, patch)])
+        self.assertEqual((result["level"], result["class"]), (LOW, "tests"))
+        self.assertNotIn("platform-path", notes(result))
+        unknown = score([f(pom, "@@ -1 +1 @@\n+<dependency>\n+<artifactId>brand-new-driver</artifactId>\n+</dependency>\n")])
+        self.assertEqual(unknown["level"], MEDIUM)
+
     def test_grouping_pom_change_is_medium_but_a_plain_module_pom_is_not(self):
         known = impact.Known({"httpclient"}, {("httpclient", "4.5.13")}, group_poms={"seatunnel-connectors-v2/connector-cdc/pom.xml"})
         patch = "@@ -1 +1 @@\n+<dependency>\n+<artifactId>httpclient</artifactId>\n+<version>4.5.13</version>\n+</dependency>\n"
