@@ -591,4 +591,30 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         .preCheckWorkerResource(new ResourceProfile());
         Assertions.assertEquals(result.isPresent(), dynamicSlot);
     }
+
+    @Test
+    void externallyManagedPoolWaitsForEveryNativeWorkerAndDemotionDoesNotOwnCompute()
+            throws Exception {
+        EngineConfig config = new EngineConfig();
+        config.getSlotServiceConfig().setAllocateStrategy(AllocateStrategy.RANDOM);
+        FixedPoolApplicationResourceManager manager =
+                (FixedPoolApplicationResourceManager)
+                        ResourceManagerFactory.forExternallyManagedApplication(2)
+                                .createResourceManager(mock(NodeEngine.class), config);
+        WorkerProfile worker = new WorkerProfile(new Address("127.0.0.1", 5802));
+        manager.getRegisterWorker().put(worker.getAddress(), worker);
+        Assertions.assertEquals(1, manager.workerCount(Collections.emptyMap()));
+        Assertions.assertThrows(
+                NoEnoughResourceException.class,
+                () ->
+                        manager.applyResources(
+                                1L,
+                                Collections.singletonList(new ResourceProfile()),
+                                Collections.emptyMap()));
+        manager.close();
+        Assertions.assertDoesNotThrow(manager::close);
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ResourceManagerFactory.forExternallyManagedApplication(0));
+    }
 }

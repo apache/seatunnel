@@ -39,14 +39,14 @@ by its native job ID.
 ## When not to use Application Mode
 
 - Many small jobs should share one long-running cluster (use standalone or cluster deployment).
-- The job needs dynamic worker scaling or automatic worker replenishment while it runs; Application
-  Mode uses a fixed worker set and fails instead of scaling out.
+- The job needs dynamic worker scaling; Application Mode uses a fixed desired worker count.
+  Kubernetes HA can replace failed members without scaling out.
 - The distribution has no provider for your resource platform.
 
 ## Cluster shape
 
-- One application runs one Zeta master and a fixed number of workers; no member is added or removed
-  while the job runs.
+- One application runs one Zeta master by default and a fixed number of workers. Kubernetes
+  optionally maintains multiple masters and replaces failed members; see [HA](kubernetes/architecture.md#opt-in-application-ha).
 - Workers register their slots with the master before the job starts.
 - The master maps the job result to the platform state and releases the workers before it exits.
 - Checkpoints live in engine-owned persistent storage and survive the application; a new application
@@ -67,7 +67,7 @@ Platform-specific preparation, permissions and configuration are described in th
 | Term | Definition |
 | --- | --- |
 | Application | One job plus its dedicated master and fixed workers, identified by the platform-native ID. |
-| Master | The single Zeta member that runs the job, coordinates workers and publishes the result. |
+| Master | A Zeta coordinator member; Kubernetes HA can maintain multiple masters with one native active coordinator. |
 | Worker | A fixed-size Zeta member that registers slots and executes tasks. |
 | Resource manager | The Engine component that owns worker lifecycle through a platform driver. |
 | Resource manager driver | The platform provider implementation that starts, observes and releases worker processes. |

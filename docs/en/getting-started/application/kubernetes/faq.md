@@ -73,3 +73,7 @@ admission policy, ResourceQuota, or node capacity.
 - Keep connector credentials out of logs and prefer credential mechanisms supported by the connector, filesystem, or cluster.
 - Put `kubernetes.kubeconfig` in a permission-restricted deployment configuration file, or use the Kubernetes SDK default. Do not pass it with `-i` because command-line arguments may be visible to other users on the submission host.
 - Allow only required Hazelcast and external-system traffic in NetworkPolicy.
+
+## Enable HA
+
+This page describes the default single-master deployment. To enable native master failover and fixed worker replacement, follow [Application HA](architecture.md#opt-in-application-ha), including its additional RBAC and durable storage requirements. In HA, native terminal annotations determine application status, and owned mounted configuration is retained until owner Job TTL to allow cleanup retries.

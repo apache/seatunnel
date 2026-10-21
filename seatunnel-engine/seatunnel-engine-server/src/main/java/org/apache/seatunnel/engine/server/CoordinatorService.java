@@ -1642,7 +1642,9 @@ public class CoordinatorService {
         }
         JobStatus jobStatus = runningJobMaster.getJobStatus();
         if (jobStatus == null) {
-            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+            JobHistoryService.JobState finishedState =
+                    jobHistoryService.getFinishedJobStateImap().get(jobId);
+            return finishedState == null ? JobStatus.UNKNOWABLE : finishedState.getJobStatus();
         }
         return jobStatus;
     }

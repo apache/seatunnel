@@ -41,18 +41,32 @@ public final class SeatunnelKubernetesApplicationWorker {
      * @param args cluster name, master address and fixed slot count
      */
     public static void main(String[] args) {
-        if (args.length != 3) {
+        if (args.length != 3 && args.length != 4) {
             throw new IllegalArgumentException("Expected <cluster-name> <master-address> <slots>");
         }
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        SeatunnelApplicationConfig.configure(config, args[0], args[1], Integer.parseInt(args[2]));
+        boolean ha = args.length == 4;
+        if (ha) {
+            SeatunnelApplicationConfig.configureHa(
+                    config,
+                    args[0],
+                    java.util.Arrays.asList(args[1].split(",")),
+                    true,
+                    Integer.parseInt(args[2]),
+                    Integer.parseInt(args[3]));
+        } else {
+            SeatunnelApplicationConfig.configure(
+                    config, args[0], args[1], Integer.parseInt(args[2]));
+        }
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         HazelcastInstanceImpl worker =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         config, null, new ResourceManagerFactory());
-        worker.getCluster().addMembershipListener(new MasterExitListener());
+        if (!ha) {
+            worker.getCluster().addMembershipListener(new MasterExitListener());
+        }
     }
 
     /**

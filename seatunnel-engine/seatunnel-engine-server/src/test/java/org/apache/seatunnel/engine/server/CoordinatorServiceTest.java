@@ -2210,4 +2210,29 @@ public class CoordinatorServiceTest {
             this.jobId = jobId;
         }
     }
+
+    @Test
+    void testUninitializedJobStatusWithoutFinishedHistoryIsUnknowable() throws Exception {
+        CoordinatorService coordinator =
+                Mockito.mock(CoordinatorService.class, Mockito.CALLS_REAL_METHODS);
+        JobMaster master = Mockito.mock(JobMaster.class);
+        JobHistoryService history = Mockito.mock(JobHistoryService.class);
+        IMap<Long, JobHistoryService.JobState> finished = Mockito.mock(IMap.class);
+        Mockito.when(history.getFinishedJobStateImap()).thenReturn(finished);
+        ReflectionUtils.setField(
+                coordinator,
+                "pendingJobQueue",
+                new PeekBlockingQueue<PendingJobInfo>(PendingJobInfo::getJobId));
+        ReflectionUtils.setField(
+                coordinator, "runningJobMasterMap", Collections.singletonMap(1L, master));
+        ReflectionUtils.setField(coordinator, "jobHistoryService", history);
+
+        Assertions.assertEquals(JobStatus.UNKNOWABLE, coordinator.getJobStatus(1L));
+        JobHistoryService.JobState terminal = Mockito.mock(JobHistoryService.JobState.class);
+        Mockito.when(terminal.getJobStatus()).thenReturn(JobStatus.FINISHED);
+        Mockito.when(finished.get(1L)).thenReturn(terminal);
+        Assertions.assertEquals(JobStatus.FINISHED, coordinator.getJobStatus(1L));
+        Mockito.when(master.getJobStatus()).thenReturn(JobStatus.RUNNING);
+        Assertions.assertEquals(JobStatus.RUNNING, coordinator.getJobStatus(1L));
+    }
 }

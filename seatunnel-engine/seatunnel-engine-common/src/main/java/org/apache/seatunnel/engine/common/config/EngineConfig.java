@@ -91,6 +91,9 @@ public class EngineConfig {
     private long stateCleanupDelayMillis =
             ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS.defaultValue();
 
+    /** Enabled by the Application Mode launcher; ordinary engine modes retain their lifecycle. */
+    private boolean applicationHaEnabled;
+
     private ClusterRole clusterRole = ClusterRole.MASTER_AND_WORKER;
 
     private String eventReportHttpApi;

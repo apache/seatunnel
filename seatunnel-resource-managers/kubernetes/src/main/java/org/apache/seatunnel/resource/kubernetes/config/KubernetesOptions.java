@@ -26,6 +26,26 @@ public final class KubernetesOptions {
 
     private KubernetesOptions() {}
 
+    public static final Option<Boolean> HA_ENABLED =
+            Options.key("kubernetes.ha.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Keep fixed master and worker replicas alive using Kubernetes controllers and native Zeta HA.");
+
+    public static final Option<Integer> MASTER_REPLICAS =
+            Options.key("kubernetes.master.replicas")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Master replicas; HA requires at least two, otherwise exactly one.");
+    public static final Option<Integer> HA_BACKUP_COUNT =
+            Options.key("kubernetes.ha.backup-count")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "HA engine partition backups. If unset, use the submitter's seatunnel.engine.backup-count; must be positive and smaller than master replicas.");
+
     public static final Option<String> NAMESPACE =
             Options.key("kubernetes.namespace")
                     .stringType()

@@ -316,6 +316,42 @@ public final class SeatunnelApplicationConfig {
         config.getEngineConfig().setSlotServiceConfig(slotConfig);
     }
 
+    /** Prepares native fixed-pool application HA without changing the single-master defaults. */
+    public static void configureHa(
+            SeaTunnelConfig config,
+            String clusterName,
+            java.util.List<String> masterAddresses,
+            boolean worker,
+            int slots,
+            int backups) {
+        if (masterAddresses == null
+                || masterAddresses.size() < 2
+                || backups < 1
+                || backups > 6
+                || backups >= masterAddresses.size()
+                || masterAddresses.stream()
+                        .anyMatch(address -> address == null || address.trim().isEmpty())) {
+            throw new IllegalArgumentException(
+                    "HA requires at least two master addresses and positive backups smaller than the replica count");
+        }
+        configure(config, clusterName, worker ? masterAddresses.get(0) : null, slots);
+        config.getEngineConfig().setApplicationHaEnabled(true);
+        config.getEngineConfig().setBackupCount(backups);
+        // Native state lives in IMaps. The engine integer alone does not configure their replicas;
+        // explicit runtime patterns must not silently override the HA application's backup count.
+        config.getHazelcastConfig().getMapConfig("default");
+        config.getHazelcastConfig()
+                .getMapConfigs()
+                .values()
+                .forEach(map -> map.setAsyncBackupCount(0).setBackupCount(backups));
+        // Controllers may still be replacing/registering workers; use native pending scheduling.
+        config.getEngineConfig()
+                .setScheduleStrategy(
+                        org.apache.seatunnel.engine.common.config.server.ScheduleStrategy.WAIT);
+        JoinConfig join = config.getHazelcastConfig().getNetworkConfig().getJoin();
+        join.getTcpIpConfig().setRequiredMember(null).setMembers(masterAddresses);
+    }
+
     /**
      * Configures checkpoint retention for the application lifecycle.
      *

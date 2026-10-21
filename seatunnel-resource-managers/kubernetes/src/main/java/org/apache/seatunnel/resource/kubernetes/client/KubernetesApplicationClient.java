@@ -57,6 +57,12 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         }
         try {
             KubernetesJob job = api.getJob(applicationId);
+            ApplicationStatus recorded =
+                    org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.terminal(
+                            job);
+            if (recorded != null) {
+                return recorded;
+            }
             if (job.isFailed()) {
                 log.warn(
                         "Kubernetes application {} failed: {}",
@@ -66,6 +72,21 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             if (job.isComplete()) {
                 return ApplicationStatus.SUCCEEDED;
+            }
+            if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
+                    job)) {
+                String nativeState =
+                        org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
+                                .annotations(job)
+                                .get(
+                                        org.apache.seatunnel.resource.kubernetes.kubeclient
+                                                .HaApplicationState.STATUS);
+                if (ApplicationStatus.RUNNING.name().equals(nativeState)) {
+                    return ApplicationStatus.RUNNING;
+                }
+                return ApplicationStatus.DEPLOYING.name().equals(nativeState)
+                        ? ApplicationStatus.DEPLOYING
+                        : ApplicationStatus.UNKNOWN;
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
@@ -97,7 +118,21 @@ public final class KubernetesApplicationClient implements AutoCloseable {
      */
     public void cancel() throws Exception {
         log.info("Canceling Kubernetes application {}", applicationId);
-        api.deleteApplication(applicationId);
+        KubernetesJob owner;
+        try {
+            owner = api.getJob(applicationId);
+        } catch (KubernetesClientException failure) {
+            if (failure.getCode() != 404) {
+                throw failure;
+            }
+            canceled = true;
+            return;
+        }
+        if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(owner)) {
+            api.deleteApplication(applicationId, owner.getUid());
+        } else {
+            api.deleteApplication(applicationId);
+        }
         canceled = true;
     }
 
