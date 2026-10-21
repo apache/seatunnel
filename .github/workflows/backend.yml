@@ -76,8 +76,8 @@ jobs:
           MAVEN_OPTS: -Xmx512m
       - name: Check CI scope rules
         run: python3 -m unittest discover -s tools/update_modules_check -p 'test_*.py'
-      - name: Run pr risk label tests
-        run: python3 -I tools/test_pr_risk_label.py
+      - name: Run pr impact label tests
+        run: python3 -I tools/test_pr_impact_label.py
       - name: Check for .class files in git
         run: |
           echo "Checking for .class files tracked by git..."

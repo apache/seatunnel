@@ -19,11 +19,11 @@
 # branch, so this is the only run that holds `pull-requests: write`, and no PR-controlled code runs in it.
 # The artifact from the first run is treated as untrusted data: only a digit string is taken from it, and
 # the script refuses to label unless that PR's current head is the commit the first run was triggered for.
-name: PR risk label apply
+name: PR impact label apply
 
 on:
   workflow_run:
-    workflows: ["PR risk label"]
+    workflows: ["PR impact label"]
     types: [completed]
 
 permissions:
@@ -32,17 +32,17 @@ permissions:
   actions: read
 
 concurrency:
-  group: pr-risk-label-apply-${{ github.event.workflow_run.head_sha }}
+  group: pr-impact-label-apply-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
   apply:
     if: >-
       github.repository == 'apache/seatunnel' &&
-      vars.PR_RISK_ENABLED == 'true' &&
+      vars.PR_IMPACT_ENABLED == 'true' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
-    name: Apply risk label
+    name: Apply impact label
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -50,16 +50,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: pr-risk
-          path: pr-risk
+          name: pr-impact
+          path: pr-impact
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Recompute the level from the API and set the label
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_RISK_DEFAULT_BASE: ${{ vars.PR_RISK_DEFAULT_BASE }}
+          PR_IMPACT_DEFAULT_BASE: ${{ vars.PR_IMPACT_DEFAULT_BASE }}
           EXPECT_HEAD: ${{ github.event.workflow_run.head_sha }}
         run: |
-          NUMBER="$(tr -cd '0-9' < pr-risk/number | head -c 12)"
+          NUMBER="$(tr -cd '0-9' < pr-impact/number | head -c 12)"
           test -n "$NUMBER"
-          python3 -I tools/pr_risk_label.py evaluate --pr "$NUMBER" --expect-head "$EXPECT_HEAD" --apply
+          python3 -I tools/pr_impact_label.py evaluate --pr "$NUMBER" --expect-head "$EXPECT_HEAD" --apply

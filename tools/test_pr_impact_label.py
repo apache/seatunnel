@@ -15,13 +15,13 @@
 
 # !/usr/bin/python
 """
-Offline regression tests for tools/pr_risk_label.py.
+Offline regression tests for tools/pr_impact_label.py.
 
 Each test pins one scoring rule or one safety property: if a rule is weakened or deleted, the matching
 test turns red. Several fixtures mirror real PRs (a moved option key, an already-used pinned dependency
 version, a labeler edit, multi-line option declarations) that earlier versions scored wrongly. The
 GitHub client is replaced by an in-memory fake, so no network is needed.
-Run with: python3 -I tools/test_pr_risk_label.py
+Run with: python3 -I tools/test_pr_impact_label.py
 """
 
 import os
@@ -31,11 +31,11 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import pr_risk_label as risk  # noqa: E402
+import pr_impact_label as impact  # noqa: E402
 
-LOW, MEDIUM, HIGH = risk.LOW, risk.MEDIUM, risk.HIGH
+LOW, MEDIUM, HIGH = impact.LOW, impact.MEDIUM, impact.HIGH
 PR = {"title": "[Fix][Connector-V2] fix", "body": "", "base": "dev"}
-KNOWN = risk.Known({"httpclient", "commons-lang3", "maven-shade-plugin"}, {("httpclient", "4.5.13")},
+KNOWN = impact.Known({"httpclient", "commons-lang3", "maven-shade-plugin"}, {("httpclient", "4.5.13")},
                    {("activemq.version", "5.15.16")})
 
 KAFKA = "seatunnel-connectors-v2/connector-kafka/src/main/java/org/apache/seatunnel/connectors/seatunnel/kafka/"
@@ -61,7 +61,7 @@ TEST = f(KAFKA_TEST + "KafkaSinkHelperTest.java", "@@ -0,0 +1 @@\n+@Test\n+void 
 
 
 def score(files, pr=None, known=KNOWN):
-    return risk.evaluate(pr or PR, files, None, known)
+    return impact.evaluate(pr or PR, files, None, known)
 
 
 def rules(result):
@@ -150,7 +150,7 @@ class LowByDefaultTest(unittest.TestCase):
         for assoc in ("FIRST_TIME_CONTRIBUTOR", "NONE", "MEMBER"):
             result = score([FIX, TEST], dict(PR, author_association=assoc))
             self.assertEqual((result["level"], result["adjustments"], result["notes"]), (LOW, [], []), assoc)
-        self.assertFalse(hasattr(risk, "TRUSTED_ASSOCIATIONS"))
+        self.assertFalse(hasattr(impact, "TRUSTED_ASSOCIATIONS"))
 
 
 class HighByWhatWasTouchedTest(unittest.TestCase):
@@ -488,7 +488,7 @@ class NewConnectorTest(unittest.TestCase):
 
     def test_new_connector_size_limit_is_larger(self):
         fixture_lines = score(new_connector_files())["stats"]["main_code_lines"]
-        at = risk.SIZE_LIMIT_NEW_CONNECTOR - fixture_lines
+        at = impact.SIZE_LIMIT_NEW_CONNECTOR - fixture_lines
         self.assertNotIn("size", rules(score(new_connector_files() + [f(NEW_JAVA + "source/Big.java", lines(at), status="added", add=at)])))
         self.assertEqual(points(score(new_connector_files() + [f(NEW_JAVA + "source/Big.java", lines(at + 1), status="added", add=at + 1)]), "size"), 1)
 
@@ -527,8 +527,8 @@ class NewConnectorTest(unittest.TestCase):
         self.assertEqual(score([unknown, TEST])["level"], MEDIUM)
 
     def test_bare_version_tag_is_not_a_version_property(self):
-        self.assertEqual(risk.VERSION_PROPERTY_RE.findall("<version>4.5.13</version>"), [])
-        self.assertEqual(risk.VERSION_PROPERTY_RE.findall("<activemq.version>5.15.16</activemq.version>"),
+        self.assertEqual(impact.VERSION_PROPERTY_RE.findall("<version>4.5.13</version>"), [])
+        self.assertEqual(impact.VERSION_PROPERTY_RE.findall("<activemq.version>5.15.16</activemq.version>"),
                          [("activemq.version", "5.15.16")])
 
     def test_version_property_bump_is_flagged(self):
@@ -565,22 +565,22 @@ class ZendeskLikeTest(unittest.TestCase):
 
 class ReportTest(unittest.TestCase):
     def test_report_shows_the_arithmetic_and_the_result(self):
-        report = risk.render_report(score([FIX]), "abcdef1234567890")
-        self.assertIn("### PR risk: `risk: low`", report)
+        report = impact.render_report(score([FIX]), "abcdef1234567890")
+        self.assertIn("### PR impact: `impact: low`", report)
         self.assertIn("| base | low | one existing connector unit |", report)
         self.assertIn("| no-regression-test | +1 |", report)
         self.assertIn("| **result** | **low** |", report)
         self.assertIn("does not approve, block, merge or comment", report)
 
     def test_critical_fact_is_rendered_as_critical(self):
-        report = risk.render_report(score([f(KAFKA + "sink/KafkaSink.java"), TEST]), "abc")
+        report = impact.render_report(score([f(KAFKA + "sink/KafkaSink.java"), TEST]), "abc")
         self.assertIn("| core-class | critical |", report)
         self.assertIn("| **result** | **high** |", report)
 
     def test_pr_controlled_text_is_inert_in_the_report(self):
         line = 'String s = "@apache/seatunnel-committers | ok `x` <b>[y](z)" + password;'
         path = KAFKA + "x/Plain|\n`.java"
-        report = risk.render_report(score([f(path, "@@ -0,0 +1 @@\n+%s\n" % line), TEST]), "abc")
+        report = impact.render_report(score([f(path, "@@ -0,0 +1 @@\n+%s\n" % line), TEST]), "abc")
         row = next(r for r in report.splitlines() if r.startswith("| credential-handling"))
         self.assertEqual(row.count("|") - row.count("\\|"), 4, row)
         self.assertNotIn("@apache", row)
@@ -591,8 +591,8 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn("`x`", row)
 
     def test_long_values_are_truncated(self):
-        self.assertTrue(risk._md("a" * 500).endswith("..."))
-        self.assertLessEqual(len(risk._md("a" * 500)), 125)
+        self.assertTrue(impact._md("a" * 500).endswith("..."))
+        self.assertLessEqual(len(impact._md("a" * 500)), 125)
 
 
 class FakeGitHub(object):
@@ -617,7 +617,7 @@ class FakeGitHub(object):
     def write(self, method, path, body=None, tolerate=()):
         self.writes.append((method, path.split("/issues/")[-1], body))
         if self.fail == method:
-            raise risk.ApiError("%s failed" % method)
+            raise impact.ApiError("%s failed" % method)
         return 200
 
 
@@ -630,72 +630,72 @@ class ApplyTest(unittest.TestCase):
         self.tmp = tempfile.NamedTemporaryFile("w", delete=False, suffix=".md")
         self.tmp.close()
         os.environ["GITHUB_STEP_SUMMARY"] = self.tmp.name
-        os.environ["PR_RISK_REPO_ROOT"] = tempfile.mkdtemp()
+        os.environ["PR_IMPACT_REPO_ROOT"] = tempfile.mkdtemp()
 
     def tearDown(self):
         os.environ.pop("GITHUB_STEP_SUMMARY", None)
-        os.environ.pop("PR_RISK_REPO_ROOT", None)
+        os.environ.pop("PR_IMPACT_REPO_ROOT", None)
         os.unlink(self.tmp.name)
 
-    def test_apply_replaces_the_risk_label_and_writes_the_summary(self):
-        gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], ["bug", "risk: high"])
-        self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({}), apply=True), "applied")
-        self.assertEqual(gh.writes, [("POST", "7/labels", {"labels": ["risk: low"]}),
-                                     ("DELETE", "7/labels/risk%3A%20high", None)])
-        self.assertIn("### PR risk: `risk: low`", open(self.tmp.name).read())
+    def test_apply_replaces_the_impact_label_and_writes_the_summary(self):
+        gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], ["bug", "impact: high"])
+        self.assertEqual(impact.run_evaluate(gh, 7, impact.Config({}), apply=True), "applied")
+        self.assertEqual(gh.writes, [("POST", "7/labels", {"labels": ["impact: low"]}),
+                                     ("DELETE", "7/labels/impact%3A%20high", None)])
+        self.assertIn("### PR impact: `impact: low`", open(self.tmp.name).read())
 
     def test_apply_does_nothing_when_the_head_moved(self):
         gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])
-        self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({}), expect_head="b" * 40, apply=True), "stale")
+        self.assertEqual(impact.run_evaluate(gh, 7, impact.Config({}), expect_head="b" * 40, apply=True), "stale")
         self.assertEqual((gh.writes, open(self.tmp.name).read()), ([], ""))
 
     def test_apply_with_matching_head_labels(self):
         gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])
-        self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({}), expect_head="a" * 40, apply=True), "applied")
+        self.assertEqual(impact.run_evaluate(gh, 7, impact.Config({}), expect_head="a" * 40, apply=True), "applied")
         self.assertEqual(len(gh.writes), 1)
 
     def test_without_apply_only_the_summary_is_written(self):
         gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], [])
-        self.assertEqual(risk.run_evaluate(gh, 7, risk.Config({})), "reported")
+        self.assertEqual(impact.run_evaluate(gh, 7, impact.Config({})), "reported")
         self.assertEqual(gh.writes, [])
-        self.assertIn("risk: low", open(self.tmp.name).read())
+        self.assertIn("impact: low", open(self.tmp.name).read())
 
     def test_failed_write_fails_the_run(self):
         gh = FakeGitHub(fake_pr(), [f("docs/en/a.md")], [], fail="POST")
-        with self.assertRaises(risk.ApiError):
-            risk.run_evaluate(gh, 7, risk.Config({}), apply=True)
+        with self.assertRaises(impact.ApiError):
+            impact.run_evaluate(gh, 7, impact.Config({}), apply=True)
 
     def test_real_client_write_raises_on_error_and_tolerates_listed_statuses(self):
-        gh = risk.GitHub("apache/seatunnel", "x")
+        gh = impact.GitHub("apache/seatunnel", "x")
         gh.call = lambda method, path, body=None: (404, {"message": "gone"})
-        with self.assertRaises(risk.ApiError):
+        with self.assertRaises(impact.ApiError):
             gh.write("POST", "/x")
         self.assertEqual(gh.write("DELETE", "/x", tolerate=(404,)), 404)
 
 
 class LabelPlanTest(unittest.TestCase):
-    def test_exactly_one_risk_label_remains_and_other_labels_are_untouched(self):
-        self.assertEqual(risk.plan_label_changes(["risk: low", "bug", "risk: medium"], MEDIUM), ([], ["risk: low"]))
-        self.assertEqual(risk.plan_label_changes(["bug", "connector"], HIGH), (["risk: high"], []))
+    def test_exactly_one_impact_label_remains_and_other_labels_are_untouched(self):
+        self.assertEqual(impact.plan_label_changes(["impact: low", "bug", "impact: medium"], MEDIUM), ([], ["impact: low"]))
+        self.assertEqual(impact.plan_label_changes(["bug", "connector"], HIGH), (["impact: high"], []))
 
     def test_label_names_and_metadata_cover_exactly_three_levels(self):
-        self.assertEqual([risk.label_name(n) for n in (LOW, MEDIUM, HIGH)], ["risk: low", "risk: medium", "risk: high"])
-        self.assertEqual((sorted(risk.LEVEL_META), sorted(risk.LEVEL_NAMES)), ([LOW, MEDIUM, HIGH], [1, 2, 3]))
+        self.assertEqual([impact.label_name(n) for n in (LOW, MEDIUM, HIGH)], ["impact: low", "impact: medium", "impact: high"])
+        self.assertEqual((sorted(impact.LEVEL_META), sorted(impact.LEVEL_NAMES)), ([LOW, MEDIUM, HIGH], [1, 2, 3]))
 
     def test_label_commands_cover_every_level_for_the_one_time_committer_step(self):
-        commands = risk.label_commands("apache/seatunnel")
+        commands = impact.label_commands("apache/seatunnel")
         self.assertEqual(len(commands), 3)
-        self.assertTrue(all(c.startswith('gh label create "risk: ') and "--repo apache/seatunnel" in c for c in commands))
+        self.assertTrue(all(c.startswith('gh label create "impact: ') and "--repo apache/seatunnel" in c for c in commands))
 
 
 class ConfigTest(unittest.TestCase):
     def test_empty_repository_variable_falls_back_to_the_default_branch(self):
-        self.assertEqual(risk.Config({"PR_RISK_DEFAULT_BASE": ""}).default_base, "dev")
-        self.assertEqual(risk.Config({"PR_RISK_DEFAULT_BASE": "master"}).default_base, "master")
+        self.assertEqual(impact.Config({"PR_IMPACT_DEFAULT_BASE": ""}).default_base, "dev")
+        self.assertEqual(impact.Config({"PR_IMPACT_DEFAULT_BASE": "master"}).default_base, "master")
 
     def test_no_merge_comment_or_label_creation_path_exists(self):
         for name in ("merge_pr", "run_gate", "cmd_sweep", "cmd_gate", "cmd_enforce", "upsert_report", "ensure_labels"):
-            self.assertFalse(hasattr(risk, name), name)
+            self.assertFalse(hasattr(impact, name), name)
 
 
 if __name__ == "__main__":

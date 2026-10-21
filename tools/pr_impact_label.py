@@ -15,10 +15,10 @@
 
 # !/usr/bin/python
 """
-Risk triage labels for pull requests.
+Impact triage labels for pull requests.
 
-Every PR gets exactly one label `risk: low|medium|high`, and the reasoning is written to the Actions
-job summary, so committers can process the review queue sorted by risk. Nothing here approves,
+Every PR gets exactly one label `impact: low|medium|high`, and the reasoning is written to the Actions
+job summary, so committers can process the review queue sorted by impact. Nothing here approves,
 blocks, merges or comments on a PR: merge permission stays with committers.
 
 How the level is computed (see compute_level):
@@ -73,7 +73,7 @@ the commit the first run was triggered for. Every PR-controlled string in the su
 Sub-commands:
   evaluate --pr N [--expect-head SHA] [--apply]
                  Print the report (and write it to $GITHUB_STEP_SUMMARY when set). With --apply,
-                 replace the PR's risk label; with --expect-head, do nothing unless the PR head is
+                 replace the PR's impact label; with --expect-head, do nothing unless the PR head is
                  still that commit.
   classify --files-json F     Offline evaluation of a saved `pulls/N/files` payload.
   labels                      Print the `gh label create` commands for the three labels (one-time
@@ -81,8 +81,8 @@ Sub-commands:
 
 Configuration (env):
   GITHUB_TOKEN, GITHUB_REPOSITORY
-  PR_RISK_DEFAULT_BASE   branch that gets no floor (default: dev)
-  PR_RISK_REPO_ROOT      checkout of the base branch used to learn the already-used artifacts
+  PR_IMPACT_DEFAULT_BASE   branch that gets no floor (default: dev)
+  PR_IMPACT_REPO_ROOT      checkout of the base branch used to learn the already-used artifacts
                          (default: current directory)
 """
 
@@ -95,12 +95,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-LABEL_PREFIX = "risk: "
+LABEL_PREFIX = "impact: "
 LOW, MEDIUM, HIGH = 1, 2, 3
 LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
 LEVEL_META = {
     LOW: ("0e8a16", "Docs, tests, tooling, a new connector, or an internal change to one connector"),
-    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with risk facts (new option, credentials, weakened tests, supply chain)"),
+    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with impact facts (new option, credentials, weakened tests, supply chain)"),
     HIGH: ("d73a4a", "Engine, API, platform, CI, or a public core class / option contract of an existing connector"),
 }
 
@@ -271,7 +271,7 @@ class Config(object):
 
     def __init__(self, env=None):
         env = os.environ if env is None else env
-        self.default_base = env.get("PR_RISK_DEFAULT_BASE") or "dev"
+        self.default_base = env.get("PR_IMPACT_DEFAULT_BASE") or "dev"
 
 
 class Known(object):
@@ -428,7 +428,7 @@ class Scorer(object):
 
 
 def evaluate(pr, files, cfg=None, known=None):
-    """Pure risk evaluation.
+    """Pure impact evaluation.
 
     `pr` needs title/body/base. `known` is a Known set learned from the base
     branch; without it every third-party artifact of a pom change counts as new.
@@ -768,7 +768,7 @@ def _md(value, limit=120):
 
 def render_report(result, head_sha):
     lines = [
-        "### PR risk: `%s`" % result["label"],
+        "### PR impact: `%s`" % result["label"],
         "",
         "Head commit `%s`. Class: `%s`. Units: %s. Files: %d, changed lines: %d, production code lines: %d."
         % (_md(head_sha)[:12], result["class"], _md(", ".join(result["units"]) or "-"), result["stats"]["files"],
@@ -810,7 +810,7 @@ BASE_REASON = {
 
 
 def plan_label_changes(existing, level):
-    """Return (to_add, to_remove) so that exactly one `risk: *` label remains and other labels are untouched."""
+    """Return (to_add, to_remove) so that exactly one `impact: *` label remains and other labels are untouched."""
     target = label_name(level)
     to_remove = [n for n in existing if n.startswith(LABEL_PREFIX) and n != target]
     return ([] if target in existing else [target]), to_remove
@@ -838,7 +838,7 @@ class GitHub(object):
             "Authorization": "Bearer " + self.token,
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "seatunnel-pr-risk-label",
+            "User-Agent": "seatunnel-pr-impact-label",
         })
         try:
             with urllib.request.urlopen(request, timeout=60) as resp:
@@ -880,7 +880,7 @@ def evaluate_pr(gh, number, cfg):
     files = gh.paginate("/repos/%s/pulls/%d/files" % (gh.repo, number))
     view = {"title": pr.get("title"), "body": pr.get("body"), "base": pr["base"]["ref"]}
     # The workflow checks out the base branch, so these are the artifacts that are already vetted.
-    known = load_known(os.environ.get("PR_RISK_REPO_ROOT", "."))
+    known = load_known(os.environ.get("PR_IMPACT_REPO_ROOT", "."))
     return pr, evaluate(view, files, cfg, known)
 
 
@@ -902,7 +902,7 @@ def write_summary(report, env=None):
 def apply_label(gh, number, level):
     existing = [x["name"] for x in gh.paginate("/repos/%s/issues/%d/labels" % (gh.repo, number))]
     to_add, to_remove = plan_label_changes(existing, level)
-    # Add before removing so the PR never has zero risk labels in between.
+    # Add before removing so the PR never has zero impact labels in between.
     if to_add:
         gh.write("POST", "/repos/%s/issues/%d/labels" % (gh.repo, number), {"labels": to_add})
     for name in to_remove:
@@ -928,11 +928,11 @@ def run_evaluate(gh, number, cfg, expect_head=None, apply=False):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="PR risk triage labels")
+    parser = argparse.ArgumentParser(description="PR impact triage labels")
     parser.add_argument("command", choices=["evaluate", "classify", "labels"])
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY"))
     parser.add_argument("--pr", type=int)
-    parser.add_argument("--apply", action="store_true", help="evaluate: replace the PR's risk label")
+    parser.add_argument("--apply", action="store_true", help="evaluate: replace the PR's impact label")
     parser.add_argument("--expect-head", help="evaluate: do nothing unless the PR head is still this commit")
     parser.add_argument("--files-json", help="classify: saved pulls/N/files payload")
     parser.add_argument("--title", default="")
@@ -948,7 +948,7 @@ def main(argv=None):
         with open(args.files_json) as fh:
             files = json.load(fh)
         pr = {"title": args.title, "body": args.body, "base": args.base}
-        result = evaluate(pr, files, cfg, load_known(os.environ.get("PR_RISK_REPO_ROOT", ".")))
+        result = evaluate(pr, files, cfg, load_known(os.environ.get("PR_IMPACT_REPO_ROOT", ".")))
         print(json.dumps(result, indent=2))
         return 0
 

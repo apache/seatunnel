@@ -16,9 +16,9 @@
 #
 
 # First half of the ASF-compliant pair (pull_request + workflow_run). This run has a read-only token:
-# it reports the risk level in its own job summary and records the PR number for the labelling run
-# (pr-risk-label-apply.yml), which recomputes everything from trusted code before writing the label.
-name: PR risk label
+# it reports the impact level in its own job summary and records the PR number for the labelling run
+# (pr-impact-label-apply.yml), which recomputes everything from trusted code before writing the label.
+name: PR impact label
 
 on:
   pull_request:
@@ -29,14 +29,14 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: pr-risk-label-${{ github.event.pull_request.number }}
+  group: pr-impact-label-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   evaluate:
-    # Activation is a separate decision: nothing runs until the repository variable PR_RISK_ENABLED is 'true'.
-    if: github.repository == 'apache/seatunnel' && vars.PR_RISK_ENABLED == 'true'
-    name: Evaluate risk
+    # Activation is a separate decision: nothing runs until the repository variable PR_IMPACT_ENABLED is 'true'.
+    if: github.repository == 'apache/seatunnel' && vars.PR_IMPACT_ENABLED == 'true'
+    name: Evaluate impact
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,17 +45,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-      - name: Report the risk level in the job summary
+      - name: Report the impact level in the job summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_RISK_DEFAULT_BASE: ${{ vars.PR_RISK_DEFAULT_BASE }}
-        run: python3 -I tools/pr_risk_label.py evaluate --pr ${{ github.event.pull_request.number }}
+          PR_IMPACT_DEFAULT_BASE: ${{ vars.PR_IMPACT_DEFAULT_BASE }}
+        run: python3 -I tools/pr_impact_label.py evaluate --pr ${{ github.event.pull_request.number }}
       - name: Record the PR number for the labelling run
         run: |
-          mkdir -p pr-risk
-          echo "${{ github.event.pull_request.number }}" > pr-risk/number
+          mkdir -p pr-impact
+          echo "${{ github.event.pull_request.number }}" > pr-impact/number
       - uses: actions/upload-artifact@v4
         with:
-          name: pr-risk
-          path: pr-risk/
+          name: pr-impact
+          path: pr-impact/
           retention-days: 1
