@@ -46,8 +46,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Default branch: trusted script and poms.
+      # Default branch: trusted script and poms. The script talks to the API only; keep the token out of .git/config.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: pr-impact

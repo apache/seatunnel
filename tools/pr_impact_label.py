@@ -34,8 +34,9 @@ How the level is computed (see compute_level):
               touches option-rule declarations is an option-surface change (medium), not a core change
             - the option contract broken: an option key removed, or its default/type changed
   medium  a shared connector module's internal file (connector-common, *-base, JDBC core,
-          fake/assert/console), deploy manifests, an unclassified path, a PR to a non-default
-          branch, or a low PR with at least two points of facts:
+          fake/assert/console, and any connector module that another connector module depends
+          on according to the base branch's poms), deploy manifests, an unclassified path, a PR
+          to a non-default branch, or a low PR with at least two points of facts:
             +2  option key added to an existing connector (new user surface)
             +2  public core class added to an existing connector (new entry point)
             +2  factory option rule changed (required/optional declarations only)
@@ -47,7 +48,10 @@ How the level is computed (see compute_level):
                 deleted)
             +2  registration entry removed (module, dist dependency, plugin mapping, service,
                 plugin_config)
-            +2  diff cannot be inspected, or text addressed to a reviewer/AI
+            +2  dependency, plugin or property changed in a parent or grouping pom (inherited by
+                every connector below it)
+            +2  diff cannot be inspected, the API returned fewer files than the PR changed (the
+                3000-file cap), or text addressed to a reviewer/AI
             +1  TLS/auth, concurrency or classloading words in modified existing code
             +1  production code larger than 250 lines (1500 for a brand-new connector)
             +1  production code changed without any added or changed test
@@ -276,24 +280,47 @@ class Config(object):
 
 
 class Known(object):
-    """Artifacts and (artifact, version) pairs already used by poms of the base branch."""
+    """Facts learned from the poms of the base branch.
 
-    def __init__(self, artifacts=(), pairs=(), props=()):
+    artifacts / pairs / props: third-party coordinates already in use (supply-chain baseline).
+    reused: connector modules that another connector module depends on (their blast radius is wider
+    than one unit). group_poms: poms under seatunnel-connectors-v2 that list <module> children.
+    """
+
+    def __init__(self, artifacts=(), pairs=(), props=(), reused=(), group_poms=()):
         self.artifacts = set(artifacts)
         self.pairs = set(pairs)
         self.props = set(props)  # (property name, value) of version properties
+        self.reused = set(reused)
+        self.group_poms = set(group_poms)
+
+
+PARENT_BLOCK_RE = re.compile(r"<parent>.*?</parent>", re.S)
+DEPENDENCY_BLOCK_RE = re.compile(r"<dependency>(.*?)</dependency>", re.S)
 
 
 def load_known(root):
     known = Known()
     for current, dirs, names in os.walk(root):
         dirs[:] = [d for d in dirs if d not in ("target", "node_modules", ".git")]
-        if "pom.xml" in names:
-            with open(os.path.join(current, "pom.xml"), encoding="utf-8", errors="replace") as fh:
-                text = fh.read()
-            known.artifacts.update(ARTIFACT_RE.findall(text))
-            known.pairs.update(PAIR_RE.findall(text))
-            known.props.update(VERSION_PROPERTY_RE.findall(text))
+        if "pom.xml" not in names:
+            continue
+        path = os.path.join(current, "pom.xml")
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        known.artifacts.update(ARTIFACT_RE.findall(text))
+        known.pairs.update(PAIR_RE.findall(text))
+        known.props.update(VERSION_PROPERTY_RE.findall(text))
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        if rel.startswith(CONNECTORS_ROOT):
+            if "<module>" in text and rel != CONNECTORS_ROOT + "pom.xml":
+                known.group_poms.add(rel)
+            own = ARTIFACT_RE.search(PARENT_BLOCK_RE.sub("", text))
+            own = own.group(1) if own else None
+            for block in DEPENDENCY_BLOCK_RE.findall(text):
+                dep = ARTIFACT_RE.search(block)
+                if dep and dep.group(1).startswith("connector-") and dep.group(1) != own:
+                    known.reused.add(dep.group(1))
     return known
 
 
@@ -440,6 +467,10 @@ def evaluate(pr, files, cfg=None, known=None):
 
     if INJECTION_RE.search("%s\n%s" % (pr.get("title") or "", pr.get("body") or "")):
         sc.adjust(2, "untrusted-instruction", "-", "PR title/body contains text addressed to a reviewer or AI")
+    # The files endpoint returns at most 3000 entries; anything beyond that is unseen and unscored.
+    if (pr.get("changed_files") or 0) > len(files):
+        sc.adjust(2, "truncated-file-list", "-", "PR changed %d files but the API returned %d; the rest is not scored"
+                  % (pr["changed_files"], len(files)))
 
     # Pre-pass: a module is "new" only if its own pom.xml is added by this PR.
     new_modules, new_e2e = set(), set()
@@ -488,13 +519,15 @@ def evaluate(pr, files, cfg=None, known=None):
             other.append((path, reason))
         elif kind == "registration":
             registration_touched = True
-            _registration_facts(sc, path, added, removed, known)
+            _registration_facts(sc, path, REGISTRATION_FILES[path], added, removed, known)
         elif kind == "services":
             registration_touched = True
             if any(x.strip() and not x.strip().startswith("#") for x in removed):
                 sc.adjust(2, "registration-removed", path, "service registration entry removed")
         elif kind == "pom":
             _pom_facts(sc, path, status, added, removed, known)
+            if path in known.group_poms:
+                _parent_pom_facts(sc, path, added, removed, known)
             if status != "added" and any(not MODULE_LINE_RE.search(x) for x in added + removed if x.strip()):
                 units.add(path.split("/")[-2])
             if path.startswith(E2E_ROOT):
@@ -509,6 +542,10 @@ def evaluate(pr, files, cfg=None, known=None):
                 test_evidence = True
                 has_e2e_test = has_e2e_test or path.startswith(E2E_ROOT)
         elif kind in ("main", "shared"):
+            # A module that another connector module depends on (per the base branch's poms) is shared.
+            # connector-jdbc keeps its dialect split: the dialects are units, the core is shared.
+            if kind == "main" and module in known.reused and module != "connector-jdbc":
+                kind, unit = "shared", "shared:" + module
             if module in new_modules and unit.startswith("shared:"):
                 unit = module  # nothing depends on a module that does not exist yet
                 kind = "main"
@@ -653,7 +690,24 @@ def _pom_facts(sc, path, status, added, removed, known):
         sc.adjust(1, "dependency-change", path, "dependency or version lines of an existing pom changed")
 
 
-def _registration_facts(sc, path, added, removed, known):
+def _parent_pom_facts(sc, path, added, removed, known):
+    """Non-<module> lines of a parent or grouping pom (dependencies, plugins, properties) are inherited by
+    every connector below it, so any such change is at least medium, plus the usual supply-chain facts."""
+    other_added = [x for x in added if x.strip() and not MODULE_LINE_RE.search(x)]
+    other_removed = [x for x in removed if x.strip() and not MODULE_LINE_RE.search(x)]
+    if other_added or other_removed:
+        sc.adjust(2, "parent-pom-change", path, "dependency, plugin or property of a parent pom changed "
+                  "(inherited by every connector below it)")
+        _supply_facts(sc, path, other_added, known)
+
+
+def _registration_facts(sc, path, kind, added, removed, known):
+    if kind == "module":
+        module_removed = [x for x in removed if MODULE_LINE_RE.search(x)]
+        if module_removed:
+            sc.adjust(2, "registration-removed", path, "a <module> entry was removed")
+        _parent_pom_facts(sc, path, added, removed, known)
+        return
     if any(x.strip() and not x.strip().startswith("#") for x in removed):
         sc.adjust(2, "registration-removed", path, "a registration entry was removed or rewritten")
     if path == "seatunnel-dist/pom.xml":
@@ -879,7 +933,8 @@ class GitHub(object):
 def evaluate_pr(gh, number, cfg):
     pr = gh.get("/repos/%s/pulls/%d" % (gh.repo, number))
     files = gh.paginate("/repos/%s/pulls/%d/files" % (gh.repo, number))
-    view = {"title": pr.get("title"), "body": pr.get("body"), "base": pr["base"]["ref"]}
+    view = {"title": pr.get("title"), "body": pr.get("body"), "base": pr["base"]["ref"],
+            "changed_files": pr.get("changed_files")}
     # The workflow checks out the base branch, so these are the artifacts that are already vetted.
     known = load_known(os.environ.get("PR_IMPACT_REPO_ROOT", "."))
     return pr, evaluate(view, files, cfg, known)

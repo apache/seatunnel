@@ -349,6 +349,67 @@ class MediumFactsTest(unittest.TestCase):
         self.assertIn("no-regression-test", rules(score([FIX, comment_only])))
 
 
+class ReviewFindingsTest(unittest.TestCase):
+    """Rules added for the findings on head 87aea81: truncated file lists, parent poms, derived reuse."""
+
+    def test_truncated_file_list_is_medium(self):
+        pr = dict(PR, changed_files=3500)
+        result = score([f("docs/en/a.md")], pr)
+        self.assertEqual((result["level"], points(result, "truncated-file-list")), (MEDIUM, 2))
+        self.assertEqual(score([f("docs/en/a.md")], dict(PR, changed_files=1))["level"], LOW)
+
+    def test_dependency_or_plugin_added_to_the_connectors_parent_pom_is_medium(self):
+        parent = "seatunnel-connectors-v2/pom.xml"
+        for patch in ("@@ -1 +1 @@\n+        <dependency>\n+            <artifactId>commons-lang3</artifactId>\n+        </dependency>\n",
+                      "@@ -1 +1 @@\n+            <plugin>\n+                <artifactId>maven-shade-plugin</artifactId>\n+            </plugin>\n",
+                      "@@ -1 +1 @@\n-        <httpclient.version>4.5.13</httpclient.version>\n+        <httpclient.version>4.5.14</httpclient.version>\n"):
+            result = score([f(parent, patch, dele=patch.count("\n-"))])
+            self.assertEqual((result["level"], "parent-pom-change" in rules(result)), (MEDIUM, True), patch)
+        unknown = "@@ -1 +1 @@\n+<dependency>\n+<artifactId>brand-new-sdk</artifactId>\n+</dependency>\n"
+        self.assertIn("new-supply-chain", rules(score([f(parent, unknown)])))
+        module_only = score([f(parent, "@@ -1 +1 @@\n+        <module>connector-foo</module>\n")])
+        self.assertEqual((module_only["level"], rules(module_only)), (LOW, set()))
+        e2e_parent = "seatunnel-e2e/seatunnel-connector-v2-e2e/pom.xml"
+        self.assertEqual(score([f(e2e_parent, "@@ -1 +1 @@\n+<dependency>\n+<artifactId>httpclient</artifactId>\n+</dependency>\n")])["level"], MEDIUM)
+
+    def test_grouping_pom_change_is_medium_but_a_plain_module_pom_is_not(self):
+        known = impact.Known({"httpclient"}, {("httpclient", "4.5.13")}, group_poms={"seatunnel-connectors-v2/connector-cdc/pom.xml"})
+        patch = "@@ -1 +1 @@\n+<dependency>\n+<artifactId>httpclient</artifactId>\n+<version>4.5.13</version>\n+</dependency>\n"
+        group = score([f("seatunnel-connectors-v2/connector-cdc/pom.xml", patch), TEST], known=known)
+        self.assertEqual((group["level"], "parent-pom-change" in rules(group)), (MEDIUM, True))
+        plain = score([f("seatunnel-connectors-v2/connector-kafka/pom.xml", patch), TEST], known=known)
+        self.assertEqual((plain["level"], "parent-pom-change" in rules(plain)), (LOW, False))
+
+    def test_module_another_connector_depends_on_is_shared(self):
+        known = impact.Known(reused={"connector-cdc-mysql", "connector-jdbc"})
+        path = "seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/src/main/java/a/Util.java"
+        result = score([f(path), TEST], known=known)
+        self.assertEqual((result["level"], result["class"], result["units"]), (MEDIUM, "shared", ["shared:connector-cdc-mysql"]))
+        self.assertIn("dependents-not-tested", notes(result))
+        self.assertEqual(score([f(path), TEST], known=impact.Known())["level"], LOW)
+        # The JDBC dialect split survives: dialects stay units even though CDC connectors depend on connector-jdbc.
+        self.assertEqual(score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST], known=known)["level"], LOW)
+        # A brand-new module is never shared.
+        fresh = impact.Known(KNOWN.artifacts, KNOWN.pairs, KNOWN.props, reused={"connector-foo"})
+        self.assertEqual(score(new_connector_files(), known=fresh)["level"], LOW)
+
+    def test_load_known_derives_reuse_and_group_poms_from_a_checkout(self):
+        root = tempfile.mkdtemp()
+        def pom(rel, text):
+            full = os.path.join(root, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            open(full, "w").write(text)
+        pom("seatunnel-connectors-v2/pom.xml", "<project><artifactId>connectors-v2</artifactId><modules><module>connector-cdc</module></modules></project>")
+        pom("seatunnel-connectors-v2/connector-cdc/pom.xml", "<project><parent><artifactId>connectors-v2</artifactId></parent>"
+            "<artifactId>connector-cdc</artifactId><modules><module>connector-cdc-mysql</module></modules></project>")
+        pom("seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/pom.xml", "<project><parent><artifactId>connector-cdc</artifactId></parent>"
+            "<artifactId>connector-cdc-mysql</artifactId><dependencies><dependency><artifactId>connector-jdbc</artifactId></dependency>"
+            "<dependency><artifactId>connector-cdc-mysql</artifactId><classifier>tests</classifier></dependency></dependencies></project>")
+        known = impact.load_known(root)
+        self.assertEqual(known.reused, {"connector-jdbc"})  # a self-dependency does not count
+        self.assertEqual(known.group_poms, {"seatunnel-connectors-v2/connector-cdc/pom.xml"})
+
+
 class TestWeakeningTest(unittest.TestCase):
     def test_fewer_assertion_lines_is_medium_even_for_a_test_only_pr(self):
         patch = "@@ -1 +1 @@\n-    Assertions.assertEquals(1, x);\n-    Assertions.assertEquals(2, y);\n+    int y = 0;\n"

@@ -45,6 +45,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          # The script talks to the API only; keep the token out of .git/config.
+          persist-credentials: false
       - name: Report the impact level in the job summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
