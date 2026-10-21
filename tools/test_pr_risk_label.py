@@ -163,6 +163,14 @@ class HighByWhatWasTouchedTest(unittest.TestCase):
             result = score([f(path, "@@ -1 +1 @@\n-a\n+b\n", dele=1)])
             self.assertEqual((result["level"], result["class"]), (HIGH, "platform"), path)
 
+    def test_platform_production_lines_are_counted_in_the_report(self):
+        # Found on a real PR: 38/17 lines in CheckpointCoordinator.java were reported as 0 production lines.
+        patch = "@@ -1 +1 @@\n-int a = 0;\n+int a = 1;\n+int b = 2;\n"
+        result = score([f("seatunnel-engine/seatunnel-engine-server/src/main/java/A.java", patch, dele=1)])
+        self.assertEqual((result["level"], result["stats"]["main_code_lines"]), (HIGH, 3))
+        tests_only = score([f("seatunnel-engine/seatunnel-engine-server/src/test/java/ATest.java", patch, dele=1)])
+        self.assertEqual(tests_only["stats"]["main_code_lines"], 0)
+
     def test_other_platform_ci_build_and_repository_files_are_high(self):
         for module in ("seatunnel-core/seatunnel-starter", "seatunnel-common", "seatunnel-transforms-v2",
                        "seatunnel-formats", "seatunnel-translation", "seatunnel-dist"):

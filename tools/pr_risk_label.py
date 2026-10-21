@@ -480,6 +480,9 @@ def evaluate(pr, files, cfg=None, known=None):
                 added_docs.append(path)
         elif kind == "platform":
             platform.append((path, reason, platform_level(path)))
+            # Platform files are high regardless, but their size still belongs in the report.
+            if not PLATFORM_TEST_RE.match(path) and (path.endswith(".java") or "/src/main/" in path):
+                main_code_lines += sum(1 for x in added + removed if is_code_line(x, java) and x.strip() not in moved)
         elif kind == "other":
             other.append((path, reason))
         elif kind == "registration":
