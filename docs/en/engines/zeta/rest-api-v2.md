@@ -1097,6 +1097,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
 
+`params` may be omitted. Its values are used exactly as given in the JSON and are not URL-decoded, so `&`, `=`, `%` and `+` need no encoding.
+
 #### Request Body
 
 ```json

@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta REST API: `/submit-jobs` uses `params` values as given
+
+- **Behavior change: the `params` values of `POST /submit-jobs` and `POST /hazelcast/rest/maps/submit-jobs` are no longer URL-decoded**
+  - **Affected component**: the batch submit endpoints of the Zeta REST API (v1 and v2)
+  - **Description**: Each entry's `params` object was joined into an un-encoded `?k=v&k=v` string and parsed back with URL decoding. An entry without `params` failed with a `NullPointerException`, and a value containing `&`, `=`, `%` or `+` was rejected or changed (`a+b` became `a b`, `x=y` became `x`). The values are now used exactly as given in the JSON, and an empty string or a number or boolean such as `"jobId": 123` is accepted. A `null` value is skipped so that the default applies, instead of becoming the string `"null"`, and a `params` value that is not a JSON object is rejected with HTTP 400 instead of failing with HTTP 500.
+  - **Impact**: A client that percent-encoded `params` values to get them through the old parsing, for example `"jobName": "sales%26ops"`, now gets the encoded text literally (`sales%26ops` instead of `sales&ops`). `POST /submit-job` is unchanged and still URL-decodes its query string.
+  - **Migration Guide**: Remove any URL encoding from `params` values and send them as plain JSON strings.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

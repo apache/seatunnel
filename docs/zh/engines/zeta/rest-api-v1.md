@@ -648,6 +648,8 @@ network:
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 
+`params` 可以省略。其中的值按 JSON 中给出的原样使用，不会进行 URL 解码，因此无需对 `&`、`=`、`%` 或 `+` 进行编码。
+
 
 
 #### 请求体

@@ -48,6 +48,14 @@ public class RestUtil {
         return objectMapper.readTree(byteData);
     }
 
+    /**
+     * Fills the request parameters of a v1 {@code /hazelcast/rest/maps/submit-job} request from the
+     * query string of its URI. The values come from a URL, so they are URL-decoded, unlike the JSON
+     * {@code params} values read by {@link #buildRequestParams(Map, Map)}, which must not be.
+     *
+     * @param requestParams the map to fill
+     * @param uri the request URI, with or without a query string
+     */
     public static void buildRequestParams(Map<String, String> requestParams, String uri) {
         requestParams.put(RestConstant.JOB_ID, null);
         requestParams.put(RestConstant.IS_START_WITH_SAVE_POINT, String.valueOf(false));

@@ -4,6 +4,14 @@
 
 ## dev
 
+### Zeta REST API：`/submit-jobs` 按原样使用 `params` 中的值
+
+- **行为变更：`POST /submit-jobs` 与 `POST /hazelcast/rest/maps/submit-jobs` 不再对 `params` 中的值进行 URL 解码**
+  - **影响组件**：Zeta REST API（v1 与 v2）的批量提交接口
+  - **描述**：此前每个条目的 `params` 对象会被拼接成未编码的 `?k=v&k=v` 字符串，再按 URL 解码解析回来。缺少 `params` 的条目会抛出 `NullPointerException`，包含 `&`、`=`、`%` 或 `+` 的值会被拒绝或被改写（`a+b` 变成 `a b`，`x=y` 变成 `x`）。现在这些值按 JSON 中给出的原样使用，空字符串以及数字或布尔值（例如 `"jobId": 123`）也会被接受。值为 `null` 的项会被跳过并使用默认值，而不再变成字符串 `"null"`；`params` 不是 JSON 对象时返回 HTTP 400，而不再以 HTTP 500 失败。
+  - **影响**：为绕过旧的解析逻辑而对 `params` 值做了百分号编码的客户端（例如 `"jobName": "sales%26ops"`），现在会原样得到编码后的文本（`sales%26ops`，而不是 `sales&ops`）。`POST /submit-job` 不受影响，仍会对查询字符串进行 URL 解码。
+  - **迁移指南**：去掉 `params` 值上的 URL 编码，直接以普通 JSON 字符串发送。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
