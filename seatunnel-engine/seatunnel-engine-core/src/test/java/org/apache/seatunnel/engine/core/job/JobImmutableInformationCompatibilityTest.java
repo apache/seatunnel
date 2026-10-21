@@ -115,7 +115,7 @@ class JobImmutableInformationCompatibilityTest {
     }
 
     @Test
-    void checkpointRestore_shouldBeRestoreJobButNotSavepointRestore() throws Exception {
+    void checkpointRestoreShouldBeRestoreJobButNotSavepointRestore() throws Exception {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
         setField(jobImmutableInformation, "restoreMode", RestoreMode.CHECKPOINT);
         setField(jobImmutableInformation, "restoreSourceJobId", 456L);

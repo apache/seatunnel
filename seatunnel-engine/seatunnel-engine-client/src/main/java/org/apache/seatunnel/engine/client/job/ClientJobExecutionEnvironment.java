@@ -60,7 +60,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final Long restoreSourceJobId;
 
-    /** Legacy constructor for savepoint restore compatibility. */
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
@@ -122,7 +123,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 variables,
                 seaTunnelHazelcastClient,
                 seaTunnelConfig,
-                false,
+                RestoreMode.NONE,
+                null,
                 jobId);
     }
 
