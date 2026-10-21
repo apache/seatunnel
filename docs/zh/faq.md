@@ -40,7 +40,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 支持，是通过订阅 MySQL binlog 日志方式到同步服务器上解析 binlog 日志方式进行
 
 ## SeaTunnel 是否支持无主键表的 CDC 同步？
-支持。对于没有主键的表，基于 JDBC 的 CDC 连接器（MySQL、PostgreSQL、Oracle、SQL Server、DB2）会回退使用非空的唯一键列作为快照切分列；如果没有合适的键列，则整张表作为一个快照分片读取。也可以通过 `table-names-config.primaryKeys` 或 `snapshotSplitColumn` 显式指定切分列。需要注意两点限制：并行读取快照需要有这样的键列；开启 `exactly_once = true` 时必须存在主键或非空唯一键，否则作业在启动时报错。另外，没有唯一键时下游无法区分两条完全相同的记录，更新和删除可能同时影响这两条记录。
+支持，但有限制。没有唯一键时，下游无法区分两条完全相同的记录，更新和删除可能同时影响这两条记录。对于没有主键的表，基于 JDBC 的 CDC 连接器（MySQL、OpenGauss、PostgreSQL、Oracle、SQL Server、DB2）会回退使用非空的唯一键列作为快照切分列；如果没有合适的键列，则整张表作为一个快照分片读取。也可以通过 `table-names-config.primaryKeys` 或 `snapshotSplitColumn` 显式指定切分列。另有两点限制：并行读取快照需要有这样的键列；开启 `exactly_once = true` 时必须存在主键或非空唯一键，否则作业在启动时报错。
 
 ## SeaTunnel 是否支持自动建表？
 在同步任务启动之前，可以为目标端已有的表结构选择不同的处理方案。是通过 `schema_save_mode` 参数来控制的。

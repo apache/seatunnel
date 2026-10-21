@@ -224,15 +224,9 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 路径会打印在作业日志中。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
+Savepoint 的位置可在作业与 checkpoint 日志以及 checkpoint 存储中查看。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
 如需稍后恢复，请使用 `restoreMode=SAVEPOINT`（配合 `restoreSourceJobId`）重新提交，引擎会自动
-选取该作业最新的 Savepoint：
-
-```bash
-curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
-  -H "Content-Type: application/json" \
-  -d @fake_to_console.conf
-```
+选取该作业最新的 Savepoint。完整请求示例见 6.2 节。
 
 ### 5.3 强制取消
 
@@ -324,9 +318,8 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 
 REST API 不支持指定具体的 Savepoint 路径进行恢复。不存在 `restore.mode` 或 `savepoint.path` 之类的
 env 选项；恢复行为只由请求参数 `restoreMode` 和 `restoreSourceJobId` 控制，并且
-`restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint。如果必须从更早的 Savepoint 恢复，
-请先在 checkpoint 存储中复制或移动 Savepoint 目录，使目标 Savepoint 成为最新的一个，再按 6.2 节
-使用 `restoreMode=SAVEPOINT` 提交。
+`restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint（按 pipeline 取 checkpoint id 最高的那
+个）。REST API 没有选择更早 Savepoint 的受支持方式。
 
 ---
 

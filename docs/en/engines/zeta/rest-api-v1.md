@@ -123,7 +123,7 @@ network:
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",
@@ -1070,7 +1070,8 @@ If you'd like to view the log list first, you can use a `GET` request to retriev
 ```
 
 `logLink` and `node` point to the Jetty HTTP service of each node (port `8080` by default, see
-`seatunnel.engine.http`), not to the Hazelcast REST port.
+`seatunnel.engine.http`), not to the Hazelcast REST port. The endpoints require
+`seatunnel.engine.http.enable-http: true`, which is `false` by default.
 
 The supported formats are `json` and `html`, with `html` as the default.
 

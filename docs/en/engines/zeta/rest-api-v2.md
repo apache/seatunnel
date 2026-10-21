@@ -176,7 +176,7 @@ Please refer [security](security.md)
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",

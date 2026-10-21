@@ -122,7 +122,7 @@ network:
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",
@@ -1071,7 +1071,7 @@ network:
 ```
 
 `logLink` 和 `node` 指向各节点的 Jetty HTTP 服务（默认端口 `8080`，见 `seatunnel.engine.http`），
-而不是 Hazelcast REST 端口。
+而不是 Hazelcast REST 端口。这些端点需要 `seatunnel.engine.http.enable-http: true`（默认为 `false`）。
 
 当前支持的格式有`json`和`html`，默认为`html`。
 

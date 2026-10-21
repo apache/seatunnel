@@ -225,15 +225,10 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log. The `/job-info/:jobId` response has no
+The savepoint location can be found in the job and checkpoint logs and in the checkpoint storage. The `/job-info/:jobId` response has no
 `savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
-`restoreSourceJobId`), which picks up the latest savepoint of that job:
-
-```bash
-curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
-  -H "Content-Type: application/json" \
-  -d @fake_to_console.conf
-```
+`restoreSourceJobId`), which picks up the latest savepoint of that job. For the full
+request example, see section 6.2.
 
 ### 5.3 Cancel (force)
 
@@ -333,9 +328,8 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 The REST API does not support pointing at a specific savepoint path. There are no env options such
 as `restore.mode` or `savepoint.path`; restore is driven only by the `restoreMode` and
 `restoreSourceJobId` request parameters, and `restoreMode=SAVEPOINT` always picks up the **latest**
-savepoint of the referenced job. If you must restore from an older savepoint, copy or move the
-savepoint directories in checkpoint storage so that the desired one is the latest, then submit with
-`restoreMode=SAVEPOINT` as in section 6.2.
+savepoint of the referenced job (per pipeline, the one with the highest checkpoint id). There is no
+supported way to select an older savepoint through the REST API.
 
 ---
 
