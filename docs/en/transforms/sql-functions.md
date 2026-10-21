@@ -351,6 +351,17 @@ Example:
 MURMUR64('hello world')
 MURMUR64(NAME)
 
+### MD5
+
+```MD5(string|binary) -> STRING```
+
+Calculate the MD5 hash of the input string or binary value and return the result as a 32-character lowercase hexadecimal string, compatible with Hive's `md5` function. This method returns null if the input parameter is null.
+
+Example:
+
+MD5('hello world')
+MD5(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -1154,6 +1165,43 @@ AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
 
 AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
 
+## JSON Functions
+
+### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Available in both the Zeta and Calcite SQL transforms.
+
+Supported path syntax:
+
+- `$` — the root document
+- `.field` — object field access
+- `[n]` — array index (non-negative integer)
+- `['field']` / `["field"]` — bracket field access (for keys containing `.` or `[`)
+
+Wildcards (`[*]`, `.*`), recursive descent (`..`) and filter expressions (`[?(...)]`) are not supported.
+
+Return semantics:
+
+- Any null input (`json` or `path`) → `null`
+- Invalid JSON → `null`
+- Path does not match / array index out of bounds → `null`
+- A JSON `null` value → `null`
+- A string value → the unquoted string content
+- A number or boolean → the value rendered as text
+- An object or array → the raw (compact) JSON text of that node
+
+Example:
+
+GET_JSON_OBJECT('{"a":"hello","b":[10,20]}', '$.a')
+
+GET_JSON_OBJECT('{"a":{"b":1}}', '$.a')
+
+GET_JSON_OBJECT('{"b":[10,20]}', '$.b[1]')
+
+SELECT CASE WHEN GET_JSON_OBJECT(name, '$.key1') = 'value1' THEN 'A' ELSE 'B' END AS r FROM dual
+
 ## System Functions
 
 ### CAST
@@ -1173,6 +1221,19 @@ Converts a value to a BOOLEAN data type according to the following rules:
 1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
+
+NOTE:
+Casting to `INT` | `INTEGER` throws a `TransformException` when the source value is outside the
+target's range, for example `CAST(3000000000 AS INT)`. `TINYINT` and `SMALLINT` behave the same way
+for a string source, such as `CAST('300' AS TINYINT)`. Use `TRY_CAST` to get `NULL` instead of an
+error.
+
+A narrowing or floating-point source is rejected earlier, while the statement is prepared rather
+than while a row is read: `CAST(double_col AS INT)` and `CAST(bigint_col AS TINYINT)` both fail with
+`Unsupported CAST FROM ... AS type: ...`, and `TRY_CAST` does not turn those into `NULL`. A
+fractional value reaches an integral target only through `COALESCE` or `IFNULL`, where the target
+type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
+`NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
 ### TRY_CAST
 

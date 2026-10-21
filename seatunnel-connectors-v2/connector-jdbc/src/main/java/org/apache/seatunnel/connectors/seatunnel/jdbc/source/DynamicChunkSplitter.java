@@ -476,7 +476,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             throws Exception {
         int shardCount = (int) (approximateRowCnt / chunkSize);
         int inverseSamplingRate = config.getSplitInverseSamplingRate();
-        if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
+        if (shouldUseSamplingSharding(sampleShardingAllow)
+                && sampleShardingThreshold < shardCount) {
             // It is necessary to ensure that the number of data rows sampled by the
             // sampling rate is greater than the number of shards.
             // Otherwise, if the sampling rate is too low, it may result in an insufficient
@@ -508,7 +509,24 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return efficientShardingThroughSampling(
                     tablePath, sample, approximateRowCnt, shardCount);
         }
+        if (sampleShardingAllow
+                && sampleShardingThreshold < shardCount
+                && !jdbcDialect.supportsSamplingSharding()) {
+            log.info(
+                    "Sampling sharding is disabled for dialect {}, fallback to bounded uneven chunk splitting for table {}",
+                    jdbcDialect.dialectName(),
+                    tablePath);
+        }
         return splitUnevenlySizedChunks(table, splitColumnName, min, max, chunkSize);
+    }
+
+    /**
+     * Sampling sharding requires both the user option and a dialect whose driver streams the
+     * sampled result set instead of buffering it in memory.
+     */
+    @VisibleForTesting
+    boolean shouldUseSamplingSharding(boolean sampleShardingAllow) {
+        return sampleShardingAllow && jdbcDialect.supportsSamplingSharding();
     }
 
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {

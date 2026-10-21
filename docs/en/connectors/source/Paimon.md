@@ -70,7 +70,7 @@ Read data from Apache Paimon.
 
 ### warehouse [string]
 
-Paimon warehouse path
+Paimon warehouse path. Must not be blank.
 
 ### catalog_type [string]
 
@@ -259,7 +259,21 @@ source {
 }
 ```
 
-## Changelog
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
+}
+```
+
+## Read Paimon Table Changelog
 If you want to read the changelog of the Paimon table, first set the `changelog-producer` for the Paimon source table and then use the SeaTunnel stream task to read it.
 
 ### Note
@@ -288,20 +302,6 @@ sink {
     table = "st_test_sink"
     paimon.table.primary-keys = "c_tinyint"
   }
-}
-```
-
-### paimon enable privilege example
-
-```hocon
-source {
- Paimon {
-     warehouse = "/tmp/paimon"
-     database = "default"
-     table = "st_test"
-     user = "paimon"
-     password = "******"
-   }
 }
 ```
 

@@ -70,7 +70,7 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ### warehouse [string]
 
-Paimon warehouse 路径
+Paimon warehouse 路径，不能为空白字符串。
 
 ### catalog_type [string]
 
@@ -278,7 +278,7 @@ source {
 }
 ```
 
-## Changelog
+## 读取 Paimon 表的 changelog
 
 如果要读取 paimon 表的 changelog，首先要为 Paimon 源表设置 `changelog-producer`，然后使用 SeaTunnel 流任务读取。
 
