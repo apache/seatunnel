@@ -24,19 +24,23 @@ blocks, merges or comments on a PR: merge permission stays with committers.
 How the level is computed (see compute_level):
 
   high    only from WHAT was touched:
-            - any file under seatunnel-engine or seatunnel-api (tests and docs included)
-            - other platform code: core, common, config, formats, transforms, translation, dist, CI
-              workflows and actions, tools, license files, root or non-connector pom.xml, build
-              wrapper and repository settings
-            - a public core class of an existing connector modified or deleted: *Source, *Sink,
-              *Factory, *Catalog, and the persisted *Split, *State, *CommitInfo, *Serializer classes
-              (shared base modules included), or serialVersionUID touched. A *Factory edit that only
-              touches option-rule declarations is an option-surface change (medium), not a core change
+            - any file under seatunnel-engine or seatunnel-api (tests and docs included), or
+              .asf.yaml (repository permissions)
+            - a public core class of an existing module modified or deleted: *Source, *Sink,
+              *Factory, *Catalog, *Transform, and the persisted *Split, *State, *CommitInfo,
+              *Serializer classes (connectors, shared base modules and platform modules alike), or
+              serialVersionUID touched. A *Factory edit that only touches option-rule declarations
+              is an option-surface change (medium), not a core change
             - the option contract broken: an option key removed, or its default/type changed
-  medium  a shared connector module's internal file (connector-common, *-base, JDBC core,
-          fake/assert/console, and any connector module that another connector module depends
-          on according to the base branch's poms), deploy manifests, an unclassified path, a PR
-          to a non-default branch, or a low PR with at least two points of facts:
+            - a CI workflow or action whose permission surface changed: permissions, secrets,
+              GITHUB_TOKEN, pull_request_target, workflow_run, write scopes
+  medium  an internal file of other platform code (core, common, config, formats, transforms,
+          translation, plugin discovery, dist, edge agent), CI workflows and actions without a
+          permission change, tools, non-connector poms, build wrapper and license files; a shared
+          connector module's internal file (connector-common, *-base, JDBC core, fake/assert/
+          console, and any connector module that another connector module depends on according
+          to the base branch's poms); deploy manifests; an unclassified path; a PR to a non-default
+          branch; or a low PR with at least two points of facts:
             +2  option key added to an existing connector (new user surface)
             +2  public core class added to an existing connector (new entry point)
             +2  factory option rule changed (required/optional declarations only)
@@ -105,8 +109,8 @@ LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
 # GitHub limits a label description to 100 characters.
 LEVEL_META = {
     LOW: ("0e8a16", "Docs, tests, tooling, a new connector, or an internal change to one connector"),
-    MEDIUM: ("fbca04", "Shared-module internals, or a contained change with impact facts (new option, credentials...)"),
-    HIGH: ("d73a4a", "Engine, API, platform, CI, or a public core class / option contract of a connector"),
+    MEDIUM: ("fbca04", "Platform/CI/pom internals, shared-module internals, or a contained change with impact facts"),
+    HIGH: ("d73a4a", "Engine, API, repo permissions, a public core class or option contract, or CI permissions"),
 }
 
 # ------------------------------------------------------------------------------------------
@@ -115,32 +119,39 @@ LEVEL_META = {
 
 # Any change under these modules is high, tests and docs included.
 ALWAYS_HIGH_RE = re.compile(r"^seatunnel-(engine|api)/")
-# Platform and tooling paths: (regex, reason, base level). HIGH means a mistake affects every job or the
-# build itself; MEDIUM is tooling around the runtime (CLI, benchmarks, examples, Helm).
+# Platform and tooling paths: (regex, reason, base level). HIGH is reserved for engine/api (ALWAYS_HIGH_RE)
+# and repository permissions; other platform code is MEDIUM and reaches HIGH only through a critical fact
+# (public core class, option contract, serialVersionUID, workflow permission surface).
 PLATFORM_BLOCKS = [
-    (r"(^|/)pom\.xml$", "root or non-connector pom.xml (build and dependency graph)", HIGH),
-    (r"^\.github/", "CI workflows, actions and repository automation", HIGH),
-    (r"^tools/", "CI, release and compatibility tooling", HIGH),
+    (r"^\.asf\.yaml$", "repository settings and permissions", HIGH),
+    (r"(^|/)pom\.xml$", "root or non-connector pom.xml (build and dependency graph)", MEDIUM),
+    (r"^\.github/", "CI workflows, actions and repository automation", MEDIUM),
+    (r"^tools/", "CI, release and compatibility tooling", MEDIUM),
     (r"^seatunnel-engine/", "engine runtime (Zeta): scheduling, checkpoint, state, RPC", HIGH),
     (r"^seatunnel-api/", "public API / SPI contract", HIGH),
-    (r"^seatunnel-core/", "core runtime and CLI wiring", HIGH),
-    (r"^seatunnel-common/", "shared common code used by every module", HIGH),
-    (r"^seatunnel-config/", "config framework", HIGH),
-    (r"^seatunnel-formats/", "shared format code", HIGH),
-    (r"^seatunnel-transforms-v2/", "transform runtime", HIGH),
-    (r"^seatunnel-translation/", "Flink/Spark translation layer", HIGH),
-    (r"^seatunnel-plugin-discovery/", "plugin discovery", HIGH),
-    (r"^seatunnel-dist/", "distribution packaging", HIGH),
-    (r"^seatunnel-ci-tools/", "CI tooling module", HIGH),
-    (r"^seatunnel-(edge-agent|trace)/", "edge agent and tracing runtime", HIGH),
+    (r"^seatunnel-core/", "core runtime and CLI wiring", MEDIUM),
+    (r"^seatunnel-common/", "shared common code used by every module", MEDIUM),
+    (r"^seatunnel-config/", "config framework", MEDIUM),
+    (r"^seatunnel-formats/", "shared format code", MEDIUM),
+    (r"^seatunnel-transforms-v2/", "transform runtime", MEDIUM),
+    (r"^seatunnel-translation/", "Flink/Spark translation layer", MEDIUM),
+    (r"^seatunnel-plugin-discovery/", "plugin discovery", MEDIUM),
+    (r"^seatunnel-dist/", "distribution packaging", MEDIUM),
+    (r"^seatunnel-ci-tools/", "CI tooling module", MEDIUM),
+    (r"^seatunnel-(edge-agent|trace)/", "edge agent and tracing runtime", MEDIUM),
     (r"^seatunnel-(cli|benchmarks|examples)/", "CLI, benchmarks and examples (tooling around the runtime)", LOW),
     (r"^deploy/", "deployment charts and manifests", MEDIUM),
-    (r"^(mvnw|\.mvn/|\.asf\.yaml|CODEOWNERS)", "build wrapper and repository settings", HIGH),
+    (r"^(mvnw|\.mvn/|CODEOWNERS)", "build wrapper and code ownership", MEDIUM),
     (r"^(plugin-mapping\.properties|config/|bin/|plugins/|LICENSE|NOTICE|licenses/)",
-     "distribution, startup scripts or license files", HIGH),
-    (r"META-INF/services/", "SPI service registration outside connectors", HIGH),
-    (r"(^|/)CODEOWNERS$", "code ownership", HIGH),
+     "distribution, startup scripts or license files", MEDIUM),
+    (r"META-INF/services/", "SPI service registration outside connectors", MEDIUM),
+    (r"(^|/)CODEOWNERS$", "code ownership", MEDIUM),
 ]
+# Lines of a workflow or action that change what a run may do; a change here is a critical fact.
+WORKFLOW_FILE_RE = re.compile(r"^\.github/(workflows|actions)/.*\.ya?ml$")
+WORKFLOW_SURFACE_RE = re.compile(
+    r"\bpermissions\b|pull_request_target|workflow_run|secrets\.|GITHUB_TOKEN|id-token|:\s*write\b"
+)
 # Test suites of platform modules other than engine/api: test-only changes cannot alter runtime behavior.
 PLATFORM_TEST_RE = re.compile(
     r"^seatunnel-e2e/(seatunnel-engine-e2e|seatunnel-core-e2e|seatunnel-transforms-v2-e2e|seatunnel-edge-agent-e2e)/.*"
@@ -196,7 +207,7 @@ JDBC_SHARED_DIRS = {"dialectenum", "utils"}
 # API (Source, Sink, Factory, Catalog) and the classes whose objects are persisted by checkpoints (Split,
 # State, CommitInfo, Serializer). Readers, writers, enumerators, committers, clients and utilities are
 # implementation detail and are not matched.
-CORE_CLASS_RE = re.compile(r"(Source|Sink|Factory|Catalog|Split|State|CommitInfo|Serializer)\.java$")
+CORE_CLASS_RE = re.compile(r"(Source|Sink|Factory|Catalog|Transform|Split|State|CommitInfo|Serializer)\.java$")
 # Lines a Factory edit may consist of without touching the connector's wiring: option-rule declarations,
 # option constants, and structural lines. A Factory diff made only of these is an option-surface change
 # (medium), not a public core class change (high).
@@ -406,6 +417,8 @@ def classify_path(path):
 
 
 def platform_level(path):
+    if ALWAYS_HIGH_RE.match(path):
+        return HIGH  # engine/api win over the generic pom and test rows, whatever the table order
     for pattern, _reason, level in PLATFORM_BLOCKS:
         if re.search(pattern, path):
             return level
@@ -513,9 +526,14 @@ def evaluate(pr, files, cfg=None, known=None):
                 added_docs.append(path)
         elif kind == "platform":
             platform.append((path, reason, platform_level(path)))
-            # Platform files are high regardless, but their size still belongs in the report.
             if not PLATFORM_TEST_RE.match(path) and (path.endswith(".java") or "/src/main/" in path):
                 main_code_lines += sum(1 for x in added + removed if is_code_line(x, java) and x.strip() not in moved)
+                if java:
+                    # Public core classes and persisted formats are critical in platform modules too.
+                    _main_facts(sc, path, status, False, gone, added, removed, moved)
+            if WORKFLOW_FILE_RE.match(path) and any(WORKFLOW_SURFACE_RE.search(x) for x in added + removed):
+                sc.adjust(0, "workflow-permissions", path, "permission surface of a CI workflow or action changed "
+                          "(permissions, secrets, token, privileged trigger)", critical=True)
         elif kind == "other":
             other.append((path, reason))
         elif kind == "registration":
@@ -597,7 +615,7 @@ def evaluate(pr, files, cfg=None, known=None):
     # ---- base level
     if platform:
         base = max(level for _p, _r, level in platform)
-        pr_class = {HIGH: "platform", MEDIUM: "tooling", LOW: "tooling"}[base]
+        pr_class = {HIGH: "platform", MEDIUM: "platform", LOW: "tooling"}[base]
     elif other:
         base, pr_class = MEDIUM, "other"
     elif shared_units:
@@ -862,7 +880,7 @@ BASE_REASON = {
     "new-connector": "brand-new connector module",
     "shared": "internal file of a shared connector module (dependents are affected)",
     "other": "path outside every known area",
-    "platform": "engine, API or other platform code (always high)",
+    "platform": "engine/api or repository permissions (always high); other platform, CI and build code (medium)",
     "tooling": "tooling around the runtime (CLI, benchmarks, examples, deploy)",
 }
 

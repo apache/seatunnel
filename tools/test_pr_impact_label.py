@@ -94,7 +94,7 @@ class LowByDefaultTest(unittest.TestCase):
             self.assertEqual((result["level"], result["class"]), (LOW, "docs"), path)
         for path in (".github/workflows/backend.yml", ".github/actions/upload-test-reports/action.yml",
                      ".github/workflows/README.md"):
-            self.assertEqual(score([f(path)])["level"], HIGH, path)
+            self.assertEqual(score([f(path)])["level"], MEDIUM, path)
 
     def test_tests_only_is_low_including_shared_e2e_infrastructure(self):
         for path in (KAFKA_TEST + "T.java", "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-seatunnel-e2e-base/src/test/java/A.java",
@@ -171,13 +171,45 @@ class HighByWhatWasTouchedTest(unittest.TestCase):
         tests_only = score([f("seatunnel-engine/seatunnel-engine-server/src/test/java/ATest.java", patch, dele=1)])
         self.assertEqual(tests_only["stats"]["main_code_lines"], 0)
 
-    def test_other_platform_ci_build_and_repository_files_are_high(self):
+    def test_other_platform_ci_build_and_license_files_are_medium(self):
         for module in ("seatunnel-core/seatunnel-starter", "seatunnel-common", "seatunnel-transforms-v2",
                        "seatunnel-formats", "seatunnel-translation", "seatunnel-dist"):
-            self.assertEqual(score([f("%s/src/main/java/A.java" % module), TEST])["level"], HIGH, module)
-        for path in ("tools/x.py", "pom.xml", "LICENSE", "config/seatunnel.yaml", ".asf.yaml", "mvnw",
+            result = score([f("%s/src/main/java/A.java" % module), TEST])
+            self.assertEqual((result["level"], result["class"]), (MEDIUM, "platform"), module)
+        for path in ("tools/x.py", "pom.xml", "LICENSE", "config/seatunnel.yaml", "mvnw",
                      "seatunnel-edge-agent/src/main/java/A.java", "seatunnel-e2e/seatunnel-engine-e2e/pom.xml"):
-            self.assertEqual(score([f(path)])["level"], HIGH, path)
+            self.assertEqual(score([f(path)])["level"], MEDIUM, path)
+
+    def test_repository_permissions_file_is_high(self):
+        self.assertEqual(score([f(".asf.yaml")])["level"], HIGH)
+
+    def test_public_core_classes_of_platform_modules_are_high(self):
+        # Mirrors the transform PRs: a Transform or TransformFactory is the public contract; a filter or a
+        # validation rule is internal.
+        for path in ("seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sql/SQLTransform.java",
+                     "seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sql/SQLTransformFactory.java",
+                     "seatunnel-core/seatunnel-starter/src/main/java/a/ClientFactory.java",
+                     "seatunnel-formats/seatunnel-format-json/src/main/java/a/JsonSerializer.java"):
+            result = score([f(path), TEST])
+            self.assertEqual((result["level"], critical(result)), (HIGH, {"core-class"}), path)
+        for path in ("seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sql/zeta/ZetaSQLFilter.java",
+                     "seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/validator/rule/LengthValidationRule.java",
+                     "seatunnel-translation/seatunnel-translation-spark/seatunnel-translation-spark-common/src/main/java/a/RowConverter.java"):
+            result = score([f(path), TEST])
+            self.assertEqual((result["level"], critical(result)), (MEDIUM, set()), path)
+
+    def test_workflow_permission_surface_change_is_high_but_other_workflow_edits_are_medium(self):
+        for line in ("permissions:", "  contents: write", "      token: ${{ secrets.GITHUB_TOKEN }}", "  pull_request_target:",
+                     "  workflow_run:", "      id-token: write"):
+            result = score([f(".github/workflows/x.yml", "@@ -0,0 +1 @@\n+%s\n" % line)])
+            self.assertEqual((result["level"], critical(result)), (HIGH, {"workflow-permissions"}), line)
+        new_workflow = f(".github/workflows/python-sdk.yml", "@@ -0,0 +1 @@\n+permissions:\n+  contents: read\n", status="added")
+        self.assertEqual(score([new_workflow])["level"], HIGH)
+        matrix = f(".github/workflows/backend.yml", "@@ -1 +1 @@\n-        java: [8]\n+        java: [8, 11]\n", dele=1)
+        result = score([matrix])
+        self.assertEqual((result["level"], critical(result)), (MEDIUM, set()))
+        action = f(".github/actions/upload-test-reports/action.yml", "@@ -0,0 +1 @@\n+    github-token: ${{ secrets.GITHUB_TOKEN }}\n")
+        self.assertEqual(score([action])["level"], HIGH)
 
     def test_modified_public_core_class_of_an_existing_connector_is_high(self):
         for name in ("source/KafkaSource.java", "sink/KafkaSink.java", "source/KafkaSourceFactory.java",
