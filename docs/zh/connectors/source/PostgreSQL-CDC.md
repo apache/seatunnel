@@ -25,6 +25,10 @@ PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增�
 部分 PostgreSQL 兼容数据库（例如 HighGo）在 `information_schema.tables` 中会对同一张物理表返回多行重复记录。
 连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
 
+当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
+`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
+`ADD COLUMN` 语句。
+
 ## 支持的数据源信息
 
 | 数据源      |                     支持的版本                      |        驱动        |                  Url                  |                                  Maven                                   |

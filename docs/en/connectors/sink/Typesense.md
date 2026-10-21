@@ -33,6 +33,7 @@ or more primary key fields.
 | data_save_mode           | string | Yes      | APPEND_DATA                  | How to handle existing documents before writing.                                                     |
 | primary_keys             | array  | No       | -                            | Source fields used to build the Typesense document `id`.                                             |
 | key_delimiter            | string | No       | `_`                          | Delimiter used when `primary_keys` contains more than one field.                                     |
+| key_encoding             | enum   | No       | LEGACY                       | Optional collision-safe encoding for composite document IDs.                                         |
 | api_key                  | string | Yes      | -                            | Typesense API key.                                                                                   |
 | max_retry_count          | int    | No       | 3                            | Maximum retry count for one bulk request.                                                            |
 | max_batch_size           | int    | No       | 10                           | Maximum number of documents sent in one bulk request.                                                |
@@ -55,6 +56,12 @@ the connector joins their values with `key_delimiter`. Without `primary_keys`, T
 ### key_delimiter [string]
 
 Sets the delimiter for composite keys (default is `_`).
+
+### key_encoding [enum]
+
+`LEGACY` (default) preserves existing IDs, but composite keys can collide when a value contains `key_delimiter`. `LENGTH_PREFIXED` encodes each formatted value as `<length>:<value>`: `["1_1", "2"]` becomes `3:1_11:2`, while `["1", "1_2"]` becomes `1:13:1_2`. It ignores `key_delimiter` and does not change single-key IDs.
+
+Switching an existing composite-key collection changes document IDs. Migrate or recreate existing documents first; otherwise later writes can create duplicates instead of updating them.
 
 ### api_key [string]
 

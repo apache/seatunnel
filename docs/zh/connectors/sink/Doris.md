@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | MAP            | MAP                                     |
 | JSON           | STRING                                  |
 | VARIANT        | STRING                                  |
+| IPV4<br/>IPV6  | STRING                                  |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |

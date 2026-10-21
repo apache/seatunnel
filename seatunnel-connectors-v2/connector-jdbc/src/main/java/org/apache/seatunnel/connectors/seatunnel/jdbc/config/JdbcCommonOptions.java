@@ -111,6 +111,13 @@ public class JdbcCommonOptions {
                     .withDescription(
                             "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
 
+    public static final Option<Boolean> NUMERIC_SPECIAL_VALUE_AS_NULL =
+            Options.key("numeric_special_value_as_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.");
+
     public static final Option<Boolean> HANDLE_BLOB_AS_STRING =
             Options.key("handle_blob_as_string")
                     .booleanType()
