@@ -44,6 +44,9 @@ It can be downloaded via `install-plugin.sh` or from the Maven central repositor
 |------------|--------------------|---------------------------------------------------------------------------------------|
 | MongoDB    | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
 
+The optional [connectivity dry-run](#connectivity-dry-run) requires MongoDB 4.0 or later.
+This requirement does not change the versions supported by normal source execution.
+
 ## Data Type Mapping
 
 The following table lists the field data type mapping from MongoDB BSON type to SeaTunnel data type.
@@ -77,6 +80,26 @@ SeaTunnel `STRING` type.
 
 > 1. When using the `DECIMAL` type in SeaTunnel, the maximum range cannot exceed 34 digits. Use
 >    `decimal(34, 18)` to stay within the supported precision and scale.
+
+## Connectivity dry-run
+
+With the Zeta engine, `--dry-run connect` checks the configured MongoDB source without
+creating readers, enumerating splits, sampling documents or writing data. It uses the same
+configured schema as a normal source and checks that the configured collection is visible
+using a name-filtered `listCollections` command with `nameOnly` and `authorizedCollections`.
+This supports collection-scoped users without requiring cluster-wide `listDatabases` access.
+The metadata check requires MongoDB 4.0 or later; it does not change normal job execution.
+
+A successful check confirms connectivity, authentication and visibility of the collection,
+not permission to read documents, the validity of query/projection expressions or the types
+of stored documents. Missing and unauthorized collections both fail validation. An existing
+empty collection is valid. No collection is created by the check.
+
+URI authentication, TLS and read preference settings are retained. Only the dry-run client
+uses a single-connection pool and caps server selection, connection, socket-read and pool-wait
+timeouts at 30 seconds, retaining shorter positive URI timeouts. The metadata command also
+has a 30-second server-side limit. These are per-operation limits, not a total wall-clock
+deadline (for example, DNS resolution is controlled by the JVM). Runtime settings are unchanged.
 
 ## Source Options
 
