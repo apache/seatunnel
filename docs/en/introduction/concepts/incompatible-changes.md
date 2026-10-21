@@ -13,6 +13,14 @@ Such a value now causes a parse error that identifies the field and the expected
 
 The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
 
+### Iceberg sink: a checkpoint with equality deletes after a writer rotation is committed as several snapshots
+
+- **Behavior change: the Iceberg sink can commit one checkpoint as several ordered snapshots**
+  - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
+  - **Description**: The sink committed all files of a checkpoint in one snapshot. When the task writer was completed in the middle of a checkpoint, which happens on a schema change with `iceberg.table.schema-evolution-enabled` and now also with the new `flush_row_size` option, an equality delete written after that point landed in the same snapshot as the row it targets. Iceberg does not apply an equality delete to data files with the same sequence number, so an upsert, update or delete of a row written earlier in the same checkpoint left the old row in the table. Such a checkpoint is now committed as several snapshots, in the order the task writers were completed. Each snapshot carries `seatunnel.checkpoint-id`, plus `seatunnel.commit-group` and `seatunnel.commit-group-count`.
+  - **Impact**: Only upsert and CDC writes that rotate the task writer inside a checkpoint are affected; append-only writes and checkpoints without a rotation still produce one snapshot. Readers can see the snapshots of such a checkpoint one by one, and the snapshot count per checkpoint grows with the number of rotations.
+  - **Migration Guide**: No configuration change is needed. Jobs restored from a checkpoint committed by an older version are handled as before: a snapshot with the checkpoint id and without `seatunnel.commit-group` is treated as the whole checkpoint.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
