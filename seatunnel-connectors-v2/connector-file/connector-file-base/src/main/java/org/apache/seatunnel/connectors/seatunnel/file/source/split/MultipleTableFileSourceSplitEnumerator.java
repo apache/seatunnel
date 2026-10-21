@@ -53,6 +53,7 @@ public class MultipleTableFileSourceSplitEnumerator
     private final List<BaseFileSourceConfig> fileSourceConfigs;
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
+    private boolean running;
     private final FileSplitStrategy fileSplitStrategy;
     private final Set<String> documentRoutingTableIds;
 
@@ -150,25 +151,46 @@ public class MultipleTableFileSourceSplitEnumerator
         if (CollectionUtils.isEmpty(splits)) {
             return;
         }
-        allSplit.addAll(splits);
-        assignSplit(subtaskId);
+        synchronized (lock) {
+            allSplit.addAll(splits);
+            assignedSplit.removeAll(splits);
+            // Native readers restore their pending splits before registering. run() starts
+            // after registration; only a running enumerator can dispatch a late return.
+            if (running) {
+                assignPendingSplitsToRegisteredReaders();
+            }
+        }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return allSplit.size() - assignedSplit.size();
+        synchronized (lock) {
+            return (int) allSplit.stream().filter(split -> !assignedSplit.contains(split)).count();
+        }
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {}
 
     @Override
-    public void registerReader(int subtaskId) {}
+    public void registerReader(int subtaskId) {
+        synchronized (lock) {
+            if (running) {
+                assignPendingSplitsToRegisteredReaders();
+            }
+        }
+    }
+
+    private void assignPendingSplitsToRegisteredReaders() {
+        for (int reader : context.registeredReaders()) {
+            assignSplit(reader);
+        }
+    }
 
     @Override
     public FileSourceState snapshotState(long checkpointId) {
         synchronized (lock) {
-            return new FileSourceState(assignedSplit);
+            return new FileSourceState(new HashSet<>(assignedSplit));
         }
     }
 
@@ -197,7 +219,9 @@ public class MultipleTableFileSourceSplitEnumerator
                 }
             }
         }
-        // assign splits
+        // Keep the full candidate order for round-robin ownership, then exclude files
+        // already assigned in the checkpoint. Reader-returned pending splits are unassigned.
+        currentTaskSplits.removeIf(assignedSplit::contains);
         context.assignSplit(taskId, currentTaskSplits);
         // save the state of assigned splits
         assignedSplit.addAll(currentTaskSplits);
@@ -249,9 +273,10 @@ public class MultipleTableFileSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        for (int i = 0; i < context.currentParallelism(); i++) {
-            log.info("Assigned splits to reader [{}]", i);
-            synchronized (lock) {
+        synchronized (lock) {
+            running = true;
+            for (int i = 0; i < context.currentParallelism(); i++) {
+                log.info("Assigned splits to reader [{}]", i);
                 assignSplit(i);
             }
         }
