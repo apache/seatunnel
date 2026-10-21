@@ -24,6 +24,8 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.util.function.Supplier;
+
 /**
  * Creates the standalone, application or session resource manager owned by one Engine coordinator.
  */
@@ -33,21 +35,33 @@ public class ResourceManagerFactory {
     private final ApplicationSpecification specification;
     private final ResourceManagerDriver<?> driver;
     private final SessionSpecification sessionSpecification;
+    private final Supplier<ResourceManagerDriver<?>> sessionDriverSupplier;
 
     /** Creates a factory for the default standalone deployment. */
     public ResourceManagerFactory() {
-        this(DeployType.STANDALONE, null, null, null, null);
+        this(DeployType.STANDALONE, null, null, null, null, null);
     }
 
     /**
      * Creates a factory for a Kubernetes session cluster.
      *
+     * <p>The supplier is invoked for every manager activation so a master that steps down and
+     * becomes active again receives a fresh driver instead of reusing one closed by the previous
+     * manager lifecycle.
+     *
      * @param sessionSpecification immutable session worker bounds and template settings
-     * @param driver platform driver that creates and adopts workers
+     * @param sessionDriverSupplier creates a platform driver for one active-master lifecycle
      */
     public ResourceManagerFactory(
-            SessionSpecification sessionSpecification, ResourceManagerDriver<?> driver) {
-        this(DeployType.KUBERNETES_SESSION, null, null, driver, sessionSpecification);
+            SessionSpecification sessionSpecification,
+            Supplier<ResourceManagerDriver<?>> sessionDriverSupplier) {
+        this(
+                DeployType.KUBERNETES_SESSION,
+                null,
+                null,
+                null,
+                sessionSpecification,
+                sessionDriverSupplier);
     }
 
     /**
@@ -62,7 +76,7 @@ public class ResourceManagerFactory {
             String applicationId,
             ApplicationSpecification specification,
             ResourceManagerDriver<?> driver) {
-        this(deployType, applicationId, specification, driver, null);
+        this(deployType, applicationId, specification, driver, null, null);
     }
 
     private ResourceManagerFactory(
@@ -70,12 +84,14 @@ public class ResourceManagerFactory {
             String applicationId,
             ApplicationSpecification specification,
             ResourceManagerDriver<?> driver,
-            SessionSpecification sessionSpecification) {
+            SessionSpecification sessionSpecification,
+            Supplier<ResourceManagerDriver<?>> sessionDriverSupplier) {
         this.deployType = deployType;
         this.applicationId = applicationId;
         this.specification = specification;
         this.driver = driver;
         this.sessionSpecification = sessionSpecification;
+        this.sessionDriverSupplier = sessionDriverSupplier;
     }
 
     /** @return whether this deployment manages a long-lived worker pool itself */
@@ -97,9 +113,9 @@ public class ResourceManagerFactory {
                     nodeEngine, engineConfig, applicationId, specification, driver);
         }
         if (DeployType.KUBERNETES_SESSION.equals(deployType)) {
-            if (sessionSpecification == null || driver == null) {
+            if (sessionSpecification == null || sessionDriverSupplier == null) {
                 throw new IllegalStateException(
-                        "Session deployment requires a session specification and driver");
+                        "Session deployment requires a session specification and driver supplier");
             }
             return createSessionResourceManager(nodeEngine, engineConfig);
         }
@@ -109,6 +125,11 @@ public class ResourceManagerFactory {
     @SuppressWarnings({"rawtypes", "unchecked"})
     private ResourceManager createSessionResourceManager(
             NodeEngine nodeEngine, EngineConfig engineConfig) {
-        return new SessionResourceManager(nodeEngine, engineConfig, sessionSpecification, driver);
+        ResourceManagerDriver<?> sessionDriver = sessionDriverSupplier.get();
+        if (sessionDriver == null) {
+            throw new IllegalStateException("Session driver supplier returned null");
+        }
+        return new SessionResourceManager(
+                nodeEngine, engineConfig, sessionSpecification, sessionDriver);
     }
 }

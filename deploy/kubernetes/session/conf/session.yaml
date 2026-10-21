@@ -28,7 +28,9 @@ session:
     cpu-cores: 2
     memory-mb: 4096
     heap-mb: 3072
-    image: apache/seatunnel:3.0.1
+    image: apache/seatunnel:<session-enabled-image>
+    # Build this image from the current branch; a released 3.0.1 image does not
+    # contain the session cluster entrypoint or Kubernetes session provider.
     image-pull-policy: IfNotPresent
     service-account: default
     config-map: seatunnel-session-cluster-config

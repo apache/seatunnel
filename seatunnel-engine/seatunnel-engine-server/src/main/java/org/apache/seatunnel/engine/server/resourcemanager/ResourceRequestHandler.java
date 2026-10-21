@@ -303,14 +303,9 @@ public class ResourceRequestHandler {
     private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
-        // resultSlotProfiles is keyed by the original request index and can be sparse. Iterate the
-        // full request list; using its size as the upper bound would skip missing indexes after the
-        // first successful assignment and would collect nothing when no slot was assigned.
-        for (int i = 0; i < resourceProfile.size(); i++) {
-            if (!resultSlotProfiles.containsKey(i)) {
-                needApplyResource.add(resourceProfile.get(i));
-                needApplyIndex.add(i);
-            }
+        for (int index : missingResourceIndexes()) {
+            needApplyResource.add(resourceProfile.get(index));
+            needApplyIndex.add(index);
         }
         resourceManager.findNewWorker(needApplyResource, tags);
         resourceManager
@@ -327,6 +322,26 @@ public class ResourceRequestHandler {
                                         addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
                                     }
                                 }));
+    }
+
+    /**
+     * Returns original request indexes that have not received a slot yet.
+     *
+     * <p>The result cache is keyed by the original request index and can be sparse. Iterating the
+     * cache size instead of the full request list would skip missing indexes after the first
+     * successful assignment.
+     *
+     * @return ascending missing request indexes
+     */
+    @VisibleForTesting
+    List<Integer> missingResourceIndexes() {
+        List<Integer> missing = new ArrayList<>();
+        for (int i = 0; i < resourceProfile.size(); i++) {
+            if (!resultSlotProfiles.containsKey(i)) {
+                missing.add(i);
+            }
+        }
+        return missing;
     }
 
     private void releaseAllResourceInternal() {

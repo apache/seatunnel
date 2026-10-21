@@ -21,15 +21,19 @@ import org.apache.seatunnel.engine.common.config.spec.SessionSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import lombok.Getter;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -70,7 +74,6 @@ public final class KubernetesSessionConfig
     private final int masterPort;
     private final int heapMb;
     private final String jvmOptions;
-    private final String workerTemplateHash;
     private final Map<String, String> workerLabels;
     private final Map<String, String> workerAnnotations;
     private final List<KubernetesEnvironmentVariable> environmentVariables;
@@ -90,7 +93,6 @@ public final class KubernetesSessionConfig
             int masterPort,
             int heapMb,
             String jvmOptions,
-            String workerTemplateHash,
             Map<String, String> workerLabels,
             Map<String, String> workerAnnotations,
             List<KubernetesEnvironmentVariable> environmentVariables,
@@ -108,7 +110,6 @@ public final class KubernetesSessionConfig
         this.masterPort = masterPort;
         this.heapMb = heapMb;
         this.jvmOptions = jvmOptions;
-        this.workerTemplateHash = workerTemplateHash;
         this.workerLabels = workerLabels;
         this.workerAnnotations = workerAnnotations;
         this.environmentVariables = environmentVariables;
@@ -138,11 +139,11 @@ public final class KubernetesSessionConfig
      * @throws IOException if the document cannot be parsed
      */
     public static KubernetesSessionConfig read(String yaml) throws IOException {
-        return read(new java.io.StringReader(yaml));
+        return read(new StringReader(yaml));
     }
 
     private static KubernetesSessionConfig read(Reader reader) throws IOException {
-        Object loaded = new Yaml().load(reader);
+        Object loaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(reader);
         Map<String, Object> root = asMap(loaded, "session document");
         Map<String, Object> session = childMap(root, "session");
         Map<String, Object> worker = childMap(session, "worker");
@@ -179,7 +180,6 @@ public final class KubernetesSessionConfig
                 optionalLong(dynamicWorker, "retry-interval-millis", DEFAULT_RETRY_INTERVAL_MILLIS);
         String jvmOptions =
                 optionalString(worker, "jvm-options", "-Xms" + heapMb + "m -Xmx" + heapMb + "m");
-        String workerTemplateHash = optionalString(worker, "template-hash", null);
         Map<String, String> labels = stringMap(worker, "labels");
         Map<String, String> annotations = stringMap(worker, "annotations");
         List<KubernetesEnvironmentVariable> environmentVariables = environmentVariables(worker);
@@ -224,7 +224,6 @@ public final class KubernetesSessionConfig
                 masterPort,
                 heapMb,
                 jvmOptions,
-                workerTemplateHash,
                 labels,
                 annotations,
                 environmentVariables,
@@ -296,7 +295,7 @@ public final class KubernetesSessionConfig
     private static List<KubernetesEnvironmentVariable> environmentVariables(
             Map<String, Object> worker) {
         Map<String, Object> env = childMap(worker, "env");
-        List<KubernetesEnvironmentVariable> variables = new java.util.ArrayList<>();
+        List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
         env.forEach(
                 (name, value) ->
                         variables.add(
@@ -307,7 +306,7 @@ public final class KubernetesSessionConfig
 
     private static List<KubernetesEnvFromReference> envFromReferences(Map<String, Object> worker) {
         Map<String, Object> envFrom = childMap(worker, "env-from");
-        List<KubernetesEnvFromReference> references = new java.util.ArrayList<>();
+        List<KubernetesEnvFromReference> references = new ArrayList<>();
         addEnvFrom(references, envFrom, "secret", true);
         addEnvFrom(references, envFrom, "configmap", false);
         return Collections.unmodifiableList(references);
@@ -405,12 +404,26 @@ public final class KubernetesSessionConfig
 
     private static int optionalInt(Map<String, Object> parent, String key, int defaultValue) {
         Object value = parent.get(key);
-        return value == null ? defaultValue : Integer.parseInt(String.valueOf(value));
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException failure) {
+            throw new IllegalArgumentException(key + " must be an integer, was: " + value, failure);
+        }
     }
 
     private static long optionalLong(Map<String, Object> parent, String key, long defaultValue) {
         Object value = parent.get(key);
-        return value == null ? defaultValue : Long.parseLong(String.valueOf(value));
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException failure) {
+            throw new IllegalArgumentException(key + " must be an integer, was: " + value, failure);
+        }
     }
 
     private static boolean optionalBoolean(

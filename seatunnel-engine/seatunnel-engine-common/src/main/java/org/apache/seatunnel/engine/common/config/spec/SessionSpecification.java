@@ -60,7 +60,7 @@ public final class SessionSpecification {
             long startupTimeoutMillis,
             long retryIntervalMillis) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("session.worker.name must not be empty");
+            throw new IllegalArgumentException("session.name must not be empty");
         }
         if (clusterName == null || clusterName.trim().isEmpty()) {
             throw new IllegalArgumentException("session.cluster-name must not be empty");

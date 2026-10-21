@@ -23,4 +23,3 @@ metadata:
 data:
   session-name: seatunnel-session-cluster
   cluster-name: seatunnel-session-cluster
-  worker-template-hash: ""

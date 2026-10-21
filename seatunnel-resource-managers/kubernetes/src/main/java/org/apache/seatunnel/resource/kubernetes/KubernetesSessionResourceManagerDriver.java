@@ -44,6 +44,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -55,8 +56,9 @@ import java.util.function.Supplier;
  *
  * <ul>
  *   <li>workers are owned by the session root ConfigMap, so they survive active-master failover;
- *   <li>{@link #close()} only stops observation and closes the Kubernetes client. It never deletes
- *       workers, because a new active master may still need to adopt them.
+ *   <li>{@link #close()} only stops observation and cancels reconnects. It never deletes workers,
+ *       because a new active master may still need to adopt them, and it does not close the shared
+ *       Kubernetes client because the process-level entrypoint owns that lifecycle.
  * </ul>
  */
 @Slf4j
@@ -74,12 +76,40 @@ public final class KubernetesSessionResourceManagerDriver
 
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicBoolean reconnecting = new AtomicBoolean();
 
     private ResourceEventHandler<KubernetesWorkerNode> resourceEventHandler;
     private ScheduledExecutorService mainThreadExecutor;
     private Executor ioExecutor;
     private KubernetesConfigMap root;
     private KubernetesWatch watch;
+    private volatile long reconnectDelayMillis = 1_000L;
+    private volatile ScheduledFuture<?> reconnectTask;
+
+    private final PodWatchCallback watchCallback =
+            new PodWatchCallback() {
+                @Override
+                public void onPodAdded(KubernetesPod pod) {
+                    // Workers are tracked when the API accepts the create request.
+                }
+
+                @Override
+                public void onPodModified(KubernetesPod pod) {
+                    if (pod.isTerminating() || pod.isTerminated() || pod.isUnknown()) {
+                        onWorkerGone(pod.getName(), "Worker pod phase " + pod.getPhase());
+                    }
+                }
+
+                @Override
+                public void onPodDeleted(KubernetesPod pod) {
+                    onWorkerGone(pod.getName(), "Worker pod deleted");
+                }
+
+                @Override
+                public void onWatchError(Exception failure) {
+                    handleWatchError(failure);
+                }
+            };
 
     public KubernetesSessionResourceManagerDriver(
             KubernetesClient api, KubernetesSessionConfig config, String sessionId) {
@@ -111,41 +141,100 @@ public final class KubernetesSessionResourceManagerDriver
                             + " has no server-assigned UID");
         }
         running.set(true);
-        this.watch =
-                api.watchPods(
-                        selector(),
-                        new PodWatchCallback() {
-                            @Override
-                            public void onPodAdded(KubernetesPod pod) {
-                                // Workers are tracked when the API accepts the create request.
-                            }
-
-                            @Override
-                            public void onPodModified(KubernetesPod pod) {
-                                if (pod.isTerminating() || pod.isTerminated() || pod.isUnknown()) {
-                                    onWorkerGone(
-                                            pod.getName(), "Worker pod phase " + pod.getPhase());
-                                }
-                            }
-
-                            @Override
-                            public void onPodDeleted(KubernetesPod pod) {
-                                onWorkerGone(pod.getName(), "Worker pod deleted");
-                            }
-
-                            @Override
-                            public void onWatchError(Exception failure) {
-                                if (running.compareAndSet(true, false)) {
-                                    mainThreadExecutor.execute(
-                                            () -> resourceEventHandler.onError(failure));
-                                }
-                            }
-                        });
+        startWatch();
         log.info(
                 "Initialized Kubernetes session driver for {} in namespace {}, root={}",
                 sessionId,
                 config.getNamespace(),
                 config.getRootConfigMap());
+    }
+
+    private synchronized void startWatch() throws Exception {
+        if (closed.get()) {
+            return;
+        }
+        KubernetesWatch next = api.watchPods(selector(), watchCallback);
+        KubernetesWatch previous = watch;
+        watch = next;
+        if (previous != null) {
+            previous.close();
+        }
+        running.set(true);
+        reconnectDelayMillis = 1_000L;
+        if (ioExecutor != null) {
+            ioExecutor.execute(this::resyncWorkers);
+        }
+    }
+
+    private void resyncWorkers() {
+        if (closed.get() || !running.get()) {
+            return;
+        }
+        try {
+            Set<String> live = ConcurrentHashMap.newKeySet();
+            for (KubernetesPod pod : api.listPods(selector())) {
+                if (!pod.isTerminated() && !pod.isTerminating()) {
+                    live.add(pod.getName());
+                }
+            }
+            for (String name : new ArrayList<>(workers)) {
+                if (!live.contains(name)) {
+                    onWorkerGone(name, "Worker pod missing after watch reconnect");
+                }
+            }
+        } catch (Exception failure) {
+            log.warn("Failed to resynchronize session worker Pods for {}", sessionId, failure);
+        }
+    }
+
+    private void handleWatchError(Exception failure) {
+        if (closed.get()) {
+            return;
+        }
+        running.set(false);
+        if (resourceEventHandler != null) {
+            try {
+                mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
+            } catch (RuntimeException rejected) {
+                log.debug("Could not publish session driver watch error", rejected);
+            }
+        }
+        scheduleWatchReconnect();
+    }
+
+    private void scheduleWatchReconnect() {
+        if (closed.get() || !reconnecting.compareAndSet(false, true)) {
+            return;
+        }
+        long delay = reconnectDelayMillis;
+        reconnectDelayMillis = Math.min(reconnectDelayMillis * 2, 30_000L);
+        try {
+            reconnectTask =
+                    mainThreadExecutor.schedule(
+                            () -> {
+                                reconnecting.set(false);
+                                if (closed.get()) {
+                                    return;
+                                }
+                                try {
+                                    startWatch();
+                                    log.info(
+                                            "Reconnected session worker Pod watch for {}",
+                                            sessionId);
+                                } catch (Exception failure) {
+                                    log.warn(
+                                            "Failed to reconnect session worker Pod watch for {}",
+                                            sessionId,
+                                            failure);
+                                    scheduleWatchReconnect();
+                                }
+                            },
+                            delay,
+                            TimeUnit.MILLISECONDS);
+        } catch (RuntimeException failure) {
+            reconnecting.set(false);
+            log.warn("Could not schedule session worker Pod watch reconnect", failure);
+        }
     }
 
     @Override
@@ -244,13 +333,17 @@ public final class KubernetesSessionResourceManagerDriver
         return KubernetesResourceIdentity.selector(sessionId, KubernetesConstants.WORKER_ROLE);
     }
 
-    /** Stops observation without deleting workers; the next active master adopts them. */
+    /** Stops observation without deleting workers; the shared Kubernetes client stays open. */
     @Override
     public synchronized void close() {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
         running.set(false);
+        if (reconnectTask != null) {
+            reconnectTask.cancel(false);
+            reconnectTask = null;
+        }
         for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
             future.completeExceptionally(
                     new CancellationException("Session master is stepping down"));
@@ -270,6 +363,5 @@ public final class KubernetesSessionResourceManagerDriver
                 break;
             }
         }
-        api.close();
     }
 }

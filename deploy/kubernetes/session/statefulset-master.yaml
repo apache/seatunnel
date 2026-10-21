@@ -49,7 +49,8 @@ spec:
                     seatunnel.apache.org/component: master
       containers:
         - name: master
-          image: apache/seatunnel:3.0.1
+          image: apache/seatunnel:<session-enabled-image>
+          # Use an image built from this branch; released 3.0.1 lacks the session entrypoint.
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-session-cluster.sh

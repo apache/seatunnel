@@ -223,7 +223,7 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                 .replace(
                         "." + MANIFEST_NAMESPACE + ".svc.cluster.local",
                         "." + namespace + ".svc.cluster.local")
-                .replace("apache/seatunnel:3.0.1", image)
+                .replace("apache/seatunnel:<session-enabled-image>", image)
                 .replace("-Xms3g -Xmx3g", "-Xms512m -Xmx512m")
                 .replace("-Xms3g", "-Xms512m")
                 .replace("-Xmx3g", "-Xmx512m")

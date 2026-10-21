@@ -85,7 +85,7 @@ Slots are fixed; scale-up is capped by `max-workers`, and scale-down is not supp
 
 Read [Kubernetes Deployment](../kubernetes/kubernetes.mdx) and
 [Kubernetes Configuration](../kubernetes/configuration.md) first. The Session image must contain
-`seatunnel-session-cluster.sh` and the Kubernetes resource-manager provider.
+`seatunnel-session-cluster.sh` and the Kubernetes resource-manager provider. The `apache/seatunnel:<session-enabled-image>` tag in the sample is a placeholder; build an image from this branch instead.
 
 ```bash
 kubectl apply -k deploy/kubernetes/session
@@ -118,7 +118,7 @@ session:
     port: 5801
 
   worker:
-    image: apache/seatunnel:3.0.1
+    image: apache/seatunnel:<session-enabled-image>
     min-workers: 2
     max-workers: 32
     slots: 8
@@ -218,4 +218,5 @@ User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.
 - Worker template changes are not supported in place; create a new Session.
 - No automatic scale-down or manual scale/spec API.
 - No HA beyond the Hazelcast active/standby pair and StatefulSet restart.
+- Worker Pods survive master failover, but streaming recovery also requires shared checkpoint and IMAP storage. The sample `file:///tmp/` paths are Pod-local and are for validation only.
 - No multi-tenant quotas, Kerberos, or CPU-aware slot scheduling.

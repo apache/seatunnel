@@ -45,6 +45,7 @@ hazelcast:
           namespace: /tmp/seatunnel/imap
           clusterName: seatunnel-session-cluster
           storage.type: hdfs
+          # Pod-local example. Use shared storage for active/standby failover.
           fs.defaultFS: file:///tmp/
   properties:
     hazelcast.invocation.max.retry.count: 20

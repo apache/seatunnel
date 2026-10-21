@@ -27,10 +27,12 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesSessionConfig;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.PodWatchCallback;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
@@ -69,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -537,6 +540,63 @@ class KubernetesResourceManagerDriverTest {
                                                         .equals(mount.getMountPath())
                                                 && "application.properties"
                                                         .equals(mount.getSubPath())));
+    }
+
+    @Test
+    void sessionDriverKeepsTheSharedClientOpenAndReportsDeletedWorkers() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesConfigMap root = mock(KubernetesConfigMap.class, RETURNS_DEEP_STUBS);
+        when(root.getInternalResource().getMetadata().getUid()).thenReturn("root-uid");
+        when(api.getConfigMap("seatunnel-session-cluster-meta")).thenReturn(root);
+        KubernetesWatch watch = mock(KubernetesWatch.class);
+        AtomicReference<PodWatchCallback> watchCallback = new AtomicReference<>();
+        when(api.watchPods(anyString(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            watchCallback.set(invocation.getArgument(1));
+                            return watch;
+                        });
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
+        KubernetesSessionConfig config =
+                KubernetesSessionConfig.read(
+                        "session:\n"
+                                + "  name: seatunnel-session-cluster\n"
+                                + "  root-config-map: seatunnel-session-cluster-meta\n"
+                                + "  worker:\n"
+                                + "    image: seatunnel:session\n"
+                                + "    min-workers: 1\n"
+                                + "    slots: 1\n"
+                                + "    memory-mb: 1024\n"
+                                + "    heap-mb: 512\n"
+                                + "kubernetes:\n"
+                                + "  namespace: seatunnel\n");
+        KubernetesSessionResourceManagerDriver driver =
+                new KubernetesSessionResourceManagerDriver(
+                        api, config, "seatunnel-session-cluster");
+        try {
+            driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
+            KubernetesWorkerNode worker =
+                    driver.requestWorker(config.getSessionSpecification().getWorkerSpecification())
+                            .get(5, TimeUnit.SECONDS);
+
+            watchCallback
+                    .get()
+                    .onPodDeleted(pod(worker.getResourceID().getResourceIdString(), "Succeeded"));
+            ArgumentCaptor<KubernetesWorkerNode> terminated =
+                    ArgumentCaptor.forClass(KubernetesWorkerNode.class);
+            verify(events)
+                    .onWorkerTerminated(
+                            terminated.capture(), org.mockito.ArgumentMatchers.anyString());
+            assertEquals(
+                    worker.getResourceID().getResourceIdString(),
+                    terminated.getValue().getResourceID().getResourceIdString());
+
+            driver.close();
+            verify(api, never()).close();
+            verify(watch).close();
+        } finally {
+            driver.close();
+        }
     }
 
     private static Map<String, String> options() {

@@ -37,4 +37,5 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot
           storage.type: hdfs
+          # Pod-local example. Use shared storage (HDFS/S3/PVC) for failover recovery.
           fs.defaultFS: file:///tmp/

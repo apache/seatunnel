@@ -57,7 +57,6 @@ public final class SeatunnelKubernetesSessionMasterCli {
 
     private void run(String[] args) throws Exception {
         KubernetesClient client = null;
-        KubernetesSessionResourceManagerDriver driver = null;
         HazelcastInstanceImpl master = null;
         try {
             Path path = sessionConfigPath(args);
@@ -69,19 +68,23 @@ public final class SeatunnelKubernetesSessionMasterCli {
                             true);
             SeaTunnelConfig engineConfiguration = configureEngine(config);
             validateFixedSlots(config, engineConfiguration);
-            driver =
-                    new KubernetesSessionResourceManagerDriver(
-                            client, config, config.getSessionSpecification().getName());
+            final KubernetesClient sessionClient = client;
             master =
                     SeaTunnelServerStarter.createMasterHazelcastInstance(
                             engineConfiguration,
-                            new ResourceManagerFactory(config.getSessionSpecification(), driver));
+                            new ResourceManagerFactory(
+                                    config.getSessionSpecification(),
+                                    () ->
+                                            new KubernetesSessionResourceManagerDriver(
+                                                    sessionClient,
+                                                    config,
+                                                    config.getSessionSpecification().getName())));
             log.info(
                     "Kubernetes session master started for {}",
                     config.getSessionSpecification().getName());
             awaitShutdown(master);
         } finally {
-            closeQuietly(master, driver, client);
+            closeQuietly(master, client);
         }
     }
 
@@ -100,6 +103,10 @@ public final class SeatunnelKubernetesSessionMasterCli {
                         : environment);
     }
 
+    /**
+     * Applies the session cluster name, member port and pod public address to the shared engine
+     * config.
+     */
     private static SeaTunnelConfig configureEngine(KubernetesSessionConfig config) {
         SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
         engineConfiguration
@@ -163,23 +170,13 @@ public final class SeatunnelKubernetesSessionMasterCli {
         }
     }
 
-    private static void closeQuietly(
-            HazelcastInstanceImpl master,
-            KubernetesSessionResourceManagerDriver driver,
-            KubernetesClient client) {
+    private static void closeQuietly(HazelcastInstanceImpl master, KubernetesClient client) {
         try {
             if (master != null) {
                 master.shutdown();
             }
         } catch (Exception failure) {
             log.warn("Failed to stop session master", failure);
-        }
-        try {
-            if (driver != null) {
-                driver.close();
-            }
-        } catch (Exception failure) {
-            log.warn("Failed to close session driver", failure);
         }
         try {
             if (client != null) {

@@ -84,7 +84,8 @@ Master 使用 2 副本 StatefulSet；Worker 是由 root ConfigMap 拥有的 bare
 
 请先阅读 [Kubernetes 部署](../kubernetes/kubernetes.mdx) 和
 [Kubernetes 配置](../kubernetes/configuration.md)。Session 镜像必须包含
-`seatunnel-session-cluster.sh` 和 Kubernetes resource-manager provider。
+`seatunnel-session-cluster.sh` 和 Kubernetes resource-manager provider。示例中的
+`apache/seatunnel:<session-enabled-image>` 只是占位，请使用从当前分支构建的镜像。
 
 ```bash
 kubectl apply -k deploy/kubernetes/session
@@ -116,7 +117,7 @@ session:
     port: 5801
 
   worker:
-    image: apache/seatunnel:3.0.1
+    image: apache/seatunnel:<session-enabled-image>
     min-workers: 2
     max-workers: 32
     slots: 8
@@ -215,4 +216,5 @@ kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 - Worker 模板不支持原地修改；修改配置需要新建 Session。
 - 不支持自动缩容和手动 scale/spec API。
 - 除 Hazelcast active/standby 和 StatefulSet 重建外，没有额外 HA 编排。
+- Worker Pod 在 master failover 后仍保留，但 streaming 任务恢复还需要共享的 checkpoint 和 IMAP 存储；示例中的 `file:///tmp/` 是 Pod 本地路径，仅用于验证。
 - 不支持多租户配额、Kerberos 或 CPU 感知 slot 调度。
