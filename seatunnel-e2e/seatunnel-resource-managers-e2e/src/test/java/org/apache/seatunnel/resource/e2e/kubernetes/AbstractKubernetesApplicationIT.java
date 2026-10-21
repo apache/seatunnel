@@ -123,7 +123,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     protected static ClusterDescriptor<String> deployer;
     private static K3sContainer k3s;
     private static Path kubeconfig;
-    private static KubernetesClient platformMonitor;
+    protected static KubernetesClient platformMonitor;
     private static boolean namespaceCreated;
 
     @BeforeAll
@@ -194,6 +194,11 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                 SeatunnelApplicationConfig.load(
                         scenarioFile(scenario, "application.config").toPath(),
                         Collections.emptyMap());
+        return deployApplication(specification, options);
+    }
+
+    protected static KubernetesApplicationClient deployApplication(
+            ApplicationSpecification specification, Map<String, String> options) throws Exception {
         ApplicationClusterDeployer applicationDeployer =
                 new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
         return new KubernetesApplicationClient(platformMonitor, applicationDeployer.run());
@@ -232,6 +237,11 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
      * startup failure is detected, so the Job state and events are the durable evidence.
      */
     protected static void recordApplicationDiagnostics(KubernetesApplicationClient application) {
+        recordApplicationDiagnostics(application, 200);
+    }
+
+    protected static void recordApplicationDiagnostics(
+            KubernetesApplicationClient application, Integer tailLines) {
         String applicationId = application.getClusterId();
         try {
             LOG.error("Application {} status: {}", applicationId, application.getStatus());
@@ -257,13 +267,42 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                     null,
                                     false,
                                     null,
-                                    200,
+                                    tailLines,
                                     false);
                     Files.write(
                             reports.resolve(name + ".log"), logs.getBytes(StandardCharsets.UTF_8));
                     LOG.error("Application Pod {} logs: {}", name, logs);
                 } catch (ApiException e) {
                     LOG.warn("Cannot read logs for Pod {}", name, e);
+                }
+                if (pod.getStatus() != null
+                        && pod.getStatus().getContainerStatuses() != null
+                        && pod.getStatus().getContainerStatuses().stream()
+                                .anyMatch(
+                                        status ->
+                                                status.getRestartCount() != null
+                                                        && status.getRestartCount() > 0)) {
+                    try {
+                        String previous =
+                                core.readNamespacedPodLog(
+                                        name,
+                                        namespace,
+                                        CONTAINER_NAME,
+                                        false,
+                                        false,
+                                        null,
+                                        null,
+                                        true,
+                                        null,
+                                        tailLines,
+                                        false);
+                        Files.writeString(reports.resolve(name + "-previous.log"), previous);
+                    } catch (ApiException unavailable) {
+                        LOG.warn(
+                                "Cannot read previous container logs for Pod {}",
+                                name,
+                                unavailable);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -381,41 +420,40 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         return Paths.get(baseDir, "target", "failsafe-reports");
     }
 
-    private static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
+    protected static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
+        awaitAllResourcesRemoved(application, CLEANUP_TIMEOUT_SECONDS);
+    }
+
+    protected static void awaitAllResourcesRemoved(
+            KubernetesApplicationClient application, long timeoutSeconds) {
         Awaitility.await()
-                .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            assertTrue(pods(application, null).isEmpty());
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    batch.readNamespacedJob(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedService(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedSecret(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                            assertTrue(
-                                    missing(
-                                            () ->
-                                                    core.readNamespacedConfigMap(
-                                                            application.getClusterId(),
-                                                            namespace,
-                                                            null)));
-                        });
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertAllResourcesRemoved(application));
+    }
+
+    protected static void assertAllResourcesRemoved(KubernetesApplicationClient application)
+            throws Exception {
+        assertTrue(pods(application, null).isEmpty());
+        assertTrue(
+                missing(
+                        () ->
+                                batch.readNamespacedJob(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedService(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedSecret(
+                                        application.getClusterId(), namespace, null)));
+        assertTrue(
+                missing(
+                        () ->
+                                core.readNamespacedConfigMap(
+                                        application.getClusterId(), namespace, null)));
     }
 
     protected static boolean missing(ApiRead read) throws Exception {
@@ -479,18 +517,21 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
     protected static String retainedPodLogs(String name) throws Exception {
         try {
-            return core.readNamespacedPodLog(
-                    name,
-                    namespace,
-                    CONTAINER_NAME,
-                    false,
-                    false,
-                    null,
-                    null,
-                    false,
-                    null,
-                    null,
-                    false);
+            String logs =
+                    core.readNamespacedPodLog(
+                            name,
+                            namespace,
+                            CONTAINER_NAME,
+                            false,
+                            false,
+                            null,
+                            null,
+                            false,
+                            null,
+                            null,
+                            false);
+            // The SDK returns null for an empty successful response while logs are starting.
+            return logs == null ? "" : logs;
         } catch (ApiException failure) {
             // Pod phase can become Running before kubelet makes its container log available.
             if (failure.getCode() == 400 || failure.getCode() == 404) {
@@ -533,6 +574,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             importImage(image);
             releaseSystemCpuRequests();
             connectKubernetes();
+
             createNamespace();
             createSharedFixtures();
             deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
@@ -632,6 +674,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                 if (k3s != null) {
                     k3s.close();
                 }
+
                 try {
                     if (kubeconfig != null) {
                         Files.deleteIfExists(kubeconfig);
@@ -662,6 +705,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                 new String(
                         Files.readAllBytes(suiteFile("seatunnel.yaml").toPath()),
                         StandardCharsets.UTF_8));
+
         runtimeConfiguration.put(
                 "log4j2_client.properties", distributionConfig("log4j2_client.properties"));
         // No hardcoded runtime files: take them from the distribution configuration.
@@ -763,7 +807,8 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     DependencyJar.staged("seatunnel-shade-hadoop3-uber.jar").path(),
                     lib.resolve("seatunnel-shade-hadoop3-uber.jar"));
-            for (String connector : Arrays.asList("fake", "console", "assert")) {
+
+            for (String connector : Arrays.asList("fake", "console", "assert", "file-local")) {
                 String name = "connector-" + connector + ".jar";
                 Files.copy(DependencyJar.staged(name).path(), connectors.resolve(name));
             }
@@ -780,6 +825,19 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
+            String probeClass =
+                    KubernetesApplicationProbe.class.getName().replace('.', '/') + ".class";
+            Path probe = home.resolve("test-probe").resolve(probeClass);
+            Files.createDirectories(probe.getParent());
+            try (InputStream input =
+                    KubernetesApplicationProbe.class
+                            .getClassLoader()
+                            .getResourceAsStream(probeClass)) {
+                if (input == null) {
+                    throw new IOException("Missing compiled Kubernetes test probe");
+                }
+                Files.copy(input, probe);
+            }
             Files.copy(suiteFile("Dockerfile").toPath(), context.resolve("Dockerfile"));
             docker().buildImageCmd(context.toFile())
                     .withTags(Collections.singleton(image))

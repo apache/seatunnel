@@ -87,6 +87,17 @@ public interface CheckpointStorage {
             throws CheckpointStorageException;
 
     /**
+     * Reads every retained checkpoint for recovery without ignoring listing, read or decoding
+     * errors. An empty result must mean a successful lookup found no checkpoint, never a storage
+     * outage.
+     */
+    default List<PipelineState> getCheckpointsForRecovery(String jobId, String pipelineId)
+            throws CheckpointStorageException {
+        throw new CheckpointStorageException(
+                "Checkpoint storage does not support fail-closed recovery");
+    }
+
+    /**
      * Delete all checkpoint data under the job
      *
      * @param jobId job id

@@ -234,6 +234,61 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     }
 
     @Override
+    public List<PipelineState> getCheckpointsForRecovery(String jobId, String pipelineId)
+            throws CheckpointStorageException {
+        CheckpointStorageException disappeared = null;
+        long highestListedCheckpoint = -1;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            List<PipelineState> states = new ArrayList<>();
+            boolean retry = false;
+            List<String> files = getFileNames(getStorageParentDirectory() + jobId);
+            for (String file : files) {
+                if (pipelineId.equals(getPipelineIdByFileName(file))) {
+                    highestListedCheckpoint =
+                            Math.max(
+                                    highestListedCheckpoint,
+                                    Long.parseLong(getCheckpointIdByFileName(file)));
+                }
+            }
+            for (String file : files) {
+                if (!pipelineId.equals(getPipelineIdByFileName(file))) {
+                    continue;
+                }
+                try {
+                    states.add(readPipelineState(file, jobId));
+                } catch (CheckpointStorageException failure) {
+                    if (!(failure.getCause() instanceof java.io.FileNotFoundException)) {
+                        throw failure;
+                    }
+                    disappeared = failure;
+                    retry = true;
+                    break;
+                } catch (RuntimeException invalidState) {
+                    throw new CheckpointStorageException(
+                            "Failed to decode checkpoint during recovery", invalidState);
+                }
+            }
+            if (!retry) {
+                if (states.isEmpty() && disappeared != null) {
+                    throw disappeared;
+                }
+                if (disappeared != null
+                        && states.stream()
+                                        .mapToLong(PipelineState::getCheckpointId)
+                                        .max()
+                                        .orElse(-1)
+                                < highestListedCheckpoint) {
+                    continue;
+                }
+                return states;
+            }
+        }
+        // Retention can remove an object between LIST and GET. Re-read a complete snapshot,
+        // never return a partial scan or turn previously observed state into a fresh start.
+        throw disappeared;
+    }
+
+    @Override
     public void deleteCheckpoint(String jobId) {
         String jobPath = getStorageParentDirectory() + jobId;
         try {

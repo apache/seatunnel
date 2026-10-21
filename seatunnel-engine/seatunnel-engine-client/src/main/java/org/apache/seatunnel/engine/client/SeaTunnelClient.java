@@ -207,6 +207,13 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
         return jobClient.getJobMetricsSummary(jobId);
     }
 
+    /** Returns the native data-member count, excluding workers (lite members). */
+    public long getMasterCount() {
+        return hazelcastClient.getHazelcastInstance().getCluster().getMembers().stream()
+                .filter(member -> !member.isLiteMember())
+                .count();
+    }
+
     public Map<String, String> getClusterHealthMetrics() {
         Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
         Map<String, String> healthMetricsMap = new HashMap<>();

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -332,6 +333,245 @@ class DefaultKubernetesClientTest {
                                         request.contains("/secrets")
                                                 || request.contains("/services")),
                 requests.toString());
+    }
+
+    @Test
+    void haStatePatchTestsUidAndResourceVersionBeforeChangingAnnotations() throws Exception {
+        AtomicReference<String> patch = new AtomicReference<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    assertEquals("PATCH", chain.request().method());
+                                                    Buffer body = new Buffer();
+                                                    chain.request().body().writeTo(body);
+                                                    patch.set(body.readUtf8());
+                                                    return jsonResponse(
+                                                            chain.request(),
+                                                            200,
+                                                            "{\"kind\":\"Job\"}");
+                                                })
+                                        .build());
+        KubernetesJob owner =
+                new KubernetesJob(
+                        new V1Job()
+                                .metadata(
+                                        new V1ObjectMeta()
+                                                .name("app")
+                                                .uid("original")
+                                                .resourceVersion("17")));
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            api.updateHaState(
+                    owner, Collections.singletonMap(HaApplicationState.INTENT, "requested"));
+        }
+        assertTrue(patch.get().contains("\"op\":\"test\""));
+        assertTrue(patch.get().contains("/metadata/uid"));
+        assertTrue(patch.get().contains("original"));
+        assertTrue(patch.get().contains("/metadata/resourceVersion"));
+        assertTrue(patch.get().contains("17"));
+        assertTrue(
+                patch.get().indexOf("/metadata/resourceVersion")
+                        < patch.get().indexOf("/metadata/annotations"));
+    }
+
+    @Test
+    void haCancelUsesUidPreconditionWithoutDeletingPodsByLabel() throws Exception {
+        List<String> requests = new ArrayList<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    requests.add(
+                                                            chain.request().method()
+                                                                    + " "
+                                                                    + chain.request()
+                                                                            .url()
+                                                                            .encodedPath());
+                                                    Buffer body = new Buffer();
+                                                    chain.request().body().writeTo(body);
+                                                    V1DeleteOptions deletion =
+                                                            new io.kubernetes.client.openapi.JSON()
+                                                                    .deserialize(
+                                                                            body.readUtf8(),
+                                                                            V1DeleteOptions.class);
+                                                    assertEquals(
+                                                            "original",
+                                                            deletion.getPreconditions().getUid());
+                                                    assertEquals(
+                                                            "Foreground",
+                                                            deletion.getPropagationPolicy());
+                                                    assertEquals(
+                                                            "Foreground",
+                                                            chain.request()
+                                                                    .url()
+                                                                    .queryParameter(
+                                                                            "propagationPolicy"));
+                                                    return jsonResponse(
+                                                            chain.request(),
+                                                            200,
+                                                            "{\"kind\":\"Status\"}");
+                                                })
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            api.deleteApplication("app", "original");
+        }
+        assertEquals(
+                Collections.singletonList("DELETE /apis/batch/v1/namespaces/test/jobs/app"),
+                requests);
+    }
+
+    @Test
+    void haCleanupPreservesUnownedResourcesAndContinuesPastConcurrentServiceDeletion()
+            throws Exception {
+        List<String> deleted = new ArrayList<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    String path =
+                                                            chain.request().url().encodedPath();
+                                                    if (chain.request().method().equals("DELETE")) {
+                                                        deleted.add(path);
+                                                        Buffer body = new Buffer();
+                                                        chain.request().body().writeTo(body);
+                                                        V1DeleteOptions deletion =
+                                                                new io.kubernetes
+                                                                                .client
+                                                                                .openapi
+                                                                                .JSON()
+                                                                        .deserialize(
+                                                                                body.readUtf8(),
+                                                                                V1DeleteOptions
+                                                                                        .class);
+                                                        assertEquals(
+                                                                "resource-uid",
+                                                                deletion.getPreconditions()
+                                                                        .getUid());
+                                                        if (path.contains("/statefulsets/")) {
+                                                            assertEquals(
+                                                                    "Foreground",
+                                                                    deletion
+                                                                            .getPropagationPolicy());
+                                                            assertEquals(
+                                                                    0L,
+                                                                    deletion
+                                                                            .getGracePeriodSeconds());
+                                                        } else {
+                                                            assertEquals(
+                                                                    "Background",
+                                                                    deletion
+                                                                            .getPropagationPolicy());
+                                                        }
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                path.endsWith("app") ? 404 : 200,
+                                                                "{\"kind\":\"Status\"}");
+                                                    }
+                                                    if (path.endsWith("/jobs/app")) {
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                200,
+                                                                "{\"metadata\":{\"name\":\"app\",\"uid\":\"original\"}}");
+                                                    }
+                                                    if (path.endsWith("app-master")) {
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                200,
+                                                                "{\"metadata\":"
+                                                                        + ownedMetadata(
+                                                                                "app-master")
+                                                                        + "}");
+                                                    }
+                                                    if (path.endsWith("app-worker")) {
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                200,
+                                                                "{\"metadata\":{\"name\":\"app-worker\",\"uid\":\"user-owned\"}}");
+                                                    }
+                                                    assertTrue(path.endsWith("/services"));
+                                                    assertTrue(
+                                                            chain.request()
+                                                                    .url()
+                                                                    .queryParameter("labelSelector")
+                                                                    .contains("app"));
+                                                    return jsonResponse(
+                                                            chain.request(),
+                                                            200,
+                                                            "{\"items\":[{\"metadata\":"
+                                                                    + ownedMetadata("app")
+                                                                    + "},{\"metadata\":"
+                                                                    + ownedMetadata("app-discovery")
+                                                                    + "},{\"metadata\":{\"name\":\"user-service\",\"uid\":\"user-owned\"}}]}");
+                                                })
+                                        .build());
+        KubernetesJob owner =
+                new KubernetesJob(
+                        new V1Job().metadata(new V1ObjectMeta().name("app").uid("original")));
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            api.deleteHaResources(owner);
+        }
+        assertEquals(
+                Arrays.asList(
+                        "/apis/apps/v1/namespaces/test/statefulsets/app-master",
+                        "/api/v1/namespaces/test/services/app",
+                        "/api/v1/namespaces/test/services/app-discovery"),
+                deleted);
+    }
+
+    @Test
+    void haCleanupRefusesReusedOwnerNameBeforeAnyDeletion() throws Exception {
+        AtomicInteger deletes = new AtomicInteger();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    if (chain.request().method().equals("DELETE")) {
+                                                        deletes.incrementAndGet();
+                                                    }
+                                                    return jsonResponse(
+                                                            chain.request(),
+                                                            200,
+                                                            "{\"metadata\":{\"name\":\"app\",\"uid\":\"replacement\"}}");
+                                                })
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                            api.deleteHaResources(
+                                    new KubernetesJob(
+                                            new V1Job()
+                                                    .metadata(
+                                                            new V1ObjectMeta()
+                                                                    .name("app")
+                                                                    .uid("original")))));
+        }
+        assertEquals(0, deletes.get());
+    }
+
+    private static String ownedMetadata(String name) {
+        return "{\"name\":\""
+                + name
+                + "\",\"uid\":\"resource-uid\",\"ownerReferences\":["
+                + "{\"apiVersion\":\"batch/v1\",\"kind\":\"Job\",\"name\":\"app\",\"uid\":\"original\"}]}";
+    }
+
+    private static Response jsonResponse(Request request, int code, String body) {
+        return new Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(code)
+                .message("test")
+                .body(ResponseBody.create(body, MediaType.get("application/json")))
+                .build();
     }
 
     @Test

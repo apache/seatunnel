@@ -38,11 +38,34 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-starter</artifactId>
             <version>${project.version}</version>
+            <!-- Keep the launcher in the reactor without putting its shaded classes on either
+                 the test compiler or test JVM classpath. The staging plugin copies its jar. -->
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <!-- The staged starter is excluded from the test JVM: its shaded classes can shadow
+             JUnit and Kubernetes SDK dependencies. Use native engine modules in the test JVM. -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-client</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-server</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-local</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -125,6 +148,12 @@
                                     <artifactId>connector-fake</artifactId>
                                     <version>${project.version}</version>
                                     <destFileName>connector-fake.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>connector-file-local</artifactId>
+                                    <version>${project.version}</version>
+                                    <destFileName>connector-file-local.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.seatunnel</groupId>

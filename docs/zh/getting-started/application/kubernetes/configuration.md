@@ -30,6 +30,9 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 
 | 名称 | 类型 | 是否必须 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
+| `kubernetes.ha.enabled` | boolean | 否 | `false` | 启用固定资源池的原生 Zeta HA；见[架构](architecture.md)。 |
+| `kubernetes.master.replicas` | int | 否 | `1` | 非 HA 必须为 1，HA 至少为 2。 |
+| `kubernetes.ha.backup-count` | int | 否 | 提交端原生配置 | HA 原生同步副本数，1..6 且小于 Master 数量。 |
 | `kubernetes.namespace` | string | no | `default` | 所有 application 资源所在的已有 Namespace。 |
 | `kubernetes.image` | string | yes | - | 包含 SeaTunnel、provider 和作业插件的镜像。 |
 | `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`、`IfNotPresent` 或 `Never`。 |
@@ -490,3 +493,5 @@ bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 Pod request 与 limit 相同。需要同时规划 Worker 数、slot 数、作业并行度、Namespace
 ResourceQuota、LimitRange 和节点容量。Master 不提供 task slot。
 :::
+
+HA 模式下 owner、全部 Master 和 Worker 使用相同的运行时挂载及环境；checkpoint PVC 挂载到所有角色。上述权限表描述默认单 Master 模式；启用 HA 时还须遵循[HA 架构权限](architecture.md)。

@@ -411,6 +411,16 @@ public class SubPlan {
     }
 
     public void forceStopPipeline() {
+        if (jobMaster.getEngineConfig().isApplicationHaEnabled()) {
+            synchronized (this) {
+                forceStopPipelineInternal();
+            }
+        } else {
+            forceStopPipelineInternal();
+        }
+    }
+
+    private void forceStopPipelineInternal() {
         jobMaster.neverNeedRestore();
         coordinatorVertexList.forEach(PhysicalVertex::forceStop);
         physicalVertexList.forEach(PhysicalVertex::forceStop);
@@ -501,7 +511,9 @@ public class SubPlan {
                         "Wait {}s and then restore the pipeline {}",
                         pipelineRestoreIntervalSeconds,
                         getPipelineFullName());
-                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
+                if (!jobMaster.getEngineConfig().isApplicationHaEnabled()) {
+                    Thread.sleep(pipelineRestoreIntervalSeconds * 1000L);
+                }
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
@@ -738,8 +750,12 @@ public class SubPlan {
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
                     jobMaster.releasePipelineResource(this);
-                    jobMaster.preApplyResources(this);
-                    restorePipeline();
+                    if (jobMaster.getEngineConfig().isApplicationHaEnabled()) {
+                        restoreHaPipelineWhenResourcesAvailable();
+                    } else {
+                        jobMaster.preApplyResources(this);
+                        restorePipeline();
+                    }
                     return;
                 }
                 subPlanDone(state);
@@ -757,6 +773,51 @@ public class SubPlan {
             default:
                 throw new IllegalArgumentException("Unknown Pipeline State: " + getPipelineState());
         }
+    }
+
+    /** Wait for native replacement slots without deploying the previous allocation. */
+    private void restoreHaPipelineWhenResourcesAvailable() {
+        reSchedulerPipelineFuture =
+                new PassiveCompletableFuture<>(
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    try {
+                                        Thread.sleep(pipelineRestoreIntervalSeconds * 1000L);
+                                        while (canAllocateHaRecovery()) {
+                                            if (jobMaster.preApplyResources(
+                                                    this, this::canAllocateHaRecovery)) {
+                                                synchronized (this) {
+                                                    if (canAllocateHaRecovery()) {
+                                                        restorePipeline();
+                                                    }
+                                                }
+                                                return;
+                                            }
+                                            // Do not hold the pipeline monitor while waiting:
+                                            // cancel
+                                            // and master shutdown must be able to stop recovery.
+                                            Thread.sleep(
+                                                    Math.max(1, pipelineRestoreIntervalSeconds)
+                                                            * 1000L);
+                                        }
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                    } catch (Throwable e) {
+                                        synchronized (this) {
+                                            if (canAllocateHaRecovery()) {
+                                                makePipelineFailing(e);
+                                            }
+                                        }
+                                    }
+                                },
+                                executorService));
+    }
+
+    private boolean canAllocateHaRecovery() {
+        return isRunning
+                && jobMaster.isNeedRestore()
+                && !jobMaster.getJobMasterCompleteFuture().isDone()
+                && currPipelineStatus == PipelineStatus.CREATED;
     }
 
     public void makePipelineFailing(Throwable e) {

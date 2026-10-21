@@ -47,6 +47,72 @@ import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE
 public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
 
     @Test
+    public void testRecoveryPrefersCurrentJobCheckpointOverOriginalSavepoint() throws Exception {
+        long jobId = 77103001L;
+        long originalJobId = 77103002L;
+        CheckpointStorage storage = createCheckpointStorage();
+        storeCompletedCheckpoint(storage, originalJobId, 7L, CheckpointType.SAVEPOINT_TYPE);
+        storeCompletedCheckpoint(storage, jobId, 12L, CheckpointType.COMPLETED_POINT_TYPE);
+        CheckpointManager recovered =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        originalJobId,
+                        storage,
+                        new CheckpointConfig(),
+                        true);
+        Assertions.assertEquals(
+                13L, recovered.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+        CheckpointManager ownOnly =
+                createCheckpointManager(
+                        jobId, true, RestoreMode.NONE, null, storage, new CheckpointConfig(), true);
+        Assertions.assertEquals(
+                13L, ownOnly.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testRecoveryFallsBackToOriginalSavepointOnlyAfterSuccessfulEmptyRead()
+            throws Exception {
+        long jobId = 77103003L;
+        long originalJobId = 77103004L;
+        CheckpointStorage storage = createCheckpointStorage();
+        storeCompletedCheckpoint(storage, originalJobId, 7L, CheckpointType.SAVEPOINT_TYPE);
+        CheckpointManager recovered =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        originalJobId,
+                        storage,
+                        new CheckpointConfig(),
+                        true);
+        Assertions.assertEquals(
+                8L, recovered.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testRecoveryReadFailureDoesNotFallBackToOriginalSource() throws Exception {
+        long jobId = 77103005L;
+        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
+        org.mockito.Mockito.when(storage.getCheckpointsForRecovery(String.valueOf(jobId), "1"))
+                .thenThrow(new CheckpointStorageException("retained checkpoint read denied"));
+        Assertions.assertThrows(
+                Exception.class,
+                () ->
+                        createCheckpointManager(
+                                jobId,
+                                true,
+                                RestoreMode.SAVEPOINT,
+                                77103006L,
+                                storage,
+                                new CheckpointConfig(),
+                                true));
+        org.mockito.Mockito.verify(storage, org.mockito.Mockito.never())
+                .getCheckpointsForRecovery("77103006", "1");
+    }
+
+    @Test
     public void testFinishedPipelineShouldCleanupCounterAndCheckpointState() throws Exception {
         long jobId = (long) (Math.random() * 1000000L);
         CheckpointStorage checkpointStorage = createCheckpointStorage();
@@ -196,6 +262,24 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             Long restoreSourceJobId,
             CheckpointStorage checkpointStorage,
             CheckpointConfig checkpointConfig) {
+        return createCheckpointManager(
+                jobId,
+                isRestoreJob,
+                restoreMode,
+                restoreSourceJobId,
+                checkpointStorage,
+                checkpointConfig,
+                false);
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig,
+            boolean recoverCurrentJob) {
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
         return new CheckpointManager(
@@ -211,7 +295,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 instance.getExecutorService("test"),
                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                 server.getEngineContext(),
-                null);
+                null,
+                recoverCurrentJob);
     }
 
     @Test

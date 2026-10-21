@@ -5,7 +5,7 @@ title: Checkpoint 恢复
 
 # Kubernetes Checkpoint 恢复
 
-恢复会创建新的 Kubernetes Job 和新的 Zeta job ID。当前版本不提供自动 Master 切换或 Job 自动重启。
+显式恢复创建新的 Kubernetes Job 和新的 Zeta job ID。启用 [Application HA](architecture.md) 后，单个 Master/Worker Pod 丢失可在同一 application 和原生 job ID 内恢复。以下步骤用于 application 停止后的显式恢复。
 
 ## 选择存储
 
@@ -95,3 +95,7 @@ Master 上失败（此时 `submit` 命令早已返回），
 :::
 
 保持作业拓扑、Connector 版本、状态格式和并行度兼容。checkpoint 后产生的数据是否重放以及 Sink 交付保证取决于 Connector 语义。
+
+## 普通 HA 存储
+
+HA 的全部 Master 必须访问同一持久 checkpoint 后端及 namespace。文件后端应使用支持实际多节点部署的共享 PVC，或采用原生远程后端配置。`--restore-job-id` 使用 checkpoint 恢复；无可用 checkpoint 时失败，目标使用新的 job ID。没有 connector 专用协调时，不应让历史与恢复 application 同时写入同一 sink。

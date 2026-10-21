@@ -128,6 +128,27 @@ public interface KubernetesClient extends AutoCloseable {
      */
     void deleteWorkers(String id);
 
+    /** Reads the stable application Service for HA client retrieval. */
+    default org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService
+            getService(String name) {
+        throw new UnsupportedOperationException("Service retrieval is not supported");
+    }
+
+    /** Compare-and-set lifecycle annotations with owner UID and resource-version preconditions. */
+    default void updateHaState(KubernetesJob observed, java.util.Map<String, String> annotations) {
+        throw new UnsupportedOperationException("HA lifecycle updates are not supported");
+    }
+
+    /** Removes compute and accompanying resources owned by this exact Job, retaining its result. */
+    default void deleteHaResources(KubernetesJob owner) {
+        throw new UnsupportedOperationException("HA finalization is not supported");
+    }
+
+    /** Deletes only the owner identity previously read by the caller. */
+    default void deleteApplication(String id, String uid) {
+        throw new UnsupportedOperationException("UID-safe deletion is not supported");
+    }
+
     /** Releases client transport resources without deleting Kubernetes objects. */
     @Override
     void close();

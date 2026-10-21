@@ -94,6 +94,9 @@ public final class KubernetesApplicationConfig {
     private static final List<String> LOG4J_SUFFIXES =
             Arrays.asList(".properties", ".xml", ".json", ".yaml", ".yml");
 
+    private final boolean haEnabled;
+    private final int masterReplicas;
+    private final int haBackupCount;
     private final ApplicationSpecification specification;
     private final String namespace;
     private final String image;
@@ -132,8 +135,30 @@ public final class KubernetesApplicationConfig {
     private KubernetesApplicationConfig(
             ApplicationSpecification specification, ReadonlyConfig options) {
         this.specification = specification;
+        this.haEnabled = options.get(KubernetesOptions.HA_ENABLED);
+        this.masterReplicas = options.get(KubernetesOptions.MASTER_REPLICAS);
+        Integer backupCount = options.get(KubernetesOptions.HA_BACKUP_COUNT);
+        this.haBackupCount =
+                haEnabled
+                        ? (backupCount == null
+                                ? org.apache.seatunnel.engine.common.config.ConfigProvider
+                                        .locateAndGetSeaTunnelConfig()
+                                        .getEngineConfig()
+                                        .getBackupCount()
+                                : backupCount)
+                        : 0;
+        if (haEnabled
+                ? masterReplicas < 2
+                        || haBackupCount > 6
+                        || haBackupCount < 1
+                        || haBackupCount >= masterReplicas
+                : masterReplicas != 1 || backupCount != null) {
+            throw new IllegalArgumentException(
+                    "Kubernetes HA requires at least 2 master replicas, 1..6 backups and backup-count < replicas; single-master mode requires replicas=1 and no HA backup override");
+        }
         this.namespace = requireNonBlank(options, KubernetesOptions.NAMESPACE);
         this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
+
         this.imagePullPolicy =
                 ImagePullPolicy.fromValue(options.get(KubernetesOptions.IMAGE_PULL_POLICY));
         this.imagePullSecrets = parseList(options.get(KubernetesOptions.IMAGE_PULL_SECRETS));
@@ -166,11 +191,13 @@ public final class KubernetesApplicationConfig {
         this.envFromReferences = envFromReferences(rawOptions);
         this.configMaps = configMaps(rawOptions);
         validateConfigMapMounts();
+
         this.retentionSeconds = requirePositive(options, KubernetesOptions.RETENTION_SECONDS);
         // Unset keeps the Job active until it finishes; setting it bounds startup plus the run.
         this.activeDeadlineSeconds =
                 optionalPositive(options, KubernetesOptions.ACTIVE_DEADLINE_SECONDS);
         this.checkpointPvc = optionalNonBlank(options, KubernetesOptions.CHECKPOINT_PVC);
+
         this.masterLabels = labels(options, KubernetesOptions.MASTER_LABELS);
         this.workerLabels = labels(options, KubernetesOptions.WORKER_LABELS);
         this.masterAnnotations = pairs(options, KubernetesOptions.MASTER_ANNOTATIONS);
@@ -322,6 +349,14 @@ public final class KubernetesApplicationConfig {
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
+        properties.setProperty(KubernetesOptions.HA_ENABLED.key(), Boolean.toString(haEnabled));
+
+        properties.setProperty(
+                KubernetesOptions.MASTER_REPLICAS.key(), Integer.toString(masterReplicas));
+        if (haEnabled) {
+            properties.setProperty(
+                    KubernetesOptions.HA_BACKUP_COUNT.key(), Integer.toString(haBackupCount));
+        }
         properties.setProperty(KubernetesOptions.NAMESPACE.key(), namespace);
         properties.setProperty(KubernetesOptions.IMAGE.key(), image);
         properties.setProperty(KubernetesOptions.IMAGE_PULL_POLICY.key(), getImagePullPolicy());
@@ -427,7 +462,9 @@ public final class KubernetesApplicationConfig {
         if (applicationSecretRef != null) {
             return applicationSecretRef;
         }
-        return applicationSecretName == null ? applicationId : applicationSecretName;
+        String resolved = applicationSecretName == null ? applicationId : applicationSecretName;
+
+        return resolved;
     }
 
     private static Map<String, String> secretData(Map<String, String> options) {
@@ -702,6 +739,7 @@ public final class KubernetesApplicationConfig {
         Set<String> mountPaths = new HashSet<>();
         for (KubernetesConfigMapEntry entry : configMaps) {
             for (String path : entry.getMountPaths().values()) {
+
                 if (!mountPaths.add(path)) {
                     throw new IllegalArgumentException(
                             KubernetesConstants.CONFIG_MAP_OPTION

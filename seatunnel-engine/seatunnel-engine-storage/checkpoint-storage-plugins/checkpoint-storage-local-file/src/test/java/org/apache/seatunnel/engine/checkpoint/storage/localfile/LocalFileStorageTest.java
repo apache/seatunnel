@@ -82,6 +82,194 @@ public class LocalFileStorageTest {
         Assertions.assertEquals(2, state.size());
     }
 
+    @Test
+    public void testRecoveryReturnsOnlyRequestedPipelineAndAllowsAbsentJob() throws Exception {
+        Assertions.assertEquals(2, STORAGE.getCheckpointsForRecovery(JOB_ID, "1").size());
+        Assertions.assertTrue(
+                STORAGE.getCheckpointsForRecovery("absent-" + java.util.UUID.randomUUID(), "1")
+                        .isEmpty());
+    }
+
+    @Test
+    public void testRecoveryRelistsAfterRetentionDeletesAListedCheckpoint() throws Exception {
+        assertRecoveryRetentionRace(false, false);
+    }
+
+    @Test
+    public void testRecoveryRejectsEmptyRelistAfterRetentionRace() throws Exception {
+        assertRecoveryRetentionRace(true, false);
+    }
+
+    @Test
+    public void testRecoveryDoesNotRollBackWhenNewestListedCheckpointDisappears() throws Exception {
+        assertRecoveryRetentionRace(false, true);
+    }
+
+    @Test
+    public void testRecoveryRejectsDirectoryDisappearingAfterListedCheckpoint() throws Exception {
+        java.nio.file.Path namespace = java.nio.file.Files.createTempDirectory("local-directory-");
+        LocalFileStorage storage =
+                new LocalFileStorage(
+                        java.util.Collections.singletonMap(
+                                "namespace", namespace.toString() + "/")) {
+                    @Override
+                    PipelineState readRecoveryCheckpoint(java.nio.file.Path file)
+                            throws java.io.IOException {
+                        java.nio.file.Files.delete(file);
+                        java.nio.file.Files.delete(file.getParent());
+                        return super.readRecoveryCheckpoint(file);
+                    }
+                };
+        String job = "removed-directory";
+        try {
+            storage.storeCheckPoint(
+                    PipelineState.builder()
+                            .jobId(job)
+                            .pipelineId(1)
+                            .checkpointId(8)
+                            .states(new byte[0])
+                            .build());
+            Assertions.assertThrows(
+                    CheckpointStorageException.class,
+                    () -> storage.getCheckpointsForRecovery(job, "1"));
+        } finally {
+            storage.deleteCheckpoint(job);
+            java.nio.file.Files.delete(namespace);
+        }
+    }
+
+    @Test
+    public void testRecoveryRereadsNewestCheckpointAndBoundsPruningRetries() throws Exception {
+        for (boolean continuous : new boolean[] {false, true}) {
+            java.nio.file.Path namespace = java.nio.file.Files.createTempDirectory("local-relist-");
+            String job = "newest-retention";
+            PipelineState state =
+                    PipelineState.builder()
+                            .jobId(job)
+                            .pipelineId(1)
+                            .checkpointId(14)
+                            .states(new byte[0])
+                            .build();
+            java.util.concurrent.atomic.AtomicInteger opens =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            LocalFileStorage storage =
+                    new LocalFileStorage(
+                            java.util.Collections.singletonMap(
+                                    "namespace", namespace.toString() + "/")) {
+                        @Override
+                        PipelineState readRecoveryCheckpoint(java.nio.file.Path file)
+                                throws java.io.IOException {
+                            int call = opens.incrementAndGet();
+                            if (continuous || call == 1) {
+                                java.nio.file.Files.delete(file);
+                                state.setCheckpointId(14 + call);
+                                try {
+                                    storeCheckPoint(state);
+                                } catch (CheckpointStorageException failure) {
+                                    throw new java.io.IOException(failure);
+                                }
+                            }
+                            return super.readRecoveryCheckpoint(file);
+                        }
+                    };
+            storage.storeCheckPoint(state);
+            try {
+                if (continuous) {
+                    Assertions.assertThrows(
+                            CheckpointStorageException.class,
+                            () -> storage.getCheckpointsForRecovery(job, "1"));
+                    Assertions.assertEquals(3, opens.get());
+                } else {
+                    Assertions.assertEquals(
+                            15,
+                            storage.getCheckpointsForRecovery(job, "1").get(0).getCheckpointId());
+                }
+            } finally {
+                storage.deleteCheckpoint(job);
+                java.nio.file.Files.delete(namespace);
+            }
+        }
+    }
+
+    private void assertRecoveryRetentionRace(boolean removeAll, boolean removeNewest)
+            throws Exception {
+        java.nio.file.Path namespace = java.nio.file.Files.createTempDirectory("local-retention-");
+        java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> victim =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> latest =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        LocalFileStorage storage =
+                new LocalFileStorage(
+                        java.util.Collections.singletonMap(
+                                "namespace", namespace.toString() + "/")) {
+                    @Override
+                    PipelineState readRecoveryCheckpoint(java.nio.file.Path file)
+                            throws java.io.IOException {
+                        java.nio.file.Path removed = victim.get();
+                        if (file.equals(removed) && victim.compareAndSet(removed, null)) {
+                            java.nio.file.Files.delete(file);
+                            if (removeAll) {
+                                java.nio.file.Files.delete(latest.get());
+                            }
+                        }
+                        return super.readRecoveryCheckpoint(file);
+                    }
+                };
+        String job = "retention-race";
+        PipelineState state =
+                PipelineState.builder()
+                        .jobId(job)
+                        .pipelineId(1)
+                        .checkpointId(8)
+                        .states(new byte[0])
+                        .build();
+        victim.set(java.nio.file.Paths.get(storage.storeCheckPoint(state)));
+        state.setCheckpointId(9);
+        latest.set(java.nio.file.Paths.get(storage.storeCheckPoint(state)));
+        if (removeNewest) {
+            victim.set(latest.get());
+        }
+        try {
+            if (removeAll || removeNewest) {
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () -> storage.getCheckpointsForRecovery(job, "1"));
+            } else {
+                List<PipelineState> restored = storage.getCheckpointsForRecovery(job, "1");
+                Assertions.assertEquals(1, restored.size());
+                Assertions.assertEquals(9, restored.get(0).getCheckpointId());
+            }
+            Assertions.assertNull(victim.get());
+        } finally {
+            storage.deleteCheckpoint(job);
+            java.nio.file.Files.delete(namespace);
+        }
+    }
+
+    @Test
+    public void testRecoveryRejectsCorruptCheckpointInsteadOfReturningPartialState()
+            throws Exception {
+        String job = "corrupt-" + java.util.UUID.randomUUID();
+        PipelineState state =
+                PipelineState.builder()
+                        .jobId(job)
+                        .pipelineId(1)
+                        .checkpointId(7)
+                        .states(new byte[0])
+                        .build();
+        STORAGE.storeCheckPoint(state);
+        state.setCheckpointId(8);
+        String latestFile = STORAGE.storeCheckPoint(state);
+        try {
+            java.nio.file.Files.write(java.nio.file.Paths.get(latestFile), new byte[] {1, 2, 3});
+            Assertions.assertThrows(
+                    CheckpointStorageException.class,
+                    () -> STORAGE.getCheckpointsForRecovery(job, "1"));
+        } finally {
+            STORAGE.deleteCheckpoint(job);
+        }
+    }
+
     @AfterAll
     public static void teardown() {
         STORAGE.deleteCheckpoint(JOB_ID);

@@ -113,6 +113,68 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     }
 
     @Override
+    public List<PipelineState> getCheckpointsForRecovery(String jobId, String pipelineId)
+            throws CheckpointStorageException {
+        java.nio.file.Path directory = java.nio.file.Paths.get(getStorageParentDirectory(), jobId);
+        java.nio.file.NoSuchFileException disappeared = null;
+        long highestListedCheckpoint = -1;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            List<PipelineState> states = new ArrayList<>();
+            try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
+                    java.nio.file.Files.newDirectoryStream(directory)) {
+                List<java.nio.file.Path> matching = new ArrayList<>();
+                for (java.nio.file.Path file : files) {
+                    String name = file.getFileName().toString();
+                    if (name.endsWith("." + FILE_FORMAT)
+                            && pipelineId.equals(getPipelineIdByFileName(name))) {
+                        matching.add(file);
+                        highestListedCheckpoint =
+                                Math.max(
+                                        highestListedCheckpoint,
+                                        Long.parseLong(getCheckpointIdByFileName(name)));
+                    }
+                }
+                for (java.nio.file.Path file : matching) {
+                    states.add(readRecoveryCheckpoint(file));
+                }
+                if (states.isEmpty() && disappeared != null) {
+                    throw new CheckpointStorageException(
+                            "Checkpoint disappeared during recovery", disappeared);
+                }
+                if (disappeared != null
+                        && states.stream()
+                                        .mapToLong(PipelineState::getCheckpointId)
+                                        .max()
+                                        .orElse(-1)
+                                < highestListedCheckpoint) {
+                    continue;
+                }
+                return states;
+            } catch (java.nio.file.NoSuchFileException e) {
+                if (directory.toString().equals(e.getFile())) {
+                    if (disappeared == null) {
+                        return new ArrayList<>();
+                    }
+                    throw new CheckpointStorageException(
+                            "Checkpoint directory disappeared during recovery", e);
+                }
+                disappeared = e;
+                if (e.getFile() == null) {
+                    throw new CheckpointStorageException(
+                            "Checkpoint disappeared during recovery", e);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new CheckpointStorageException("Failed to read checkpoints for recovery", e);
+            }
+        }
+        throw new CheckpointStorageException("Checkpoint changed during recovery", disappeared);
+    }
+
+    PipelineState readRecoveryCheckpoint(java.nio.file.Path file) throws IOException {
+        return deserializeCheckPointData(java.nio.file.Files.readAllBytes(file));
+    }
+
+    @Override
     public List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException {
         File filePath = new File(getStorageParentDirectory() + jobId);
         if (!filePath.exists()) {

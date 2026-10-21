@@ -25,6 +25,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 /** Creates the standalone or application resource manager owned by one Engine coordinator. */
 public class ResourceManagerFactory {
+    private int externallyManagedWorkers;
     private final DeployType deployType;
     private final String applicationId;
     private final ApplicationSpecification specification;
@@ -53,8 +54,25 @@ public class ResourceManagerFactory {
         this.driver = driver;
     }
 
+    /**
+     * Kubernetes controllers own this fixed pool; coordinator demotion only closes local slot
+     * bookkeeping.
+     */
+    public static ResourceManagerFactory forExternallyManagedApplication(int workers) {
+        if (workers < 1) {
+            throw new IllegalArgumentException("A fixed application pool requires workers > 0");
+        }
+        ResourceManagerFactory factory = new ResourceManagerFactory();
+        factory.externallyManagedWorkers = workers;
+        return factory;
+    }
+
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        if (externallyManagedWorkers > 0) {
+            return new FixedPoolApplicationResourceManager(
+                    nodeEngine, engineConfig, externallyManagedWorkers);
+        }
         if (DeployType.STANDALONE.equals(deployType)) {
             return new StandaloneResourceManager(nodeEngine, engineConfig);
         }

@@ -31,6 +31,9 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 
 | Name | Type | Required | Default value | Description |
 | --- | --- | --- | --- | --- |
+| `kubernetes.ha.enabled` | boolean | no | `false` | Enable fixed-pool native Zeta HA; see [HA architecture](architecture.md#opt-in-application-ha). |
+| `kubernetes.master.replicas` | int | no | `1` | Exactly 1 without HA; at least 2 with HA. |
+| `kubernetes.ha.backup-count` | int | no | Native submitter configuration | HA native synchronous backups: 1..6 and smaller than master replicas. |
 | `kubernetes.namespace` | string | no | `default` | Existing namespace containing all application resources. |
 | `kubernetes.image` | string | yes | - | Image containing SeaTunnel, the provider, and job plugins. |
 | `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`, `IfNotPresent`, or `Never`. |
@@ -515,3 +518,5 @@ bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 Pod requests equal limits. Plan worker count, worker slots, job parallelism, ResourceQuota,
 LimitRange, and node capacity together. The master does not provide task slots.
 :::
+
+In HA mode the owner, all masters and workers receive the same configured runtime mounts and environment. The checkpoint PVC is mounted on all roles. The permissions above describe the default single-master mode; apply the additional [HA permissions](architecture.md#ha-permissions) when enabling HA.

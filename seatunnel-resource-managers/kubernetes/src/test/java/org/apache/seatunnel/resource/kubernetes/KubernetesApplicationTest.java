@@ -594,7 +594,8 @@ class KubernetesApplicationTest {
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         client.cancel();
         assertEquals(ApplicationStatus.CANCELED, client.getStatus());
-        verify(api).deleteApplication("app");
+        verify(api, never()).deleteApplication("app");
+        verify(api, never()).deleteApplication(anyString(), anyString());
     }
 
     @Test
@@ -689,5 +690,141 @@ class KubernetesApplicationTest {
                 new V1Pod()
                         .metadata(new V1ObjectMeta().name(name))
                         .status(new V1PodStatus().phase(phase).podIP("10.0.0.1")));
+    }
+
+    @Test
+    void haPrefersDurableNativeOutcomeAndDeletesByOwnerUid() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesJob owner =
+                job(
+                        new V1JobStatus()
+                                .addConditionsItem(
+                                        new V1JobCondition().type("Failed").status("True")));
+        owner.getInternalResource().getMetadata().setUid("owner-uid");
+        owner.getInternalResource()
+                .getMetadata()
+                .setAnnotations(
+                        new HashMap<>(
+                                Map.of(
+                                        org.apache.seatunnel.resource.kubernetes.kubeclient
+                                                        .HaApplicationState.ENABLED,
+                                                "true",
+                                        org.apache.seatunnel.resource.kubernetes.kubeclient
+                                                        .HaApplicationState.STATUS,
+                                                "CANCELED")));
+        when(api.getJob("app")).thenReturn(owner);
+        KubernetesApplicationClient handle = new KubernetesApplicationClient(api, "app");
+        assertEquals(ApplicationStatus.CANCELED, handle.getStatus());
+        owner.getInternalResource()
+                .getMetadata()
+                .getAnnotations()
+                .put(
+                        org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
+                                .STATUS,
+                        "SUCCEEDED");
+        assertEquals(
+                ApplicationStatus.SUCCEEDED,
+                new KubernetesApplicationClient(api, "app").getStatus());
+        handle.cancel();
+        verify(api).deleteApplication("app", "owner-uid");
+        verify(api, never()).deleteApplication("app");
+    }
+
+    @Test
+    void freshHaRetrievalUsesStableServiceAndItsPersistedPort() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesJob owner = job(new V1JobStatus().active(1));
+        owner.getInternalResource()
+                .getMetadata()
+                .setAnnotations(
+                        Map.of(
+                                org.apache.seatunnel.resource.kubernetes.kubeclient
+                                        .HaApplicationState.ENABLED,
+                                "true",
+                                org.apache.seatunnel.resource.kubernetes.kubeclient
+                                        .HaApplicationState.STATUS,
+                                "RUNNING"));
+        when(api.getJob("app")).thenReturn(owner);
+        when(api.getService("app"))
+                .thenReturn(
+                        new org.apache.seatunnel.resource.kubernetes.kubeclient.resources
+                                .KubernetesService(
+                                new io.kubernetes.client.openapi.models.V1Service()
+                                        .metadata(new V1ObjectMeta().name("app"))
+                                        .spec(
+                                                new io.kubernetes.client.openapi.models
+                                                                .V1ServiceSpec()
+                                                        .clusterIP("10.0.0.8")
+                                                        .addPortsItem(
+                                                                new io.kubernetes.client.openapi
+                                                                                .models
+                                                                                .V1ServicePort()
+                                                                        .port(5909)))));
+        try (MockedStatic<ConfigProvider> configurations = mockStatic(ConfigProvider.class)) {
+            configurations
+                    .when(ConfigProvider::locateAndGetClientConfig)
+                    .thenReturn(new ClientConfig());
+            try (KubernetesApplicationClusterDescriptor descriptor =
+                    new KubernetesApplicationClusterDescriptor(api, options())) {
+                descriptor.retrieve("app").getClusterClient().close();
+            }
+        }
+        assertEquals(
+                Collections.singletonList("10.0.0.8:5909"),
+                clientConfigs.get(0).getNetworkConfig().getAddresses());
+        assertFalse(clientConfigs.get(0).getNetworkConfig().isSmartRouting());
+        verify(api, never()).listPods(anyString());
+    }
+
+    @Test
+    void haAmbiguousOwnerCreationNeverDeletesByNameOrLabels() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getConfigMap("seatunnel-runtime"))
+                .thenReturn(
+                        new KubernetesConfigMap(
+                                new V1ConfigMap()
+                                        .metadata(new V1ObjectMeta().name("seatunnel-runtime"))
+                                        .data(Map.of("seatunnel.yaml", "seatunnel: {}"))));
+        when(api.createJob(any()))
+                .thenThrow(new KubernetesClientException(504, "owner create reply lost"));
+        Map<String, String> ha = new HashMap<>(options());
+        ha.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        ha.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        ha.put(KubernetesOptions.HA_BACKUP_COUNT.key(), "1");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, ha)) {
+            assertThrows(Exception.class, () -> descriptor.deployApplication(specification()));
+        }
+        verify(api).createJob(any());
+        verify(api, never()).deleteApplication(anyString());
+        verify(api, never()).deleteApplication(anyString(), anyString());
+        verify(api, never()).createAccompanyingResources(any(), any());
+    }
+
+    @Test
+    void haStatusWaitsForNativeRunningInsteadOfWorkerPodReadiness() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesJob owner = job(new V1JobStatus().active(1));
+        Map<String, String> state = new HashMap<>();
+        state.put(
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.ENABLED,
+                "true");
+        state.put(
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
+                "DEPLOYING");
+        owner.getInternalResource().getMetadata().setAnnotations(state);
+        when(api.getJob("app")).thenReturn(owner);
+        when(api.listPods(anyString())).thenReturn(List.of(pod("worker", "Running")));
+        KubernetesApplicationClient client = new KubernetesApplicationClient(api, "app");
+        assertEquals(ApplicationStatus.DEPLOYING, client.getStatus());
+        state.put(
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
+                "RUNNING");
+        assertEquals(ApplicationStatus.RUNNING, client.getStatus());
+        state.put(
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
+                "unexpected");
+        assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
+        verify(api, never()).listPods(anyString());
     }
 }

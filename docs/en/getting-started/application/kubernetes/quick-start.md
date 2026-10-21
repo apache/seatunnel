@@ -207,3 +207,7 @@ API accepted the started Job, so slow image pulls or scheduling never fail the c
 
 See [Commands](commands.md) for every argument, the exit-code contract, and the `kubectl`
 inspection patterns.
+
+## Enable HA
+
+This page describes the default single-master deployment. To enable native master failover and fixed worker replacement, follow [Application HA](architecture.md#opt-in-application-ha), including its additional RBAC and durable storage requirements. In HA, native terminal annotations determine application status, and owned mounted configuration is retained until owner Job TTL to allow cleanup retries.

@@ -206,4 +206,73 @@ class SeatunnelApplicationConfigTest {
                 IllegalArgumentException.class,
                 () -> SeatunnelApplicationConfig.configure(config, "app", "", 1));
     }
+
+    @Test
+    void haAppliesRequestedSynchronousBackupsToEffectiveNativeMaps() {
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        config.getHazelcastConfig()
+                .addMapConfig(new com.hazelcast.config.MapConfig("engine_*").setBackupCount(0));
+        config.getHazelcastConfig()
+                .addMapConfig(
+                        new com.hazelcast.config.MapConfig("engine_runningJobInfo")
+                                .setBackupCount(0)
+                                .setAsyncBackupCount(6));
+        SeatunnelApplicationConfig.configureHa(
+                config,
+                "ha",
+                java.util.Arrays.asList("master-0:5801", "master-1:5801", "master-2:5801"),
+                false,
+                1,
+                2);
+        for (String name :
+                java.util.Arrays.asList(
+                        "engine_runningJobInfo", "engine_runningJobState", "other-native-map")) {
+            assertEquals(2, config.getHazelcastConfig().getMapConfig(name).getBackupCount(), name);
+            assertEquals(
+                    0, config.getHazelcastConfig().getMapConfig(name).getAsyncBackupCount(), name);
+        }
+    }
+
+    @Test
+    void haKeepsPositiveBackupsAndAllPeersWithoutSingleMasterDependency() {
+        for (boolean worker : new boolean[] {false, true}) {
+            SeaTunnelConfig config = new SeaTunnelConfig();
+            java.util.List<String> peers =
+                    java.util.Arrays.asList("master-0:5801", "master-1:5801", "master-2:5801");
+            config.getHazelcastConfig().setProperty("hazelcast.max.no.heartbeat.seconds", "90");
+            SeatunnelApplicationConfig.configureHa(config, "isolated-ha", peers, worker, 3, 1);
+            assertEquals(
+                    org.apache.seatunnel.engine.common.config.server.ScheduleStrategy.WAIT,
+                    config.getEngineConfig().getScheduleStrategy());
+            assertEquals(
+                    "90",
+                    config.getHazelcastConfig().getProperty("hazelcast.max.no.heartbeat.seconds"));
+            assertEquals(1, config.getEngineConfig().getBackupCount());
+            assertEquals(
+                    peers,
+                    config.getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getMembers());
+            assertNull(
+                    config.getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getRequiredMember());
+            assertEquals(worker, config.getHazelcastConfig().isLiteMember());
+            assertEquals(3, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+        }
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SeatunnelApplicationConfig.configureHa(
+                                new SeaTunnelConfig(),
+                                "invalid",
+                                java.util.Arrays.asList("a:5801", "b:5801"),
+                                false,
+                                1,
+                                0));
+    }
 }

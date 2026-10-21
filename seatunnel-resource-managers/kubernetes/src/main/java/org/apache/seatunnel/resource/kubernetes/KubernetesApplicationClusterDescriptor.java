@@ -111,10 +111,16 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             return job.getName();
         } catch (Exception failure) {
             log.warn("Kubernetes application {} deployment failed", id, failure);
-            if (job != null || ambiguousOutcome(failure)) {
-                // Deleting the owner removes exactly the resources created for this application.
+            if (job != null || (!parameters.isHaEnabled() && ambiguousOutcome(failure))) {
+                // HA cleanup requires the acknowledged owner UID. An ambiguous create may have
+                // reached the server; preserve that unknown outcome rather than delete by name.
+                // Legacy single-master compensation retains its existing behavior.
                 try {
-                    api.deleteApplication(id);
+                    if (job != null && parameters.isHaEnabled()) {
+                        api.deleteApplication(id, job.getUid());
+                    } else {
+                        api.deleteApplication(id);
+                    }
                 } catch (Exception cleanup) {
                     failure.addSuppressed(cleanup);
                 }
@@ -139,6 +145,10 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     static List<KubernetesResource<?>> assembleApplication(
             String id, String mainClass, KubernetesApplicationConfig parameters) {
+        if (parameters.isHaEnabled()) {
+            return org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory
+                    .build(id, parameters);
+        }
         V1Pod masterPod = ApplicationJobFactory.createMasterPod(id, mainClass, parameters);
         List<KubernetesStepDecorator> decorators =
                 Arrays.asList(
@@ -400,6 +410,15 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                                 "Kubernetes application %s has no live master: %s",
                                 id, job.getFailureReason()));
             }
+            if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
+                    job)) {
+                org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService
+                        service = api.getService(id);
+                String ip = service.getInternalResource().getSpec().getClusterIP();
+                if (ip != null && !"None".equals(ip)) {
+                    return ip;
+                }
+            }
             String selector =
                     KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE);
             for (KubernetesPod pod : api.listPods(selector)) {
@@ -425,10 +444,26 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         validateApplicationId(applicationId);
         long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
         String host = awaitMaster(applicationId, timeout);
-        String address = masterAddress(host, options.get(ApplicationOptions.MASTER_PORT));
+        KubernetesJob owner = api.getJob(applicationId);
+        boolean ha =
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
+                        owner);
+        int port =
+                ha
+                        ? api.getService(applicationId)
+                                .getInternalResource()
+                                .getSpec()
+                                .getPorts()
+                                .get(0)
+                                .getPort()
+                        : options.get(ApplicationOptions.MASTER_PORT);
+        String address = masterAddress(host, port);
         ClientConfig config = ConfigProvider.locateAndGetClientConfig();
         config.setClusterName(SeatunnelApplicationConfig.clusterName(applicationId));
         config.getNetworkConfig().setAddresses(Collections.singletonList(address));
+        if (ha) {
+            config.getNetworkConfig().setSmartRouting(false);
+        }
         config.getConnectionStrategyConfig()
                 .getConnectionRetryConfig()
                 .setClusterConnectTimeoutMillis(timeout);
@@ -449,7 +484,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     @Override
     public void cancelApplication(String applicationId) throws Exception {
         validateApplicationId(applicationId);
-        api.deleteApplication(applicationId);
+        new KubernetesApplicationClient(api, applicationId).cancel();
     }
 
     /** Releases the SDK connection without canceling or deleting any application. */
