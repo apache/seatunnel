@@ -296,10 +296,14 @@ public class OrcWriteStrategyTest {
      */
     private static BigDecimal writeOneDecimalAndReadItBack(
             String tag, int precision, int scale, BigDecimal value) throws Exception {
-        String tmpPath = "file:///tmp/seatunnel/orc/decimal-" + tag + "/test";
+        // A fresh directory per invocation, like testCloseWriterWhenRollingFile does, so output
+        // left behind by an earlier run cannot make the single-file assertion below depend on
+        // the state of /tmp.
+        String base = "file:///tmp/seatunnel/orc/decimal-" + tag + "-" + System.nanoTime();
+        String tmpPath = base + "/test";
         Map<String, Object> writeConfig = new HashMap<>();
         writeConfig.put("tmp_path", tmpPath);
-        writeConfig.put("path", "file:///tmp/seatunnel/orc/decimal-" + tag);
+        writeConfig.put("path", base);
         writeConfig.put("file_format_type", FileFormat.ORC.name());
 
         SeaTunnelRowType writeRowType =
@@ -314,10 +318,19 @@ public class OrcWriteStrategyTest {
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, tag, tag, 0);
-        writeStrategy.beginTransaction(1L);
-        writeStrategy.write(new SeaTunnelRow(new Object[] {value}));
-        writeStrategy.finishAndCloseFile();
-        writeStrategy.close();
+        try {
+            writeStrategy.beginTransaction(1L);
+            writeStrategy.write(new SeaTunnelRow(new Object[] {value}));
+            writeStrategy.finishAndCloseFile();
+        } finally {
+            try {
+                writeStrategy.close();
+            } catch (Exception closeFailure) {
+                // The two failing cases leave the writer mid-transaction. Closing it can raise
+                // again, and that must not replace the FileConnectorException under assertion.
+                log.debug("closing the ORC write strategy after a failed write", closeFailure);
+            }
+        }
 
         OrcReadStrategy readStrategy = new OrcReadStrategy();
         readStrategy.init(hadoopConf);
