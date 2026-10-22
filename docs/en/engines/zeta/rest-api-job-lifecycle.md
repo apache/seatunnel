@@ -225,7 +225,7 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint location can be found in the job and checkpoint logs and in the checkpoint storage. The `/job-info/:jobId` response has no
+The savepoint is written to the configured checkpoint storage (see the checkpoint storage settings of your cluster). The `/job-info/:jobId` response has no
 `savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
 `restoreSourceJobId`), which picks up the latest savepoint of that job. For the full
 request example, see section 6.2.

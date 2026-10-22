@@ -133,7 +133,7 @@ network:
             "fallbackKeys": [],
             "optionValues": null
           },
-          "expectValue": 1,
+          "expectValue": 0,
           "compareOperator": ">=",
           "compareOption": null,
           "conditionOperator": "GREATER_OR_EQUAL",

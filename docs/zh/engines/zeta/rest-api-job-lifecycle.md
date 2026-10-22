@@ -224,7 +224,7 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 的位置可在作业与 checkpoint 日志以及 checkpoint 存储中查看。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
+Savepoint 会写入所配置的 checkpoint 存储（参见所用集群的 checkpoint 存储配置）。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
 如需稍后恢复，请使用 `restoreMode=SAVEPOINT`（配合 `restoreSourceJobId`）重新提交，引擎会自动
 选取该作业最新的 Savepoint。完整请求示例见 6.2 节。
 
