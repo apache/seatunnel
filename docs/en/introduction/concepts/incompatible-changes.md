@@ -32,6 +32,10 @@ You need to check this document before you upgrade to related version.
     - After an upgrade or a master active-switch, jobs restored from `runningJobInfoIMap` are re-queued through the same fixed-cap resource check as new submits, not resumed unconditionally. Jobs that previously fit via on-demand slot minting can therefore be marked `FAILED` on the first restart with the new default (their checkpoints stay intact). Size `slot-num` for the jobs that must keep running or set `dynamic-slot: true` before restarting. Count coordinator and physical task groups per concurrent job, not just aggregate parallelism: in the simple one-enumerator/one-committer case each job needs about `2 + P_j` slots (so two independent P=1 jobs need about 6, not 4); jobs without an aggregate committer, or plans with multiple sources/pipelines, need more.
   - **Migration Guide**: To preserve the previous behavior, set `seatunnel.engine.slot-service.dynamic-slot: true` in your `seatunnel.yaml`. If you keep static slots, size `slot-num` from the actual concurrent physical task groups per worker (roughly `Σ (2 + P_j)` per job for the simple one-enumerator/one-committer case; some sinks have no aggregate committer and multi-source/multi-pipeline plans need more — an aggregate count alone is not a placement guarantee) and size the worker JVM heap (`-Xmx`) to hold that many concurrent task-group working sets. Also audit any packaged/helm/docker `seatunnel.yaml` that may hardcode `dynamic-slot: true`.
 
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**

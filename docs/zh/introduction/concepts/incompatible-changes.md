@@ -31,6 +31,10 @@
     - 升级或 master active 切换后，从 `runningJobInfoIMap` 恢复的任务会与新提交的任务一样经过固定 Slot 上限的资源检查，而不会被无条件恢复。过去依靠动态生成 Slot 运行的任务可能在启用新默认值后的第一次重启时被标记为 `FAILED`（checkpoint 保持完好）。重启前请按需要持续运行的任务规模评估 `slot-num`，或设置 `dynamic-slot: true`。容量要按每个并发作业的协调组与物理任务组分别计数，而不是只看聚合并行度：在简单的单枚举器/单提交器场景下，每个作业约需 `2 + P_j` 个 Slot（两个独立的 P=1 作业约需 6 个而不是 4 个）；没有聚合提交器的 Sink、或多 Source/多 Pipeline 的作业计划还需要更多。
   - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请按每个 Worker 上实际的并发物理任务组评估 `slot-num`（简单单枚举器/单提交器场景约为每个作业 `Σ (2 + P_j)`；部分 Sink 没有聚合提交器、多 Source/多 Pipeline 的作业计划需要更多——仅凭聚合计数并不能保证放置），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
 
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
@@ -123,6 +127,25 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
 
 ### SQL ARRAY_MAX 和 ARRAY_MIN 精度
 
