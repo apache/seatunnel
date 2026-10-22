@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
 
 注意：Markdown 格式仅支持读取，不支持写入。
 
