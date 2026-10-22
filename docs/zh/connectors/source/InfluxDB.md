@@ -163,9 +163,13 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 :::caution 保留选项
 
-当前的切分逻辑会直接从 `sql` 选项中读取小写的 `where` 关键字。单独设置 `where`
+单表模式（根级 `sql`）：当前的切分逻辑会直接从 `sql` 选项中读取小写的 `where` 关键字。单独设置 `where`
 对生成的切分查询没有任何效果——请把过滤条件直接写进 `sql`，例如
-`select * from test where age > 0`。切分解析器对 `where` 关键字区分大小写。
+`select * from test where age > 0`。该路径的切分解析器对 `where` 关键字区分大小写。
+
+`tables_configs` 多表模式：在表配置中设置 `where` 会在构建阶段直接抛出
+`OptionValidationException`（`InfluxDBSourceFactory` 校验拒绝）；该模式的切分解析器对
+`where` 关键字不区分大小写。
 
 该选项保留在选项列表中只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）
 为了向后兼容仍然引用它；运行时的切分查询生成器并不会读取它。
