@@ -126,6 +126,22 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
@@ -164,6 +180,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
+
+### DataValidator 数组长度
+
+`LENGTH` 规则现在计算数组元素个数，而非数组的 Java 标识字符串长度。
+因此，包含数组的行可能得到与此前不同的验证结果。请检查曾为适应旧行为而调整的数组长度限制，
+并在重放数据前核对此前被跳过或路由到错误表的数据。
+字符串、集合、二进制值和空值的处理保持不变，无需迁移配置或状态格式。
 
 ### Zeta REST 分页参数校验
 
@@ -466,6 +489,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
 ### 引擎行为变更
+
+- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
+  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
+  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
 
 - **行为变更：REST 日志内容接口默认最多返回 64 MB**
   - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
