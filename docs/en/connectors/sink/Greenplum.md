@@ -50,21 +50,25 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 
 Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
 
-| Greenplum Data Type | SeaTunnel Data Type |
+| SeaTunnel Data Type | Greenplum Data Type |
 |---------------------|---------------------|
 | BOOLEAN | BOOLEAN |
-| SMALLINT / INT2 | SMALLINT |
-| INT / INT4 / SERIAL | INT |
-| BIGINT / INT8 / BIGSERIAL | BIGINT |
-| NUMERIC(p, s) / DECIMAL(p, s) | DECIMAL(p, s) |
-| MONEY | DECIMAL(30,2) |
-| REAL / FLOAT4 | FLOAT |
-| DOUBLE PRECISION / FLOAT8 | DOUBLE |
-| CHAR / VARCHAR / TEXT / JSON / JSONB | STRING |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT (VARCHAR(n) when a column length is set) |
 | DATE | DATE |
-| TIME | TIME |
-| TIMESTAMP / TIMESTAMPTZ | TIMESTAMP |
-| BYTEA | BYTES |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+The table above lists the sink direction (`PostgresTypeConverter.reconvert`). A `DECIMAL` column is
+written as `NUMERIC(p, s)`; the `MONEY` type is only produced when the column's source type was
+already `money`, so a plain `DECIMAL(30,2)` column lands as `NUMERIC(30,2)`, not `MONEY`.
 
 ## Options
 

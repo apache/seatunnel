@@ -145,11 +145,11 @@ The inverse of the sampling rate used in the sample sharding strategy. For examp
 
 The column name for split data.
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [String]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [String]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 

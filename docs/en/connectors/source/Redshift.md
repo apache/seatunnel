@@ -57,8 +57,8 @@ reads via `table_list` are supported.
 | table_list         | Array    | No       | -               | List of tables to read. Each entry can override `table_path` and `query`. Enables multi-table reading and auto-split.                       |
 | connection_check_timeout_sec | Int | No       | 30              | The time, in seconds, to wait for the database operation used to validate the connection to complete.                                       |
 | partition_column   | String   | No       | -               | The column name used to split the data for parallel reading. Only numeric primary key columns are supported.                               |
-| partition_lower_bound | BigDecimal | No   | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum value.                       |
-| partition_upper_bound | BigDecimal | No   | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum value.                       |
+| partition_lower_bound | String | No   | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum value.                       |
+| partition_upper_bound | String | No   | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum value.                       |
 | partition_num      | Int      | No       | 10              | Number of partitions. Only positive integers are supported. Default value is 10.                                                             |
 | fetch_size         | Int      | No       | 0               | For queries that return a large number of rows, configure the row fetch size used in the query to improve performance. `0` uses the driver default. |
 | where_condition    | String   | No       | -               | Common row filter applied to all tables/queries. Must start with `where`, for example `where id > 100`.                                     |

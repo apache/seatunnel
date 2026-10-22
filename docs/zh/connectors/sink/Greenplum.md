@@ -50,20 +50,25 @@ Greenplum Sink 不支持精确一次语义，因为 Greenplum 不支持 XA 事�
 
 Greenplum 沿用 PostgreSQL JDBC 驱动映射。下表列出常用类型对照：
 
-| Greenplum 数据类型 | SeaTunnel 数据类型 |
-|--------------------|--------------------|
+| SeaTunnel 数据类型 | Greenplum 数据类型 |
+|---------------------|---------------------|
 | BOOLEAN | BOOLEAN |
-| SMALLINT / INT2 | SMALLINT |
-| INT / INT4 / SERIAL | INT |
-| BIGINT / INT8 / BIGSERIAL | BIGINT |
-| NUMERIC(p, s) / DECIMAL(p, s) | DECIMAL(p, s) |
-| MONEY | DECIMAL(30,2) |
-| REAL / FLOAT4 | FLOAT |
-| DOUBLE PRECISION / FLOAT8 | DOUBLE |
-| CHAR / VARCHAR / TEXT / JSON / JSONB | STRING |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT（指定列长度时为 VARCHAR(n)） |
 | DATE | DATE |
-| TIME | TIME |
-| TIMESTAMP / TIMESTAMPTZ | TIMESTAMP |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+上表为 Sink 写入方向（`PostgresTypeConverter.reconvert`）。`DECIMAL` 列会写为 `NUMERIC(p, s)`；
+只有当列的源类型本来就是 `money` 时才会生成 `MONEY` 类型，因此普通的 `DECIMAL(30,2)` 列落地为
+`NUMERIC(30,2)` 而不是 `MONEY`。
 | BYTEA | BYTES |
 
 ## 选项
