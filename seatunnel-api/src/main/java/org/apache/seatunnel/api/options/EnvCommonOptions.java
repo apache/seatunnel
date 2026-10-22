@@ -185,7 +185,7 @@ public class EnvCommonOptions {
                     .withDescription(
                             "Bearer token for the OpenLineage receiver. It may only come from the "
                                     + "OPENLINEAGE_AUTH_TOKEN environment variable or from cluster configuration; "
-                                    + "declaring it in a job env block is rejected at startup.");
+                                    + "declaring it in a job env block is rejected when lineage configuration is resolved.");
 
     public static Option<Integer> OPENLINEAGE_TIMEOUT_MS =
             Options.key("openlineage_timeout_ms")

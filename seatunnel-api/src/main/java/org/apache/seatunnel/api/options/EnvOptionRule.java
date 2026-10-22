@@ -55,10 +55,10 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.OPENLINEAGE_TRANSPORT,
                         EnvCommonOptions.OPENLINEAGE_URL,
                         EnvCommonOptions.OPENLINEAGE_NAMESPACE,
-                        // OPENLINEAGE_AUTH_TOKEN is deliberately absent: a token in a job env
-                        // block is rejected at parse time so that it is never persisted in job
-                        // configuration or serialized into a Flink JobGraph. Listing it here would
-                        // advertise a setting the job is guaranteed to be rejected for.
+                        // OPENLINEAGE_AUTH_TOKEN is not a supported job option. LineageConfig
+                        // rejects job-level tokens when resolving lineage configuration; engine
+                        // integrations must invoke that validation before persisting or serializing
+                        // job configuration.
                         EnvCommonOptions.OPENLINEAGE_TIMEOUT_MS,
                         EnvCommonOptions.OPENLINEAGE_RETRY_TIMES,
                         EnvCommonOptions.OPENLINEAGE_RUN_FACET,

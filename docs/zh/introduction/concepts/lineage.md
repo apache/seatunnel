@@ -31,9 +31,10 @@ SeaTunnel 可以向任意兼容 OpenLineage 的接收端发射表级 `RunEvent` 
 作业 env {} > 进程环境变量 > 集群配置 > 默认值
 ```
 
-Token 是例外：`openlineage_auth_token` 按 `OPENLINEAGE_AUTH_TOKEN` > 集群配置解析。作业
-`env {}` 中出现 token 会在启动时直接拒绝。这样可以避免 token 持久化到作业配置，或被序列化到
-Flink JobGraph。
+Token 是例外：`openlineage_auth_token` 按 `OPENLINEAGE_AUTH_TOKEN` > 集群配置解析。
+`LineageConfig.resolve` 在解析血缘配置时拒绝作业 `env {}` 中的 token。引擎集成必须在持久化
+作业配置或将其序列化到 Flink JobGraph 之前执行此校验，即使血缘上报未启用也不例外。
+仅声明选项规则不会执行此校验。
 
 血缘投递无条件是 best-effort，并且刻意不提供改变该行为的配置项。接收端或网络失败会在引擎
 集成边界被捕获并记录 warning，因此不可能改变数据处理作业的结果。

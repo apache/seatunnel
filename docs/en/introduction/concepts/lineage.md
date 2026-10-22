@@ -34,9 +34,10 @@ job env {} > process environment > cluster configuration > default
 ```
 
 The token is the exception to this rule. `openlineage_auth_token` is resolved as
-`OPENLINEAGE_AUTH_TOKEN` > cluster configuration. A token in a job `env {}` block is rejected at
-job startup. This prevents the token from being persisted in job configuration or serialized into
-the Flink JobGraph.
+`OPENLINEAGE_AUTH_TOKEN` > cluster configuration. `LineageConfig.resolve` rejects a token in a job
+`env {}` block when resolving lineage configuration. Engine integrations must invoke this validation
+before persisting job configuration or serializing it into a Flink JobGraph, even when lineage
+reporting is disabled. The option rule alone does not enforce this validation.
 
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
