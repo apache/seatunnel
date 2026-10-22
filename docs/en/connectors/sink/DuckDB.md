@@ -50,18 +50,22 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 | SeaTunnel Data Type                                                 | DuckDB Data Type |
 |---------------------------------------------------------------------|------------------|
-| BOOLEAN                                                             | BOOLEAN          |
-| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
-| BIGINT                                                              | BIGINT           |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
-| FLOAT                                                               | FLOAT            |
-| DOUBLE                                                              | DOUBLE           |
-| STRING                                                              | VARCHAR          |
-| DATE                                                                | DATE             |
-| TIME                                                                | TIME             |
-| TIMESTAMP                                                           | TIMESTAMP        |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+| BOOLEAN                                                             | BOOLEAN                   |
+| TINYINT                                                             | TINYINT                   |
+| SMALLINT                                                            | SMALLINT                  |
+| INT                                                                 | INTEGER                   |
+| BIGINT                                                              | BIGINT                    |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)              |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)             |
+| FLOAT                                                               | FLOAT                     |
+| DOUBLE                                                              | DOUBLE                    |
+| STRING                                                              | VARCHAR                   |
+| DATE                                                                | DATE                      |
+| TIME                                                                | TIME                      |
+| TIMESTAMP                                                           | TIMESTAMP                 |
+| TIMESTAMP_TZ                                                        | TIMESTAMP WITH TIME ZONE  |
+| BYTES                                                               | BLOB                      |
+| ARRAY<br/>ROW<br/>MAP                                               | Not supported             |
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
