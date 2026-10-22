@@ -69,7 +69,6 @@ Greenplum 沿用 PostgreSQL JDBC 驱动映射。下表列出常用类型对照�
 上表为 Sink 写入方向（`PostgresTypeConverter.reconvert`）。`DECIMAL` 列会写为 `NUMERIC(p, s)`；
 只有当列的源类型本来就是 `money` 时才会生成 `MONEY` 类型，因此普通的 `DECIMAL(30,2)` 列落地为
 `NUMERIC(30,2)` 而不是 `MONEY`。
-| BYTEA | BYTES |
 
 ## 选项
 
