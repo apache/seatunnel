@@ -32,6 +32,11 @@ sidebar_position: 3
 source {
     FakeSource {
         plugin_output = "fake_table"
+        schema = {
+            fields {
+                id = int
+            }
+        }
     }
 }
 ```

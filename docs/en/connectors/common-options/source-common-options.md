@@ -32,6 +32,11 @@ The old configuration name `result_table_name` is deprecated, please migrate to 
 source {
     FakeSource {
         plugin_output = "fake_table"
+        schema = {
+            fields {
+                id = int
+            }
+        }
     }
 }
 ```
