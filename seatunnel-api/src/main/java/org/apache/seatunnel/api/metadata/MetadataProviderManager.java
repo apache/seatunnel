@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -103,7 +104,7 @@ public final class MetadataProviderManager {
             resultMap.put(PluginType.SINK.getType(), resolvedSinks);
         }
 
-        return ConfigFactory.parseMap(resultMap);
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(resultMap));
     }
 
     public static Optional<TableSchema> resolveTableSchema(
@@ -343,7 +344,8 @@ public final class MetadataProviderManager {
             }
         }
 
-        Config mergedConfig = ConfigFactory.parseMap(mergedMap);
+        Config mergedConfig =
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(mergedMap));
 
         log.info(
                 "Successfully merged datasource config for metadata_datasource_id: {}, connector: {}, merged keys count: {}",

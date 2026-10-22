@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -28,16 +30,20 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import lombok.SneakyThrows;
 
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -154,6 +160,120 @@ public class MetadataProviderManagerTest {
         // Verify exception is thrown
         assertNotNull(exception);
         assertNotNull(exception.getMessage());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,table", "false,^t_nova_.*$", "true,table", "true,^t_nova_.*$"})
+    public void testSchemaKeysWithoutDatasource(boolean enabled, String fieldName) {
+        AtomicInteger datasourceCalls = new AtomicInteger();
+        registerProvider(
+                new MockTestMetadataProvider() {
+                    @Override
+                    public Map<String, Object> datasourceMap(
+                            String connector, String datasourceId) {
+                        datasourceCalls.incrementAndGet();
+                        return super.datasourceMap(connector, datasourceId);
+                    }
+                });
+        Config jobConfig =
+                ConfigFactory.parseString(
+                        "env { job.mode = BATCH }\n"
+                                + "source { FakeSource { schema { fields { "
+                                + ConfigUtil.quoteString(fieldName)
+                                + " = string } } } }\n"
+                                + "sink { Console {} }");
+        MetadataConfig metadataConfig = new MetadataConfig();
+        metadataConfig.setEnabled(enabled);
+        metadataConfig.setKind(TEST_PROVIDER_KIND);
+
+        Config resolved =
+                MetadataProviderManager.resolveDataSourceConfigs(jobConfig, metadataConfig);
+
+        assertEquals(
+                Collections.singletonMap(fieldName, "string"),
+                resolved.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped());
+        assertEquals(jobConfig.root().unwrapped(), resolved.root().unwrapped());
+        assertEquals(0, datasourceCalls.get());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"source,false", "source,true", "sink,false", "sink,true"})
+    public void testSchemaKeysAndPrecedenceDuringDatasourceMerge(String section, boolean nested) {
+        Map<String, Object> datasource = new HashMap<>();
+        datasource.put("url", "jdbc:postgresql://metadata:5432/metadata_db");
+        datasource.put("provider_fields", Collections.singletonMap("^metadata_.*$", "string"));
+        datasource.put(
+                "rules", Collections.singletonList(Collections.singletonMap("^rule_.*$", "kept")));
+        // The shared config parser uses -> for paths and treats dots as literal key characters.
+        datasource.put("connection->timeout", 17);
+        datasource.put("connection.pool.size", 4);
+        AtomicInteger datasourceCalls = new AtomicInteger();
+        registerProvider(
+                new MockTestMetadataProvider() {
+                    @Override
+                    public Map<String, Object> datasourceMap(
+                            String connector, String datasourceId) {
+                        assertEquals("Jdbc", connector);
+                        assertEquals("ds-1", datasourceId);
+                        datasourceCalls.incrementAndGet();
+                        return datasource;
+                    }
+                });
+        String connectorBody =
+                "metadata_datasource_id = ds-1\n"
+                        + "url = \"jdbc:postgresql://original:5432/original_db\"\n"
+                        + "query = \"select id from orders\"\n"
+                        + "schema { fields { \"^original_.*$\" = string } }";
+        Config connectorConfig =
+                ConfigFactory.parseString(
+                        (nested ? "Jdbc { " : "plugin_name = Jdbc\n")
+                                + connectorBody
+                                + (nested ? " }" : ""));
+        Config jobConfig =
+                ConfigFactory.empty()
+                        .withValue(
+                                section,
+                                ConfigValueFactory.fromIterable(
+                                        Collections.singletonList(connectorConfig.root())));
+        MetadataConfig metadataConfig = new MetadataConfig();
+        metadataConfig.setEnabled(true);
+        metadataConfig.setKind(TEST_PROVIDER_KIND);
+
+        Config resolved =
+                MetadataProviderManager.resolveDataSourceConfigs(jobConfig, metadataConfig);
+
+        Config connector = resolved.getConfigList(section).get(0);
+        Config original = jobConfig.getConfigList(section).get(0);
+        if (nested) {
+            connector = connector.getConfig("Jdbc");
+            original = original.getConfig("Jdbc");
+        } else {
+            assertEquals("Jdbc", connector.getString("plugin_name"));
+        }
+        assertEquals("jdbc:postgresql://metadata:5432/metadata_db", connector.getString("url"));
+        assertEquals("select id from orders", connector.getString("query"));
+        assertEquals(
+                Collections.singletonMap("^original_.*$", "string"),
+                connector.getConfig("schema").getConfig("fields").root().unwrapped());
+        assertEquals(
+                datasource.get("provider_fields"),
+                connector.getConfig("provider_fields").root().unwrapped());
+        assertEquals(datasource.get("rules"), connector.getAnyRefList("rules"));
+        assertEquals(17, connector.getInt("connection->timeout"));
+        assertEquals(4, connector.getInt("connection.pool.size"));
+        assertTrue(connector.root().containsKey("connection.pool.size"));
+        assertFalse(connector.root().containsKey("connection->timeout"));
+        assertEquals("jdbc:postgresql://original:5432/original_db", original.getString("url"));
+        assertTrue(datasource.containsKey("connection->timeout"));
+        assertEquals(
+                Collections.singletonMap("^metadata_.*$", "string"),
+                datasource.get("provider_fields"));
+        assertEquals(1, datasourceCalls.get());
     }
 
     /** Helper method to load the test config file. */
