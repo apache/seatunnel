@@ -36,6 +36,7 @@ bin/seatunnel-ai.sh
 ```bash
 cd seatunnel-cli
 bash setup.sh          # installs all providers + dev tools
+source .venv/bin/activate
 seatunnel --init       # interactive provider setup
 ```
 

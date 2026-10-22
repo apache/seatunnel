@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -238,7 +239,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            restoreCheckpointState(incrementalSplit, debeziumDeserializationSchema);
+            restoreCheckpointState(
+                    incrementalSplit,
+                    debeziumDeserializationSchema,
+                    isSchemaChangeEnabled(sourceConfig));
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
@@ -255,11 +259,37 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         }
     }
 
+    /**
+     * Restores the deserializer's runtime schema and Debezium table history from a checkpointed
+     * incremental split.
+     *
+     * <p>The checkpointed runtime schema is only restored when {@code schemaChangeEnabled} is true.
+     * Restoring it replaces the schema discovered from the live database at startup, so any column
+     * added while the job was stopped disappears from the produced rows until the change stream
+     * widens the schema again; only a job that propagates schema changes (MySQL DDL events,
+     * PostgreSQL RELATION messages, all gated on {@code schema-changes.enabled}) can do that. A job
+     * with schema change propagation disabled would otherwise keep silently dropping such columns
+     * after every savepoint restore, so it keeps the live-discovered schema, which is the contract
+     * it always had. Debezium table history is restored in both cases: it only drives how the
+     * change stream itself is decoded and is never widened by SeaTunnel.
+     *
+     * @param incrementalSplit the split restored from checkpoint state
+     * @param debeziumDeserializationSchema the deserializer whose runtime state is restored
+     * @param schemaChangeEnabled whether this job propagates source schema changes downstream
+     */
     static <T> void restoreCheckpointState(
             IncrementalSplit incrementalSplit,
-            DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
+            boolean schemaChangeEnabled) {
         List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
-        if (checkpointTables != null && !checkpointTables.isEmpty()) {
+        if (!schemaChangeEnabled) {
+            if ((checkpointTables != null && !checkpointTables.isEmpty())
+                    || incrementalSplit.getCheckpointDataType() != null) {
+                log.info(
+                        "The incremental split[{}] carries a checkpoint schema, but schema change propagation is disabled for this job, so the live discovered schema is kept instead of restoring the checkpoint schema.",
+                        incrementalSplit.splitId());
+            }
+        } else if (checkpointTables != null && !checkpointTables.isEmpty()) {
             log.info(
                     "The incremental split[{}] has {} checkpoint table(s) for restore: {}.",
                     incrementalSplit.splitId(),
@@ -291,6 +321,26 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     incrementalSplit.splitId());
             debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
         }
+    }
+
+    /**
+     * Resolves whether the job propagates source schema changes downstream, i.e. the value of
+     * {@code schema-changes.enabled} as every JDBC-based CDC connector forwards it to Debezium's
+     * {@code include.schema.changes}. This is the same switch that gates DDL emission in the MySQL
+     * connector and the RELATION listener in the PostgreSQL connector, so it tells exactly whether
+     * a checkpoint-restored runtime schema can ever be widened again by the change stream. Non-JDBC
+     * sources never emit schema change events and therefore report false.
+     *
+     * @param sourceConfig the reader's source configuration
+     * @return true when schema change propagation is enabled for this job
+     */
+    static boolean isSchemaChangeEnabled(SourceConfig sourceConfig) {
+        if (sourceConfig instanceof JdbcSourceConfig) {
+            return ((JdbcSourceConfig) sourceConfig)
+                    .getDbzConnectorConfig()
+                    .isSchemaChangesHistoryEnabled();
+        }
+        return false;
     }
 
     private static List<CatalogTable> restoreLegacyCheckpointTables(
