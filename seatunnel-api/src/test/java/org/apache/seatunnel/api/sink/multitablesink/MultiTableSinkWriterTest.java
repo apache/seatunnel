@@ -33,8 +33,12 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -126,6 +130,52 @@ public class MultiTableSinkWriterTest {
         IOException closeException =
                 Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+    }
+
+    @Test
+    public void testContinueOtherTablesIsolatesUnsupportedSchemaChange() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter unsupportedWriter = new RecordingSinkWriter(false);
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier unsupportedIdentifier = SinkIdentifier.of("test.unsupported", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
+        sinkWriters.put(unsupportedIdentifier, unsupportedWriter);
+        sinkWriters.put(healthyIdentifier, healthyWriter);
+        sinkWritersContext.put(unsupportedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH);
+
+        try {
+            coordinator.applySchemaChange(
+                    AlterTableAddColumnEvent.add(
+                            TableIdentifier.of("catalog", "test", "unsupported"),
+                            PhysicalColumn.of(
+                                    "added",
+                                    BasicType.STRING_TYPE,
+                                    (Long) null,
+                                    true,
+                                    null,
+                                    null)));
+            coordinator.write(buildRow("test.unsupported", 0));
+            coordinator.write(buildRow("test.healthy", 1));
+
+            MultiTableCommitInfo commitInfo = coordinator.prepareCommit(1L).get();
+            Assertions.assertEquals(
+                    Collections.singleton(healthyIdentifier), commitInfo.getCommitInfo().keySet());
+            Assertions.assertEquals(0, unsupportedWriter.getWriteCount());
+            Assertions.assertEquals(1, healthyWriter.getWriteCount());
+        } finally {
+            IOException failure = Assertions.assertThrows(IOException.class, coordinator::close);
+            Assertions.assertTrue(failure.getMessage().contains("test.unsupported"));
+            Assertions.assertTrue(failure.getMessage().contains("phase=checkpoint"));
+        }
     }
 
     @Test
@@ -925,6 +975,167 @@ public class MultiTableSinkWriterTest {
         Assertions.assertNotNull(restored.getStates());
         Assertions.assertTrue(restored.getStates().isEmpty());
         Assertions.assertTrue(restored.getFailedTables().isEmpty());
+    }
+
+    /**
+     * A primary key whose {@code hashCode()} is {@link Integer#MIN_VALUE} must still route to a
+     * valid queue. {@code Math.abs(Integer.MIN_VALUE)} is itself negative, so the old routing
+     * produced a negative index and the write failed with {@link IndexOutOfBoundsException}
+     * whenever the replica count was not a power of two.
+     */
+    @Test
+    public void testMinValuePrimaryKeyHashRoutesToValidQueue() throws IOException {
+        // 3 is not a power of two, so Integer.MIN_VALUE % 3 == -2 under the old routing
+        int replicaNum = 3;
+        // Under the fix both rows route to (Integer.MIN_VALUE & Integer.MAX_VALUE) % 3 == 0.
+        int expectedIndex = (Integer.MIN_VALUE & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        // Integer.valueOf(Integer.MIN_VALUE).hashCode() and Long.valueOf(Long.MIN_VALUE)
+        // .hashCode() are both Integer.MIN_VALUE
+        SeaTunnelRow longKeyRow = new SeaTunnelRow(new Object[] {Long.MIN_VALUE});
+        longKeyRow.setTableId("test.table");
+
+        Assertions.assertDoesNotThrow(
+                () -> multiTableSinkWriter.write(buildRow("test.table", Integer.MIN_VALUE)));
+        Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.write(longKeyRow));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        int totalWrites =
+                sinkWriters.values().stream()
+                        .mapToInt(writer -> ((RecordingSinkWriter) writer).getWriteCount())
+                        .sum();
+        Assertions.assertEquals(2, totalWrites);
+
+        // Pin the target queue exactly rather than only asserting no-throw: both rows must land
+        // in queue 0 and nowhere else, so this fails if the routing regresses, not merely if it
+        // throws.
+        Assertions.assertEquals(2, writersByIndex[expectedIndex].getWriteCount());
+        for (int i = 0; i < replicaNum; i++) {
+            if (i != expectedIndex) {
+                Assertions.assertEquals(0, writersByIndex[i].getWriteCount());
+            }
+        }
+    }
+
+    @Test
+    public void testOrdinaryNegativeHashRoutesToMaskedIndex() throws IOException {
+        // The fix is a general bitmask, not a special case for Integer.MIN_VALUE: it changes the
+        // index for every negative hash, since Math.abs(h) is -h while h & Integer.MAX_VALUE is
+        // h + 2^31. An INT primary key hashes to its own value, so this key's hash is -5, and:
+        //   old routing: Math.abs(-5) % 3               == 2
+        //   new routing: (-5 & Integer.MAX_VALUE) % 3   == 0
+        // The resulting index is asserted exactly, not merely checked for being in range.
+        int replicaNum = 3;
+        int primaryKey = -5;
+        int expectedIndex = (primaryKey & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        multiTableSinkWriter.write(buildRow("test.table", primaryKey));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        Assertions.assertEquals(1, writersByIndex[expectedIndex].getWriteCount());
+        // Index 2 is where the old Math.abs routing would have sent this row.
+        Assertions.assertEquals(0, writersByIndex[2].getWriteCount());
+    }
+
+    @Test
+    public void testReplicaNumBelowOneIsRejectedWithTheOptionNamed() {
+        // multi_table_sink_replica has no lower bound at the option layer, so 0 and negative
+        // values reach MultiTableSink. replicaNum becomes the queue count and the thread-pool
+        // size in MultiTableSinkWriter, where Executors.newFixedThreadPool(queueSize * 2)
+        // rejects them with an IllegalArgumentException carrying no message at all. The
+        // exception type is unchanged; what is asserted here is that it now names the option
+        // and the offending value, and that it is raised before any writer is created.
+        for (int replicaNum : new int[] {0, -1}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class, () -> buildMultiTableSink(replicaNum));
+            Assertions.assertNotNull(exception.getMessage());
+            Assertions.assertTrue(
+                    exception
+                            .getMessage()
+                            .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()),
+                    "message must name the option, but was: " + exception.getMessage());
+            Assertions.assertTrue(
+                    exception.getMessage().contains(String.valueOf(replicaNum)),
+                    "message must name the rejected value, but was: " + exception.getMessage());
+        }
+    }
+
+    @Test
+    public void testReplicaNumOfOneAndAboveStillBuilds() {
+        // Guards the lower bound against being set too high: the smallest legal value and a
+        // larger one must both still construct, so the check above cannot regress into
+        // rejecting valid configuration.
+        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(1));
+        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(4));
+    }
+
+    @Test
+    public void testReplicaNumDefaultsToOneWhenUnset() {
+        // The default must remain a legal value, otherwise the new check would reject every
+        // job that does not set the option explicitly.
+        Map<String, Object> options = new HashMap<>();
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(
+                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        new MultiTableSink(
+                                new MultiTableFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader(),
+                                        sinks)));
+    }
+
+    private MultiTableSink buildMultiTableSink(int replicaNum) {
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum);
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(
+                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
+        return new MultiTableSink(
+                new MultiTableFactoryContext(
+                        ReadonlyConfig.fromMap(options),
+                        Thread.currentThread().getContextClassLoader(),
+                        sinks));
     }
 
     private SeaTunnelRow buildRow(String tableId, int value) {

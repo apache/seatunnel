@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -118,7 +119,9 @@ public class IcebergSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        if (!config.isTableSchemaEvolutionEnabled()) {
+        // Checkpoint recovery refreshes runtime schema even when live DDL is disabled.
+        if (!config.isTableSchemaEvolutionEnabled()
+                && !(event instanceof RestoreTableSchemaEvent)) {
             throw new UnsupportedOperationException(
                     String.format(
                             "Iceberg sink received schema change event for table %s, but "
@@ -127,9 +130,14 @@ public class IcebergSinkWriter
         }
         log.info("changed rowType before: {}", fieldsInfo(rowType));
         this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+            this.tableSchema = event.getChangeAfter().getTableSchema();
+        }
         log.info("changed rowType after: {}", fieldsInfo(rowType));
         tryCreateRecordWriter();
-        writer.applySchemaChange(this.rowType, event);
+        if (!(event instanceof RestoreTableSchemaEvent)) {
+            writer.applySchemaChange(this.rowType, event);
+        }
     }
 
     @Override
@@ -142,10 +150,35 @@ public class IcebergSinkWriter
 
     @Override
     public void close() throws IOException {
+        // A failing record writer must not keep the table loader, and the catalog and Hadoop
+        // resources it owns, alive for the rest of the task. Both are released, and the first
+        // failure is the one that propagates with the later ones attached as suppressed.
+        Throwable closeFailure = null;
         if (writer != null) {
-            writer.close();
+            try {
+                writer.close();
+            } catch (Throwable t) {
+                closeFailure = t;
+            }
         }
-        icebergTableLoader.close();
+        try {
+            icebergTableLoader.close();
+        } catch (Throwable t) {
+            if (closeFailure == null) {
+                closeFailure = t;
+            } else {
+                closeFailure.addSuppressed(t);
+            }
+        }
+        if (closeFailure != null) {
+            if (closeFailure instanceof IOException) {
+                throw (IOException) closeFailure;
+            }
+            if (closeFailure instanceof RuntimeException) {
+                throw (RuntimeException) closeFailure;
+            }
+            throw new IOException("Failed to close Iceberg sink writer.", closeFailure);
+        }
     }
 
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {

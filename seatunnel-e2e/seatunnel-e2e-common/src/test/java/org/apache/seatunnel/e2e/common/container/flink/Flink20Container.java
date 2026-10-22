@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.util.EngineImageJdkUpgrader;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -41,9 +42,13 @@ public class Flink20Container extends AbstractTestFlinkContainer {
         return TestContainerId.FLINK_1_20;
     }
 
+    /**
+     * The 1.20 tags regressed back to a Java 8 runtime, so this image is derived into a Java 11
+     * flavour. See {@link Flink13Container#getDockerImage()}.
+     */
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/flink:1.20.1-scala_2.12_hadoop27";
+        return EngineImageJdkUpgrader.toJava11("tyrantlucifer/flink:1.20.1-scala_2.12_hadoop27");
     }
 
     @Override
@@ -88,15 +93,15 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                         "",
                         "# Memory Configuration",
                         "jobmanager.memory.process.size: 1600m",
-                        // One TaskManager serves every job of a test class, and each SeaTunnel job
-                        // loads its connector jars through a fresh user-code ClassLoader. The
-                        // implied 256m metaspace was exhausted part-way through long classes
-                        // ("OutOfMemoryError: Metaspace"), killing the TaskManager. The process
-                        // budget grows by the same amount the metaspace does, so the derived Flink
-                        // memory stays at 1280m and the heap/network/managed pools are unchanged.
-                        "taskmanager.memory.process.size: 2048m",
-                        "taskmanager.memory.flink.size: 1280m",
+                        // Keep the larger metaspace needed by jobs that load connector jars through
+                        // fresh class loaders. Reserve task off-heap memory for connector direct
+                        // buffers, and grow both totals so the existing heap and managed pools stay
+                        // at their previous sizes.
+                        "taskmanager.memory.process.size: 2304m",
+                        "taskmanager.memory.flink.size: 1536m",
                         "taskmanager.memory.jvm-metaspace.size: 512m",
+                        "taskmanager.memory.task.off-heap.size: 256m",
+                        "taskmanager.memory.managed.size: 512m",
                         "",
                         "# Heartbeat Configuration",
                         // CI runners host several containers at once, so a TaskManager can be
@@ -108,9 +113,8 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                         "heartbeat.interval: 10000",
                         "",
                         "# Network Buffer Configuration - Fix for insufficient network buffers",
-                        "taskmanager.memory.network.fraction: 0.2",
-                        "taskmanager.memory.network.min: 128mb",
-                        "taskmanager.memory.network.max: 512mb",
+                        "taskmanager.memory.network.min: 256mb",
+                        "taskmanager.memory.network.max: 256mb",
                         "",
                         "# Network Configuration",
                         "jobmanager.rpc.address: jobmanager",
@@ -167,6 +171,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(jobManager);
 
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
@@ -192,6 +197,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(taskManager);
 
         org.testcontainers.lifecycle.Startables.deepStart(java.util.stream.Stream.of(jobManager))
                 .join();

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions;
@@ -27,7 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions;
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class KafkaSinkFactory implements TableSinkFactory {
+public class KafkaSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Kafka";
@@ -51,5 +52,21 @@ public class KafkaSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         return () -> new KafkaSink(context.getOptions(), context.getCatalogTable());
+    }
+
+    /** Validates local serialization and remote metadata without creating a sink writer. */
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) throws Exception {
+        try {
+            KafkaSinkSerializer.create(
+                    context.getOptions(), context.getCatalogTable().getSeaTunnelRowType());
+        } catch (KafkaSinkSerializer.LocalValidationException e) {
+            throw new IllegalArgumentException(
+                    "Kafka sink connect dry-run: " + e.getDryRunReason());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "Kafka sink connect dry-run: invalid serialization or routing configuration for the upstream schema");
+        }
+        KafkaSinkDryRunValidator.validate(context.getOptions());
     }
 }
