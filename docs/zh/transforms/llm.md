@@ -111,7 +111,7 @@ transform {
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
-该选项为条件必填：选项规则会对 `OPENAI`、`DOUBAO`、`MICROSOFT` 强制校验，其他需要密钥认证的提供者在运行时也必须配置才能正常工作。当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
+该选项为条件必填：选项规则会对 `OPENAI`、`DOUBAO`、`MICROSOFT` 和 `QIANFAN` 强制校验（`QIANFAN` 还需同时配置 `secret_key` 与 `oauth_path`）。当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
 
 ### api_path
 

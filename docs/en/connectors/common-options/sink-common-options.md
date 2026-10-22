@@ -32,7 +32,7 @@ The data source ID for retrieving connection configuration from Metadata Center.
 
 # Important note
 
-A sink only consumes data sets, so it has no `plugin_output` option. The `plugin_input` value must match the `plugin_output` declared by an upstream source or transform; see the note at the end of this page for when it is mandatory.
+A sink only consumes data sets, so it has no `plugin_output` option. The `plugin_input` value must match the `plugin_output` declared by an upstream source or transform. `plugin_input` is only mandatory when the job has more than one source, transform or sink (see the note at the end of this page).
 
 ## Task Example
 
