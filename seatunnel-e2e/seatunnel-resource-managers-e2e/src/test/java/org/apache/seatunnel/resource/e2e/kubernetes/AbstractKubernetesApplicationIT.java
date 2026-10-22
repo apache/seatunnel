@@ -312,7 +312,9 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                         null,
                                         tailLines,
                                         false);
-                        Files.writeString(reports.resolve(name + "-previous.log"), previous);
+                        Files.writeString(
+                                reports.resolve(name + "-previous.log"),
+                                previous == null ? "" : previous);
                     } catch (ApiException unavailable) {
                         LOG.warn(
                                 "Cannot read previous container logs for Pod {}",
