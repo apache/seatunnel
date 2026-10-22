@@ -593,28 +593,26 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
-    void externallyManagedPoolWaitsForEveryNativeWorkerAndDemotionDoesNotOwnCompute()
-            throws Exception {
-        EngineConfig config = new EngineConfig();
-        config.getSlotServiceConfig().setAllocateStrategy(AllocateStrategy.RANDOM);
-        FixedPoolApplicationResourceManager manager =
-                (FixedPoolApplicationResourceManager)
-                        ResourceManagerFactory.forExternallyManagedApplication(2)
-                                .createResourceManager(mock(NodeEngine.class), config);
-        WorkerProfile worker = new WorkerProfile(new Address("127.0.0.1", 5802));
-        manager.getRegisterWorker().put(worker.getAddress(), worker);
-        Assertions.assertEquals(1, manager.workerCount(Collections.emptyMap()));
-        Assertions.assertThrows(
-                NoEnoughResourceException.class,
-                () ->
-                        manager.applyResources(
-                                1L,
-                                Collections.singletonList(new ResourceProfile()),
-                                Collections.emptyMap()));
-        manager.close();
-        Assertions.assertDoesNotThrow(manager::close);
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> ResourceManagerFactory.forExternallyManagedApplication(0));
+    void eachApplicationCoordinatorGetsAFreshDriver() {
+        java.util.concurrent.atomic.AtomicInteger creations =
+                new java.util.concurrent.atomic.AtomicInteger();
+        org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification specification =
+                mock(org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification.class);
+        ResourceManagerFactory factory =
+                ResourceManagerFactory.forApplication(
+                        "app",
+                        specification,
+                        () -> {
+                            creations.incrementAndGet();
+                            return mock(ResourceManagerDriver.class);
+                        });
+        ResourceManager first =
+                factory.createResourceManager(mock(NodeEngine.class), new EngineConfig());
+        ResourceManager second =
+                factory.createResourceManager(mock(NodeEngine.class), new EngineConfig());
+        Assertions.assertTrue(first instanceof ApplicationResourceManager);
+        Assertions.assertTrue(second instanceof ApplicationResourceManager);
+        Assertions.assertNotSame(first, second);
+        Assertions.assertEquals(2, creations.get());
     }
 }

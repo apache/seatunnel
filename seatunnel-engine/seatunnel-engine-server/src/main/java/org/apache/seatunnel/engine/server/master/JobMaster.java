@@ -118,7 +118,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -173,10 +172,7 @@ public class JobMaster {
 
     private final EngineConfig engineConfig;
 
-    private boolean isRunning = true;
-
-    /** Serializes local coordinator retirement with accepted HA allocation publication. */
-    private final Object recoveryAdmissionLock = new Object();
+    private volatile boolean isRunning = true;
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
@@ -237,6 +233,7 @@ public class JobMaster {
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
         this.initializationTimestamp = initializationTimestamp;
         this.masterFailoverRestore = restart;
+        checkInitializationActive();
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
@@ -276,6 +273,7 @@ public class JobMaster {
             logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
         }
         try {
+            checkInitializationActive();
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -290,6 +288,11 @@ public class JobMaster {
                                             .setContextClassLoader(
                                                     logicalVertexIdClassLoaderMap.get(
                                                             sink.getId()));
+                                    try {
+                                        checkInitializationActive();
+                                    } catch (InterruptedException retired) {
+                                        ExceptionUtil.sneakyThrow(retired);
+                                    }
                                     JobMaster.handleSaveMode(
                                             ((SinkAction<?, ?, ?, ?>) sink).getSink(),
                                             logicalDag.isStartWithSavePoint());
@@ -297,6 +300,7 @@ public class JobMaster {
                 Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
+            checkInitializationActive();
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                     PlanUtils.fromLogicalDAG(
                             logicalDag,
@@ -328,37 +332,94 @@ public class JobMaster {
         } catch (Exception e) {
             initException = e;
         }
-        this.initStateFuture();
-        if (initException != null) {
-            if (restart) {
-                cancelJob();
+        if (restart) {
+            synchronized (getCoordinatorService()) {
+                // Retirement must not initialize futures or cancel tasks retained by a new master.
+                checkRecoveryOwnership();
+                if (initException instanceof InterruptedException) {
+                    throw initException;
+                }
+                if (initException != null || !needRestore) {
+                    neverNeedRestore();
+                    // Cancellation needs coordinators, but must never read or restore source state.
+                    this.checkpointManager = createCheckpointManager(false, false);
+                    this.initStateFuture();
+                    getCoordinatorService().registerRestoringJobAbort(this);
+                    physicalPlan.abortRestoringJob(
+                            initException instanceof java.util.concurrent.CancellationException
+                                            || initException == null
+                                    ? null
+                                    : initException);
+                    if (initException != null) {
+                        throw initException;
+                    }
+                    throw new java.util.concurrent.CancellationException(
+                            "Master takeover canceled");
+                }
+                this.initStateFuture();
             }
-            throw initException;
+        } else {
+            synchronized (getCoordinatorService()) {
+                checkInitializationActive();
+                this.initStateFuture();
+                if (initException != null) {
+                    throw initException;
+                }
+            }
+        }
+    }
+
+    /** Rejects initialization effects after the captured coordinator has retired. */
+    public void checkInitializationActive() throws InterruptedException {
+        checkRecoveryOwnership();
+    }
+
+    /**
+     * Stops takeover initialization when its original coordinator has retired or the user canceled.
+     */
+    public void checkRecoveryActive() throws InterruptedException {
+        checkRecoveryOwnership();
+        if (!needRestore) {
+            throw new java.util.concurrent.CancellationException("Master takeover canceled");
+        }
+    }
+
+    private void checkRecoveryOwnership() throws InterruptedException {
+        // The captured executor is shut down on step-down and never reused by a later activation.
+        if (!isRunning
+                || executorService.isShutdown()
+                || !seaTunnelServer.isMasterNode()
+                || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Master takeover coordinator retired");
         }
     }
 
     public void initCheckPointManager(boolean restart) {
+        try {
+            checkInitializationActive();
+        } catch (InterruptedException retired) {
+            ExceptionUtil.sneakyThrow(retired);
+        }
+        this.checkpointManager = createCheckpointManager(restart, true);
+    }
+
+    private CheckpointManager createCheckpointManager(boolean restart, boolean restoreState) {
         CheckpointStorage checkpointStorage = resolveCheckpointStorageOrFallback(restart);
-        this.checkpointManager =
-                new CheckpointManager(
-                        jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isRestoreJob() || restart,
-                        jobImmutableInformation.getRestoreMode(),
-                        jobImmutableInformation.getRestoreSourceJobId(),
-                        nodeEngine,
-                        this,
-                        checkpointPlanMap,
-                        jobCheckpointConfig,
-                        checkpointStorage,
-                        executorService,
-                        runningJobStateIMap,
-                        seaTunnelServer.getEngineContext(),
-                        seaTunnelServer.getCheckpointMonitorService(),
-                        restart
-                                && seaTunnelServer
-                                        .getSeaTunnelConfig()
-                                        .getEngineConfig()
-                                        .isApplicationHaEnabled());
+        return new CheckpointManager(
+                jobImmutableInformation.getJobId(),
+                restoreState && (jobImmutableInformation.isRestoreJob() || restart),
+                jobImmutableInformation.getRestoreMode(),
+                jobImmutableInformation.getRestoreSourceJobId(),
+                nodeEngine,
+                this,
+                checkpointPlanMap,
+                jobCheckpointConfig,
+                checkpointStorage,
+                executorService,
+                runningJobStateIMap,
+                seaTunnelServer.getEngineContext(),
+                seaTunnelServer.getCheckpointMonitorService(),
+                restart);
     }
 
     private CheckpointStorage resolveCheckpointStorageOrFallback(boolean restart) {
@@ -525,11 +586,6 @@ public class JobMaster {
      * @return true if apply resources successfully, otherwise false
      */
     public boolean preApplyResources(SubPlan subPlan) {
-        return preApplyResources(subPlan, null);
-    }
-
-    /** Allocates outside the pipeline monitor, then admits HA recovery with persisted ownership. */
-    public boolean preApplyResources(SubPlan subPlan, BooleanSupplier recoveryStillCurrent) {
 
         // When starting to apply for task resources, reset the worker's slot allocation information
         // Mainly used in two scenarios:
@@ -597,113 +653,80 @@ public class JobMaster {
                                 .count()
                         == preApplyResourceFutures.size();
 
-        boolean published = false;
-        try {
-            if (enoughResource && recoveryStillCurrent != null) {
-                synchronized (subPlan) {
-                    synchronized (recoveryAdmissionLock) {
-                        enoughResource = recoveryStillCurrent.getAsBoolean();
-                        if (enoughResource) {
-                            Map<TaskGroupLocation, SlotProfile> profiles = new HashMap<>();
-                            preApplyResourceFutures.forEach(
-                                    (location, future) -> profiles.put(location, future.join()));
-                            // Cancellation and a new master must find every accepted allocation
-                            // even
-                            // if this master stops before the pipeline reaches deployment.
-                            setOwnedSlotProfiles(subPlan.getPipelineLocation(), profiles);
-                            publishPreAppliedResources(subPlan, preApplyResourceFutures);
-                            published = true;
-                        }
-                    }
+        if (enoughResource) {
+            for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
+                    preApplyResourceFutures.entrySet()) {
+                try {
+                    Address worker = entry.getValue().get().getWorker();
+                    historyExecutionAddress.add(
+                            new ExecutionAddress(worker.getHost(), worker.getPort()));
+
+                } catch (Exception e) {
+                    LOGGER.warning("history execution plan add worker failed", e);
                 }
-            } else if (enoughResource) {
-                publishPreAppliedResources(subPlan, preApplyResourceFutures);
-                published = true;
             }
-        } finally {
-            if (!published) {
-                releasePreAppliedResources(preApplyResourceFutures, reusedSlotProfiles);
+            if (isSubPlan) {
+                // SubPlan applies for resources separately and needs to be merged into the entire
+                // job's resources
+                physicalPlan.getPreApplyResourceFutures().putAll(preApplyResourceFutures);
+            } else {
+                // Adequate resources, pass on resources to the plan
+                physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
+            }
+            // Retained slots are valid only for the first successful allocation after failover.
+            // A later pipeline retry must obtain a fresh allocation instead of reusing them.
+            masterFailoverRestore = false;
+        } else {
+            // Release the resource that has been applied
+            try {
+                RetryUtils.retryWithException(
+                        () -> {
+                            resourceManager
+                                    .releaseResources(
+                                            jobImmutableInformation.getJobId(),
+                                            preApplyResourceFutures.values().stream()
+                                                    .filter(
+                                                            value -> {
+                                                                try {
+                                                                    return value != null
+                                                                            && value.join() != null;
+                                                                } catch (CompletionException e) {
+                                                                    LOGGER.warning(
+                                                                            String.format(
+                                                                                    "Filtering failed resource for job %s during release: %s",
+                                                                                    jobImmutableInformation
+                                                                                            .getJobId(),
+                                                                                    e.getCause()
+                                                                                                    != null
+                                                                                            ? e.getCause()
+                                                                                                    .getMessage()
+                                                                                            : e
+                                                                                                    .getMessage()));
+                                                                    return false;
+                                                                }
+                                                            })
+                                                    .map(CompletableFuture::join)
+                                                    .filter(
+                                                            slotProfile ->
+                                                                    !reusedSlotProfiles.contains(
+                                                                            slotProfile))
+                                                    .collect(Collectors.toList()))
+                                    .join();
+                            return null;
+                        },
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                ExceptionUtil::isOperationNeedRetryException,
+                                Constant.OPERATION_RETRY_SLEEP));
+            } catch (Exception e) {
+                LOGGER.warning(
+                        String.format(
+                                "Pre resource application failed %s",
+                                ExceptionUtils.getMessage(e)));
             }
         }
         return enoughResource;
-    }
-
-    private void publishPreAppliedResources(
-            SubPlan subPlan,
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
-        for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
-                preApplyResourceFutures.entrySet()) {
-            try {
-                Address worker = entry.getValue().get().getWorker();
-                historyExecutionAddress.add(
-                        new ExecutionAddress(worker.getHost(), worker.getPort()));
-
-            } catch (Exception e) {
-                LOGGER.warning("history execution plan add worker failed", e);
-            }
-        }
-        if (subPlan != null) {
-            // SubPlan applies for resources separately and needs to be merged into the entire
-            // job's resources
-            physicalPlan.getPreApplyResourceFutures().putAll(preApplyResourceFutures);
-        } else {
-            // Adequate resources, pass on resources to the plan
-            physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
-        }
-        // Retained slots are valid only for the first successful allocation after failover.
-        // A later pipeline retry must obtain a fresh allocation instead of reusing them.
-        masterFailoverRestore = false;
-    }
-
-    private void releasePreAppliedResources(
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
-            Set<SlotProfile> reusedSlotProfiles) {
-        // Release the resource that has been applied
-        try {
-            RetryUtils.retryWithException(
-                    () -> {
-                        resourceManager
-                                .releaseResources(
-                                        jobImmutableInformation.getJobId(),
-                                        preApplyResourceFutures.values().stream()
-                                                .filter(
-                                                        value -> {
-                                                            try {
-                                                                return value != null
-                                                                        && value.join() != null;
-                                                            } catch (CompletionException e) {
-                                                                LOGGER.warning(
-                                                                        String.format(
-                                                                                "Filtering failed resource for job %s during release: %s",
-                                                                                jobImmutableInformation
-                                                                                        .getJobId(),
-                                                                                e.getCause() != null
-                                                                                        ? e.getCause()
-                                                                                                .getMessage()
-                                                                                        : e
-                                                                                                .getMessage()));
-                                                                return false;
-                                                            }
-                                                        })
-                                                .map(CompletableFuture::join)
-                                                .filter(
-                                                        slotProfile ->
-                                                                !reusedSlotProfiles.contains(
-                                                                        slotProfile))
-                                                .collect(Collectors.toList()))
-                                .join();
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            ExceptionUtil::isOperationNeedRetryException,
-                            Constant.OPERATION_RETRY_SLEEP));
-        } catch (Exception e) {
-            LOGGER.warning(
-                    String.format(
-                            "Pre resource application failed %s", ExceptionUtils.getMessage(e)));
-        }
     }
 
     /**
@@ -917,6 +940,7 @@ public class JobMaster {
                                     .forEach(
                                             coordinator -> {
                                                 stateKeys.add(coordinator.getTaskGroupLocation());
+                                                stateKeys.add(coordinator.getExecutionIdKey());
                                                 timestampKeys.add(
                                                         coordinator.getTaskGroupLocation());
                                             });
@@ -925,6 +949,7 @@ public class JobMaster {
                                     .forEach(
                                             task -> {
                                                 stateKeys.add(task.getTaskGroupLocation());
+                                                stateKeys.add(task.getExecutionIdKey());
                                                 timestampKeys.add(task.getTaskGroupLocation());
                                             });
 
@@ -1116,7 +1141,9 @@ public class JobMaster {
     }
 
     public synchronized void cancelJob() {
-        physicalPlan.cancelJob();
+        if (physicalPlan != null) {
+            physicalPlan.cancelJob();
+        }
     }
 
     public synchronized void stopJob() {
@@ -1375,8 +1402,13 @@ public class JobMaster {
                                                     return;
                                                 }
 
-                                                task.updateStateByExecutionService(
-                                                        taskExecutionState);
+                                                synchronized (task) {
+                                                    if (task.acceptsExecutionReport(
+                                                            taskExecutionState)) {
+                                                        task.updateStateByExecutionService(
+                                                                taskExecutionState);
+                                                    }
+                                                }
                                             });
 
                             pipeline.getPhysicalVertexList()
@@ -1389,14 +1421,20 @@ public class JobMaster {
                                                     return;
                                                 }
 
-                                                task.updateStateByExecutionService(
-                                                        taskExecutionState);
-                                                if (taskExecutionState
-                                                        .getExecutionState()
-                                                        .isEndState()) {
-                                                    releaseTaskGroupResource(
-                                                            pipeline.getPipelineLocation(),
-                                                            task.getTaskGroupLocation());
+                                                synchronized (task) {
+                                                    if (!task.acceptsExecutionReport(
+                                                            taskExecutionState)) {
+                                                        return;
+                                                    }
+                                                    task.updateStateByExecutionService(
+                                                            taskExecutionState);
+                                                    if (taskExecutionState
+                                                            .getExecutionState()
+                                                            .isEndState()) {
+                                                        releaseTaskGroupResource(
+                                                                pipeline.getPipelineLocation(),
+                                                                task.getTaskGroupLocation());
+                                                    }
                                                 }
                                             });
                         });
@@ -1622,8 +1660,8 @@ public class JobMaster {
     }
 
     public void interrupt() {
-        synchronized (recoveryAdmissionLock) {
-            isRunning = false;
+        isRunning = false;
+        if (jobMasterCompleteFuture != null) {
             jobMasterCompleteFuture.completeExceptionally(new InterruptedException());
         }
     }

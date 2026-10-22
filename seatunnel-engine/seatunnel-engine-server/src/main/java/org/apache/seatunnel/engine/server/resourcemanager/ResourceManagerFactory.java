@@ -25,11 +25,10 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 /** Creates the standalone or application resource manager owned by one Engine coordinator. */
 public class ResourceManagerFactory {
-    private int externallyManagedWorkers;
     private final DeployType deployType;
     private final String applicationId;
     private final ApplicationSpecification specification;
-    private final ResourceManagerDriver<?> driver;
+    private final java.util.function.Supplier<ResourceManagerDriver<?>> drivers;
 
     /** Creates a factory for the default standalone deployment. */
     public ResourceManagerFactory() {
@@ -51,32 +50,34 @@ public class ResourceManagerFactory {
         this.deployType = deployType;
         this.applicationId = applicationId;
         this.specification = specification;
-        this.driver = driver;
+        this.drivers = () -> driver;
     }
 
-    /**
-     * Kubernetes controllers own this fixed pool; coordinator demotion only closes local slot
-     * bookkeeping.
-     */
-    public static ResourceManagerFactory forExternallyManagedApplication(int workers) {
-        if (workers < 1) {
-            throw new IllegalArgumentException("A fixed application pool requires workers > 0");
-        }
-        ResourceManagerFactory factory = new ResourceManagerFactory();
-        factory.externallyManagedWorkers = workers;
-        return factory;
+    private ResourceManagerFactory(
+            String applicationId,
+            ApplicationSpecification specification,
+            java.util.function.Supplier<ResourceManagerDriver<?>> drivers) {
+        this.deployType = DeployType.KUBERNETES;
+        this.applicationId = applicationId;
+        this.specification = specification;
+        this.drivers = drivers;
+    }
+
+    /** Creates a fresh driver for each coordinator activation. */
+    public static ResourceManagerFactory forApplication(
+            String id,
+            ApplicationSpecification specification,
+            java.util.function.Supplier<ResourceManagerDriver<?>> drivers) {
+        return new ResourceManagerFactory(id, specification, drivers);
     }
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        if (externallyManagedWorkers > 0) {
-            return new FixedPoolApplicationResourceManager(
-                    nodeEngine, engineConfig, externallyManagedWorkers);
-        }
         if (DeployType.STANDALONE.equals(deployType)) {
             return new StandaloneResourceManager(nodeEngine, engineConfig);
         }
         if (DeployType.KUBERNETES.equals(deployType)) {
+            ResourceManagerDriver<?> driver = drivers.get();
             if (applicationId == null || specification == null || driver == null) {
                 throw new IllegalStateException(
                         "Application deployment requires an application ID, specification and driver");

@@ -5,7 +5,7 @@ title: Checkpoint Recovery
 
 # Kubernetes checkpoint recovery
 
-Explicit recovery creates a new Kubernetes Job and a new Zeta job ID. With [application HA](architecture.md#opt-in-application-ha), individual master/worker Pod loss recovers within the existing application using the same native job ID. The instructions below describe explicit recovery after an application stops.
+Explicit recovery creates a new Kubernetes Job and a new Zeta job ID. With [application HA](architecture.md#opt-in-application-ha), individual master Pod loss recovers within the existing application using the same native job ID. The instructions below describe explicit recovery after an application stops.
 
 ## Choose storage
 

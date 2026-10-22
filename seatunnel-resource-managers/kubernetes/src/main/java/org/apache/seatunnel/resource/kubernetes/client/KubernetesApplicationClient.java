@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -36,6 +37,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
+    private volatile boolean haObserved;
 
     public KubernetesApplicationClient(KubernetesClient api, String applicationId) {
         this.api = api;
@@ -57,6 +59,9 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         }
         try {
             KubernetesJob job = api.getJob(applicationId);
+            haObserved |=
+                    org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
+                            job);
             ApplicationStatus recorded =
                     org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.terminal(
                             job);
@@ -75,18 +80,8 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
                     job)) {
-                String nativeState =
-                        org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
-                                .annotations(job)
-                                .get(
-                                        org.apache.seatunnel.resource.kubernetes.kubeclient
-                                                .HaApplicationState.STATUS);
-                if (ApplicationStatus.RUNNING.name().equals(nativeState)) {
-                    return ApplicationStatus.RUNNING;
-                }
-                return ApplicationStatus.DEPLOYING.name().equals(nativeState)
-                        ? ApplicationStatus.DEPLOYING
-                        : ApplicationStatus.UNKNOWN;
+                return org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
+                        .status(job);
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
@@ -125,11 +120,21 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             if (failure.getCode() != 404) {
                 throw failure;
             }
+            // Unknown fresh handles cannot infer the mode of a missing Job. The standard client
+            // cleans observed orphan Pods by UID without risking a newly created owner by name.
+            if (api instanceof KubernetesHaClient) {
+                ((KubernetesHaClient) api).deleteOrphanPods(applicationId);
+            } else if (!haObserved) {
+                api.deleteApplication(applicationId);
+            }
             canceled = true;
             return;
         }
-        if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(owner)) {
-            api.deleteApplication(applicationId, owner.getUid());
+        haObserved |=
+                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
+                        owner);
+        if (haObserved) {
+            KubernetesHaClient.require(api).deleteApplication(applicationId, owner.getUid());
         } else {
             api.deleteApplication(applicationId);
         }

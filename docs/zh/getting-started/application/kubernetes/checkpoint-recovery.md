@@ -5,7 +5,7 @@ title: Checkpoint 恢复
 
 # Kubernetes Checkpoint 恢复
 
-显式恢复创建新的 Kubernetes Job 和新的 Zeta job ID。启用 [Application HA](architecture.md) 后，单个 Master/Worker Pod 丢失可在同一 application 和原生 job ID 内恢复。以下步骤用于 application 停止后的显式恢复。
+显式恢复创建新的 Kubernetes Job 和新的 Zeta job ID。启用 [Application HA](architecture.md) 后，单个 Master Pod 丢失可在同一 application 和原生 job ID 内恢复。以下步骤用于 application 停止后的显式恢复。
 
 ## 选择存储
 

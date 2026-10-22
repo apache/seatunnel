@@ -58,7 +58,7 @@ import java.util.List;
  * requests and resource cleanup complete.
  */
 @Slf4j
-final class DefaultKubernetesClient implements KubernetesClient {
+final class DefaultKubernetesClient implements KubernetesHaClient {
 
     private final ApiClient client;
     private final ApiClient watchClient;
@@ -177,6 +177,18 @@ final class DefaultKubernetesClient implements KubernetesClient {
                     V1StatefulSet pool = ((KubernetesStatefulSet) resource).getInternalResource();
                     pool.getMetadata()
                             .setOwnerReferences(Collections.singletonList(ownerReference));
+                    pool.getSpec()
+                            .getTemplate()
+                            .getSpec()
+                            .getContainers()
+                            .get(0)
+                            .addEnvItem(
+                                    new io.kubernetes.client.openapi.models.V1EnvVar()
+                                            .name(
+                                                    org.apache.seatunnel.resource.kubernetes
+                                                            .kubeclient.factory.HaApplicationFactory
+                                                            .OWNER_UID_ENV)
+                                            .value(owner.getUid()));
                     apps.createNamespacedStatefulSet(namespace, pool, null, null, null, null);
                 } else {
                     throw new IllegalArgumentException(
@@ -362,12 +374,59 @@ final class DefaultKubernetesClient implements KubernetesClient {
     }
 
     @Override
+    public void deleteOrphanPods(String id) {
+        try {
+            getJob(id);
+            return;
+        } catch (KubernetesClientException absent) {
+            if (absent.getCode() != 404) {
+                throw absent;
+            }
+        }
+        List<KubernetesPod> orphans = listPods(KubernetesConstants.APPLICATION_LABEL + "=" + id);
+        try {
+            getJob(id);
+            return;
+        } catch (KubernetesClientException absent) {
+            if (absent.getCode() != 404) {
+                throw absent;
+            }
+        }
+        for (KubernetesPod pod : orphans) {
+            V1ObjectMeta metadata = pod.getInternalResource().getMetadata();
+            if (metadata.getUid() == null
+                    || metadata.getOwnerReferences() == null
+                    || metadata.getOwnerReferences().stream()
+                            .noneMatch(
+                                    ref ->
+                                            "Job".equals(ref.getKind())
+                                                    && id.equals(ref.getName())
+                                                    && ref.getUid() != null)) {
+                continue;
+            }
+            try {
+                core.deleteNamespacedPod(
+                        metadata.getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Foreground",
+                        deletion(metadata));
+            } catch (ApiException failure) {
+                rethrowUnlessMissing(failure);
+            }
+        }
+    }
+
+    @Override
     public void deleteHaResources(KubernetesJob owner) {
         // Verify that the name still identifies this application before touching any dependencies.
         if (!owner.getUid().equals(getJob(owner.getName()).getUid())) {
             throw new IllegalStateException("Application UID changed during finalization");
         }
-        for (String role : java.util.Arrays.asList("master", "worker")) {
+        for (String role : java.util.Collections.singletonList("master")) {
             try {
                 V1StatefulSet pool =
                         apps.readNamespacedStatefulSet(
@@ -389,6 +448,27 @@ final class DefaultKubernetesClient implements KubernetesClient {
         }
         String selector = KubernetesConstants.APPLICATION_LABEL + "=" + owner.getName();
         try {
+            for (KubernetesPod worker :
+                    listPods(
+                            KubernetesResourceIdentity.selector(
+                                    owner.getName(), KubernetesConstants.WORKER_ROLE))) {
+                V1ObjectMeta metadata = worker.getInternalResource().getMetadata();
+                if (ownedBy(metadata, owner)) {
+                    try {
+                        core.deleteNamespacedPod(
+                                metadata.getName(),
+                                namespace,
+                                null,
+                                null,
+                                0,
+                                null,
+                                "Foreground",
+                                deletion(metadata));
+                    } catch (ApiException failure) {
+                        rethrowUnlessMissing(failure);
+                    }
+                }
+            }
             for (V1Service resource :
                     core.listNamespacedService(
                                     namespace, null, null, null, null, selector, null, null, null,

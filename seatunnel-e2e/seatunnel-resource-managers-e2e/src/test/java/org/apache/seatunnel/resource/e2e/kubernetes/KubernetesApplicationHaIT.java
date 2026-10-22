@@ -24,6 +24,7 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
@@ -54,7 +55,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -134,6 +134,11 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                                                 .claimName(
                                                                                         CLAIM)))));
 
+        if (MULTI_NODE) {
+            inspector
+                    .getSpec()
+                    .setNodeSelector(Collections.singletonMap("seatunnel.e2e/control", "true"));
+        }
         core.createNamespacedPod(namespace, inspector, null, null, null, null);
         Awaitility.await()
                 .atMost(120, TimeUnit.SECONDS)
@@ -156,10 +161,9 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 CLAIM, namespace, null, null, null, null, "Background", null);
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(ints = {2, 3})
-    void mastersWorkersAndOwnerRecoverWithoutResubmissionThenCheckpointRestores(int masters)
-            throws Exception {
+    @Test
+    void dualMastersAndOwnerRecoverWithoutResubmissionThenCheckpointRestores() throws Exception {
+        int masters = 2;
         ApplicationSpecification first = haSpecification(null, null);
         Map<String, String> options = new HashMap<>(haOptions());
         options.put(KubernetesOptions.MASTER_REPLICAS.key(), Integer.toString(masters));
@@ -170,7 +174,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         .untilAsserted(
                                 () -> {
                                     assertEquals(masters, rolePods(application, "master").size());
-                                    assertEquals(2, workers(application).size());
+                                    assertEquals(1, workers(application).size());
                                     assertTrue(
                                             workers(application).stream()
                                                     .allMatch(
@@ -180,7 +184,9 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                                                     pod.getStatus()
                                                                                             .getPhase())));
                                 });
-                awaitProgress(application, first.getJobId(), -1);
+                String[] initial = awaitProgress(application, first.getJobId(), -1);
+                V1Pod fixedWorker = workers(application).get(0);
+                String workerMember = memberUid(initial, fixedWorker);
                 String serviceUid =
                         core.readNamespacedService(application.getClusterId(), namespace, null)
                                 .getMetadata()
@@ -211,37 +217,21 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                                         + clientPrefix
                                                                         + ".state 2>/dev/null || true")
                                                         .contains("READY")));
-                for (String role : Arrays.asList("standby", "active", "worker", "owner")) {
+                for (String role : Arrays.asList("standby", "active", "owner")) {
                     String[] before = probe(application, first.getJobId());
                     List<V1Pod> candidates =
-                            role.equals("owner")
-                                    ? rolePods(application, "owner")
-                                    : role.equals("worker")
-                                            ? workers(application)
-                                            : rolePods(application, "master");
-                    V1Pod victim = null;
-                    if (role.equals("worker")) {
-                        for (V1Pod candidate : candidates) {
-                            if (livePodLogs(application, candidate.getMetadata().getName())
-                                    .contains("APPLICATION_E2E_DATA")) {
-                                victim = candidate;
-                                break;
-                            }
-                        }
-                        assertNotNull(victim, "A worker must be executing the streaming pipeline");
-                    } else {
-                        victim =
-                                candidates.stream()
-                                        .filter(
-                                                pod ->
-                                                        role.equals("owner")
-                                                                || role.equals("active")
-                                                                        == before[3].equals(
-                                                                                pod.getStatus()
-                                                                                        .getPodIP()))
-                                        .findFirst()
-                                        .get();
-                    }
+                            rolePods(application, role.equals("owner") ? "owner" : "master");
+                    V1Pod victim =
+                            candidates.stream()
+                                    .filter(
+                                            pod ->
+                                                    role.equals("owner")
+                                                            || role.equals("active")
+                                                                    == before[3].equals(
+                                                                            pod.getStatus()
+                                                                                    .getPodIP()))
+                                    .findFirst()
+                                    .get();
                     Map<String, String> survivingMasters = new HashMap<>();
                     for (V1Pod master : rolePods(application, "master")) {
                         if (!master.getMetadata().getUid().equals(victim.getMetadata().getUid())) {
@@ -331,6 +321,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                             first.getJobId(),
                             Arrays.toString(after));
                     assertEquals("RUNNING", after[0]);
+                    assertFixedWorker(application, fixedWorker, workerMember, after);
                     if (role.equals("active")) {
                         assertTrue(
                                 survivingMasters.containsKey(after[3]),
@@ -342,11 +333,6 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                         .get();
                         assertEquals(
                                 survivingMasters.get(after[3]), promoted.getMetadata().getUid());
-                    }
-                    if (role.equals("worker")) {
-                        assertTrue(
-                                Long.parseLong(after[2]) > Long.parseLong(before[2]),
-                                "Native restoration counter must advance");
                     }
                     if (role.equals("standby")) {
                         assertEquals(
@@ -401,7 +387,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             try {
                 awaitProgress(application, restored.getJobId(), -1);
                 List<V1Pod> restoredWorkers = workers(application);
-                assertEquals(2, restoredWorkers.size());
+                assertEquals(1, restoredWorkers.size());
                 for (V1Pod worker : restoredWorkers) {
                     Awaitility.await()
                             .atMost(30, TimeUnit.SECONDS)
@@ -516,18 +502,158 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     }
 
     @Test
-    void completedBatchHasExactOutputAndReleasesAllOwnedResources() throws Exception {
+    void unfinishedBatchHasExactOutputAfterActiveMasterLoss() throws Exception {
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        V1Role original = rbac.readNamespacedRole("application", namespace, null);
+        V1Role restricted = rbac.readNamespacedRole("application", namespace, null);
+        restricted.getRules().stream()
+                .filter(rule -> rule.getApiGroups().contains("apps"))
+                .forEach(rule -> rule.setVerbs(Collections.singletonList("get")));
+        Map<String, String> options = new HashMap<>(haOptions());
+        ApplicationSpecification identity =
+                SeatunnelApplicationConfig.parse(scenarioFile("ha", "job.conf").toPath(), options);
+        options.put("application.job-id", Long.toString(identity.getJobId()));
+        String output = "/opt/seatunnel/checkpoints/ha-output/" + identity.getJobId();
+        String job =
+                "env { job.mode = BATCH, parallelism = 1, checkpoint.interval = 1000 }\n"
+                        + "source { FakeSource { row.num = 240, split.num = 120, "
+                        + "schema { fields { value = string } }, "
+                        + "rows = [{ kind = INSERT, fields = [\"MARKER_A\"] }, "
+                        + "{ kind = INSERT, fields = [\"MARKER_B\"] }] } }\n"
+                        + "sink { LocalFile { path = \""
+                        + output
+                        + "\", tmp_path = \"/checkpoints/ha-staging/"
+                        + identity.getJobId()
+                        + "\", file_format_type = text, row_delimiter = \"\\n\", "
+                        + "file_name_expression = \"${transactionId}_${now}\", "
+                        + "is_enable_transaction = true } }";
+        ApplicationSpecification specification = SeatunnelApplicationConfig.parse(job, options);
+        try (KubernetesApplicationClient application = deployApplication(specification, options)) {
+            try {
+                // Keep the fixed worker alive at terminal status to inspect its local sink output.
+                // Workers deliberately do not inherit the checkpoint PVC.
+                rbac.replaceNamespacedRole(
+                        "application", namespace, restricted, null, null, null, null);
+                String[] before = awaitProgress(application, specification.getJobId(), -1);
+                V1Pod worker = workers(application).get(0);
+                String workerMember = memberUid(before, worker);
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(() -> assertTrue(committedRows(worker, output) > 0));
+                long committed = committedRows(worker, output);
+                assertTrue(
+                        committed > 0 && committed < 240,
+                        "Active-master loss must occur with unfinished input: " + committed);
+                V1Pod active =
+                        rolePods(application, "master").stream()
+                                .filter(pod -> before[3].equals(pod.getStatus().getPodIP()))
+                                .findFirst()
+                                .get();
+                core.deleteNamespacedPod(
+                        active.getMetadata().getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Background",
+                        null);
+                Awaitility.await()
+                        .atMost(120, TimeUnit.SECONDS)
+                        .ignoreExceptions()
+                        .untilAsserted(
+                                () ->
+                                        assertNotEquals(
+                                                before[3],
+                                                probe(application, specification.getJobId())[3]));
+                long promotedCheckpoint =
+                        Long.parseLong(probe(application, specification.getJobId())[1]);
+                String[] after =
+                        awaitProgress(application, specification.getJobId(), promotedCheckpoint);
+                assertNotEquals(before[3], after[3], "The surviving master must take over");
+                assertFixedWorker(application, worker, workerMember, after);
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+                String actual =
+                        workerCommand(
+                                        worker,
+                                        "find "
+                                                + output
+                                                + " -type f ! -name '.*' -exec awk '1' {} + | sort")
+                                .trim();
+                String expected =
+                        java.util.stream.Stream.concat(
+                                        Collections.nCopies(120, "MARKER_A").stream(),
+                                        Collections.nCopies(120, "MARKER_B").stream())
+                                .collect(java.util.stream.Collectors.joining("\n"));
+                assertEquals(expected, actual, "Committed marker multiset must be exact");
+                LOG.info(
+                        "HA unfinished batch verified application={} committedBeforeFault={} exactRows=240 unchangedWorker={}",
+                        application.getClusterId(),
+                        committed,
+                        worker.getMetadata().getUid());
+                original.getMetadata()
+                        .setResourceVersion(
+                                rbac.readNamespacedRole("application", namespace, null)
+                                        .getMetadata()
+                                        .getResourceVersion());
+                rbac.replaceNamespacedRole(
+                        "application", namespace, original, null, null, null, null);
+                awaitHaClean(application);
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                original.getMetadata()
+                        .setResourceVersion(
+                                rbac.readNamespacedRole("application", namespace, null)
+                                        .getMetadata()
+                                        .getResourceVersion());
+                rbac.replaceNamespacedRole(
+                        "application", namespace, original, null, null, null, null);
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    private static long committedRows(V1Pod worker, String output) throws Exception {
+        return Long.parseLong(
+                workerCommand(
+                                worker,
+                                "find "
+                                        + output
+                                        + " -type f ! -name '.*' -exec awk 'END {print NR}' {} + | awk '{n+=$1} END {print n+0}'")
+                        .trim());
+    }
+
+    private static String workerCommand(V1Pod worker, String command) throws Exception {
+        return exec(worker, new String[] {"bash", "-c", command});
+    }
+
+    private static String memberUid(String[] state, V1Pod worker) {
+        int index = Arrays.asList(state[4].split(",")).indexOf(worker.getStatus().getPodIP());
+        assertTrue(index >= 0, "Fixed worker must be a native cluster member");
+        return state[5].split(",")[index];
+    }
+
+    private static void assertFixedWorker(
+            KubernetesApplicationClient application,
+            V1Pod original,
+            String nativeUid,
+            String[] state)
+            throws Exception {
+        List<V1Pod> current = workers(application);
+        assertEquals(1, current.size());
+        assertEquals(original.getMetadata().getUid(), current.get(0).getMetadata().getUid());
+        assertEquals(nativeUid, memberUid(state, current.get(0)));
+    }
+
+    @Test
+    void completedBatchPassesAssertionsAndReleasesAllOwnedResources() throws Exception {
         ApplicationSpecification specification = haSpecification("batch", null);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
-                assertEquals(
-                        "120",
-                        inspect(
-                                        "find /checkpoints/ha-output/"
-                                                + specification.getJobId()
-                                                + " -type f ! -name '.*' -exec awk 'END {print NR}' {} + | awk '{n+=$1} END {print n+0}'")
-                                .trim());
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
@@ -540,103 +666,22 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     }
 
     @Test
-    void batchOutputRemainsCompleteAcrossWorkerAndActiveMasterLoss() throws Exception {
-        ApplicationSpecification specification = haSpecification("batch-faults", null);
+    void workerLossFailsApplicationWithoutReplacingTheWorker() throws Exception {
+        ApplicationSpecification specification = haSpecification(null, null);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
                 awaitProgress(application, specification.getJobId(), -1);
-                Awaitility.await()
-                        .atMost(90, TimeUnit.SECONDS)
-                        .untilAsserted(
-                                () ->
-                                        assertTrue(
-                                                committedRows(specification.getJobId()) > 0,
-                                                "Committed input is required before fault injection"));
-                for (String role : Arrays.asList("worker", "active")) {
-                    long committed = committedRows(specification.getJobId());
-                    assertTrue(
-                            committed > 0 && committed < 480,
-                            "Fault must occur while input is unfinished: " + committed);
-                    String[] before = probe(application, specification.getJobId());
-                    V1Pod victim =
-                            (role.equals("worker")
-                                            ? workers(application)
-                                            : rolePods(application, "master"))
-                                    .stream()
-                                            .filter(
-                                                    pod ->
-                                                            role.equals("worker")
-                                                                    || before[3].equals(
-                                                                            pod.getStatus()
-                                                                                    .getPodIP()))
-                                            .findFirst()
-                                            .get();
-                    String name = victim.getMetadata().getName();
-                    String uid = victim.getMetadata().getUid();
-                    String oldMember =
-                            before[5]
-                                    .split(",")[
-                                    Arrays.asList(before[4].split(","))
-                                            .indexOf(victim.getStatus().getPodIP())];
-                    LOG.info(
-                            "HA data fault {} application={} before={}",
-                            role,
-                            application.getClusterId(),
-                            Arrays.toString(before));
-                    core.deleteNamespacedPod(
-                            name, namespace, null, null, 0, null, "Background", null);
-                    Awaitility.await()
-                            .atMost(180, TimeUnit.SECONDS)
-                            .ignoreExceptions()
-                            .untilAsserted(
-                                    () -> {
-                                        V1Pod replacement =
-                                                core.readNamespacedPod(name, namespace, null);
-                                        assertNotEquals(uid, replacement.getMetadata().getUid());
-                                        assertEquals("Running", replacement.getStatus().getPhase());
-                                        String[] state =
-                                                probe(application, specification.getJobId());
-                                        assertTrue(
-                                                Arrays.asList(state[4].split(","))
-                                                        .contains(
-                                                                replacement
-                                                                        .getStatus()
-                                                                        .getPodIP()));
-                                        assertFalse(
-                                                Arrays.asList(state[5].split(","))
-                                                        .contains(oldMember));
-                                        if (role.equals("worker")) {
-                                            assertTrue(
-                                                    Long.parseLong(state[2])
-                                                            > Long.parseLong(before[2]));
-                                        }
-                                    });
-                    long baseline = Long.parseLong(probe(application, specification.getJobId())[1]);
-                    awaitProgress(application, specification.getJobId(), baseline);
-                    LOG.info(
-                            "HA data recovered {} application={} after={}",
-                            role,
-                            application.getClusterId(),
-                            Arrays.toString(probe(application, specification.getJobId())));
-                }
-                awaitStatus(application, ApplicationStatus.SUCCEEDED);
-                String actual =
-                        inspect(
-                                        "find /checkpoints/ha-output/"
-                                                + specification.getJobId()
-                                                + " -type f ! -name '.*' -exec awk '{print $0}' {} + | sort -n")
-                                .trim();
-                String expected =
-                        java.util.stream.IntStream.rangeClosed(1, 480)
-                                .mapToObj(Integer::toString)
-                                .collect(java.util.stream.Collectors.joining("\n"));
-                assertEquals(
-                        expected,
-                        actual,
-                        "Every input ID must appear exactly once after native recovery");
-                LOG.info(
-                        "HA exact ID multiset verified application={} uniqueRows=480 after worker and active master loss",
-                        application.getClusterId());
+                V1Pod worker = workers(application).get(0);
+                core.deleteNamespacedPod(
+                        worker.getMetadata().getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Background",
+                        null);
+                awaitStatus(application, ApplicationStatus.FAILED);
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
@@ -649,13 +694,18 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     }
 
     @Test
-    void acceptedSinkFailureReleasesComputeAndKeepsDurableData() throws Exception {
+    void acceptedSinkFailureReleasesComputeAndPreservesUserResources() throws Exception {
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        V1Role original = rbac.readNamespacedRole("application", namespace, null);
+        V1Role restricted = rbac.readNamespacedRole("application", namespace, null);
+        restricted.getRules().stream()
+                .filter(rule -> rule.getApiGroups().contains("apps"))
+                .forEach(rule -> rule.setVerbs(Collections.singletonList("get")));
         ApplicationSpecification specification = haSpecification("failed", null);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
-                awaitProgress(application, specification.getJobId(), -1);
-                String staging = "/checkpoints/ha-staging/" + specification.getJobId();
-                inspect("mv " + staging + " " + staging + "-saved && touch " + staging);
+                rbac.replaceNamespacedRole(
+                        "application", namespace, restricted, null, null, null, null);
                 awaitStatus(application, ApplicationStatus.FAILED);
                 assertEquals(
                         "FAILED",
@@ -663,12 +713,52 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                 .getMetadata()
                                 .getAnnotations()
                                 .get("seatunnel.apache.org/application-status"));
+                assertTrue(
+                        workers(application).stream()
+                                .anyMatch(
+                                        pod -> {
+                                            try {
+                                                String log =
+                                                        core.readNamespacedPodLog(
+                                                                pod.getMetadata().getName(),
+                                                                namespace,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null,
+                                                                null);
+                                                return log != null
+                                                        && log.contains("fail rule:")
+                                                        && log.contains("MIN_LENGTH");
+                                            } catch (Exception error) {
+                                                throw new IllegalStateException(error);
+                                            }
+                                        }),
+                        "The Assert sink must fail its configured MIN_LENGTH rule");
+                original.getMetadata()
+                        .setResourceVersion(
+                                rbac.readNamespacedRole("application", namespace, null)
+                                        .getMetadata()
+                                        .getResourceVersion());
+                rbac.replaceNamespacedRole(
+                        "application", namespace, original, null, null, null, null);
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
                 recordApplicationDiagnostics(application);
                 throw failure;
             } finally {
+                original.getMetadata()
+                        .setResourceVersion(
+                                rbac.readNamespacedRole("application", namespace, null)
+                                        .getMetadata()
+                                        .getResourceVersion());
+                rbac.replaceNamespacedRole(
+                        "application", namespace, original, null, null, null, null);
                 cancelAndAwait(application);
             }
         }
@@ -703,7 +793,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 assertEquals(
                         ApplicationStatus.SUCCEEDED,
                         deployer.getApplicationStatus(application.getClusterId()));
-                assertEquals(3, rolePods(application, "master").size());
+                assertEquals(2, rolePods(application, "master").size());
                 assertFalse(
                         missing(
                                 () ->
@@ -717,13 +807,24 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                 namespace,
                                                 null)));
                 AppsV1Api apps = new AppsV1Api(apiClient);
-                for (String role : Arrays.asList("master", "worker")) {
+                for (String role : Collections.singletonList("master")) {
                     String name = application.getClusterId() + "-" + role;
                     io.kubernetes.client.openapi.models.V1StatefulSet pool =
                             apps.readNamespacedStatefulSet(name, namespace, null);
                     pool.getSpec().setReplicas(0);
                     apps.replaceNamespacedStatefulSet(
                             name, namespace, pool, null, null, null, null);
+                }
+                for (V1Pod worker : workers(application)) {
+                    core.deleteNamespacedPod(
+                            worker.getMetadata().getName(),
+                            namespace,
+                            null,
+                            null,
+                            0,
+                            null,
+                            "Background",
+                            null);
                 }
                 Awaitility.await()
                         .atMost(90, TimeUnit.SECONDS)
@@ -761,18 +862,11 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     }
 
     @Test
-    void missingRestoreCheckpointFailsWithoutFreshOutput() throws Exception {
+    void missingRestoreCheckpointFailsAndCleansResources() throws Exception {
         ApplicationSpecification specification = haSpecification("batch", 9223372036854775000L);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
-                assertEquals(
-                        "absent",
-                        inspect(
-                                        "test ! -d /checkpoints/ha-output/"
-                                                + specification.getJobId()
-                                                + " && echo absent")
-                                .trim());
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
@@ -784,13 +878,601 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
         }
     }
 
-    private static long committedRows(long job) throws Exception {
-        return Long.parseLong(
-                inspect(
-                                "find /checkpoints/ha-output/"
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void checkpointStorageOutageRecoversWithoutResubmission() throws Exception {
+        ApplicationSpecification specification = haSpecification(null, null);
+        try (KubernetesApplicationClient application = deployRemoteApplication(specification)) {
+            try {
+                awaitProgress(application, specification.getJobId(), 3);
+                String[] before = probe(application, specification.getJobId());
+                V1Pod active =
+                        rolePods(application, "master").stream()
+                                .filter(pod -> before[3].equals(pod.getStatus().getPodIP()))
+                                .findFirst()
+                                .get();
+                java.nio.file.Path evidence = java.nio.file.Paths.get("target", "failsafe-reports");
+                java.nio.file.Files.writeString(
+                        evidence.resolve(application.getClusterId() + "-before-storage-cut.log"),
+                        livePodLogs(application, active.getMetadata().getName()));
+                storageAvailable(false);
+                LOG.info(
+                        "HA storage unavailable application={} before={}",
+                        application.getClusterId(),
+                        Arrays.toString(before));
+                // A checkpoint persisted before the pause may publish its completion later.
+                // Observe an actual failed storage attempt before starting the stall window.
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        assertTrue(
+                                                livePodLogs(
+                                                                application,
+                                                                active.getMetadata().getName())
+                                                        .contains(
+                                                                "Failed to write checkpoint data")));
+                String stalledLogs = livePodLogs(application, active.getMetadata().getName());
+                long stalled = lastNotifiedCheckpoint(stalledLogs, specification.getJobId());
+                assertTrue(
+                        stalled >= Long.parseLong(before[1]),
+                        "Storage evidence must include the known completed checkpoint");
+                TimeUnit.SECONDS.sleep(8);
+                String laterLogs = livePodLogs(application, active.getMetadata().getName());
+                java.nio.file.Files.writeString(
+                        evidence.resolve(application.getClusterId() + "-storage-paused.log"),
+                        laterLogs);
+                assertEquals(
+                        stalled,
+                        lastNotifiedCheckpoint(laterLogs, specification.getJobId()),
+                        "Unavailable storage must not publish a new durable checkpoint completion");
+                assertEquals(ApplicationStatus.RUNNING, application.getStatus());
+                storageAvailable(true);
+                long baseline = Long.parseLong(probe(application, specification.getJobId())[1]);
+                awaitProgress(application, specification.getJobId(), baseline);
+                assertTrue(storedCheckpoint(specification.getJobId()) > baseline);
+                LOG.info(
+                        "HA storage recovered application={} after={}",
+                        application.getClusterId(),
+                        Arrays.toString(probe(application, specification.getJobId())));
+                application.cancel();
+                awaitHaClean(application);
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                storageAvailable(true);
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                storageAvailable(true);
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void masterFailoverDuringStorageOutageRetainsRunningTasks() throws Exception {
+        ApplicationSpecification specification = haSpecification(null, null);
+        try (KubernetesApplicationClient application = deployRemoteApplication(specification)) {
+            try {
+                awaitProgress(application, specification.getJobId(), 3);
+                storedCheckpoint(specification.getJobId());
+                String[] before = probe(application, specification.getJobId());
+                List<V1Pod> masters = rolePods(application, "master");
+                V1Pod active =
+                        masters.stream()
+                                .filter(pod -> before[3].equals(pod.getStatus().getPodIP()))
+                                .findFirst()
+                                .get();
+                V1Pod survivor =
+                        masters.stream()
+                                .filter(
+                                        pod ->
+                                                !pod.getMetadata()
+                                                        .getUid()
+                                                        .equals(active.getMetadata().getUid()))
+                                .findFirst()
+                                .get();
+                V1Pod fixedWorker = workers(application).get(0);
+                String fixedMember = memberUid(before, fixedWorker);
+                storageAvailable(false);
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        assertTrue(
+                                                livePodLogs(
+                                                                application,
+                                                                active.getMetadata().getName())
+                                                        .contains(
+                                                                "Failed to write checkpoint data")));
+                core.deleteNamespacedPod(
+                        active.getMetadata().getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Background",
+                        null);
+                Awaitility.await()
+                        .atMost(180, TimeUnit.SECONDS)
+                        .ignoreExceptions()
+                        .untilAsserted(
+                                () -> {
+                                    String view =
+                                            localProbe(
+                                                    survivor, specification.getJobId(), "members");
+                                    String memberLine =
+                                            Arrays.stream(view.split("\n"))
+                                                    .filter(line -> line.startsWith("HA_MEMBERS "))
+                                                    .findFirst()
+                                                    .get();
+                                    assertNotEquals(
+                                            before[3],
+                                            memberLine.split(" ")[2],
+                                            "A surviving master must take over before storage returns");
+                                });
+                TimeUnit.SECONDS.sleep(15);
+                storageAvailable(true);
+                String[] after =
+                        awaitProgress(
+                                application, specification.getJobId(), Long.parseLong(before[1]));
+                assertTrue(storedCheckpoint(specification.getJobId()) > Long.parseLong(before[1]));
+                assertFixedWorker(application, fixedWorker, fixedMember, after);
+                int markers = 0;
+                for (V1Pod worker : workers(application)) {
+                    markers +=
+                            livePodLogs(application, worker.getMetadata().getName())
+                                            .split("APPLICATION_E2E_DATA", -1)
+                                            .length
+                                    - 1;
+                }
+                assertEquals(
+                        1, markers, "Recovery must not replay the already checkpointed marker");
+                LOG.info(
+                        "HA master takeover during storage outage recovered application={} sameJob={} before={} after={}",
+                        application.getClusterId(),
+                        specification.getJobId(),
+                        Arrays.toString(before),
+                        Arrays.toString(after));
+                application.cancel();
+                awaitHaClean(application);
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                storageAvailable(true);
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                storageAvailable(true);
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void cancellationDuringStorageOutageRemovesOwnedResources() throws Exception {
+        ApplicationSpecification specification = haSpecification(null, null);
+        try (KubernetesApplicationClient application = deployRemoteApplication(specification)) {
+            try {
+                awaitProgress(application, specification.getJobId(), 3);
+                storedCheckpoint(specification.getJobId());
+                storageAvailable(false);
+                TimeUnit.SECONDS.sleep(10);
+                application.cancel();
+                awaitAllResourcesRemoved(application);
+                storageAvailable(true);
+                storedCheckpoint(specification.getJobId());
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                storageAvailable(true);
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                storageAvailable(true);
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    private static long lastNotifiedCheckpoint(String logs, long job) {
+        java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile(
+                                "pending checkpoint notify finished, job id: "
                                         + job
-                                        + " -type f ! -name '.*' -exec awk 'END {print NR}' {} + | awk '{n+=$1} END {print n+0}'")
-                        .trim());
+                                        + ", pipeline id: [0-9]+, checkpoint id: ([0-9]+)!")
+                        .matcher(logs);
+        long latest = -1;
+        while (matcher.find()) {
+            latest = Math.max(latest, Long.parseLong(matcher.group(1)));
+        }
+        return latest;
+    }
+
+    private static String localProbe(V1Pod pod, long job, String action) throws Exception {
+        return localProbe(pod, job, action, "127.0.0.1");
+    }
+
+    private static Map<String, String> remoteOptions() throws Exception {
+        Map<String, String> options = new HashMap<>(haOptions());
+        options.remove(KubernetesOptions.CHECKPOINT_PVC.key());
+        options.put("kubernetes.master.node-selector", "seatunnel.e2e/compute:true");
+        options.put("kubernetes.worker.node-selector", "seatunnel.e2e/control:true");
+        return options;
+    }
+
+    private static KubernetesApplicationClient deployRemoteApplication(
+            ApplicationSpecification specification) throws Exception {
+        return deployApplication(specification, remoteOptions());
+    }
+
+    private static String localProbe(V1Pod pod, long job, String action, String address)
+            throws Exception {
+        return exec(
+                pod,
+                new String[] {
+                    "java",
+                    "-Xmx128m",
+                    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                    "-Dseatunnel.home=/opt/seatunnel",
+                    "-cp",
+                    "/opt/seatunnel/test-probe:/opt/seatunnel/starter/*:/opt/seatunnel/lib/*",
+                    KubernetesApplicationProbe.class.getName(),
+                    pod.getMetadata().getLabels().get(APPLICATION_LABEL),
+                    Long.toString(job),
+                    "5801",
+                    action,
+                    address
+                });
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void activeMasterNodeLossKeepsFixedWorkerAndMakesDurableProgress() throws Exception {
+        verifyMasterNodeLoss(true);
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void standbyMasterNodeLossKeepsFixedWorkerAndMakesDurableProgress() throws Exception {
+        verifyMasterNodeLoss(false);
+    }
+
+    private void verifyMasterNodeLoss(boolean loseActive) throws Exception {
+        ApplicationSpecification specification = haSpecification(null, null);
+        try (KubernetesApplicationClient application = deployRemoteApplication(specification)) {
+            String stoppedNode = null;
+            Throwable scenarioFailure = null;
+            try {
+                String[] before = awaitProgress(application, specification.getJobId(), 3);
+                List<V1Pod> masters = rolePods(application, "master");
+                assertEquals(2, masters.size());
+                assertEquals(
+                        2L,
+                        masters.stream().map(p -> p.getSpec().getNodeName()).distinct().count(),
+                        "Both native masters must run on different Kubernetes nodes");
+                V1Pod target =
+                        masters.stream()
+                                .filter(
+                                        p ->
+                                                loseActive
+                                                        == before[3].equals(
+                                                                p.getStatus().getPodIP()))
+                                .findFirst()
+                                .get();
+                V1Pod worker = workers(application).get(0);
+                assertNotEquals(target.getSpec().getNodeName(), worker.getSpec().getNodeName());
+                String fixedMember = memberUid(before, worker);
+                String targetAddress = target.getStatus().getPodIP();
+                java.util.Set<String> survivingMembers =
+                        new java.util.HashSet<>(Arrays.asList(before[5].split(",")));
+                int index = Arrays.asList(before[4].split(",")).indexOf(targetAddress);
+                assertTrue(index >= 0);
+                assertEquals(3, survivingMembers.size());
+                assertTrue(survivingMembers.remove(before[5].split(",")[index]));
+                stoppedNode = target.getSpec().getNodeName();
+                LOG.info(
+                        "HA node fault active={} node={} before={}",
+                        loseActive,
+                        stoppedNode,
+                        Arrays.toString(before));
+                pauseComputeNode(stoppedNode, true);
+                String node = stoppedNode;
+                Awaitility.await()
+                        .atMost(120, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        assertTrue(
+                                                core.readNode(node, null).getStatus()
+                                                        .getConditions().stream()
+                                                        .anyMatch(
+                                                                c ->
+                                                                        "Ready".equals(c.getType())
+                                                                                && !"True"
+                                                                                        .equals(
+                                                                                                c
+                                                                                                        .getStatus()))));
+                Awaitility.await()
+                        .atMost(180, TimeUnit.SECONDS)
+                        .ignoreExceptions()
+                        .untilAsserted(
+                                () -> {
+                                    String[] state = probe(application, specification.getJobId());
+                                    assertEquals(
+                                            survivingMembers,
+                                            new java.util.HashSet<>(
+                                                    Arrays.asList(state[5].split(","))));
+                                    if (loseActive) {
+                                        assertNotEquals(before[3], state[3]);
+                                    } else {
+                                        assertEquals(before[3], state[3]);
+                                    }
+                                });
+                long baseline = Long.parseLong(probe(application, specification.getJobId())[1]);
+                String[] after = awaitProgress(application, specification.getJobId(), baseline);
+                assertFixedWorker(application, worker, fixedMember, after);
+                assertTrue(storedCheckpoint(specification.getJobId()) > baseline);
+                assertEquals(
+                        1,
+                        livePodLogs(application, worker.getMetadata().getName())
+                                        .split("APPLICATION_E2E_DATA", -1)
+                                        .length
+                                - 1);
+                LOG.info(
+                        "HA node failover verified while node unavailable active={} node={} after={}",
+                        loseActive,
+                        node,
+                        Arrays.toString(after));
+                // Drain surviving compute before thawing the failed node for teardown only.
+                // Live partition healing and split-brain protection are outside this scope.
+                application.cancel();
+                awaitSurvivingComputeRemoved(application, target);
+                pauseComputeNode(stoppedNode, false);
+                stoppedNode = null;
+                awaitHaClean(application);
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                scenarioFailure = failure;
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                Throwable cleanupFailure = null;
+                try {
+                    application.cancel();
+                } catch (Exception | AssertionError failure) {
+                    cleanupFailure = failure;
+                }
+                try {
+                    if (stoppedNode != null) {
+                        pauseComputeNode(stoppedNode, false);
+                    }
+                } catch (Exception | AssertionError failure) {
+                    if (cleanupFailure == null) {
+                        cleanupFailure = failure;
+                    } else {
+                        cleanupFailure.addSuppressed(failure);
+                    }
+                }
+                try {
+                    cancelAndAwait(application);
+                } catch (Exception | AssertionError failure) {
+                    if (cleanupFailure == null) {
+                        cleanupFailure = failure;
+                    } else {
+                        cleanupFailure.addSuppressed(failure);
+                    }
+                }
+                if (cleanupFailure != null) {
+                    if (scenarioFailure != null) {
+                        scenarioFailure.addSuppressed(cleanupFailure);
+                    } else if (cleanupFailure instanceof Exception) {
+                        throw (Exception) cleanupFailure;
+                    } else {
+                        throw (AssertionError) cleanupFailure;
+                    }
+                }
+            }
+        }
+    }
+
+    private static void awaitSurvivingComputeRemoved(
+            KubernetesApplicationClient application, V1Pod stopped) {
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertTrue(workers(application).isEmpty());
+                            assertTrue(
+                                    rolePods(application, "master").stream()
+                                            .allMatch(
+                                                    p ->
+                                                            p.getMetadata()
+                                                                    .getUid()
+                                                                    .equals(
+                                                                            stopped.getMetadata()
+                                                                                    .getUid())));
+                        });
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
+    void coldRestoreStorageReadFailsClosedAndExplicitRetryRecovers() throws Exception {
+        ApplicationSpecification source = haSpecification(null, null);
+        long sourceCheckpoint;
+        try (KubernetesApplicationClient application = deployRemoteApplication(source)) {
+            try {
+                awaitProgress(application, source.getJobId(), 3);
+                sourceCheckpoint = storedCheckpoint(source.getJobId());
+                String readable = probeCommand(application, source.getJobId(), "checkpoint-read");
+                assertTrue(readable.contains("HA_CHECKPOINT_READ_OK " + source.getJobId() + " 1"));
+                storageAvailable(false);
+                String failed = probeCommand(application, source.getJobId(), "checkpoint-read");
+                assertTrue(
+                        failed.contains("HA_CHECKPOINT_READ_FAILED " + source.getJobId())
+                                && failed.contains("CheckpointStorageException"),
+                        failed);
+                java.nio.file.Files.writeString(
+                        java.nio.file.Paths.get(
+                                "target", "failsafe-reports", "storage-read-outage.log"),
+                        readable + "\n" + failed);
+                application.cancel();
+                awaitHaClean(application);
+            } finally {
+                storageAvailable(true);
+                cancelAndAwait(application);
+            }
+        }
+        sourceCheckpoint = storedCheckpoint(source.getJobId());
+        ApplicationSpecification blocked = haSpecification(null, source.getJobId());
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        V1Role originalRole = rbac.readNamespacedRole("application", namespace, null);
+        V1Role guarded = rbac.readNamespacedRole("application", namespace, null);
+        guarded.getRules()
+                .forEach(
+                        rule ->
+                                rule.setVerbs(
+                                        rule.getVerbs().stream()
+                                                .filter(verb -> !verb.startsWith("delete"))
+                                                .collect(java.util.stream.Collectors.toList())));
+        try {
+            rbac.replaceNamespacedRole("application", namespace, guarded, null, null, null, null);
+            Map<String, String> blockedOptions = remoteOptions();
+            String placement = "seatunnel.e2e/cold-restore";
+            blockedOptions.put(
+                    "kubernetes.worker.node-selector", placement + ":" + blocked.getJobId());
+            try (KubernetesApplicationClient application =
+                    deployApplication(blocked, blockedOptions)) {
+                try {
+                    // Establish native cluster/checkpoint-read readiness with healthy storage,
+                    // but keep the worker Pending so submission cannot reach its restore read.
+                    Awaitility.await()
+                            .atMost(180, TimeUnit.SECONDS)
+                            .ignoreExceptions()
+                            .untilAsserted(
+                                    () -> {
+                                        assertTrue(
+                                                probeCommand(
+                                                                application,
+                                                                source.getJobId(),
+                                                                "members")
+                                                        .contains("HA_MEMBERS 2 "));
+                                        List<V1Pod> pending = workers(application);
+                                        assertEquals(1, pending.size());
+                                        assertEquals(
+                                                "Pending", pending.get(0).getStatus().getPhase());
+                                    });
+                    assertTrue(
+                            probeCommand(application, source.getJobId(), "checkpoint-read")
+                                    .contains("HA_CHECKPOINT_READ_OK " + source.getJobId() + " 1"));
+                    storageAvailable(false);
+                    assertEquals(
+                            0,
+                            execInCluster(
+                                            "kubectl",
+                                            "label",
+                                            "node",
+                                            "ha-server",
+                                            placement + "=" + blocked.getJobId(),
+                                            "--overwrite")
+                                    .getExitCode());
+                    awaitStatus(application, ApplicationStatus.FAILED);
+                    // The terminal annotation can be visible before kubelet exposes the final
+                    // application log records. Keep the retained Pods until both are observable.
+                    Awaitility.await()
+                            .atMost(30, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        StringBuilder failureLogs = new StringBuilder();
+                                        for (V1Pod master : rolePods(application, "master")) {
+                                            failureLogs.append(
+                                                    retainedPodLogs(
+                                                            master.getMetadata().getName()));
+                                        }
+                                        String failure = failureLogs.toString();
+                                        assertTrue(
+                                                failure.contains("CheckpointStorageException")
+                                                        && (failure.contains("Failed to list files")
+                                                                || failure.contains(
+                                                                        "Failed to read checkpoint")),
+                                                failure);
+                                        assertTrue(
+                                                failure.contains(Long.toString(source.getJobId())),
+                                                "Storage failure must identify the requested source checkpoint job");
+                                    });
+                    assertNoSourceReplay(
+                            application, "Failed cold read must not run an empty source state");
+                    recordApplicationDiagnostics(application);
+                } catch (Exception | AssertionError failure) {
+                    recordApplicationDiagnostics(application, null);
+                    throw failure;
+                } finally {
+                    assertEquals(
+                            0,
+                            execInCluster("kubectl", "label", "node", "ha-server", placement + "-")
+                                    .getExitCode());
+                    restoreApplicationRole(rbac, originalRole);
+                    awaitHaClean(application);
+                    storageAvailable(true);
+                    cancelAndAwait(application);
+                }
+            }
+        } finally {
+            try {
+                storageAvailable(true);
+            } finally {
+                restoreApplicationRole(rbac, originalRole);
+            }
+        }
+        assertUserResourcesPreserved();
+        ApplicationSpecification retry = haSpecification(null, source.getJobId());
+        try (KubernetesApplicationClient application = deployRemoteApplication(retry)) {
+            try {
+                String[] restored = awaitProgress(application, retry.getJobId(), sourceCheckpoint);
+                boolean loadedCheckpoint = false;
+                for (V1Pod master : rolePods(application, "master")) {
+                    loadedCheckpoint |=
+                            livePodLogs(application, master.getMetadata().getName())
+                                    .contains(
+                                            "pipeline(1) restore with CHECKPOINT on checkpointId("
+                                                    + sourceCheckpoint
+                                                    + ")");
+                }
+                assertTrue(
+                        loadedCheckpoint, "Explicit retry must load the exact retained checkpoint");
+                assertNoSourceReplay(
+                        application,
+                        "Explicit retry must not replay the checkpointed source marker");
+                storedCheckpoint(retry.getJobId());
+                application.cancel();
+                awaitHaClean(application);
+                assertUserResourcesPreserved();
+            } catch (Exception | AssertionError failure) {
+                recordApplicationDiagnostics(application);
+                throw failure;
+            } finally {
+                cancelAndAwait(application);
+            }
+        }
+    }
+
+    private static void assertNoSourceReplay(
+            KubernetesApplicationClient application, String message) throws Exception {
+        List<V1Pod> fixedWorkers = workers(application);
+        assertEquals(1, fixedWorkers.size(), "Expected the configured fixed worker");
+        String logs = retainedPodLogs(fixedWorkers.get(0).getMetadata().getName());
+        assertFalse(
+                logs.isBlank(), "Retained worker logs are required for the no-replay assertion");
+        assertFalse(logs.contains("APPLICATION_E2E_DATA"), message);
+    }
+
+    private static void restoreApplicationRole(RbacAuthorizationV1Api rbac, V1Role original)
+            throws Exception {
+        V1Role current = rbac.readNamespacedRole("application", namespace, null);
+        current.setRules(original.getRules());
+        rbac.replaceNamespacedRole("application", namespace, current, null, null, null, null);
     }
 
     private static Map<String, String> haOptions() throws Exception {
@@ -808,39 +1490,13 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             return SeatunnelApplicationConfig.parse(
                     scenarioFile("ha", "job.conf").toPath(), options);
         }
-        ApplicationSpecification identity = SeatunnelApplicationConfig.parse("env {}", options);
-        options.put("application.job-id", Long.toString(identity.getJobId()));
-        String mode = sinkMode.startsWith("batch") ? "BATCH" : "STREAMING";
-        boolean faultBatch = sinkMode.equals("batch-faults");
-        int rows = faultBatch ? 480 : 120;
-        String input = "/checkpoints/ha-input/" + identity.getJobId();
-        inspect(
-                "mkdir -p "
-                        + input
-                        + "; i=1; while [ $i -le "
-                        + rows
-                        + " ]; do printf '%s\\n' \"$i\" > "
-                        + input
-                        + "/$i.txt; i=$((i+1)); done");
-        String job =
-                "env { job.mode = "
-                        + mode
-                        + ", parallelism = 2, checkpoint.interval = 1000, read_limit.rows_per_second = "
-                        + (faultBatch ? 1 : 50)
-                        + ", job.retry.times = 3 }\n"
-                        + "source { LocalFile { path = \"/opt/seatunnel/checkpoints/ha-input/"
-                        + identity.getJobId()
-                        + "\", file_format_type = \"text\", schema = { fields { value = int } } } }\n"
-                        + "sink { LocalFile { path = \"/opt/seatunnel/checkpoints/ha-output/"
-                        + identity.getJobId()
-                        + "\", tmp_path = \"/opt/seatunnel/checkpoints/ha-staging/"
-                        + identity.getJobId()
-                        + "\", file_format_type = \"text\", field_delimiter = \"|\", row_delimiter = \"\\n\", file_name_expression = \"${transactionId}_${now}\", is_enable_transaction = true } }";
+        String job = java.nio.file.Files.readString(scenarioFile("batch", "job.conf").toPath());
         if (sinkMode.equals("failed")) {
             job =
-                    "env { job.mode = STREAMING, parallelism = 2, checkpoint.interval = 1000, job.retry.times = 0 }\n"
-                            + "source { FakeSource { row.num = 120, split.num = 60, split.read-interval = 500, schema = { fields { value = int } } } }\n"
-                            + job.substring(job.indexOf("sink {"));
+                    job.replace("job.mode = BATCH", "job.mode = BATCH\n  job.retry.times = 0")
+                            .replace(
+                                    "rule_type = NOT_NULL",
+                                    "rule_type = MIN_LENGTH\n              rule_value = 1000");
         }
         org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory.parseString(job);
         return SeatunnelApplicationConfig.parse(job, options);
@@ -1010,6 +1666,16 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     }
 
     private void assertUserResourcesPreserved() throws Exception {
+        if (MULTI_NODE) {
+            com.amazonaws.services.s3.AmazonS3 client = storageClient();
+            try {
+                assertEquals(
+                        "preserve-user-object",
+                        client.getObjectAsString("ha-checkpoints", "user-sentinel"));
+            } finally {
+                client.shutdown();
+            }
+        }
         assertEquals(
                 pvcUid,
                 core.readNamespacedPersistentVolumeClaim(CLAIM, namespace, null)

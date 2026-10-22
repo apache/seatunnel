@@ -138,23 +138,12 @@ public final class KubernetesApplicationConfig {
         this.haEnabled = options.get(KubernetesOptions.HA_ENABLED);
         this.masterReplicas = options.get(KubernetesOptions.MASTER_REPLICAS);
         Integer backupCount = options.get(KubernetesOptions.HA_BACKUP_COUNT);
-        this.haBackupCount =
-                haEnabled
-                        ? (backupCount == null
-                                ? org.apache.seatunnel.engine.common.config.ConfigProvider
-                                        .locateAndGetSeaTunnelConfig()
-                                        .getEngineConfig()
-                                        .getBackupCount()
-                                : backupCount)
-                        : 0;
+        this.haBackupCount = haEnabled ? (backupCount == null ? 1 : backupCount) : 0;
         if (haEnabled
-                ? masterReplicas < 2
-                        || haBackupCount > 6
-                        || haBackupCount < 1
-                        || haBackupCount >= masterReplicas
+                ? masterReplicas != 2 || haBackupCount != 1
                 : masterReplicas != 1 || backupCount != null) {
             throw new IllegalArgumentException(
-                    "Kubernetes HA requires at least 2 master replicas, 1..6 backups and backup-count < replicas; single-master mode requires replicas=1 and no HA backup override");
+                    "Kubernetes HA requires exactly 2 masters and 1 synchronous backup; single-master mode requires replicas=1 and no HA backup override");
         }
         this.namespace = requireNonBlank(options, KubernetesOptions.NAMESPACE);
         this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
@@ -462,9 +451,7 @@ public final class KubernetesApplicationConfig {
         if (applicationSecretRef != null) {
             return applicationSecretRef;
         }
-        String resolved = applicationSecretName == null ? applicationId : applicationSecretName;
-
-        return resolved;
+        return applicationSecretName == null ? applicationId : applicationSecretName;
     }
 
     private static Map<String, String> secretData(Map<String, String> options) {

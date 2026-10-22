@@ -98,100 +98,87 @@ Master 和 Worker 共同挂载，application 清理后仍会保留。
 
 调用方提供的 checkpoint PVC 不设置 Job OwnerReference，因此成功、失败、取消或 TTL 到期都不会删除 PVC。远程 checkpoint 存储同样独立于 application 生命周期。
 
-## 可选的 Application HA
-
-在部署文件中配置固定 Master 和 Worker 池：
+## 可选 Application HA
 
 ```hocon
 kubernetes {
   ha.enabled = true
-  master.replicas = 3
+  master.replicas = 2
   ha.backup-count = 1
   checkpoint-pvc = "seatunnel-checkpoints"
 }
 ```
 
-默认不启用 HA；现有单 Master application 和 standalone 行为不变。HA 至少需要两个 Master，
-原生 backup-count 必须为 1 到 6 且小于 Master 数量。`kubernetes.ha.backup-count` 覆盖原生
-`seatunnel.engine.backup-count`；未设置时读取提交端原生引擎配置，并将解析后的值传递给所有成员。
-非法组合在创建任何 Kubernetes 资源之前被拒绝。
+HA 默认关闭，仅支持两个原生 Master 和一个同步备份。省略 backup-count 时固定使用 1，
+不读取提交端本地引擎配置。无效组合在创建资源前失败；单 Master 和 standalone 行为不变。
 
-Job 充当可重试的 owner/observer，独立的 StatefulSet 维护 Master 和 Worker 数量并补建丢失的 Pod。
-容量规划需包括 `master.replicas` 个 Master、`application.worker-count` 个 Worker 及额外一个 owner Pod；
-owner 使用 Master 的资源与调度选项。
-只有 owner 挂载 Kubernetes API token；Master 为原生 Hazelcast data member，Worker 为 lite member。
-选主、IMap 副本、slot 注册、checkpoint 和执行恢复全部由 Zeta 负责。Kubernetes 不维护第二套选主，
-也不重新提交原生作业。初次提交等待全部原生 Master 加入；资源分配等待全部固定 Worker 在 Zeta 注册。
-HA 使用原生 `WAIT` 调度，避免因注册延迟而拒绝作业。恢复延迟取决于原生成员故障检测与合并时序；
-初始启动预算及 Kubernetes 重试或 deadline 是独立边界。
-HA pipeline 恢复期间，替换 Worker 的原生 slot 尚未可用时，按 `job.retry.interval.seconds` 重试分配，
-不部署旧分配结果，也不额外消耗 pipeline 重试次数。等待与资源分配不持有 pipeline monitor。
-接受的 slot 在部署前记录所有权；取消或停止恢复后拒绝新分配，并释放本次新申请的 slot。
+StatefulSet 维护两个 Master。活动 Master 复用 `ApplicationJobRunner`、
+`ApplicationResourceManager` 和 Kubernetes driver 创建固定 Worker Pod。切换后连接原有 Worker，
+不自动补建；Worker 丢失使 application 失败。选主、IMap 复制、slot、checkpoint 和执行恢复由 Zeta 负责。
 
-以 application ID 命名的 ClusterIP Service 选择所有 Master，在 Pod 替换后保持地址不变。
-`<application-id>-discovery` Headless Service 提供 StatefulSet 成员的稳定发现地址。
-原生客户端关闭 smart routing，经 ClusterIP 访问；需要到该 Service 的网络连通性，ClusterIP 并非公网入口。
-Application `status` 和 `cancel` 仅需要访问 Kubernetes API。
+可重试 owner Job 仅观测持久状态并清理资源，不提交作业或连接引擎。owner 请求 100m CPU、128Mi 内存，
+仅接收 namespace、job ID、超时、spec digest 和 owner UID，没有作业 Secret、运行时挂载、checkpoint PVC 或引擎探针。Master 按需挂载 checkpoint PVC；Worker 不挂载该 PVC 和 API token。
+Master 与 owner 使用 application ServiceAccount。稳定 ClusterIP 供原生客户端连接，
+headless discovery Service 提供 Master 固定地址。原生客户端需能访问 ClusterIP，关闭 smart routing。
 
-### 普通 HA 的提交与恢复边界
+首次提交等待两个 Master 和全部 Worker 就绪，用 Job UID/resource-version CAS 记录意图后提交固定 job ID。
+切换后的 Master 等待原生协调者恢复并连接同一作业；旧 driver 退出不删除 Worker。
+不确定的提交不作为新作业重试。记录意图后、原生接受前崩溃可能需要显式创建新 application。
+首次记录原生 `RUNNING` 前状态为 `DEPLOYING`，受启动超时限制；已记录 RUNNING 后，暂时未知状态或
+API 中断不会变成启动失败。状态写入失败不改变原生结果。无法恢复原生状态时可能需要人工取消。
 
-owner 在首次原生提交前，通过 Job UID/resourceVersion CAS 持久记录提交意图，使用固定原生 job ID。
-替换的 owner 只附着该 ID，不重复提交。不明确的提交结果不会作为新作业重试。
-首次原生 `RUNNING` 尚未记录到 owner Job 时，若在 `application.startup-timeout-millis`
-内无法确认启动，则记录 `FAILED` 并释放计算资源。因此，在记录意图后、原生接受前崩溃
-可能需要显式创建新的 application，以避免重复外部副作用。
+仅保证存活原生状态和可访问 checkpoint 下的 Master 切换。不包含两个 Master 同时丢失、Worker 补建、
+弹性伸缩、跨集群恢复、严格网络分区保护或 connector fencing。两个 Master 不能隔离断网写入者；
+同步备份和共享 checkpoint 不能阻止并发 sink 副作用。Connector 重放及交付保证保持原有行为。
 
-owner 通过 UID/resourceVersion CAS 持久记录首次原生 `RUNNING`，该记录表示已启动历史，
-不代表当前健康状态。之后的未知状态或传输失败不会将启动预算变为作业失败期限；替换观察器
-重新附着后也读取该历史。只有确认原生终态或显式取消才释放计算资源；原生状态无法恢复时
-可能需要操作员取消。并发终态不能降级为 `RUNNING`，过期观察器的启动超时也不能覆盖
-已记录的 `RUNNING`。客户端连接与初始 Master 就绪仍使用启动预算；观察器连接失败和
-Kubernetes 重试或 deadline 仍构成独立的可用性边界。可用
-`kubernetes.active-deadline-seconds` 约束整个 Kubernetes 启动与 owner 重试周期。
+Worker 终态报告携带已有的部署 execution ID。原生 Master 在接管时保留该 ID，在 pipeline 重试时使其
+失效，避免延迟报告取消新执行或释放新 slot。旧版未携带 ID 的报告保留原行为；该检查要求 Master 和
+Worker 均升级，不代表混合版本 HA 安全性。
 
-备用 Master、活动 Master 或 Worker 丢失后由 Kubernetes 补建。存活的原生 Master 利用副本状态和
-checkpoint 恢复同一作业，application ID 与原生 job ID 不变；替换 owner 不重新提交。
-这依赖仍存活的原生状态及可访问的持久 checkpoint。所有 Master 同时丢失、网络分区、跨集群恢复和
-弹性伸缩不在本功能保证范围内。重放及 sink 交付语义仍取决于原生 connector。
+两个 Master 必须使用相同持久 checkpoint 后端、namespace 和凭据。远程后端不要求 PVC；文件后端的
+多节点部署需支持实际挂载方式，通常为 ReadWriteMany。单节点 ReadWriteOnce 测试不证明多节点存储可用性。
+存储中断仍受原生 checkpoint 和作业重试限制。引用 PVC 和远程数据不删除。
+恢复复用 `CheckpointStorage.getCheckpointsByJobIdAndPipelineId`，没有新增必需 SPI 方法。
+内置 local-file/HDFS 区分无 checkpoint 与不可访问或损坏状态；自定义插件也必须保留此语义。
+HA 在创建资源前检查 `KubernetesHaClient` 能力，并拒绝非标准 Master 入口。
 
-:::caution
-HA 副本用于成员丢失后的恢复，不会隔离网络分区中的旧协调器。原生选举依赖各分区的本地成员视图，
-因此断网后可能存在多个活动协调器。同步 Map 副本和共享 checkpoint 存储不能阻止并发 Sink 副作用，
-仅配置数据结构的 quorum 也不能为 Connector 提交提供 fencing。不要将此模式视为支持网络分区下的
-安全写入。两个 Master 的严格多数要求两者都在线，因此也无法在丢失一个 Master 后继续提供服务。
-:::
+### 终态和清理
 
-故障检测和重新加入沿用已配置的原生 Hazelcast 心跳与合并调度；网络恢复后成员视图不一定立即收敛。
-checkpoint 存储中断受原生 checkpoint 和作业重试次数限制。长时间中断可能导致作业失败，HA 副本不能
-替代可访问的持久存储。
+活动 Master 持久记录首个 `SUCCEEDED`、`FAILED` 或 `CANCELED`。owner 按 UID 检查删除 Master
+StatefulSet、自有 Worker Pod 和 Service；失败后无需引擎连接即可重试。owner Job 可以成功完成，
+而原生作业失败；application 状态使用持久原生结果。自建挂载配置和 Secret 保留至 owner Job TTL，
+保证重试能启动。用户引用资源及持久数据保留。
 
-
-所有 Master 必须使用一致的持久 checkpoint 后端、namespace 和凭据。使用 HDFS 或受支持对象存储时，
-不要求 PVC。文件后端应通过 `kubernetes.checkpoint-pvc` 挂载给所有角色，并选用支持实际多节点部署的
-存储（通常为 ReadWriteMany）。单节点 ReadWriteOnce 测试不代表多节点存储 HA。
-provider 不删除引用的 PVC 或远程数据。自定义 checkpoint 存储插件必须实现失败时拒绝恢复的
-`getCheckpointsForRecovery` SPI，才能启用 Application HA；内置 local-file 和 HDFS 实现已支持。
-
-### 普通 HA 的终态和清理
-
-owner 先持久记录原生 `SUCCEEDED`、`FAILED` 或 `CANCELED`，再删除自有 StatefulSet 和 Service。
-清理失败时，替换 owner 无需连接引擎即可重放终态并重试。即使原生作业失败，owner Job 仍可能成功完成；
-application `status` 优先读取持久原生终态。自建且已挂载的 ConfigMap/Secret 保留至 owner Job TTL，
-确保替换 owner 能启动，然后随 Job 垃圾回收删除。
-`kubernetes.finished-job-retention-seconds` 控制保留期（默认 86400 秒）。引用的用户资源始终保留。
-Application `cancel` 使用 UID 前置条件和 foreground 传播删除 owner 及全部自有资源，不请求原生 savepoint。
-同一 handle 返回 `CANCELED`；删除或 TTL 之后新 handle 返回 `UNKNOWN`。
+Application `cancel` 立即删除 owner 及依赖资源，不创建 savepoint。HA 使用 UID 前置条件；单 Master
+仍清理 Job 已不存在时的孤立 Pod；标准客户端检查 Pod 快照的 UID。原 handle 返回 `CANCELED`，删除或 TTL 后新 handle
+返回 `UNKNOWN`。
 
 ### HA 权限
 
-提交身份在已有权限之外需要 `apps/statefulsets` 的 `create` 和 Service 的 `get`（原生客户端检索）。
-owner ServiceAccount 需要 Job 的 `get,patch`、StatefulSet 的 `get,delete`、Service 的 `list,delete`，
-以及 Pod 的 `list` 以确认计算资源已清理。Master 与 Worker 不挂载 Kubernetes API token。
-使用专用 namespace，并限制修改 owner Job annotations 和引用配置文件的权限；它们是可信控制输入。
-不需要删除 PVC、远程数据或引用 ConfigMap/Secret 的权限。
+提交身份在现有权限外需 StatefulSet `create` 和 Service `get`。
+application ServiceAccount 需 Job `get,patch`、Pod `create,list,watch,delete,deletecollection`、
+StatefulSet `get,delete` 和 Service `list,delete`。Worker 不挂载 token。
+使用专用 namespace，限制修改 owner annotations 和引用配置；不需要删除 PVC 或远程数据的权限。
 
-### HA 状态与不确定提交
+Master 接管期间，首次列举检查点时的临时连接失败可在作业 `checkpoint.timeout` 预算内重试。
+缺失、损坏、无权限的状态以及观察到文件后的读取失败仍直接报错。存储后端必须配置连接和请求超时；
+重试预算不会中断正在执行的插件调用。自定义插件仅可在尚未观察到任何检查点状态时使用
+`CheckpointStorageUnavailableException` 声明该次扫描可安全重试，无需实现新的强制存储接口方法。
 
-只有 observer 记录原生作业 `RUNNING` 后，HA application 才报告 `RUNNING`；Worker Pod 已运行不能证明作业已启动。
-未知的生命周期记录返回 `UNKNOWN`。若创建 owner 的响应丢失，提交端未取得已确认的 UID，不能按名称或标签删除资源。
-请根据错误中的 application ID 检查并协调不确定的提交，再决定重试；暂停的 owner 可能需要管理员清理。
+### 多节点故障验证
+
+可选的 Kubernetes E2E 测试使用三个临时 K3s 节点和兼容 S3 的检查点存储，覆盖主/备 Master 节点故障、
+固定 Worker 身份保持、检查点读写存储中断、存储中断期间的 Master 接管、存储恢复后的显式检查点恢复，
+以及存储不可用时的取消和清理。用户持有的存储数据和资源必须保留。
+
+构建并准备 E2E 依赖后运行：
+
+```bash
+./mvnw -pl seatunnel-e2e/seatunnel-resource-managers-e2e verify \
+  -DskipUT=true -DskipIT=false -Dseatunnel.kubernetes.e2e.multinode=true \
+  '-Dit.test=KubernetesApplicationHaIT#*NodeLoss*+*Storage*'
+```
+
+测试环境需要支持 cgroup v2 的特权 Docker。节点故障会冻结该测试节点的全部进程；清理时先移除存活的
+计算资源，再解冻故障节点。测试不覆盖运行期间的网络分区恢复或严格分区保护。所有节点运行在同一
+Docker 主机上，因此不能作为独立物理主机或独立存储系统之间的故障验证。

@@ -325,17 +325,14 @@ public final class SeatunnelApplicationConfig {
             int slots,
             int backups) {
         if (masterAddresses == null
-                || masterAddresses.size() < 2
-                || backups < 1
-                || backups > 6
-                || backups >= masterAddresses.size()
+                || masterAddresses.size() != 2
+                || backups != 1
                 || masterAddresses.stream()
                         .anyMatch(address -> address == null || address.trim().isEmpty())) {
             throw new IllegalArgumentException(
-                    "HA requires at least two master addresses and positive backups smaller than the replica count");
+                    "Application HA requires exactly two master addresses and one synchronous backup");
         }
         configure(config, clusterName, worker ? masterAddresses.get(0) : null, slots);
-        config.getEngineConfig().setApplicationHaEnabled(true);
         config.getEngineConfig().setBackupCount(backups);
         // Native state lives in IMaps. The engine integer alone does not configure their replicas;
         // explicit runtime patterns must not silently override the HA application's backup count.

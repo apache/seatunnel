@@ -40,8 +40,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.k3s.K3sContainer;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
@@ -77,6 +81,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -123,6 +128,16 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     protected static ClusterDescriptor<String> deployer;
     private static K3sContainer k3s;
     private static Path kubeconfig;
+    private static Network clusterNetwork;
+    private static final String CGROUP_PREFIX = "seatunnel-e2e-" + java.util.UUID.randomUUID();
+    private static final Map<String, GenericContainer<?>> computeNodes = new HashMap<>();
+    private static final java.util.Set<String> unavailableNodes = new java.util.HashSet<>();
+    protected static final boolean MULTI_NODE =
+            Boolean.getBoolean("seatunnel.kubernetes.e2e.multinode");
+    private static GenericContainer<?> storage;
+    private static String storageEndpoint;
+    private static final String STORAGE_IMAGE =
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
     protected static KubernetesClient platformMonitor;
     private static boolean namespaceCreated;
 
@@ -270,7 +285,8 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                     tailLines,
                                     false);
                     Files.write(
-                            reports.resolve(name + ".log"), logs.getBytes(StandardCharsets.UTF_8));
+                            reports.resolve(name + ".log"),
+                            (logs == null ? "" : logs).getBytes(StandardCharsets.UTF_8));
                     LOG.error("Application Pod {} logs: {}", name, logs);
                 } catch (ApiException e) {
                     LOG.warn("Cannot read logs for Pod {}", name, e);
@@ -574,12 +590,42 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             importImage(image);
             releaseSystemCpuRequests();
             connectKubernetes();
-
+            if (MULTI_NODE) {
+                Awaitility.await()
+                        .atMost(180, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    List<io.kubernetes.client.openapi.models.V1Node> nodes =
+                                            core.listNode(
+                                                            null, null, null, null, null, null,
+                                                            null, null, null, null, null)
+                                                    .getItems();
+                                    assertEquals(3, nodes.size());
+                                    assertTrue(
+                                            nodes.stream()
+                                                    .allMatch(
+                                                            node ->
+                                                                    node.getStatus().getConditions()
+                                                                            .stream()
+                                                                            .anyMatch(
+                                                                                    condition ->
+                                                                                            "Ready"
+                                                                                                            .equals(
+                                                                                                                    condition
+                                                                                                                            .getType())
+                                                                                                    && "True"
+                                                                                                            .equals(
+                                                                                                                    condition
+                                                                                                                            .getStatus()))));
+                                });
+                pinFixtureDnsToControlNode();
+                startStorage();
+            }
             createNamespace();
             createSharedFixtures();
             deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
             platformMonitor = KubernetesClientFactory.create(options, false);
-        } catch (Exception failure) {
+        } catch (Exception | AssertionError failure) {
             stopCluster();
             throw failure;
         }
@@ -597,7 +643,43 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                         .withStartupTimeout(Duration.ofMinutes(3))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(K3S_IMAGE)));
+        if (MULTI_NODE) {
+            clusterNetwork = Network.newNetwork();
+            k3s.withNetwork(clusterNetwork)
+                    .withNetworkAliases("ha-server")
+                    .withEnv("K3S_TOKEN", "local-ha-fixture-token")
+                    .withCreateContainerCmdModifier(
+                            command -> command.withEntrypoint("/bin/sh", "-c"))
+                    .withCommand(nodeCommand("server", "ha-server", "control"));
+        }
         k3s.start();
+        if (MULTI_NODE) {
+            for (int index = 1; index <= 2; index++) {
+                String name = "ha-node-" + index;
+                GenericContainer<?> node =
+                        new GenericContainer<>(DockerImageName.parse(K3S_IMAGE))
+                                .withNetwork(clusterNetwork)
+                                .withNetworkAliases(name)
+                                .withPrivilegedMode(true)
+                                .withCreateContainerCmdModifier(
+                                        command -> {
+                                            command.withEntrypoint("/bin/sh", "-c");
+                                            command.getHostConfig().withCgroupnsMode("host");
+                                        })
+                                .withFileSystemBind(
+                                        "/sys/fs/cgroup", "/sys/fs/cgroup", BindMode.READ_WRITE)
+                                .withTmpFs(Map.of("/run", "", "/var/run", ""))
+                                .withEnv("K3S_URL", "https://ha-server:6443")
+                                .withEnv("K3S_TOKEN", "local-ha-fixture-token")
+                                .withCommand(nodeCommand("agent", name, "compute"))
+                                .waitingFor(
+                                        Wait.forSuccessfulCommand(
+                                                "test -S /run/k3s/containerd/containerd.sock"))
+                                .withStartupTimeout(Duration.ofMinutes(3));
+                computeNodes.put(name, node);
+                node.start();
+            }
+        }
         Files.createDirectories(kubeconfig.getParent());
         Files.write(kubeconfig, k3s.getKubeConfigYaml().getBytes(StandardCharsets.UTF_8));
     }
@@ -671,10 +753,56 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                     apiClient.getHttpClient().dispatcher().executorService().shutdown();
                     apiClient.getHttpClient().connectionPool().evictAll();
                 }
-                if (k3s != null) {
-                    k3s.close();
+                for (Map.Entry<String, GenericContainer<?>> entry : computeNodes.entrySet()) {
+                    GenericContainer<?> node = entry.getValue();
+                    try {
+                        if (unavailableNodes.contains(entry.getKey())) {
+                            pauseComputeNode(entry.getKey(), false);
+                        }
+                        if (Boolean.TRUE.equals(
+                                docker().inspectContainerCmd(node.getContainerId())
+                                        .exec()
+                                        .getState()
+                                        .getPaused())) {
+                            docker().unpauseContainerCmd(node.getContainerId()).exec();
+                        }
+                    } catch (Exception | AssertionError failure) {
+                        LOG.warn("Cannot restore a disposable compute node", failure);
+                    } finally {
+                        try {
+                            node.close();
+                        } catch (Exception failure) {
+                            LOG.warn("Cannot close a disposable compute node", failure);
+                        }
+                    }
                 }
-
+                computeNodes.clear();
+                if (storage != null) {
+                    try {
+                        storageAvailable(true);
+                    } catch (Exception failure) {
+                        LOG.warn("Cannot restore disposable storage", failure);
+                    } finally {
+                        try {
+                            storage.close();
+                        } catch (Exception failure) {
+                            LOG.warn("Cannot close disposable storage", failure);
+                        }
+                    }
+                }
+                if (k3s != null) {
+                    try {
+                        k3s.close();
+                    } catch (Exception failure) {
+                        LOG.warn("Cannot close disposable control node", failure);
+                    }
+                }
+                if (MULTI_NODE) {
+                    cleanNodeCgroups();
+                }
+                if (clusterNetwork != null) {
+                    clusterNetwork.close();
+                }
                 try {
                     if (kubeconfig != null) {
                         Files.deleteIfExists(kubeconfig);
@@ -705,7 +833,24 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                 new String(
                         Files.readAllBytes(suiteFile("seatunnel.yaml").toPath()),
                         StandardCharsets.UTF_8));
-
+        if (MULTI_NODE) {
+            runtimeConfiguration.put(
+                    "seatunnel.yaml",
+                    runtimeConfiguration
+                            .get("seatunnel.yaml")
+                            .replace("storage.type: hdfs", "storage.type: s3")
+                            .replace(
+                                    "fs.defaultFS: file:///",
+                                    "s3.bucket: s3a://ha-checkpoints\n          fs.s3a.endpoint: "
+                                            + storageEndpoint
+                                            + "\n          fs.s3a.path.style.access: true\n          fs.s3a.connection.ssl.enabled: false"
+                                            + "\n          fs.s3a.access.key: fixture-access\n          fs.s3a.secret.key: fixture-secret"
+                                            + "\n          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+                                            + "\n          fs.s3a.attempts.maximum: 1\n          fs.s3a.connection.establish.timeout: 1000\n          fs.s3a.connection.timeout: 2000")
+                            .replace(
+                                    "namespace: /opt/seatunnel/checkpoints/",
+                                    "namespace: /ha-checkpoints/"));
+        }
         runtimeConfiguration.put(
                 "log4j2_client.properties", distributionConfig("log4j2_client.properties"));
         // No hardcoded runtime files: take them from the distribution configuration.
@@ -773,20 +918,51 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             try (InputStream input = docker().saveImageCmd(image).exec()) {
                 Files.copy(input, archive, StandardCopyOption.REPLACE_EXISTING);
             }
-            k3s.copyFileToContainer(
-                    MountableFile.forHostPath(archive), "/tmp/seatunnel-application-image.tar");
-            Container.ExecResult imported =
-                    k3s.execInContainer(
-                            "ctr",
-                            "--address",
-                            CONTAINERD_SOCKET,
-                            "--namespace",
-                            "k8s.io",
-                            "images",
-                            "import",
-                            "/tmp/seatunnel-application-image.tar");
-            assertEquals(0, imported.getExitCode(), imported.getStderr());
-            k3s.execInContainer("rm", "/tmp/seatunnel-application-image.tar");
+            List<GenericContainer<?>> nodes = new ArrayList<>();
+            nodes.add(k3s);
+            nodes.addAll(computeNodes.values());
+            java.util.concurrent.ExecutorService imports =
+                    java.util.concurrent.Executors.newFixedThreadPool(nodes.size());
+            try {
+                List<java.util.concurrent.CompletableFuture<Void>> pending = new ArrayList<>();
+                for (GenericContainer<?> node : nodes) {
+                    pending.add(
+                            java.util.concurrent.CompletableFuture.runAsync(
+                                    () -> {
+                                        try {
+                                            node.copyFileToContainer(
+                                                    MountableFile.forHostPath(archive),
+                                                    "/tmp/seatunnel-application-image.tar");
+                                            Container.ExecResult imported =
+                                                    node.execInContainer(
+                                                            "ctr",
+                                                            "--address",
+                                                            CONTAINERD_SOCKET,
+                                                            "--namespace",
+                                                            "k8s.io",
+                                                            "images",
+                                                            "import",
+                                                            "/tmp/seatunnel-application-image.tar");
+                                            assertEquals(
+                                                    0,
+                                                    imported.getExitCode(),
+                                                    imported.getStderr());
+                                            node.execInContainer(
+                                                    "rm", "/tmp/seatunnel-application-image.tar");
+                                        } catch (Exception failure) {
+                                            throw new java.util.concurrent.CompletionException(
+                                                    failure);
+                                        }
+                                    },
+                                    imports));
+                }
+                java.util.concurrent.CompletableFuture.allOf(
+                                pending.toArray(new java.util.concurrent.CompletableFuture<?>[0]))
+                        .get();
+            } finally {
+                imports.shutdownNow();
+            }
+
         } finally {
             Files.deleteIfExists(archive);
         }
@@ -808,6 +984,11 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                     DependencyJar.staged("seatunnel-shade-hadoop3-uber.jar").path(),
                     lib.resolve("seatunnel-shade-hadoop3-uber.jar"));
 
+            if (MULTI_NODE) {
+                Files.copy(
+                        DependencyJar.staged("seatunnel-shade-hadoop-aws.jar").path(),
+                        lib.resolve("seatunnel-shade-hadoop-aws.jar"));
+            }
             for (String connector : Arrays.asList("fake", "console", "assert", "file-local")) {
                 String name = "connector-" + connector + ".jar";
                 Files.copy(DependencyJar.staged(name).path(), connectors.resolve(name));
@@ -850,5 +1031,336 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
 
     private static DockerClient docker() {
         return DockerClientFactory.lazyClient();
+    }
+
+    private static String[] nodeCommand(String mode, String name, String label) {
+        String root = CGROUP_PREFIX + "-" + name;
+        return new String[] {
+            "mkdir -p /sys/fs/cgroup/"
+                    + root
+                    + " /sys/fs/cgroup/"
+                    + root
+                    + "-system"
+                    + " && exec /bin/k3s "
+                    + mode
+                    // Nodes share a private Docker bridge. Use direct kubelet connections so a
+                    // frozen node's stale management tunnel cannot poison later fault scenarios.
+                    + ("server".equals(mode)
+                            ? " --disable=traefik --disable=servicelb --egress-selector-mode=disabled"
+                            : "")
+                    + " --node-name="
+                    + name
+                    + " --node-label=seatunnel.e2e/"
+                    + label
+                    + "=true"
+                    + " --kubelet-arg=cgroup-root=/"
+                    + root
+                    + " --kubelet-arg=kubelet-cgroups=/"
+                    + root
+                    + "-system"
+                    + " --kubelet-arg=runtime-cgroups=/"
+                    + root
+                    + "-system"
+        };
+    }
+
+    private static void pinFixtureDnsToControlNode() throws Exception {
+        Container.ExecResult patched =
+                k3s.execInContainer(
+                        "kubectl",
+                        "-n",
+                        "kube-system",
+                        "patch",
+                        "deployment",
+                        "coredns",
+                        "--type=merge",
+                        "-p",
+                        "{\"spec\":{\"template\":{\"spec\":{\"nodeSelector\":{\"seatunnel.e2e/control\":\"true\"}}}}}");
+        assertEquals(0, patched.getExitCode(), patched.getStderr());
+        Container.ExecResult ready =
+                k3s.execInContainer(
+                        "kubectl",
+                        "-n",
+                        "kube-system",
+                        "rollout",
+                        "status",
+                        "deployment/coredns",
+                        "--timeout=120s");
+        assertEquals(0, ready.getExitCode(), ready.getStderr());
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult nodes =
+                                    k3s.execInContainer(
+                                            "kubectl",
+                                            "-n",
+                                            "kube-system",
+                                            "get",
+                                            "pods",
+                                            "-l",
+                                            "k8s-app=kube-dns",
+                                            "-o",
+                                            "jsonpath={range .items[*]}{.spec.nodeName}{'\\n'}{end}");
+                            assertEquals(0, nodes.getExitCode(), nodes.getStderr());
+                            List<String> observed =
+                                    nodes.getStdout()
+                                            .lines()
+                                            .filter(node -> !node.isBlank())
+                                            .collect(java.util.stream.Collectors.toList());
+                            assertFalse(observed.isEmpty());
+                            assertTrue(observed.stream().allMatch("ha-server"::equals));
+                        });
+    }
+
+    private static void startStorage() {
+        storage =
+                new GenericContainer<>(DockerImageName.parse(STORAGE_IMAGE))
+                        .withNetwork(clusterNetwork)
+                        .withNetworkAliases("ha-storage")
+                        .withEnv("MINIO_ROOT_USER", "fixture-access")
+                        .withEnv("MINIO_ROOT_PASSWORD", "fixture-secret")
+                        .withExposedPorts(9000)
+                        .withCreateContainerCmdModifier(
+                                command ->
+                                        command.getHostConfig()
+                                                .withPortBindings(
+                                                        new com.github.dockerjava.api.model
+                                                                .PortBinding(
+                                                                com.github.dockerjava.api.model
+                                                                        .Ports.Binding
+                                                                        .bindIpAndPort(
+                                                                                "127.0.0.1", 0),
+                                                                new com.github.dockerjava.api.model
+                                                                        .ExposedPort(9000))))
+                        .withCommand("server", "/data")
+                        .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000));
+        storage.start();
+        storageEndpoint =
+                "http://"
+                        + storage.getContainerInfo()
+                                .getNetworkSettings()
+                                .getNetworks()
+                                .values()
+                                .iterator()
+                                .next()
+                                .getIpAddress()
+                        + ":9000";
+        com.amazonaws.services.s3.AmazonS3 client = storageClient();
+        try {
+            client.createBucket("ha-checkpoints");
+            client.putObject("ha-checkpoints", "user-sentinel", "preserve-user-object");
+        } finally {
+            client.shutdown();
+        }
+    }
+
+    protected static com.amazonaws.services.s3.AmazonS3 storageClient() {
+        return com.amazonaws.services.s3.AmazonS3ClientBuilder.standard()
+                .withEndpointConfiguration(
+                        new com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration(
+                                "http://" + storage.getHost() + ":" + storage.getMappedPort(9000),
+                                "us-east-1"))
+                .withClientConfiguration(
+                        new com.amazonaws.ClientConfiguration()
+                                .withConnectionTimeout(2000)
+                                .withSocketTimeout(2000)
+                                .withMaxErrorRetry(0))
+                .withCredentials(
+                        new com.amazonaws.auth.AWSStaticCredentialsProvider(
+                                new com.amazonaws.auth.BasicAWSCredentials(
+                                        "fixture-access", "fixture-secret")))
+                .withPathStyleAccessEnabled(true)
+                .build();
+    }
+
+    protected static long storedCheckpoint(long jobId) throws Exception {
+        com.amazonaws.services.s3.AmazonS3 client = storageClient();
+        try {
+            long latest = -1;
+            for (com.amazonaws.services.s3.model.S3ObjectSummary object :
+                    client.listObjectsV2("ha-checkpoints", "ha-checkpoints/" + jobId + "/")
+                            .getObjectSummaries()) {
+                if (!object.getKey().endsWith(".ser")) {
+                    continue;
+                }
+                try (com.amazonaws.services.s3.model.S3Object stored =
+                        client.getObject("ha-checkpoints", object.getKey())) {
+                    org.apache.seatunnel.engine.checkpoint.storage.PipelineState state =
+                            new org.apache.seatunnel.engine.serializer.protobuf
+                                            .ProtoStuffSerializer()
+                                    .deserialize(
+                                            stored.getObjectContent().readAllBytes(),
+                                            org.apache.seatunnel.engine.checkpoint.storage
+                                                    .PipelineState.class);
+                    assertEquals(Long.toString(jobId), state.getJobId());
+                    latest = Math.max(latest, state.getCheckpointId());
+                } catch (com.amazonaws.services.s3.model.AmazonS3Exception failure) {
+                    // Native retention may remove an older listed checkpoint before this read.
+                    if (failure.getStatusCode() != 404
+                            || !"NoSuchKey".equals(failure.getErrorCode())) {
+                        throw failure;
+                    }
+                }
+            }
+            assertTrue(latest >= 0, "A readable final checkpoint must exist in remote storage");
+            assertEquals(
+                    "preserve-user-object",
+                    client.getObjectAsString("ha-checkpoints", "user-sentinel"));
+            return latest;
+        } finally {
+            client.shutdown();
+        }
+    }
+
+    protected static void storageAvailable(boolean available) {
+        boolean paused =
+                Boolean.TRUE.equals(
+                        docker().inspectContainerCmd(storage.getContainerId())
+                                .exec()
+                                .getState()
+                                .getPaused());
+        if (available && paused) {
+            docker().unpauseContainerCmd(storage.getContainerId()).exec();
+        } else if (!available && !paused) {
+            docker().pauseContainerCmd(storage.getContainerId()).exec();
+        }
+    }
+
+    protected static void pauseComputeNode(String name, boolean paused) throws Exception {
+        GenericContainer<?> node = computeNodes.get(name);
+        assertTrue(node != null, "Fault must target a disposable compute node: " + name);
+        String root = "/sys/fs/cgroup/" + CGROUP_PREFIX + "-" + name;
+        if (paused) {
+            for (String group : new String[] {root, root + "-system"}) {
+                Container.ExecResult state = node.execInContainer("cat", group + "/cgroup.events");
+                assertEquals(0, state.getExitCode(), state.getStderr());
+                assertTrue(
+                        state.getStdout().lines().anyMatch("populated 1"::equals),
+                        group + " must contain the test node's processes before freezing");
+            }
+            unavailableNodes.add(name);
+            Container.ExecResult result =
+                    node.execInContainer(
+                            "sh",
+                            "-c",
+                            "echo 1 > "
+                                    + root
+                                    + "/cgroup.freeze && echo 1 > "
+                                    + root
+                                    + "-system/cgroup.freeze");
+            assertEquals(0, result.getExitCode(), result.getStderr());
+            // Kubelet and Pod cgroups are outside Docker's own freezer. Freeze those explicitly
+            // as well as the node's init/runtime, so the fault includes every application process.
+            awaitNodeCgroupState(node, root, true);
+            docker().pauseContainerCmd(node.getContainerId()).exec();
+        } else {
+            if (Boolean.TRUE.equals(
+                    docker().inspectContainerCmd(node.getContainerId())
+                            .exec()
+                            .getState()
+                            .getPaused())) {
+                docker().unpauseContainerCmd(node.getContainerId()).exec();
+            }
+            Container.ExecResult result =
+                    node.execInContainer(
+                            "sh",
+                            "-c",
+                            "echo 0 > "
+                                    + root
+                                    + "-system/cgroup.freeze && echo 0 > "
+                                    + root
+                                    + "/cgroup.freeze");
+            assertEquals(0, result.getExitCode(), result.getStderr());
+            awaitNodeCgroupState(node, root, false);
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Container.ExecResult ready =
+                                        k3s.execInContainer(
+                                                "kubectl",
+                                                "wait",
+                                                "--for=condition=Ready",
+                                                "node/" + name,
+                                                "--timeout=5s");
+                                assertEquals(0, ready.getExitCode(), ready.getStderr());
+                                Container.ExecResult health =
+                                        k3s.execInContainer(
+                                                "kubectl",
+                                                "get",
+                                                "--request-timeout=5s",
+                                                "--raw",
+                                                "/api/v1/nodes/" + name + "/proxy/healthz");
+                                assertEquals(0, health.getExitCode(), health.getStderr());
+                                assertEquals("ok", health.getStdout().trim());
+                            });
+            unavailableNodes.remove(name);
+        }
+    }
+
+    private static void awaitNodeCgroupState(
+            GenericContainer<?> node, String root, boolean frozen) {
+        Awaitility.await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String group : new String[] {root, root + "-system"}) {
+                                Container.ExecResult state =
+                                        node.execInContainer("cat", group + "/cgroup.events");
+                                assertEquals(0, state.getExitCode(), state.getStderr());
+                                assertTrue(
+                                        state.getStdout()
+                                                .lines()
+                                                .anyMatch(
+                                                        line ->
+                                                                line.equals(
+                                                                        frozen
+                                                                                ? "frozen 1"
+                                                                                : "frozen 0")),
+                                        group + " did not reach the requested freezer state");
+                            }
+                        });
+    }
+    /** Reconciles only this JVM's UUID-scoped cgroups after all fixture nodes have stopped. */
+    private static void cleanNodeCgroups() {
+        try (GenericContainer<?> cleanup =
+                new GenericContainer<>(DockerImageName.parse(K3S_IMAGE))
+                        .withPrivilegedMode(true)
+                        .withCreateContainerCmdModifier(
+                                command -> {
+                                    command.withEntrypoint("/bin/sh");
+                                    command.getHostConfig().withCgroupnsMode("host");
+                                })
+                        .withFileSystemBind("/sys/fs/cgroup", "/sys/fs/cgroup", BindMode.READ_WRITE)
+                        .withCommand("-c", "sleep 300")) {
+            cleanup.start();
+            for (String name : Arrays.asList("ha-server", "ha-node-1", "ha-node-2")) {
+                for (String suffix : Arrays.asList("", "-system")) {
+                    String root = "/sys/fs/cgroup/" + CGROUP_PREFIX + "-" + name + suffix;
+                    // Never traverse outside the exact roots created by nodeCommand.
+                    Container.ExecResult result =
+                            cleanup.execInContainer(
+                                    "sh",
+                                    "-c",
+                                    "if [ -d "
+                                            + root
+                                            + " ]; then echo 0 > "
+                                            + root
+                                            + "/cgroup.freeze; "
+                                            + "echo 1 > "
+                                            + root
+                                            + "/cgroup.kill; "
+                                            + "sleep 1; find "
+                                            + root
+                                            + " -depth -type d -exec rmdir {} +; fi; test ! -d "
+                                            + root);
+                    assertEquals(0, result.getExitCode(), result.getStderr());
+                }
+            }
+            LOG.info("Removed all exact fixture node cgroups {}", CGROUP_PREFIX);
+        } catch (Exception | AssertionError failure) {
+            LOG.error("Cannot remove exact fixture node cgroups {}", CGROUP_PREFIX, failure);
+        }
     }
 }

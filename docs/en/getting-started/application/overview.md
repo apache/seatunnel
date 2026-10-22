@@ -40,13 +40,13 @@ by its native job ID.
 
 - Many small jobs should share one long-running cluster (use standalone or cluster deployment).
 - The job needs dynamic worker scaling; Application Mode uses a fixed desired worker count.
-  Kubernetes HA can replace failed members without scaling out.
+  Kubernetes HA replaces failed masters; it does not replace workers.
 - The distribution has no provider for your resource platform.
 
 ## Cluster shape
 
 - One application runs one Zeta master by default and a fixed number of workers. Kubernetes
-  optionally maintains multiple masters and replaces failed members; see [HA](kubernetes/architecture.md#opt-in-application-ha).
+  optionally maintains two masters and replaces failed masters; see [HA](kubernetes/architecture.md#opt-in-application-ha).
 - Workers register their slots with the master before the job starts.
 - The master maps the job result to the platform state and releases the workers before it exits.
 - Checkpoints live in engine-owned persistent storage and survive the application; a new application

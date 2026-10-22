@@ -76,4 +76,4 @@ admission policy, ResourceQuota, or node capacity.
 
 ## Enable HA
 
-This page describes the default single-master deployment. To enable native master failover and fixed worker replacement, follow [Application HA](architecture.md#opt-in-application-ha), including its additional RBAC and durable storage requirements. In HA, native terminal annotations determine application status, and owned mounted configuration is retained until owner Job TTL to allow cleanup retries.
+This page describes the default single-master deployment. To enable native master failover with fixed workers, follow [Application HA](architecture.md#opt-in-application-ha), including its additional RBAC and durable storage requirements. In HA, native terminal annotations determine application status, and owned mounted configuration is retained until owner Job TTL to allow cleanup retries.

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageUnavailableException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -58,9 +59,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -148,78 +151,171 @@ public class CheckpointManager {
         CounterStateStore<String> checkpointCounterStore =
                 engineContext.getStateStores().checkpointCounterStore();
 
-        this.coordinatorMap =
-                MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
-                        .map(
-                                plan -> {
-                                    StateStoreCheckpointIDCounter idCounter =
-                                            new StateStoreCheckpointIDCounter(
-                                                    jobId,
-                                                    plan.getPipelineId(),
-                                                    checkpointCounterStore);
-                                    try {
-                                        idCounter.start();
-                                        PipelineState pipelineState = null;
-                                        if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
-                                            if (recoverCurrentJob) {
-                                                pipelineState =
-                                                        latestRecoveryState(
-                                                                jobId, plan.getPipelineId(), null);
-                                            }
-                                            if (pipelineState == null
-                                                    && restoreSourceJobId != null) {
-                                                pipelineState =
-                                                        recoverCurrentJob
-                                                                ? latestRecoveryState(
-                                                                        restoreSourceJobId,
-                                                                        plan.getPipelineId(),
-                                                                        restoreMode)
-                                                                : getLatestCheckpointStateByType(
-                                                                        String.valueOf(
-                                                                                restoreSourceJobId),
-                                                                        String.valueOf(
-                                                                                plan
-                                                                                        .getPipelineId()),
-                                                                        restoreMode);
-                                            }
-                                            if (pipelineState != null) {
-                                                long checkpointId = pipelineState.getCheckpointId();
-                                                idCounter.setCount(
-                                                        Math.max(
-                                                                idCounter.get(), checkpointId + 1));
-                                                log.info(
-                                                        "pipeline({}) restore with {} on checkpointId({})",
-                                                        plan.getPipelineId(),
-                                                        restoreMode,
-                                                        checkpointId);
-                                            }
-                                        }
-                                        return new CheckpointCoordinator(
-                                                this,
-                                                checkpointStorage,
-                                                checkpointConfig,
-                                                jobId,
-                                                plan,
-                                                idCounter,
-                                                pipelineState,
-                                                executorService,
-                                                runningJobStateIMap,
-                                                isRestoreJob,
-                                                checkpointMonitorService);
-                                    } catch (Exception e) {
-                                        ExceptionUtil.sneakyThrow(e);
-                                    }
-                                    throw new RuntimeException("Never throw here.");
-                                })
-                        .collect(
-                                Collectors.toMap(
-                                        CheckpointCoordinator::getPipelineId, Function.identity()));
+        Map<Integer, PipelineState> recoveryStates = new HashMap<>();
+        if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
+            // Read and validate every pipeline before constructing coordinators or changing
+            // counters.
+            long deadline =
+                    System.nanoTime()
+                            + TimeUnit.MILLISECONDS.toNanos(
+                                    checkpointConfig.getCheckpointTimeout());
+            try {
+                for (CheckpointPlan plan : checkpointPlanMap.values()) {
+                    PipelineState state =
+                            recoverCurrentJob
+                                    ? latestRecoveryStateWithRetry(
+                                            jobId, plan.getPipelineId(), null, deadline)
+                                    : null;
+                    if (state == null && restoreSourceJobId != null) {
+                        state =
+                                recoverCurrentJob
+                                        ? latestRecoveryStateWithRetry(
+                                                restoreSourceJobId,
+                                                plan.getPipelineId(),
+                                                restoreMode,
+                                                deadline)
+                                        : getLatestCheckpointStateByType(
+                                                String.valueOf(restoreSourceJobId),
+                                                String.valueOf(plan.getPipelineId()),
+                                                restoreMode);
+                    }
+                    if (state != null) {
+                        recoveryStates.put(plan.getPipelineId(), state);
+                    }
+                }
+            } catch (Exception failure) {
+                ExceptionUtil.sneakyThrow(failure);
+            }
+        }
+        if (jobMaster != null) {
+            // Order effectful construction against coordinator retirement and explicit
+            // cancellation.
+            synchronized (jobMaster.getCoordinatorService()) {
+                try {
+                    if (recoverCurrentJob) {
+                        checkRecoveryActive();
+                    } else {
+                        jobMaster.checkInitializationActive();
+                    }
+                } catch (InterruptedException retired) {
+                    ExceptionUtil.sneakyThrow(retired);
+                }
+                this.coordinatorMap =
+                        createCoordinators(
+                                checkpointPlanMap,
+                                recoveryStates,
+                                checkpointCounterStore,
+                                executorService,
+                                runningJobStateIMap,
+                                isRestoreJob,
+                                restoreMode);
+            }
+        } else {
+            this.coordinatorMap =
+                    createCoordinators(
+                            checkpointPlanMap,
+                            recoveryStates,
+                            checkpointCounterStore,
+                            executorService,
+                            runningJobStateIMap,
+                            isRestoreJob,
+                            restoreMode);
+        }
+    }
+
+    private Map<Integer, CheckpointCoordinator> createCoordinators(
+            Map<Integer, CheckpointPlan> checkpointPlanMap,
+            Map<Integer, PipelineState> recoveryStates,
+            CounterStateStore<String> checkpointCounterStore,
+            ExecutorService executorService,
+            IMap<Object, Object> runningJobStateIMap,
+            boolean isRestoreJob,
+            RestoreMode restoreMode) {
+        return MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
+                .map(
+                        plan -> {
+                            StateStoreCheckpointIDCounter idCounter =
+                                    new StateStoreCheckpointIDCounter(
+                                            jobId, plan.getPipelineId(), checkpointCounterStore);
+                            try {
+                                idCounter.start();
+                                PipelineState pipelineState =
+                                        recoveryStates.get(plan.getPipelineId());
+                                if (pipelineState != null) {
+                                    long checkpointId = pipelineState.getCheckpointId();
+                                    idCounter.setCount(Math.max(idCounter.get(), checkpointId + 1));
+                                    log.info(
+                                            "pipeline({}) restore with {} on checkpointId({})",
+                                            plan.getPipelineId(),
+                                            restoreMode,
+                                            checkpointId);
+                                }
+                                return new CheckpointCoordinator(
+                                        this,
+                                        checkpointStorage,
+                                        checkpointConfig,
+                                        jobId,
+                                        plan,
+                                        idCounter,
+                                        pipelineState,
+                                        executorService,
+                                        runningJobStateIMap,
+                                        isRestoreJob,
+                                        checkpointMonitorService);
+                            } catch (Exception e) {
+                                ExceptionUtil.sneakyThrow(e);
+                            }
+                            throw new RuntimeException("Never throw here.");
+                        })
+                .collect(
+                        Collectors.toMap(
+                                CheckpointCoordinator::getPipelineId, Function.identity()));
+    }
+
+    private PipelineState latestRecoveryStateWithRetry(
+            long sourceJobId, int pipelineId, RestoreMode mode, long deadline) throws Exception {
+        CheckpointStorageUnavailableException lastFailure = null;
+        while (true) {
+            checkRecoveryActive();
+            if (lastFailure != null && System.nanoTime() >= deadline) {
+                throw lastFailure;
+            }
+            try {
+                PipelineState state = latestRecoveryState(sourceJobId, pipelineId, mode);
+                checkRecoveryActive();
+                return state;
+            } catch (CheckpointStorageUnavailableException unavailable) {
+                lastFailure = unavailable;
+                checkRecoveryActive();
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    throw unavailable;
+                }
+                log.warn(
+                        "Checkpoint storage unavailable during master takeover for job {}, retrying recovery read",
+                        jobId);
+                TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(500)));
+            }
+        }
+    }
+
+    private void checkRecoveryActive() throws InterruptedException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Checkpoint recovery interrupted");
+        }
+        if (jobMaster != null) {
+            jobMaster.checkRecoveryActive();
+            Object state = jobMaster.getRunningJobStateIMap().get(jobId);
+            if (state == null || state instanceof JobStatus && ((JobStatus) state).isEndState()) {
+                throw new InterruptedException("Job no longer requires master takeover recovery");
+            }
+        }
     }
 
     private PipelineState latestRecoveryState(long sourceJobId, int pipelineId, RestoreMode mode)
             throws Exception {
         List<PipelineState> states =
-                checkpointStorage.getCheckpointsForRecovery(
+                checkpointStorage.getCheckpointsByJobIdAndPipelineId(
                         String.valueOf(sourceJobId), String.valueOf(pipelineId));
         for (PipelineState state : states) {
             if (!String.valueOf(sourceJobId).equals(state.getJobId())

@@ -103,120 +103,128 @@ A caller-owned checkpoint PVC has no Job owner reference, so success, failure, c
 
 ## Opt-in application HA
 
-Set these deployment options to keep a fixed master and worker pool:
-
 ```hocon
 kubernetes {
   ha.enabled = true
-  master.replicas = 3
+  master.replicas = 2
   ha.backup-count = 1
   checkpoint-pvc = "seatunnel-checkpoints"
 }
 ```
 
-HA is disabled by default. The existing single-master application and standalone modes keep their
-previous behavior. HA requires at least two masters and a native backup count from 1 to 6, smaller
-than the master count. `kubernetes.ha.backup-count` overrides the native
-`seatunnel.engine.backup-count`; when omitted, the submitter's native engine configuration supplies
-the value. The resolved value is carried to every master and worker. Invalid combinations fail
-before any Kubernetes resource is created.
+HA is opt-in and supports exactly two native masters with one synchronous backup. Omitting
+`kubernetes.ha.backup-count` selects `1`; the submitter's local engine configuration does not
+change this value. Invalid topology or backup combinations fail before resource creation.
+Single-master Application Mode and standalone mode keep their existing behavior.
 
-The Job becomes a retryable owner/observer. Separate StatefulSets maintain the desired master and
-worker counts, including replacement after Pod deletion. Plan capacity for `master.replicas` masters,
-`application.worker-count` workers and one additional owner Pod; the owner uses the master resource
-and placement options. Only the owner mounts the Kubernetes API
-token. Masters are native Hazelcast data members; workers are lite members. Zeta owns election,
-replicated IMap state, slot registration, checkpoints and execution recovery. Kubernetes does not
-elect a second leader or resubmit the native job. Allocation waits for all fixed workers to register
-with Zeta; initial submission also waits for the requested native master count. HA uses native
-`WAIT` scheduling so late registration does not reject the job. Native failure-detection and merge
-timing determine recovery latency; initial startup and Kubernetes retry/deadline bounds remain
-separate. During HA pipeline recovery, unavailable replacement slots are retried at the native
-`job.retry.interval.seconds` interval without deploying stale allocations or consuming another
-pipeline retry. Waiting and allocation do not hold the pipeline monitor. Accepted slots are recorded
-before deployment; canceled or stopped recovery rejects new allocation and releases fresh slots.
+A StatefulSet maintains the two masters. The active master uses the shared `ApplicationJobRunner`,
+`ApplicationResourceManager` and Kubernetes driver to create a fixed set of worker Pods. A promoted
+master attaches to those same workers. Workers are not replaced; worker loss fails the application.
+Zeta owns election, replicated IMap state, slot registration, checkpoints and execution recovery.
+There is no Kubernetes leader election or separate job execution loop.
 
-The ClusterIP Service named by the application ID selects all masters and remains stable across
-master Pod replacement. A separate `<application-id>-discovery` headless Service provides stable
-StatefulSet peer addresses. Clients use the ClusterIP with smart routing disabled. A submitting
-client using native job operations needs connectivity to that Service; a ClusterIP is not a public
-ingress. `status` and application `cancel` only need Kubernetes API access.
+A retryable owner Job observes persisted lifecycle metadata and finalizes resources. It does not
+submit jobs or connect to Zeta. The owner requests 100m CPU and 128Mi memory; masters and workers
+use their configured resources. The owner receives only namespace, job ID, timeout, specification digest and its owner UID; it has no job secrets, runtime mounts, checkpoint PVC or engine probes. Masters mount
+the shared checkpoint PVC when configured. Workers have neither that mount nor Kubernetes API
+credentials. Both masters and the owner use the application ServiceAccount.
 
-### Ordinary HA submission and recovery boundaries
+The ClusterIP Service named by the application ID selects both masters and stays stable across
+replacement. `<application-id>-discovery` is a headless Service for stable master peer addresses.
+Native clients connect through the ClusterIP with smart routing disabled; they need network access
+to that Service. Application `status` and `cancel` only require Kubernetes API access.
 
-The owner records submission intent using a Job UID/resource-version compare-and-set before sending
-one native submission with the original job ID. A replacement owner attaches to that ID. An
-ambiguous request is never retried as a new job. Before native `RUNNING` has been recorded on the
-owner Job, an unresolved startup beyond `application.startup-timeout-millis` records `FAILED` and
-releases compute. A crash after intent but before native acceptance can therefore require an
-explicit new application. This favors avoiding duplicate external side effects over transparent
-retry of an unacknowledged submission.
+### Submission and recovery
 
-The owner persists the first native `RUNNING` result with a UID/resource-version compare-and-set.
-This is startup history, not a current health signal. Later unknown status or transport loss does
-not turn the startup budget into a job failure, including after an observer reattaches. Compute is
-retained until a confirmed native terminal outcome or explicit cancellation; unrecoverable native
-state can require operator cancellation. Concurrent terminal results cannot be downgraded to
-`RUNNING`, and a stale startup timeout cannot overwrite recorded `RUNNING`. Client connection and
-initial master readiness still use the startup budget. Observer connection failures and Kubernetes
-retry/deadline limits remain separate availability bounds. Use
-`kubernetes.active-deadline-seconds` to bound Kubernetes startup or owner retries as a whole.
+Initial submission waits for both masters and all fixed workers. The active master claims submission
+intent with a Job UID/resource-version compare-and-set, then submits the original native job ID.
+After failover the promoted master waits for native coordinator restoration and attaches to that ID.
+The driver from the retired coordinator detaches without deleting workers. An ambiguous submission
+is never retried as a fresh job. A crash between claiming intent and native acceptance can require
+an explicit new application.
 
-HA application status stays `DEPLOYING` until the observer records native `RUNNING`; running worker
-Pods alone do not establish that the job started. An unrecognized lifecycle record is `UNKNOWN`.
-If owner creation loses its response, the submitter has no acknowledged owner UID and does not
-compensate by deleting resources by name or labels. Inspect the reported application ID and
-reconcile the uncertain submission before retrying; a suspended owner may need operator cleanup.
+The first native `RUNNING` observation is recorded on the owner Job. Until then status is `DEPLOYING`
+and `application.startup-timeout-millis` bounds startup. After `RUNNING` has been recorded, missing
+native status or an API interruption does not become a startup failure. Metadata publication errors
+leave the native outcome unchanged. Operator cancellation can be needed if native state cannot be
+recovered. `kubernetes.active-deadline-seconds` can bound owner retries as a whole.
 
-A lost standby, active master or worker is replaced by Kubernetes. The surviving native masters
-recover the original job using replicated state and retained checkpoints; the application ID and
-native job ID remain unchanged. Owner replacement does not submit again. This requires surviving
-native state and accessible durable checkpoint storage. Simultaneous loss of all masters, network
-partitions, cross-cluster recovery and autoscaling are outside this feature's guarantee. Connector
-replay and sink delivery guarantees remain native connector behavior.
+A lost active or standby master is replaced by Kubernetes. Surviving native state and accessible
+retained checkpoints are required to recover with the same application and job IDs. Owner restart
+only retries observation and cleanup. Simultaneous loss of both masters, worker replacement,
+autoscaling, cross-cluster recovery, strict network-partition protection and connector fencing are
+outside this change. Connector replay and delivery guarantees remain those of the existing engine
+and connector.
+
+Worker terminal reports carry the existing deployment execution ID. The native master retains that
+ID across takeover and invalidates it when retrying a pipeline, so a delayed report cannot cancel
+a replacement execution or release its slots. Legacy untagged reports retain their existing behavior;
+this check requires upgraded masters and workers and does not establish mixed-version HA safety.
 
 :::caution
-HA replicas recover from member loss; they do not fence disconnected coordinators. Native election
-uses each component's local membership view, so a network partition may leave more than one active
-coordinator. Synchronous map backups and shared checkpoint storage do not prevent concurrent sink
-side effects. Data-structure quorum settings alone do not fence connector commits. Do not treat this
-mode as safe for partitioned writers. A strict majority of two masters also cannot remain available
-after one master is lost.
+Two masters do not fence disconnected writers. Native election uses local membership, so a network
+partition can leave more than one active coordinator. Synchronous backups and shared checkpoints
+do not prevent concurrent sink side effects. This mode provides master failover, not strict
+partition protection.
 :::
 
-Failure detection and rejoining use the configured native Hazelcast heartbeat and merge schedules;
-restoring network connectivity does not imply immediate membership convergence. Checkpoint storage
-outages are subject to native checkpoint and job retry limits. An extended outage can fail the job;
-HA replicas do not make unavailable storage accessible.
+Configure the same durable checkpoint backend, namespace and credentials on both masters. A shared
+PVC is optional with a supported remote backend. File-backed multi-node deployments need storage
+that permits their chosen placement, typically ReadWriteMany. A single-node ReadWriteOnce test does
+not establish multi-node storage availability. Storage outages remain subject to native checkpoint
+and job retry limits. The provider never deletes a referenced PVC or remote data.
 
+Checkpoint recovery uses the existing `CheckpointStorage.getCheckpointsByJobIdAndPipelineId` API.
+Bundled local-file and HDFS implementations fail on inaccessible or corrupt recovery state rather
+than treating it as an empty checkpoint list. Custom plugins must preserve that distinction.
+During master takeover, an initial checkpoint-list connection failure can be retried within the job's
+`checkpoint.timeout` budget. Missing, corrupt or unauthorized state and failures after files were
+observed still fail closed. Configure connection and request timeouts on the storage backend: the
+retry budget does not interrupt an in-flight plugin call. Custom plugins can opt into safe retries
+with `CheckpointStorageUnavailableException` only before observing any checkpoint state.
+There is no new mandatory checkpoint-storage method. The HA provider capability is validated
+before resource creation; custom Kubernetes clients must implement `KubernetesHaClient` to enable HA.
+A nonstandard master entrypoint is rejected in HA mode.
 
-Configure the same durable checkpoint backend, namespace and credentials on every master. A shared
-PVC is optional when using a native remote backend such as HDFS or supported object storage. For
-file-backed storage, mount `kubernetes.checkpoint-pvc` on all roles and use storage that permits the
-chosen multi-node placement (typically ReadWriteMany). A single-node ReadWriteOnce test volume does
-not demonstrate multi-node storage HA. The provider never deletes a referenced PVC or remote data. Custom checkpoint-storage plugins must
-implement the fail-closed `getCheckpointsForRecovery` SPI before enabling application HA; the bundled
-local-file and HDFS implementations support it.
+### Terminal state and cleanup
 
-### Ordinary HA terminal state and cleanup
+The active master persists the first native `SUCCEEDED`, `FAILED` or `CANCELED` result. The owner
+then deletes the master StatefulSet, owned worker Pods and Services with UID checks. If cleanup
+fails, a replacement owner retries from persisted metadata without a live engine endpoint. The
+owner Job may complete successfully even if the native job failed; application status uses the
+persisted native result. Created mounted configuration and Secrets remain until owner Job TTL so
+cleanup retries can start. Referenced user resources and durable data remain untouched.
 
-The owner persists native `SUCCEEDED`, `FAILED` or `CANCELED` before deleting the owned StatefulSets
-and Services. If cleanup fails, its replacement replays the persisted outcome and retries cleanup
-without requiring a live engine endpoint. The Kubernetes owner Job may finish successfully even
-when the native job failed: application `status` reads the persisted native outcome first.
-Mounted owned ConfigMaps and Secrets remain until owner Job TTL expiry so a replacement observer can
-start; Job garbage collection then removes them. `kubernetes.finished-job-retention-seconds`
-controls this retention (default 86400). Resources merely referenced by the application remain
-user-owned. Application `cancel` deletes the owner Job with a UID precondition and foreground
-propagation; it removes all owned resources, rather than requesting a native savepoint. Status on
-the canceled handle is `CANCELED`; a fresh handle sees `UNKNOWN` after deletion/TTL.
+Application `cancel` deletes the owner Job and its dependents immediately; it does not take a native
+savepoint. HA cancellation uses a UID precondition. Single-master cancellation still cleans orphan Pods when the Job is already absent; the standard
+client snapshots Job-owned Pods and checks their UID before deletion. The same canceled handle
+returns `CANCELED`; a fresh handle returns `UNKNOWN` after deletion or TTL expiry.
 
 ### HA permissions
 
-In addition to the submitter's existing creation permissions, grant it `create` on
-`apps/statefulsets` and `get` on Services for native client retrieval. The owner ServiceAccount
-requires `get,patch` on Jobs, `get,delete` on StatefulSets, `list,delete` on Services, and `list` on
-Pods to confirm compute cleanup. Masters and workers carry no Kubernetes API token. Use a dedicated
-namespace and restrict who can patch owner Job annotations or modify referenced runtime files;
-those are trusted control-plane inputs. No permission to delete PVCs, remote data, or referenced
-ConfigMaps/Secrets is needed.
+In addition to existing submission permissions, the submitter needs `apps/statefulsets` `create`
+and Services `get`. The application ServiceAccount needs Jobs `get,patch`, Pods
+`create,list,watch,delete,deletecollection`, StatefulSets `get,delete`, and Services `list,delete`.
+Workers do not mount its token. Use a dedicated namespace and restrict modification of the owner
+annotations and referenced runtime configuration. Neither identity needs permission to delete PVCs
+or remote checkpoint data.
+
+### Multi-node failure validation
+
+The opt-in Kubernetes E2E cases use three disposable K3s nodes and an S3-compatible checkpoint
+backend. They check active/standby node loss with the same fixed worker, checkpoint-storage write
+and read outages, master takeover during an outage, explicit checkpoint restore after recovery,
+and cancellation/cleanup while storage is unavailable. User-owned storage and resources must survive.
+
+After building and staging the E2E dependencies, run:
+
+```bash
+./mvnw -pl seatunnel-e2e/seatunnel-resource-managers-e2e verify \
+  -DskipUT=true -DskipIT=false -Dseatunnel.kubernetes.e2e.multinode=true \
+  '-Dit.test=KubernetesApplicationHaIT#*NodeLoss*+*Storage*'
+```
+
+The fixture requires privileged Docker with cgroup v2. The node fault freezes all processes of one
+fixture node; surviving compute is removed before that node is thawed for teardown. These tests do
+not exercise live network-partition healing or strict partition protection. All nodes run on one
+Docker host, so this is not validation across independent physical hosts or storage systems.

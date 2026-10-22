@@ -32,6 +32,35 @@ import java.util.HashMap;
 public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
 
     @org.junit.jupiter.api.Test
+    public void testOnlyInitialTransportListingFailureCanRestartRecoveryScan() throws Exception {
+        HdfsStorage storage = org.mockito.Mockito.spy(new HdfsStorage(new HashMap<>()));
+        org.mockito.Mockito.doThrow(
+                        new CheckpointStorageException(
+                                "LIST timed out", new java.net.SocketTimeoutException()))
+                .when(storage)
+                .getFileNames(org.mockito.ArgumentMatchers.anyString());
+        org.junit.jupiter.api.Assertions.assertThrows(
+                org.apache.seatunnel.engine.checkpoint.storage.exception
+                        .CheckpointStorageUnavailableException.class,
+                () -> storage.getCheckpointsByJobIdAndPipelineId("outage", "1"));
+        org.mockito.Mockito.doThrow(
+                        new CheckpointStorageException(
+                                "Access denied",
+                                new org.apache.hadoop.security.AccessControlException("denied")))
+                .when(storage)
+                .getFileNames(org.mockito.ArgumentMatchers.anyString());
+        Exception denied =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () -> storage.getCheckpointsByJobIdAndPipelineId("outage", "1"));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                denied
+                        instanceof
+                        org.apache.seatunnel.engine.checkpoint.storage.exception
+                                .CheckpointStorageUnavailableException);
+    }
+
+    @org.junit.jupiter.api.Test
     public void testRecoveryRejectsCorruptRetainedCheckpoint() throws Exception {
         java.nio.file.Path namespace =
                 java.nio.file.Files.createTempDirectory("checkpoint-corrupt-");
@@ -58,7 +87,7 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
             }
             org.junit.jupiter.api.Assertions.assertThrows(
                     CheckpointStorageException.class,
-                    () -> storage.getCheckpointsForRecovery(job, "1"));
+                    () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
         } finally {
             storage.deleteCheckpoint(job);
             java.nio.file.Files.delete(namespace);
@@ -123,12 +152,14 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
                 if (continuous) {
                     org.junit.jupiter.api.Assertions.assertThrows(
                             CheckpointStorageException.class,
-                            () -> storage.getCheckpointsForRecovery(job, "1"));
+                            () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
                     org.junit.jupiter.api.Assertions.assertEquals(3, opens.get());
                 } else {
                     org.junit.jupiter.api.Assertions.assertEquals(
                             15,
-                            storage.getCheckpointsForRecovery(job, "1").get(0).getCheckpointId());
+                            storage.getCheckpointsByJobIdAndPipelineId(job, "1")
+                                    .get(0)
+                                    .getCheckpointId());
                 }
             } finally {
                 storage.fs = original;
@@ -183,10 +214,10 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
             if (removeAll || removeNewest) {
                 org.junit.jupiter.api.Assertions.assertThrows(
                         CheckpointStorageException.class,
-                        () -> storage.getCheckpointsForRecovery(job, "1"));
+                        () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
             } else {
                 java.util.List<org.apache.seatunnel.engine.checkpoint.storage.PipelineState>
-                        restored = storage.getCheckpointsForRecovery(job, "1");
+                        restored = storage.getCheckpointsByJobIdAndPipelineId(job, "1");
                 org.junit.jupiter.api.Assertions.assertEquals(1, restored.size());
                 org.junit.jupiter.api.Assertions.assertEquals(9, restored.get(0).getCheckpointId());
             }
@@ -221,15 +252,21 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
                         public org.apache.hadoop.fs.FSDataInputStream open(
                                 org.apache.hadoop.fs.Path path, int bufferSize)
                                 throws java.io.IOException {
-                            throw new java.io.IOException(
-                                    "checkpoint GET denied after LIST succeeded");
+                            throw new java.net.SocketTimeoutException(
+                                    "checkpoint GET timed out after LIST succeeded");
                         }
                     };
             org.junit.jupiter.api.Assertions.assertFalse(
                     storage.getFileNames(namespace + "/" + job).isEmpty());
-            org.junit.jupiter.api.Assertions.assertThrows(
-                    CheckpointStorageException.class,
-                    () -> storage.getCheckpointsForRecovery(job, "1"));
+            Exception failure =
+                    org.junit.jupiter.api.Assertions.assertThrows(
+                            CheckpointStorageException.class,
+                            () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
+            org.junit.jupiter.api.Assertions.assertFalse(
+                    failure
+                            instanceof
+                            org.apache.seatunnel.engine.checkpoint.storage.exception
+                                    .CheckpointStorageUnavailableException);
         } finally {
             storage.fs = original;
             storage.deleteCheckpoint(job);

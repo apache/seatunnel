@@ -84,9 +84,10 @@ public class LocalFileStorageTest {
 
     @Test
     public void testRecoveryReturnsOnlyRequestedPipelineAndAllowsAbsentJob() throws Exception {
-        Assertions.assertEquals(2, STORAGE.getCheckpointsForRecovery(JOB_ID, "1").size());
+        Assertions.assertEquals(2, STORAGE.getCheckpointsByJobIdAndPipelineId(JOB_ID, "1").size());
         Assertions.assertTrue(
-                STORAGE.getCheckpointsForRecovery("absent-" + java.util.UUID.randomUUID(), "1")
+                STORAGE.getCheckpointsByJobIdAndPipelineId(
+                                "absent-" + java.util.UUID.randomUUID(), "1")
                         .isEmpty());
     }
 
@@ -131,7 +132,7 @@ public class LocalFileStorageTest {
                             .build());
             Assertions.assertThrows(
                     CheckpointStorageException.class,
-                    () -> storage.getCheckpointsForRecovery(job, "1"));
+                    () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
         } finally {
             storage.deleteCheckpoint(job);
             java.nio.file.Files.delete(namespace);
@@ -177,12 +178,14 @@ public class LocalFileStorageTest {
                 if (continuous) {
                     Assertions.assertThrows(
                             CheckpointStorageException.class,
-                            () -> storage.getCheckpointsForRecovery(job, "1"));
+                            () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
                     Assertions.assertEquals(3, opens.get());
                 } else {
                     Assertions.assertEquals(
                             15,
-                            storage.getCheckpointsForRecovery(job, "1").get(0).getCheckpointId());
+                            storage.getCheckpointsByJobIdAndPipelineId(job, "1")
+                                    .get(0)
+                                    .getCheckpointId());
                 }
             } finally {
                 storage.deleteCheckpoint(job);
@@ -233,9 +236,9 @@ public class LocalFileStorageTest {
             if (removeAll || removeNewest) {
                 Assertions.assertThrows(
                         CheckpointStorageException.class,
-                        () -> storage.getCheckpointsForRecovery(job, "1"));
+                        () -> storage.getCheckpointsByJobIdAndPipelineId(job, "1"));
             } else {
-                List<PipelineState> restored = storage.getCheckpointsForRecovery(job, "1");
+                List<PipelineState> restored = storage.getCheckpointsByJobIdAndPipelineId(job, "1");
                 Assertions.assertEquals(1, restored.size());
                 Assertions.assertEquals(9, restored.get(0).getCheckpointId());
             }
@@ -264,7 +267,7 @@ public class LocalFileStorageTest {
             java.nio.file.Files.write(java.nio.file.Paths.get(latestFile), new byte[] {1, 2, 3});
             Assertions.assertThrows(
                     CheckpointStorageException.class,
-                    () -> STORAGE.getCheckpointsForRecovery(job, "1"));
+                    () -> STORAGE.getCheckpointsByJobIdAndPipelineId(job, "1"));
         } finally {
             STORAGE.deleteCheckpoint(job);
         }

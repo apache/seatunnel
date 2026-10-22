@@ -46,8 +46,7 @@ Status: RUNNING
 
 ## cancel
 
-
-单 Master 和普通 HA application 的 `cancel` 使用 UID 前置条件删除 owner Job 及自有资源。同一 handle 返回 `CANCELED`；删除后新 handle 返回 `UNKNOWN`，引用的用户资源保持不变。若通过原生引擎而非 application 命令取消，终态 Job 可以保留至 TTL 到期。
+单 Master 和 HA application 的 `cancel` 删除 owner Job 及自有资源。HA 使用 UID 前置条件；单 Master 仍清理 Job 已不存在时的孤立 Pod。同一 handle 返回 `CANCELED`；删除后新 handle 返回 `UNKNOWN`，引用的用户资源保持不变。若通过原生引擎而非 application 命令取消，终态 Job 可以保留至 TTL 到期。
 
 ## 用 kubectl 排查
 
@@ -68,4 +67,4 @@ kubectl -n seatunnel-apps logs job/example-9f2c41a0b7d3
 
 ## 普通 HA application
 
-[启用 HA](architecture.md) 后，提交还创建固定 Master/Worker StatefulSet。状态优先读取持久原生终态，不以 observer Job 退出条件判定。Application `cancel` 删除 owner Job 并回收自有资源，不保留被删除的 Job；删除后新的状态请求返回 `UNKNOWN`。若通过原生客户端取消作业，由 owner 记录 `CANCELED` 并保留至 Job TTL。可用 `kubectl get statefulsets,pods,services -l seatunnel.apache.org/application-id=APPLICATION_ID` 查看计算资源。
+[启用 HA](architecture.md) 后，提交还创建双 Master StatefulSet 和固定 Worker Pod。状态优先读取持久原生终态，不以 observer Job 退出条件判定。Application `cancel` 删除 owner Job 并回收自有资源，不保留被删除的 Job；删除后新的状态请求返回 `UNKNOWN`。若通过原生客户端取消作业，由 owner 记录 `CANCELED` 并保留至 Job TTL。可用 `kubectl get statefulsets,pods,services -l seatunnel.apache.org/application-id=APPLICATION_ID` 查看计算资源。

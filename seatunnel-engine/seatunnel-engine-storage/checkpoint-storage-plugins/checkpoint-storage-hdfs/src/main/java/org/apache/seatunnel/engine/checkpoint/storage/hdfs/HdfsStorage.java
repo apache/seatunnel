@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageUnavailableException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
 
@@ -211,37 +212,21 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     @Override
     public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-        String path = getStorageParentDirectory() + jobId;
-        List<String> fileNames = getFileNames(path);
-        if (fileNames.isEmpty()) {
-            log.info("No checkpoint found for this job, the job id is: " + jobId);
-            return new ArrayList<>();
-        }
-
-        List<PipelineState> pipelineStates = new ArrayList<>();
-        fileNames.forEach(
-                file -> {
-                    String filePipelineId = getPipelineIdByFileName(file);
-                    if (pipelineId.equals(filePipelineId)) {
-                        try {
-                            pipelineStates.add(readPipelineState(file, jobId));
-                        } catch (Exception e) {
-                            log.error("Failed to read checkpoint data from file " + file, e);
-                        }
-                    }
-                });
-        return pipelineStates;
-    }
-
-    @Override
-    public List<PipelineState> getCheckpointsForRecovery(String jobId, String pipelineId)
-            throws CheckpointStorageException {
         CheckpointStorageException disappeared = null;
         long highestListedCheckpoint = -1;
         for (int attempt = 0; attempt < 3; attempt++) {
             List<PipelineState> states = new ArrayList<>();
             boolean retry = false;
-            List<String> files = getFileNames(getStorageParentDirectory() + jobId);
+            List<String> files;
+            try {
+                files = getFileNames(getStorageParentDirectory() + jobId);
+            } catch (CheckpointStorageException failure) {
+                // Only an initial LIST can be restarted without losing observed checkpoint state.
+                if (attempt == 0 && isTemporaryConnectionFailure(failure.getCause())) {
+                    throw new CheckpointStorageUnavailableException(failure.getMessage(), failure);
+                }
+                throw failure;
+            }
             for (String file : files) {
                 if (pipelineId.equals(getPipelineIdByFileName(file))) {
                     highestListedCheckpoint =
@@ -286,6 +271,13 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         // Retention can remove an object between LIST and GET. Re-read a complete snapshot,
         // never return a partial scan or turn previously observed state into a fresh start.
         throw disappeared;
+    }
+
+    private boolean isTemporaryConnectionFailure(Throwable failure) {
+        return failure instanceof java.net.SocketTimeoutException
+                || failure instanceof java.net.ConnectException
+                || failure instanceof java.net.NoRouteToHostException
+                || failure instanceof java.net.SocketException;
     }
 
     @Override

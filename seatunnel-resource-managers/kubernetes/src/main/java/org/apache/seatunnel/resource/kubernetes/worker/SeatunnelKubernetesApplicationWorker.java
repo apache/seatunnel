@@ -41,11 +41,12 @@ public final class SeatunnelKubernetesApplicationWorker {
      * @param args cluster name, master address and fixed slot count
      */
     public static void main(String[] args) {
-        if (args.length != 3 && args.length != 4) {
-            throw new IllegalArgumentException("Expected <cluster-name> <master-address> <slots>");
+        if (args.length != 3 && !(args.length == 5 && "--ha".equals(args[3]))) {
+            throw new IllegalArgumentException(
+                    "Expected <cluster-name> <master-addresses> <slots> [--ha <backup-count>]");
         }
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        boolean ha = args.length == 4;
+        boolean ha = args.length == 5;
         if (ha) {
             SeatunnelApplicationConfig.configureHa(
                     config,
@@ -53,7 +54,7 @@ public final class SeatunnelKubernetesApplicationWorker {
                     java.util.Arrays.asList(args[1].split(",")),
                     true,
                     Integer.parseInt(args[2]),
-                    Integer.parseInt(args[3]));
+                    Integer.parseInt(args[4]));
         } else {
             SeatunnelApplicationConfig.configure(
                     config, args[0], args[1], Integer.parseInt(args[2]));

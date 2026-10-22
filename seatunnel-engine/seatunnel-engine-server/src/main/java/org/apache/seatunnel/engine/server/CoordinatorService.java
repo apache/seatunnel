@@ -184,6 +184,12 @@ public class CoordinatorService {
      */
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
+    // Restoration is not yet visible to ordinary status/stop RPCs, but must be
+    // cancelable/retirable.
+    private final Map<Long, JobMaster> restoringJobMasterMap = new ConcurrentHashMap<>();
+
+    private final Map<Long, Object> submittingJobClaims = new ConcurrentHashMap<>();
+
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
 
@@ -1161,24 +1167,55 @@ public class CoordinatorService {
                         engineConfig,
                         seaTunnelServer);
 
+        synchronized (this) {
+            if (!seaTunnelServer.isMasterNode() || executorService.isShutdown()) {
+                return;
+            }
+            if (getJobMaster(jobId) != null
+                    || restoringJobMasterMap.containsKey(jobId)
+                    || submittingJobClaims.containsKey(jobId)) {
+                return;
+            }
+            restoringJobMasterMap.put(jobId, jobMaster);
+        }
         try {
             jobMaster.init(jobInfo.getInitializationTimestamp(), true);
-        } catch (Exception e) {
-            throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
-        }
-
-        PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
-        try {
-            pendingJobQueue.put(pendingJobInfo);
+            synchronized (this) {
+                jobMaster.checkRecoveryActive();
+                PendingJobInfo pendingJobInfo =
+                        new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
+                pendingJobQueue.put(pendingJobInfo);
+                jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+                restoringJobMasterMap.remove(jobId, jobMaster);
+            }
+            logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new SeaTunnelEngineException(
-                    String.format(
-                            "Job id %s restore interrupted while entering pending queue", jobId),
-                    e);
+                    String.format("Job id %s master takeover retired", jobId), e);
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
+        } finally {
+            restoringJobMasterMap.remove(jobId, jobMaster);
         }
-        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
-        logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    /** Keeps initialized takeover-abort callbacks routable until retained tasks have drained. */
+    public synchronized void registerRestoringJobAbort(JobMaster jobMaster) {
+        long jobId = jobMaster.getJobId();
+        if (!seaTunnelServer.isMasterNode()
+                || executorService.isShutdown()
+                || restoringJobMasterMap.get(jobId) != jobMaster) {
+            throw new SeaTunnelEngineException("Master takeover abort no longer owned locally");
+        }
+        JobMaster previous = runningJobMasterMap.putIfAbsent(jobId, jobMaster);
+        if (previous != null && previous != jobMaster) {
+            throw new SeaTunnelEngineException("Job already has a different local master");
+        }
+        restoringJobMasterMap.remove(jobId, jobMaster);
+        jobMaster
+                .getJobMasterCompleteFuture()
+                .whenComplete((result, failure) -> runningJobMasterMap.remove(jobId, jobMaster));
     }
 
     private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
@@ -1190,10 +1227,13 @@ public class CoordinatorService {
     }
 
     private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
+        JobInfo previousJobInfo = runningJobInfoIMap.get(jobId);
         removeKeys(runningJobStateIMap, record.getStateKeys());
         removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
         removePendingJobCleanupRecord(jobId, record);
-        runningJobInfoIMap.remove(jobId);
+        if (previousJobInfo != null) {
+            runningJobInfoIMap.remove(jobId, previousJobInfo);
+        }
     }
 
     /**
@@ -1305,6 +1345,9 @@ public class CoordinatorService {
             return;
         }
         pendingJobScheduleEpoch.incrementAndGet();
+        restoringJobMasterMap.values().forEach(JobMaster::interrupt);
+        restoringJobMasterMap.clear();
+        submittingJobClaims.clear();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
@@ -1404,7 +1447,7 @@ public class CoordinatorService {
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
-        if (getJobMaster(jobId) != null) {
+        if (getJobMaster(jobId) != null || restoringJobMasterMap.containsKey(jobId)) {
             logger.warning(
                     String.format(
                             "The job %s is currently running; no need to submit again.", jobId));
@@ -1412,32 +1455,59 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+        ExecutorService submissionExecutor = executorService;
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, submissionExecutor);
         mdcExecutorService.submit(
                 () -> {
+                    Object claim = new Object();
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
+                    PendingJobInfo pendingJobInfo = null;
                     try {
+                        synchronized (this) {
+                            if (getJobMaster(jobId) != null
+                                    || restoringJobMasterMap.containsKey(jobId)
+                                    || submittingJobClaims.containsKey(jobId)) {
+                                jobSubmitFuture.complete(null);
+                                return;
+                            }
+                            if (executorService != submissionExecutor
+                                    || submissionExecutor.isShutdown()
+                                    || !seaTunnelServer.isMasterNode()) {
+                                throw new JobException("Submission coordinator no longer active");
+                            }
+                            Object state = runningJobStateIMap.get(jobId);
+                            if (runningJobInfoIMap.containsKey(jobId)
+                                    && state instanceof JobStatus
+                                    && !((JobStatus) state).isEndState()) {
+                                jobSubmitFuture.complete(null);
+                                return;
+                            }
+                            submittingJobClaims.put(jobId, claim);
+                        }
                         JobImmutableInformation submittedJobImmutableInformation =
                                 deserializeJobImmutableInformation(jobImmutableInformation);
                         validateCheckpointRestoreSourceJobIsTerminal(
                                 submittedJobImmutableInformation, jobId);
-                        if (isStartWithSavePoint) {
-                            cleanupPendingPipelineCleanupForRestore(jobId);
-                        }
-                        JobCleanupRecord pendingCleanupRecord =
-                                pendingJobCleanupIMap != null
-                                        ? pendingJobCleanupIMap.get(jobId)
-                                        : null;
-                        if (pendingCleanupRecord != null
-                                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
+                        synchronized (this) {
+                            checkSubmissionOwned(jobId, claim, submissionExecutor);
                             if (isStartWithSavePoint) {
-                                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
-                            } else {
-                                throw new JobException(
-                                        String.format(
-                                                "The job id %s is waiting for terminal state cleanup, please retry later.",
-                                                jobId));
+                                cleanupPendingPipelineCleanupForRestore(jobId);
+                            }
+                            JobCleanupRecord pendingCleanupRecord =
+                                    pendingJobCleanupIMap != null
+                                            ? pendingJobCleanupIMap.get(jobId)
+                                            : null;
+                            if (pendingCleanupRecord != null
+                                    && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
+                                if (isStartWithSavePoint) {
+                                    cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
+                                } else {
+                                    throw new JobException(
+                                            String.format(
+                                                    "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                                    jobId));
+                                }
                             }
                         }
 
@@ -1464,39 +1534,63 @@ public class CoordinatorService {
                                             jobId));
                         }
                         long initializationTimestamp = System.currentTimeMillis();
-                        submittedJobInfo =
-                                new JobInfo(initializationTimestamp, jobImmutableInformation);
-                        runningJobInfoIMap.put(jobId, submittedJobInfo);
+                        synchronized (this) {
+                            checkSubmissionOwned(jobId, claim, submissionExecutor);
+                            JobInfo candidate =
+                                    new JobInfo(initializationTimestamp, jobImmutableInformation);
+                            if (runningJobInfoIMap.putIfAbsent(jobId, candidate) != null) {
+                                throw new JobException("Job metadata already owned: " + jobId);
+                            }
+                            submittedJobInfo = candidate;
+                        }
                         jobMaster.init(initializationTimestamp, false);
-                        // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
-                        // calling the getJobMaster method does not return NULL when the
-                        // jobSubmitFuture is still running.
-                        PendingJobInfo pendingJobInfo =
-                                new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster);
-                        pendingJobQueue.put(pendingJobInfo);
-                        // We specify that when init is complete, the submitJob is complete.
-                        jobSubmitFuture.complete(null);
-                    } catch (Throwable e) {
-                        String errorMsg = ExceptionUtils.getMessage(e);
-                        logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
-                        jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
-                    }
-                    if (!jobSubmitFuture.isCompletedExceptionally()) {
-                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+                        pendingJobInfo = new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster);
+                        synchronized (this) {
+                            checkSubmissionOwned(jobId, claim, submissionExecutor);
+                            pendingJobQueue.put(pendingJobInfo);
+                            jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+                            jobSubmitFuture.complete(null);
+                        }
                         logger.info(
                                 String.format(
                                         "The submit job enter the pending queue , jobId: %s , jobName: %s",
                                         jobId,
                                         jobMaster.getJobImmutableInformation().getJobName()));
-                    } else {
-                        if (submittedJobInfo != null) {
-                            runningJobInfoIMap.remove(jobId, submittedJobInfo);
+                    } catch (Throwable e) {
+                        String errorMsg = ExceptionUtils.getMessage(e);
+                        logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
+                        synchronized (this) {
+                            if (submittedJobInfo != null
+                                    && executorService == submissionExecutor
+                                    && !submissionExecutor.isShutdown()
+                                    && seaTunnelServer.isMasterNode()
+                                    && submittingJobClaims.get(jobId) == claim) {
+                                runningJobInfoIMap.remove(jobId, submittedJobInfo);
+                            }
+                            if (jobMaster != null) {
+                                runningJobMasterMap.remove(jobId, jobMaster);
+                            }
+                            if (pendingJobInfo != null) {
+                                pendingJobQueue.remove(pendingJobInfo);
+                            }
                         }
-                        runningJobMasterMap.remove(jobId);
-                        pendingJobQueue.removeById(jobId);
+                        jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
+                    } finally {
+                        submittingJobClaims.remove(jobId, claim);
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
+    }
+
+    private void checkSubmissionOwned(
+            long jobId, Object claim, ExecutorService submissionExecutor) {
+        if (submittingJobClaims.get(jobId) != claim
+                || executorService != submissionExecutor
+                || submissionExecutor.isShutdown()
+                || !seaTunnelServer.isMasterNode()
+                || Thread.currentThread().isInterrupted()) {
+            throw new JobException("Submission coordinator no longer active");
+        }
     }
 
     private void validateCheckpointRestoreSourceJobIsTerminal(
@@ -1587,7 +1681,17 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<Void> cancelJob(long jobId) {
-        JobMaster runningJobMaster = getJobMaster(jobId);
+        JobMaster cancelTarget;
+        synchronized (this) {
+            cancelTarget = restoringJobMasterMap.get(jobId);
+            if (cancelTarget != null) {
+                // init() holds the JobMaster monitor while reading checkpoint storage.
+                cancelTarget.neverNeedRestore();
+            } else {
+                cancelTarget = getJobMaster(jobId);
+            }
+        }
+        JobMaster runningJobMaster = cancelTarget;
         if (runningJobMaster == null) {
             CompletableFuture<Void> future = new CompletableFuture<>();
             future.complete(null);
@@ -2066,7 +2170,8 @@ public class CoordinatorService {
             return ((TaskGroupLocation) key).getJobId() == jobId;
         }
         if (key instanceof String) {
-            return ((String) key).startsWith("checkpoint_state_" + jobId + "_");
+            return ((String) key).startsWith("checkpoint_state_" + jobId + "_")
+                    || ((String) key).startsWith("task_execution_" + jobId + "_");
         }
         return false;
     }

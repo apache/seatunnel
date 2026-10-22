@@ -214,6 +214,28 @@ public class PhysicalPlan {
         }
     }
 
+    /** Drains retained tasks after takeover initialization aborted, without scheduling new work. */
+    public synchronized void abortRestoringJob(Throwable failure) {
+        if (getJobStatus().isEndState()) {
+            return;
+        }
+        jobMaster.neverNeedRestore();
+        isRunning = true;
+        if (failure == null) {
+            updateJobState(JobStatus.CANCELING);
+            pipelineList.stream()
+                    .filter(pipeline -> !pipeline.getCurrPipelineStatus().isEndState())
+                    .forEach(SubPlan::cancelPipeline);
+        } else {
+            errorBySubPlan.compareAndSet(null, ExceptionUtils.getMessage(failure));
+            updateJobState(JobStatus.FAILING);
+            pipelineList.stream()
+                    .filter(pipeline -> !pipeline.getCurrPipelineStatus().isEndState())
+                    .forEach(pipeline -> pipeline.makePipelineFailing(failure));
+        }
+        pipelineList.forEach(SubPlan::startSubPlanStateProcess);
+    }
+
     public void savepointJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {

@@ -220,14 +220,14 @@ class SeatunnelApplicationConfigTest {
         SeatunnelApplicationConfig.configureHa(
                 config,
                 "ha",
-                java.util.Arrays.asList("master-0:5801", "master-1:5801", "master-2:5801"),
+                java.util.Arrays.asList("master-0:5801", "master-1:5801"),
                 false,
                 1,
-                2);
+                1);
         for (String name :
                 java.util.Arrays.asList(
                         "engine_runningJobInfo", "engine_runningJobState", "other-native-map")) {
-            assertEquals(2, config.getHazelcastConfig().getMapConfig(name).getBackupCount(), name);
+            assertEquals(1, config.getHazelcastConfig().getMapConfig(name).getBackupCount(), name);
             assertEquals(
                     0, config.getHazelcastConfig().getMapConfig(name).getAsyncBackupCount(), name);
         }
@@ -238,7 +238,7 @@ class SeatunnelApplicationConfigTest {
         for (boolean worker : new boolean[] {false, true}) {
             SeaTunnelConfig config = new SeaTunnelConfig();
             java.util.List<String> peers =
-                    java.util.Arrays.asList("master-0:5801", "master-1:5801", "master-2:5801");
+                    java.util.Arrays.asList("master-0:5801", "master-1:5801");
             config.getHazelcastConfig().setProperty("hazelcast.max.no.heartbeat.seconds", "90");
             SeatunnelApplicationConfig.configureHa(config, "isolated-ha", peers, worker, 3, 1);
             assertEquals(

@@ -34,8 +34,8 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -215,7 +215,7 @@ class KubernetesApplicationTest {
 
     @Test
     void retrievesLazyProviderWithIndependentlyOwnedClients() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getJob("existing-job")).thenReturn(job(new V1JobStatus().active(1)));
         when(api.listPods(anyString()))
                 .thenReturn(Collections.singletonList(pod("master", "Running")));
@@ -251,7 +251,7 @@ class KubernetesApplicationTest {
 
     @Test
     void rejectsEmptyJobNameWithoutPlatformRequests() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         try (KubernetesApplicationClusterDescriptor descriptor =
                 new KubernetesApplicationClusterDescriptor(api, options())) {
             assertThrows(IllegalArgumentException.class, () -> descriptor.retrieve(" "));
@@ -261,7 +261,7 @@ class KubernetesApplicationTest {
 
     @Test
     void continuesWhenUserManagedConfigMapsCannotBeRead() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getConfigMap("platform-runtime"))
                 .thenThrow(new KubernetesClientException(403, "forbidden"));
         when(api.createJob(any())).thenReturn(job());
@@ -280,7 +280,7 @@ class KubernetesApplicationTest {
 
     @Test
     void failsBeforeCreatingResourcesWhenReferencedConfigMapIsMissing() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getConfigMap("platform-runtime"))
                 .thenThrow(new KubernetesClientException(404, "not found"));
         Map<String, String> options = options();
@@ -298,7 +298,7 @@ class KubernetesApplicationTest {
 
     @Test
     void rejectsMissingReferencedConfigMapKeysBeforeCreatingResources() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getConfigMap("platform-runtime"))
                 .thenReturn(
                         new KubernetesConfigMap(
@@ -320,7 +320,7 @@ class KubernetesApplicationTest {
 
     @Test
     void failsBeforeCreatingResourcesWhenReferencedSecretIsMissing() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getSecret("platform-secrets"))
                 .thenThrow(new KubernetesClientException(404, "not found"));
         Map<String, String> options = options();
@@ -335,7 +335,7 @@ class KubernetesApplicationTest {
 
     @Test
     void failsBeforeCreatingResourcesWhenEnvFromSecretIsMissing() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getSecret("platform-secrets"))
                 .thenThrow(new KubernetesClientException(404, "not found"));
         Map<String, String> options = options();
@@ -350,7 +350,7 @@ class KubernetesApplicationTest {
 
     @Test
     void rejectsMissingEnvironmentSecretKeysBeforeCreatingResources() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getSecret("platform-secrets"))
                 .thenReturn(
                         new KubernetesSecret(
@@ -369,7 +369,7 @@ class KubernetesApplicationTest {
 
     @Test
     void acceptsReferencesToTheSecretThisSubmissionCreates() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         // The application-owned Secret does not exist before this submission creates it.
         when(api.getSecret("application-secrets"))
                 .thenThrow(new KubernetesClientException(404, "not found"));
@@ -389,7 +389,7 @@ class KubernetesApplicationTest {
 
     @Test
     void rejectsMissingKeysInTheSecretThisSubmissionCreates() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         Map<String, String> options = options();
         options.put(KubernetesOptions.SECRET_NAME.key(), "application-secrets");
         options.put("kubernetes.secret.data.MYSQL_PASSWORD", "secret-value");
@@ -405,7 +405,7 @@ class KubernetesApplicationTest {
 
     @Test
     void acceptsReferencesToTheConfigMapThisSubmissionCreates() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         // The application-owned ConfigMap does not exist before this submission creates it.
         when(api.getConfigMap("application-config"))
                 .thenThrow(new KubernetesClientException(404, "not found"));
@@ -432,7 +432,7 @@ class KubernetesApplicationTest {
 
     @Test
     void rejectsMissingKeysInTheConfigMapThisSubmissionCreates() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         Map<String, String> options = options();
         options.put("kubernetes.configmap.generated.name", "application-config");
         options.put("kubernetes.configmap.generated.data.application-e2e.properties", "value");
@@ -452,7 +452,7 @@ class KubernetesApplicationTest {
 
     @Test
     void continuesWhenReferencedSecretsCannotBeRead() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getSecret("platform-secrets"))
                 .thenThrow(new KubernetesClientException(403, "forbidden"));
         when(api.createJob(any())).thenReturn(job());
@@ -470,7 +470,7 @@ class KubernetesApplicationTest {
 
     @Test
     void deploysDependenciesBeforeStartingOwner() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any()))
                 .thenAnswer(
                         invocation -> {
@@ -496,7 +496,7 @@ class KubernetesApplicationTest {
 
     @Test
     void submissionReturnsWithoutWaitingForTheMaster() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any())).thenReturn(job());
         try (KubernetesApplicationClusterDescriptor descriptor =
                 new KubernetesApplicationClusterDescriptor(api, options())) {
@@ -511,7 +511,7 @@ class KubernetesApplicationTest {
 
     @Test
     void compensatesCreatedResourcesWhenAccompanyingResourcesFail() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any())).thenReturn(job());
         doThrow(new KubernetesClientException(403, "denied"))
                 .when(api)
@@ -526,7 +526,7 @@ class KubernetesApplicationTest {
 
     @Test
     void compensatesAmbiguousJobCreationRequests() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any()))
                 .thenThrow(new KubernetesClientException(0, "connection interrupted"));
         assertThrows(
@@ -540,7 +540,7 @@ class KubernetesApplicationTest {
 
     @Test
     void compensatesAmbiguousAccompanyingResourceRequests() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any())).thenReturn(job());
         doThrow(new KubernetesClientException(0, "connection interrupted"))
                 .when(api)
@@ -555,7 +555,7 @@ class KubernetesApplicationTest {
 
     @Test
     void doesNotCompensateResourcesThisSubmissionDidNotCreate() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.createJob(any())).thenThrow(new KubernetesClientException(409, "already exists"));
         assertThrows(
                 KubernetesClientException.class,
@@ -568,7 +568,7 @@ class KubernetesApplicationTest {
 
     @Test
     void mapsTerminalJobConditionsAndCancellation() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         KubernetesApplicationClient client = new KubernetesApplicationClient(api, "app");
         when(api.getJob("app"))
                 .thenReturn(
@@ -594,13 +594,14 @@ class KubernetesApplicationTest {
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         client.cancel();
         assertEquals(ApplicationStatus.CANCELED, client.getStatus());
+        verify(api).deleteOrphanPods("app");
         verify(api, never()).deleteApplication("app");
         verify(api, never()).deleteApplication(anyString(), anyString());
     }
 
     @Test
     void applicationOperationsWorkAfterMasterExit() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getJob("finished"))
                 .thenReturn(
                         job(
@@ -627,7 +628,7 @@ class KubernetesApplicationTest {
         Map<String, String> options = new HashMap<>();
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env {}", options);
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -694,7 +695,7 @@ class KubernetesApplicationTest {
 
     @Test
     void haPrefersDurableNativeOutcomeAndDeletesByOwnerUid() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         KubernetesJob owner =
                 job(
                         new V1JobStatus()
@@ -732,7 +733,7 @@ class KubernetesApplicationTest {
 
     @Test
     void freshHaRetrievalUsesStableServiceAndItsPersistedPort() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         KubernetesJob owner = job(new V1JobStatus().active(1));
         owner.getInternalResource()
                 .getMetadata()
@@ -778,7 +779,7 @@ class KubernetesApplicationTest {
 
     @Test
     void haAmbiguousOwnerCreationNeverDeletesByNameOrLabels() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         when(api.getConfigMap("seatunnel-runtime"))
                 .thenReturn(
                         new KubernetesConfigMap(
@@ -803,7 +804,7 @@ class KubernetesApplicationTest {
 
     @Test
     void haStatusWaitsForNativeRunningInsteadOfWorkerPodReadiness() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
         KubernetesJob owner = job(new V1JobStatus().active(1));
         Map<String, String> state = new HashMap<>();
         state.put(

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
-import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesHaApplication;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
@@ -32,7 +31,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesStatefulSet;
-import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.openapi.models.V1Container;
@@ -50,9 +48,7 @@ import io.kubernetes.client.openapi.models.V1StatefulSetSpec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -105,64 +101,58 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
         master = new SpecificationEnvDecorator(parameters).decorate(master);
 
         master.getSpec().setRestartPolicy("Always");
-        master.getSpec().setAutomountServiceAccountToken(false);
+        // Active masters use the existing Kubernetes driver and guarded submission policy.
+        master.getSpec().setAutomountServiceAccountToken(true);
         resources.add(pool(id, "master", parameters.getMasterReplicas(), master));
 
-        V1Pod worker =
-                ApplicationJobFactory.createMasterPod(
-                        id, SeatunnelKubernetesHaApplication.class.getName(), parameters);
-        int memory = parameters.getSpecification().getWorkerSpecification().getMemoryMb();
-        V1Container container =
-                container(
-                        memory,
-                        parameters.getSpecification().getWorkerSpecification().getCpuCores());
-        container.setVolumeMounts(worker.getSpec().getContainers().get(0).getVolumeMounts());
-        container.setCommand(
-                command(
-                        memory,
-                        parameters.getWorkerHazelcastConfig(),
-                        parameters.getWorkerJvmOptionsFiles(),
-                        SeatunnelKubernetesApplicationWorker.class.getName(),
-                        SeatunnelApplicationConfig.clusterName(id),
-                        String.join(",", masterAddresses(id, parameters)),
-                        Integer.toString(
-                                parameters.getSpecification().getWorkerSpecification().getSlots()),
-                        Integer.toString(parameters.getHaBackupCount())));
-        worker.getSpec().setContainers(java.util.Collections.singletonList(container));
-        worker.getSpec().setNodeSelector(parameters.getWorkerNodeSelector());
-        // Use the shared role-specific Pod builder for service account, scheduling and tolerations.
-        io.kubernetes.client.openapi.models.V1PodSpec workerSpec = podSpec(container, false);
-        workerSpec.setVolumes(worker.getSpec().getVolumes());
-        worker.setSpec(workerSpec);
-        worker.setMetadata(
-                KubernetesResourceIdentity.podMetadata(
-                        id,
-                        "worker",
-                        parameters.getWorkerLabels(),
-                        parameters.getWorkerAnnotations()));
-        for (KubernetesStepDecorator decorator : common) {
-            worker = decorator.decorate(worker);
-        }
-
-        worker.getSpec().setRestartPolicy("Always");
-        resources.add(pool(id, "worker", parameters.getSpecification().getWorkerCount(), worker));
         resources.add(service(id, id, false));
         resources.add(service(id, id + "-discovery", true));
 
-        V1Pod observer =
-                ApplicationJobFactory.createMasterPod(
-                        id, SeatunnelKubernetesHaApplication.class.getName(), parameters);
-        observer.setMetadata(
-                KubernetesResourceIdentity.podMetadata(
+        String encoded =
+                master.getSpec().getContainers().get(0).getEnv().stream()
+                        .filter(env -> KubernetesConstants.SPECIFICATION_ENV.equals(env.getName()))
+                        .findFirst()
+                        .get()
+                        .getValue();
+        V1Container ownerContainer =
+                container(128, 1)
+                        .resources(
+                                container(128, 1)
+                                        .getResources()
+                                        .putRequestsItem(
+                                                KubernetesConstants.CPU_RESOURCE,
+                                                io.kubernetes.client.custom.Quantity.fromString(
+                                                        "100m")));
+        ownerContainer.setCommand(
+                command(
+                        128,
+                        null,
+                        java.util.Collections.emptyList(),
+                        SeatunnelKubernetesHaApplication.class.getName(),
                         id,
                         OWNER_ROLE,
-                        parameters.getMasterLabels(),
-                        parameters.getMasterAnnotations()));
-        V1Container ownerContainer = observer.getSpec().getContainers().get(0);
-        ownerContainer.getCommand().add(OWNER_ROLE);
-        ownerContainer.setStartupProbe(null);
-        ownerContainer.setReadinessProbe(null);
-        ownerContainer.setLivenessProbe(null);
+                        parameters.getNamespace(),
+                        Long.toString(parameters.getSpecification().getJobId()),
+                        Long.toString(parameters.getSpecification().getStartupTimeoutMillis()),
+                        HaApplicationState.digest(encoded)));
+        ownerContainer
+                .getCommand()
+                .removeIf(
+                        argument ->
+                                argument.startsWith(KubernetesConstants.SYSPROP_SEATUNNEL_CONFIG)
+                                        || argument.startsWith(
+                                                KubernetesConstants.SYSPROP_LOG4J_CONFIG));
+        V1Pod observer =
+                new V1Pod()
+                        .apiVersion("v1")
+                        .kind("Pod")
+                        .metadata(
+                                KubernetesResourceIdentity.podMetadata(
+                                        id,
+                                        OWNER_ROLE,
+                                        parameters.getMasterLabels(),
+                                        parameters.getMasterAnnotations()))
+                        .spec(podSpec(ownerContainer, true));
         ownerContainer.addEnvItem(
                 new V1EnvVar()
                         .name(OWNER_UID_ENV)
@@ -172,30 +162,16 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
                                                 new V1ObjectFieldSelector()
                                                         .fieldPath(
                                                                 "metadata.labels['batch.kubernetes.io/controller-uid']"))));
-        for (KubernetesStepDecorator decorator : common) {
-            observer = decorator.decorate(observer);
-        }
-        observer = new SpecificationEnvDecorator(parameters).decorate(observer);
         KubernetesJob owner = ApplicationJobFactory.createOwnerJob(id, parameters, observer);
         owner.getInternalResource()
                 .getMetadata()
                 .setLabels(KubernetesResourceIdentity.metadata(id, id, OWNER_ROLE).getLabels());
         owner.getInternalResource().getSpec().setBackoffLimit(6);
-        String encoded =
-                observer.getSpec().getContainers().get(0).getEnv().stream()
-                        .filter(env -> KubernetesConstants.SPECIFICATION_ENV.equals(env.getName()))
-                        .findFirst()
-                        .get()
-                        .getValue();
-        Map<String, String> annotations = new HashMap<>();
-        annotations.put(HaApplicationState.ENABLED, "true");
-
-        annotations.put(HaApplicationState.INTENT, "new");
-        annotations.put(
-                HaApplicationState.JOB_ID, Long.toString(parameters.getSpecification().getJobId()));
-        annotations.put(HaApplicationState.SPEC_DIGEST, HaApplicationState.digest(encoded));
-        annotations.put(HaApplicationState.STATUS, "DEPLOYING");
-        owner.getInternalResource().getMetadata().setAnnotations(annotations);
+        owner.getInternalResource()
+                .getMetadata()
+                .setAnnotations(
+                        HaApplicationState.initial(
+                                encoded, parameters.getSpecification().getJobId()));
         resources.add(0, owner);
         return resources;
     }

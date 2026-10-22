@@ -92,7 +92,7 @@ class DefaultKubernetesClientTest {
                                             .build();
                                 })
                         .build());
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.startJob("application");
         }
     }
@@ -126,7 +126,7 @@ class DefaultKubernetesClientTest {
                                         .build());
         // The pod informer requires a client without a read timeout.
         client.setReadTimeout(0);
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             KubernetesWatch watch = api.watchPods("role=worker", callback(added, error));
             try {
                 assertTrue(added.await(5, TimeUnit.SECONDS));
@@ -150,7 +150,7 @@ class DefaultKubernetesClientTest {
                                         .build());
         // The pod informer requires a client without a read timeout.
         client.setReadTimeout(0);
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             KubernetesWatch watch =
                     api.watchPods(
                             "role=worker",
@@ -241,7 +241,7 @@ class DefaultKubernetesClientTest {
                                 .metadata(new V1ObjectMeta().name("app-master"))
                                 .spec(new V1ServiceSpec().clusterIP("None")));
         job.getInternalResource().getMetadata().setUid("owner-uid");
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.createAccompanyingResources(
                     job, Arrays.<KubernetesResource<?>>asList(secret, configMap, service));
         }
@@ -288,7 +288,7 @@ class DefaultKubernetesClientTest {
                                                             .build();
                                                 })
                                         .build());
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.deleteApplication("app");
         }
         assertEquals(3, requests.size());
@@ -362,7 +362,7 @@ class DefaultKubernetesClientTest {
                                                 .name("app")
                                                 .uid("original")
                                                 .resourceVersion("17")));
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.updateHaState(
                     owner, Collections.singletonMap(HaApplicationState.INTENT, "requested"));
         }
@@ -416,7 +416,7 @@ class DefaultKubernetesClientTest {
                                                             "{\"kind\":\"Status\"}");
                                                 })
                                         .build());
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.deleteApplication("app", "original");
         }
         assertEquals(
@@ -453,7 +453,8 @@ class DefaultKubernetesClientTest {
                                                                 "resource-uid",
                                                                 deletion.getPreconditions()
                                                                         .getUid());
-                                                        if (path.contains("/statefulsets/")) {
+                                                        if (path.contains("/statefulsets/")
+                                                                || path.contains("/pods/")) {
                                                             assertEquals(
                                                                     "Foreground",
                                                                     deletion
@@ -494,6 +495,15 @@ class DefaultKubernetesClientTest {
                                                                 200,
                                                                 "{\"metadata\":{\"name\":\"app-worker\",\"uid\":\"user-owned\"}}");
                                                     }
+                                                    if (path.endsWith("/pods")) {
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                200,
+                                                                "{\"items\":[{\"metadata\":"
+                                                                        + ownedMetadata(
+                                                                                "app-worker-0")
+                                                                        + "},{\"metadata\":{\"name\":\"user-pod\",\"uid\":\"user-owned\"}}]}");
+                                                    }
                                                     assertTrue(path.endsWith("/services"));
                                                     assertTrue(
                                                             chain.request()
@@ -513,12 +523,13 @@ class DefaultKubernetesClientTest {
         KubernetesJob owner =
                 new KubernetesJob(
                         new V1Job().metadata(new V1ObjectMeta().name("app").uid("original")));
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             api.deleteHaResources(owner);
         }
         assertEquals(
                 Arrays.asList(
                         "/apis/apps/v1/namespaces/test/statefulsets/app-master",
+                        "/api/v1/namespaces/test/pods/app-worker-0",
                         "/api/v1/namespaces/test/services/app",
                         "/api/v1/namespaces/test/services/app-discovery"),
                 deleted);
@@ -542,7 +553,7 @@ class DefaultKubernetesClientTest {
                                                             "{\"metadata\":{\"name\":\"app\",\"uid\":\"replacement\"}}");
                                                 })
                                         .build());
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             assertThrows(
                     IllegalStateException.class,
                     () ->
@@ -555,6 +566,105 @@ class DefaultKubernetesClientTest {
                                                                     .uid("original")))));
         }
         assertEquals(0, deletes.get());
+    }
+
+    @Test
+    void orphanCleanupPreservesReplacementOwnerAndPods() throws Exception {
+        for (int appearsOnRead : new int[] {1, 2}) {
+            AtomicInteger reads = new AtomicInteger();
+            AtomicInteger deletes = new AtomicInteger();
+            ApiClient client =
+                    new ApiClient()
+                            .setHttpClient(
+                                    new OkHttpClient.Builder()
+                                            .addInterceptor(
+                                                    chain -> {
+                                                        if (chain.request()
+                                                                .method()
+                                                                .equals("DELETE")) {
+                                                            deletes.incrementAndGet();
+                                                        }
+                                                        if (chain.request()
+                                                                .url()
+                                                                .encodedPath()
+                                                                .endsWith("/jobs/app")) {
+                                                            return jsonResponse(
+                                                                    chain.request(),
+                                                                    reads.incrementAndGet()
+                                                                                    >= appearsOnRead
+                                                                            ? 200
+                                                                            : 404,
+                                                                    "{\"metadata\":{\"name\":\"app\",\"uid\":\"replacement\"}}");
+                                                        }
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                200,
+                                                                "{\"items\":[{\"metadata\":"
+                                                                        + ownedMetadata(
+                                                                                "app-worker-0")
+                                                                        + "}]}");
+                                                    })
+                                            .build());
+            try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
+                api.deleteOrphanPods("app");
+            }
+            assertEquals(0, deletes.get());
+        }
+    }
+
+    @Test
+    void orphanCleanupDeletesOnlyObservedJobOwnedPodUid() throws Exception {
+        List<String> deleted = new ArrayList<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    String path =
+                                                            chain.request().url().encodedPath();
+                                                    if (chain.request().method().equals("DELETE")) {
+                                                        deleted.add(path);
+                                                        Buffer body = new Buffer();
+                                                        chain.request().body().writeTo(body);
+                                                        V1DeleteOptions options =
+                                                                new io.kubernetes
+                                                                                .client
+                                                                                .openapi
+                                                                                .JSON()
+                                                                        .deserialize(
+                                                                                body.readUtf8(),
+                                                                                V1DeleteOptions
+                                                                                        .class);
+                                                        assertEquals(
+                                                                "resource-uid",
+                                                                options.getPreconditions()
+                                                                        .getUid());
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                404,
+                                                                "{\"kind\":\"Status\"}");
+                                                    }
+                                                    if (path.endsWith("/jobs/app")) {
+                                                        return jsonResponse(
+                                                                chain.request(),
+                                                                404,
+                                                                "{\"kind\":\"Status\"}");
+                                                    }
+                                                    return jsonResponse(
+                                                            chain.request(),
+                                                            200,
+                                                            "{\"items\":[{\"metadata\":"
+                                                                    + ownedMetadata("app-worker-0")
+                                                                    + "},{\"metadata\":{\"name\":\"user-pod\",\"uid\":\"user-owned\"}}]}");
+                                                })
+                                        .build());
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
+            api.deleteOrphanPods("app");
+        }
+        assertEquals(
+                java.util.Collections.singletonList("/api/v1/namespaces/test/pods/app-worker-0"),
+                deleted);
     }
 
     private static String ownedMetadata(String name) {
@@ -594,7 +704,7 @@ class DefaultKubernetesClientTest {
                                                                                         "application/json")))
                                                                 .build())
                                         .build());
-        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+        try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
             KubernetesClientException failure =
                     assertThrows(KubernetesClientException.class, () -> api.deletePod("worker"));
             assertEquals(403, failure.getCode());

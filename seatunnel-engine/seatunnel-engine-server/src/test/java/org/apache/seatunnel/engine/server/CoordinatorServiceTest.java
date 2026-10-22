@@ -62,6 +62,8 @@ import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
@@ -754,6 +756,209 @@ public class CoordinatorServiceTest {
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
+    @Test
+    void testCancelCanReachInitializingTakeoverWithoutExposingPartialStatus() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        JobMaster restoring = Mockito.mock(JobMaster.class);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> restorations =
+                (Map<Long, JobMaster>)
+                        ReflectionUtils.getField(coordinatorService, "restoringJobMasterMap").get();
+        restorations.put(88101L, restoring);
+        try {
+            Assertions.assertNull(coordinatorService.getJobMaster(88101L));
+            coordinatorService.cancelJob(88101L).join();
+            org.mockito.InOrder order = Mockito.inOrder(restoring);
+            order.verify(restoring).neverNeedRestore();
+            order.verify(restoring).cancelJob();
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testCoordinatorRetiresInitializingTakeover() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        JobMaster restoring = Mockito.mock(JobMaster.class);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> restorations =
+                (Map<Long, JobMaster>)
+                        ReflectionUtils.getField(coordinatorService, "restoringJobMasterMap").get();
+        restorations.put(88102L, restoring);
+        try {
+            coordinatorService.clearCoordinatorService();
+            Mockito.verify(restoring).interrupt();
+            Assertions.assertTrue(restorations.isEmpty());
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testQueuedSubmissionCannotDisplaceTakeoverOwner(boolean abortDraining) throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockActiveCoordinatorService(server);
+        ExecutorService queuedExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService originalExecutor =
+                (ExecutorService) ReflectionUtils.getField(coordinator, "executorService").get();
+        originalExecutor.shutdownNow();
+        ReflectionUtils.setField(coordinator, "executorService", queuedExecutor);
+        queuedExecutor.submit(
+                () -> {
+                    entered.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+        try {
+            Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            long jobId = 88103L;
+            PassiveCompletableFuture<Void> submission =
+                    coordinator.submitJob(jobId, Mockito.mock(Data.class), false);
+            Assertions.assertFalse(submission.isDone());
+            JobMaster owner = Mockito.mock(JobMaster.class);
+            @SuppressWarnings("unchecked")
+            Map<Long, JobMaster> owners =
+                    (Map<Long, JobMaster>)
+                            ReflectionUtils.getField(
+                                            coordinator,
+                                            abortDraining
+                                                    ? "runningJobMasterMap"
+                                                    : "restoringJobMasterMap")
+                                    .get();
+            owners.put(jobId, owner);
+            @SuppressWarnings("unchecked")
+            IMap<Long, JobInfo> metadata =
+                    (IMap<Long, JobInfo>)
+                            ReflectionUtils.getField(coordinator, "runningJobInfoIMap").get();
+            Mockito.clearInvocations(metadata);
+            release.countDown();
+            submission.get(5, TimeUnit.SECONDS);
+            Assertions.assertSame(owner, owners.get(jobId));
+            Mockito.verifyNoInteractions(metadata);
+            Mockito.verifyNoInteractions(owner);
+        } finally {
+            release.countDown();
+            coordinator.shutdown();
+        }
+    }
+
+    @Test
+    void testQueuedSubmissionCannotUseRetiredExecutor() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockActiveCoordinatorService(server);
+        ExecutorService oldExecutor =
+                (ExecutorService) ReflectionUtils.getField(coordinator, "executorService").get();
+        ExecutorService replacement = Executors.newSingleThreadExecutor();
+        // Capture queued work without running it until ownership changes.
+        ExecutorService captured = Mockito.mock(ExecutorService.class);
+        java.util.concurrent.atomic.AtomicReference<Runnable> work =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            work.set(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(captured)
+                .submit(Mockito.any(Runnable.class));
+        ReflectionUtils.setField(coordinator, "executorService", captured);
+        try {
+            PassiveCompletableFuture<Void> submission =
+                    coordinator.submitJob(88104L, Mockito.mock(Data.class), false);
+            ReflectionUtils.setField(coordinator, "executorService", replacement);
+            Assertions.assertNotNull(work.get());
+            @SuppressWarnings("unchecked")
+            IMap<Long, JobInfo> metadata =
+                    (IMap<Long, JobInfo>)
+                            ReflectionUtils.getField(coordinator, "runningJobInfoIMap").get();
+            Mockito.clearInvocations(metadata);
+            work.get().run();
+            Assertions.assertThrows(CompletionException.class, submission::join);
+            Mockito.verifyNoInteractions(metadata);
+        } finally {
+            oldExecutor.shutdownNow();
+            coordinator.shutdown();
+        }
+    }
+
+    @Test
+    void testRetiredSavepointSubmissionCannotCleanSuccessorState() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockActiveCoordinatorService(server);
+        NodeEngineImpl nodeEngine =
+                (NodeEngineImpl) ReflectionUtils.getField(coordinator, "nodeEngine").get();
+        com.hazelcast.internal.serialization.InternalSerializationService serialization =
+                Mockito.mock(
+                        com.hazelcast.internal.serialization.InternalSerializationService.class);
+        Mockito.when(nodeEngine.getSerializationService()).thenReturn(serialization);
+        CountDownLatch validating = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Mockito.when(serialization.toObject(Mockito.any(Data.class)))
+                .thenAnswer(
+                        invocation -> {
+                            validating.countDown();
+                            if (!release.await(5, TimeUnit.SECONDS)) {
+                                throw new AssertionError("validation barrier was not released");
+                            }
+                            return null;
+                        });
+        ExecutorService initial =
+                (ExecutorService) ReflectionUtils.getField(coordinator, "executorService").get();
+        ExecutorService successor = Executors.newSingleThreadExecutor();
+        try {
+            long jobId = 88105L;
+            PassiveCompletableFuture<Void> submission =
+                    coordinator.submitJob(jobId, Mockito.mock(Data.class), true);
+            Assertions.assertTrue(validating.await(5, TimeUnit.SECONDS));
+            @SuppressWarnings("unchecked")
+            IMap<Long, JobInfo> metadata =
+                    (IMap<Long, JobInfo>)
+                            ReflectionUtils.getField(coordinator, "runningJobInfoIMap").get();
+            Mockito.clearInvocations(metadata);
+            synchronized (coordinator) {
+                ReflectionUtils.setField(coordinator, "executorService", successor);
+            }
+            release.countDown();
+            Assertions.assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> submission.get(5, TimeUnit.SECONDS));
+            // The mock map also backs pending cleanup/state in this fixture. No cleanup reads,
+            // state removal, or metadata writes may run after validation loses its owner.
+            Mockito.verifyNoInteractions(metadata);
+        } finally {
+            release.countDown();
+            initial.shutdownNow();
+            coordinator.shutdown();
+        }
+    }
+
+    private CoordinatorService newMockActiveCoordinatorService(SeaTunnelServer server) {
+        Mockito.when(server.isMasterNode()).thenReturn(false);
+        CoordinatorService coordinator = newMockCoordinatorService(server);
+        NodeEngineImpl node =
+                (NodeEngineImpl) ReflectionUtils.getField(coordinator, "nodeEngine").get();
+        IMap<?, ?> map = node.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        for (String field :
+                Arrays.asList(
+                        "runningJobInfoIMap",
+                        "runningJobStateIMap",
+                        "runningJobStateTimestampsIMap",
+                        "ownedSlotProfilesIMap",
+                        "pendingPipelineCleanupIMap",
+                        "pendingJobCleanupIMap")) {
+            ReflectionUtils.setField(coordinator, field, map);
+        }
+        Mockito.when(server.isMasterNode()).thenReturn(true);
+        return coordinator;
+    }
+
     private CoordinatorService newMockCoordinatorService(SeaTunnelServer server) {
         return newMockCoordinatorService(server, new EngineConfig());
     }
@@ -1388,6 +1593,7 @@ public class CoordinatorServiceTest {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
             CoordinatorService coordinatorService = server.getCoordinatorService();
+            stopCoordinatorSchedulers(coordinatorService);
             InterruptiblePendingJobQueue pendingJobQueue = new InterruptiblePendingJobQueue();
             ReflectionUtils.setField(coordinatorService, "pendingJobQueue", pendingJobQueue);
 
@@ -1414,11 +1620,11 @@ public class CoordinatorServiceTest {
                     pendingJobQueue.putStarted.await(20, TimeUnit.SECONDS),
                     "submission did not reach pending queue insertion");
 
-            coordinatorService.clearCoordinatorService();
-
+            pendingJobQueue.putThread.interrupt();
             await().atMost(20, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(submitFuture.isCompletedExceptionally()));
+            coordinatorService.clearCoordinatorService();
             Assertions.assertThrows(CompletionException.class, submitFuture::join);
             Assertions.assertFalse(pendingJobQueue.contains(jobId));
             Assertions.assertNotEquals(
@@ -1505,6 +1711,8 @@ public class CoordinatorServiceTest {
                         .node
                         .getNodeEngine()
                         .getService(SeaTunnelServer.SERVICE_NAME);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(server1.isCoordinatorActive()));
         CoordinatorService coordinatorService = server1.getCoordinatorService();
         Assertions.assertTrue(coordinatorService.isCoordinatorActive());
 
@@ -1824,10 +2032,10 @@ public class CoordinatorServiceTest {
         try {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            await().atMost(30, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .until(() -> server.getCoordinatorService().isCoordinatorActive());
             CoordinatorService coordinatorService = server.getCoordinatorService();
-            await().atMost(60, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
 
             Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
             long initializationTimestamp = 100L;
@@ -2166,6 +2374,7 @@ public class CoordinatorServiceTest {
     private static class InterruptiblePendingJobQueue extends PeekBlockingQueue<PendingJobInfo> {
         private final CountDownLatch putStarted = new CountDownLatch(1);
         private final CountDownLatch releasePut = new CountDownLatch(1);
+        private volatile Thread putThread;
 
         private InterruptiblePendingJobQueue() {
             super(PendingJobInfo::getJobId);
@@ -2173,6 +2382,7 @@ public class CoordinatorServiceTest {
 
         @Override
         public void put(PendingJobInfo element) throws InterruptedException {
+            putThread = Thread.currentThread();
             putStarted.countDown();
             try {
                 releasePut.await();

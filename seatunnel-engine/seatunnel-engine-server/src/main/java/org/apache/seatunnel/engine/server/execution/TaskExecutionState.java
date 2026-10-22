@@ -23,6 +23,10 @@ import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
 
+    private static final long serialVersionUID = -108652017022658969L;
+
+    private Long executionId;
+
     private final TaskGroupLocation taskGroupLocation;
 
     private final ExecutionState executionState;
@@ -56,6 +60,17 @@ public class TaskExecutionState implements Serializable {
 
     public ExecutionState getExecutionState() {
         return executionState;
+    }
+
+    public TaskExecutionState withExecutionId(long executionId) {
+        TaskExecutionState state =
+                new TaskExecutionState(taskGroupLocation, executionState, throwableMsg);
+        state.executionId = executionId;
+        return state;
+    }
+
+    public Long getExecutionId() {
+        return executionId;
     }
 
     public String getThrowableMsg() {

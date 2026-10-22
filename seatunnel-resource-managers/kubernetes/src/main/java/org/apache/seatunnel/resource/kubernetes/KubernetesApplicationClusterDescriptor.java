@@ -36,6 +36,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
@@ -97,6 +98,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     public String deployApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationConfig parameters =
                 KubernetesApplicationConfig.from(specification, options);
+        if (parameters.isHaEnabled()) {
+            KubernetesHaClient.require(api);
+        }
         String id = KubernetesResourceIdentity.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         validateUserManagedResources(parameters, id);
@@ -117,7 +121,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                 // Legacy single-master compensation retains its existing behavior.
                 try {
                     if (job != null && parameters.isHaEnabled()) {
-                        api.deleteApplication(id, job.getUid());
+                        KubernetesHaClient.require(api).deleteApplication(id, job.getUid());
                     } else {
                         api.deleteApplication(id);
                     }
@@ -146,6 +150,13 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     static List<KubernetesResource<?>> assembleApplication(
             String id, String mainClass, KubernetesApplicationConfig parameters) {
         if (parameters.isHaEnabled()) {
+            if (!org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli
+                    .class
+                    .getName()
+                    .equals(mainClass)) {
+                throw new IllegalArgumentException(
+                        "HA requires the standard Application entrypoint");
+            }
             return org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory
                     .build(id, parameters);
         }
@@ -413,7 +424,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
                     job)) {
                 org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService
-                        service = api.getService(id);
+                        service = KubernetesHaClient.require(api).getService(id);
                 String ip = service.getInternalResource().getSpec().getClusterIP();
                 if (ip != null && !"None".equals(ip)) {
                     return ip;
@@ -450,7 +461,8 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                         owner);
         int port =
                 ha
-                        ? api.getService(applicationId)
+                        ? KubernetesHaClient.require(api)
+                                .getService(applicationId)
                                 .getInternalResource()
                                 .getSpec()
                                 .getPorts()

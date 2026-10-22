@@ -62,6 +62,7 @@ public final class KubernetesResourceManagerDriver
     private final KubernetesApplicationConfig parameters;
     private final String applicationId;
     private final String clusterName;
+    private final String expectedOwnerUid;
     /**
      * Worker nodes currently owned by this driver, keyed by Pod name. Entries are removed on
      * explicit release or successful completion; anything still present is expected to be running.
@@ -91,6 +92,8 @@ public final class KubernetesResourceManagerDriver
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
     private final IdGenerator idGenerator;
+    private final java.util.concurrent.atomic.AtomicInteger ordinal =
+            new java.util.concurrent.atomic.AtomicInteger();
     /**
      * Admission and observation gate. Once false, requestWorker rejects new workers and the watch
      * stops publishing failures or terminations.
@@ -110,6 +113,16 @@ public final class KubernetesResourceManagerDriver
             KubernetesApplicationConfig parameters,
             String applicationId,
             String clusterName) {
+        this(api, parameters, applicationId, clusterName, null);
+    }
+
+    public KubernetesResourceManagerDriver(
+            KubernetesClient api,
+            KubernetesApplicationConfig parameters,
+            String applicationId,
+            String clusterName,
+            String expectedOwnerUid) {
+        this.expectedOwnerUid = expectedOwnerUid;
         this.api = api;
         this.parameters = parameters;
         this.applicationId = applicationId;
@@ -142,6 +155,11 @@ public final class KubernetesResourceManagerDriver
         this.mainThreadExecutor = mainThreadExecutor;
         this.ioExecutor = ioExecutor;
         this.job = api.getJob(applicationId);
+        if (parameters.isHaEnabled()
+                && (expectedOwnerUid == null || !expectedOwnerUid.equals(job.getUid()))) {
+            throw new IllegalStateException(
+                    "Application owner UID changed before driver activation");
+        }
         this.running.set(true);
         this.workerWatch =
                 api.watchPods(
@@ -189,7 +207,12 @@ public final class KubernetesResourceManagerDriver
                     new IllegalStateException("Kubernetes driver is not running"));
             return future;
         }
-        String name = job.getName() + "-worker-" + idGenerator.getNextId();
+        String name =
+                job.getName()
+                        + "-worker-"
+                        + (parameters.isHaEnabled()
+                                ? ordinal.getAndIncrement()
+                                : idGenerator.getNextId());
         // Register before creation: ambiguous HTTP failures must still be deleted on close.
         KubernetesWorkerNode worker = new KubernetesWorkerNode(new ResourceID(name));
         workers.put(name, worker);
@@ -222,14 +245,50 @@ public final class KubernetesResourceManagerDriver
             return;
         }
         try {
-            api.createPod(assembleWorkerPod(name, resources));
+            if (parameters.isHaEnabled()) {
+                KubernetesPod existing =
+                        api
+                                .listPods(
+                                        KubernetesResourceIdentity.selector(
+                                                job.getName(), KubernetesConstants.WORKER_ROLE))
+                                .stream()
+                                .filter(pod -> name.equals(pod.getName()))
+                                .findFirst()
+                                .orElse(null);
+                if (existing != null) {
+                    boolean owned =
+                            existing.getInternalResource().getMetadata().getOwnerReferences()
+                                            != null
+                                    && existing.getInternalResource().getMetadata()
+                                            .getOwnerReferences().stream()
+                                            .anyMatch(
+                                                    ref ->
+                                                            "Job".equals(ref.getKind())
+                                                                    && job.getUid()
+                                                                            .equals(ref.getUid()));
+                    if (!owned) {
+                        throw new IllegalStateException(
+                                "Worker identity belongs to another application");
+                    }
+                } else if (!org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
+                        .unsubmitted(job)) {
+                    throw new IllegalStateException(
+                            "Application worker is absent; worker replacement is outside dual-master HA");
+                } else {
+                    api.createPod(assembleWorkerPod(name, resources));
+                }
+            } else {
+                api.createPod(assembleWorkerPod(name, resources));
+            }
             log.debug("Created worker pod {}", name);
             if (running.get() && future.complete(worker)) {
                 pending.remove(name);
                 return;
             }
             // A request accepted just before close must not leave a Pod behind after cleanup.
-            api.deletePod(name);
+            if (!parameters.isHaEnabled()) {
+                api.deletePod(name);
+            }
             future.completeExceptionally(
                     new CancellationException("Application stopped during allocation"));
         } catch (Exception e) {
@@ -270,6 +329,10 @@ public final class KubernetesResourceManagerDriver
      */
     @Override
     public CompletableFuture<Void> releaseWorker(KubernetesWorkerNode worker) {
+        if (parameters.isHaEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         String name = worker.getResourceID().getResourceIdString();
         if (workers.remove(name) == null) {
             return CompletableFuture.completedFuture(null);
@@ -384,7 +447,7 @@ public final class KubernetesResourceManagerDriver
         } catch (Exception e) {
             failure = e;
         }
-        if (job != null) {
+        if (job != null && !parameters.isHaEnabled()) {
             // Bulk delete is the final safety net for Pods that were never tracked or raced close.
             try {
                 api.deleteWorkers(job.getName());

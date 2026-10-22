@@ -113,7 +113,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     }
 
     @Override
-    public List<PipelineState> getCheckpointsForRecovery(String jobId, String pipelineId)
+    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
         java.nio.file.Path directory = java.nio.file.Paths.get(getStorageParentDirectory(), jobId);
         java.nio.file.NoSuchFileException disappeared = null;
@@ -295,42 +295,6 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             return null;
         }
         return latestFile.get();
-    }
-
-    @Override
-    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
-        String parentPath = getStorageParentDirectory() + jobId;
-        Collection<File> fileList = new ArrayList<>();
-        try {
-            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
-        } catch (Exception e) {
-            if (!(e.getCause() instanceof NoSuchFileException)) {
-                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
-            }
-        }
-        if (fileList.isEmpty()) {
-            log.info("No checkpoint found for this job, the job id is: " + jobId);
-            return new ArrayList<>();
-        }
-
-        List<PipelineState> pipelineStates = new ArrayList<>();
-        fileList.forEach(
-                file -> {
-                    String filePipelineId = getPipelineIdByFileName(file.getName());
-                    if (pipelineId.equals(filePipelineId)) {
-                        try {
-                            byte[] data = FileUtils.readFileToByteArray(file);
-                            pipelineStates.add(deserializeCheckPointData(data));
-                        } catch (IOException e) {
-                            log.error(
-                                    "Failed to read checkpoint data from file "
-                                            + file.getAbsolutePath(),
-                                    e);
-                        }
-                    }
-                });
-        return pipelineStates;
     }
 
     @Override

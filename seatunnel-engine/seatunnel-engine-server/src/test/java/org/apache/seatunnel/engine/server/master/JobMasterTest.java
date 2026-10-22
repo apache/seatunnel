@@ -128,6 +128,266 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         super.before();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void testDelayedTerminalReportCannotCancelReplacementOrReleaseItsResources(
+            boolean replacementDeployed) throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                org.mockito.Mockito.spy(
+                        newJobMaster(
+                                jobId,
+                                "batch_fake_to_console.conf",
+                                "late_terminal_report",
+                                false));
+        jobMaster.init(System.currentTimeMillis(), false);
+        org.mockito.Mockito.doNothing()
+                .when(jobMaster)
+                .releaseTaskGroupResource(org.mockito.Mockito.any(), org.mockito.Mockito.any());
+        SubPlan pipeline = jobMaster.getPhysicalPlan().getPipelineList().get(0);
+        java.util.List<PhysicalVertex> vertices =
+                new java.util.ArrayList<>(pipeline.getCoordinatorVertexList());
+        vertices.addAll(pipeline.getPhysicalVertexList());
+        for (PhysicalVertex vertex : vertices) {
+            runningJobStateIMap.set(vertex.getExecutionIdKey(), 31L);
+            vertex.updateStateByExecutionService(
+                    new org.apache.seatunnel.engine.server.execution.TaskExecutionState(
+                            vertex.getTaskGroupLocation(),
+                            org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED));
+            vertex.reset();
+            if (replacementDeployed) {
+                runningJobStateIMap.set(vertex.getExecutionIdKey(), 32L);
+                vertex.updateTaskState(
+                        org.apache.seatunnel.engine.server.execution.ExecutionState.RUNNING);
+            }
+            jobMaster.updateTaskExecutionState(
+                    new org.apache.seatunnel.engine.server.execution.TaskExecutionState(
+                                    vertex.getTaskGroupLocation(),
+                                    org.apache.seatunnel.engine.server.execution.ExecutionState
+                                            .CANCELED)
+                            .withExecutionId(31L));
+            Assertions.assertEquals(
+                    replacementDeployed
+                            ? org.apache.seatunnel.engine.server.execution.ExecutionState.RUNNING
+                            : org.apache.seatunnel.engine.server.execution.ExecutionState.CREATED,
+                    vertex.getExecutionState());
+        }
+        org.mockito.Mockito.verify(jobMaster, org.mockito.Mockito.never())
+                .releaseTaskGroupResource(org.mockito.Mockito.any(), org.mockito.Mockito.any());
+        if (replacementDeployed) {
+            PhysicalVertex task = pipeline.getPhysicalVertexList().get(0);
+            jobMaster.updateTaskExecutionState(
+                    new org.apache.seatunnel.engine.server.execution.TaskExecutionState(
+                                    task.getTaskGroupLocation(),
+                                    org.apache.seatunnel.engine.server.execution.ExecutionState
+                                            .FINISHED)
+                            .withExecutionId(32L));
+            Assertions.assertEquals(
+                    org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED,
+                    task.getExecutionState());
+            org.mockito.Mockito.verify(jobMaster)
+                    .releaseTaskGroupResource(
+                            pipeline.getPipelineLocation(), task.getTaskGroupLocation());
+        }
+    }
+
+    @Test
+    void testLostDeploymentReplyAndMasterTakeoverReuseAttemptUntilReset() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster original =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "deployment_retry", false);
+        original.init(System.currentTimeMillis(), false);
+        PhysicalVertex task =
+                original.getPhysicalPlan().getPipelineList().get(0).getPhysicalVertexList().get(0);
+        long firstAttempt = task.getTaskGroupImmutableInformation().getExecutionId();
+        // A lost deploy response can be retried while the worker retains the first context.
+        Assertions.assertEquals(
+                firstAttempt, task.getTaskGroupImmutableInformation().getExecutionId());
+        JobMaster successor =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "deployment_retry", false);
+        successor.init(System.currentTimeMillis(), true);
+        PhysicalVertex restored =
+                successor.getPhysicalPlan().getPipelineList().get(0).getPhysicalVertexList().get(0);
+        Assertions.assertEquals(
+                firstAttempt, restored.getTaskGroupImmutableInformation().getExecutionId());
+        org.apache.seatunnel.engine.server.execution.TaskExecutionState terminal =
+                new org.apache.seatunnel.engine.server.execution.TaskExecutionState(
+                                restored.getTaskGroupLocation(),
+                                org.apache.seatunnel.engine.server.execution.ExecutionState
+                                        .CANCELED)
+                        .withExecutionId(firstAttempt);
+        Assertions.assertTrue(restored.acceptsExecutionReport(terminal));
+        restored.updateStateByExecutionService(terminal);
+        restored.reset();
+        long replacementAttempt = restored.getTaskGroupImmutableInformation().getExecutionId();
+        Assertions.assertNotEquals(firstAttempt, replacementAttempt);
+        Assertions.assertFalse(restored.acceptsExecutionReport(terminal));
+        Assertions.assertTrue(
+                restored.acceptsExecutionReport(terminal.withExecutionId(replacementAttempt)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    public void testRetiredInitializationDoesNotInitializeFuturesOrCancelRetainedTasks(
+            boolean restart) throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                org.mockito.Mockito.spy(
+                        newJobMaster(
+                                jobId,
+                                "stream_fakesource_to_file.conf",
+                                "retired_takeover",
+                                false));
+        runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            jobMaster.interrupt();
+                            throw new org.apache.seatunnel.engine.checkpoint.storage.exception
+                                    .CheckpointStorageException(
+                                    "storage unavailable during retirement");
+                        })
+                .when(jobMaster)
+                .initCheckPointManager(restart);
+        Assertions.assertThrows(
+                InterruptedException.class,
+                () -> jobMaster.init(System.currentTimeMillis(), restart));
+        org.mockito.Mockito.verify(jobMaster, org.mockito.Mockito.never()).initStateFuture();
+        org.mockito.Mockito.verify(jobMaster, org.mockito.Mockito.never()).cancelJob();
+        Assertions.assertEquals(JobStatus.RUNNING, runningJobStateIMap.get(jobId));
+        runningJobStateIMap.remove(jobId);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    public void testAbortedTakeoverDrainsRealRetainedTasks(boolean userCancellation)
+            throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster original = newJobInstanceWithRunningState(jobId);
+        runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        ownedSlotProfilesIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        @SuppressWarnings("unchecked")
+        Map<TaskGroupLocation, ?> executionContexts =
+                (Map<TaskGroupLocation, ?>)
+                        ReflectionUtils.getField(
+                                        server.getTaskExecutionService(), "executionContexts")
+                                .get();
+        Assertions.assertTrue(
+                executionContexts.keySet().stream()
+                        .anyMatch(location -> location.getJobId() == jobId));
+        original.getCheckpointManager().cancelCheckpoint(1).join();
+        original.getPhysicalPlan().stopJobStateProcess();
+        original.getPhysicalPlan()
+                .getPipelineList()
+                .forEach(
+                        pipeline -> {
+                            pipeline.stopSubPlanStateProcess();
+                            pipeline.getCoordinatorVertexList()
+                                    .forEach(PhysicalVertex::stopPhysicalVertex);
+                            pipeline.getPhysicalVertexList()
+                                    .forEach(PhysicalVertex::stopPhysicalVertex);
+                        });
+        JobMaster restored =
+                org.mockito.Mockito.spy(
+                        new JobMaster(
+                                jobId,
+                                nodeEngine
+                                        .getSerializationService()
+                                        .toData(original.getJobImmutableInformation()),
+                                nodeEngine,
+                                jobMasterTestExecutor,
+                                original.getResourceManager(),
+                                server.getCoordinatorService().getJobHistoryService(),
+                                runningJobStateIMap,
+                                runningJobStateTimestampsIMap,
+                                ownedSlotProfilesIMap,
+                                runningJobInfoIMap,
+                                original.getEngineConfig(),
+                                server));
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> runningMasters =
+                (Map<Long, JobMaster>)
+                        ReflectionUtils.getField(
+                                        server.getCoordinatorService(), "runningJobMasterMap")
+                                .get();
+        Assertions.assertTrue(runningMasters.remove(jobId, original));
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> restoringMasters =
+                (Map<Long, JobMaster>)
+                        ReflectionUtils.getField(
+                                        server.getCoordinatorService(), "restoringJobMasterMap")
+                                .get();
+        restoringMasters.put(jobId, restored);
+        Assertions.assertTrue(
+                executionContexts.keySet().stream()
+                        .anyMatch(location -> location.getJobId() == jobId));
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            if (userCancellation) {
+                                restored.neverNeedRestore();
+                                throw new java.util.concurrent.CancellationException(
+                                        "user canceled");
+                            }
+                            throw new org.apache.seatunnel.engine.checkpoint.storage.exception
+                                    .CheckpointStorageException("storage recovery exhausted");
+                        })
+                .when(restored)
+                .initCheckPointManager(true);
+        try {
+            Class<? extends Exception> expectedFailure =
+                    userCancellation
+                            ? java.util.concurrent.CancellationException.class
+                            : org.apache.seatunnel.engine.checkpoint.storage.exception
+                                    .CheckpointStorageException.class;
+            Assertions.assertThrows(
+                    expectedFailure, () -> restored.init(System.currentTimeMillis(), true));
+            Assertions.assertEquals(
+                    userCancellation ? JobStatus.CANCELED : JobStatus.FAILED,
+                    restored.getJobMasterCompleteFuture().get(30, TimeUnit.SECONDS).getStatus());
+            for (SubPlan pipeline : restored.getPhysicalPlan().getPipelineList()) {
+                Assertions.assertEquals(
+                        userCancellation ? PipelineStatus.CANCELED : PipelineStatus.FAILED,
+                        pipeline.getCurrPipelineStatus());
+                for (PhysicalVertex task : pipeline.getPhysicalVertexList()) {
+                    Assertions.assertEquals(
+                            org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED,
+                            task.getExecutionState());
+                }
+            }
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            executionContexts.keySet().stream()
+                                                    .anyMatch(
+                                                            location ->
+                                                                    location.getJobId() == jobId)));
+            org.mockito.Mockito.verify(restored, org.mockito.Mockito.never()).run();
+            org.mockito.Mockito.verify(restored, org.mockito.Mockito.never()).preApplyResources();
+        } finally {
+            original.interrupt();
+            restoringMasters.remove(jobId, restored);
+            runningMasters.remove(jobId, restored);
+        }
+    }
+
+    @Test
+    public void testTakeoverCannotReuseRetiredCoordinatorExecutor() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(jobId, "stream_fakesource_to_file.conf", "retired_executor", false);
+        ExecutorService retiredExecutor = Executors.newSingleThreadExecutor();
+        ReflectionUtils.setField(jobMaster, "executorService", retiredExecutor);
+        retiredExecutor.shutdownNow();
+        Assertions.assertTrue(server.isMasterNode());
+        Assertions.assertThrows(InterruptedException.class, jobMaster::checkRecoveryActive);
+    }
+
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
