@@ -197,9 +197,10 @@ sink {
 ClickHouse part 文件，再将生成的文件复制（`scp` 或 `rsync`）到目标 ClickHouse 服务节点并 attach 到
 目标表。对于大批量写入，这种方式通常比逐行插入快得多。
 
-上方 [Sink 选项](#sink-选项) 中的所有选项同样适用于 `ClickhouseFile`（包括 `host`、`database`、
-`table`、`username`、`password`、`clickhouse.config`、`sharding_key` 和 `server_time_zone`）。
-该插件特有的选项如下：
+`ClickhouseFile` sink 只会读取上方 [Sink 选项](#sink-选项) 中的这些选项：`host`、`database`、`table`、
+`username`、`password`、`clickhouse.config`、`sharding_key` 和 `server_time_zone`。其他 sink 选项
+（如 `bulk_size`、`split_mode`、`primary_key`、`support_upsert`、`schema_save_mode`、`data_save_mode`）
+不在其选项规则内，在此处不生效。该插件特有的选项如下：
 
 | 名称                  | 类型    | 是否必须 | 默认值                               | 描述                                                                                          |
 |-----------------------|---------|------|--------------------------------------|-----------------------------------------------------------------------------------------------|

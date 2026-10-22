@@ -201,8 +201,10 @@ Besides the `Clickhouse` sink plugin above, this connector also provides the `Cl
 `clickhouse-local` program to generate ClickHouse part files, copies the generated files to the target
 ClickHouse server nodes (`scp` or `rsync`), and attaches them to the target table. This is usually much faster than row-by-row inserts for large batch writes.
 
-All options in [Sink Options](#sink-options) above also apply to `ClickhouseFile` (including `host`,
-`database`, `table`, `username`, `password`, `clickhouse.config`, `sharding_key` and `server_time_zone`).
+The `ClickhouseFile` sink reads only these options from [Sink Options](#sink-options) above: `host`,
+`database`, `table`, `username`, `password`, `clickhouse.config`, `sharding_key` and `server_time_zone`.
+Other sink options (such as `bulk_size`, `split_mode`, `primary_key`, `support_upsert`,
+`schema_save_mode` or `data_save_mode`) are not part of its option rule and have no effect here.
 The plugin-specific options are:
 
 | Name                  | Type    | Required | Default                              | Description                                                                                                                                                                     |
