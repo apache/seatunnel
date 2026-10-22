@@ -152,6 +152,26 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### SQL ARRAY_MAX and ARRAY_MIN Precision
+
+- **Behavior correction: exact integral and DECIMAL array extrema**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform with
+    `engine = ZETA` (default) or `INTERNAL`, on Zeta, Flink and Spark execution engines.
+  - **Description**: Arrays containing only Byte, Short, Integer, Long and BigDecimal
+    values are compared exactly, including mixtures of integral and DECIMAL values.
+    For example, `ARRAY_MAX` over BIGINT values `[9007199254740992, 9007199254740993]`
+    now selects `9007199254740993`. A Long `1` and BigDecimal
+    `1.00000000000000000001` no longer compare equal. If any Float, Double or other
+    Number subtype (including BigInteger) is present, the whole array retains
+    legacy double-based ordering and its possible precision loss.
+  - **Impact**: Jobs relying on rounded comparisons may select different values.
+    The selected original element retains its type and DECIMAL scale, so a different
+    result may also have a different original scale. Equal values retain the first
+    element. Declared output types, input coercion, null handling and floating-point
+    ordering are unchanged.
+  - **Migration Guide**: No configuration or state migration is required. Review
+    downstream expectations that depended on the previous rounded results.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
@@ -206,6 +226,15 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
   values and previously ran successfully will now fail fast at startup with a validation
   error.
+
+### DataValidator Array Length
+
+The `LENGTH` rule now counts array elements rather than characters in the
+array's Java identity string. This can change which array-valued rows pass
+validation. Review array length limits that were adjusted to the previous
+behavior, and check previously skipped or routed data before replaying it.
+String, collection, binary and null handling remain unchanged. No configuration
+or state format migration is required.
 
 ### Zeta REST Pagination Parameter Validation
 
@@ -549,6 +578,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   - **Migration Guide**: If a downstream step compares the text of such numeric values, review those comparisons against the exact digits, or make the source provide quoted JSON strings for `STRING` columns that carry bare numbers. JSON objects or arrays stored in a `STRING` column belong to the same category: compare their serialized text (digits and exponent notation) before relying on it, or have the source send those values as quoted JSON strings. `DECIMAL` columns require no configuration change to retain their declared numeric precision.
 
 ### Engine Behavior Changes
+
+- **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
+  - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.
+  - **Impact**: Clusters using file-based IMap persistence can upgrade and restart across the #9689 relocation without manual WAL surgery. Writing is unaffected: new WAL entries always record the current class names. Note that the rewrite is one-directional: WAL files written by a current distribution contain class names that older releases cannot resolve, so downgrading a cluster after it has written new WAL entries requires deleting or manually rewriting the persisted WAL data. (#11781)
 
 - **Behavior change: the REST log-content endpoints return at most 64 MB by default**
   - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
