@@ -84,7 +84,7 @@ test_rejects_missing_regular_distribution() {
 test_rejects_multiple_regular_distributions() {
     reset_distributions
     touch "${DIST_DIR}/apache-seatunnel-3.1.0-SNAPSHOT-bin.tar.gz"
-    touch "${DIST_DIR}/apache-seatunnel-3.2.0-SNAPSHOT-bin.tar.gz"
+    touch "${DIST_DIR}/apache-seatunnel-3.0.1-SNAPSHOT-bin.tar.gz"
 
     local output
     if output="$(find_current_distribution 2>&1)"; then
