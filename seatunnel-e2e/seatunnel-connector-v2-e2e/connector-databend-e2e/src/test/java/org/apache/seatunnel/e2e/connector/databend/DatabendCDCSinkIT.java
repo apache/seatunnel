@@ -226,13 +226,14 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
 
         this.minioContainer.start();
 
-        LOG.info("MinIO container starting，wait 5 secs ...");
-        Thread.sleep(5000);
-
-        boolean bucketCreated = createMinIOBucketWithAWSSDK("databend");
-        if (!bucketCreated) {
-            LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
-        }
+        // The bucket must exist before Databend boots against it; retry the
+        // creation until it succeeds instead of a fixed sleep followed by a
+        // single attempt that can silently miss a slow MinIO startup.
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(() -> createMinIOBucketWithAWSSDK("databend"));
         this.container =
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
