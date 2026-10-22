@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -380,6 +381,156 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> factory.resolveMultiTablePrimaryKeys(config, table));
+    }
+
+    @Test
+    void testMultiTableConfigWithEmptyKeyListFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Collections.emptyList());
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(exception.getMessage().contains("does not contain any column"));
+    }
+
+    @Test
+    void testMultiTableConfigWithBlankStringValueFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", "   ");
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+    }
+
+    @Test
+    void testMultiTableConfigWithBlankKeyFails() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Collections.singletonList(""));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+    }
+
+    @Test
+    void testMultiTableConfigWithNullKeyFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Collections.singletonList(null));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(exception.getMessage().contains("only strings are allowed"));
+    }
+
+    @Test
+    void testMultiTableConfigWithNonStringKeyFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Collections.singletonList(123));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+    }
+
+    @Test
+    void testMultiTableConfigWithNonListNonStringValueFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", 42);
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(exception.getMessage().contains("must be a string or a list"));
+    }
+
+    @Test
+    void testMultiTableConfigWithNullValueFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", null);
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> factory.resolveMultiTablePrimaryKeys(config, table));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
+    }
+
+    @Test
+    void testMultiTableConfigWithCommaSeparatedStringValue() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", "id, DATA_SOURCE");
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertEquals(
+                Arrays.asList("id", "DATA_SOURCE"),
+                factory.resolveMultiTablePrimaryKeys(config, table).get());
+    }
+
+    /**
+     * Guards the reported runtime failure: an empty key list used to pass validation, reach {@code
+     * JdbcSink#createWriter} and throw {@code IndexOutOfBoundsException} for the first key column.
+     * It must fail during sink creation with the connector error code instead.
+     */
+    @Test
+    void testFactoryContextWithEmptyKeyListFailsBeforeWriterIsCreated() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Collections.emptyList());
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        Assertions.assertEquals(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                exception.getSeaTunnelErrorCode());
     }
 
     @Test

@@ -345,9 +345,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     private LinkedHashMap<Pattern, List<String>> toCompiledPatternMap(Map<?, ?> primaryKeyMap) {
         LinkedHashMap<Pattern, List<String>> ordered = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : primaryKeyMap.entrySet()) {
-            ordered.put(
-                    compilePattern(String.valueOf(entry.getKey())),
-                    toPrimaryKeyList(entry.getValue()));
+            String pattern = String.valueOf(entry.getKey());
+            ordered.put(compilePattern(pattern), toPrimaryKeyList(entry.getValue(), pattern));
         }
         return ordered;
     }
@@ -379,31 +378,59 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     }
 
     /**
-     * Converts a configured primary key value into a list of column names. A list value is used
-     * as-is; a string value is split by comma.
+     * Converts a configured primary key value into a list of column names. A list value must
+     * contain only strings; a string value is split by comma. A value that does not produce any
+     * column is rejected here, because a matched table would otherwise get a primary key without
+     * columns and fail later with an obscure {@code IndexOutOfBoundsException} when the sink writer
+     * is created.
      *
-     * @throws JdbcConnectorException when the value is neither a list nor a string
+     * @param value the configured value
+     * @param pattern the regular expression the value is configured for, used in error messages
+     * @throws JdbcConnectorException when the value is neither a list of strings nor a string, or
+     *     when it does not contain any column
      */
-    private List<String> toPrimaryKeyList(Object value) {
+    private List<String> toPrimaryKeyList(Object value, String pattern) {
+        List<String> keys;
         if (value instanceof List) {
-            List<String> keys = new ArrayList<>();
+            keys = new ArrayList<>();
             for (Object element : (List<?>) value) {
-                keys.add(String.valueOf(element));
+                if (!(element instanceof String)) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                            String.format(
+                                    "multi_table_config.primary_keys entry '%s' contains the element "
+                                            + "'%s', but only strings are allowed.",
+                                    pattern, element));
+                }
+                keys.add((String) element);
             }
-            return keys;
-        }
-        if (value instanceof String) {
+        } else if (value instanceof String) {
             String stringValue = (String) value;
             if (StringUtils.isBlank(stringValue)) {
-                return Collections.emptyList();
+                keys = Collections.emptyList();
+            } else {
+                keys =
+                        Arrays.stream(stringValue.split(","))
+                                .map(String::trim)
+                                .collect(Collectors.toList());
             }
-            return Arrays.stream(stringValue.split(","))
-                    .map(String::trim)
-                    .collect(Collectors.toList());
+        } else {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                    String.format(
+                            "multi_table_config.primary_keys entry '%s' must be a string or a list of "
+                                    + "strings.",
+                            pattern));
         }
-        throw new JdbcConnectorException(
-                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
-                "multi_table_config.primary_keys values must be a string or a list of strings.");
+        if (keys.isEmpty()) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                    String.format(
+                            "multi_table_config.primary_keys entry '%s' does not contain any column. "
+                                    + "Configure at least one column name.",
+                            pattern));
+        }
+        return keys;
     }
 
     /**
