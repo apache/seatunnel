@@ -75,7 +75,8 @@ export default {
     action: '操作',
     restoreLatest: '恢复最新状态',
     restoreFromCheckpoint: '从 Checkpoint 恢复',
-    restoreFromSavepoint: '从 Savepoint 恢复'
+    restoreFromSavepoint: '从 Savepoint 恢复',
+    stopBeforeRestore: '请先停止、保存点停止或取消此作业，再恢复其状态。'
   },
   liveMetrics: {
     pinnedTitle: '已固定实时指标',

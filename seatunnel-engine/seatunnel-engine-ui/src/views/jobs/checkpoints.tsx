@@ -33,6 +33,10 @@ export default defineComponent({
     jobId: {
       type: String,
       required: true
+    },
+    jobStatus: {
+      type: String,
+      default: ''
     }
   },
   setup(props) {
@@ -85,7 +89,11 @@ export default defineComponent({
       )
     }
 
+    const isTerminalState = () =>
+      ['FINISHED', 'FAILED', 'CANCELED', 'SAVEPOINT_DONE'].includes(props.jobStatus)
+
     const restoreLatestState = (restoreMode: RestoreMode) => {
+      if (!isTerminalState()) return
       router.push({
         name: 'jobs',
         query: {
@@ -176,27 +184,34 @@ export default defineComponent({
           </NButton>
         </NSpace>
         {(canRestore('CHECKPOINT') || canRestore('SAVEPOINT')) && (
-          <NSpace justify="end">
-            {canRestore('CHECKPOINT') && (
-              <NButton
-                size="small"
-                tertiary
-                type="primary"
-                onClick={() => restoreLatestState('CHECKPOINT')}
-              >
-                {t('detail.checkpoints.restoreFromCheckpoint')}
-              </NButton>
+          <NSpace vertical>
+            {props.jobStatus && !isTerminalState() && (
+              <NAlert type="info">{t('detail.checkpoints.stopBeforeRestore')}</NAlert>
             )}
-            {canRestore('SAVEPOINT') && (
-              <NButton
-                size="small"
-                tertiary
-                type="primary"
-                onClick={() => restoreLatestState('SAVEPOINT')}
-              >
-                {t('detail.checkpoints.restoreFromSavepoint')}
-              </NButton>
-            )}
+            <NSpace justify="end">
+              {canRestore('CHECKPOINT') && (
+                <NButton
+                  size="small"
+                  tertiary
+                  type="primary"
+                  disabled={!isTerminalState()}
+                  onClick={() => restoreLatestState('CHECKPOINT')}
+                >
+                  {t('detail.checkpoints.restoreFromCheckpoint')}
+                </NButton>
+              )}
+              {canRestore('SAVEPOINT') && (
+                <NButton
+                  size="small"
+                  tertiary
+                  type="primary"
+                  disabled={!isTerminalState()}
+                  onClick={() => restoreLatestState('SAVEPOINT')}
+                >
+                  {t('detail.checkpoints.restoreFromSavepoint')}
+                </NButton>
+              )}
+            </NSpace>
           </NSpace>
         )}
         {error.value && <NAlert type="error">{error.value}</NAlert>}

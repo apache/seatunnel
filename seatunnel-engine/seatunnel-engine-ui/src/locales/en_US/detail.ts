@@ -75,7 +75,8 @@ export default {
     action: 'Action',
     restoreLatest: 'Restore Latest State',
     restoreFromCheckpoint: 'Restore From Checkpoint',
-    restoreFromSavepoint: 'Restore From Savepoint'
+    restoreFromSavepoint: 'Restore From Savepoint',
+    stopBeforeRestore: 'Stop, savepoint-stop, or cancel this job before restoring its state.'
   },
   liveMetrics: {
     pinnedTitle: 'Pinned live metrics',

@@ -78,7 +78,8 @@ describe('checkpoints', () => {
 
     const wrapper = mount(checkpoints, {
       props: {
-        jobId: '123456789'
+        jobId: '123456789',
+        jobStatus: 'FINISHED'
       },
       global: {
         plugins: [i18n]
@@ -142,7 +143,8 @@ describe('checkpoints', () => {
 
     const wrapper = mount(checkpoints, {
       props: {
-        jobId: '123456789'
+        jobId: '123456789',
+        jobStatus: 'FINISHED'
       },
       global: {
         plugins: [i18n]
@@ -161,6 +163,48 @@ describe('checkpoints', () => {
         restoreMode: 'SAVEPOINT',
         restoreSourceJobId: '123456789'
       }
+    })
+    wrapper.unmount()
+  })
+
+  test('blocks restore while the source job is active and enables it after stopping', async () => {
+    vi.spyOn(JobsService, 'getCheckpointOverview').mockResolvedValue({
+      jobId: '123456789',
+      updatedAt: 1720000000123,
+      pipelines: [
+        {
+          pipelineId: 1,
+          counts: { triggered: 1, completed: 1, failed: 0, inProgress: 0, restored: 0 },
+          latestCompleted: {
+            checkpointId: 10,
+            checkpointType: 'checkpoint',
+            status: 'COMPLETED'
+          }
+        }
+      ]
+    })
+    vi.spyOn(JobsService, 'getCheckpointHistory').mockResolvedValue([])
+
+    const wrapper = mount(checkpoints, {
+      props: { jobId: '123456789', jobStatus: 'RUNNING' },
+      global: { plugins: [i18n] }
+    })
+
+    await flushPromises()
+    const restoreButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Restore From Checkpoint')
+    expect(restoreButton?.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Stop, savepoint-stop, or cancel this job')
+    await restoreButton?.trigger('click')
+    expect(routerState.push).not.toHaveBeenCalled()
+
+    await wrapper.setProps({ jobStatus: 'FINISHED' })
+    expect(restoreButton?.attributes('disabled')).toBeUndefined()
+    await restoreButton?.trigger('click')
+    expect(routerState.push).toHaveBeenCalledWith({
+      name: 'jobs',
+      query: { restoreMode: 'CHECKPOINT', restoreSourceJobId: '123456789' }
     })
     wrapper.unmount()
   })

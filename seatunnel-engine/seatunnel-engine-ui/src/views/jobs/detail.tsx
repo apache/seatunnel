@@ -665,7 +665,7 @@ export default defineComponent({
               <Configuration data={job.envOptions || job.jobDag.envOptions}></Configuration>
             </NTabPane>
             <NTabPane name="Checkpoints" tab={t('detail.tabs.checkpoints')}>
-              <Checkpoints jobId={job.jobId}></Checkpoints>
+              <Checkpoints jobId={job.jobId} jobStatus={job.jobStatus}></Checkpoints>
             </NTabPane>
             <NTabPane name="Log" tab={t('detail.tabs.log')}>
               <JobLog jobId={job.jobId}></JobLog>
