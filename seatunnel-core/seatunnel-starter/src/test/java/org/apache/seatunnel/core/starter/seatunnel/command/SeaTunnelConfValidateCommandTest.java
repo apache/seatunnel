@@ -25,6 +25,7 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.core.starter.validation.ConfigValidationResult;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,110 @@ public class SeaTunnelConfValidateCommandTest {
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         Assertions.assertDoesNotThrow(command::execute);
+    }
+
+    @Test
+    public void testValidationResultForValidConfig() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/valid_static_dryrun.json"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertTrue(result.isValid());
+        Assertions.assertEquals("static", result.getPhase());
+        Assertions.assertTrue(result.getErrors().isEmpty());
+    }
+
+    @Test
+    public void testValidationResultClassifiesMissingPluginAsOptionError() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-validation-result", ".conf");
+        Files.write(
+                configFile,
+                ("source { FakeSource { plugin_output = output } }\n" + "sink { InMemory {} }")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgsFromPath(configFile.toString()));
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals(1, result.getErrors().size());
+        Assertions.assertEquals("option", result.getErrors().get(0).getRuleCategory());
+        Assertions.assertTrue(result.toJson().contains("\"schemaVersion\":\"1.0\""));
+    }
+
+    @Test
+    public void testValidationResultClassifiesParseFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/invalid_hocon_syntax.conf"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("parse", result.getErrors().get(0).getRuleCategory());
+    }
+
+    @Test
+    public void testValidationResultClassifiesOptionFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/invalid_option_type.json"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("option", result.getErrors().get(0).getRuleCategory());
+    }
+
+    @Test
+    public void testValidationResultIncludesConnectFailureLocationAndPlugin() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-validation-connect-failure", ".conf");
+        Files.write(
+                configFile,
+                ("source { DryRunTestSource { fail_connection = true } }\n"
+                                + "sink { InMemory {} }")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildConnectArgsFromPath(configFile.toString()));
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("connectivity", result.getPhase());
+        Assertions.assertEquals(
+                "source[0](DryRunTestSource)", result.getErrors().get(0).getLocation());
+        Assertions.assertEquals("DryRunTestSource", result.getErrors().get(0).getPlugin());
+    }
+
+    @Test
+    public void testValidationResultSanitizesConnectFailure() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-validation-sensitive-failure", ".conf");
+        Files.write(
+                configFile,
+                ("source { DryRunTestSource { sensitive_connection_failure = true } }\n"
+                                + "sink { InMemory {} }")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildConnectArgsFromPath(configFile.toString()));
+        String message = command.validateResult().getErrors().get(0).getMessage();
+
+        Assertions.assertFalse(message.contains("secret-password"), message);
+        Assertions.assertFalse(message.contains("secret-token"), message);
+    }
+
+    @Test
+    public void testValidationResultClassifiesPluginLoadFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(
+                        buildArgs("config/invalid_plugin_loadability.json"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("plugin", result.getErrors().get(0).getRuleCategory());
     }
 
     @Test
@@ -497,7 +602,11 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     private ClientCommandArgs buildArgs(String configFile) {
-        String[] args = {"-c", resolveConfigPath(configFile), "--dry-run", "static"};
+        return buildArgsFromPath(resolveConfigPath(configFile));
+    }
+
+    private ClientCommandArgs buildArgsFromPath(String configPath) {
+        String[] args = {"-c", configPath, "--dry-run", "static"};
         return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 

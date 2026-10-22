@@ -25,6 +25,8 @@ import java.util.Map;
 
 public class LanceSinkConfig extends LanceCommonConfig {
 
+    private final Integer batchSize;
+
     private final Integer maxRowsPerFile;
 
     private final Integer maxRowsPerGroup;
@@ -42,12 +44,17 @@ public class LanceSinkConfig extends LanceCommonConfig {
     public LanceSinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
         this.namespaceId = pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_ID);
+        this.batchSize = pluginConfig.get(LanceSinkOptions.WRITE_BATCH_SIZE);
         this.maxBytesPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE);
         this.maxRowsPerGroup = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_GROUP);
         this.maxRowsPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE);
         this.mode = WriteParams.WriteMode.valueOf(pluginConfig.get(LanceSinkOptions.WRITE_MODE));
         this.storageOptions = pluginConfig.get(LanceSinkOptions.WRITE_STORAGE_OPTIONS);
         this.enableStableRowIds = pluginConfig.get(LanceSinkOptions.WRITE_ENABLE_STABLE_ROW_IDS);
+    }
+
+    public Integer getBatchSize() {
+        return batchSize;
     }
 
     public Integer getMaxRowsPerFile() {

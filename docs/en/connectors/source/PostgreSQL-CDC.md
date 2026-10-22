@@ -23,6 +23,14 @@ import ChangeLog from '../changelog/connector-cdc-postgres.md';
 The PostgreSQL CDC connector allows for reading snapshot data and incremental data from PostgreSQL databases. This document
 describes how to set up the PostgreSQL CDC connector.
 
+Some PostgreSQL-compatible databases (for example HighGo) return the same physical table more than
+once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
+qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
+
+On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
+visible on the source connection's `search_path`. This does not change cached names or add source
+type namespaces to downstream `ADD COLUMN` statements.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -116,6 +124,9 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | exactly_once                              | Boolean  | No       | false    | Enable exactly-once semantics during the snapshot phase. This option is only available when `startup.mode` is `initial` or `snapshot-only`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | format                                    | Enum     | No       | DEFAULT  | Optional output format for PostgreSQL CDC, valid enumerations are `DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | require-replica-identity-full             | Boolean  | No       | true     | Require the table to have REPLICA IDENTITY FULL. When set to false, allows tables with other replica identity settings, but UPDATE/DELETE events may not contain the previous state. This should only be used for append-only tables (e.g., outbox pattern). Default is true for backward compatibility.                                                                                                                                                                                                                                                                                                             |
+| schema-changes.enabled                    | Boolean  | No       | false    | Enable schema evolution events. PostgreSQL CDC currently supports only `ADD COLUMN`, and this option requires `decoding.plugin.name = "pgoutput"`. The change is observed when PostgreSQL sends the next RELATION message, normally immediately before the first subsequent row change for that table. |
+| schema-changes.include                    | List     | No       | -        | Only the listed schema change event types are sent downstream when schema evolution is enabled. For the currently supported operation, use `add.column` (or the `update.columns` group alias). Empty means all supported types are eligible. |
+| schema-changes.exclude                    | List     | No       | -        | Schema change event types listed here are not sent downstream. Exclude is applied after include and wins when the same type appears in both lists. |
 | debezium                                  | Config   | No       | -        | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) to Debezium Embedded Engine which is used to capture data changes from PostgreSQL server.                                                                                                                                                                                                                                                                                                                                |
 | common-options                            |          | no       | -        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -168,6 +179,29 @@ sink {
     schema = "inventory"
     tablePrefix = "sink_"
     primary_keys = ["id"]
+  }
+}
+```
+
+### Schema evolution for ADD COLUMN
+
+PostgreSQL does not put the original `ALTER TABLE` SQL text in the logical replication stream.
+With `pgoutput`, SeaTunnel detects the changed table definition from the RELATION message, emits an
+`ADD COLUMN` event before the following row event, and updates the downstream table schema. A table
+must therefore receive a row change after the DDL before the schema change can be observed.
+
+If a RELATION message contains a row-schema change other than `ADD COLUMN`, the job fails before
+processing rows with that schema. Restoring the same checkpoint will encounter the change again;
+resume only after upgrading to a connector that supports the change or performing a controlled
+schema migration and restart.
+
+```hocon
+source {
+  Postgres-CDC {
+    # ...
+    decoding.plugin.name = "pgoutput"
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column"]
   }
 }
 ```
@@ -269,7 +303,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {
@@ -355,6 +390,24 @@ When `startup.mode` is `committed-offset`, the replication slot must already exi
 uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### Why does the job fail with "replication slot ... has been invalidated"?
+
+PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
+`max_slot_wal_keep_size`, stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18),
+or, on a standby, conflicts with recovery. `pg_replication_slots` then shows `wal_status = 'lost'`,
+`conflicting = true` (PostgreSQL 16 and later) or `invalidation_reason` (PostgreSQL 17 and later).
+The changes after the slot's confirmed position are gone, so SeaTunnel fails a job that reads changes from the slot
+with error `POSTGRES-04`; `snapshot-only` jobs do not use the slot and are not affected.
+Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
+again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
+
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
 
 ### Why does PostgreSQL CDC fall behind?
 

@@ -12,6 +12,22 @@ Redis Cluster, and can write to `key`/`string`, `hash`, `list`, `set`, and `zset
 The configured `key` can be either a literal Redis key or an upstream field name. When `support_custom_key = true`,
 the connector can build the Redis key from one or more upstream fields, for example `user:${id}`.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` checks that Redis is reachable and accepts the configured credentials.
+The client is created through the same connection setup as normal job execution, so `user` and
+`auth` are verified exactly as at runtime: `AUTH user auth` when `user` is set, `AUTH auth` when only
+`auth` is set. In `SINGLE` mode it then sends `SELECT db_num` and `PING`. In `CLUSTER` mode it
+initializes the cluster slot cache from `nodes` (`CLUSTER SLOTS`) and reads `INFO` from one node.
+The runtime connect and socket timeouts (2 seconds) apply, and every client is closed on success and
+on failure. No key is read, scanned, written or expired, no key space is created and no ACL entry is
+modified. Normal job execution is unchanged.
+
+Successful validation does **not** prove write permission on the target keys. `key`, `value_field`,
+`hash_key_field` and `hash_value_field` are not checked against the upstream schema, because a name
+that is not an upstream field is written as a literal value at runtime. In `CLUSTER` mode,
+validation passes as long as one node answers, so partially unreachable clusters are not detected.
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -58,6 +74,19 @@ downloaded from Maven Central.
 | multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
+### Authentication
+
+In both `SINGLE` and `CLUSTER` mode, a nonblank `user` selects Redis ACL authentication
+(`AUTH user auth`, Redis 6 or later). The connector does not create or modify ACL users.
+Create the user and grant its required command and key permissions before starting the job, including
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
+The password is passed unchanged, including whitespace; omitted or empty `auth` is sent as an empty
+password and only works if the ACL user accepts it (for example, a `nopass` user).
+
+If `user` is omitted, empty, or whitespace-only, nonblank `auth` uses password-only authentication
+as the default user. If both options are omitted or blank, no authentication command is sent.
+
 ## Write Rules
 
 ### key
@@ -95,6 +124,25 @@ Replica count for multi-table sink writers. It applies when upstream rows carry 
 
 For multi-table jobs, `key` may include `${table_name}` so rows from different upstream tables are written to separate
 Redis keys, for example `key = "redis-result-${table_name}"`.
+
+## Schema Evolution
+
+Redis Sink supports schema evolution with SeaTunnel Zeta. When the upstream is a CDC source, enable
+`schema-changes.enabled = true` in the source configuration so schema change events are sent to the sink.
+
+Redis is schema-less, so schema evolution does not execute DDL in Redis. Instead, when Redis Sink serializes the whole
+upstream row as JSON or TEXT, it refreshes the serializer after a supported schema change event. Newly added fields are
+included, and dropped fields are no longer written. See
+[Schema Evolution](../../introduction/configuration/schema-evolution.md) for the supported event types.
+
+Schema evolution does not rewrite field names configured in `key`, custom key placeholders, `value_field`,
+`hash_key_field`, or `hash_value_field`. Do not rename or drop a field referenced by these options while the job is
+running. If a configured field no longer exists, Redis Sink applies the missing-field behavior described in
+[Write Rules](#write-rules), which can turn the configured field name into a literal key or value.
+
+Before applying a schema change, Redis Sink flushes rows buffered with the previous schema. It also stores the latest
+schema in checkpoint state and restores that schema after recovery. Restoring a job from a checkpoint taken after a DDL
+while increasing the Redis sink parallelism is not currently supported.
 
 ## Examples
 

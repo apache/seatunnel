@@ -196,11 +196,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -376,6 +371,17 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         // drop table
         sqlServerCatalog.dropTable(tablePathSqlserverSink, true);
         Assertions.assertFalse(sqlServerCatalog.tableExists(tablePathSqlserverSink));
+        // database name that must be quoted
+        TablePath specialTablePath = TablePath.of("test-db", "dbo", "sink_lw");
+        sqlServerCatalog.createDatabase(specialTablePath, true);
+        try {
+            sqlServerCatalog.createTable(specialTablePath, catalogTable, true);
+            Assertions.assertTrue(sqlServerCatalog.tableExists(specialTablePath));
+            sqlServerCatalog.dropTable(specialTablePath, true);
+            Assertions.assertFalse(sqlServerCatalog.tableExists(specialTablePath));
+        } finally {
+            sqlServerCatalog.dropDatabase(specialTablePath, true);
+        }
         sqlServerCatalog.close();
     }
 }

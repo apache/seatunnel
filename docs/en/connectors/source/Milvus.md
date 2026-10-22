@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 This Milvus source connector reads data from Milvus or Zilliz Cloud. It can read one collection
@@ -67,7 +73,7 @@ Common use cases:
 - The source splits work by Milvus partition. Collections with a partition key are read with one split; collections without a partition key are split by partition name and assigned across readers.
 - When the source reads a collection with partitions, downstream Milvus sink can use that metadata to create the same partition names on the target collection.
 - When the source reads vector indexes, downstream Milvus sink can use that metadata with `create_index = true` to create matching vector indexes.
-- Streaming jobs should set a checkpoint interval and reuse the same Milvus token across restarts so that incremental reads resume correctly from the committed offset.
+- The Milvus source is BOUNDED: the job finishes naturally once every partition (split) has been fully scanned, and unlike Kafka or Fluss there is no per-record offset for continuous incremental reads. Checkpoint/restore is at split (partition) granularity — a partition that has already been fully scanned is not re-read, but a partition that was in progress when the job failed is re-scanned from the beginning of that partition. If you need to keep ingesting newly written vectors, re-submit the SeaTunnel job periodically from an external scheduler.
 
 ## Task Example
 
@@ -167,11 +173,9 @@ sink {
 }
 ```
 
-### Stream From One Collection With Checkpoints
+### Re-submit with Checkpoints for Periodic Ingestion
 
-This example runs the source in `STREAMING` mode with a 30 second checkpoint interval.
-The downstream sink uses `enable_upsert = false` so each row is inserted once and
-duplicates are rejected.
+The Milvus source is BOUNDED, so the job finishes naturally once every partition has been fully scanned. This example runs in `STREAMING` mode with a short checkpoint interval — to keep ingesting newly written vectors, re-submit the job from an external scheduler on demand. On restore, recovery is at split (partition) granularity: partitions that were already fully scanned are not re-read, while partitions that were in progress when the job failed are re-scanned from the beginning of that partition. The downstream sink uses `enable_upsert = true` and dedupes by primary key to avoid duplicate writes on re-scanned partitions.
 
 ```bash
 env {
@@ -196,7 +200,7 @@ sink {
     url = "http://127.0.0.1:19530"
     token = "username:password"
     database = "streaming_test"
-    enable_upsert = false
+    enable_upsert = true
     batch_size = 1000
   }
 }
@@ -227,6 +231,20 @@ sink {
   Console {}
 }
 ```
+
+## FAQ
+
+### Can Milvus source read all collections in a database at once?
+
+Yes. If you omit the `collection` parameter or leave it empty, the Milvus source connector will scan and read all collections in the configured `database`.
+
+### Which vector data types are supported?
+
+The connector supports `FLOAT_VECTOR`, `BINARY_VECTOR`, `FLOAT16_VECTOR`, `BFLOAT16_VECTOR`, and `SPARSE_FLOAT_VECTOR` types, carrying index and partition metadata to downstream connectors.
+
+### How does the source handle gRPC message size or rate limits?
+
+You can tune `batch_size` and `rate_limit` options. If the Milvus cluster enforces rate limits or gRPC message limits, the connector automatically retries with backoff.
 
 ## Changelog
 
