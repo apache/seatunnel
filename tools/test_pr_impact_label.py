@@ -338,6 +338,9 @@ class ReviewFindingsOn424e9ceTest(unittest.TestCase):
             self.assertFalse(impact.is_declaration(line))
             self.assertFalse(impact.is_option_rule_line(line))
             self.assertFalse(impact.is_constant_list("AB." * 200 + "token x"))  # over the cap: rejected at once
+            # A well-formed list beyond the cap is rejected for length alone: real constant lists are short.
+            self.assertFalse(impact.is_constant_list("SOME_OPTION, " * 40))
+            self.assertTrue(impact.is_constant_list("SOME_OPTION, " * 10))
             self.assertLess(time.time() - t0, 1.0)
         finally:
             signal.alarm(0); signal.signal(signal.SIGALRM, old)
