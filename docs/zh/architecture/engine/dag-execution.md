@@ -570,4 +570,4 @@ sink {
 
 - [Google Borg Paper](https://research.google/pubs/pub43438/) - 任务调度灵感
 - [Apache Flink JobGraph](https://nightlies.apache.org/flink/flink-docs-stable/docs/internals/job_scheduling/)
-- [Spark DAG Scheduler](https://spark.apache.org/docs/latest/job-scheduling.html)
+- [Spark DAG Scheduler](https://archive.apache.org/dist/spark/docs/3.5.6/job-scheduling.html)
