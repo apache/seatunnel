@@ -27,6 +27,7 @@ public enum MessageFormat {
     OGG_JSON,
     AVRO,
     MAXWELL_JSON,
+    CUSTOM_CDC_JSON,
     PROTOBUF,
     NATIVE
 }

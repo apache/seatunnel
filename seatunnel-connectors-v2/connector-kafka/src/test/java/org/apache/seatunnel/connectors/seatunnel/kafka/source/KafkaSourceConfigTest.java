@@ -24,12 +24,15 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.format.json.customcdc.CustomCdcJsonSourceDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +105,7 @@ public class KafkaSourceConfigTest {
         KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
 
         CatalogTable catalogTable =
-                sourceConfig.getMapMetadata().get(TablePath.of("test")).getCatalogTable();
+                sourceConfig.getMapMetadata().get(TablePath.of("test")).getCatalogTables().get(0);
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
 
         // Schema should be extended with the 2 header fields
@@ -168,7 +171,7 @@ public class KafkaSourceConfigTest {
         Assertions.assertEquals(Arrays.asList("correlation_id"), metadata.getKafkaHeaderFields());
 
         // Output schema includes header field
-        SeaTunnelRowType rowType = metadata.getCatalogTable().getSeaTunnelRowType();
+        SeaTunnelRowType rowType = metadata.getCatalogTables().get(0).getSeaTunnelRowType();
         List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
         Assertions.assertTrue(fieldNames.contains("correlation_id"));
     }
@@ -184,7 +187,7 @@ public class KafkaSourceConfigTest {
         KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
 
         CatalogTable catalogTable =
-                sourceConfig.getMapMetadata().get(TablePath.of("test")).getCatalogTable();
+                sourceConfig.getMapMetadata().get(TablePath.of("test")).getCatalogTables().get(0);
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
 
         // NATIVE format already has its own fixed schema; header fields should NOT be added
@@ -246,5 +249,80 @@ public class KafkaSourceConfigTest {
         KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
 
         Assertions.assertNotNull(sourceConfig.getMapMetadata().get(TablePath.of(null, table)));
+    }
+
+    @Test
+    void testCustomCdcJsonCreatesOneOutputTablePerConfiguredSchema() {
+        Map<String, Object> configMap = customCdcConfig();
+        KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+
+        ConsumerMetadata metadata = sourceConfig.getMapMetadata().get(TablePath.of("custom-cdc"));
+        Assertions.assertNotNull(metadata);
+        Assertions.assertEquals(2, metadata.getCatalogTables().size());
+        Assertions.assertEquals(
+                Arrays.asList("public.student", "public.teacher"),
+                metadata.getCatalogTables().stream()
+                        .map(catalogTable -> catalogTable.getTablePath().toString())
+                        .sorted()
+                        .collect(java.util.stream.Collectors.toList()));
+
+        KafkaEventTimeDeserializationSchema eventTimeSchema =
+                Assertions.assertInstanceOf(
+                        KafkaEventTimeDeserializationSchema.class,
+                        metadata.getDeserializationSchema());
+        Assertions.assertInstanceOf(
+                CustomCdcJsonSourceDeserializationSchema.class, eventTimeSchema.getDelegate());
+        Assertions.assertEquals(
+                2,
+                new KafkaSource(ReadonlyConfig.fromMap(configMap))
+                        .getProducedCatalogTables()
+                        .size());
+    }
+
+    @Test
+    void testCustomCdcJsonRequiresBeforeAndAfterPaths() {
+        Map<String, Object> configMap = customCdcConfig();
+        configMap.remove("before_path");
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap)));
+        Assertions.assertTrue(exception.getMessage().contains("before_path"));
+    }
+
+    private static Map<String, Object> customCdcConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bootstrap.servers", "localhost:9092");
+        config.put("topic", "custom-cdc");
+        config.put("format", "custom_cdc_json");
+        config.put("schema_path", "$.schema");
+        config.put("table_path", "$.table");
+        config.put("operation_path", "$.operation");
+        config.put("before_path", "$.before");
+        config.put("after_path", "$.after");
+        config.put(
+                "schema_list",
+                Arrays.asList(customCdcTable("public.student"), customCdcTable("public.teacher")));
+        return config;
+    }
+
+    private static Map<String, Object> customCdcTable(String table) {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", table);
+        List<Map<String, Object>> columns = new ArrayList<>();
+        columns.add(customCdcColumn("id", "int"));
+        columns.add(customCdcColumn("name", "string"));
+        schema.put("columns", columns);
+        schema.put("json_field", Collections.singletonMap("id", "$.id"));
+        return schema;
+    }
+
+    private static Map<String, Object> customCdcColumn(String name, String type) {
+        Map<String, Object> column = new HashMap<>();
+        column.put("name", name);
+        column.put("type", type);
+        column.put("nullable", true);
+        return column;
     }
 }

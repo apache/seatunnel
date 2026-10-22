@@ -27,7 +27,6 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -43,7 +42,7 @@ public class ConsumerMetadata implements Serializable {
     private Map<TopicPartition, Long> specificStartOffsets;
     private Long startOffsetsTimestamp;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private CatalogTable catalogTable;
+    private List<CatalogTable> catalogTables;
     private Long endOffsetsTimestamp;
-    private List<String> kafkaHeaderFields = Collections.emptyList();
+    private List<String> kafkaHeaderFields = java.util.Collections.emptyList();
 }

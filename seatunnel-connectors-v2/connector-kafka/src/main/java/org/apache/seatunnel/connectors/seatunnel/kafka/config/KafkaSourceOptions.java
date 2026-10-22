@@ -64,6 +64,77 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .defaultValue(true)
                     .withDescription("Does the debezium record carry a schema.");
 
+    public static final Option<String> SCHEMA_PATH =
+            Options.key("schema_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JSONPath used by CUSTOM_CDC_JSON to resolve the schema name from a message.");
+
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JSONPath used by CUSTOM_CDC_JSON to resolve the table name from a message.");
+
+    public static final Option<String> OPERATION_PATH =
+            Options.key("operation_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JSONPath used by CUSTOM_CDC_JSON to resolve the CDC operation from a message.");
+
+    public static final Option<Map<String, String>> CUSTOM_CDC_OPERATION_TYPE_MAPPING =
+            Options.key("custom_cdc_operation_type_mapping")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Mapping from a CUSTOM_CDC_JSON operation value to INSERT, UPDATE, "
+                                    + "DELETE, UPDATE_BEFORE, or UPDATE_AFTER. When omitted, "
+                                    + "c/r/create/insert, u/update, and d/delete are recognized.");
+
+    public static final Option<String> BEFORE_PATH =
+            Options.key("before_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JSONPath used by CUSTOM_CDC_JSON to resolve the before image from a message.");
+
+    public static final Option<String> AFTER_PATH =
+            Options.key("after_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JSONPath used by CUSTOM_CDC_JSON to resolve the after image from a message.");
+
+    public static final Option<List<Map<String, Object>>> SCHEMA_LIST =
+            Options.key("schema_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "CUSTOM_CDC_JSON output schemas. Each entry contains table, columns, and optional json_field.");
+
+    public static final Option<String> TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Logical table name used in a CUSTOM_CDC_JSON schema_list entry.");
+
+    public static final Option<Map<String, String>> JSON_FIELD =
+            Options.key("json_field")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Mapping from output column name to JSONPath in a CUSTOM_CDC_JSON row image.");
+
+    public static final Option<List<Map<String, Object>>> COLUMNS =
+            Options.key("columns")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("Columns used in a CUSTOM_CDC_JSON schema_list entry.");
+
     public static final Option<TableIdentifierConfig> DEBEZIUM_RECORD_TABLE_FILTER =
             Options.key("debezium_record_table_filter")
                     .type(new TypeReference<TableIdentifierConfig>() {})
