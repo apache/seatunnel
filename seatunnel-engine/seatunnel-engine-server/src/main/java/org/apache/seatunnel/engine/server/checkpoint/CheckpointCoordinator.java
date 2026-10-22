@@ -1383,18 +1383,17 @@ public class CheckpointCoordinator {
                                 .states(states)
                                 .build());
             }
-            if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
+            int maxRetained = coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+            if (maxRetained > 0 && completedCheckpointIds.size() > maxRetained) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
+                while (completedCheckpointIds.size() > maxRetained) {
                     needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
                 }
+                checkpointStorage.deleteCheckpoint(
+                        String.valueOf(completedCheckpoint.getJobId()),
+                        String.valueOf(completedCheckpoint.getPipelineId()),
+                        needDeleteCheckpointId);
+            }
                 checkpointStorage.deleteCheckpoint(
                         String.valueOf(completedCheckpoint.getJobId()),
                         String.valueOf(completedCheckpoint.getPipelineId()),
