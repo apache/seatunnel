@@ -149,7 +149,7 @@ Response fields:
 |---|---|
 | `jobId` | Unique job identifier |
 | `jobName` | Human-readable job name |
-| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELLED` |
+| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELED` |
 | `envOptions` | Env configuration applied |
 | `createTime` | Job creation timestamp |
 | `jobDag` | DAG structure |
@@ -225,12 +225,10 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log and returned in the job final state:
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+The savepoint is written to the configured checkpoint storage (see the checkpoint storage settings of your cluster). The `/job-info/:jobId` response has no
+`savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
+`restoreSourceJobId`), which picks up the latest savepoint of that job. For the full
+request example, see section 6.2.
 
 ### 5.3 Cancel (force)
 
@@ -325,22 +323,13 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 Restart from a specific savepoint path
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+### 6.3 Restoring from an explicit savepoint path
+
+The REST API does not support pointing at a specific savepoint path. There are no env options such
+as `restore.mode` or `savepoint.path`; restore is driven only by the `restoreMode` and
+`restoreSourceJobId` request parameters, and `restoreMode=SAVEPOINT` always picks up the **latest**
+savepoint of the referenced job (per pipeline, the one with the highest checkpoint id). There is no
+supported way to select an older savepoint through the REST API.
 
 ---
 
