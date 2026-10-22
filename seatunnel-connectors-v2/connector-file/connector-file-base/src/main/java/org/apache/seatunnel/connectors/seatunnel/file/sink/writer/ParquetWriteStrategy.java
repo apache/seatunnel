@@ -59,6 +59,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -183,11 +184,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
         // LocalTimestampMillisConversion is not needed here because
-        // seaTunnelDataType2ParquetDataType maps TIMESTAMP to
-        // INT64.as(OriginalType.TIMESTAMP_MILLIS), which AvroSchemaConverter
-        // converts to Avro's timestamp-millis (not local-timestamp-millis).
+        // seaTunnelDataType2ParquetDataType maps TIMESTAMP to INT64
+        // TIMESTAMP(MICROS, isAdjustedToUTC=true), which AvroSchemaConverter
+        // converts to Avro's timestamp-micros (not a local-timestamp type).
         // resolveObject also handles TIMESTAMP values manually (converting to
-        // epoch millis), bypassing the data model entirely.
+        // epoch micros), bypassing the data model entirely.
         // See https://github.com/apache/seatunnel/issues/11743
         if (writer == null) {
             Path path = new Path(filePath);
@@ -284,17 +285,17 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                             TimeUnit.HOURS.toNanos(calendar.get(Calendar.HOUR_OF_DAY))
                                     + TimeUnit.MINUTES.toNanos(calendar.get(Calendar.MINUTE))
                                     + TimeUnit.SECONDS.toNanos(calendar.get(Calendar.SECOND))
-                                    + TimeUnit.MILLISECONDS.toNanos(
-                                            calendar.get(Calendar.MILLISECOND));
+                                    + localDateTime.getNano();
                     NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
                     return new GenericData.Fixed(
                             schema.getField(normalizeFieldName(name)).schema(),
                             nanoTime.toBinary().getBytes());
                 }
-                return ((LocalDateTime) data)
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli();
+                Instant instant = ((LocalDateTime) data).atZone(ZoneId.systemDefault()).toInstant();
+                // epoch micros; getEpochSecond floors, so pre-1970 values stay exact
+                return Math.addExact(
+                        Math.multiplyExact(instant.getEpochSecond(), 1_000_000L),
+                        instant.getNano() / 1_000);
             case BYTES:
                 if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     return new GenericData.Fixed(
@@ -402,7 +403,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 }
                 return Types.primitive(
                                 PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
-                        .as(OriginalType.TIMESTAMP_MILLIS)
+                        .as(
+                                LogicalTypeAnnotation.timestampType(
+                                        true, LogicalTypeAnnotation.TimeUnit.MICROS))
                         .named(fieldName);
             case FLOAT:
                 return Types.primitive(

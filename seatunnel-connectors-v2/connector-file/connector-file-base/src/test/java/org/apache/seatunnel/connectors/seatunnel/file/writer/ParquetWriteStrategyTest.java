@@ -33,7 +33,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadS
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -47,7 +50,9 @@ import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -316,14 +321,100 @@ public class ParquetWriteStrategyTest {
                 value.toLocalTime(), underJa.toLocalTime(), "ja-JP-u-ca-japanese time of day");
     }
 
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteTimestampKeepsMicroseconds() throws Exception {
+        // DATETIME(6) / TIMESTAMP(6) sources carry microseconds; INT64 TIMESTAMP_MILLIS dropped
+        // them
+        LocalDateTime[] values = {
+            LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_000),
+            LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000),
+            LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_000),
+            LocalDateTime.of(1900, 6, 15, 12, 30, 45, 123_456_000),
+            LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999_999_000),
+            LocalDateTime.of(2024, 3, 15, 13, 45, 30)
+        };
+        String tmpPath = writeTimestamps("micros", false, values);
+        String file = parquetFile(tmpPath);
+
+        PrimitiveType type;
+        try (ParquetFileReader reader =
+                ParquetFileReader.open(
+                        HadoopInputFile.fromPath(
+                                new org.apache.hadoop.fs.Path(file), new Configuration()))) {
+            type =
+                    reader.getFooter()
+                            .getFileMetaData()
+                            .getSchema()
+                            .getType("f2_timestamp")
+                            .asPrimitiveType();
+        }
+        Assertions.assertEquals(PrimitiveType.PrimitiveTypeName.INT64, type.getPrimitiveTypeName());
+        // isAdjustedToUTC=true is what TIMESTAMP_MILLIS meant, so readers see the same type as
+        // before
+        Assertions.assertEquals(
+                LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MICROS),
+                type.getLogicalTypeAnnotation());
+
+        // raw stored values, checked without ParquetReadStrategy
+        List<Long> raw = new ArrayList<>();
+        try (ParquetReader<Group> reader =
+                ParquetReader.builder(new GroupReadSupport(), new org.apache.hadoop.fs.Path(file))
+                        .build()) {
+            for (Group group = reader.read(); group != null; group = reader.read()) {
+                raw.add(group.getLong("f2_timestamp", 0));
+            }
+        }
+        List<Long> expectedRaw = new ArrayList<>();
+        for (LocalDateTime value : values) {
+            // floor to micros; ChronoUnit.MICROS.between overflows at year 9999 and truncates
+            Instant instant = value.atZone(ZoneId.systemDefault()).toInstant();
+            expectedRaw.add(instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1_000);
+        }
+        Assertions.assertEquals(expectedRaw, raw);
+
+        Assertions.assertEquals(Arrays.asList(values), readTimestamps(tmpPath));
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteTimestampTruncatesBelowMicroseconds() throws Exception {
+        String tmpPath =
+                writeTimestamps(
+                        "nanos", false, LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_999));
+        Assertions.assertEquals(
+                Arrays.asList(LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_000)),
+                readTimestamps(tmpPath));
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteInt96KeepsSubMillisecondPrecision() throws Exception {
+        LocalDateTime micros = LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_000);
+        LocalDateTime nanos = LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_123);
+        LocalDateTime preEpoch = LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_000);
+        Assertions.assertEquals(micros, int96RoundTrip("micros", micros));
+        // INT96 stores nanoseconds of the day, so nothing below micros is lost either
+        Assertions.assertEquals(nanos, int96RoundTrip("nanos", nanos));
+        Assertions.assertEquals(preEpoch, int96RoundTrip("pre-epoch", preEpoch));
+    }
+
     /** Writes one timestamp as INT96 and reads it back, returning the round-tripped value. */
     private static LocalDateTime int96RoundTrip(String tag, LocalDateTime value) throws Exception {
+        List<LocalDateTime> read = readTimestamps(writeTimestamps(tag, true, value));
+        Assertions.assertEquals(1, read.size());
+        return read.get(0);
+    }
+
+    /** Writes the timestamps to one parquet file and returns its directory. */
+    private static String writeTimestamps(String tag, boolean int96, LocalDateTime... values)
+            throws Exception {
         String tmpPath = TMP_PATH + "-" + tag;
         Map<String, Object> writeConfig = new HashMap<>();
         writeConfig.put("tmp_path", tmpPath);
         writeConfig.put("path", "file:///tmp/seatunnel/parquet/int96-" + tag);
         writeConfig.put("file_format_type", FileFormat.PARQUET.name());
-        writeConfig.put("parquet_avro_write_timestamp_as_int96", "true");
+        writeConfig.put("parquet_avro_write_timestamp_as_int96", String.valueOf(int96));
 
         SeaTunnelRowType writeRowType =
                 new SeaTunnelRowType(
@@ -338,10 +429,28 @@ public class ParquetWriteStrategyTest {
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, tag, tag, 0);
         writeStrategy.beginTransaction(1L);
-        writeStrategy.write(new SeaTunnelRow(new Object[] {value}));
+        for (LocalDateTime value : values) {
+            writeStrategy.write(new SeaTunnelRow(new Object[] {value}));
+        }
         writeStrategy.finishAndCloseFile();
         writeStrategy.close();
+        return tmpPath;
+    }
 
+    /** Returns the single parquet file written under tmpPath. */
+    private static String parquetFile(String tmpPath) throws Exception {
+        ParquetReadStrategy readStrategy = new ParquetReadStrategy();
+        readStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        List<String> files = readStrategy.getFileNamesByPath(tmpPath);
+        readStrategy.close();
+        Assertions.assertEquals(1, files.size());
+        return files.get(0);
+    }
+
+    /** Reads the single parquet file under tmpPath with ParquetReadStrategy. */
+    private static List<LocalDateTime> readTimestamps(String tmpPath) throws Exception {
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         ParquetReadStrategy readStrategy = new ParquetReadStrategy();
         readStrategy.init(hadoopConf);
         List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
@@ -363,7 +472,10 @@ public class ParquetWriteStrategyTest {
                     }
                 });
         readStrategy.close();
-        Assertions.assertEquals(1, readRows.size());
-        return (LocalDateTime) readRows.get(0).getField(0);
+        List<LocalDateTime> result = new ArrayList<>();
+        for (SeaTunnelRow row : readRows) {
+            result.add((LocalDateTime) row.getField(0));
+        }
+        return result;
     }
 }

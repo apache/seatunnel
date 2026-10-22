@@ -4,6 +4,13 @@
 
 ## dev
 
+### File Sink：Parquet 保留 TIMESTAMP 的微秒
+
+- **行为变更：文件类 Sink 的 Parquet 写入器将 TIMESTAMP 写为 INT64 `TIMESTAMP(MICROS, isAdjustedToUTC=true)`，不再是 `TIMESTAMP_MILLIS`**
+  - **描述**：此前 TIMESTAMP 被截断到毫秒，`DATETIME(6)` 值 `2026-04-27 20:50:29.006733` 会写成 `20:50:29.006`。设置 `parquet_avro_write_timestamp_as_int96 = true` 时，INT96 同样被截断到毫秒。现在 INT64 列以微秒写入（Avro `timestamp-micros`），INT96 保留全部纳秒。文件类 Source 的 Parquet 读取器会把 `TIMESTAMP_MICROS` 列读为 TIMESTAMP，并保留 INT96 的全部纳秒。
+  - **影响**：新文件中该列为 `timestamp[us]`，旧文件为 `timestamp[ms]`。SeaTunnel 的 Parquet 读取器按文件解析类型，同一目录混有两种文件也能读取。按目录中第一个文件推断整个目录 schema 的读取方式（例如默认参数的 `pyarrow.dataset`）在这种目录上会报错（`would lose data`）。其他工具写出的 `TIMESTAMP_MICROS` 列此前读为 BIGINT，现在读为 TIMESTAMP。
+  - **迁移指南**：升级后写入新目录，或为这类读取方式显式指定微秒 schema。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**

@@ -75,6 +75,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -90,6 +91,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final byte[] PARQUET_MAGIC =
             new byte[] {(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
     private static final long NANOS_PER_MILLISECOND = 1000000;
+    private static final long NANOS_PER_SECOND = TimeUnit.SECONDS.toNanos(1L);
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
     private static final String PARQUET = "Parquet";
@@ -141,6 +143,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        dataModel.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
         final boolean useSplitRange =
                 enableSplitFile && split.getStart() >= 0 && split.getLength() > 0;
         GenericRecord record;
@@ -543,6 +546,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 }
                 return group.getInteger(fieldIndex, 0);
             case INT64:
+                if (parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
+                    return Instant.EPOCH.plus(group.getLong(fieldIndex, 0), ChronoUnit.MICROS);
+                }
                 return group.getLong(fieldIndex, 0);
             case INT96:
                 return int96ToLocalDateTime(group.getInt96(fieldIndex, 0));
@@ -597,7 +603,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         long timestamp =
                 (julianDay - JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH) * MILLIS_PER_DAY
                         + nanosOfDay / NANOS_PER_MILLISECOND;
-        return new Timestamp(timestamp).toLocalDateTime();
+        Timestamp result = new Timestamp(timestamp);
+        // keep the full INT96 nanos, not only the millis carried by the epoch value
+        result.setNanos((int) (nanosOfDay % NANOS_PER_SECOND));
+        return result.toLocalDateTime();
     }
 
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
@@ -720,17 +729,14 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 return bytes;
             case TIMESTAMP:
                 if (field instanceof GenericData.Fixed) {
-                    Binary binary =
-                            Binary.fromConstantByteArray(((GenericData.Fixed) field).bytes());
-                    NanoTime nanoTime = NanoTime.fromBinary(binary);
-                    int julianDay = nanoTime.getJulianDay();
-                    long nanosOfDay = nanoTime.getTimeOfDayNanos();
-                    long timestamp =
-                            (julianDay - JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH) * MILLIS_PER_DAY
-                                    + nanosOfDay / NANOS_PER_MILLISECOND;
-                    return new Timestamp(timestamp).toLocalDateTime();
+                    return int96ToLocalDateTime(
+                            Binary.fromConstantByteArray(((GenericData.Fixed) field).bytes()));
                 }
-                Instant instant = Instant.ofEpochMilli((long) field);
+                // TIMESTAMP_MICROS arrives as Instant, legacy TIMESTAMP_MILLIS as epoch millis
+                Instant instant =
+                        field instanceof Instant
+                                ? (Instant) field
+                                : Instant.ofEpochMilli((long) field);
                 return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
@@ -833,7 +839,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                     PARQUET, type.toString(), name);
                     }
                 case INT64:
-                    if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+                    OriginalType int64Type = type.asPrimitiveType().getOriginalType();
+                    if (int64Type == OriginalType.TIMESTAMP_MILLIS
+                            || int64Type == OriginalType.TIMESTAMP_MICROS) {
                         return getFinalType(LocalTimeType.LOCAL_DATE_TIME_TYPE, configType);
                     }
                     return getFinalType(BasicType.LONG_TYPE, configType);

@@ -201,6 +201,7 @@ schema {
 | INT_16               | SHORT                         |
 | DATE                 | DATE                          |
 | TIMESTAMP_MILLIS     | TIMESTAMP                     |
+| TIMESTAMP_MICROS     | TIMESTAMP                     |
 | INT64                | LONG                          |
 | INT96                | TIMESTAMP                     |
 | BINARY               | BYTES                         |
