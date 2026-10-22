@@ -174,6 +174,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 true,
                                 RestoreMode.SAVEPOINT,
                                 77103107L,
+                                false,
                                 nodeEngine,
                                 owner,
                                 plans,
@@ -182,8 +183,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 instance.getExecutorService("test"),
                                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                                 server.getEngineContext(),
-                                null,
-                                false));
+                                null));
         Assertions.assertTrue(retired.get(), "the storage read must actually complete first");
         Assertions.assertNull(
                 server.getEngineContext()
@@ -276,6 +276,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 true,
                                 RestoreMode.NONE,
                                 null,
+                                true,
                                 nodeEngine,
                                 null,
                                 plans,
@@ -284,8 +285,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 instance.getExecutorService("test"),
                                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                                 server.getEngineContext(),
-                                null,
-                                true));
+                                null));
         for (int pipelineId : plans.keySet()) {
             Assertions.assertNull(
                     server.getEngineContext()
@@ -430,6 +430,94 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
     }
 
+    @Test
+    public void testMasterFailoverRestoreShouldLoadLatestCheckpointOfOwnJob() throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 7L);
+
+        // A normally submitted job has no restore source; after a master switch it is
+        // re-initialized with restart = true and must still continue from its own checkpoint.
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.NONE,
+                        null,
+                        true,
+                        checkpointStorage,
+                        new CheckpointConfig());
+
+        Assertions.assertEquals(
+                8L, checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testMasterFailoverRestoreShouldPreferOwnLatestCheckpointOverSavepoint()
+            throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 3L, CheckpointType.SAVEPOINT_TYPE);
+        // checkpoint files are ordered by their store timestamp (millis)
+        Thread.sleep(5);
+        storeCompletedCheckpoint(checkpointStorage, jobId, 7L);
+
+        // Job started with -r and later hit a master switch: resume from checkpoint 7, not
+        // from the savepoint it was originally restored from.
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        jobId,
+                        true,
+                        checkpointStorage,
+                        new CheckpointConfig());
+
+        Assertions.assertEquals(
+                8L, checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testMasterFailoverRestoreShouldFallBackToSourceJobWithoutOwnCheckpoint()
+            throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        long sourceJobId = jobId + 1;
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, sourceJobId, 5L);
+
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.CHECKPOINT,
+                        sourceJobId,
+                        true,
+                        checkpointStorage,
+                        new CheckpointConfig());
+
+        Assertions.assertEquals(
+                6L, checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            boolean masterFailoverRestore,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig) {
+        return createCheckpointManager(
+                jobId,
+                isRestoreJob,
+                restoreMode,
+                restoreSourceJobId,
+                checkpointStorage,
+                checkpointConfig,
+                masterFailoverRestore);
+    }
+
     private CheckpointStorage createCheckpointStorage() throws CheckpointStorageException {
         return FactoryUtil.discoverFactory(
                         Thread.currentThread().getContextClassLoader(),
@@ -516,6 +604,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 isRestoreJob,
                 restoreMode,
                 restoreSourceJobId,
+                recoverCurrentJob,
                 nodeEngine,
                 null,
                 planMap,
@@ -524,8 +613,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 instance.getExecutorService("test"),
                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                 server.getEngineContext(),
-                null,
-                recoverCurrentJob);
+                null);
     }
 
     @Test

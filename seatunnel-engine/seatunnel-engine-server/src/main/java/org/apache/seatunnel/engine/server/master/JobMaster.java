@@ -410,6 +410,7 @@ public class JobMaster {
                 restoreState && (jobImmutableInformation.isRestoreJob() || restart),
                 jobImmutableInformation.getRestoreMode(),
                 jobImmutableInformation.getRestoreSourceJobId(),
+                restart,
                 nodeEngine,
                 this,
                 checkpointPlanMap,
@@ -418,8 +419,7 @@ public class JobMaster {
                 executorService,
                 runningJobStateIMap,
                 seaTunnelServer.getEngineContext(),
-                seaTunnelServer.getCheckpointMonitorService(),
-                restart);
+                seaTunnelServer.getCheckpointMonitorService());
     }
 
     private CheckpointStorage resolveCheckpointStorageOrFallback(boolean restart) {

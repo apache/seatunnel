@@ -115,6 +115,7 @@ public class CheckpointManager {
                 isRestoreJob,
                 restoreMode,
                 restoreSourceJobId,
+                false,
                 nodeEngine,
                 jobMaster,
                 checkpointPlanMap,
@@ -123,15 +124,19 @@ public class CheckpointManager {
                 executorService,
                 runningJobStateIMap,
                 engineContext,
-                checkpointMonitorService,
-                false);
+                checkpointMonitorService);
     }
 
+    /**
+     * @param masterFailoverRestore true when restoring after a master switch/restart; prefer this
+     *     job's latest completed checkpoint, falling back to the requested source only when absent.
+     */
     public CheckpointManager(
             long jobId,
             boolean isRestoreJob,
             RestoreMode restoreMode,
             Long restoreSourceJobId,
+            boolean masterFailoverRestore,
             NodeEngine nodeEngine,
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
@@ -140,8 +145,7 @@ public class CheckpointManager {
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
             SeaTunnelEngineContext engineContext,
-            CheckpointMonitorService checkpointMonitorService,
-            boolean recoverCurrentJob) {
+            CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
@@ -162,13 +166,13 @@ public class CheckpointManager {
             try {
                 for (CheckpointPlan plan : checkpointPlanMap.values()) {
                     PipelineState state =
-                            recoverCurrentJob
+                            masterFailoverRestore
                                     ? latestRecoveryStateWithRetry(
                                             jobId, plan.getPipelineId(), null, deadline)
                                     : null;
                     if (state == null && restoreSourceJobId != null) {
                         state =
-                                recoverCurrentJob
+                                masterFailoverRestore
                                         ? latestRecoveryStateWithRetry(
                                                 restoreSourceJobId,
                                                 plan.getPipelineId(),
@@ -192,7 +196,7 @@ public class CheckpointManager {
             // cancellation.
             synchronized (jobMaster.getCoordinatorService()) {
                 try {
-                    if (recoverCurrentJob) {
+                    if (masterFailoverRestore) {
                         checkRecoveryActive();
                     } else {
                         jobMaster.checkInitializationActive();
