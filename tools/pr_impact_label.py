@@ -35,7 +35,7 @@ How the level is computed (see compute_level):
               is an option-surface change (medium), not a core change
             - the option contract broken: an option key removed, or its default/type changed
             - a CI workflow or action whose permission surface changed: permissions, secrets,
-              GITHUB_TOKEN, pull_request_target, workflow_run, write scopes
+              GITHUB_TOKEN, pull_request_target, workflow_run, write scopes (comment lines ignored)
   medium  an internal file of other platform code (core, common, config, formats, transforms,
           translation, plugin discovery, dist, edge agent), CI workflows and actions without a
           permission change, tools, non-connector poms, build wrapper and license files; a shared
@@ -49,7 +49,8 @@ How the level is computed (see compute_level):
             +2  existing credential-handling code changed (declarations that only name an option
                 do not count)
             +2  new supply chain: an artifact, (artifact, version) pair or version property value
-                that no pom of the base branch uses; repositories/profiles/antrun/exec in a pom
+                that no pom of the base branch uses; repositories/profiles/antrun/exec in a pom; a
+                third-party `uses:` action added or changed in a workflow
             +2  existing tests weakened (fewer assertions, test disabled, tolerance loosened, file
                 deleted)
             +2  registration entry removed (module, dist dependency, plugin mapping, service,
@@ -154,6 +155,9 @@ WORKFLOW_FILE_RE = re.compile(r"^\.github/(workflows|actions)/.*\.ya?ml$")
 WORKFLOW_SURFACE_RE = re.compile(
     r"\bpermissions\b|pull_request_target|workflow_run|secrets\.|GITHUB_TOKEN|id-token|:\s*write\b"
 )
+# `uses:` references outside the GitHub-owned `actions/` namespace and local `./` actions are third-party code
+# that runs inside CI: a new or changed one is a supply-chain fact, like a new Maven artifact.
+WORKFLOW_USES_RE = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)")
 # Test suites of platform modules other than engine/api: test-only changes cannot alter runtime behavior.
 PLATFORM_TEST_RE = re.compile(
     r"^seatunnel-e2e/(seatunnel-engine-e2e|seatunnel-core-e2e|seatunnel-transforms-v2-e2e|seatunnel-edge-agent-e2e)/.*"
@@ -219,10 +223,6 @@ OPTION_RULE_LINE_RE = re.compile(
     r"OptionRule|\bOptions\b|\.key\(|\.(required|optional|exclusive|conditional|bundled|build)\(|optionRule\(\)"
     r"|\bConditions\.|\b(notBlank|notNull|notEmpty|extension)\(|^\s*[)\]};]*\s*$|^\s*@Override\s*$"
 )
-
-
-def is_option_rule_line(text):
-    return bool(OPTION_RULE_LINE_RE.search(text) or CONSTANT_LIST_RE.match(text))
 SERIAL_RE = re.compile(r"serialVersionUID")
 OPTION_FILE_RE = re.compile(r"(Option|Options|Config|Configs|Factory|Rule)[A-Za-z0-9]*\.java$")
 OPTION_KEY_RE = re.compile(r"Options\.key\(\"([^\"]+)\"\)")
@@ -255,14 +255,12 @@ DECLARATION_RE = re.compile(
     r"\.(required|optional|exclusive|conditional|bundled)\(|Options\.key\(|^\s*(public |private |protected )?static final"
 )
 # A line that is only a list of option constants (`TDengineSinkOptions.PASSWORD,`, `Arrays.asList(URL, SECRET_KEY);`),
-# as produced by multi-line option rules: it names credential options but handles no value.
-CONSTANT_LIST_RE = re.compile(
-    r"^\s*(?:(?:Arrays\.asList|List\.of|ImmutableList\.of|\.\w+)\()?\s*(?:[\w.]*\b[A-Z][A-Z0-9_]+\b\s*,?\s*)+\)*\s*[;,]?\s*$"
-)
-
-
-def is_declaration(text):
-    return bool(DECLARATION_RE.search(text) or CONSTANT_LIST_RE.match(text))
+# as produced by multi-line option rules: it names credential options but handles no value. Checked element by
+# element in is_constant_list(): a single regex with a repeated group backtracked exponentially on PR-controlled
+# input, which let a crafted line stall the evaluation job.
+CONSTANT_LIST_WRAPPER_RE = re.compile(r"^(?:Arrays\.asList|List\.of|ImmutableList\.of|\.\w+)\(")
+CONSTANT_ELEMENT_RE = re.compile(r"[\w.]*[A-Z][A-Z0-9_]+")
+CONSTANT_LIST_MAX_LENGTH = 200  # real option constant lists are short; longer lines are never declarations
 DISABLE_RE = re.compile(r"@Disabled|@Ignore|@DisabledOnContainer|@DisabledOnOs|@DisabledIf|Assumptions\.|assumeTrue|assumeFalse")
 # Longer timeouts do not reduce what a test can detect (a hang still fails), so they are only a note.
 TIMING_RE = re.compile(r"(?i)timeout|atMost|pollInterval|Duration\.|retry|retries")
@@ -285,6 +283,73 @@ INJECTION_RE = re.compile(
 MOVED_MIN_LENGTH = 12
 SIZE_LIMIT = 250
 SIZE_LIMIT_NEW_CONNECTOR = 1500
+
+
+def is_constant_list(text):
+    """True for a line that only lists option constants, e.g. `X.PASSWORD,` or `Arrays.asList(URL, KEY);`.
+
+    Linear in the line length: strip an optional wrapper call and trailing punctuation, then check each
+    comma-separated element with an anchored, non-repeating pattern.
+    """
+    text = text.strip()
+    if not text or len(text) > CONSTANT_LIST_MAX_LENGTH:
+        return False
+    text = CONSTANT_LIST_WRAPPER_RE.sub("", text, count=1).rstrip(");, ")
+    elements = [e.strip() for e in text.split(",")]
+    return bool(elements) and all(e and CONSTANT_ELEMENT_RE.fullmatch(e) for e in elements)
+
+
+def is_option_rule_line(text):
+    return bool(OPTION_RULE_LINE_RE.search(text) or is_constant_list(text))
+
+
+def is_declaration(text):
+    return bool(DECLARATION_RE.search(text) or is_constant_list(text))
+
+
+def workflow_surface_changed(lines):
+    """Permission-surface vocabulary on non-comment workflow lines."""
+    return any(WORKFLOW_SURFACE_RE.search(x) for x in lines if not x.strip().startswith("#"))
+
+
+def third_party_actions(lines):
+    out = []
+    for x in lines:
+        m = WORKFLOW_USES_RE.match(x)
+        if m and not m.group(1).startswith(("actions/", "./")):
+            out.append(m.group(1))
+    return out
+
+
+def option_changes(patch):
+    """Option facts of one file, read from the full hunk so multi-line declarations are understood.
+
+    Connector options are written one call per line (`Options.key("format")` / `.enumType(...)` /
+    `.defaultValue(...)`), so a changed default or type usually leaves the key line as unchanged context.
+    Walking the hunk and remembering the most recent key line attributes every changed token to its option.
+    Returns (keys_removed, keys_added, tokens_removed, tokens_added) with tokens keyed by option key.
+    """
+    keys_removed, keys_added = set(), set()
+    tokens_removed, tokens_added = {}, {}
+    current = None
+    for line in (patch or "").splitlines():
+        if line.startswith("@@") or line.startswith("\\"):
+            current = None  # a new hunk may start anywhere; do not carry a key across hunks
+            continue
+        marker, text = line[:1], line[1:]
+        keys = OPTION_KEY_RE.findall(text)
+        if keys:
+            current = keys[-1]
+            if marker == "-":
+                keys_removed.update(keys)
+            elif marker == "+":
+                keys_added.update(keys)
+        if current is None or marker not in "+-":
+            continue
+        tokens = OPTION_TOKEN_RE.findall(text)
+        if tokens:
+            (tokens_removed if marker == "-" else tokens_added).setdefault(current, []).extend(tokens)
+    return keys_removed, keys_added, tokens_removed, tokens_added
 
 
 class Config(object):
@@ -505,7 +570,25 @@ def evaluate(pr, files, cfg=None, known=None):
     total_lines = main_code_lines = 0
     test_evidence = has_e2e_test = False
     option_removed, option_added, option_added_in_existing = {}, set(), set()
-    option_tokens = {}  # path -> (removed tokens, added tokens, keys on both sides)
+    option_changed = {}  # path -> key whose default/type changed
+
+    def collect_options(path, status, patch):
+        if not OPTION_FILE_RE.search(path):
+            return
+        keys_removed, keys_added, tokens_removed, tokens_added = option_changes(patch)
+        option_added.update(keys_added)
+        if status != "modified":
+            return
+        for key in keys_removed:
+            option_removed.setdefault(key, path)
+        option_added_in_existing.update(keys_added)
+        for key in set(tokens_removed) | set(tokens_added):
+            if key in keys_removed and key not in keys_added:
+                continue  # the whole option went away: handled as option-removed
+            if key in keys_added and key not in keys_removed:
+                continue  # a brand-new key: handled as option-added
+            if sorted(tokens_removed.get(key, [])) != sorted(tokens_added.get(key, [])):
+                option_changed.setdefault(path, key)
 
     for f in files:
         path = f["filename"]
@@ -534,11 +617,16 @@ def evaluate(pr, files, cfg=None, known=None):
             if not PLATFORM_TEST_RE.match(path) and (path.endswith(".java") or "/src/main/" in path):
                 main_code_lines += sum(1 for x in added + removed if is_code_line(x, java) and x.strip() not in moved)
                 if java:
-                    # Public core classes and persisted formats are critical in platform modules too.
+                    # Public core classes, persisted formats and option contracts are critical in platform
+                    # modules too (transform and format option classes live here).
                     _main_facts(sc, path, status, False, gone, added, removed, moved)
-            if WORKFLOW_FILE_RE.match(path) and any(WORKFLOW_SURFACE_RE.search(x) for x in added + removed):
-                sc.adjust(0, "workflow-permissions", path, "permission surface of a CI workflow or action changed "
-                          "(permissions, secrets, token, privileged trigger)", critical=True)
+                    collect_options(path, status, patch)
+            if WORKFLOW_FILE_RE.match(path):
+                if workflow_surface_changed(added + removed):
+                    sc.adjust(0, "workflow-permissions", path, "permission surface of a CI workflow or action "
+                              "changed (permissions, secrets, token, privileged trigger)", critical=True)
+                for ref in third_party_actions(added):
+                    sc.adjust(2, "new-supply-chain", path, "third-party action %s added or changed in CI" % ref)
         elif kind == "other":
             other.append((path, reason))
         elif kind == "registration":
@@ -587,33 +675,16 @@ def evaluate(pr, files, cfg=None, known=None):
                 sc.adjust(1, "production-removed", path, "production file deleted or renamed")
             if java:
                 _main_facts(sc, path, status, fresh, gone, added, removed, moved)
-                if OPTION_FILE_RE.search(path):
-                    for x in removed:
-                        for key in OPTION_KEY_RE.findall(x):
-                            if status == "modified":
-                                option_removed.setdefault(key, path)
-                    for x in added:
-                        for key in OPTION_KEY_RE.findall(x):
-                            option_added.add(key)
-                            if status == "modified":
-                                option_added_in_existing.add(key)
-                    if status == "modified":
-                        option_tokens[path] = (
-                            sorted(t for x in removed for t in OPTION_TOKEN_RE.findall(x)),
-                            sorted(t for x in added for t in OPTION_TOKEN_RE.findall(x)),
-                            {k for x in removed for k in OPTION_KEY_RE.findall(x)}
-                            & {k for x in added for k in OPTION_KEY_RE.findall(x)},
-                        )
+                collect_options(path, status, patch)
 
-    # Option contract: a key that only moved to another file is neutral; a vanished key or a changed
-    # default/type of a key that stays in the same file breaks existing jobs (high); a new key is new
-    # user surface (medium).
+    # Option contract (connector and platform option classes alike): a key that only moved to another file
+    # is neutral; a vanished key or a changed default/type of a key that stays breaks existing jobs (high);
+    # a new key is new user surface (medium).
     for key, path in sorted(option_removed.items()):
         if key not in option_added:
             sc.adjust(0, "option-removed", path, "option key %s no longer exists in the PR" % key, critical=True)
-    for path, (old, new, both) in sorted(option_tokens.items()):
-        if both and old != new:
-            sc.adjust(0, "option-changed", path, "default value or type of an existing option changed", critical=True)
+    for path, key in sorted(option_changed.items()):
+        sc.adjust(0, "option-changed", path, "default value or type of existing option %s changed" % key, critical=True)
     # A key is new only if no file of the PR removed it (a re-declared or moved key is not new surface).
     new_keys = option_added_in_existing - set(option_removed)
     if new_keys:

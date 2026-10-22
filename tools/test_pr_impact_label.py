@@ -322,6 +322,103 @@ class HighByWhatWasTouchedTest(unittest.TestCase):
         self.assertEqual((result["level"], critical(result)), (MEDIUM, set()))
 
 
+class ReviewFindingsOn424e9ceTest(unittest.TestCase):
+    """Findings of the review on head 424e9ce: regex backtracking, multi-line option declarations, platform
+    option classes, workflow comment lines and third-party actions."""
+
+    def test_pathological_constant_list_line_is_decided_promptly(self):
+        # A PR-controlled line must not be able to stall the job: 2^n backtracking took seconds at 22 tokens.
+        import signal, time
+        line = "AB." * 60 + "token x"  # ~190 characters, below the length cap
+        hang = []
+        def alarm(*_): hang.append(True); raise TimeoutError("regex did not finish")
+        old = signal.signal(signal.SIGALRM, alarm); signal.alarm(5)
+        try:
+            t0 = time.time()
+            self.assertFalse(impact.is_declaration(line))
+            self.assertFalse(impact.is_option_rule_line(line))
+            self.assertFalse(impact.is_constant_list("AB." * 200 + "token x"))  # over the cap: rejected at once
+            self.assertLess(time.time() - t0, 1.0)
+        finally:
+            signal.alarm(0); signal.signal(signal.SIGALRM, old)
+        self.assertEqual(hang, [])
+
+    def test_constant_list_recognition_still_works(self):
+        for line in ("                        TDengineSinkOptions.PASSWORD,", "SqlServerIncrementalSourceOptions.PASSWORD)",
+                     "Arrays.asList(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY);", "JdbcSinkOptions.USE_KERBEROS,",
+                     ".required(A.B_C, D_E)"):
+            self.assertTrue(impact.is_constant_list(line), line)
+        for line in ("String password = p;", "client.login(PASSWORD_VALUE.get(conf));", "", "   ", "lower.case,"):
+            self.assertFalse(impact.is_constant_list(line), line)
+
+    MULTI = KAFKA + "config/KafkaBaseOptions.java"
+
+    def test_changed_default_in_multi_line_declaration_is_high(self):
+        # Real repository formatting: the key line is unchanged context, only the default line changes.
+        patch = ("@@ -40,6 +40,6 @@ public class KafkaBaseOptions {\n"
+                 "     public static final Option<Integer> BATCH_SIZE =\n"
+                 '             Options.key("batch_size")\n'
+                 "                     .intType()\n"
+                 "-                    .defaultValue(1000)\n"
+                 "+                    .defaultValue(2000)\n"
+                 '                     .withDescription("rows per batch");\n')
+        result = score([f(self.MULTI, patch, dele=1, add=1), TEST])
+        self.assertEqual((result["level"], critical(result)), (HIGH, {"option-changed"}))
+
+    def test_changed_type_in_multi_line_declaration_is_high(self):
+        patch = ("@@ -40,6 +40,6 @@\n"
+                 '             Options.key("batch_size")\n'
+                 "-                    .intType()\n"
+                 "+                    .longType()\n"
+                 "                     .defaultValue(1000)\n")
+        result = score([f(self.MULTI, patch, dele=1, add=1), TEST])
+        self.assertEqual((result["level"], critical(result)), (HIGH, {"option-changed"}))
+
+    def test_description_only_edit_in_multi_line_declaration_is_low(self):
+        patch = ("@@ -40,6 +40,6 @@\n"
+                 '             Options.key("batch_size")\n'
+                 "                     .intType()\n"
+                 "                     .defaultValue(1000)\n"
+                 '-                    .withDescription("rows per batch");\n'
+                 '+                    .withDescription("rows written per batch");\n')
+        result = score([f(self.MULTI, patch, dele=1, add=1), TEST])
+        self.assertEqual((result["level"], critical(result)), (LOW, set()))
+
+    def test_default_change_is_attributed_to_the_right_key_across_hunks(self):
+        # Two options in two hunks: only the second one changes, and the first hunk's key must not leak.
+        patch = ("@@ -10,3 +10,3 @@\n"
+                 '             Options.key("topic")\n'
+                 "                     .stringType()\n"
+                 "                     .noDefaultValue()\n"
+                 "@@ -40,3 +40,3 @@\n"
+                 "                     .intType()\n"
+                 "-                    .defaultValue(1000)\n"
+                 "+                    .defaultValue(2000)\n")
+        # No key line in the second hunk: the change cannot be attributed, so it is not claimed.
+        result = score([f(self.MULTI, patch, dele=1, add=1), TEST])
+        self.assertNotIn("option-changed", critical(result))
+
+    def test_option_contract_applies_to_platform_option_classes(self):
+        options = "seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sql/SQLTransformOptions.java"
+        removed = f(options, '@@ -1 +0,0 @@\n-    Options.key("query").stringType().noDefaultValue();\n', add=0, dele=1)
+        result = score([removed, TEST])
+        self.assertEqual((result["level"], critical(result)), (HIGH, {"option-removed"}))
+        added = f(options, '@@ -0,0 +1 @@\n+    Options.key("x").intType().defaultValue(1);\n')
+        self.assertEqual((score([added, TEST])["level"], "option-added" in rules(score([added, TEST]))), (MEDIUM, True))
+
+    def test_workflow_comment_lines_do_not_trigger_the_permission_fact(self):
+        comment = f(".github/workflows/x.yml", "@@ -0,0 +1 @@\n+# permissions are set per job; secrets.FOO is unused\n")
+        result = score([comment])
+        self.assertEqual((result["level"], critical(result)), (MEDIUM, set()))
+
+    def test_third_party_action_is_a_supply_chain_fact_but_github_and_local_actions_are_not(self):
+        third = f(".github/workflows/x.yml", "@@ -1 +1 @@\n-        uses: actions/checkout@v4\n+        uses: some-org/retry@v3\n", dele=1)
+        result = score([third])
+        self.assertEqual((points(result, "new-supply-chain"), result["level"]), (2, MEDIUM))
+        own = f(".github/workflows/x.yml", "@@ -0,0 +1 @@\n+      - uses: actions/setup-java@v4\n+      - uses: ./.github/actions/upload-test-reports\n")
+        self.assertNotIn("new-supply-chain", rules(score([own])))
+
+
 class MediumFactsTest(unittest.TestCase):
     OPTIONS = KAFKA + "config/KafkaSinkOptions.java"
     CONFIG = KAFKA + "config/KafkaConfig.java"
