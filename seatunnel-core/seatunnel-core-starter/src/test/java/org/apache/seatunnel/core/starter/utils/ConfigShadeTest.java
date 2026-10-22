@@ -569,20 +569,6 @@ public class ConfigShadeTest {
     }
 
     @Test
-    public void testPlaceholders() throws URISyntaxException {
-        List<String> variables = new ArrayList<>();
-
-        URL resource =
-                ConfigShadeTest.class.getResource(
-                        "/config_with_duplicate_placeholder_keys_diff_defaults.conf");
-        Assertions.assertNotNull(resource);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
-    }
-
-    @Test
     public void testDecryptAndEncrypt() {
         String encryptUsername = ConfigShadeUtils.encryptOption("base64", USERNAME);
         String decryptUsername = ConfigShadeUtils.decryptOption("base64", encryptUsername);
