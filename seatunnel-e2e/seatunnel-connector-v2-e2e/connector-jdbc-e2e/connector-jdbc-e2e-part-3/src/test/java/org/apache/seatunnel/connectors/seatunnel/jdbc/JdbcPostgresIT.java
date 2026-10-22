@@ -43,6 +43,7 @@ import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
@@ -240,6 +241,33 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "from\n"
                     + "  pg_e2e_sink_table\n"
                     + "order by gid";
+
+    /**
+     * Tables holding numeric special values (NaN, Infinity, -Infinity) which have no BigDecimal
+     * representation, used to verify the numeric_special_value_as_null option. Infinity requires
+     * PostgreSQL 14 or above, the tests using these tables skip on older servers.
+     */
+    private static final String NUMERIC_SPECIAL_VALUE_SOURCE_TABLE =
+            "pg_e2e_numeric_special_value_source_table";
+
+    private static final String NUMERIC_SPECIAL_VALUE_SINK_TABLE =
+            "pg_e2e_numeric_special_value_sink_table";
+    private static final String NUMERIC_SPECIAL_VALUE_SOURCE_DDL =
+            "CREATE TABLE IF NOT EXISTS "
+                    + NUMERIC_SPECIAL_VALUE_SOURCE_TABLE
+                    + " (\n"
+                    + "  gid SERIAL PRIMARY KEY,\n"
+                    + "  numeric_col NUMERIC\n"
+                    + ")";
+    private static final String NUMERIC_SPECIAL_VALUE_SINK_DDL =
+            "CREATE TABLE IF NOT EXISTS "
+                    + NUMERIC_SPECIAL_VALUE_SINK_TABLE
+                    + " (\n"
+                    + "  gid INT PRIMARY KEY,\n"
+                    + "  numeric_col NUMERIC\n"
+                    + ")";
+    private static final String NUMERIC_SPECIAL_VALUE_SINK_QUERY =
+            "select gid, numeric_col from " + NUMERIC_SPECIAL_VALUE_SINK_TABLE + " order by gid";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -457,6 +485,124 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             }
             log.info(CONFIG_FILE + " e2e test completed");
         }
+    }
+
+    /**
+     * Verifies that the numeric special values NaN, Infinity and -Infinity are read as null when
+     * numeric_special_value_as_null is enabled, in the default (text) transfer mode.
+     */
+    @TestTemplate
+    public void testNumericSpecialValueAsNull(TestContainer container)
+            throws IOException, InterruptedException {
+        assumeNumericInfinitySupported();
+        prepareNumericSpecialValueTables();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/jdbc_postgres_source_and_sink_numeric_special_value.conf");
+            Assertions.assertEquals(
+                    0,
+                    execResult.getExitCode(),
+                    "jdbc_postgres_source_and_sink_numeric_special_value.conf job run failed.");
+            assertNumericSpecialValueSinkTable();
+        } finally {
+            truncateNumericSpecialValueTables();
+        }
+    }
+
+    /**
+     * Verifies that the numeric special values are also read as null when the driver uses the
+     * binary transfer protocol, where the driver fails with a ClassCastException instead of a
+     * PSQLException.
+     */
+    @TestTemplate
+    public void testNumericSpecialValueAsNullWithBinaryTransfer(TestContainer container)
+            throws IOException, InterruptedException {
+        assumeNumericInfinitySupported();
+        prepareNumericSpecialValueTables();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/jdbc_postgres_source_and_sink_numeric_special_value_binary.conf");
+            Assertions.assertEquals(
+                    0,
+                    execResult.getExitCode(),
+                    "jdbc_postgres_source_and_sink_numeric_special_value_binary.conf job run failed.");
+            assertNumericSpecialValueSinkTable();
+        } finally {
+            truncateNumericSpecialValueTables();
+        }
+    }
+
+    /**
+     * Verifies that the default behavior is unchanged: without numeric_special_value_as_null the
+     * job fails on a numeric special value.
+     */
+    @TestTemplate
+    public void testNumericSpecialValueFailsJobByDefault(TestContainer container)
+            throws IOException, InterruptedException {
+        assumeNumericInfinitySupported();
+        prepareNumericSpecialValueTables();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/jdbc_postgres_source_and_sink_numeric_special_value_default.conf");
+            Assertions.assertNotEquals(
+                    0,
+                    execResult.getExitCode(),
+                    "The job should fail when numeric_special_value_as_null is disabled.");
+        } finally {
+            truncateNumericSpecialValueTables();
+        }
+    }
+
+    private void assumeNumericInfinitySupported() {
+        // The numeric type only accepts Infinity since PostgreSQL 14
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "select current_setting('server_version_num')::int >= 140000")) {
+            Assumptions.assumeTrue(
+                    resultSet.next() && resultSet.getBoolean(1),
+                    "PostgreSQL 14+ is required for numeric Infinity values");
+        } catch (SQLException e) {
+            throw new RuntimeException("Checking PostgreSQL server version failed!", e);
+        }
+    }
+
+    private void prepareNumericSpecialValueTables() {
+        executeSQL(NUMERIC_SPECIAL_VALUE_SOURCE_DDL);
+        executeSQL(NUMERIC_SPECIAL_VALUE_SINK_DDL);
+        executeSQL("truncate table " + NUMERIC_SPECIAL_VALUE_SOURCE_TABLE);
+        executeSQL("truncate table " + NUMERIC_SPECIAL_VALUE_SINK_TABLE);
+        executeSQL(
+                "insert into "
+                        + NUMERIC_SPECIAL_VALUE_SOURCE_TABLE
+                        + " (gid, numeric_col) values (1, 'NaN'), (2, 'Infinity'), (3, '-Infinity'), (4, '123.45'), (5, null)");
+    }
+
+    private void truncateNumericSpecialValueTables() {
+        executeSQL("truncate table " + NUMERIC_SPECIAL_VALUE_SINK_TABLE);
+        executeSQL("truncate table " + NUMERIC_SPECIAL_VALUE_SOURCE_TABLE);
+    }
+
+    private void assertNumericSpecialValueSinkTable() {
+        List<List<Object>> rows = querySql(NUMERIC_SPECIAL_VALUE_SINK_QUERY);
+        Assertions.assertEquals(5, rows.size());
+        // NaN, Infinity and -Infinity are read as null, a real null stays null
+        Assertions.assertNull(rows.get(0).get(1));
+        Assertions.assertNull(rows.get(1).get(1));
+        Assertions.assertNull(rows.get(2).get(1));
+        Assertions.assertNull(rows.get(4).get(1));
+        // Regular values are unaffected. Compare numerically to ignore BigDecimal scale
+        // differences (e.g. 123.45 vs 123.450000000000000000).
+        Object actual = rows.get(3).get(1);
+        Assertions.assertNotNull(actual);
+        Assertions.assertEquals(
+                0,
+                new java.math.BigDecimal("123.45")
+                        .compareTo(new java.math.BigDecimal(String.valueOf(actual))));
     }
 
     @Test
