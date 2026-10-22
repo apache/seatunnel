@@ -56,9 +56,12 @@ import ChangeLog from '../changelog/connector-doris.md';
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` 和 `IPV6` 以文本形式读取，例如 `192.168.0.1`、`2001:db8::1`。只有当 Doris 版本在 `information_schema.columns` 中正确报告这两种类型时才能识别（已在 Doris 4.0.6 上验证；Doris 2.1.0 会把这类列报告为 `unknown`）。
 
 ## 源选项
 

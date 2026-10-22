@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileSystemOutputFile;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.apache.avro.Conversions;
@@ -45,7 +46,7 @@ import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
-import org.apache.parquet.hadoop.util.HadoopOutputFile;
+import org.apache.parquet.io.OutputFile;
 import org.apache.parquet.schema.ConversionPatterns;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -199,8 +200,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                         AvroWriteSupport.WRITE_FIXED_AS_INT96,
                                         String.join(",", writePathsAsInt96));
                             }
-                            HadoopOutputFile outputFile =
-                                    HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
+                            OutputFile outputFile =
+                                    new FileSystemOutputFile(
+                                            hadoopFileSystemProxy.getFileSystem(), path);
                             ParquetWriter<GenericRecord> newWriter =
                                     AvroParquetWriter.<GenericRecord>builder(outputFile)
                                             .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
@@ -262,7 +264,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case TIMESTAMP:
                 if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     LocalDateTime localDateTime = (LocalDateTime) data;
-                    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                    // Locale.ROOT is required, not cosmetic: Calendar.getInstance(TimeZone)
+                    // also consults the default locale, which selects the calendar system. Under
+                    // a Thai default locale it returns a BuddhistCalendar whose get(YEAR) is the
+                    // Buddhist year, and that value is fed to LocalDate.of below as if it were
+                    // Gregorian, writing a timestamp 543 years in the future into the file.
+                    Calendar calendar =
+                            Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
                     calendar.setTime(
                             Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant()));
                     int julianDays =

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.KeyEncoding;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 
 import lombok.AllArgsConstructor;
@@ -37,22 +38,35 @@ import java.util.function.Function;
 public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializable {
     private final FieldFormatter[] fieldFormatters;
     private final String keyDelimiter;
+    private final KeyEncoding keyEncoding;
 
     @Override
     public String apply(SeaTunnelRow row) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < fieldFormatters.length; i++) {
-            if (i > 0) {
-                builder.append(keyDelimiter);
-            }
             String value = fieldFormatters[i].format(row);
-            builder.append(value);
+            if (keyEncoding == KeyEncoding.LENGTH_PREFIXED && fieldFormatters.length > 1) {
+                builder.append(value.length()).append(':').append(value);
+            } else {
+                if (i > 0) {
+                    builder.append(keyDelimiter);
+                }
+                builder.append(value);
+            }
         }
         return builder.toString();
     }
 
     public static Function<SeaTunnelRow, String> createKeyExtractor(
             SeaTunnelRowType rowType, String[] primaryKeys, String keyDelimiter) {
+        return createKeyExtractor(rowType, primaryKeys, keyDelimiter, KeyEncoding.LEGACY);
+    }
+
+    public static Function<SeaTunnelRow, String> createKeyExtractor(
+            SeaTunnelRowType rowType,
+            String[] primaryKeys,
+            String keyDelimiter,
+            KeyEncoding keyEncoding) {
         if (primaryKeys == null) {
             return row -> null;
         }
@@ -64,7 +78,8 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
             FieldFormatter fieldFormatter = createFieldFormatter(fieldIndex, fieldType);
             fieldFormatters.add(fieldFormatter);
         }
-        return new KeyExtractor(fieldFormatters.toArray(new FieldFormatter[0]), keyDelimiter);
+        return new KeyExtractor(
+                fieldFormatters.toArray(new FieldFormatter[0]), keyDelimiter, keyEncoding);
     }
 
     private static FieldFormatter createFieldFormatter(

@@ -42,7 +42,7 @@ If it is a SOURCE-CODE enumeration; the SOURCE-CODE attribute is required, and t
 
 ### absolute_path [string]
 
-The absolute path of Java or Groovy files on the server
+The absolute path of the Java, Groovy, or Scala source file on the server
 
 ### source_code [string]
 
