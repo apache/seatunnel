@@ -20,6 +20,7 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
@@ -29,6 +30,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class ConfigValueUtils {
@@ -86,7 +88,40 @@ public class ConfigValueUtils {
     public static ConfigValue parseStructured(String value) {
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
-            return parsed.root().get("v");
+            ConfigValue parsedValue = parsed.root().get("v");
+            // check ambiguous format in []
+            // config file : option=[${name}]
+            // -i name=[0-9] -> k:string "[0-9]"
+            // -i name=["0-9"]-> k: a list contains single element "0-9",`"` is not a part of the
+            // element
+            if (parsedValue instanceof List) {
+                ConfigList parsedList = (ConfigList) parsedValue;
+                String content = value.substring(0, value.length() - 1);
+                if ((parsedList).size() == 1) {
+                    if (content.startsWith("\"") && content.endsWith("\"")) {
+                        return parsedValue;
+                    } else {
+                        return ConfigValueFactory.fromAnyRef(value);
+                    }
+                } else {
+                    // check type of elements, element of string type must be wrapped in quotes
+                    List<Object> elements = (List<Object>) parsedValue.unwrapped();
+                    for (int i = 0; i < elements.size(); i++) {
+                        Object element = elements.get(i);
+                        if (element instanceof String) {
+                            String quotedElement = StringUtils.wrap((String) element, "\"");
+                            String originElement = content.split(",")[i];
+                            if (!quotedElement.equals(originElement)) {
+                                throw new IllegalArgumentException(
+                                        String.format(
+                                                "Element: '%s' of string type in list: '%s' must be wrapped in quotes",
+                                                originElement, value));
+                            }
+                        }
+                    }
+                }
+            }
+            return parsedValue;
         } catch (ConfigException e) {
             throw new ConfigException.BadValue(
                     ConfigOriginFactory.newSimple(),
