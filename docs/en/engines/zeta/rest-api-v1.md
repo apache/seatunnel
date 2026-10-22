@@ -651,7 +651,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
 
-`params` may be omitted. Its values are used exactly as given in the JSON and are not URL-decoded, so `&`, `=`, `%` and `+` need no encoding.
+`params` may be omitted. Its values must be strings, numbers or booleans; a `null` value is skipped so that the default applies. They are used exactly as given in the JSON and are not URL-decoded, so `&`, `=`, `%` and `+` need no encoding.
 
 #### Request Body
 

@@ -31,6 +31,7 @@ import scala.Tuple2;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,7 +126,9 @@ public class RestUtil {
     /**
      * Converts the optional {@code params} object of a {@code /submit-jobs} entry to string values,
      * so that a number such as {@code "jobId": 123} is accepted like {@code "jobId": "123"}.
-     * Entries with a {@code null} value are skipped.
+     * Entries with a {@code null} value are skipped. A nested object or array value is rejected,
+     * because it has no meaningful string form. The error messages name the key and the JSON type,
+     * never the value, so that a large request value is not echoed back in the response.
      */
     private static Map<String, String> toStringParams(Object params) {
         Map<String, String> stringParams = new HashMap<>();
@@ -134,15 +137,48 @@ public class RestUtil {
         }
         if (!(params instanceof Map)) {
             throw new IllegalArgumentException(
-                    "'" + REST_SUBMIT_JOBS_PARAMS + "' must be a JSON object, but was: " + params);
+                    "'"
+                            + REST_SUBMIT_JOBS_PARAMS
+                            + "' must be a JSON object, but was a JSON "
+                            + jsonTypeOf(params));
         }
         ((Map<?, ?>) params)
                 .forEach(
                         (key, value) -> {
+                            if (value instanceof Map || value instanceof Collection) {
+                                throw new IllegalArgumentException(
+                                        "'"
+                                                + REST_SUBMIT_JOBS_PARAMS
+                                                + "."
+                                                + key
+                                                + "' must be a string, number or boolean,"
+                                                + " but was a JSON "
+                                                + jsonTypeOf(value));
+                            }
                             if (value != null) {
                                 stringParams.put(String.valueOf(key), String.valueOf(value));
                             }
                         });
         return stringParams;
+    }
+
+    /** Names the JSON type of a value produced by {@link JsonUtils#toMap(JsonNode)}. */
+    private static String jsonTypeOf(Object value) {
+        if (value instanceof Map) {
+            return "object";
+        }
+        if (value instanceof Collection) {
+            return "array";
+        }
+        if (value instanceof String) {
+            return "string";
+        }
+        if (value instanceof Number) {
+            return "number";
+        }
+        if (value instanceof Boolean) {
+            return "boolean";
+        }
+        return "value";
     }
 }

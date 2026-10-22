@@ -87,11 +87,43 @@ class RestUtilSubmitJobsParamsTest {
 
     @Test
     void testParamsMustBeAnObject() {
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> requestParamsOf("[{\"params\": \"jobName=x\", " + JOB + "}]"));
-        Assertions.assertTrue(exception.getMessage().contains("'params' must be a JSON object"));
+        String[][] cases = {
+            {"\"jobName=do-not-echo\"", "string"}, {"[\"do-not-echo\"]", "array"}, {"1", "number"}
+        };
+        for (String[] params : cases) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () -> requestParamsOf("[{\"params\": " + params[0] + ", " + JOB + "}]"),
+                            "params " + params[0]);
+            Assertions.assertEquals(
+                    "'params' must be a JSON object, but was a JSON " + params[1],
+                    exception.getMessage());
+        }
+    }
+
+    @Test
+    void testNestedParamValuesAreRejected() {
+        String[][] cases = {
+            {"{\"secret\": \"do-not-echo\"}", "object"}, {"[\"do-not-echo\"]", "array"}
+        };
+        for (String[] nested : cases) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    requestParamsOf(
+                                            "[{\"params\": {\"jobName\": "
+                                                    + nested[0]
+                                                    + "}, "
+                                                    + JOB
+                                                    + "}]"),
+                            "jobName " + nested[0]);
+            Assertions.assertEquals(
+                    "'params.jobName' must be a string, number or boolean, but was a JSON "
+                            + nested[1],
+                    exception.getMessage());
+        }
     }
 
     @Test
