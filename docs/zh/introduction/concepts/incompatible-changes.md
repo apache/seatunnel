@@ -18,6 +18,10 @@
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
 
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
