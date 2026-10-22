@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### endpoint [string]
 
-`endpoint` 您的 Maxcompute 端点，以 http 开头。
+您的 MaxCompute 端点，以 `http` 开头。此选项必填，不能是空字符串或仅包含空白字符。空白值会在配置校验阶段被拒绝，不会进入 MaxCompute 连接阶段。
 
 ### project [string]
 

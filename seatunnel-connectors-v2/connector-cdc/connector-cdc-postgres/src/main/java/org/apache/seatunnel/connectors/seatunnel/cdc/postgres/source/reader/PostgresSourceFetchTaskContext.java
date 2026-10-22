@@ -53,6 +53,7 @@ import io.debezium.connector.postgresql.RelationAwarePostgresSchema;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
+import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
@@ -79,6 +80,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
@@ -217,31 +220,15 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         LoggingContext.PreviousContext previousContext =
                 taskContext.configureLoggingContext(CONTEXT_NAME);
         try {
-            // Print out the server information
-            SlotState slotInfo = null;
-            try {
-                if (log.isInfoEnabled()) {
-                    log.info(dataConnection.serverInfo().toString());
-                }
-                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
-                        PostgresConnectorConfig.LogicalDecoder.parse(
-                                connectorConfig.getConfig().getString(PLUGIN_NAME));
-                slotInfo =
-                        dataConnection.getReplicationSlotState(
-                                connectorConfig.getConfig().getString(SLOT_NAME),
-                                logicalDecoder.getPostgresPluginName());
-            } catch (SQLException e) {
-                log.warn(
-                        "unable to load info of replication slot, Debezium will try to create the slot");
-            }
+            OffsetState offsetState = null;
             if (offsetContext == null) {
                 log.info("No previous offset found");
-                // if we have no initial offset, indicate that to Snapshotter by passing null
-                snapshotter.init(connectorConfig, null, slotInfo);
             } else {
                 log.info("Found previous offset {}", offsetContext);
-                snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
+                offsetState = offsetContext.asOffsetState();
             }
+            final SlotState slotInfo =
+                    initSnapshotter(snapshotter, connectorConfig, offsetState, dataConnection);
 
             if (snapshotter.shouldStream()) {
                 // we need to create the slot before we start streaming if it doesn't exist
@@ -347,6 +334,74 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             this.errorHandler = new PostgresErrorHandler(connectorConfig, queue);
         } finally {
             previousContext.restore();
+        }
+    }
+
+    /**
+     * Reads the replication slot state and initializes the snapshotter with it. An invalidated slot
+     * can never stream again, and reading its state would make Debezium retry for up to 30 minutes,
+     * so its state is not read. Whether the job streams is only asked after {@code init}, because a
+     * custom snapshotter may decide that from the state it is given.
+     */
+    static SlotState initSnapshotter(
+            Snapshotter snapshotter,
+            PostgresConnectorConfig connectorConfig,
+            OffsetState offsetState,
+            PostgresConnection dataConnection) {
+        final String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
+        final Optional<String> invalidationReason =
+                findSlotInvalidationReason(dataConnection, slotName);
+
+        // Print out the server information
+        SlotState slotInfo = null;
+        try {
+            if (log.isInfoEnabled()) {
+                log.info(dataConnection.serverInfo().toString());
+            }
+            if (invalidationReason.isPresent()) {
+                log.warn(
+                        "Replication slot '{}' has been invalidated (reason: {})",
+                        slotName,
+                        invalidationReason.get());
+            } else {
+                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                        PostgresConnectorConfig.LogicalDecoder.parse(
+                                connectorConfig.getConfig().getString(PLUGIN_NAME));
+                slotInfo =
+                        dataConnection.getReplicationSlotState(
+                                slotName, logicalDecoder.getPostgresPluginName());
+            }
+        } catch (SQLException e) {
+            log.warn(
+                    "unable to load info of replication slot, Debezium will try to create the slot");
+        }
+        // if we have no initial offset, indicate that to Snapshotter by passing null
+        snapshotter.init(connectorConfig, offsetState, slotInfo);
+
+        if (invalidationReason.isPresent() && snapshotter.shouldStream()) {
+            throw PostgresUtils.replicationSlotInvalidated(slotName, invalidationReason.get());
+        }
+        return slotInfo;
+    }
+
+    /** Returns the invalidation reason, or empty if the slot is usable or the check failed. */
+    private static Optional<String> findSlotInvalidationReason(
+            PostgresConnection dataConnection, String slotName) {
+        try {
+            return PostgresUtils.getReplicationSlotInvalidationReason(
+                    dataConnection.connection(), slotName);
+        } catch (SQLException e) {
+            log.warn(
+                    "Unable to check whether replication slot '{}' has been invalidated",
+                    slotName,
+                    e);
+            try {
+                // keep the connection usable for the slot state queries that follow
+                dataConnection.rollback();
+            } catch (SQLException rollbackException) {
+                log.warn("Failed to roll back the slot check transaction", rollbackException);
+            }
+            return Optional.empty();
         }
     }
 
@@ -522,7 +577,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     /**
-     * Verifies that the bounded reader's temporary replication slot has been removed.
+     * Verifies that the bounded reader's application-managed replication slot has been removed.
      *
      * <p>Debezium logs and swallows failures during replication connection shutdown. The bounded
      * snapshot path therefore performs an explicit idempotent drop and fails if an inactive slot
@@ -563,7 +618,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     /**
-     * Uses a per-table temporary slot only for an exactly-once snapshot split.
+     * Uses a per-table application-managed slot only for an exactly-once snapshot split.
      *
      * <p>Incremental splits and non-exactly-once snapshots retain the configured streaming slot and
      * the original table filter.
@@ -579,10 +634,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 getSourceConfig()
                         .getDbzConfiguration()
                         .edit()
-                        .with("table.include.list", tableId.schema() + "." + tableId.table())
+                        .with("table.include.list", exactTableIncludeList(tableId))
                         .with(SLOT_NAME, getSourceConfig().getSlotNameForBackfillTask())
                         // Keep Debezium from also dropping the configured publication. The
-                        // snapshot task explicitly drops and verifies only its temporary slot.
+                        // snapshot task explicitly drops and verifies only its backfill slot.
                         .with(DROP_SLOT_ON_STOP, false)
                         // Heartbeat records do not belong to the bounded snapshot split.
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
@@ -640,15 +695,27 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private PostgresOffsetContext loadOffsetContext(
             PostgresOffsetContext.Loader loader, Offset offset) {
         Map<String, String> offsetStrMap =
-                Objects.requireNonNull(offset, "offset is null for the source split").getOffset();
-        // all the keys happen to be long type for PostgresOffsetContext.Loader.load
+                Objects.requireNonNull(offset, "offset is null for the sourceSplitBase")
+                        .getOffset();
+        // Numeric offsets are stored as strings in split state; the resume operation is an enum.
         Map<String, Object> offsetMap = new HashMap<>();
         for (String key : offsetStrMap.keySet()) {
             String value = offsetStrMap.get(key);
             if (value != null) {
-                offsetMap.put(key, Long.parseLong(value));
+                offsetMap.put(
+                        key,
+                        PostgresOffsetContext.LAST_PROCESSED_MESSAGE_TYPE_KEY.equals(key)
+                                ? value
+                                : Long.parseLong(value));
             }
         }
         return loader.load(offsetMap);
+    }
+
+    /**
+     * Returns a Debezium table filter that matches only the split's exact PostgreSQL identifier.
+     */
+    static String exactTableIncludeList(TableId tableId) {
+        return Pattern.quote(tableId.schema() + "." + tableId.table());
     }
 }

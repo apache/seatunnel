@@ -118,7 +118,7 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
             backfillFailure = e;
             throw e;
         } finally {
-            // Debezium closes the temporary connection. Explicitly drop and verify the slot
+            // Debezium closes the bounded connection. Explicitly drop and verify the slot
             // because Debezium otherwise logs and swallows shutdown failures.
             sourceFetchContext.releaseReplicationConnection();
             try {
@@ -159,7 +159,7 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     /**
-     * Creates the bounded Debezium WAL reader over the snapshot split's temporary replication slot.
+     * Creates the bounded Debezium WAL reader over the snapshot split's backfill replication slot.
      */
     private PostgresWalFetchTask.PostgresWalSplitReadTask createBackfillWalSplitReadTask(
             IncrementalSplit backfillSplit, PostgresSourceFetchTaskContext context) {

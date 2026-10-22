@@ -25,6 +25,10 @@ PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增�
 部分 PostgreSQL 兼容数据库（例如 HighGo）在 `information_schema.tables` 中会对同一张物理表返回多行重复记录。
 连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
 
+当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
+`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
+`ADD COLUMN` 语句。
+
 ## 支持的数据源信息
 
 | 数据源      |                     支持的版本                      |        驱动        |                  Url                  |                                  Maven                                   |
@@ -290,7 +294,7 @@ sink {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 source {
@@ -380,19 +384,42 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 记录低水位线之前先准备好 `slot.name` 指定的流式复制槽。每个快照 reader 随后会使用一个
 由 `slot.name` 和 reader subtask id 派生出来的短生命周期 backfill 复制槽，读取快照低水位线
 到高水位线之间的有界 WAL。生成的 backfill 复制槽名称会控制在 PostgreSQL 63 字节标识符
-限制内，并在有界 backfill reader 结束后显式删除。
+限制内。快照 reader 会在正常完成或已捕获的失败路径中显式删除 backfill 复制槽。该复制槽在
+reader 运行期间是服务端持久复制槽，因此进程崩溃或节点丢失可能遗留未激活的
+`*_st_backfill_*` 复制槽。确认没有存活 reader 持有后，应手动删除此类孤儿复制槽以释放其
+保留的 WAL。
 
-如果 Debezium `slot.drop.on.stop` 设置为 `true`，exactly-once initial snapshot 任务关闭时，
-快照枚举器会在没有活跃增量 reader 继续持有该复制槽的情况下删除 `slot.name` 指定的流式
-复制槽。临时 backfill 复制槽始终由快照 reader 自行清理。因此在快照启动阶段，运维人员
-可能会在 `pg_replication_slots` 中短暂看到配置的 `slot.name` 以及生成的 `*_st_backfill_*`
-复制槽。
+快照枚举器不会删除配置的流式复制槽，因为 initial 任务的增量阶段会继续使用它。如需让
+Debezium 增量 reader 在正常关闭时尝试删除配置的复制槽，请使用以下 SeaTunnel 透传配置。
+进程或节点异常退出时，该配置无法保证复制槽一定被删除。
+
+```hocon
+debezium {
+  slot.drop.on.stop = true
+}
+```
+
+快照启动期间，运维人员可能会在 `pg_replication_slots` 中同时看到配置的 `slot.name` 和生成的
+`*_st_backfill_*` 复制槽。
 
 由于每个快照 reader 都会创建自己的 backfill 复制槽，当 source 并行度为 N 时，exactly-once
 initial snapshot 任务会瞬时占用至少 N+1 个复制槽（1 个配置的流式复制槽加上 N 个 backfill
 复制槽）。请确保 `max_replication_slots`（默认值 `10`）至少能容纳 `并行度 + 1` 个复制槽，
 并为同一服务器上的其他复制槽使用方预留额外容量，否则快照启动阶段会报
 `ERROR: all replication slots are in use`。
+### 为什么任务报错 "replication slot ... has been invalidated"？
+
+PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复制槽落后超过 `max_slot_wal_keep_size`、
+空闲时间超过 `idle_replication_slot_timeout`（PostgreSQL 18），或在备库上与恢复冲突。此时 `pg_replication_slots` 中的
+`wal_status` 为 `lost`、`conflicting` 为 `true`（PostgreSQL 16 及以上版本），或显示 `invalidation_reason`（PostgreSQL 17 及以上版本）。复制槽已确认位置之后的变更已无法读取，
+因此需要从复制槽读取变更的任务会以错误 `POSTGRES-04` 失败；`snapshot-only` 任务不使用复制槽，不受影响。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
+删除该复制槽，并在不从 checkpoint 或 savepoint 恢复的情况下重新启动任务；如需重新做快照，请使用 `startup.mode = initial`。
+
+### 从保存点恢复时如何处理事务边界？
+
+恢复时会区分保存的事务提交记录与已处理的数据行，因为事务提交和下一事务的第一条数据行
+可能具有相同的 LSN。任务停止期间提交的数据仍可被重放。不包含操作类型的旧保存点仍可读取；
+为避免丢失数据，恢复时可能重放无法明确区分的边界记录。
 
 ### PostgreSQL CDC 为什么会滞后？
 

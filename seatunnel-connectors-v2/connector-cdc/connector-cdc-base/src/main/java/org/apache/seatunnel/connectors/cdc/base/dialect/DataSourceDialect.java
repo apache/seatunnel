@@ -44,13 +44,6 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
      */
     default void openEnumerator(C sourceConfig) {}
 
-    /**
-     * Releases resources owned by the snapshot split enumerator.
-     *
-     * <p>The default implementation has no external resources to release.
-     */
-    default void closeEnumerator(C sourceConfig) {}
-
     /** Discovers the list of data collection to capture. */
     List<TableId> discoverDataCollections(C sourceConfig);
 

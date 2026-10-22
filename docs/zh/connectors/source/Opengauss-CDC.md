@@ -33,7 +33,7 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. 改变指定表的REPLICA策略为FULL
+2. 改变指定表的REPLICA策略为FULL，除非 `require-replica-identity-full` 设置为 `false`。读取未设置 `REPLICA IDENTITY FULL` 的表时，任务会在提交（以及从 checkpoint 恢复）时失败，除非完成上述两项之一。
 
 ```sql
 ALTER TABLE your_table_name REPLICA IDENTITY FULL;
@@ -74,7 +74,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | table-names                               | 列表   | 二选一 | -        | 需要监控的表。请使用完整的 `database.schema.table` 格式，例如：`opengauss_cdc.inventory.orders`。                                                                                                                                                              |
 | table-pattern                             | 字符串 | 二选一 | -        | 需要监控的表名正则表达式。正则需要匹配完整表名，例如：`opengauss_cdc\\.inventory\\..*`。`table-names` 和 `table-pattern` 互斥。                                                                                                                                                              |
 | table-names-config                        | 列表   | 否        | -        | 表级配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。无物理主键表可通过 `primaryKeys` 指定唯一键。`snapshotSplitColumn` 必须是唯一键，否则 SeaTunnel 会忽略该配置并自动选择拆分列。                                                                                                                                             |
-| startup.mode                              | 枚举   | 否        | INITIAL  | Opengauss CDC消费者的可选启动模式，有效枚举为 `initial`、`snapshot-only`、`committed-offset`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `snapshot-only`: 仅同步启动时的历史数据，然后以有界任务结束，不进入 WAL 流读取。<br/> `committed-offset`: 跳过快照数据，从配置的复制槽已提交 LSN 开始读取 WAL。该模式要求显式配置 `slot.name`，如果复制槽不存在或没有可用的已提交 LSN，则启动失败。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。                                                        |
+| startup.mode                              | 枚举   | 否        | INITIAL  | Opengauss CDC消费者的可选启动模式，有效枚举为 `initial`、`snapshot-only`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `snapshot-only`: 仅同步启动时的历史数据，然后以有界任务结束，不进入 WAL 流读取。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。<br/> `committed-offset` 仅 PostgreSQL 支持（它读取 OpenGauss 不提供的 `pg_replication_slots` 列），该连接器会在配置校验阶段拒绝此值。                                                        |
 | stop.mode                                 | 枚举   | 否        | NEVER    | Opengauss CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | 整型   | 否        | 8096     | 表快照的分割大小（行数），在读取表的快照时，捕获的表被分割成多个split                                                                                                                                                                              |
 | snapshot.fetch.size                       | 整型   | 否        | 1024     | 读取表快照时，每次轮询的最大读取大小                                                                                                                                                                                                 |
@@ -82,6 +82,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | enable_concurrent_read                    | 布尔   | 否        | true     | 快照阶段是否启用分片并发读取。设置为 false 时，源会以单个分片读取表，不做分片分析，适用于没有索引的表                                                                  |
 | slot.name                                 | 字符串  | 否        | seatunnel | Opengauss 逻辑解码槽名称。同一个 Opengauss 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                               |
 | decoding.plugin.name                      | 字符串  | 否        | pgoutput | 安装在服务器上的Postgres逻辑解码插件的名称，支持的值是decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming和pgoutput                                                                                                |
+| require-replica-identity-full             | 布尔   | 否        | true     | 要求表设置 REPLICA IDENTITY FULL。设置为 false 时允许其他 replica identity 的表，但 UPDATE/DELETE 事件可能不包含变更前的数据，仅建议用于只追加写入的表（例如 outbox 模式）。默认值 true 以保持向后兼容。                                                              |
 | server-time-zone                          | 字符串  | 否        | -        | 数据库服务器中的会话时区。如果没有设置，则使用ZoneId.systemDefault()来确定服务器的时区                                                                                                                                                             |
 | connect.timeout.ms                        | Long     | 否        | 30000    | 在尝试连接数据库服务器之后，连接器在超时之前应该等待的最大时间                                                                                                                                                                                    |
 | connect.max-retries                       | 整型   | 否        | 3        | 连接器在建立数据库服务器连接时应该重试的最大次数                                                                                                                                                                                           |
@@ -91,7 +92,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | sample-sharding.threshold                 | 整型   | 否        | 1000     | 此配置指定了用于触发采样分片策略的估计分片数的阈值。当分布因子超出了由`chunk-key.even-distribution.factor.upper-bound `和`chunk-key.even-distribution.factor.lower-bound`，并且估计的分片计数(以近似的行数/块大小计算)超过此阈值，则将使用样本分片策略。这有助于更有效地处理大型数据集。默认值为1000个分片。         |
 | inverse-sampling.rate                     | 整型   | 否        | 1000     | 采样分片策略中使用的采样率的倒数。例如，如果该值设置为1000，则意味着在采样过程中应用了1/1000的采样率。该选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。当处理非常大的数据集时，它特别有用，其中首选较低的采样率。缺省值为1000。                                                                                        |
 | split.allow-sampling                      | 布尔   | 否        | true     | 是否允许使用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都会回退到非均匀分片方式（迭代查询方式）。默认值为 true。                                                                 |
-| exactly_once                              | 布尔   | 否        | false    | 在初始快照阶段启用精确一次语义。仅当 `startup.mode` 为 `initial` 时可用。                                                                                                                                                                                                   |
+| exactly_once                              | 布尔   | 否        | false    | 在快照阶段启用精确一次语义。仅当 `startup.mode` 为 `initial` 或 `snapshot-only` 时可用。                                                                                                                                                                                                   |
 | format                                    | 枚举   | 否        | DEFAULT  | Opengauss CDC可选的输出格式, 有效的枚举是`DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                 |
 | debezium                                  | 配置   | 否        | -        | 将 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) 传递到Debezium嵌入式引擎，该引擎用于捕获来自Opengauss服务的数据更改  |
 | common-options                            |      | 否        | -        | 源码插件通用参数, 请参考[Source Common Options](../common-options/source-common-options.md)获取详情                                                                                                                                              |
@@ -214,13 +215,23 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 记录低水位线之前先准备好 `slot.name` 指定的流式复制槽。每个快照 reader 随后会使用一个
 由 `slot.name` 和 reader subtask id 派生出来的短生命周期 backfill 复制槽，读取快照低水位线
 到高水位线之间的有界 WAL。生成的 backfill 复制槽名称会控制在 PostgreSQL 兼容的 63 字节
-标识符限制内，并在有界 backfill reader 结束后显式删除。
+标识符限制内。快照 reader 会在正常完成或已捕获的失败路径中显式删除 backfill 复制槽。该
+复制槽在 reader 运行期间是服务端持久复制槽，因此进程崩溃或节点丢失可能遗留未激活的
+`*_st_backfill_*` 复制槽。确认没有存活 reader 持有后，应手动删除此类孤儿复制槽以释放其
+保留的 WAL。
 
-如果 Debezium `slot.drop.on.stop` 设置为 `true`，exactly-once initial snapshot 任务关闭时，
-快照枚举器会在没有活跃增量 reader 继续持有该复制槽的情况下删除 `slot.name` 指定的流式
-复制槽。临时 backfill 复制槽始终由快照 reader 自行清理。因此在快照启动阶段，运维人员
-可能会在 `pg_replication_slots` 中短暂看到配置的 `slot.name` 以及生成的 `*_st_backfill_*`
-复制槽。
+快照枚举器不会删除配置的流式复制槽，因为 initial 任务的增量阶段会继续使用它。如需让
+Debezium 增量 reader 在正常关闭时尝试删除配置的复制槽，请使用以下 SeaTunnel 透传配置。
+进程或节点异常退出时，该配置无法保证复制槽一定被删除。
+
+```hocon
+debezium {
+  slot.drop.on.stop = true
+}
+```
+
+快照启动期间，运维人员可能会在 `pg_replication_slots` 中同时看到配置的 `slot.name` 和生成的
+`*_st_backfill_*` 复制槽。
 
 由于每个快照 reader 都会创建自己的 backfill 复制槽，当 source 并行度为 N 时，exactly-once
 initial snapshot 任务会瞬时占用至少 N+1 个复制槽（1 个配置的流式复制槽加上 N 个 backfill

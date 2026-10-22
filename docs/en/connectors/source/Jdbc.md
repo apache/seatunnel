@@ -172,6 +172,7 @@ Use `query` to select only the required columns.
 | partition_num                              | Int     | No        | 10              | Number of splits when top-level `query` and `partition_column` select the fixed splitter, whether or not `table_path` is also present. Dynamic `table_path` and `table_list` layouts use `split.size` instead.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | decimal_type_narrowing                     | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | No        | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| numeric_special_value_as_null              | Boolean | No        | false           | Numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now. Please refer to `numeric_special_value_as_null` below                                                                                                                                                                                                                                                                                                                                                                                    |
 | handle_blob_as_string                      | Boolean | No        | false           | If true, BLOB type will be converted to STRING type. **Only supported for Oracle database**. This is useful for handling large BLOB fields in Oracle that exceed the default size limit. When transmitting Oracle's BLOB fields to systems like Doris, setting this to true can make the data transfer more efficient.                                                                                                                                                                                                                                                                                                                             |
 | use_kerberos                               | Boolean | No        | false           | Whether to enable Kerberos authentication for JDBC connections.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | kerberos_principal                         | String  | No        | -               | Kerberos principal used when `use_kerberos = true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -270,6 +271,16 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+Numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.
+
+Note: this option only takes effect when reading row data. It does not apply to the split range query, so a numeric split column holding special values can still fail the job. Only PostgreSQL and the `postgresLow` compatible mode honour this option.
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
@@ -291,6 +302,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | YashanDB  |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
+Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
 
 ## Parallel Reader
 

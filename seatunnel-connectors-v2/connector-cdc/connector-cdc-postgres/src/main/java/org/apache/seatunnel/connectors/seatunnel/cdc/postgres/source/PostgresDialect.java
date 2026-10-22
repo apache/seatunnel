@@ -167,55 +167,6 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     }
 
     /**
-     * Honors {@code slot.drop.on.stop} for the slot owned by the snapshot enumerator.
-     *
-     * <p>An active incremental reader retains responsibility for dropping its own slot.
-     */
-    @Override
-    public void closeEnumerator(JdbcSourceConfig sourceConfig) {
-        if (!requiresStreamingSlotForSnapshot(sourceConfig)) {
-            return;
-        }
-
-        PostgresConnectorConfig connectorConfig =
-                (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig();
-        if (!connectorConfig.getConfig().getBoolean(DROP_SLOT_ON_STOP)) {
-            return;
-        }
-
-        PostgresConnectorConfig.LogicalDecoder logicalDecoder =
-                PostgresConnectorConfig.LogicalDecoder.parse(
-                        connectorConfig.getConfig().getString(PLUGIN_NAME));
-        String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
-        try (PostgresConnection connection =
-                (PostgresConnection) openJdbcConnection(sourceConfig)) {
-            SlotState slotState =
-                    connection.getReplicationSlotState(
-                            slotName, logicalDecoder.getPostgresPluginName());
-            if (slotState == null || connection.dropReplicationSlot(slotName)) {
-                return;
-            }
-
-            SlotState remainingSlot =
-                    connection.getReplicationSlotState(
-                            slotName, logicalDecoder.getPostgresPluginName());
-            if (remainingSlot != null && remainingSlot.slotIsActive()) {
-                log.debug(
-                        "PostgreSQL streaming slot {} is still active; its reader will drop it",
-                        slotName);
-                return;
-            }
-            if (remainingSlot != null) {
-                throw new SeaTunnelException(
-                        "Failed to drop PostgreSQL streaming replication slot " + slotName);
-            }
-        } catch (SQLException e) {
-            throw new SeaTunnelException(
-                    "Failed to clean up PostgreSQL streaming replication slot " + slotName, e);
-        }
-    }
-
-    /**
      * Returns whether an exactly-once initial snapshot needs a persistent streaming slot.
      *
      * <p>Snapshot-only and non-exactly-once modes keep their existing slot lifecycle.
@@ -275,9 +226,13 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                     postgresConnection.readReplicaIdentityInfo(tableId);
             if (requireReplicaIdentityFull
                     && !ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+                // Name both remediations: this also fires on enumerator restore, where the job
+                // config is already baked into the persisted DAG and can only be changed by
+                // cancelling and resubmitting, so the message must be actionable on its own.
                 throw new SeaTunnelException(
                         String.format(
-                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
+                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL; "
+                                        + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                                 tableId, tableId));
             }
         }

@@ -37,7 +37,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
     /**
      * PostgreSQL truncates identifiers that exceed this byte limit.
      *
-     * <p>Generated temporary slot identifiers must stay within the same limit.
+     * <p>Generated backfill slot identifiers must stay within the same limit.
      */
     private static final int MAX_REPLICATION_SLOT_NAME_LENGTH = 63;
 
@@ -49,7 +49,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
     private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
 
     /**
-     * Identifies the reader that owns the temporary snapshot backfill slot.
+     * Identifies the reader that owns the application-managed snapshot backfill slot.
      *
      * <p>Each parallel reader receives a distinct slot identifier.
      */
@@ -117,14 +117,15 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
     }
 
     /**
-     * Returns an isolated temporary slot name for snapshot WAL backfill.
+     * Returns an isolated, application-managed slot name for snapshot WAL backfill.
      *
      * <p>PostgreSQL allows only one active consumer per logical replication slot, so snapshot
      * readers must not share the configured streaming slot. PostgreSQL identifiers are limited to
      * 63 bytes; {@code slot.name} is validated against {@code [a-z0-9_]{1,63}} at config-factory
      * time ({@code PostgresSourceConfigFactory}), which guarantees it is single-byte ASCII, so
      * truncating by Java {@code char} count below is provably equivalent to truncating by byte
-     * count.
+     * count. The slot is persistent on the server and is explicitly dropped by the bounded reader;
+     * it is not a PostgreSQL {@code TEMPORARY} replication slot.
      */
     public String getSlotNameForBackfillTask() {
         return createBackfillSlotName(
@@ -134,7 +135,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
     /**
      * Assigns the reader id after the source config is created.
      *
-     * <p>The id becomes part of the temporary snapshot backfill slot name.
+     * <p>The id becomes part of the snapshot backfill slot name.
      */
     void setSubtaskId(int subtaskId) {
         this.subtaskId = subtaskId;
@@ -148,7 +149,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
         String suffix = "_st_backfill_" + stableSlotHash(slotName) + "_" + subtaskId;
         String backfillSlotName = appendSuffixWithinIdentifierLimit(slotName, suffix);
         if (backfillSlotName.equals(slotName)) {
-            // Preserve the suffix while making the temporary identifier different even for the
+            // Preserve the suffix while making the backfill identifier different even for the
             // theoretical fixed point where a configured slot already equals its derived name.
             char firstCharacter = backfillSlotName.charAt(0) == 'z' ? 'y' : 'z';
             backfillSlotName = firstCharacter + backfillSlotName.substring(1);

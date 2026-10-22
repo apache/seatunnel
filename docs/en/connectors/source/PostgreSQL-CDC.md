@@ -27,6 +27,10 @@ Some PostgreSQL-compatible databases (for example HighGo) return the same physic
 once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
 qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
 
+On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
+visible on the source connection's `search_path`. This does not change cached names or add source
+type namespaces to downstream `ADD COLUMN` statements.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -299,7 +303,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {
@@ -390,13 +395,24 @@ When `exactly_once = true` and `startup.mode = initial`, SeaTunnel prepares the 
 streaming slot before any snapshot reader records its low watermark. Each snapshot reader then uses
 a short-lived backfill slot derived from `slot.name` and the reader subtask id to read the bounded
 WAL range between the snapshot low and high watermarks. The generated backfill slot name is kept
-within PostgreSQL's 63-byte identifier limit and is dropped explicitly after the bounded backfill
-reader finishes.
+within PostgreSQL's 63-byte identifier limit. The snapshot reader explicitly drops its backfill slot
+after a normal completion or handled failure. The backfill slot is persistent on the server while
+the reader is running, so a process crash or node loss can leave an inactive `*_st_backfill_*` slot.
+After confirming that no live reader owns it, drop such an orphaned slot manually to release retained
+WAL.
 
-If Debezium `slot.drop.on.stop` is set to `true`, the snapshot enumerator drops the configured
-streaming slot when the exactly-once initial snapshot job closes and no active incremental reader
-still owns that slot. Temporary backfill slots are always cleaned up by the snapshot reader. During
-snapshot startup, operators may therefore briefly see both the configured `slot.name` and generated
+The snapshot enumerator does not drop the configured streaming slot: an initial job keeps using that
+slot in its incremental phase. To ask Debezium's incremental reader to drop the configured slot on a
+normal shutdown, use the SeaTunnel pass-through syntax below. This setting cannot guarantee cleanup
+after an abrupt process or node failure.
+
+```hocon
+debezium {
+  slot.drop.on.stop = true
+}
+```
+
+During snapshot startup, operators may see both the configured `slot.name` and generated
 `*_st_backfill_*` slots in `pg_replication_slots`.
 
 Because each snapshot reader creates its own backfill slot, an exactly-once initial snapshot with
@@ -404,6 +420,23 @@ source parallelism N transiently needs at least N+1 replication slots (the confi
 plus one backfill slot per reader). Size PostgreSQL's `max_replication_slots` (default `10`) to
 accommodate at least `parallelism + 1` slots, plus any other consumers of replication slots on the
 same server, or snapshot startup fails with `ERROR: all replication slots are in use`.
+### Why does the job fail with "replication slot ... has been invalidated"?
+
+PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
+`max_slot_wal_keep_size`, stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18),
+or, on a standby, conflicts with recovery. `pg_replication_slots` then shows `wal_status = 'lost'`,
+`conflicting = true` (PostgreSQL 16 and later) or `invalidation_reason` (PostgreSQL 17 and later).
+The changes after the slot's confirmed position are gone, so SeaTunnel fails a job that reads changes from the slot
+with error `POSTGRES-04`; `snapshot-only` jobs do not use the slot and are not affected.
+Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
+again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
+
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
 
 ### Why does PostgreSQL CDC fall behind?
 

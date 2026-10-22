@@ -42,16 +42,12 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
             boolean isTableIdCaseSensitive,
             DataSourceDialect<C> dialect) {
         this.snapshotSplitAssigner =
-                // true: a bounded snapshot-only job has no incremental phase, so once this
-                // assigner's own snapshot work durably completes, it is the sole owner of the
-                // dialect's enumerator-owned resources and safe to release them in close().
                 new SnapshotSplitAssigner<>(
                         context,
                         currentParallelism,
                         remainingTables,
                         isTableIdCaseSensitive,
-                        dialect,
-                        true);
+                        dialect);
     }
 
     public SnapshotOnlySplitAssigner(
@@ -60,8 +56,7 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
             SnapshotPhaseState checkpoint,
             DataSourceDialect<C> dialect) {
         this.snapshotSplitAssigner =
-                // true: see the fresh-state constructor above for why.
-                new SnapshotSplitAssigner<>(context, currentParallelism, checkpoint, dialect, true);
+                new SnapshotSplitAssigner<>(context, currentParallelism, checkpoint, dialect);
     }
 
     @Override
@@ -97,10 +92,5 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         snapshotSplitAssigner.notifyCheckpointComplete(checkpointId);
-    }
-
-    @Override
-    public void close() {
-        snapshotSplitAssigner.close();
     }
 }
