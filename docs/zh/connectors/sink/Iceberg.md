@@ -124,7 +124,7 @@ iceberg.table.auto-create-props = {
 
 设置 `flush_row_size` 后，task writer 每处理这么多行就完成一次并新建一个。这样会提前关闭当前文件并释放记住的主键，写入器内存不再随每个 checkpoint 的行数增长。不设置时只在 checkpoint 时轮换，与之前的行为一致。
 
-轮换之后写出的 equality delete 需要作用到轮换之前写入的行，而 Iceberg 只对更早快照中提交的文件应用 equality delete。所以当一个 checkpoint 中包含轮换后写出的 equality delete 时，它会按 task writer 完成的顺序拆成多个快照依次提交，而不是一个。读端可能逐个看到这些快照，每个快照都包含该 checkpoint 变更的一个前缀。从该 checkpoint 恢复的作业只会补提交缺失的快照。纯追加写入仍然是每个 checkpoint 一个快照。
+轮换之后写出的 equality delete 需要作用到轮换之前写入的行，而 Iceberg 只对更早快照中提交的文件应用 equality delete。所以当一个 checkpoint 中包含轮换后写出的 equality delete 时，它会按 task writer 完成的顺序拆成多个快照依次提交，而不是一个。读端可能逐个看到这些快照，每个快照都包含该 checkpoint 变更的一个前缀。从该 checkpoint 恢复的作业只会补提交缺失的快照。纯追加写入仍然是每个 checkpoint 一个快照。同一个 checkpoint 的多个快照会在 checkpoint 完成前依次提交，所以取值过小也会让 checkpoint 变慢。
 
 取值越小内存占用越低，但文件更多更小。分区表轮换时会完成所有已打开分区的文件，而不只是当前分区。upsert 模式下每一行都会写 equality delete，所以每次轮换都会单独成为一个快照：一个 checkpoint 大约提交（该 checkpoint 内单个写入器的行数 / `flush_row_size`）个快照。CDC 写入在每次轮换后出现更新或删除时拆分 checkpoint。因此取值过小会让表元数据膨胀、查询规划变慢；请取较大的值，例如几十万到几百万行，并定期清理过期快照。
 

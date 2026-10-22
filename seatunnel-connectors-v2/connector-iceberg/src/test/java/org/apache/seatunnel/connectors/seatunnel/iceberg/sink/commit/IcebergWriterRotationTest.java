@@ -138,6 +138,44 @@ class IcebergWriterRotationTest {
     }
 
     @Test
+    void resultWithoutRecordsDoesNotOpenAGroup() throws Exception {
+        IcebergSinkConfig config = config(2L, true, null);
+        Table table = SchemaUtils.autoCreateTable(catalog, TABLE, config, idAndName());
+        List<WriteResult> written =
+                write(
+                        table,
+                        config,
+                        insert(1, "a"),
+                        insert(2, "b"),
+                        row(RowKind.DELETE, 1, "a"),
+                        row(RowKind.UPDATE_AFTER, 2, "b2"),
+                        insert(3, "c"));
+
+        // a task writer completed without rows, as after a schema change with nothing written
+        List<WriteResult> results = new ArrayList<>();
+        results.add(
+                new WriteResult(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        table.spec().partitionType()));
+        results.addAll(written);
+        commit(table, config, 1L, results);
+
+        assertEquals(rows("2=b2", "3=c"), read(table));
+        List<String> groups = new ArrayList<>();
+        for (Snapshot snapshot : table.snapshots()) {
+            groups.add(
+                    snapshot.summary().get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_COMMIT_GROUP)
+                            + "/"
+                            + snapshot.summary()
+                                    .get(
+                                            IcebergFilesCommitter
+                                                    .SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT));
+        }
+        assertEquals(Arrays.asList("0/3", "1/3", "2/3"), groups);
+    }
+
+    @Test
     void singleSnapshotForRotatedUpsertResultsLeavesStaleRow() throws Exception {
         // Shows why the committer keeps the order: committing the same files as one snapshot,
         // as the committer did before, keeps the deleted and the replaced row.
