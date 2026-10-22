@@ -26,6 +26,8 @@ How the level is computed (see compute_level):
   high    only from WHAT was touched:
             - any file under seatunnel-engine or seatunnel-api (tests and docs included), or
               .asf.yaml (repository permissions)
+            - any production file of the core connectors that most users depend on: connector-jdbc
+              (dialects included) and every connector-cdc-* module; their tests and docs stay low
             - a public core class of an existing module modified or deleted: *Source, *Sink,
               *Factory, *Catalog, *Transform, and the persisted *Split, *State, *CommitInfo,
               *Serializer classes (connectors, shared base modules and platform modules alike), or
@@ -110,7 +112,7 @@ LEVEL_NAMES = {LOW: "low", MEDIUM: "medium", HIGH: "high"}
 LEVEL_META = {
     LOW: ("0e8a16", "Docs, tests, tooling, a new connector, or an internal change to one connector"),
     MEDIUM: ("fbca04", "Platform/CI/pom internals, shared-module internals, or a contained change with impact facts"),
-    HIGH: ("d73a4a", "Engine, API, repo permissions, a public core class or option contract, or CI permissions"),
+    HIGH: ("d73a4a", "Engine, API, JDBC/CDC production code, a public core class or option contract, CI permissions"),
 }
 
 # ------------------------------------------------------------------------------------------
@@ -195,6 +197,8 @@ POM_DANGER_RE = re.compile(r"<repositor|<pluginRepositor|<profile|antrun|exec-ma
 SHARED_CONNECTOR_MODULES = {"connector-common", "connector-fake", "connector-assert", "connector-console"}
 SHARED_MODULE_SUFFIX = re.compile(r"-(base|base-hadoop)$")
 CONNECTORS_ROOT = "seatunnel-connectors-v2/"
+# Core connectors with the widest user base: any production change is high, like engine/api.
+CORE_CONNECTOR_RE = re.compile(r"^(connector-jdbc|connector-cdc-.*)$")
 E2E_ROOT = "seatunnel-e2e/seatunnel-connector-v2-e2e/"
 JDBC_DIALECT_RE = re.compile(r"/jdbc/(?:internal/dialect|catalog)/([^/]+)/[^/]+")
 JDBC_SHARED_DIRS = {"dialectenum", "utils"}
@@ -496,6 +500,7 @@ def evaluate(pr, files, cfg=None, known=None):
     moved = moved_lines(files)
     docs, added_docs, tests = [], [], []
     platform, other, shared_units, units = [], [], set(), set()
+    core_connectors = set()
     registration_touched = False
     total_lines = main_code_lines = 0
     test_evidence = has_e2e_test = False
@@ -570,6 +575,8 @@ def evaluate(pr, files, cfg=None, known=None):
             if module in new_modules and unit.startswith("shared:"):
                 unit = module  # nothing depends on a module that does not exist yet
                 kind = "main"
+            if module not in new_modules and CORE_CONNECTOR_RE.match(module):
+                core_connectors.add(module)
             if kind == "shared":
                 shared_units.add(unit)
             else:
@@ -616,6 +623,8 @@ def evaluate(pr, files, cfg=None, known=None):
     if platform:
         base = max(level for _p, _r, level in platform)
         pr_class = {HIGH: "platform", MEDIUM: "platform", LOW: "tooling"}[base]
+    elif core_connectors:
+        base, pr_class = HIGH, "core-connector"
     elif other:
         base, pr_class = MEDIUM, "other"
     elif shared_units:
@@ -881,6 +890,7 @@ BASE_REASON = {
     "shared": "internal file of a shared connector module (dependents are affected)",
     "other": "path outside every known area",
     "platform": "engine/api or repository permissions (always high); other platform, CI and build code (medium)",
+    "core-connector": "production code of connector-jdbc or a connector-cdc-* module (core connectors, always high)",
     "tooling": "tooling around the runtime (CLI, benchmarks, examples, deploy)",
 }
 

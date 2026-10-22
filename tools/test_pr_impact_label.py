@@ -135,9 +135,9 @@ class LowByDefaultTest(unittest.TestCase):
         result = score([f("plugin-mapping.properties", "@@ -1 +1 @@\n+seatunnel.sink.Foo = connector-kafka\n")])
         self.assertEqual((result["level"], result["class"]), (LOW, "registration"))
 
-    def test_jdbc_dialect_is_a_connector_unit(self):
+    def test_jdbc_dialect_is_still_one_unit_but_high_as_core_connector_code(self):
         dialect = score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST])
-        self.assertEqual((dialect["level"], dialect["units"]), (LOW, ["connector-jdbc:mysql"]))
+        self.assertEqual((dialect["level"], dialect["class"], dialect["units"]), (HIGH, "core-connector", ["connector-jdbc:mysql"]))
 
     def test_comment_only_change_in_a_core_class_is_low(self):
         patch = "@@ -1 +1 @@\n-// old\n+// new\n"
@@ -154,6 +154,24 @@ class LowByDefaultTest(unittest.TestCase):
 
 
 class HighByWhatWasTouchedTest(unittest.TestCase):
+    def test_jdbc_and_cdc_production_code_is_high_but_their_tests_and_docs_are_low(self):
+        cdc = "seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/src/main/java/a/Util.java"
+        for path in (JDBC + "internal/dialect/mysql/MysqlDialect.java", JDBC + "internal/JdbcOutputFormat.java", cdc,
+                     "seatunnel-connectors-v2/connector-cdc/connector-cdc-base/src/main/java/a/Util.java"):
+            result = score([f(path), TEST])
+            self.assertEqual((result["level"], result["class"]), (HIGH, "core-connector"), path)
+        for path in ("seatunnel-connectors-v2/connector-jdbc/src/test/java/a/T.java",
+                     "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-cdc-mysql-e2e/src/test/java/a/IT.java",
+                     "docs/en/connectors/source/MySQL-CDC.md"):
+            result = score([f(path, "@@ -0,0 +1 @@\n+@Test\n", status="added")])
+            self.assertEqual(result["level"], LOW, path)
+        # A brand-new CDC connector is still a new connector.
+        files = [dict(x, filename=x["filename"].replace("connector-foo", "connector-cdc-foo")) if "connector-foo" in x["filename"]
+                 else x for x in new_connector_files()]
+        files = [dict(x, patch=x["patch"].replace("connector-foo", "connector-cdc-foo")) for x in files]
+        self.assertEqual(score(files)["class"], "new-connector")
+
+
     def test_any_change_under_engine_or_api_is_high_including_tests_and_docs(self):
         for path in ("seatunnel-engine/seatunnel-engine-server/src/main/java/A.java",
                      "seatunnel-engine/seatunnel-engine-server/src/test/java/ATest.java",
@@ -264,12 +282,16 @@ class HighByWhatWasTouchedTest(unittest.TestCase):
         base = "seatunnel-connectors-v2/connector-cdc/connector-cdc-base/src/main/java/org/apache/seatunnel/connectors/cdc/base/"
         self.assertEqual(score([f(base + "source/IncrementalSource.java"), TEST])["level"], HIGH)
         self.assertEqual(score([f(JDBC + "sink/JdbcSinkFactory.java"), TEST])["level"], HIGH)
-        for path in (base + "utils/SourceRecordUtils.java", JDBC + "internal/JdbcOutputFormat.java",
-                     JDBC + "internal/dialect/JdbcDialect.java",
+        # Shared internals outside JDBC/CDC are medium; JDBC/CDC internals are high as core connectors.
+        for path in ("seatunnel-connectors-v2/connector-file/connector-file-base/src/main/java/a/Util.java",
                      "seatunnel-connectors-v2/connector-common/src/main/java/a/B.java",
                      "seatunnel-connectors-v2/connector-fake/src/main/java/a/B.java"):
             result = score([f(path), TEST])
             self.assertEqual((result["level"], result["class"]), (MEDIUM, "shared"), path)
+        for path in (base + "utils/SourceRecordUtils.java", JDBC + "internal/JdbcOutputFormat.java",
+                     JDBC + "internal/dialect/JdbcDialect.java"):
+            result = score([f(path), TEST])
+            self.assertEqual((result["level"], result["class"]), (HIGH, "core-connector"), path)
 
     def test_option_key_removed_or_changed_is_high(self):
         options = KAFKA + "config/KafkaSinkOptions.java"
@@ -423,14 +445,14 @@ class ReviewFindingsTest(unittest.TestCase):
         self.assertEqual((plain["level"], "parent-pom-change" in rules(plain)), (LOW, False))
 
     def test_module_another_connector_depends_on_is_shared(self):
-        known = impact.Known(reused={"connector-cdc-mysql", "connector-jdbc"})
-        path = "seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/src/main/java/a/Util.java"
+        known = impact.Known(reused={"connector-file-s3", "connector-jdbc"})
+        path = "seatunnel-connectors-v2/connector-file/connector-file-s3/src/main/java/a/Util.java"
         result = score([f(path), TEST], known=known)
-        self.assertEqual((result["level"], result["class"], result["units"]), (MEDIUM, "shared", ["shared:connector-cdc-mysql"]))
+        self.assertEqual((result["level"], result["class"], result["units"]), (MEDIUM, "shared", ["shared:connector-file-s3"]))
         self.assertIn("dependents-not-tested", notes(result))
         self.assertEqual(score([f(path), TEST], known=impact.Known())["level"], LOW)
-        # The JDBC dialect split survives: dialects stay units even though CDC connectors depend on connector-jdbc.
-        self.assertEqual(score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST], known=known)["level"], LOW)
+        # The JDBC dialect split survives as a unit boundary even though CDC connectors depend on connector-jdbc.
+        self.assertEqual(score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST], known=known)["units"], ["connector-jdbc:mysql"])
         # A brand-new module is never shared.
         fresh = impact.Known(KNOWN.artifacts, KNOWN.pairs, KNOWN.props, reused={"connector-foo"})
         self.assertEqual(score(new_connector_files(), known=fresh)["level"], LOW)
