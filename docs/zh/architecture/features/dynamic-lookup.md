@@ -10,12 +10,16 @@ title: 动态 Lookup
 动态 Lookup 是 SeaTunnel Engine 原生的流式补全动作。它在同一个 SeaTunnel Engine 作业中把
 append-only 的事实流与 CDC 维表流关联起来，并输出补全后的结果表。
 
+当前是实验性的 M0 开发草案，尚未通过生产认证。运行、故障注入和容量证据完成后，才能进入
+受支持的发布版本。
+
 首个支持范围有意收窄：
 
 - fact 侧必须是 append-only
 - dimension 侧必须拒绝主键更新
 - schema 变更必须 fail fast
-- fact 与 dimension 并行度必须相同
+- fact、dimension 与 lookup 并行度必须全部为 `1`；当前 FORWARD 队列不能保证独立分区的同一
+  key 位于同一子任务，尚未实现 keyed exchange
 - fact source 只能有一个 dynamic lookup 消费者
 - dimension bootstrap 边必须专用于该 lookup
 - 运行时依赖 SeaTunnel Engine checkpoint barrier 完成恢复
@@ -30,6 +34,7 @@ Dynamic lookup 不是普通 Transform 插件。解析器会创建专用的 `Dyna
 ```hocon
 env {
   job.mode = "STREAMING"
+  parallelism = 1
 }
 
 source {
@@ -129,6 +134,11 @@ Dynamic lookup 支持两种 join 类型：
 作业启动时，dimension 流先消费，fact 流暂不打开。fact source gate 会暂存 fact splits，直到
 checkpoint 把维表状态与 fact position 作为 durable anchor 记录下来。
 
+CDC reader 仅在所有 snapshot split 完成、incremental split 初始化后报告 bootstrap 就绪。
+source 在下一次 barrier 前发送有序的就绪标记。bootstrap 期间的 checkpoint 可以正常完成，
+但会保存关闭的 fact gate，不能作为开闸 anchor。恢复这样的 checkpoint 后，gate 保持关闭，
+继续 bootstrap；就绪标志包含在 SHA-256 保护的 lookup state 中。
+
 checkpoint 期间：
 
 1. fact 与 dimension 输入 barrier 按端口对齐
@@ -140,6 +150,9 @@ checkpoint 期间：
 `uid` 是这个 dynamic lookup operator 的稳定 checkpoint identity。重启或升级作业时应保持不变；
 如果修改 `uid`，就相当于创建了一个新的 checkpoint identity，已有 lookup state 可能无法再被该
 operator 使用。
+
+恢复时，在状态分配之前检查 lookup 并行度与 checkpoint 一致；不一致会直接失败。
+扩缩容需要后续协议的 keyed exchange 和状态重分配能力。
 
 恢复时，dynamic lookup state envelope 会通过稳定的 payload length 和 SHA-256 digest 校验后再
 使用。普通 completed checkpoint 继续使用 legacy raw payload 格式。只有 dynamic lookup anchor
@@ -169,7 +182,8 @@ dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个
 - dimension 侧主键更新
 - schema change event
 - append-only 以外的 fact changelog mode
-- fact 与 dimension 并行度不同
+- fact、dimension 或 lookup 并行度不是 `1`
+- 恢复时修改 lookup 并行度
 - 同一个 fact source 被多个 dynamic lookup 消费
 - 非 dedicated dimension bootstrap edge
 - 单个 lookup subtask 超过一个并发 snapshot
@@ -178,3 +192,8 @@ dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个
 
 如果作业需要分支级 gate、远程多 channel exchange、temporal join、schema evolution 或维表主键
 重写，或逻辑状态超过 M0 in-memory 上限，需要使用后续协议版本。
+
+配置中的 512 MiB 是准入估算值，不是已压测通过的 JVM heap 或吞吐安全上限。逐条序列化会
+重复写入类型描述，因此可能在完整快照达到上限之前拒绝；resident 估算也不是 JVM 对象布局
+测量。快照先计数，再直接写入最终 envelope，避免完整 payload 的多份暂存，但仍在 task
+线程执行完整序列化。容量认证仍是未关闭的门禁。

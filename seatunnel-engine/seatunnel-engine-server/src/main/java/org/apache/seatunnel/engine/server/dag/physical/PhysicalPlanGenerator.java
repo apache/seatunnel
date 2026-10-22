@@ -794,7 +794,8 @@ public class PhysicalPlanGenerator {
                                             flow,
                                             inputQueues,
                                             factGateCommandQueue,
-                                            factSourceActionId);
+                                            factSourceActionId,
+                                            lookupAction.getDimensionSourceActionId());
                                     TaskLocation taskLocation =
                                             new TaskLocation(
                                                     taskGroupLocation,
@@ -968,8 +969,19 @@ public class PhysicalPlanGenerator {
         }
     }
 
-    private static void validateDynamicLookupInputEdges(
+    /** Validates deployment safety, including plans that did not pass through the job parser. */
+    static void validateDynamicLookupInputEdges(
             DynamicLookupAction lookupAction, List<PortAwareExecutionEdge> inputEdges) {
+        // Also fence programmatically constructed plans that bypass the configuration parser.
+        if (lookupAction.getParallelism() != 1
+                || inputEdges.stream()
+                        .anyMatch(
+                                edge ->
+                                        edge.getLeftVertex().getParallelism() != 1
+                                                || edge.getRightVertex().getParallelism() != 1)) {
+            throw new IllegalArgumentException(
+                    "Dynamic lookup M0 requires fact, dimension and lookup parallelism = 1 until keyed exchange is supported");
+        }
         Set<Integer> ports =
                 inputEdges.stream()
                         .map(PortAwareExecutionEdge::getTargetInputPort)
@@ -1060,19 +1072,22 @@ public class PhysicalPlanGenerator {
      */
     @SuppressWarnings("unchecked")
     private void setFlowConfig(Flow f) {
-        setFlowConfig(f, Collections.emptyMap(), null, -1L);
+        setFlowConfig(f, Collections.emptyMap(), null, -1L, -1L);
     }
 
     private void setFlowConfig(
             Flow f,
             Map<Integer, IntermediateQueue> dynamicLookupInputQueues,
             IntermediateQueue dynamicLookupFactGateCommandQueue,
-            long dynamicLookupFactSourceActionId) {
+            long dynamicLookupFactSourceActionId,
+            long dynamicLookupDimensionSourceActionId) {
 
         if (f instanceof PhysicalExecutionFlow) {
             PhysicalExecutionFlow<?, FlowConfig> flow = (PhysicalExecutionFlow<?, FlowConfig>) f;
             if (flow.getAction() instanceof SourceAction) {
                 SourceConfig config = new SourceConfig();
+                config.setDynamicLookupDimension(
+                        flow.getAction().getId() == dynamicLookupDimensionSourceActionId);
                 config.setEnumeratorTask(
                         enumeratorTaskIDMap.get((SourceAction<?, ?, ?>) flow.getAction()));
                 if (flow.getAction().getId() == dynamicLookupFactSourceActionId) {
@@ -1127,7 +1142,8 @@ public class PhysicalPlanGenerator {
                                             next,
                                             dynamicLookupInputQueues,
                                             dynamicLookupFactGateCommandQueue,
-                                            dynamicLookupFactSourceActionId));
+                                            dynamicLookupFactSourceActionId,
+                                            dynamicLookupDimensionSourceActionId));
         }
     }
 

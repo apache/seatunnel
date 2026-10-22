@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -817,6 +818,52 @@ public class MultipleTableJobConfigParserTest {
                 "");
     }
 
+    @Test
+    public void testDynamicLookupRejectsParallelForwardInputsWithoutKeyedExchange() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        for (int[] parallelism : new int[][] {{2, 2}, {1, 2}, {2, 1}}) {
+            Config config =
+                    dynamicLookupConfig(
+                                    list("fact_id"),
+                                    list("dimension_id"),
+                                    list("FACT_SOURCE_GATE_V1"),
+                                    list("ORDERED_BOOTSTRAP_V1"),
+                                    "LEFT",
+                                    list("fact.fact_id"),
+                                    "512mb",
+                                    "512mb")
+                            .withValue(
+                                    "fact-test-parallelism",
+                                    ConfigValueFactory.fromAnyRef(parallelism[0]))
+                            .withValue(
+                                    "dimension-test-parallelism",
+                                    ConfigValueFactory.fromAnyRef(parallelism[1]));
+            JobDefineCheckException error =
+                    Assertions.assertThrows(
+                            JobDefineCheckException.class,
+                            () ->
+                                    dynamicLookupParser(
+                                                    config,
+                                                    catalogTable(
+                                                            "fact_table",
+                                                            column(
+                                                                    "fact_id",
+                                                                    BasicType.INT_TYPE,
+                                                                    false)),
+                                                    Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                    catalogTable(
+                                                            "dimension_table",
+                                                            column(
+                                                                    "dimension_id",
+                                                                    BasicType.INT_TYPE,
+                                                                    false)),
+                                                    Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                            .parse(null));
+            Assertions.assertTrue(
+                    error.getMessage().contains("parallelism = 1"), error.getMessage());
+        }
+    }
+
     private static MultipleTableJobConfigParser dynamicLookupParser(
             Config config,
             CatalogTable factCatalogTable,
@@ -848,7 +895,9 @@ public class MultipleTableJobConfigParserTest {
                                 new TestDynamicLookupSource(outputId, catalogTable, capabilities),
                                 Collections.emptySet(),
                                 Collections.emptySet());
-                action.setParallelism(1);
+                String parallelismKey = outputId + "-test-parallelism";
+                action.setParallelism(
+                        config.hasPath(parallelismKey) ? config.getInt(parallelismKey) : 1);
                 return new Tuple2<>(
                         outputId, Collections.singletonList(new Tuple2<>(catalogTable, action)));
             }

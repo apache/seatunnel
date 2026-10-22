@@ -266,6 +266,8 @@ public class CheckpointCoordinator {
         if (pipelineState != null) {
             this.latestCompletedCheckpoint =
                     CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
+            validateDynamicLookupRestoreParallelism(
+                    plan, latestCompletedCheckpoint, actionParallelism);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
                     "Restore checkpoint, job id: {}, pipeline id: {}, checkpoint id: {}, data: {} ",
@@ -429,6 +431,32 @@ public class CheckpointCoordinator {
         checkpointManager
                 .sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states))
                 .join();
+    }
+
+    /** Rejects unsupported lookup rescaling before any reader receives restored state. */
+    private static void validateDynamicLookupRestoreParallelism(
+            CheckpointPlan plan,
+            CompletedCheckpoint checkpoint,
+            Map<ActionStateKey, Integer> currentParallelism) {
+        for (TaskLocation lookupTask : plan.getInputPortsByTask().keySet()) {
+            for (Tuple2<ActionStateKey, Integer> action :
+                    plan.getSubtaskActions().get(lookupTask)) {
+                if (COORDINATOR_INDEX.equals(action.f1())) {
+                    continue;
+                }
+                ActionState saved = checkpoint.getTaskStates().get(action.f0());
+                if (saved == null
+                        || saved.getParallelism() != currentParallelism.get(action.f0())) {
+                    throw new IllegalArgumentException(
+                            "Dynamic lookup restore requires the same parallelism for "
+                                    + action.f0()
+                                    + ". checkpoint="
+                                    + (saved == null ? "missing" : saved.getParallelism())
+                                    + ", current="
+                                    + currentParallelism.get(action.f0()));
+                }
+            }
+        }
     }
 
     /**

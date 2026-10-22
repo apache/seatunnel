@@ -705,9 +705,11 @@ public class MultipleTableJobConfigParser {
                 factConfig.getStringList("key"),
                 dimensionInput._1(),
                 dimensionConfig.getStringList("key"));
-        if (factInput._2().getParallelism() != dimensionInput._2().getParallelism()) {
+        // FORWARD does not co-locate keys from independently partitioned sources. Until a keyed
+        // exchange exists, a single reader on each side is required for correct lookup results.
+        if (factInput._2().getParallelism() != 1 || dimensionInput._2().getParallelism() != 1) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup requires equal fact and dimension parallelism, but got "
+                    "Dynamic lookup M0 requires fact and dimension parallelism = 1 until keyed exchange is supported, but got "
                             + factInput._2().getParallelism()
                             + " and "
                             + dimensionInput._2().getParallelism());

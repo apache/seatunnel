@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
 public final class DynamicLookupStateEnvelope {
 
     public static final int MAGIC = 0x44594C4B;
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
     public static final int DIGEST_LENGTH = 32;
 
     private DynamicLookupStateEnvelope() {}
@@ -34,5 +34,15 @@ public final class DynamicLookupStateEnvelope {
             return false;
         }
         return ByteBuffer.wrap(stateBytes).getInt() == MAGIC;
+    }
+
+    /** Only a snapshot after the ordered bootstrap marker may serve as a fact-position anchor. */
+    public static boolean hasCompletedBootstrap(byte[] stateBytes) {
+        return hasEnvelopeMagic(stateBytes)
+                && stateBytes.length >= Integer.BYTES * 3 + 1 + DIGEST_LENGTH
+                && ByteBuffer.wrap(stateBytes).getInt(Integer.BYTES) == VERSION
+                && ByteBuffer.wrap(stateBytes).getInt(Integer.BYTES * 2)
+                        == stateBytes.length - Integer.BYTES * 3 - DIGEST_LENGTH
+                && stateBytes[Integer.BYTES * 3] == 1;
     }
 }

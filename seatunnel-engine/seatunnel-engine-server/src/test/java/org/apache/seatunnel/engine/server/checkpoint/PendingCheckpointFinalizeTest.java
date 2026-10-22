@@ -68,7 +68,7 @@ public class PendingCheckpointFinalizeTest {
         HashMap<ActionStateKey, ActionState> actionStates = new HashMap<>();
         actionStates.put(stateKey, new ActionState(stateKey, 1));
         PendingCheckpoint pendingCheckpoint = checkpoint(taskLocation, actionStates);
-        byte[] dynamicLookupState = ByteBuffer.allocate(Integer.BYTES).putInt(0x44594C4B).array();
+        byte[] dynamicLookupState = lookupState(true);
 
         pendingCheckpoint.acknowledgeTask(
                 taskLocation,
@@ -89,6 +89,44 @@ public class PendingCheckpointFinalizeTest {
                 Arrays.equals(
                         new byte[32],
                         completedCheckpoint.getCheckpointIntent().getAnchoredPositionDigest()));
+    }
+
+    @Test
+    void testPartialBootstrapCheckpointMustNotClaimDurableFactPositions() throws Exception {
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 0);
+        ActionStateKey key = new ActionStateKey("ActionStateKey - lookup");
+        HashMap<ActionStateKey, ActionState> states = new HashMap<>();
+        states.put(key, new ActionState(key, 1));
+        PendingCheckpoint checkpoint = checkpoint(location, states);
+        checkpoint.acknowledgeTask(
+                location,
+                Collections.singletonList(
+                        new ActionSubtaskState(
+                                key, 0, Collections.singletonList(lookupState(false)))),
+                SubtaskStatus.RUNNING);
+        Assertions.assertEquals(
+                CheckpointIntent.PURPOSE_NORMAL,
+                checkpoint
+                        .getCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .getCheckpointIntent()
+                        .getCheckpointPurpose());
+    }
+
+    private static byte[] lookupState(boolean bootstrapComplete) throws Exception {
+        java.io.ByteArrayOutputStream payload = new java.io.ByteArrayOutputStream();
+        payload.write(bootstrapComplete ? 1 : 0);
+        try (java.io.ObjectOutputStream stream = new java.io.ObjectOutputStream(payload)) {
+            stream.writeInt(0);
+        }
+        byte[] bytes = payload.toByteArray();
+        return ByteBuffer.allocate(12 + bytes.length + 32)
+                .putInt(DynamicLookupStateEnvelope.MAGIC)
+                .putInt(DynamicLookupStateEnvelope.VERSION)
+                .putInt(bytes.length)
+                .put(bytes)
+                .put(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))
+                .array();
     }
 
     @Test

@@ -10,12 +10,16 @@ title: Dynamic Lookup
 Dynamic lookup is an engine-native streaming enrichment action. It joins an append-only fact stream
 with a CDC dimension stream in the same SeaTunnel Engine job and emits an enriched output table.
 
+This is an experimental M0 development draft, not a production-certified feature. Runtime,
+failure-injection and capacity evidence must be completed before a supported release.
+
 The first supported scope is intentionally narrow:
 
 - the fact side must be append-only
 - the dimension side must reject primary-key updates
 - schema changes must fail fast
-- fact and dimension parallelism must be equal
+- fact, dimension and lookup parallelism must all be `1`; FORWARD queues cannot co-locate
+  independently partitioned keys, and keyed exchange is not implemented yet
 - the fact source must have exactly one dynamic lookup consumer
 - the dimension bootstrap edge must be dedicated to the lookup
 - the runtime uses SeaTunnel Engine checkpoint barriers for recovery
@@ -32,6 +36,7 @@ and `sink`.
 ```hocon
 env {
   job.mode = "STREAMING"
+  parallelism = 1
 }
 
 source {
@@ -133,6 +138,12 @@ At startup, the dimension stream is consumed before the fact stream is opened. T
 keeps fact splits staged until a checkpoint records the dimension state and the fact positions as a
 durable anchor.
 
+The CDC reader reports bootstrap completion only when the incremental split is initialized after
+all snapshot splits finish. The source emits an ordered readiness marker before the next barrier.
+Checkpoints taken during bootstrap preserve a closed fact gate and may complete normally; they are
+not fact-position anchors. Restoring such a checkpoint resumes bootstrap with the gate still closed.
+The readiness flag is included in the digest-protected lookup state.
+
 During checkpointing:
 
 1. fact and dimension input barriers are aligned per input port
@@ -144,6 +155,9 @@ During checkpointing:
 The `uid` value is the stable checkpoint identity of this dynamic lookup operator. Keep it stable
 across restarts and job upgrades; changing it creates a different checkpoint identity and can make
 existing lookup state unavailable to the operator.
+
+Restore rejects a lookup parallelism different from its checkpoint before redistributing any state.
+Rescaling requires keyed exchange and state redistribution in a later protocol version.
 
 On restore, the dynamic lookup state envelope is verified with a stable payload length and
 SHA-256 digest before it is used. Ordinary completed checkpoints keep the legacy raw payload format.
@@ -175,7 +189,8 @@ The first implementation deliberately rejects or limits these cases:
 - primary-key updates on the dimension side
 - schema change events
 - fact changelog modes other than append-only
-- different fact and dimension parallelism
+- fact, dimension or lookup parallelism other than `1`
+- restoring lookup state with a different parallelism
 - multiple dynamic lookup consumers for the same fact source
 - non-dedicated dimension bootstrap edges
 - more than one concurrent snapshot per lookup subtask
@@ -185,3 +200,9 @@ The first implementation deliberately rejects or limits these cases:
 If a job needs branch-level gating, remote multi-channel exchange, temporal joins, schema evolution,
 dimension primary-key rewrites, or logical state beyond the in-memory M0 limit, it must use a later
 protocol version.
+
+The configured 512 MiB limits are admission estimates, not a measured safe heap or throughput
+ceiling. Per-entry serialization repeats type descriptors and can reject below the full-map payload
+limit; the resident estimate is not a JVM object-layout measurement. Snapshots count bytes first
+and serialize directly into one final envelope, avoiding full payload staging copies, but still
+perform full-map serialization on the task thread. Capacity certification remains an open gate.

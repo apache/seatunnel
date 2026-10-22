@@ -211,7 +211,7 @@ public class PendingCheckpoint implements Checkpoint {
             return false;
         }
         return subtaskState.getState().stream()
-                .anyMatch(DynamicLookupStateEnvelope::hasEnvelopeMagic);
+                .anyMatch(DynamicLookupStateEnvelope::hasCompletedBootstrap);
     }
 
     private byte[] digestActionStates() {

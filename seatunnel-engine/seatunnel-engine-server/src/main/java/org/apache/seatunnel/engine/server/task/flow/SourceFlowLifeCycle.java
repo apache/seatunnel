@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.DynamicLookupBootstrapReader;
 import org.apache.seatunnel.api.source.FactSourceGateCapability;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceGateCommand;
@@ -200,6 +201,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         this.reader = sourceAction.getSource().createReader(context);
+        if (sourceConfig.isDynamicLookupDimension()
+                && !(reader instanceof DynamicLookupBootstrapReader)) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup dimension source requires DynamicLookupBootstrapReader: "
+                            + sourceAction.getName());
+        }
         if (sourceConfig.isDynamicLookupFactGate()) {
             if (!(reader instanceof FactSourceGateCapability)) {
                 throw new TaskRuntimeException(
@@ -560,6 +567,14 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
+            // This marker shares the dimension queue with its rows and barrier. Partial bootstrap
+            // checkpoints can still complete, but cannot become a fact-gate activation anchor.
+            if (barrier.snapshot()
+                    && sourceConfig.isDynamicLookupDimension()
+                    && ((DynamicLookupBootstrapReader) reader).isDynamicLookupBootstrapComplete()) {
+                collector.sendRecordToNext(
+                        new Record<>(DynamicLookupBootstrapReader.Status.COMPLETE));
+            }
             if (barrier.prepareClose(this.currentTaskLocation)) {
                 this.prepareClose = true;
             }

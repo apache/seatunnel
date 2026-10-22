@@ -23,6 +23,7 @@ public class SourceConfig implements FlowConfig {
 
     private TaskLocation enumeratorTask;
     private boolean dynamicLookupFactGate;
+    private boolean dynamicLookupDimension;
     private IntermediateQueueConfig dynamicLookupGateCommandQueue;
 
     public TaskLocation getEnumeratorTask() {
@@ -35,6 +36,14 @@ public class SourceConfig implements FlowConfig {
 
     public boolean isDynamicLookupFactGate() {
         return dynamicLookupFactGate;
+    }
+
+    public boolean isDynamicLookupDimension() {
+        return dynamicLookupDimension;
+    }
+
+    public void setDynamicLookupDimension(boolean dynamicLookupDimension) {
+        this.dynamicLookupDimension = dynamicLookupDimension;
     }
 
     public void setDynamicLookupFactGate(boolean dynamicLookupFactGate) {
