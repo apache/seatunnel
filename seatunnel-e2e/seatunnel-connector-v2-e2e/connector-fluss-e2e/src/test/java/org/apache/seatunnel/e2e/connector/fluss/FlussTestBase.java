@@ -19,8 +19,10 @@ package org.apache.seatunnel.e2e.connector.fluss;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.Transferable;
@@ -30,10 +32,12 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.alibaba.fluss.client.Connection;
 import com.alibaba.fluss.client.ConnectionFactory;
 import com.alibaba.fluss.client.admin.Admin;
+import com.alibaba.fluss.client.admin.OffsetSpec;
 import com.alibaba.fluss.config.Configuration;
 import com.alibaba.fluss.metadata.DatabaseDescriptor;
 import com.alibaba.fluss.metadata.Schema;
 import com.alibaba.fluss.metadata.TableDescriptor;
+import com.alibaba.fluss.metadata.TableInfo;
 import com.alibaba.fluss.metadata.TablePath;
 import com.alibaba.fluss.types.DataTypes;
 import com.github.dockerjava.api.command.InspectContainerResponse;
@@ -41,12 +45,18 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
+// A Fluss table without a bucket leader makes the SeaTunnel job wait forever. Fail the case instead
+// of blocking the whole CI job; the slowest case waits at most about 8 minutes when healthy.
+@Timeout(value = 15, unit = TimeUnit.MINUTES)
 @Slf4j
 public abstract class FlussTestBase extends TestSuiteBase implements TestResource {
 
@@ -61,6 +71,7 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
     protected static final int FLUSS_TABLET_PORT = 9124;
     protected static final int FLUSS_COORDINATOR_LOCAL_PORT = 8123;
     protected static final int FLUSS_TABLET_LOCAL_PORT = 8124;
+    private static final int TABLE_CREATE_ATTEMPTS = 3;
 
     private GenericContainer<?> zookeeperServer;
     private GenericContainer<?> coordinatorServer;
@@ -159,16 +170,20 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
     }
 
     private void initializeConnection() throws ExecutionException, InterruptedException {
+        flussConnection = ConnectionFactory.createConnection(flussConfig());
+        // Perform a real admin RPC so the readiness await only passes once the tablet server
+        // actually answers, not merely when the (lazy) client object is constructed.
+        flussConnection.getAdmin().listDatabases().get();
+    }
+
+    private Configuration flussConfig() {
         Configuration flussConfig = new Configuration();
         flussConfig.setString(
                 "bootstrap.servers",
                 coordinatorServer.getHost()
                         + ":"
                         + coordinatorServer.getMappedPort(FLUSS_COORDINATOR_LOCAL_PORT));
-        flussConnection = ConnectionFactory.createConnection(flussConfig);
-        // Perform a real admin RPC so the readiness await only passes once the tablet server
-        // actually answers, not merely when the (lazy) client object is constructed.
-        flussConnection.getAdmin().listDatabases().get();
+        return flussConfig;
     }
 
     protected void createDb(Connection connection, String dbName)
@@ -201,12 +216,57 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
 
     protected void createTable(
             Connection connection, String dbName, String tableName, Schema schema)
-            throws ExecutionException, InterruptedException {
+            throws Exception {
         Admin admin = connection.getAdmin();
         TableDescriptor tableDescriptor = TableDescriptor.builder().schema(schema).build();
         TablePath tablePath = TablePath.of(dbName, tableName);
-        admin.dropTable(tablePath, true).get();
-        admin.createTable(tablePath, tableDescriptor, true).get(); // blocking call
+        // Fluss 0.7.0 can miss a table creation event (apache/fluss#1018). The table is then
+        // registered but its buckets never get a leader, so recreate it.
+        ConditionTimeoutException lastFailure = null;
+        for (int attempt = 1; attempt <= TABLE_CREATE_ATTEMPTS; attempt++) {
+            admin.dropTable(tablePath, true).get();
+            admin.createTable(tablePath, tableDescriptor, true).get(); // blocking call
+            try {
+                waitForBucketLeaders(tablePath);
+                return;
+            } catch (ConditionTimeoutException e) {
+                lastFailure = e;
+                log.warn(
+                        "Fluss table {} has no bucket leader (attempt {} of {})",
+                        tablePath,
+                        attempt,
+                        TABLE_CREATE_ATTEMPTS,
+                        e);
+            }
+        }
+        throw new IllegalStateException(
+                String.format(
+                        "Fluss table %s has no bucket leader after %d attempts, see apache/fluss#1018",
+                        tablePath, TABLE_CREATE_ATTEMPTS),
+                lastFailure);
+    }
+
+    private void waitForBucketLeaders(TablePath tablePath) throws Exception {
+        // Use a new connection so no metadata cached for an earlier table at this path is used.
+        try (Connection connection = ConnectionFactory.createConnection(flussConfig())) {
+            Admin admin = connection.getAdmin();
+            TableInfo tableInfo = admin.getTableInfo(tablePath).get();
+            List<Integer> buckets =
+                    IntStream.range(0, tableInfo.getNumBuckets())
+                            .boxed()
+                            .collect(Collectors.toList());
+            // Listing offsets fails while a bucket has no leader.
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    admin.listOffsets(
+                                                    tablePath, buckets, new OffsetSpec.LatestSpec())
+                                            .all()
+                                            .get(10, TimeUnit.SECONDS));
+        }
     }
 
     protected static boolean checkPort(String host, int port, int timeoutMs) throws IOException {
