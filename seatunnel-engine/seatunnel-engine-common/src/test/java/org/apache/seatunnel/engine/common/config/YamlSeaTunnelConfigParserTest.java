@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -59,6 +60,9 @@ public class YamlSeaTunnelConfigParserTest {
 
         Assertions.assertEquals(
                 7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
+
+        Assertions.assertEquals(
+                64, config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
 
         Assertions.assertEquals(
                 "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
@@ -156,6 +160,38 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(
                 Runtime.getRuntime().availableProcessors() * 2,
                 config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+        // This yaml has no checkpoint block at all, so it pins the default that
+        // keeps behaviour identical to the previously hard-coded value.
+        Assertions.assertEquals(
+                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                        .defaultValue()
+                        .intValue(),
+                config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
+        Assertions.assertEquals(
+                32, config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
+    }
+
+    @Test
+    public void testCheckpointMonitorHistorySizeIsBounded() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        int max = ServerConfigOptions.MasterServerConfigOptions.MAX_CHECKPOINT_MONITOR_HISTORY_SIZE;
+
+        // The bounds exist because the history lives in the cluster-wide
+        // checkpoint overview IMap, whose whole value is re-serialised on every
+        // checkpoint event -- an oversized window would multiply master CPU and
+        // replication traffic silently.
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> checkpointConfig.setMonitorHistorySize(0));
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> checkpointConfig.setMonitorHistorySize(-1));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> checkpointConfig.setMonitorHistorySize(max + 1));
+
+        checkpointConfig.setMonitorHistorySize(1);
+        Assertions.assertEquals(1, checkpointConfig.getMonitorHistorySize());
+        checkpointConfig.setMonitorHistorySize(max);
+        Assertions.assertEquals(max, checkpointConfig.getMonitorHistorySize());
     }
 
     @Test
