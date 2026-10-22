@@ -56,6 +56,11 @@ Usage: seatunnel.sh [options]
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
+Without `--async`, the client waits for the final job result. If a job keeps failing during
+task startup or automatic recovery, for example because a Paimon source lacks `SELECT` permission, the job
+returns `FAILED` after exhausting the configured retries and the client exits with a nonzero
+status.
+
 The **--async** parameter allows the job to run in the background. When the job is submitted, the client will exit.
 
 ```shell
@@ -87,8 +92,12 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Connector | Source | Sink |
 |-----------|--------|------|
 | Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
-| Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
+| Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | Yes ([metadata + local serializer checks](../../connectors/sink/Kafka.md#connectivity-dry-run); dynamic topics have limited checks, Produce/transaction permissions are not checked) |
 | FakeSource | Yes (schema inference only, no external system) | - |
+| Clickhouse | No | Yes ([initial-host connectivity + target metadata](../../connectors/sink/Clickhouse.md#connectivity-dry-run); no write permission or field compatibility check) |
+| MongoDB | Yes ([collection visibility + configured schema](../../connectors/source/MongoDB.md#connectivity-dry-run), MongoDB 4.0+, not document-read permissions) | Yes ([connectivity + configured authentication](../../connectors/sink/MongoDB.md#connectivity-dry-run); no collection, schema, write permission or transaction checks) |
+| Neo4j | Yes ([driver connectivity + configured schema; not database/query validation](../../connectors/source/Neo4j.md#connectivity-dry-run)) | No |
+| RabbitMQ | Yes ([existing-queue metadata + configured schema; not consumer permissions](../../connectors/source/Rabbitmq.md#connectivity-dry-run)) | No |
 | S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
 | Redis | Yes ([connectivity + authentication](../../connectors/source/Redis.md#connectivity-dry-run) + configured schema; no key access) | Yes ([connectivity + authentication](../../connectors/sink/Redis.md#connectivity-dry-run); no field compatibility or write permission check) |
 
@@ -255,9 +264,9 @@ This command will output detailed information about all members in the cluster, 
 **Example output:**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5701  ACTIVE MASTER        5.3.0
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5701  MASTER               5.3.0
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5701  WORKER               5.3.0
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.3.0
+b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.3.0
+c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.3.0
 ```
 
 **Note**: You must specify the cluster name with the `-cn` parameter. The cluster must be running for this command to work.

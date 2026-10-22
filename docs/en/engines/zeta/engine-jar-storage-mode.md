@@ -35,7 +35,7 @@ Two different storage strategies provide a more flexible storage mode for jar fi
 
 ## Related Configuration
 
-The `jar-storage` block must be configured under `seatunnel.engine` in `seatunnel.yaml` (see the examples below).
+All options live under `seatunnel.engine.jar-storage` in `seatunnel.yaml`; a top-level `jar-storage` block is not parsed.
 
 |              Parameter              | Default Value |                                                                      Describe                                                                      |
 |-------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------|

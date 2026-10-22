@@ -178,7 +178,7 @@ seatunnel:
                 plugin-config:
                   namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
                   storage.type: s3
-                  s3.bucket: your-bucket
+                  s3.bucket: s3a://your-bucket
                   fs.s3a.access.key: your-access-key
                   fs.s3a.secret.key: your-secret-key
                   fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -202,10 +202,36 @@ seatunnel:
         plugin-config:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
+
+
+Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File 选项校验限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
+对于基于 EC2 的 Kubernetes 或 EKS 节点，可按上面的示例使用 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，并仅向节点角色授予所需 bucket/prefix 的最小权限。
+
+当前 checkpoint-storage 依赖内置的 AWS SDK v1 版本不包含 `WebIdentityTokenCredentialsProvider`，因此不支持 EKS IRSA。除非运行时依赖已经整体升级并完成验证，否则不要配置 IRSA provider。
+
+如果遇到 `Factory initialize failed` 或 `ClassNotFoundException`，请检查 provider 类名，并确认所有访问 checkpoint 存储的 master/worker 都已加载所需的 Hadoop/AWS jar。
 
 **容器环境**：检查点存储将 `fs.s3a.*` 配置键直接传递给 Hadoop，没有连接器级别的枚举限制，因此可以使用 classpath 上任何可用的 S3A 凭据提供程序类。这包括面向容器的提供程序，如 `com.amazonaws.auth.ContainerCredentialsProvider`（ECS 任务角色）和 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`。对于 EKS 部署，推荐使用 EC2 节点实例角色。EKS IRSA（`WebIdentityTokenCredentialsProvider`）在捆绑的 AWS SDK v1.x（1.11.271）中不可用，需要在所有节点的 `${SEATUNNEL_HOME}/lib` 中添加较新的 AWS SDK v1.x JAR。
 

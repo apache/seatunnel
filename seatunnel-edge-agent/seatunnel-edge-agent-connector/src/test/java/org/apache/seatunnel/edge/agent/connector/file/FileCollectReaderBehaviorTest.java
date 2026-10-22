@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +49,7 @@ public class FileCollectReaderBehaviorTest {
     // Ceiling for the remaining wall-clock wait, which depends on real filesystem reads. The
     // common case finishes in milliseconds, but stalled CI runners (Windows runners have shown
     // multi-second scheduling stalls) must fail on reader behavior, not on scheduling delay.
+    // See #12562: payload assertions run after the wait so retries cannot discard observations.
     private static final long AWAIT_BUDGET_SECONDS = 10L;
 
     @TempDir Path tempDir;
@@ -91,22 +93,23 @@ public class FileCollectReaderBehaviorTest {
                     "second\n".getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.APPEND);
 
+            List<EdgeEvent> events = new ArrayList<>();
             await().atMost(AWAIT_BUDGET_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(10, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
+                    .until(
                             () -> {
-                                List<EdgeEvent> events = reader.poll(10);
-                                Assertions.assertEquals(1, events.size());
-                                String payload =
-                                        new String(
-                                                events.get(0).getPayload(), StandardCharsets.UTF_8);
-                                Assertions.assertTrue(payload.contains("second"));
-                                Assertions.assertFalse(payload.contains("first"));
-                                // Line numbering restarts only if the cursor was closed and the
-                                // file was picked up again by the glob scan.
-                                Assertions.assertEquals(
-                                        "1", events.get(0).getMetadata().get("line"));
+                                events.addAll(reader.poll(10));
+                                return !events.isEmpty();
                             });
+            Assertions.assertEquals(1, events.size());
+            String payload = new String(events.get(0).getPayload(), StandardCharsets.UTF_8);
+            Assertions.assertTrue(
+                    payload.contains("second"), () -> "Unexpected payload: " + payload);
+            Assertions.assertFalse(
+                    payload.contains("first"), () -> "Unexpected payload: " + payload);
+            // Line numbering restarts only if the cursor was closed and the
+            // file was picked up again by the glob scan.
+            Assertions.assertEquals("1", events.get(0).getMetadata().get("line"));
         } finally {
             reader.close();
         }

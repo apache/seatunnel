@@ -46,7 +46,7 @@ network:
 
 > |  name  |   type   | data type |                            description                             |
 > |--------|----------|-----------|--------------------------------------------------------------------|
-> | type   | required | string    | plugin type, currently supports `source`, `sink` and `transform`   |
+> | type   | required | string    | plugin type, supports `source`, `sink` and `transform`             |
 > | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
 
 #### Responses
@@ -108,6 +108,10 @@ network:
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -116,7 +120,29 @@ network:
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 0",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 0,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -126,6 +152,9 @@ network:
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
+- Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
+- `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
 
 </details>
 
@@ -146,7 +175,7 @@ network:
 
 ```json
 {
-    "projectVersion":"2.3.10-SNAPSHOT",
+    "projectVersion":"3.0.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -286,6 +315,38 @@ None.
 ]
 ```
 
+**Notes:**
+- The `metrics` object keys follow the engine metric names: besides `SourceReceivedCount` and `SinkWriteCount` it also contains the `SinkCommitted*`, `*Bytes`, `*Qps`, `IntermediateQueueSize`, `FlushSignal*` and `Table*` entries when the job exposes them.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Get Running Jobs Summary
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs/summary</b></code> <code>(Returns a lightweight running-job list without DAG or metrics.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "733584788375666689",
+    "jobName": "rest_api_test",
+    "jobStatus": "RUNNING",
+    "createTime": "2024-08-01 12:00:00"
+  }
+]
+```
+
+**Notes:**
+- This is a cheap variant of `/running-jobs` used by the Web UI: it returns only `jobId`, `jobName`, `jobStatus` and `createTime` per job and skips DAG and metrics decoding.
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -362,15 +423,16 @@ not.
 | SinkCommittedQPS | Sink committed rate (rows/s) |
 | SinkCommittedBytes | Sink committed bytes after checkpoint succeeds |
 | SinkCommittedBytesPerSeconds | Sink committed rate (bytes/s) |
+| IntermediateQueueSize | Records currently buffered in the intermediate queues |
 | TableSourceReceived* | Per-table source metrics, key format `TableSourceReceivedXXX#<table>` |
 | TableSinkWrite* | Per-table sink write attempts, key format `TableSinkWriteXXX#<table>` |
 | TableSinkCommitted* | Per-table sink committed metrics, key format `TableSinkCommittedXXX#<table>` |
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -428,6 +490,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
     "SinkCommittedQPS": "",
     "SinkCommittedBytes": "",
     "SinkCommittedBytesPerSeconds": "",
+    "IntermediateQueueSize": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -455,11 +518,11 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -637,7 +700,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "rest_api_test"
 }
 ```
@@ -984,13 +1047,11 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 
 #### Request Parameters
 
-#### Parameters (Add in the `params` field of the request body)
-
 > |     Parameter Name    |  Required  |  Type   |           Description           |
 > |----------------------|------------|---------|---------------------------------|
-> | jobId                |  optional  | string  | job id                          |
+> | jobId                |  optional  | string  | job id, appended as the path segment `/logs/{jobId}` |
 
-When `jobId` is empty, it returns log information for all nodes; otherwise, it returns the log list of the specified `jobId` across all nodes.
+When `jobId` is omitted, it returns log information for all nodes; otherwise, it returns the log list of the specified `jobId` across all nodes.
 
 #### Response
 
@@ -1004,17 +1065,21 @@ If you'd like to view the log list first, you can use a `GET` request to retriev
 ```json
 [
   {
-    "node": "localhost:5801",
-    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899485770241277953.log",
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
     "logName": "job-899485770241277953.log"
   },
   {
-    "node": "localhost:5801",
-    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899470314109468673.log",
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
     "logName": "job-899470314109468673.log"
   }
 ]
 ```
+
+`logLink` and `node` point to the Jetty HTTP service of each node (port `8080` by default, see
+`seatunnel.engine.http`), not to the Hazelcast REST port. The endpoints require
+`seatunnel.engine.http.enable-http: true`, which is `false` by default.
 
 The supported formats are `json` and `html`, with `html` as the default.
 

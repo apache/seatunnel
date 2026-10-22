@@ -36,7 +36,7 @@ COMMON_ PLUGIN_ JARS 指的是连接器所依赖的第三方 Jar 包， CONNECTO
 
 ## 相关配置
 
-`jar-storage` 配置块必须位于 `seatunnel.yaml` 中 `seatunnel.engine` 之下（参见下方示例）。
+所有选项都位于 `seatunnel.yaml` 的 `seatunnel.engine.jar-storage` 下；顶层的 `jar-storage` 块不会被解析。
 
 |                 参数                  |  默认值   |                                   描述                                    |
 |-------------------------------------|--------|-------------------------------------------------------------------------|

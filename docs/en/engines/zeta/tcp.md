@@ -33,4 +33,4 @@ Instead of providing members line-by-line as shown above, you also have the opti
 
 `<members>192.168.1.0-7,192.168.1.21</members>`
 
-If you do not provide ports for the members, Hazelcast tries the port configured in the `port` element of `hazelcast.yaml` (SeaTunnel's default template sets it to `5801` with `port-auto-increment` disabled), so a member listed without a port is only tried on that single port.
+If you do not provide ports for the members, Hazelcast tries the port configured under `network.port` (`5801` in the SeaTunnel default `hazelcast.yaml`, `5802` for the worker template). Whether subsequent ports are also attempted is controlled by `network.port.auto-increment`, which SeaTunnel ships as `false`.

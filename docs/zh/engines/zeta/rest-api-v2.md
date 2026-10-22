@@ -77,6 +77,7 @@ seatunnel:
 - 如果同时开启 HTTP 和 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以 Jetty 启动日志 `SeaTunnel REST service started on http port xxx` 为准。`/logs` 和 `/loggers?scope=cluster` 会解析并报告各节点实际绑定的 HTTP 端口。配置中的 `port` 保持不变，即使多个节点共享同一个 HTTP 配置对象也不例外。
 - 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
 - Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
+- 如果地址栏显示的是 `/#/overview` 这类 Web UI 路由，但页面是 Jetty 的 `HTTP ERROR 404 Not Found`，且其中 `URI: /%23/overview`，说明客户端把 URL fragment 做了百分号编码后当路径发送。只要该节点带有 Web UI，SeaTunnel 就会对这类 `GET` 或 `HEAD` 请求返回 `302` 以及 `Location: <context-path>/#<route>`，浏览器会落到它本意要打开的路由。可用 `curl -i --path-as-is 'http://<host>:8080/%23/overview'` 观察该重定向；配置了 `context-path` 时，重定向会保留该前缀。
 
 ## 开启 HTTPS
 
@@ -170,7 +171,7 @@ seatunnel:
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",
@@ -180,7 +181,7 @@ seatunnel:
             "fallbackKeys": [],
             "optionValues": null
           },
-          "expectValue": 1,
+          "expectValue": 0,
           "compareOperator": ">=",
           "compareOption": null,
           "conditionOperator": "GREATER_OR_EQUAL",
@@ -243,7 +244,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.10-SNAPSHOT",
+    "projectVersion":"3.0.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -373,6 +374,39 @@ seatunnel:
   }
 ]
 ```
+
+**说明:**
+- `metrics` 对象的键遵循引擎的指标命名：除 `SourceReceivedCount` 和 `SinkWriteCount` 外，还可能包含 `SinkCommitted*`、`*Bytes`、`*Qps`、`IntermediateQueueSize`、`FlushSignal*` 以及 `Table*` 等条目。
+- 当传入 `page` 参数时，响应会被包装为 `{"data": [...], "total": n}`（与 `/finished-jobs` 相同）；不传分页参数时返回上面的裸数组。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 获取运行中作业摘要
+
+<details>
+ <summary><code>GET</code> <code><b>/running-jobs/summary</b></code> <code>(返回不包含 DAG 和指标的轻量运行中作业列表。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+[
+  {
+    "jobId": "733584788375666689",
+    "jobName": "rest_api_test",
+    "jobStatus": "RUNNING",
+    "createTime": "2024-08-01 12:00:00"
+  }
+]
+```
+
+**说明:**
+- 这是 `/running-jobs` 的轻量版本，Web UI 会使用该接口：每个作业只返回 `jobId`、`jobName`、`jobStatus` 和 `createTime`，不解析 DAG 和指标。
 
 </details>
 
@@ -671,11 +705,11 @@ seatunnel:
 | pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
 | totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
-当我们查询不到这个Job时，返回结果为：
+当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -761,11 +795,11 @@ seatunnel:
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 
-当我们查询不到这个Job时，返回结果为：
+当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -1024,7 +1058,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "rest_api_test"
 }
 ```
@@ -1072,7 +1106,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "SeaTunnel_Job"
 }
 ```
@@ -1422,13 +1456,11 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 请求参数
 
-#### 参数(在请求体中params字段中添加)
-
 > |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
 > |----------------------|----------|--------|-----------------------------------|
-> | jobId                | optional | string | job id                            |
+> | jobId                | optional | string | job id，作为路径片段 `/logs/{jobId}` 追加 |
 
-当`jobId`为空时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
+当`jobId`省略时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
 
 #### 响应
 
@@ -1501,8 +1533,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 例子
 
-获取当前节点的日志列表：`http://localhost:5801/log`
-获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log`
+获取当前节点的日志列表：`http://localhost:8080/log`
+获取日志文件内容：`http://localhost:8080/log/job-898380162133917698.log`
 
 日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
@@ -1695,6 +1727,7 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 ```json
 {
   "jobId": "1234567890",
+  "generatedAt": 1720000006500,
   "updatedAt": 1720000000123,
   "pipelines": [
     {
@@ -1757,7 +1790,8 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 | 字段 | 描述 |
 | --- | --- |
 | `jobId` | 作业 ID。 |
-| `updatedAt` | 概览最近刷新时间（毫秒时间戳）。 |
+| `generatedAt` | 本次响应生成的时间（毫秒时间戳），取自提供该响应的成员节点时钟。始终存在，即使没有可报告的概览。计算 `inProgress` checkpoint 已运行多久时请用它而不是 `updatedAt`：用该值减去 checkpoint 的 `triggerTimestamp`。该相减假定各成员节点时钟已通过 NTP 同步：当 master 不可达时请求会由其他成员提供服务，因此两个时间戳可能来自不同节点。 |
+| `updatedAt` | 概览最近一次被写入的时间（毫秒时间戳），即最近一次 checkpoint 事件（触发、确认、完成、失败或恢复）的时间。checkpoint 仅在等待时它**不会**前进，因此它不是响应时间戳，不能用来计算进行中 checkpoint 的年龄。当监控服务没有该作业的记录时该字段不存在。 |
 | `pipelines` | pipeline 统计列表。 |
 | `pipelines[].pipelineId` | pipeline ID。 |
 | `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint 统计：<br/>- `triggered`：自作业启动以来触发次数。<br/>- `completed`：成功完成次数。<br/>- `failed`：失败次数。<br/>- `inProgress`：当前正在执行的 checkpoint 数量。<br/>- `restored`：触发恢复（包括 savepoint 恢复）的次数。 |
@@ -1852,9 +1886,20 @@ Checkpoint 信息字段：
       "retentionMinutes": 3,
       "latestBucketStartMs": 1700000000000
     }
-  ]
+  ],
+  "collector": {
+    "pollIntervalMs": 5000,
+    "fetchTimeoutMs": 3000,
+    "lastCollectStartMs": 1700000000000,
+    "lastCollectEndMs": 1700000001200,
+    "lastRawMetricsFetchCostMs": 120,
+    "lastRawMetricsBlobs": 2,
+    "collectFailureCount": 0
+  }
 }
 ```
+
+`collector` 对象反映 Master 上 realtime 采集器的运行状态（轮询间隔、最近一次采集的时间点以及失败计数）。
 
 </details>
 
