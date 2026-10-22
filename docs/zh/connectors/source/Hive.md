@@ -36,8 +36,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 |         名称          |  类型  | 必需 | 默认值  | 描述 |
 |-----------------------|--------|------|---------|------|
 | table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
-| table_list            | array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `tables_configs`。仅为向后兼容保留，未来版本将移除。 |
-| tables_configs        | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
+| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。若两者同时设置，`table_list` 优先。 |
+| tables_configs        | array  | 否   | 已废弃，请使用 `table_list` | 已废弃的多表配置列表。Hive 是结构化数据源，新作业请使用 `table_list`。仅为向后兼容保留。 |
 | use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
 | metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
 | krb5_path             | string | 否   | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 文件路径。 |
@@ -57,15 +57,15 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
 
-单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `tables_configs`。`table_list` 已废弃，仅为向后兼容保留。
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，请配置 `table_list`。`tables_configs` 仍可向后兼容使用，但 `table_list` 是当前选项。
 
 ### table_list [array]
 
-已废弃的多表读取配置列表，仅为向后兼容保留。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。新作业请使用 `tables_configs`。
+多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### tables_configs [array]
 
-多表读取时使用的 Hive 表配置列表（推荐方式）。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+已废弃的多表配置列表，仅为向后兼容保留；新作业请使用 `table_list`。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### use_regex [boolean]
 
@@ -155,7 +155,7 @@ Kerberos 认证的 keytab 文件路径
 ```
 
 ### 示例 3：多表
-> 注意：Hive 是结构化数据源，多表读取建议使用 `tables_configs`；旧配置 `table_list` 已废弃，目前仍兼容可用。
+> 注意：Hive 是结构化数据源，多表读取请使用 `table_list`；`tables_configs` 已废弃，目前仍向后兼容可用。
 > 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
 
 ```bash

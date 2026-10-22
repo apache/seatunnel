@@ -42,7 +42,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 |         name          |  type  | required | default value  | description |
 |-----------------------|--------|----------|----------------|-------------|
 | table_name            | string | no       | Required for single-table mode | Target Hive table name in the form `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` to match multiple tables. |
-| table_list            | array  | no       | -              | Multi-table configuration list. Each item can override any of the root-level options. |
+| table_list            | array  | no       | -              | Multi-table configuration list. Each item can override any of the root-level options. Takes precedence if both `table_list` and `tables_configs` are set. |
 | tables_configs        | array  | no       | Deprecated, use `table_list` instead | Deprecated multi-table configuration list. Hive is a structured data source, new jobs should use `table_list`. Kept for backward compatibility. |
 | use_regex             | boolean| no       | false          | Treat `table_name` as a regular expression that matches multiple tables. Works at the root level and inside each `table_list` / `tables_configs` entry. |
 | metastore_uri         | string | no       | Required for single-table mode | Hive metastore URI. Comma-separated values enable HA failover; whitespace is ignored. |

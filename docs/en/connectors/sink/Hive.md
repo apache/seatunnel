@@ -625,7 +625,7 @@ sink {
 
 ### What file formats does Hive Sink support?
 
-Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
+Hive Sink supports `ORC`, `PARQUET`, and `TEXT` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
 
 ### Does Hive Sink support partitioned tables?
 
