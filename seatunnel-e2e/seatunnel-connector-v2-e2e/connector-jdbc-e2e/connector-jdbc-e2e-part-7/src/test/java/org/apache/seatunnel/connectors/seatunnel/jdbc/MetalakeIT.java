@@ -213,6 +213,9 @@ public class MetalakeIT extends SeaTunnelContainer {
 
     @Test
     public void testDataSource() throws IOException, InterruptedException {
+        // The datasource ID activates metadata resolution. FieldMapper must retain its literal
+        // regex-shaped key through metadata resolution and the legacy Metalake conversion.
+        // Assert checks the mapped value, not just successful submission.
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
