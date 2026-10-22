@@ -1669,6 +1669,7 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 ```json
 {
   "jobId": "1234567890",
+  "generatedAt": 1720000006500,
   "updatedAt": 1720000000123,
   "pipelines": [
     {
@@ -1731,7 +1732,8 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 | 字段 | 描述 |
 | --- | --- |
 | `jobId` | 作业 ID。 |
-| `updatedAt` | 概览最近刷新时间（毫秒时间戳）。 |
+| `generatedAt` | 本次响应生成的时间（毫秒时间戳），取自提供该响应的成员节点时钟。始终存在，即使没有可报告的概览。计算 `inProgress` checkpoint 已运行多久时请用它而不是 `updatedAt`：用该值减去 checkpoint 的 `triggerTimestamp`。该相减假定各成员节点时钟已通过 NTP 同步：当 master 不可达时请求会由其他成员提供服务，因此两个时间戳可能来自不同节点。 |
+| `updatedAt` | 概览最近一次被写入的时间（毫秒时间戳），即最近一次 checkpoint 事件（触发、确认、完成、失败或恢复）的时间。checkpoint 仅在等待时它**不会**前进，因此它不是响应时间戳，不能用来计算进行中 checkpoint 的年龄。当监控服务没有该作业的记录时该字段不存在。 |
 | `pipelines` | pipeline 统计列表。 |
 | `pipelines[].pipelineId` | pipeline ID。 |
 | `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint 统计：<br/>- `triggered`：自作业启动以来触发次数。<br/>- `completed`：成功完成次数。<br/>- `failed`：失败次数。<br/>- `inProgress`：当前正在执行的 checkpoint 数量。<br/>- `restored`：触发恢复（包括 savepoint 恢复）的次数。 |
