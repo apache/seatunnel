@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.reader;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.RootAllocator;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.FieldVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
@@ -80,6 +81,27 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
         initFieldIndexMap(seaTunnelRowType);
         initArrowReader(byteArray);
+    }
+
+    /**
+     * Creates a reader with prebuilt Arrow resources.
+     *
+     * <p>The constructor keeps close-order regression tests focused on resource ownership while
+     * preserving the production byte-array constructor as the normal entry point. It skips
+     * initArrowReader(byte[]) on purpose, so it must never be promoted to a production entry point:
+     * hasNext()/next() are only safe after readArrow() ran against real stream state.
+     */
+    @VisibleForTesting
+    ArrowToSeatunnelRowReader(
+            ArrowStreamReader arrowStreamReader,
+            RootAllocator rootAllocator,
+            SeaTunnelRowType seaTunnelRowType) {
+        // Take ownership of the caller-supplied resources before any schema processing that
+        // can throw, so close() stays able to release them even if initialization fails.
+        this.arrowStreamReader = arrowStreamReader;
+        this.rootAllocator = rootAllocator;
+        this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
+        initFieldIndexMap(seaTunnelRowType);
     }
 
     private void initFieldIndexMap(SeaTunnelRowType seaTunnelRowType) {
@@ -319,18 +341,40 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     @Override
     public void close() {
+        RuntimeException closeException = null;
         try {
-            if (root != null) {
-                root.close();
-            }
-            if (rootAllocator != null) {
-                rootAllocator.close();
-            }
+            // ArrowStreamReader must be closed before RootAllocator.
+            // ArrowStreamReader internally closes VectorSchemaRoot and releases all Arrow
+            // buffer allocations back to the allocator. If the allocator is closed first,
+            // it detects unreleased memory and throws IllegalStateException ("Memory was
+            // leaked by query"), which is the root cause of issue #9863.
             if (arrowStreamReader != null) {
                 arrowStreamReader.close();
             }
         } catch (IOException e) {
-            throw new RuntimeException("failed to close arrow stream reader.", e);
+            closeException = new RuntimeException("failed to close arrow stream reader.", e);
+        } catch (RuntimeException e) {
+            // Arrow's ArrowReader.close() can also fail with unchecked exceptions (for example
+            // from VectorSchemaRoot or dictionary vector cleanup). Route them through the same
+            // aggregation as IOException; otherwise they would propagate directly and any
+            // allocator close failure below would be dropped without a suppressed link, losing
+            // the leak diagnostic this close path exists to preserve.
+            closeException = e;
+        } finally {
+            try {
+                if (rootAllocator != null) {
+                    rootAllocator.close();
+                }
+            } catch (RuntimeException e) {
+                if (closeException == null) {
+                    closeException = e;
+                } else {
+                    closeException.addSuppressed(e);
+                }
+            }
+        }
+        if (closeException != null) {
+            throw closeException;
         }
     }
 }
