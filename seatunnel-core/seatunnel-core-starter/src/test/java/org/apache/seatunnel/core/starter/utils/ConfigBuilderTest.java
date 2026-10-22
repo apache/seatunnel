@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,6 +106,52 @@ public class ConfigBuilderTest {
                         "  }",
                         "}"));
         return conf;
+    }
+
+    /**
+     * The REST submit-job API parses its JSON body into a map and passes it to {@code
+     * ConfigBuilder#of(Map)}. That entry point must keep option keys literal as well, otherwise a
+     * JSON body carrying {@code multi_table_config.primary_keys} regex keys is rejected with {@code
+     * ConfigException.BadPath} before the connector is created.
+     */
+    @Test
+    public void testOfMapPreservesLiteralRegexOptionKeys() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^t_nova_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        Map<String, Object> jdbcOptions = new LinkedHashMap<>();
+        jdbcOptions.put("plugin_name", "Jdbc");
+        jdbcOptions.put("url", "jdbc:mysql://localhost:3306/sink");
+        jdbcOptions.put("multi_table_config", multiTableConfig);
+        Map<String, Object> fakeSource = new LinkedHashMap<>();
+        fakeSource.put("plugin_name", "FakeSource");
+        fakeSource.put("plugin_output", "fake");
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("job.mode", "BATCH");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("env", env);
+        config.put("source", Collections.singletonList(fakeSource));
+        config.put("sink", Collections.singletonList(jdbcOptions));
+
+        Config parsed = ConfigBuilder.of(config);
+        // The REST path continues with the shade rebuild in JobInfoService.
+        Config loaded = ConfigShadeUtils.decryptConfig(parsed);
+
+        Map<?, ?> resolvedPrimaryKeys =
+                loaded.getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi_table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"),
+                resolvedPrimaryKeys.get("^t_nova_.*$"));
+        // Dotted option keys keep the literal shape they had before this change.
+        Assertions.assertEquals(
+                Collections.singletonMap("job.mode", "BATCH"),
+                loaded.getConfig("env").root().unwrapped());
     }
 
     @Test

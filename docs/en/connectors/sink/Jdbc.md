@@ -316,7 +316,7 @@ multi_table_config {
 - If a table matches multiple patterns, the first pattern in declaration order wins.
 - If a matched table uses `${primary_key}` (or `${unique_key}`) but has no upstream primary key (or unique key), the job fails with a clear error.
 - The two placeholder passes run in a fixed order: the engine-level table placeholder replacement runs first and leaves this option untouched (it only rewrites top-level `String` values and single-element `String` lists), and the JDBC sink then expands `${primary_key}` / `${unique_key}` inside `multi_table_config.primary_keys` while the sink is created. See [sink option placeholders](../../introduction/configuration/sink-options-placeholders.md) for the general rules.
-- Regex keys are supported when the job is submitted from a config file or with the HOCON body of the REST submit-job API. The JSON body of that API does not support them yet and rejects such a configuration while parsing it; until the follow-up fix is available, submit the job from a config file or with the HOCON body.
+- Regex keys are supported for every submission path: config files, and both the JSON and HOCON bodies of the REST submit-job API.
 
 Example: use the upstream primary key plus a shared `DATA_SOURCE` column as the composite key for tables whose names start with `t_nova_`.
 

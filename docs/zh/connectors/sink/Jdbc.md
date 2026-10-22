@@ -317,7 +317,7 @@ multi_table_config {
 - 若一张表同时匹配多个模式，按声明顺序取第一个匹配。
 - 若命中的表使用了 `${primary_key}`（或 `${unique_key}`）但上游没有主键（或唯一键），任务会以清晰错误信息失败。
 - 两个占位符替换阶段的顺序是固定的：引擎层的表占位符替换先执行，且不会修改该选项（它只处理顶层的 `String` 值和单元素 `String` 列表）；随后由 JDBC Sink 在创建每个表时展开 `multi_table_config.primary_keys` 中的 `${primary_key}` / `${unique_key}`。通用规则见 [Sink 占位符说明](../../introduction/configuration/sink-options-placeholders.md)。
-- 通过配置文件提交，或通过 REST submit-job 接口的 HOCON body 提交时，支持正则 key；该接口的 JSON body 暂不支持，会在解析阶段直接拒绝。在该问题修复前，请改用配置文件或 HOCON body 提交。
+- 所有提交方式都支持正则 key：配置文件，以及 REST submit-job 接口的 JSON body 和 HOCON body。
 
 示例：为表名以 `t_nova_` 开头的表，使用上游主键加上共享的 `DATA_SOURCE` 列作为复合主键。
 

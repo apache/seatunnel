@@ -104,10 +104,15 @@ public class ConfigBuilder {
         return config;
     }
 
+    /**
+     * Builds a config from an already parsed map, for example the JSON body of the REST submit-job
+     * API. Keys are kept literal, so option maps such as {@code multi_table_config.primary_keys}
+     * can use regex keys.
+     */
     public static Config of(@NonNull Map<String, Object> objectMap) {
         log.info("Loading config file from objectMap");
         Config config =
-                ConfigFactory.parseMap(objectMap)
+                rebuildWithLiteralKeys(objectMap)
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
