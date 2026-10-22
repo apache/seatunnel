@@ -192,6 +192,7 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {
