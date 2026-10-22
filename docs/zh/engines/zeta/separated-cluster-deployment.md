@@ -389,7 +389,7 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-配置 CoordinatorService 线程池的最大线程数量
+CoordinatorService 线程池的最大线程数（即线程池的 `maximumPoolSize`），默认值为 `Integer.MAX_VALUE`。
 
 Example
 

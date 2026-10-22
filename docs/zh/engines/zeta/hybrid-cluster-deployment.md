@@ -93,6 +93,14 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**monitor-history-size**
+
+监控为 `/jobs/checkpoints/{jobId}` REST 接口按 pipeline 保留的 checkpoint 历史条数，取值 1 到 4096，默认 32。超过 256 的值仍然可用，但 master 启动时会打印一条警告——因为下面提到的开销是每次 checkpoint 事件都要付的。已完成和失败的 checkpoint 共用这个窗口。
+
+它是**条数**而不是时长，因此覆盖多长时间取决于每个作业自己的 `checkpoint.interval`，而本选项是集群级的：按默认 300000ms 的间隔，32 条约覆盖 2.5 小时；若间隔为 10000ms，则只覆盖约 5 分钟。如果集群上有间隔很短的作业，并且希望拿作业和更长一段自身历史做对比，应调大该值。
+
+历史保存在集群级的 checkpoint overview map 中，每次 checkpoint 事件都会重写整条记录，因此窗口越大，除堆内存外还会增加 master 的 CPU、网络与副本复制开销。该值只在 master 启动时读取一次，修改后需要重启。
+
 示例
 
 ```yaml
@@ -106,6 +114,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            monitor-history-size: 32
 ```
 
 **checkpoint storage**
@@ -185,7 +194,7 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-配置 CoordinatorService 线程池的最大线程数量
+CoordinatorService 线程池的最大线程数（即线程池的 `maximumPoolSize`），默认值为 `Integer.MAX_VALUE`。
 
 Example
 

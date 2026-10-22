@@ -426,7 +426,7 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 **max-thread-num**
 
-The maximum number of threads in the coordinator service executor's thread pool
+The maximum number of threads in the coordinator service executor (the `maximumPoolSize` of its thread pool). The default is `Integer.MAX_VALUE`.
 
 Example
 

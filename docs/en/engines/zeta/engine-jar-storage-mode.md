@@ -35,6 +35,8 @@ Two different storage strategies provide a more flexible storage mode for jar fi
 
 ## Related Configuration
 
+All options live under `seatunnel.engine.jar-storage` in `seatunnel.yaml`; a top-level `jar-storage` block is not parsed.
+
 |              Parameter              | Default Value |                                                                      Describe                                                                      |
 |-------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | enable                              | false         | Whether to enable uploading the connector jar package to the engine. The default enabled state is false.                                           |

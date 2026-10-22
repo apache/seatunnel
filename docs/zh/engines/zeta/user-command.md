@@ -24,11 +24,12 @@ Usage: seatunnel.sh [options]
     -can, --cancel, --cancel-job              Cancel job(s) by JobId
     -f, --force-cancel, --force-cancel-job    Force Cancel job(s) by jobId
     --check                                   Whether check config (default: false)
-    --checkpoint-overview                     Get checkpoint overview by JobId
     --checkpoint-history                      Get checkpoint history by JobId
-    --checkpoint-history-pipeline             Filter checkpoint history by pipeline id
     --checkpoint-history-limit                Limit checkpoint history size (default: 20)
-    --checkpoint-history-status               Filter checkpoint history by status: COMPLETED,FAILED,CANCELED
+    --checkpoint-history-pipeline             Filter checkpoint history by pipeline id
+    --checkpoint-history-status               Filter checkpoint history by status:
+                                              COMPLETED,FAILED,CANCELED
+    --checkpoint-overview                     Get checkpoint overview by JobId
     -cj, --close, --close-job                 Close client the task will also be closed
                                               (default: true)
     -cn, --cluster                            The name of cluster
@@ -279,9 +280,9 @@ sh bin/seatunnel-cluster.sh -m -cn my_cluster
 **输出示例：**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.1
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.1
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.1
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.3.0
+b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.3.0
+c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.3.0
 ```
 
 **注意**: 必须使用 `-cn` 参数指定集群名称。集群必须处于运行状态才能执行此命令。

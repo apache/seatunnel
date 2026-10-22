@@ -207,7 +207,7 @@ This metric is exported by the active master only. It reports only an aggregate 
 
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |
 |------------|-------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | All job counts of seatunnel cluster |
+| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | All job counts of seatunnel cluster |
 
 ### JVM Metrics
 
