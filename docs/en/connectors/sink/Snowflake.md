@@ -43,7 +43,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | INT<br/>INTEGER                                                             | INT                 |
 | BIGINT                                                                      | LONG                |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
-| DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, s)      |
+| DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, s - (p - 38)) (minimum scale 0) |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |

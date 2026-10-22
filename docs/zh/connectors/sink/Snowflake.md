@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT<br/>INTEGER                                                             | INT                |
 | BIGINT                                                                      | LONG               |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
-| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, s)     |
+| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, s - (p - 38))（最小为 0） |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |

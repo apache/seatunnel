@@ -257,7 +257,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
 | OpenGauss | Presto     | Dsql     |
-| DuckDB    | DSQL       | YashanDB |
+| DuckDB    | YashanDB   |          |
 
 ### database [string]
 

@@ -58,12 +58,10 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
 | TINYINT                                                             | TINYINT             |
-| UTINYINT                                                            | TINYINT             |
-| SMALLINT                                                            | SMALLINT            |
-| USMALLINT                                                           | SMALLINT            |
-| INTEGER                                                             | INT                 |
-| UINTEGER                                                            | INT                 |
-| BIGINT<br/>UBIGINT                                                  | BIGINT              |
+| UTINYINT<br/>SMALLINT                                               | SMALLINT            |
+| USMALLINT<br/>INTEGER                                               | INT                 |
+| UINTEGER<br/>BIGINT                                                 | BIGINT              |
+| UBIGINT                                                             | DECIMAL(20,0)       |
 | HUGEINT                                                             | DECIMAL(38,0)       |
 | FLOAT                                                               | FLOAT               |
 | DOUBLE                                                              | DOUBLE              |

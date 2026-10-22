@@ -187,9 +187,10 @@ and pipeline mapping must be re-submitted** because the running job state is los
 
 ## 4. MapStore File Maintenance
 
-The IMap persistence writes each map as files under the configured `namespace`. In long-running
-clusters these files keep growing while jobs keep running, because every state change of a running
-job is written through the MapStore.
+The IMap persistence is an append-only write-ahead log: `FileMapStore` delegates to `IMapFileStorage`,
+which appends every state change through the WAL writer into region files under the configured
+`namespace`. Entries of all jobs are appended into the same region files, so the files keep growing
+while jobs keep running.
 
 **Mitigation:**
 
@@ -201,8 +202,10 @@ job is written through the MapStore.
 du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml
 ```
 
-Do not delete MapStore files of running jobs. Files of finished jobs whose records have already
-expired from the IMaps can be removed while the cluster is stopped.
+Do not delete MapStore files selectively: there are no job-scoped files to pick out, and removing
+files by hand can corrupt IMap replay on the next master start. Size the namespace volume instead,
+and wipe the whole namespace only while the cluster is stopped and when losing all running-job
+IMap state is acceptable.
 
 ---
 
@@ -240,7 +243,7 @@ touched by this setting. You must manage them separately.
 | PostgreSQL CDC (logical replication) | 1–50 KB per table |
 | Oracle CDC (LogMiner) | 50 KB – 2 MB |
 
-Formula: `checkpoint_size ≈ N_tables × avg_splits × state_per_split × max_concurrent_checkpoints`
+Formula: `checkpoint_size ≈ N_tables × avg_splits × state_per_split` (only one checkpoint is in flight at a time, so no concurrency factor applies)
 
 ### Storage sizing rule of thumb
 
@@ -317,8 +320,9 @@ du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in haz
 
 **Fix**:
 
-Enable/tune `history-job-expire-minutes` in `seatunnel.yaml`, and clean up files of expired jobs
-while the cluster is stopped if needed.
+Enable/tune `history-job-expire-minutes` in `seatunnel.yaml`. MapStore region files cannot be
+trimmed per job; reclaiming their space requires stopping the cluster and wiping the whole
+namespace, which discards the IMap state of all jobs.
 
 ---
 
@@ -346,7 +350,7 @@ Before deleting any state directory:
 - [ ] Confirm you will not restore from checkpoint or savepoint
 - [ ] Confirm the job ID is not referenced in any monitoring or alerting rule
 - [ ] For checkpoint storage: delete `<namespace>/<job-id>/` recursively
-- [ ] For MapStore data: stop the cluster before deleting files of expired jobs
+- [ ] For MapStore data: only a full namespace wipe (cluster stopped) is safe; selective per-job deletion is not supported
 
 ---
 

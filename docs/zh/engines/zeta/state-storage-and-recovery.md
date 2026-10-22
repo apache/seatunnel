@@ -175,8 +175,9 @@ IMap / MapStore  <────────────────────�
 
 ## 4. MapStore 文件维护
 
-IMap 持久化会把每个 map 以文件形式写入配置的 `namespace` 目录下。长期运行的集群中，只要作业持续运行、
-状态持续变化，这些文件就会不断增长。
+IMap 持久化是一种追加写（append-only）的预写日志：`FileMapStore` 委托 `IMapFileStorage`，通过 WAL
+写入器把每次状态变更追加到配置的 `namespace` 目录下的 region 文件中。所有作业的记录都追加到同一批
+region 文件里，因此只要作业持续运行，这些文件就会不断增长。
 
 **缓解措施：**
 
@@ -188,7 +189,9 @@ IMap 持久化会把每个 map 以文件形式写入配置的 `namespace` 目录
 du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace
 ```
 
-**不要**删除运行中作业的 MapStore 文件。记录已从 IMap 中过期的已完成作业，可以在集群停止时删除其文件。
+**不要**按作业选择性地删除 MapStore 文件：并不存在按作业划分的文件，手工删除文件可能损坏下次
+Master 启动时的 IMap 重放。正确做法是为 namespace 卷规划足够的容量；只有当集群停止、且可以接受
+丢失所有运行中作业的 IMap 状态时，才整体清空 namespace。
 
 ---
 
@@ -225,7 +228,7 @@ HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**�
 | PostgreSQL CDC（逻辑复制）| 每张表 1–50 KB |
 | Oracle CDC（LogMiner）| 50 KB – 2 MB |
 
-公式：`checkpoint_size ≈ 表数量 × 平均 Split 数 × 每 Split 状态大小 × 最大并发 Checkpoint 数`
+公式：`checkpoint_size ≈ 表数量 × 平均 Split 数 × 每 Split 状态大小`（同一时刻只有一个 Checkpoint 在途，因此无需乘并发系数）
 
 ### 存储容量经验值
 
@@ -300,8 +303,8 @@ du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 name
 
 **修复**：
 
-在 `seatunnel.yaml` 中启用 / 调整 `history-job-expire-minutes`；如有需要，可在集群停止时清理
-已过期作业的文件。
+在 `seatunnel.yaml` 中启用 / 调整 `history-job-expire-minutes`。MapStore 的 region 文件无法按作业
+裁剪；要回收其空间需要停止集群并整体清空 namespace，这会丢弃所有作业的 IMap 状态。
 
 ---
 
@@ -328,7 +331,7 @@ du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 name
 - [ ] 确认不会从该 Checkpoint 或 Savepoint 恢复
 - [ ] 确认该作业 ID 未被任何监控或告警规则引用
 - [ ] Checkpoint 存储：递归删除 `<namespace>/<job-id>/`
-- [ ] MapStore 数据：先停止集群，再删除已过期作业的文件
+- [ ] MapStore 数据：仅支持整体清空 namespace（先停止集群），不支持按作业选择性删除
 
 ---
 

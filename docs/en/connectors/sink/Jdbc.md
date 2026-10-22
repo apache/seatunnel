@@ -258,7 +258,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
 | OpenGauss | Presto       | Dsql     |
-| DuckDB    | DSQL         | YashanDB |
+| DuckDB    | YashanDB     |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
