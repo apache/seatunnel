@@ -337,7 +337,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer(
                         "sh",
                         "-c",
-                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n## Child\\nBody\\n' > /seatunnel/read/markdown/e2e.md");
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);

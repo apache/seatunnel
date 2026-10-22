@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
@@ -40,7 +41,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Every option the Jdbc connector defines must be declared in the factory option rule.
+ * Every applicable Jdbc option must be declared in its source or sink factory option rule.
  *
  * <p>{@code --check}, {@code --dry-run} and the Flink/Spark config validation reject any key that
  * is not declared in the rule ({@link ConfigValidator#validateUnknownKeys}), so a defined but
@@ -54,6 +55,10 @@ class JdbcOptionRuleCompletenessTest {
             Collections.unmodifiableSet(
                     new HashSet<>(Arrays.asList(JdbcCommonOptions.SCHEMA.key())));
 
+    /** Source-only options that the sink does not read. */
+    private static final Set<String> NOT_SINK_OPTIONS =
+            Collections.singleton(JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key());
+
     @Test
     void testSourceRuleDeclaresAllSourceOptions() {
         assertAllDeclared(
@@ -65,7 +70,25 @@ class JdbcOptionRuleCompletenessTest {
     void testSinkRuleDeclaresAllSinkOptions() {
         assertAllDeclared(
                 new JdbcSinkFactory().optionRule(),
-                collectOptionKeys(JdbcSinkOptions.class, Collections.emptySet()));
+                collectOptionKeys(JdbcSinkOptions.class, NOT_SINK_OPTIONS));
+    }
+
+    @Test
+    void testNumericSpecialValueAsNullIsSourceOnly() {
+        String key = JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key();
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap(key, true));
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                config, new JdbcSourceFactory().optionRule(), "Jdbc"));
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        config, new JdbcSinkFactory().optionRule(), "Jdbc"));
+        Assertions.assertTrue(exception.getMessage().contains(key));
     }
 
     private static void assertAllDeclared(OptionRule rule, Set<String> optionKeys) {
