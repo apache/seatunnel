@@ -842,8 +842,10 @@ public class StringFunction {
      * string, matching Hive's {@code md5(string|binary)}.
      *
      * <p>String inputs are hashed as UTF-8 bytes; binary (byte[]) inputs are hashed as raw bytes.
-     * Non-string, non-binary values are converted via {@code toString()} and hashed as UTF-8,
-     * mirroring Hive's implicit cast to string.
+     * Non-string, non-binary scalar values are converted via {@code toString()} and hashed as
+     * UTF-8, mirroring Hive's implicit cast to string. Array values are rejected: SeaTunnel array
+     * columns are boxed arrays (e.g. {@code Byte[]}), which would otherwise be hashed as their JVM
+     * identity string, producing a nondeterministic value unrelated to the data.
      *
      * @param args list containing a single string, binary, or implicitly castable value
      * @return 32-char lowercase hex MD5 digest, or null if the input is null
@@ -860,6 +862,11 @@ public class StringFunction {
         }
         if (arg instanceof byte[]) {
             return Hashing.md5().hashBytes((byte[]) arg).toString();
+        }
+        if (arg.getClass().isArray()) {
+            throw new IllegalArgumentException(
+                    "MD5 expects a scalar string or binary argument, unsupported array type: "
+                            + arg.getClass().getName());
         }
         return Hashing.md5().hashString(arg.toString(), StandardCharsets.UTF_8).toString();
     }
