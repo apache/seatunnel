@@ -17,7 +17,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
 | model                  | string | yes      |             |
-| api_key                | string | conditional |          |
+| api_key                | string | yes      |          |
 | api_path               | string | no       |             |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
@@ -111,7 +111,7 @@ transform {
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
-该选项为条件必填：选项规则会对 `OPENAI`、`DOUBAO`、`MICROSOFT` 和 `QIANFAN` 强制校验（`QIANFAN` 还需同时配置 `secret_key` 与 `oauth_path`）。当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
+该选项为条件必填：选项规则会对 `OPENAI`、`DOUBAO` 和 `MICROSOFT` 强制校验。当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
 
 ### api_path
 
