@@ -83,7 +83,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | hash_key_parse_mode | string | no       | all           | Hash key parse mode: `all` or `kv` |
 | read_key_enabled    | boolean| no       | false         | Include Redis key in output |
 | key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | yes when read_key_enabled = true | -  | Field name for the Redis value |
+| single_field_name   | string | yes for single-value types (string, list, set, zset) when read_key_enabled = true | -  | Field name for the Redis value |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.

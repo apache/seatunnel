@@ -53,6 +53,8 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | BINARY<br/>VARBINARY                                                        | BYTES               |
 | GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
 
+When the sink creates a table, a SeaTunnel `DECIMAL(p, s)` column with `p > 38` is reduced to precision 38, with the scale reduced by the same overflow. SeaTunnel `BYTES` columns are created as Snowflake `GEOMETRY`.
+
 ## Sink Options
 
 |                   Name                    |  Type   | Required | Default | Description                                                                                                                                                                                |

@@ -79,7 +79,7 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
 | read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
 | key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | read_key_enabled = true 时必填 | -     | Redis value 的字段名称                              |
+| single_field_name   | string  | read_key_enabled = true 且为单值类型（string、list、set、zset）时必填 | -     | Redis value 的字段名称                              |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。

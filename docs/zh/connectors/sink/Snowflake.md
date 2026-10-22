@@ -53,6 +53,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | BINARY<br/>VARBINARY                                                        | BYTES              |
 | GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
 
+当 Sink 自动建表时，`p > 38` 的 SeaTunnel `DECIMAL(p, s)` 列会被收缩为精度 38，小数位按超出量同步缩减。SeaTunnel `BYTES` 列会建为 Snowflake `GEOMETRY`。
+
 ## 选项
 
 | 名称                          |  类型   | 是否必填 | 默认值 | 描述                                                                                                                                                                                |
