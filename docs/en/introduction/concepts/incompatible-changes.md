@@ -27,6 +27,10 @@ You need to check this document before you upgrade to related version.
   - **Unchanged**: a declared precision above 38 was already rejected when the schema was built,
     so this entry is about VALUES rather than DECLARATIONS. No option, schema or file layout
     changes.
+  - **Still rounded, not failed**: `enforcePrecisionScale` rounds fractional digits beyond the
+    declared scale rather than rejecting them, so `1.239` written into a `decimal(10,2)` column is
+    still stored as `1.24` (HALF_UP), exactly as before this change. Only an integer part that does
+    not fit the declared precision, or a value above ORC's maximum precision of 38, now fails.
   - **Migration Guide**: Widen the declared precision or scale so the value fits, or round the
     value before it reaches the sink. To find affected rows before upgrading, compare the written
     ORC data against the source for unexpected `NULL` decimals.
