@@ -36,7 +36,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -47,7 +49,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -95,11 +99,17 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                     MYSQL_USER_PASSWORD,
                     MYSQL_DATABASE);
 
+    private GenericContainer<?> engineServer;
+
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container ->
-                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
-                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+            container -> {
+                engineServer = container;
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+            };
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
@@ -330,6 +340,201 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         container.stopJob(String.valueOf(restoreJobId));
         awaitJobStatus(container, restoreJobId, "CANCELED");
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /**
+     * Exercises the actual Kafka/CDC lookup topology: blocked bootstrap, engine crash before the
+     * anchor, restart, steady-state enrichment and checkpoint restore. The database lock makes the
+     * pre-anchor crash deterministic instead of racing a small snapshot.
+     */
+    @TestTemplate
+    public void testDynamicLookupBootstrapFailureAndCheckpointRestore(TestContainer container)
+            throws Exception {
+        String config = "/mysqlcdc_dynamic_lookup_checkpoint_restore.conf";
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS mysql_cdc.lookup_dimension (id INT PRIMARY KEY, name VARCHAR(64))");
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS mysql_cdc.lookup_result (order_id INT PRIMARY KEY, name VARCHAR(64))");
+        executeSql("TRUNCATE TABLE mysql_cdc.lookup_dimension");
+        executeSql("TRUNCATE TABLE mysql_cdc.lookup_result");
+        executeSql("INSERT INTO mysql_cdc.lookup_dimension VALUES (1, 'Alice'), (2, 'Bob')");
+
+        try (GenericContainer<?> zookeeper =
+                        new GenericContainer<>("confluentinc/cp-zookeeper:7.0.9")
+                                .withNetwork(NETWORK)
+                                .withNetworkAliases("lookup-zookeeper")
+                                .withEnv("ZOOKEEPER_CLIENT_PORT", "2181")
+                                .withEnv("ZOOKEEPER_TICK_TIME", "2000")
+                                .withExposedPorts(2181);
+                GenericContainer<?> kafka =
+                        new GenericContainer<>("confluentinc/cp-kafka:7.0.9")
+                                .withNetwork(NETWORK)
+                                .withNetworkAliases("lookup-kafka")
+                                .withEnv("KAFKA_ZOOKEEPER_CONNECT", "lookup-zookeeper:2181")
+                                .withEnv("KAFKA_BROKER_ID", "1")
+                                .withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:9092")
+                                .withEnv(
+                                        "KAFKA_ADVERTISED_LISTENERS",
+                                        "PLAINTEXT://lookup-kafka:9092")
+                                .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
+                                .withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1")
+                                .withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1")
+                                .waitingFor(
+                                        Wait.forLogMessage(".*\\[KafkaServer id=1\\] started.*", 1))
+                                .withStartupTimeout(Duration.ofMinutes(2))) {
+            zookeeper.start();
+            kafka.start();
+            Assertions.assertEquals(
+                    0,
+                    kafka.execInContainer(
+                                    "kafka-topics",
+                                    "--bootstrap-server",
+                                    "localhost:9092",
+                                    "--create",
+                                    "--topic",
+                                    "lookup-facts",
+                                    "--partitions",
+                                    "1",
+                                    "--replication-factor",
+                                    "1")
+                            .getExitCode());
+            produceLookupFact(kafka, 1, 1);
+            produceLookupFact(kafka, 2, 2);
+
+            String failedJob = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> failed;
+            boolean crashInjected = false;
+            try (Connection lock = getJdbcConnection();
+                    Statement statement = lock.createStatement()) {
+                statement.execute("LOCK TABLES mysql_cdc.lookup_dimension WRITE");
+                failed = runLookupJob(container, config, failedJob, null);
+                try {
+                    awaitJobStatus(container, Long.parseLong(failedJob), "RUNNING");
+                    Awaitility.await()
+                            .atMost(2, TimeUnit.MINUTES)
+                            .untilAsserted(
+                                    () -> {
+                                        List<List<Object>> waiting =
+                                                query(
+                                                        "SELECT COUNT(*) FROM information_schema.PROCESSLIST "
+                                                                + "WHERE ID <> CONNECTION_ID() AND INFO LIKE '%lookup_dimension%' "
+                                                                + "AND STATE LIKE '%lock%'");
+                                        Assertions.assertTrue(
+                                                ((Number) waiting.get(0).get(0)).longValue() > 0,
+                                                "CDC bootstrap must be blocked by the test lock before injecting the crash");
+                                    });
+                    // Split discovery can also be blocked by the table lock, so this failure
+                    // occurs before the first anchor. Partial-checkpoint restore is covered by
+                    // the lifecycle regression test without relying on connector timing.
+                    Assertions.assertEquals(0, container.getCompletedCheckpointCount(failedJob));
+                    Assertions.assertEquals(
+                            Arrays.asList(Arrays.asList(0L)),
+                            query("SELECT COUNT(*) FROM mysql_cdc.lookup_result"));
+                    dockerClient
+                            .killContainerCmd(engineServer.getContainerId())
+                            .withSignal("KILL")
+                            .exec();
+                    crashInjected = true;
+                } finally {
+                    statement.execute("UNLOCK TABLES");
+                }
+            } finally {
+                if (!crashInjected && "RUNNING".equals(container.getJobStatus(failedJob))) {
+                    container.stopJob(failedJob);
+                    awaitJobStatus(container, Long.parseLong(failedJob), "CANCELED");
+                }
+            }
+            // Restart the same container without deleting checkpoint volumes or connector jars.
+            dockerClient.startContainerCmd(engineServer.getContainerId()).exec();
+            Awaitility.await()
+                    .ignoreExceptions()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .until(() -> container.getCompletedCheckpointCount("0") == 0);
+            failed.handle((result, error) -> null).get(2, TimeUnit.MINUTES);
+            // A storage backend may automatically recover the previous job on server restart.
+            // Stop that instance before explicitly restoring its checkpoint under a new job id.
+            if ("RUNNING".equals(container.getJobStatus(failedJob))) {
+                container.stopJob(failedJob);
+                awaitJobStatus(container, Long.parseLong(failedJob), "CANCELED");
+            }
+
+            String sourceJob = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> source =
+                    runLookupJob(container, config, sourceJob, null);
+            try {
+                awaitLookupRows(Arrays.asList(Arrays.asList(1, "Alice"), Arrays.asList(2, "Bob")));
+                produceLookupFact(kafka, 3, 1);
+                awaitLookupRows(
+                        Arrays.asList(
+                                Arrays.asList(1, "Alice"),
+                                Arrays.asList(2, "Bob"),
+                                Arrays.asList(3, "Alice")));
+                long checkpoints = container.getCompletedCheckpointCount(sourceJob);
+                awaitCompletedCheckpointCountAtLeast(
+                        container, Long.parseLong(sourceJob), checkpoints + 2);
+            } finally {
+                container.stopJob(sourceJob);
+                awaitJobStatus(container, Long.parseLong(sourceJob), "CANCELED");
+                Assertions.assertEquals(0, source.get(2, TimeUnit.MINUTES).getExitCode());
+            }
+
+            String restoreJob = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> restored =
+                    runLookupJob(container, config, restoreJob, sourceJob);
+            try {
+                awaitJobStatus(container, Long.parseLong(restoreJob), "RUNNING");
+                produceLookupFact(kafka, 4, 2);
+                awaitLookupRows(
+                        Arrays.asList(
+                                Arrays.asList(1, "Alice"),
+                                Arrays.asList(2, "Bob"),
+                                Arrays.asList(3, "Alice"),
+                                Arrays.asList(4, "Bob")));
+                Assertions.assertEquals("RUNNING", container.getJobStatus(restoreJob));
+            } finally {
+                container.stopJob(restoreJob);
+                awaitJobStatus(container, Long.parseLong(restoreJob), "CANCELED");
+                Assertions.assertEquals(0, restored.get(2, TimeUnit.MINUTES).getExitCode());
+            }
+        }
+    }
+
+    private CompletableFuture<Container.ExecResult> runLookupJob(
+            TestContainer container, String config, String job, String sourceJob) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return sourceJob == null
+                                ? container.executeJob(config, job)
+                                : container.restoreJobWithCheckpoint(config, sourceJob, job);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private void produceLookupFact(GenericContainer<?> kafka, int orderId, int customerId)
+            throws Exception {
+        String record = "{\"order_id\":" + orderId + ",\"customer_id\":" + customerId + "}";
+        Container.ExecResult result =
+                kafka.execInContainer(
+                        "sh",
+                        "-c",
+                        "printf '%s\\n' '"
+                                + record
+                                + "' | kafka-console-producer --broker-list localhost:9092 --topic lookup-facts");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private void awaitLookupRows(List<List<Object>> expected) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expected,
+                                        query(
+                                                "SELECT order_id, name FROM mysql_cdc.lookup_result ORDER BY order_id")));
     }
 
     private Connection getJdbcConnection() throws SQLException {
