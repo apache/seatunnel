@@ -88,6 +88,9 @@ public class DorisSinkWriter
     private SchemaChangeManager schemaChangeManager;
     private final DorisStreamLoadFactory streamLoadFactory;
     private String controlHostPort;
+    // Set once this writer instance has logged the TIMESTAMP_TZ zone warning, and only then: a
+    // schema without such columns leaves it unset, so a later schema change can still warn. It is
+    // not shared across writers or kept in state, so a restored writer may warn again.
     private boolean timestampTzZoneWarningLogged;
 
     public DorisSinkWriter(
@@ -418,6 +421,11 @@ public class DorisSinkWriter
                         tablePath, columns, jvmDefaultZone));
     }
 
+    /**
+     * Collects the TIMESTAMP_TZ columns of a type, including nested ones, for the warning message
+     * only. Nested paths use {@code .field} for row fields, {@code []} for array elements and
+     * {@code .<key>} / {@code .<value>} for map keys and values; they are not configuration paths.
+     */
     private static void collectTimestampTzPaths(
             String path, SeaTunnelDataType<?> type, List<String> paths) {
         switch (type.getSqlType()) {
