@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLTransform;
 
 import org.junit.jupiter.api.Assertions;
@@ -375,7 +376,7 @@ public class SystemFunctionTest {
         Assertions.assertEquals("fallback", ifNullResult);
 
         Assertions.assertThrows(
-                org.apache.seatunnel.transform.exception.TransformException.class,
+                TransformException.class,
                 () ->
                         SystemFunction.ifnull(
                                 Collections.singletonList("onlyOneArg"), BasicType.STRING_TYPE));
@@ -549,16 +550,12 @@ public class SystemFunctionTest {
         args.clear();
         args.add(2);
         args.add("BOOLEAN");
-        Assertions.assertThrows(
-                org.apache.seatunnel.transform.exception.TransformException.class,
-                () -> SystemFunction.castAs(args));
+        Assertions.assertThrows(TransformException.class, () -> SystemFunction.castAs(args));
 
         args.clear();
         args.add("notBool");
         args.add("BOOLEAN");
-        Assertions.assertThrows(
-                org.apache.seatunnel.transform.exception.TransformException.class,
-                () -> SystemFunction.castAs(args));
+        Assertions.assertThrows(TransformException.class, () -> SystemFunction.castAs(args));
     }
 
     @Test
@@ -570,11 +567,11 @@ public class SystemFunctionTest {
                     Integer.MIN_VALUE - 1L, Integer.MAX_VALUE + 1L, 3000000000L, Long.MAX_VALUE
                 }) {
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(out, "INT")),
                     "INT should reject " + out);
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(out, "INTEGER")),
                     "INTEGER should reject " + out);
         }
@@ -650,7 +647,7 @@ public class SystemFunctionTest {
         };
         for (Object v : rejected) {
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
                     "INT should reject " + v);
         }
@@ -704,7 +701,7 @@ public class SystemFunctionTest {
                     new BigDecimal("-2147483649")
                 }) {
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
                     "INT should reject " + v);
         }
@@ -730,11 +727,11 @@ public class SystemFunctionTest {
         };
         for (Object v : rejected) {
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(v, "BIGINT")),
                     "BIGINT should reject " + v);
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(v, "LONG")),
                     "LONG should reject " + v);
         }
@@ -797,7 +794,7 @@ public class SystemFunctionTest {
                     new BigInteger("-9223372036854775809")
                 }) {
             Assertions.assertThrows(
-                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    TransformException.class,
                     () -> SystemFunction.castAs(Arrays.asList(v, "BIGINT")),
                     "BIGINT should reject " + v);
         }
@@ -822,7 +819,7 @@ public class SystemFunctionTest {
         // saturation would have turned it into Long.MAX_VALUE instead. Its negative, -2^63, is
         // exactly Long.MIN_VALUE and must still convert.
         Assertions.assertThrows(
-                org.apache.seatunnel.transform.exception.TransformException.class,
+                TransformException.class,
                 () -> SystemFunction.castAs(Arrays.asList(9.223372036854776E18d, "BIGINT")),
                 "BIGINT should reject 2^63, which is one above Long.MAX_VALUE");
         Assertions.assertEquals(
@@ -855,9 +852,9 @@ public class SystemFunctionTest {
             }
         };
         for (Object[] c : cases) {
-            org.apache.seatunnel.transform.exception.TransformException thrown =
+            TransformException thrown =
                     Assertions.assertThrows(
-                            org.apache.seatunnel.transform.exception.TransformException.class,
+                            TransformException.class,
                             () -> SystemFunction.castAs(Arrays.asList(c[0], c[1])));
             Assertions.assertTrue(
                     thrown.getMessage().contains((String) c[2]),
