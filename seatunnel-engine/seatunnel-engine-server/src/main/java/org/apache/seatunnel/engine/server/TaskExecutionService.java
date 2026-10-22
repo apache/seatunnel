@@ -1826,11 +1826,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 () -> {
                                     if (logger.isInfoEnabled()) {
                                         logger.info(
-                                                "final metrics report for taskGroup {} timed out "
-                                                        + "after {} ms; completing terminal state {} directly",
-                                                taskGroupLocation,
-                                                finalMetricsFallbackTimeoutMs,
-                                                executionState);
+                                                String.format(
+                                                        "final metrics report for taskGroup %s timed out after %d ms; "
+                                                                + "completing terminal state %s directly",
+                                                        taskGroupLocation,
+                                                        finalMetricsFallbackTimeoutMs,
+                                                        executionState));
                                     }
                                     future.complete(terminalState);
                                 },
@@ -1856,7 +1857,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             });
                 } catch (RejectedExecutionException e) {
                     reportMetricsOperationRejectedCount.incrementAndGet();
-                    if (logger.isWarnEnabled()) {
+                    if (logger.isWarningEnabled()) {
                         logger.warning(
                                 "final metrics report queue exhausted for taskGroup "
                                         + taskGroupLocation

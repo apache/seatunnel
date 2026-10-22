@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -972,6 +973,25 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void testFinalMetricsReportsRemainBoundedWhenInvocationHangs() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        ThreadPoolExecutor isolatedExecutor =
+                new ThreadPoolExecutor(
+                        TaskExecutionService.FINAL_METRICS_MAX_CONCURRENT_REPORTS,
+                        TaskExecutionService.FINAL_METRICS_MAX_CONCURRENT_REPORTS,
+                        30L,
+                        TimeUnit.SECONDS,
+                        new ArrayBlockingQueue<>(TaskExecutionService.FINAL_METRICS_QUEUE_CAPACITY),
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "test-final-metrics");
+                            thread.setDaemon(true);
+                            return thread;
+                        },
+                        new ThreadPoolExecutor.AbortPolicy());
+        isolatedExecutor.allowCoreThreadTimeOut(true);
+        ReflectionUtils.setField(
+                serviceSpy,
+                TaskExecutionService.class,
+                "finalMetricsExecutorService",
+                isolatedExecutor);
         long rejectedCountBefore = serviceSpy.getReportMetricsOperationStats().getRejectedCount();
         int maxConcurrentReports = TaskExecutionService.FINAL_METRICS_MAX_CONCURRENT_REPORTS;
         int queuedReports = TaskExecutionService.FINAL_METRICS_QUEUE_CAPACITY;
@@ -1030,10 +1050,13 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     "the report rejected after the bounded queue fills should be counted");
         } finally {
             releaseReports.countDown();
+            try {
+                await().atMost(10, TimeUnit.SECONDS)
+                        .until(() -> resultFutures.stream().allMatch(CompletableFuture::isDone));
+            } finally {
+                isolatedExecutor.shutdownNow();
+            }
         }
-
-        await().atMost(10, TimeUnit.SECONDS)
-                .until(() -> resultFutures.stream().allMatch(CompletableFuture::isDone));
     }
 
     @Test
