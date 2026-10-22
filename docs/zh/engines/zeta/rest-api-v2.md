@@ -85,6 +85,26 @@ seatunnel:
 
 ## API参考
 
+### 请求体编码
+
+读取文本或 JSON 请求体的接口在未声明请求字符集时默认使用 UTF-8。
+这包括 `/submit-job` 接收的 HOCON、SQL 和 JSON，以及 `/submit-jobs`、
+`/stop-job`、`/stop-jobs`、`/encrypt-config`、`/update-tags` 和 `/loggers/{name}`
+接收的 JSON 请求体。如果 `Content-Type` 显式声明了受支持的 `charset`，则使用该字符集；
+不支持的字符集会返回 HTTP `400`，并在错误信息中包含 `Unsupported request charset`。
+例如，`Content-Type: text/plain` 使用 UTF-8，
+而 `Content-Type: text/plain; charset=ISO-8859-1` 使用 ISO-8859-1。
+
+可以使用以下命令提交 UTF-8 编码的 HOCON 文件，而不声明字符集：
+
+```shell
+curl -X POST 'http://localhost:8080/submit-job?format=hocon' \
+  -H 'Content-Type: text/plain' --data-binary @job.conf
+```
+
+此规则适用于原始请求体，不改变 URL、查询参数或表单参数的解析方式。
+`/submit-job/upload` 的 multipart 配置文件上传仍按 UTF-8 读取文件内容。
+
 ### 获取 Connector 的 OptionRule
 
 <details>

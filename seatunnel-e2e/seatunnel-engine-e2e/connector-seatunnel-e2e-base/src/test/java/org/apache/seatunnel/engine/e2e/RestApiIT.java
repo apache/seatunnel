@@ -70,6 +70,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
+import static io.restassured.config.EncoderConfig.encoderConfig;
+import static io.restassured.config.RestAssuredConfig.config;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -1419,6 +1421,7 @@ public class RestApiIT {
                 "env {\n"
                         + "  parallelism = 1\n"
                         + "  job.mode = \"BATCH\"\n"
+                        + "  job.name = \"café-数据\"\n"
                         + "}\n"
                         + "\n"
                         + "source {\n"
@@ -1445,14 +1448,26 @@ public class RestApiIT {
                         instance -> {
                             ports.forEach(
                                     (key, value) -> {
-                                        given().body(hoconConfig)
-                                                .queryParam("format", "hocon")
-                                                .queryParam("jobName", "test-hocon-job")
-                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
-                                                .then()
-                                                .statusCode(200)
-                                                .body("jobId", notNullValue())
-                                                .body("jobName", equalTo("test-hocon-job"));
+                                        for (String baseUrl :
+                                                Arrays.asList(
+                                                        HOST + key + CONTEXT_PATH,
+                                                        buildHttpBaseUrl(value))) {
+                                            given().config(
+                                                            config().encoderConfig(
+                                                                            encoderConfig()
+                                                                                    .appendDefaultContentCharsetToContentTypeIfUndefined(
+                                                                                            false)))
+                                                    .contentType("text/plain")
+                                                    .body(
+                                                            hoconConfig.getBytes(
+                                                                    StandardCharsets.UTF_8))
+                                                    .queryParam("format", "hocon")
+                                                    .post(baseUrl + "/submit-job")
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobId", notNullValue())
+                                                    .body("jobName", equalTo("café-数据"));
+                                        }
                                     });
                         });
     }

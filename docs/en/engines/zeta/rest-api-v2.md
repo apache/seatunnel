@@ -90,6 +90,26 @@ Please refer [security](security.md)
 
 ## API reference
 
+### Request body encoding
+
+Endpoints that read a text or JSON body use UTF-8 when no request charset is declared.
+This includes HOCON, SQL and JSON submitted to `/submit-job`, and JSON bodies sent to
+`/submit-jobs`, `/stop-job`, `/stop-jobs`, `/encrypt-config`, `/update-tags` and
+`/loggers/{name}`. An explicit, supported `charset` in `Content-Type` is honored;
+an unsupported charset returns HTTP `400` with an `Unsupported request charset` error.
+For example, `Content-Type: text/plain` uses UTF-8, while
+`Content-Type: text/plain; charset=ISO-8859-1` uses ISO-8859-1.
+
+Send UTF-8 HOCON without a charset declaration as follows:
+
+```shell
+curl -X POST 'http://localhost:8080/submit-job?format=hocon' \
+  -H 'Content-Type: text/plain' --data-binary @job.conf
+```
+
+This rule applies to raw request bodies, not URL/query or form parameters. Multipart
+config-file uploads to `/submit-job/upload` continue to read the uploaded file as UTF-8.
+
 ### Get Connector Option Rules
 
 <details>
