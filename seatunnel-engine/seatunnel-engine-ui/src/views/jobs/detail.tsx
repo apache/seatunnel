@@ -24,68 +24,79 @@ import {
   type DataTableColumns,
   NDrawer,
   NDrawerContent,
-  NAlert
+  NAlert,
+  NButton,
+  NSpace,
+  useMessage
 } from 'naive-ui'
 import { computed, defineComponent, onUnmounted, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
-import type { Edge, Job, Vertex } from '@/service/job/types'
+import type { Job, Vertex } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
 import { parse } from 'date-fns'
 import DAG, { type DagEdgeInfo } from '@/components/directed-acyclic-graph'
+import LiveMetricsBoard from '@/components/live-metrics-chart/board'
 import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
+import { formatPercentFromRatio } from '@/utils/format'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
-import { formatPercentFromRatio } from '@/utils/format'
 import {
-  getRealtimeJobEdges,
-  getRealtimeJobVertices,
+  REALTIME_POLL_INTERVAL_MS,
+  REALTIME_WINDOW_MS_DEFAULT,
+  describeRealtimeFetchError,
+  effectiveRealtimeWindowMs,
+  fetchJobRealtimeMetrics,
   type RealtimeEdgesResponse,
   type RealtimeEdgePoint,
   type RealtimeVerticesResponse,
   type RealtimeVertexPoint
 } from '@/service/realtime-metrics'
-import {
-  getJobCheckpointOverview,
-  type CheckpointInfo,
-  type CheckpointOverviewResponse
-} from '@/service/checkpoint'
+import { getJobCheckpointOverview, type CheckpointOverviewResponse } from '@/service/checkpoint'
 import {
   readVertexMetricValue,
   collectVertexMetrics,
   extractVertexIdentifier
 } from './detail-metrics'
+import {
+  LIVE_METRICS_PIN_LIMIT,
+  useLiveMetricsPinStore,
+  type PinnedMetricRef
+} from '@/store/live-metrics-pin'
+import {
+  buildSeriesFromEdgePoints,
+  buildSeriesFromVertexPoints,
+  decodeTargetVertexId,
+  edgePinFields,
+  edgeSeriesId,
+  resolvePinnedSeries,
+  shortOperatorLabel,
+  vertexPinFields,
+  vertexSeriesId
+} from './detail-live-metrics'
 
-interface RuntimeVertexRow {
-  vertexId: number
-  vertexName: string
-  vertexType: string
-  busyRatio: number
-}
-
-interface RuntimeEdgeRow {
-  edgeId: string
-  pipelineId: string
-  from: string
-  to: string
-  bpRatio: number
-  queueFillRatio: number
-  queueSize: number
-  queueCapacity: number
-}
-
-const LARGE_GRAPH_VERTEX_THRESHOLD = 80
-const LARGE_GRAPH_EDGE_THRESHOLD = 120
-const RUNTIME_SUMMARY_ROW_LIMIT = 5
+import {
+  isLargeGraph,
+  getTopBusyVertices,
+  getTopBlockedInputs,
+  sumCheckpointCounts,
+  getLatestCheckpoint,
+  formatCheckpoint,
+  type RuntimeVertexRow,
+  type RuntimeEdgeRow
+} from './detail-runtime-summary'
 
 export default defineComponent({
   setup() {
     const { t } = useI18n()
     const route = useRoute()
+    const message = useMessage()
+    const pinStore = useLiveMetricsPinStore()
 
     const jobId = route.params.jobId as string
+    pinStore.ensureJob(jobId)
     const job = reactive({} as Job)
     const duration = ref('')
     const select = ref('Overview')
@@ -118,6 +129,7 @@ export default defineComponent({
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
       if (isTerminalState(job.jobStatus)) {
         clearTimeout(fetchTimer)
+        pinStore.clear()
         return
       }
       fetchTimer = setTimeout(fetch, 5000)
@@ -140,6 +152,7 @@ export default defineComponent({
       clearInterval(timer)
       clearTimeout(fetchTimer)
       clearInterval(realtimeTimer)
+      pinStore.clear()
     })
 
     const isTerminalState = (status: string) => {
@@ -289,8 +302,7 @@ export default defineComponent({
     const realtimeEdges = ref<RealtimeEdgesResponse>()
     const realtimeVertices = ref<RealtimeVerticesResponse>()
     const realtimeTick = ref(0)
-    const realtimeWindowMs = 3 * 60 * 1000
-    const realtimeWindowMsMax = 10 * 60 * 1000
+    const realtimeWindowMs = REALTIME_WINDOW_MS_DEFAULT
     const realtimeError = ref<string | null>(null)
     const realtimeConsecutiveErrors = ref(0)
     let realtimeTimer: NodeJS.Timeout
@@ -298,10 +310,7 @@ export default defineComponent({
       if (!isRunningState(job.jobStatus)) return
       if (select.value !== 'Overview') return
       try {
-        const [edges, vertices] = await Promise.all([
-          getRealtimeJobEdges(jobId, Math.min(realtimeWindowMs, realtimeWindowMsMax)),
-          getRealtimeJobVertices(jobId, Math.min(realtimeWindowMs, realtimeWindowMsMax))
-        ])
+        const { edges, vertices } = await fetchJobRealtimeMetrics(jobId, realtimeWindowMs)
         realtimeEdges.value = edges
         realtimeVertices.value = vertices
         realtimeTick.value++
@@ -309,16 +318,7 @@ export default defineComponent({
         realtimeConsecutiveErrors.value = 0
       } catch (e) {
         realtimeConsecutiveErrors.value++
-        const status = (e as any)?.response?.status
-        if (status === 503) {
-          realtimeError.value = 'Realtime metrics disabled on master'
-        } else if (status === 404) {
-          realtimeError.value = 'Realtime metrics job not found'
-        } else if (status === 401 || status === 403) {
-          realtimeError.value = 'Realtime metrics unauthorized'
-        } else {
-          realtimeError.value = 'Failed to fetch realtime metrics'
-        }
+        realtimeError.value = describeRealtimeFetchError(e)
         if (realtimeConsecutiveErrors.value === 1) {
           console.warn('Fetch realtime metrics failed:', e)
         }
@@ -327,7 +327,7 @@ export default defineComponent({
     const startRealtimePolling = () => {
       clearInterval(realtimeTimer)
       fetchRealtime()
-      realtimeTimer = setInterval(fetchRealtime, 2000)
+      realtimeTimer = setInterval(fetchRealtime, REALTIME_POLL_INTERVAL_MS)
     }
     const stopRealtimePolling = () => {
       clearInterval(realtimeTimer)
@@ -346,13 +346,6 @@ export default defineComponent({
     const realtimeEdgeStats = computed<Record<number, RealtimeEdgePoint>>(() => {
       const stats: Record<number, RealtimeEdgePoint> = {}
       const edges = realtimeEdges.value?.edges || []
-      const decodeTargetVertexId = (queueId: number) => {
-        if (queueId >= 0) return queueId
-        const abs = Math.abs(queueId)
-        if (!abs) return undefined
-        if (abs % 2 === 0) return abs / 2
-        return (abs - 1) / 2
-      }
       edges.forEach((e) => {
         const last = e.points?.[e.points.length - 1]
         if (!last) return
@@ -377,133 +370,138 @@ export default defineComponent({
     const graphEdgeCount = computed(() =>
       Object.values(job.jobDag?.pipelineEdges || {}).reduce((sum, edges) => sum + edges.length, 0)
     )
-    const isLargeRuntimeGraph = computed(
-      () =>
-        graphVertexCount.value > LARGE_GRAPH_VERTEX_THRESHOLD ||
-        graphEdgeCount.value > LARGE_GRAPH_EDGE_THRESHOLD
+    const isLargeRuntimeGraph = computed(() =>
+      isLargeGraph(graphVertexCount.value, graphEdgeCount.value)
     )
-    const vertexNameById = computed(() => {
-      const names: Record<string, string> = {}
-      const vertices = job.jobDag?.vertexInfoMap || []
-      vertices.forEach((vertex) => {
-        names[String(vertex.vertexId)] = vertex.vertexName
-      })
-      return names
-    })
-    const runtimeVertexRatio = (vertex: Vertex, latest?: RealtimeVertexPoint) => {
-      if (!latest) return 0
-      if (vertex.type === 'source') return latest.sourceReadRatio
-      if (vertex.type === 'transform') return latest.transformBusyRatio
-      if (vertex.type === 'sink') return latest.sinkBusyRatio
-      return 0
-    }
-    const topBusyVertices = computed<RuntimeVertexRow[]>(() =>
-      (job.jobDag?.vertexInfoMap || [])
-        .map((vertex) => ({
-          vertexId: vertex.vertexId,
-          vertexName: vertex.vertexName,
-          vertexType: vertex.type,
-          busyRatio: runtimeVertexRatio(vertex, realtimeVertexStats.value[vertex.vertexId])
-        }))
-        .filter((row) => row.busyRatio > 0)
-        .sort((a, b) => b.busyRatio - a.busyRatio)
-        .slice(0, RUNTIME_SUMMARY_ROW_LIMIT)
+    const topBusyVertices = computed(() =>
+      getTopBusyVertices(job.jobDag?.vertexInfoMap || [], realtimeVertexStats.value)
     )
-    const allGraphEdges = computed<Array<{ pipelineId: string; edge: Edge }>>(() =>
-      Object.entries(job.jobDag?.pipelineEdges || {}).flatMap(([pipelineId, edges]) =>
-        edges.map((edge) => ({ pipelineId, edge }))
+    const topBlockedEdges = computed(() =>
+      getTopBlockedInputs(
+        job.jobDag?.pipelineEdges || {},
+        job.jobDag?.vertexInfoMap || [],
+        realtimeEdgeStats.value
       )
-    )
-    const topBlockedEdges = computed<RuntimeEdgeRow[]>(() =>
-      allGraphEdges.value
-        .map(({ pipelineId, edge }) => {
-          const targetVertexId = Number(edge.targetVertexId)
-          const metrics = realtimeEdgeStats.value[targetVertexId]
-          return {
-            edgeId: `edge-${pipelineId}-${edge.inputVertexId}-${edge.targetVertexId}`,
-            pipelineId,
-            from: vertexNameById.value[edge.inputVertexId] || edge.inputVertexId,
-            to: vertexNameById.value[edge.targetVertexId] || edge.targetVertexId,
-            bpRatio: metrics?.bpRatio ?? 0,
-            queueFillRatio: metrics?.queueFillRatio ?? 0,
-            queueSize: metrics?.queueSize ?? 0,
-            queueCapacity: metrics?.queueCapacity ?? 0
-          }
-        })
-        .filter((row) => row.bpRatio > 0 || row.queueFillRatio > 0)
-        .sort(
-          (a, b) => Math.max(b.bpRatio, b.queueFillRatio) - Math.max(a.bpRatio, a.queueFillRatio)
-        )
-        .slice(0, RUNTIME_SUMMARY_ROW_LIMIT)
     )
     const checkpointPipelines = computed(() => checkpointOverview.value?.pipelines || [])
-    const checkpointCounts = computed(() =>
-      checkpointPipelines.value.reduce(
-        (counts, pipeline) => {
-          counts.triggered += pipeline.counts?.triggered || 0
-          counts.completed += pipeline.counts?.completed || 0
-          counts.failed += pipeline.counts?.failed || 0
-          counts.inProgress += pipeline.counts?.inProgress || 0
-          counts.restored += pipeline.counts?.restored || 0
-          return counts
-        },
-        { triggered: 0, completed: 0, failed: 0, inProgress: 0, restored: 0 }
-      )
+    const checkpointCounts = computed(() => sumCheckpointCounts(checkpointPipelines.value))
+    const latestCompletedCheckpoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestCompleted')
     )
-    const hasCheckpoint = (
-      checkpoint?: CheckpointInfo
-    ): checkpoint is CheckpointInfo & { checkpointId: number } =>
-      checkpoint?.checkpointId !== undefined && checkpoint.checkpointId !== null
-    const latestCheckpoint = (key: 'latestCompleted' | 'latestFailed' | 'latestSavepoint') =>
-      checkpointPipelines.value
-        .map((pipeline) => pipeline[key])
-        .filter(hasCheckpoint)
-        .sort(
-          (a, b) =>
-            (b.completedTimestamp || b.triggerTimestamp || 0) -
-            (a.completedTimestamp || a.triggerTimestamp || 0)
-        )[0]
-    const latestCompletedCheckpoint = computed(() => latestCheckpoint('latestCompleted'))
-    const latestFailedCheckpoint = computed(() => latestCheckpoint('latestFailed'))
-    const latestSavepoint = computed(() => latestCheckpoint('latestSavepoint'))
+    const latestFailedCheckpoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestFailed')
+    )
+    const latestSavepoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestSavepoint')
+    )
 
     const realtimeSeriesLimit = computed(() => {
       const bucketMs = realtimeEdges.value?.bucketMs || realtimeVertices.value?.bucketMs || 5000
-      const effectiveWindowMs = Math.min(realtimeWindowMs, realtimeWindowMsMax)
+      const effectiveWindowMs = effectiveRealtimeWindowMs(realtimeWindowMs)
       const safeBucketMs = Math.max(1, bucketMs)
       return Math.max(1, Math.ceil(effectiveWindowMs / safeBucketMs) + 1)
     })
 
-    const focusedEdgeSeries = computed(() => {
-      const targetId = focusedEdge.value?.targetVertexId
-      if (!targetId) return []
-      const decodeTargetVertexId = (queueId: number) => {
-        if (queueId >= 0) return queueId
-        const abs = Math.abs(queueId)
-        if (!abs) return undefined
-        if (abs % 2 === 0) return abs / 2
-        return (abs - 1) / 2
-      }
-      const points =
-        realtimeEdges.value?.edges?.find(
-          (e) => (e.targetVertexId ?? decodeTargetVertexId(e.queueId)) === targetId
-        )?.points || []
-      return points
-        .slice(-realtimeSeriesLimit.value)
-        .slice()
-        .sort((a, b) => b.ts - a.ts)
+    const vertexNameById = computed(() => {
+      const map: Record<number, string> = {}
+      job.jobDag?.vertexInfoMap?.forEach((v) => {
+        map[v.vertexId] = v.vertexName
+      })
+      return map
     })
 
-    const focusedVertexSeries = computed(() => {
-      const vertexId = focusedId.value
-      if (!vertexId) return []
-      const points =
-        realtimeVertices.value?.vertices?.find((v) => v.vertexId === vertexId)?.points || []
-      return points
-        .slice(-realtimeSeriesLimit.value)
-        .slice()
-        .sort((a, b) => b.ts - a.ts)
+    const pinnedSeries = computed(() => {
+      // depend on realtimeTick so chart refreshes with poll
+      void realtimeTick.value
+      return resolvePinnedSeries(
+        pinStore.pins,
+        realtimeVertices.value,
+        realtimeEdges.value,
+        vertexNameById.value,
+        realtimeSeriesLimit.value
+      )
     })
+
+    const hasPinnedMetrics = computed(() => pinStore.pins.length > 0)
+
+    const drawerVertexChartSeries = computed(() => {
+      const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
+      if (!vertex) return []
+      const points =
+        realtimeVertices.value?.vertices?.find((v) => v.vertexId === vertex.vertexId)?.points || []
+      return vertexPinFields(vertex.type, t).map((field) => {
+        return buildSeriesFromVertexPoints(
+          vertex.vertexId,
+          vertex.vertexName,
+          field,
+          points,
+          realtimeSeriesLimit.value
+        )
+      })
+    })
+
+    const drawerEdgeChartSeries = computed(() => {
+      const edge = focusedEdge.value
+      if (!edge) return []
+      const input = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === edge.inputVertexId)
+      const target = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === edge.targetVertexId)
+      const label = `${shortOperatorLabel(input?.vertexName || String(edge.inputVertexId))} → ${shortOperatorLabel(target?.vertexName || String(edge.targetVertexId))}`
+      const points =
+        realtimeEdges.value?.edges?.find(
+          (e) => (e.targetVertexId ?? decodeTargetVertexId(e.queueId)) === edge.targetVertexId
+        )?.points || []
+      return edgePinFields(t).map((field) => {
+        return buildSeriesFromEdgePoints(
+          edge.targetVertexId,
+          label,
+          field,
+          points,
+          realtimeSeriesLimit.value
+        )
+      })
+    })
+
+    const onTogglePin = (ref: PinnedMetricRef) => {
+      const result = pinStore.toggle(ref)
+      if (result === 'limit') {
+        message.warning(t('detail.liveMetrics.pinLimit', { limit: LIVE_METRICS_PIN_LIMIT }))
+      }
+    }
+
+    const renderPinControls = (
+      kind: 'vertex' | 'edge',
+      targetId: number,
+      baseName: string,
+      fields: ReturnType<typeof vertexPinFields>
+    ) => (
+      <NSpace class="mb-3" size="small" wrap>
+        {fields.map((field) => {
+          const id =
+            kind === 'vertex'
+              ? vertexSeriesId(targetId, field.field)
+              : edgeSeriesId(targetId, field.field)
+          const pinned = pinStore.isPinned(id)
+          return (
+            <NButton
+              size="tiny"
+              type={pinned ? 'primary' : 'default'}
+              secondary={!pinned}
+              onClick={() =>
+                onTogglePin({
+                  id,
+                  name: `${shortOperatorLabel(baseName)} · ${field.label}`,
+                  kind,
+                  targetId,
+                  field: field.field
+                })
+              }
+            >
+              {pinned ? t('detail.liveMetrics.unpin') : t('detail.liveMetrics.pin')} · {field.label}
+            </NButton>
+          )
+        })}
+      </NSpace>
+    )
 
     const focusedVertex = computed(() => {
       const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
@@ -622,92 +620,6 @@ export default defineComponent({
       return { onClick: () => onFocus(row) }
     }
 
-    const edgePointColumns: DataTableColumns<RealtimeEdgePoint> = [
-      {
-        title: t('detail.observability.time'),
-        key: 'ts',
-        render: (row) => new Date(row.ts).toLocaleTimeString()
-      },
-      {
-        title: t('detail.observability.bpRatio'),
-        key: 'bpRatio',
-        render: (row) => formatPercentFromRatio(row.bpRatio)
-      },
-      {
-        title: t('detail.observability.queueFillRatio'),
-        key: 'queueFillRatio',
-        render: (row) => formatPercentFromRatio(row.queueFillRatio)
-      }
-    ]
-
-    const vertexPointColumns = computed<DataTableColumns<RealtimeVertexPoint>>(() => {
-      const base: DataTableColumns<RealtimeVertexPoint> = [
-        {
-          title: t('detail.observability.time'),
-          key: 'ts',
-          render: (row) => new Date(row.ts).toLocaleTimeString()
-        }
-      ]
-      const v = focusedVertex.value as any
-      const type = v?.type
-      if (type === 'source') {
-        return base.concat([
-          {
-            title: t('detail.observability.sourceReadRatio'),
-            key: 'sourceReadRatio',
-            render: (row) => formatPercentFromRatio(row.sourceReadRatio)
-          },
-          {
-            title: t('detail.observability.sourceIdleRatio'),
-            key: 'sourceIdleRatio',
-            render: (row) => formatPercentFromRatio(row.sourceIdleRatio)
-          }
-        ])
-      }
-      if (type === 'transform') {
-        return base.concat([
-          {
-            title: t('detail.observability.transformBusyRatio'),
-            key: 'transformBusyRatio',
-            render: (row) => formatPercentFromRatio(row.transformBusyRatio)
-          },
-          {
-            title: t('detail.observability.processMsPerRecord'),
-            key: 'transformProcessNsPerRecord',
-            render: (row) => (row.transformProcessNsPerRecord / 1_000_000).toFixed(3)
-          },
-          {
-            title: t('detail.observability.recordsIn'),
-            key: 'transformRecordsIn'
-          },
-          {
-            title: t('detail.observability.recordsOut'),
-            key: 'transformRecordsOut'
-          }
-        ])
-      }
-      if (type === 'sink') {
-        return base.concat([
-          {
-            title: t('detail.observability.sinkBusyRatio'),
-            key: 'sinkBusyRatio',
-            render: (row) => formatPercentFromRatio(row.sinkBusyRatio)
-          },
-          {
-            title: t('detail.observability.writeMsPerRecord'),
-            key: 'sinkWriteNsPerRecord',
-            render: (row) => (row.sinkWriteNsPerRecord / 1_000_000).toFixed(3)
-          },
-          {
-            title: t('detail.observability.recordsIn'),
-            key: 'sinkRecordsIn'
-          }
-        ])
-      }
-      // Fallback: show a minimal common view.
-      return base
-    })
-
     const runtimeVertexColumns: DataTableColumns<RuntimeVertexRow> = [
       {
         title: t('detail.runtime.vertex'),
@@ -754,16 +666,6 @@ export default defineComponent({
       if (!value) return t('detail.runtime.unavailable')
       return new Date(value).toLocaleString()
     }
-    const formatDurationMs = (value?: number) => {
-      if (value === undefined || value === null) return t('detail.runtime.unavailable')
-      if (value < 1000) return `${value} ms`
-      return `${(value / 1000).toFixed(2)} s`
-    }
-    const formatCheckpoint = (checkpoint?: CheckpointInfo) => {
-      if (!hasCheckpoint(checkpoint)) return t('detail.runtime.unavailable')
-      const status = checkpoint.status || checkpoint.checkpointType || ''
-      return `#${checkpoint.checkpointId} ${status} ${formatDurationMs(checkpoint.durationMillis)}`
-    }
     const shortRuntimeError = computed(() => {
       const error = job.errorMsg?.trim()
       if (!error) return ''
@@ -799,13 +701,15 @@ export default defineComponent({
           </div>
           <div class="runtime-context-line">
             {t('detail.runtime.latestCompleted')}:{' '}
-            {formatCheckpoint(latestCompletedCheckpoint.value)}
+            {formatCheckpoint(latestCompletedCheckpoint.value, t('detail.runtime.unavailable'))}
           </div>
           <div class="runtime-context-line">
-            {t('detail.runtime.latestFailed')}: {formatCheckpoint(latestFailedCheckpoint.value)}
+            {t('detail.runtime.latestFailed')}:{' '}
+            {formatCheckpoint(latestFailedCheckpoint.value, t('detail.runtime.unavailable'))}
           </div>
           <div class="runtime-context-line">
-            {t('detail.runtime.latestSavepoint')}: {formatCheckpoint(latestSavepoint.value)}
+            {t('detail.runtime.latestSavepoint')}:{' '}
+            {formatCheckpoint(latestSavepoint.value, t('detail.runtime.unavailable'))}
           </div>
           <div class="runtime-context-line">
             {t('detail.runtime.updatedAt')}: {formatTimestamp(checkpointOverview.value?.updatedAt)}
@@ -861,53 +765,103 @@ export default defineComponent({
       ) : null
 
     return () => (
-      <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
-        <div class="font-bold text-xl">
-          {job.jobName}
-          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)} class="ml-3">
+      <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
+        <div class="job-detail-title font-bold text-xl">
+          <span>{job.jobName}</span>
+          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)}>
             {job.jobStatus}
           </NTag>
           {realtimeError.value ? (
             <span title={realtimeError.value}>
-              <NTag bordered={false} type="warning" class="ml-3">
+              <NTag bordered={false} type="warning">
                 Realtime metrics unavailable
               </NTag>
             </span>
           ) : null}
         </div>
-        <div class="mt-3 flex items-center gap-3">
-          <span>{t('detail.id')}:</span>
-          <span class="font-bold">{job.jobId}</span>
-          <NDivider vertical />
-          <span>{t('detail.createTime')}:</span>
-          <span class="font-bold">{job.createTime}</span>
-          <NDivider vertical />
-          <span>{t('detail.duration')}:</span>
-          <span class="font-bold">{duration.value}</span>
+        <div class="job-detail-meta mt-3">
+          <div class="job-detail-meta-item">
+            <span>{t('detail.id')}:</span>
+            <span class="font-bold">{job.jobId}</span>
+          </div>
+          <NDivider class="job-detail-meta-divider" vertical />
+          <div class="job-detail-meta-item">
+            <span>{t('detail.createTime')}:</span>
+            <span class="font-bold">{job.createTime}</span>
+          </div>
+          <NDivider class="job-detail-meta-divider" vertical />
+          <div class="job-detail-meta-item">
+            <span>{t('detail.duration')}:</span>
+            <span class="font-bold">{duration.value}</span>
+          </div>
         </div>
         <div class="tab-wrap relative">
           <NTabs v-model:value={select.value} type="line" animated>
             <NTabPane name="Overview" tab={t('detail.tabs.overview')}>
               {renderRuntimeContext()}
               {renderLargeGraphSummary()}
-              <DAG
-                job={job}
-                focusedId={focusedId.value}
-                onNodeClick={onFocus}
-                onEdgeClick={onEdgeFocus}
-                realtimeEdgeStats={realtimeEdgeStats.value}
-                realtimeVertexStats={realtimeVertexStats.value}
-                realtimeTick={realtimeTick.value}
-              />
-              <NDataTable
-                columns={columns}
-                data={tableData.value}
-                pagination={false}
-                scrollX="auto"
-                bordered
-                rowClassName={rowClassName}
-                rowProps={rowProps}
-              />
+              <div
+                class={`job-detail-overview ${
+                  hasPinnedMetrics.value ? 'has-pinned-metrics' : 'has-no-pinned-metrics'
+                }`}
+              >
+                <DAG
+                  job={job}
+                  focusedId={focusedId.value}
+                  onNodeClick={onFocus}
+                  onEdgeClick={onEdgeFocus}
+                  realtimeEdgeStats={realtimeEdgeStats.value}
+                  realtimeVertexStats={realtimeVertexStats.value}
+                  realtimeTick={realtimeTick.value}
+                />
+                <div class="job-detail-pinned-metrics border border-gray-100 rounded-lg px-3 pt-2 pb-2 bg-gray-50">
+                  <div class="live-metrics-header flex items-baseline justify-between mb-2">
+                    <div class="font-semibold text-base">{t('detail.liveMetrics.pinnedTitle')}</div>
+                    <div class="text-xs text-gray-500">
+                      {t('detail.liveMetrics.pinnedHint', { limit: LIVE_METRICS_PIN_LIMIT })}
+                      {pinStore.pins.length
+                        ? ` · ${pinStore.pins.length}/${LIVE_METRICS_PIN_LIMIT}`
+                        : ''}
+                    </div>
+                  </div>
+                  {pinStore.pins.length ? (
+                    <NSpace class="mb-2" size="small" wrap>
+                      {pinStore.pins.map((p) => (
+                        <NTag key={p.id} closable type="info" onClose={() => pinStore.unpin(p.id)}>
+                          {p.name}
+                        </NTag>
+                      ))}
+                    </NSpace>
+                  ) : null}
+                  <LiveMetricsBoard
+                    series={pinnedSeries.value}
+                    windowMs={effectiveRealtimeWindowMs(realtimeWindowMs)}
+                    emptyText={
+                      pinStore.pins.length
+                        ? t('detail.liveMetrics.chartEmpty')
+                        : t('detail.liveMetrics.emptyPinned')
+                    }
+                    height="100%"
+                    layout="row"
+                    unitTitles={{
+                      ratio: t('detail.liveMetrics.unitRatio'),
+                      duration: t('detail.liveMetrics.unitDuration'),
+                      count: t('detail.liveMetrics.unitCount')
+                    }}
+                  />
+                </div>
+                <div class="job-detail-table">
+                  <NDataTable
+                    columns={columns}
+                    data={tableData.value}
+                    pagination={false}
+                    scrollX={1200}
+                    bordered
+                    rowClassName={rowClassName}
+                    rowProps={rowProps}
+                  />
+                </div>
+              </div>
             </NTabPane>
             <NTabPane name="Exception" tab={t('detail.tabs.exception')}>
               <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; max-height: 600px; font-family: monospace; line-height: 1.5;">
@@ -922,6 +876,7 @@ export default defineComponent({
             </NTabPane>
           </NTabs>
           <NDrawer
+            class="job-detail-drawer"
             show={select.value === 'Overview' && drawerShow.value}
             showMask={false}
             width={'40%'}
@@ -935,22 +890,44 @@ export default defineComponent({
               <NDrawerContent title={focusedEdgeInfo.value?.['edge.id']} closable>
                 <Configuration data={focusedEdgeInfo.value}></Configuration>
                 <NDivider />
-                <NDataTable
-                  columns={edgePointColumns}
-                  data={focusedEdgeSeries.value}
-                  pagination={false}
-                  bordered
+                {renderPinControls(
+                  'edge',
+                  focusedEdge.value.targetVertexId,
+                  `${shortOperatorLabel(String(focusedEdgeInfo.value?.['edge.from']))} → ${shortOperatorLabel(String(focusedEdgeInfo.value?.['edge.to']))}`,
+                  edgePinFields(t)
+                )}
+                <LiveMetricsBoard
+                  series={drawerEdgeChartSeries.value}
+                  windowMs={effectiveRealtimeWindowMs(realtimeWindowMs)}
+                  emptyText={t('detail.liveMetrics.chartEmpty')}
+                  height={180}
+                  unitTitles={{
+                    ratio: t('detail.liveMetrics.unitRatio'),
+                    duration: t('detail.liveMetrics.unitDuration'),
+                    count: t('detail.liveMetrics.unitCount')
+                  }}
                 />
               </NDrawerContent>
             ) : (
               <NDrawerContent title={focusedVertex.value?.vertexName} closable>
                 <Configuration data={focusedVertex.value}></Configuration>
                 <NDivider />
-                <NDataTable
-                  columns={vertexPointColumns.value}
-                  data={focusedVertexSeries.value}
-                  pagination={false}
-                  bordered
+                {renderPinControls(
+                  'vertex',
+                  focusedId.value,
+                  focusedVertex.value?.vertexName || String(focusedId.value),
+                  vertexPinFields((focusedVertex.value as any)?.type, t)
+                )}
+                <LiveMetricsBoard
+                  series={drawerVertexChartSeries.value}
+                  windowMs={effectiveRealtimeWindowMs(realtimeWindowMs)}
+                  emptyText={t('detail.liveMetrics.chartEmpty')}
+                  height={180}
+                  unitTitles={{
+                    ratio: t('detail.liveMetrics.unitRatio'),
+                    duration: t('detail.liveMetrics.unitDuration'),
+                    count: t('detail.liveMetrics.unitCount')
+                  }}
                 />
               </NDrawerContent>
             )}

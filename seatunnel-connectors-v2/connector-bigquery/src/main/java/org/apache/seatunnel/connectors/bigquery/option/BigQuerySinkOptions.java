@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.bigquery.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 public class BigQuerySinkOptions {
 
@@ -74,10 +76,57 @@ public class BigQuerySinkOptions {
                     .defaultValue(1000)
                     .withDescription("The number of rows sent in a single batch");
 
+    public static final Option<Boolean> SCHEMA_EVOLUTION_ENABLED =
+            Options.key("schema_evolution_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to apply ADD COLUMN schema change events to the target BigQuery table.");
+
+    public static final Option<Boolean> SCHEMA_EVOLUTION_RELAX_NOT_NULL =
+            Options.key("schema_evolution_relax_not_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to add non-null source columns as NULLABLE BigQuery fields during schema evolution.");
+
     public static final Option<String> EMULATOR_HOST =
             Options.key("emulator_host")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
+                            "The REST host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
+
+    public static final Option<String> EMULATOR_GRPC_HOST =
+            Options.key("emulator_grpc_host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The gRPC Storage Write API host of the BigQuery emulator (e.g. localhost:9060). "
+                                    + "Only for testing purposes. Falls back to emulator_host when omitted.");
+
+    public static final Option<String> UNIVERSE_DOMAIN =
+            Options.key("universe_domain")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The Google Cloud Universe Domain (e.g. s3nsapis.fr for S3NS sovereign cloud)");
+
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription("schema save mode");
+
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription("data save mode");
+
+    public static final Option<String> CUSTOM_SQL =
+            Options.key("custom_sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("custom SQL to execute for CUSTOM_PROCESSING data save mode");
 }

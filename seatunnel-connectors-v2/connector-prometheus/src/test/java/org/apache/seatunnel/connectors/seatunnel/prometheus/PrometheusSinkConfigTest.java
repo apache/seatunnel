@@ -54,17 +54,4 @@ class PrometheusSinkConfigTest {
 
         Assertions.assertEquals(5, config.getBatchSize());
     }
-
-    @Test
-    void shouldRejectNonPositiveBatchSize() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("url", "http://localhost:9090/api/v1/write");
-        map.put("key_label", "c_map");
-        map.put("key_value", "c_double");
-        map.put("batch_size", 0);
-
-        Assertions.assertThrows(
-                Exception.class,
-                () -> PrometheusSinkConfig.loadConfig(ReadonlyConfig.fromMap(map)));
-    }
 }

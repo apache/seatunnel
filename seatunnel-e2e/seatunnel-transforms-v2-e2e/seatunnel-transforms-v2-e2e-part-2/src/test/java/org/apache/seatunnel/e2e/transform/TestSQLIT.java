@@ -130,4 +130,13 @@ public class TestSQLIT extends TestSuiteBase {
                 container.executeJob("/sql_transform/nested_type.conf");
         Assertions.assertEquals(0, nestedTypeSql.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/sql_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
