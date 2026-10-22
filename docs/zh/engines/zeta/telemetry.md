@@ -188,7 +188,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|
-| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | seatunnel 集群的所有作业计数 |
+| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | seatunnel 集群的所有作业计数 |
 
 ### JVM 指标
 
