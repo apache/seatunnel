@@ -121,15 +121,16 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
      * Writes sslmode and publication options after {@code debezium{}} is merged so the SeaTunnel
      * options stay authoritative.
      *
-     * <p>sslmode resolution: SeaTunnel {@code sslmode} if set, else the JDBC URL {@code sslmode}
-     * query parameter, else the property is left unset. Publication properties are written only
-     * when the matching SeaTunnel option is set.
+     * <p>{@code database.sslmode} is written only when the SeaTunnel {@code sslmode} option is
+     * explicitly set; otherwise it is left untouched so {@code debezium.database.sslmode} or the
+     * Debezium default {@code disable} applies. The JDBC URL {@code sslmode} is intentionally not
+     * inherited, keeping existing jobs on their previous SSL behavior. Publication properties are
+     * written only when the matching SeaTunnel option is set.
      */
     @Override
     protected void applyAuthoritativeConnectorProperties(Properties props) {
-        String resolvedSslMode = resolveSslMode();
-        if (resolvedSslMode != null) {
-            props.setProperty("database.sslmode", resolvedSslMode);
+        if (StringUtils.isNotEmpty(sslmode)) {
+            props.setProperty("database.sslmode", sslmode);
         }
         if (StringUtils.isNotEmpty(publicationName)) {
             props.setProperty("publication.name", publicationName);
@@ -137,45 +138,6 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
         if (StringUtils.isNotEmpty(publicationAutocreateMode)) {
             props.setProperty("publication.autocreate.mode", publicationAutocreateMode);
         }
-    }
-
-    private String resolveSslMode() {
-        if (StringUtils.isNotEmpty(sslmode)) {
-            return sslmode;
-        }
-        return sslModeFromJdbcUrl(originUrl);
-    }
-
-    /**
-     * Reads {@code sslmode} from a JDBC URL query string such as {@code ?sslmode=disable}.
-     *
-     * @param jdbcUrl original JDBC URL, possibly including a query suffix
-     * @return sslmode value, or {@code null} when the URL has no sslmode parameter
-     */
-    static String sslModeFromJdbcUrl(String jdbcUrl) {
-        if (jdbcUrl == null) {
-            return null;
-        }
-        int queryStart = jdbcUrl.indexOf('?');
-        if (queryStart < 0 || queryStart + 1 >= jdbcUrl.length()) {
-            return null;
-        }
-        String query = jdbcUrl.substring(queryStart + 1);
-        int fragmentStart = query.indexOf('#');
-        if (fragmentStart >= 0) {
-            query = query.substring(0, fragmentStart);
-        }
-        for (String pair : query.split("&")) {
-            int eq = pair.indexOf('=');
-            if (eq <= 0) {
-                continue;
-            }
-            if ("sslmode".equalsIgnoreCase(pair.substring(0, eq).trim())) {
-                String value = pair.substring(eq + 1).trim();
-                return value.isEmpty() ? null : value;
-            }
-        }
-        return null;
     }
 
     private static String validateSslMode(String sslMode) {

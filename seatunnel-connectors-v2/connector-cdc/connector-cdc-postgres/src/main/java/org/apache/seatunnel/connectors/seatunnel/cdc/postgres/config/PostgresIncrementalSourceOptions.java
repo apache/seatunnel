@@ -65,10 +65,12 @@ public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "SSL mode for the PostgreSQL logical replication connection. "
+                            "SSL mode for the Debezium PostgreSQL replication and data connections. "
                                     + "Valid values: disable, allow, prefer, require, verify-ca, verify-full. "
-                                    + "If unset, sslmode in the JDBC url query parameters is used when present; "
-                                    + "otherwise it defaults to prefer.");
+                                    + "When set, it is written to database.sslmode and overrides "
+                                    + "debezium.database.sslmode. When unset, database.sslmode is left untouched "
+                                    + "(the JDBC url sslmode is not inherited), so debezium.database.sslmode "
+                                    + "applies if configured and otherwise the Debezium default disable is used.");
 
     public static final Option<String> PUBLICATION_NAME =
             Options.key("publication.name")

@@ -224,31 +224,77 @@ public class PostgresSourceConfigFactoryTest {
     }
 
     @Test
-    public void shouldCopySslModeFromJdbcUrl() {
+    public void shouldNotInheritSslModeFromJdbcUrl() {
         PostgresSourceConfigFactory factory = baseFactory();
-        factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test?sslmode=disable");
+        factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test?sslmode=verify-full");
 
-        Assertions.assertEquals(
-                "disable", factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("database.sslmode"));
     }
 
     @Test
-    public void shouldLetSslModeOptionWinOverJdbcUrl() {
-        PostgresSourceConfigFactory factory =
-                factoryFromReadonlyConfig(
-                        option(PostgresIncrementalSourceOptions.SSL_MODE.key(), "require"));
+    public void shouldLeaveDatabaseSslModeUnsetWhenOptionIsUnset() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldKeepDebeziumSslModeWhenOptionIsUnset() {
+        PostgresSourceConfigFactory factory = baseFactory();
         factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test?sslmode=disable");
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("database.sslmode", "require");
+        factory.debeziumProperties(dbzProperties);
 
         Assertions.assertEquals(
                 "require", factory.create(0).getDbzConfiguration().getString("database.sslmode"));
     }
 
     @Test
-    public void shouldLeaveDatabaseSslModeUnsetWhenNeitherOptionNorUrlSetIt() {
-        PostgresSourceConfigFactory factory = baseFactory();
+    public void shouldLetExplicitSslModeOverrideDebeziumSslMode() {
+        PostgresSourceConfigFactory factory =
+                factoryFromReadonlyConfig(
+                        option(PostgresIncrementalSourceOptions.SSL_MODE.key(), "Require"));
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("database.sslmode", "disable");
+        factory.debeziumProperties(dbzProperties);
 
-        Assertions.assertNull(
-                factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+        Assertions.assertEquals(
+                "require", factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldRejectInvalidSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "foo")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("foo"));
+    }
+
+    @Test
+    public void shouldRejectInvalidPublicationAutocreateMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions
+                                                        .PUBLICATION_AUTOCREATE_MODE
+                                                        .key(),
+                                                "foo")));
+
+        Assertions.assertTrue(exception.getMessage().contains("publication.autocreate.mode"));
+        Assertions.assertTrue(exception.getMessage().contains("foo"));
     }
 
     @Test

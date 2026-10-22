@@ -20,14 +20,13 @@ package io.debezium.connector.postgresql;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.util.Clock;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.time.Duration;
 
@@ -50,7 +49,7 @@ public class PostgresStreamingChangeEventSourceProbeTest {
         when(connection.connect()).thenReturn(connection);
         when(connection.commit()).thenReturn(connection);
 
-        invokeProbe(newSource(connection));
+        newSource(connection).probeConnectionIfNeeded(streamingOffsetContext());
 
         verify(connection).close();
         verify(connection).connect();
@@ -65,11 +64,32 @@ public class PostgresStreamingChangeEventSourceProbeTest {
         when(connection.prepareQuery("SELECT 1")).thenThrow(new SQLException("connection reset"));
         when(connection.connect()).thenThrow(new SQLException("database is shutting down"));
 
-        Assertions.assertThrows(SQLException.class, () -> invokeProbe(newSource(connection)));
+        Assertions.assertThrows(
+                SQLException.class,
+                () -> newSource(connection).probeConnectionIfNeeded(streamingOffsetContext()));
 
         verify(connection).close();
         verify(connection, times(1)).prepareQuery("SELECT 1");
         verify(connection, never()).commit();
+    }
+
+    @Test
+    public void shouldRethrowWithoutReconnectDuringPreSnapshotCatchUpStreaming() throws Exception {
+        PostgresConnection connection = mock(PostgresConnection.class);
+        SQLException reset = new SQLException("connection reset");
+        when(connection.prepareQuery("SELECT 1")).thenThrow(reset);
+        PostgresOffsetContext catchUpOffsetContext = mock(PostgresOffsetContext.class);
+        when(catchUpOffsetContext.getStreamingStoppingLsn()).thenReturn(Lsn.valueOf(100L));
+
+        SQLException thrown =
+                Assertions.assertThrows(
+                        SQLException.class,
+                        () -> newSource(connection).probeConnectionIfNeeded(catchUpOffsetContext));
+
+        Assertions.assertSame(reset, thrown);
+        verify(connection, never()).close();
+        verify(connection, never()).connect();
+        verify(connection, times(1)).prepareQuery("SELECT 1");
     }
 
     @SuppressWarnings("unchecked")
@@ -93,22 +113,9 @@ public class PostgresStreamingChangeEventSourceProbeTest {
                 mock(ReplicationConnection.class));
     }
 
-    private static void invokeProbe(PostgresStreamingChangeEventSource source) throws Exception {
-        Method probe =
-                PostgresStreamingChangeEventSource.class.getDeclaredMethod(
-                        "probeConnectionIfNeeded");
-        probe.setAccessible(true);
-        try {
-            probe.invoke(source);
-        } catch (InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof Exception) {
-                throw (Exception) cause;
-            }
-            if (cause instanceof Error) {
-                throw (Error) cause;
-            }
-            throw e;
-        }
+    private static PostgresOffsetContext streamingOffsetContext() {
+        PostgresOffsetContext offsetContext = mock(PostgresOffsetContext.class);
+        when(offsetContext.getStreamingStoppingLsn()).thenReturn(null);
+        return offsetContext;
     }
 }
