@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Iceberg aggregated committer */
 @Slf4j
@@ -135,13 +136,31 @@ public class IcebergAggregatedCommitter
                     roundResults.add(results.get(round));
                 }
             }
-            if (groups.isEmpty() || hasEqualityDeletes(roundResults)) {
+            // A group without records (for example from a flush right after a schema change)
+            // commits no snapshot, so later rounds join it instead of opening another group.
+            if (groups.isEmpty()
+                    || (hasEqualityDeletes(roundResults)
+                            && hasRecords(groups.get(groups.size() - 1)))) {
                 groups.add(roundResults);
             } else {
                 groups.get(groups.size() - 1).addAll(roundResults);
             }
         }
         return groups;
+    }
+
+    private static boolean hasRecords(List<WriteResult> results) {
+        return results.stream()
+                .flatMap(
+                        result ->
+                                Stream.concat(
+                                        result.getDataFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDataFiles().stream(),
+                                        result.getDeleteFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDeleteFiles().stream()))
+                .anyMatch(file -> file.recordCount() > 0);
     }
 
     private static boolean hasEqualityDeletes(List<WriteResult> results) {
