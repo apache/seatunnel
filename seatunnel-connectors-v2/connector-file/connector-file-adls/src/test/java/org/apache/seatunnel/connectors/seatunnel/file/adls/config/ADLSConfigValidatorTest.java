@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 class ADLSConfigValidatorTest {
@@ -55,6 +56,9 @@ class ADLSConfigValidatorTest {
         Map<String, Object> values = sharedKeyConfig();
         Map<String, String> advanced = new HashMap<>();
         advanced.put("fs.azure.io.retry.max.retries", "8");
+        advanced.put("fs.azure.read.request.size", "4194304");
+        advanced.put("fs.azure.write.request.size.testaccount.dfs.core.windows.net", "4194304");
+        advanced.put("fs.azure.enable.autothrottling", "true");
         values.put("hadoop_adls_properties", advanced);
 
         Assertions.assertDoesNotThrow(
@@ -65,21 +69,41 @@ class ADLSConfigValidatorTest {
     void rejectsCredentialAndClassLoadingAdvancedProperties() {
         String[] keys = {
             "fs.azure.sas.token.provider.type",
-            " fs.azure.sas.token.provider.type ",
+            "fs.azure.sas.fixed.token",
+            "fs.azure.account.oauth.provider.type",
+            "fs.azure.account.keyprovider",
             "fs.azure.delegation.token.provider.type",
             "fs.azure.enable.delegation.token",
             "fs.azure.identity.transformer.class",
-            "fs.azure.shellkeyprovider.script"
+            "fs.azure.shellkeyprovider.script",
+            "abfs.external.authorization.class",
+            "fs.azure.abfs.endpoint",
+            "fs.azure.custom.token.provider.class",
+            "fs.azure.encryption.context.provider.type",
+            "fs.azure.encryption.encoded.client-provided-key",
+            "fs.azure.metrics.account.key",
+            "hadoop.security.credential.provider.path"
         };
         for (String key : keys) {
-            Map<String, Object> values = sharedKeyConfig();
-            Map<String, String> advanced = new HashMap<>();
-            advanced.put(key, "override");
-            values.put("hadoop_adls_properties", advanced);
-            Assertions.assertThrows(
-                    FileConnectorException.class,
-                    () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)),
-                    key);
+            for (String variant :
+                    new String[] {
+                        key,
+                        key + ".testaccount.dfs.core.windows.net",
+                        " " + key.toUpperCase(Locale.ROOT) + " "
+                    }) {
+                Map<String, Object> values = sharedKeyConfig();
+                Map<String, String> advanced = new HashMap<>();
+                advanced.put(variant, "sentinel-sensitive-value");
+                values.put("hadoop_adls_properties", advanced);
+                FileConnectorException error =
+                        Assertions.assertThrows(
+                                FileConnectorException.class,
+                                () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)),
+                                variant);
+                Assertions.assertTrue(error.getMessage().contains("hadoop_adls_properties"));
+                Assertions.assertTrue(error.getMessage().contains(variant));
+                Assertions.assertFalse(error.getMessage().contains("sentinel-sensitive-value"));
+            }
         }
     }
 

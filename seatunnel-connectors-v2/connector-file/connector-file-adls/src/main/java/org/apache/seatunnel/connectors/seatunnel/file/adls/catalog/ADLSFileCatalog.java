@@ -21,7 +21,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalo
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 public class ADLSFileCatalog extends AbstractFileCatalog {
-    // TODO: this catalog name conflict with a factory identifier
     public static final String CATALOG_NAME = "ADLSFile";
 
     public ADLSFileCatalog(HadoopFileSystemProxy hadoopFileSystemProxy, String filePath) {

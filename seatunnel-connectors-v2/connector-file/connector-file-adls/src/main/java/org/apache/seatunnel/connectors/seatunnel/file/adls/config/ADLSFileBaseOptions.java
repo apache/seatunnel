@@ -80,7 +80,9 @@ public class ADLSFileBaseOptions extends FileBaseSourceOptions {
             Options.key("authority_host")
                     .stringType()
                     .defaultValue("https://login.microsoftonline.com")
-                    .withDescription("Microsoft Entra authority host");
+                    .withDescription(
+                            "Microsoft Entra HTTPS authority origin receiving OAuth client credentials. "
+                                    + "Use only a trusted authority; validation checks URL syntax, not host trust.");
 
     // This escape hatch is limited to non-routing, non-credential ABFS tuning; the validator
     // rejects connector-owned keys before the map reaches Hadoop.

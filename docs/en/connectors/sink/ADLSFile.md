@@ -108,6 +108,11 @@ Authentication modes are exclusive: `SHARED_KEY` requires `account_key` and reje
 OAuth fields and rejects `account_key`. `tenant_id` must be a GUID or DNS name. `authority_host`
 must be an HTTPS origin without a path, query, or fragment (a final `/` is accepted).
 
+`authority_host` is a trust boundary: validation checks URL syntax but does not restrict the
+destination host. OAuth sends `client_id` and `client_secret` to the token endpoint under this
+origin. Only trusted operators should set this option, using the Microsoft Entra authority for
+their Azure cloud. Do not accept it from untrusted job input.
+
 `hadoop_adls_properties` is for ABFS tuning. It rejects `fs.defaultFS` and keys beginning with
 `fs.abfs`, `fs.s3`, `fs.azure.account.auth.type`, `fs.azure.account.key`,
 `fs.azure.account.oauth`, `fs.azure.sas.`, `fs.azure.delegation.`,

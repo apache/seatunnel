@@ -84,6 +84,7 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | date_format | string | 否 | `yyyy-MM-dd` | 日期解析格式。 |
 | datetime_format | string | 否 | `yyyy-MM-dd HH:mm:ss` | 日期时间解析格式。 |
 | time_format | string | 否 | `HH:mm:ss` | 时间解析格式。 |
+| metalake_type | enum | 否 | `GRAVITINO` | 用于解析表结构的元数据湖类型。 |
 | common-options | object | 否 | - | 参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### ADLS 配置规则
@@ -96,6 +97,10 @@ DNS 后缀。
 `client_secret`；`OAUTH_CLIENT_CREDENTIALS` 要求后三项，不允许设置 `account_key`。
 `tenant_id` 必须是 GUID 或 DNS 名称。`authority_host` 必须是没有路径、查询参数和片段的 HTTPS
 地址（允许末尾有一个 `/`）。
+
+`authority_host` 是信任边界：校验仅检查 URL 语法，不限制目标主机。OAuth 会将 `client_id` 和
+`client_secret` 发送到该源站下的令牌端点。仅应由可信任的操作人员设置此选项，并使用其 Azure 云对应的
+Microsoft Entra authority。不要从不可信任的作业输入中接受此配置。
 
 `hadoop_adls_properties` 仅用于 ABFS 参数调整。不允许 `fs.defaultFS`，以及以下前缀开头的键：
 `fs.abfs`、`fs.s3`、`fs.azure.account.auth.type`、`fs.azure.account.key`、

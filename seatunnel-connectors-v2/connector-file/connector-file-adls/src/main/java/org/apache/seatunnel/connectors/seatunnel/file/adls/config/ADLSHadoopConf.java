@@ -31,8 +31,9 @@ import java.util.Map;
  */
 public class ADLSHadoopConf extends HadoopConf {
     // ABFSS is the safe default because Hadoop must not send ADLS credentials over plain HTTP.
-    private String schema = ADLSRuntimeCompatibility.SECURE_ABFS_SCHEME;
-    private String fileSystemImplementation = ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION;
+    private final String schema = ADLSRuntimeCompatibility.SECURE_ABFS_SCHEME;
+    private final String fileSystemImplementation =
+            ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION;
 
     public ADLSHadoopConf(String nameKey) {
         super(nameKey);
@@ -46,10 +47,6 @@ public class ADLSHadoopConf extends HadoopConf {
     @Override
     public String getSchema() {
         return schema;
-    }
-
-    public void setSchema(String schema) {
-        this.schema = schema;
     }
 
     /**

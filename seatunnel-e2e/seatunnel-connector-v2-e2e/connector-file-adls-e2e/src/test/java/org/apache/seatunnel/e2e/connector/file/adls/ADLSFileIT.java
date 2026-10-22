@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.file.adls;
 
-import org.apache.seatunnel.connectors.seatunnel.file.adls.config.ADLSRuntimeCompatibility;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.adls.config.ADLSHadoopConf;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
@@ -119,9 +120,17 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         String accountKey = requiredEnvironment(ACCOUNT_KEY_ENV).trim();
         testRoot = testRoot(requiredEnvironment(TEST_PREFIX_ENV));
 
-        Configuration configuration =
-                ADLSRuntimeCompatibility.newConfiguration(account, storageContainer);
-        ADLSRuntimeCompatibility.configureSharedKey(configuration, account, accountKey);
+        Map<String, Object> options = new HashMap<>();
+        options.put("account_name", account);
+        options.put("container", storageContainer);
+        options.put("account_key", accountKey);
+        ADLSHadoopConf hadoopConf =
+                ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(options));
+        Configuration configuration = new Configuration(false);
+        configuration.set("fs.defaultFS", hadoopConf.getHdfsNameKey());
+        configuration.set("fs." + hadoopConf.getSchema() + ".impl", hadoopConf.getFsHdfsImpl());
+        configuration.setBoolean("fs." + hadoopConf.getSchema() + ".impl.disable.cache", true);
+        hadoopConf.getExtraOptions().forEach(configuration::set);
         fileSystem = FileSystem.get(configuration);
         fileSystem.delete(new Path(testRoot), true);
 

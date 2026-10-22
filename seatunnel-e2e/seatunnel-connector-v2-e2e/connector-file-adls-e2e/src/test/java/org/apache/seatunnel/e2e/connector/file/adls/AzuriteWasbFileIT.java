@@ -49,6 +49,7 @@ import com.microsoft.azure.storage.blob.ListBlobItem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +59,8 @@ import java.util.stream.Stream;
 
 /**
  * Exercises the generic Hadoop file connector over WASB against Azurite in normal CI. Azurite
- * exposes the Blob API, so this test does not exercise ADLSFile or the Gen2 DFS API.
+ * exposes the Blob API, so the round trip does not exercise the Gen2 DFS API. Separate negative
+ * jobs exercise ADLSFile source and sink validation before any Azure connection is attempted.
  */
 @DisabledIfEnvironmentVariable(named = "SEATUNNEL_ADLS_IT", matches = "(?i)true")
 @DisabledOnContainer(
@@ -81,6 +83,8 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
             "/tmp/seatunnel/config/adls-azurite-hadoop.xml";
     private static final String HADOOP_FILE_PLUGIN_DIRECTORY =
             "/tmp/seatunnel/plugins/connector-file-hadoop";
+    private static final String ADLS_PLUGIN_DIRECTORY =
+            "/tmp/seatunnel/plugins/connector-file-adls";
     private static final String ADLS_RUNTIME_JAR = "connector-file-adls-runtime.jar";
     private static final String AZURITE_WRITE_JOB = "/adls/azurite_file_to_file.conf";
     private static final String AZURITE_READ_JOB = "/adls/azurite_file_to_assert.conf";
@@ -92,10 +96,12 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                DependencyJar.staged(ADLS_RUNTIME_JAR)
-                        .copyTo(container, HADOOP_FILE_PLUGIN_DIRECTORY);
-                DependencyJar.staged(MavenJarUtil.getHadoop3UberJarName())
-                        .copyTo(container, HADOOP_FILE_PLUGIN_DIRECTORY);
+                for (String directory :
+                        Arrays.asList(HADOOP_FILE_PLUGIN_DIRECTORY, ADLS_PLUGIN_DIRECTORY)) {
+                    DependencyJar.staged(ADLS_RUNTIME_JAR).copyTo(container, directory);
+                    DependencyJar.staged(MavenJarUtil.getHadoop3UberJarName())
+                            .copyTo(container, directory);
+                }
                 copyAzuriteHadoopConfiguration(container);
             };
 
@@ -153,6 +159,23 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
                 0,
                 readResult.getExitCode(),
                 "WASB read-back failed for " + engine + ": " + readResult.getStderr());
+    }
+
+    /** Verifies both ADLSFile plugins reach OAuth validation without cloud credentials. */
+    @TestTemplate
+    public void testAdlsFileRejectsInsecureOAuthAuthority(TestContainer container)
+            throws Exception {
+        for (String job :
+                Arrays.asList(
+                        "/adls/adls_invalid_authority_source.conf",
+                        "/adls/adls_invalid_authority_sink.conf")) {
+            Container.ExecResult result = container.executeJob(job);
+            String output = result.getStdout() + "\n" + result.getStderr();
+            Assertions.assertNotEquals(0, result.getExitCode(), job + ": " + output);
+            Assertions.assertTrue(
+                    output.contains("'authority_host' must be an HTTPS origin"),
+                    job + " must fail in ADLSFile authority validation: " + output);
+        }
     }
 
     private void startAzuriteTest() throws Exception {
@@ -267,7 +290,7 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
                         + "  </property>\n"
                         + "</configuration>\n";
 
-        java.nio.file.Path hadoopConfig = Files.createTempFile("seatunnel-adls-azurite-", ".xml");
+        Path hadoopConfig = Files.createTempFile("seatunnel-adls-azurite-", ".xml");
         try {
             Files.write(hadoopConfig, contents.getBytes(StandardCharsets.UTF_8));
             container.copyFileToContainer(

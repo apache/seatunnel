@@ -64,6 +64,7 @@ as bytes. Markdown and PDF readers expose structured document fields.
 | parse_partition_from_path | boolean | no | `true` | Derive partition fields from `key=value` path segments. |
 | read_columns | list | no | - | Project selected columns. |
 | schema | object | conditional | - | Row schema for text, JSON, Excel, CSV, and XML inputs. |
+| metalake_type | enum | no | `GRAVITINO` | Metadata lake used to resolve table schemas. |
 | field_delimiter | string | no | `\001` | Field delimiter for text formats. |
 | row_delimiter | string | no | `\n` | Row delimiter for text input. |
 | skip_header_row_number | long | no | `0` | Number of header rows to skip. |
@@ -112,6 +113,11 @@ Authentication modes are exclusive: `SHARED_KEY` requires `account_key` and reje
 `tenant_id`, `client_id`, and `client_secret`; `OAUTH_CLIENT_CREDENTIALS` requires those three
 OAuth fields and rejects `account_key`. `tenant_id` must be a GUID or DNS name. `authority_host`
 must be an HTTPS origin without a path, query, or fragment (a final `/` is accepted).
+
+`authority_host` is a trust boundary: validation checks URL syntax but does not restrict the
+destination host. OAuth sends `client_id` and `client_secret` to the token endpoint under this
+origin. Only trusted operators should set this option, using the Microsoft Entra authority for
+their Azure cloud. Do not accept it from untrusted job input.
 
 `hadoop_adls_properties` is for ABFS tuning. It rejects `fs.defaultFS` and keys beginning with
 `fs.abfs`, `fs.s3`, `fs.azure.account.auth.type`, `fs.azure.account.key`,

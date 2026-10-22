@@ -55,7 +55,7 @@ public final class ADLSRuntimeCompatibility {
      * @param container filesystem/container name
      * @return configuration suitable for a Hadoop FileSystem lookup
      */
-    public static Configuration newConfiguration(String accountName, String container) {
+    static Configuration newConfiguration(String accountName, String container) {
         Configuration configuration = new Configuration(false);
         configuration.set(
                 "fs.defaultFS", secureAbfsUri(accountName, container, DEFAULT_ENDPOINT_SUFFIX));
@@ -74,7 +74,7 @@ public final class ADLSRuntimeCompatibility {
     }
 
     /** Fails fast when the ABFS implementation is absent from the runtime classpath. */
-    public static void validateDriverAvailable() {
+    static void validateDriverAvailable() {
         try {
             Class.forName(SECURE_ABFS_IMPLEMENTATION, false, classLoader());
         } catch (ClassNotFoundException e) {
@@ -87,7 +87,7 @@ public final class ADLSRuntimeCompatibility {
     }
 
     /** Returns the account-scoped Shared Key settings expected by ABFS. */
-    public static void configureSharedKey(
+    static void configureSharedKey(
             Configuration configuration, String accountName, String accountKey) {
         sharedKeyOptions(accountName, DEFAULT_ENDPOINT_SUFFIX, accountKey)
                 .forEach(configuration::set);
@@ -105,7 +105,7 @@ public final class ADLSRuntimeCompatibility {
     }
 
     /** Returns the account-scoped OAuth client-credentials settings expected by ABFS. */
-    public static void configureClientCredentials(
+    static void configureClientCredentials(
             Configuration configuration,
             String accountName,
             String tenantId,

@@ -26,8 +26,8 @@
     <name>SeaTunnel : Connectors V2 : File : ADLS Runtime Compatibility</name>
 
     <properties>
+        <!-- Hadoop Azure is not managed by the parent; keep the isolated ABFS runtime version. -->
         <hadoop.azure.version>3.2.0</hadoop.azure.version>
-        <seatunnel.hadoop.version>3.1.4-3.0.0</seatunnel.hadoop.version>
     </properties>
 
     <dependencies>
@@ -39,7 +39,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
-            <version>${seatunnel.hadoop.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -50,7 +49,7 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-base</artifactId>
-            <version>3.0.0-SNAPSHOT</version>
+            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -59,7 +58,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.3</version>
                 <executions>
                     <execution>
                         <goals>
@@ -133,11 +131,6 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <source>8</source>
@@ -147,15 +140,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>adls-cloud-it</id>
-            <activation>
-                <property>
-                    <name>env.SEATUNNEL_ADLS_IT</name>
-                    <value>true</value>
-                </property>
-            </activation>
-        </profile>
-    </profiles>
 </project>
