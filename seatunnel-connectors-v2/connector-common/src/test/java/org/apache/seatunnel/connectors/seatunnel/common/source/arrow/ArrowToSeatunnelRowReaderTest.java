@@ -43,6 +43,9 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.VarBinaryVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.ListVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.MapVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.StructVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.holders.TimeMilliHolder;
@@ -56,6 +59,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -637,6 +641,170 @@ public class ArrowToSeatunnelRowReaderTest {
                 expectedLongs.size(),
                 readRowCount,
                 "getReadRowCount must count every row surfaced across all batches");
+    }
+
+    /**
+     * A struct and a map column must also cross a record batch boundary. Both resolve the row index
+     * against their own per-batch child and offset buffers, so they exercise the convertRow and
+     * convertMap dispatch rather than the scalar path the other cases cover.
+     */
+    @Test
+    public void testStructAndMapCrossRecordBatches() throws Exception {
+        List<Integer> expectedStructIds = Arrays.asList(100, 101, 200, 201, 202);
+        List<String> expectedStructLabels = Arrays.asList("a0", "a1", "b0", "b1", "b2");
+        // Same {2, 0, 3} shape as the scalar case, so the empty middle batch exercises the
+        // continue branch of readArrow() for the complex dispatch too.
+        int[] batchPlan = {2, 0, 3};
+
+        byte[] payload;
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+            StructVector structVector = StructVector.empty("multi_batch_struct", allocator);
+            MapVector mapVector = MapVector.empty("multi_batch_map", allocator, false);
+            List<FieldVector> vectors = Arrays.asList(structVector, mapVector);
+
+            // Both children must be written once before the schema is derived, for the same
+            // reason the list column is: an untouched complex vector has no child type yet.
+            fillComplexBatch(
+                    structVector,
+                    mapVector,
+                    allocator,
+                    0,
+                    batchPlan[0],
+                    expectedStructIds,
+                    expectedStructLabels);
+            List<Field> fields =
+                    vectors.stream().map(FieldVector::getField).collect(Collectors.toList());
+
+            try (VectorSchemaRoot complexRoot =
+                            new VectorSchemaRoot(new Schema(fields), vectors, batchPlan[0]);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(
+                                    complexRoot,
+                                    /*DictionaryProvider=*/ null,
+                                    Channels.newChannel(out))) {
+                writer.start();
+                int written = 0;
+                for (int batchIndex = 0; batchIndex < batchPlan.length; batchIndex++) {
+                    int batchSize = batchPlan[batchIndex];
+                    if (batchIndex > 0) {
+                        fillComplexBatch(
+                                structVector,
+                                mapVector,
+                                allocator,
+                                written,
+                                batchSize,
+                                expectedStructIds,
+                                expectedStructLabels);
+                    }
+                    complexRoot.setRowCount(batchSize);
+                    writer.writeBatch();
+                    written += batchSize;
+                }
+                writer.end();
+                out.flush();
+                payload = out.toByteArray();
+            }
+        }
+
+        SeaTunnelRowType structType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "label"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"multi_batch_struct", "multi_batch_map"},
+                        new SeaTunnelDataType[] {
+                            structType, new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+
+        List<Object> actualStructs = new ArrayList<>();
+        List<Object> actualMaps = new ArrayList<>();
+        int readRowCount;
+        try (ArrowToSeatunnelRowReader reader =
+                new ArrowToSeatunnelRowReader(payload, rowType).readArrow()) {
+            while (reader.hasNext()) {
+                SeaTunnelRow row = reader.next();
+                actualStructs.add(row.getField(0));
+                actualMaps.add(row.getField(1));
+            }
+            readRowCount = reader.getReadRowCount();
+        }
+
+        Assertions.assertEquals(
+                expectedStructIds.size(),
+                actualStructs.size(),
+                "every struct row of every batch must be surfaced");
+        for (int i = 0; i < expectedStructIds.size(); i++) {
+            // An out-of-range vector read comes back as null rather than throwing, so assert
+            // presence first: that is the regression, and it should not surface as a bare NPE.
+            Assertions.assertNotNull(
+                    actualStructs.get(i),
+                    "struct at absolute row " + i + " must be read from its own batch, not null");
+            // convertRow hands the struct back as a field-name keyed map, not a SeaTunnelRow.
+            Map<?, ?> struct = (Map<?, ?>) actualStructs.get(i);
+            Assertions.assertEquals(
+                    expectedStructIds.get(i),
+                    struct.get("id"),
+                    "struct id at absolute row " + i + " must come from its own batch");
+            Assertions.assertEquals(
+                    expectedStructLabels.get(i),
+                    struct.get("label"),
+                    "struct label at absolute row " + i + " must come from its own batch");
+        }
+        for (int i = 0; i < expectedStructIds.size(); i++) {
+            Assertions.assertNotNull(
+                    actualMaps.get(i),
+                    "map at absolute row " + i + " must be read from its own batch, not null");
+            Map<?, ?> map = (Map<?, ?>) actualMaps.get(i);
+            Assertions.assertEquals(
+                    Collections.singletonMap("k" + i, i),
+                    map,
+                    "map entry at absolute row " + i + " must come from its own batch");
+        }
+        Assertions.assertEquals(
+                expectedStructIds.size(),
+                readRowCount,
+                "getReadRowCount must count every row surfaced across all batches");
+    }
+
+    /** Replaces the contents of the struct and map vectors with one batch of rows. */
+    private static void fillComplexBatch(
+            StructVector structVector,
+            MapVector mapVector,
+            BufferAllocator allocator,
+            int firstRow,
+            int batchSize,
+            List<Integer> structIds,
+            List<String> structLabels) {
+        structVector.reset();
+        mapVector.reset();
+        NullableStructWriter structWriter = structVector.getWriter();
+        UnionMapWriter mapWriter = mapVector.getWriter();
+        for (int i = 0; i < batchSize; i++) {
+            int row = firstRow + i;
+            structWriter.setPosition(i);
+            structWriter.start();
+            structWriter.integer("id").writeInt(structIds.get(row));
+            byte[] label = structLabels.get(row).getBytes(StandardCharsets.UTF_8);
+            ArrowBuf labelBuffer = allocator.buffer(label.length);
+            labelBuffer.writeBytes(label);
+            structWriter.varChar("label").writeVarChar(0, label.length, labelBuffer);
+            labelBuffer.close();
+            structWriter.end();
+
+            mapWriter.setPosition(i);
+            mapWriter.startMap();
+            mapWriter.startEntry();
+            byte[] key = ("k" + row).getBytes(StandardCharsets.UTF_8);
+            ArrowBuf keyBuffer = allocator.buffer(key.length);
+            keyBuffer.writeBytes(key);
+            mapWriter.key().varChar().writeVarChar(0, key.length, keyBuffer);
+            keyBuffer.close();
+            mapWriter.value().integer().writeInt(row);
+            mapWriter.endEntry();
+            mapWriter.endMap();
+        }
     }
 
     /** Replaces the contents of the four vectors with one batch of {@code batchSize} rows. */
