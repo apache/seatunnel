@@ -6,9 +6,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ## 支持的doris版本
 
-- exactly-once & cdc 支持  `Doris version is >= 1.1.x`
-- 支持数组数据类型 `Doris version is >= 1.2.x`
-- 将支持Map数据类型 `Doris version is 2.x`
+- 精确一次与变更数据捕获支持：`Doris version is >= 1.1.x`
+- 数组类型支持：`Doris version is >= 1.2.x`
+- Map 类型支持：`Doris version is 2.x`
 
 ## 引擎支持
 
@@ -19,7 +19,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -48,10 +50,11 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | password                       | String  | Yes      | -                            | `Doris` 密码                                                                                                                                             |
 | database                       | String  | Yes      | -                            | `Doris`数据库名称 , 使用 `${database_name}` 表示上游数据库名称。                                                                                                        |
 | table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
-| table.identifier               | String  | Yes      | -                            | `Doris` 表的名称，2.3.5 版本后将弃用，请使用 `database` 和 `table` 代替。                                                                                                 |
+| table.identifier               | String  | No       | -                            | 已弃用的表标识，建议改用 `database` 和 `table`。                                                                                                                        |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
 | sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
-| sink.enable-delete             | bool    | No       | -                            | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
+| sink.visibility-timeout-ms     | long    | No       | 300000                       | 2PC stream-load 提交成功后，等待该 load 在 Doris FE 上达到 VISIBLE 状态的最大毫秒数。ABORTED 和 CANCELLED 仍视为终态失败。必须大于 0。 |
+| sink.enable-delete             | bool    | No       | false                        | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
 | sink.check-interval            | int     | No       | 10000                        | 加载过程中检查异常时间间隔。                                                                                                                                        |
 | sink.max-retries               | int     | No       | 3                            | 向数据库写入记录失败时的最大重试次数。                                                                                                                                   |
 | sink.buffer-size               | int     | No       | 256 * 1024                   | 用于缓存stream load数据的缓冲区大小。                                                                                                                              |
@@ -59,11 +62,12 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
 | case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
+| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。 |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
-| doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                      |
+| doris.config                   | map     | yes      | -                            | 传递给 Doris Stream Load 的数据描述参数。常用参数包括 `format`、`read_json_by_line`、`column_separator`、`row_delimiter` 和 `partitions`。                                                   |
 
 ## Redirect 行为说明
 
@@ -78,6 +82,10 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 
 这种“数据面走 BE、控制面走 FE”的混合路径可以在保持 FE 控制路径的同时，绕过不稳定的 FE redirect 场景。
 
+### 数据可见性等待（2PC）
+
+2PC stream load 提交完成后，Doris 可能先报告事务为 COMMITTED，而数据尚未对查询可见（VISIBLE）。当 `sink.enable-2pc=true` 时，提交阶段会携带 stream load 标签轮询 FE 的 `get_load_state` 接口，等待 load 达到 VISIBLE 状态后才完成 checkpoint；`ABORTED` 和 `CANCELLED` 会被视为终态失败。可通过 `sink.visibility-timeout-ms` 限制该等待时长（默认 300000 毫秒）。轮询循环和底层控制类 HTTP 请求都有超时上限，FE 无响应时不会无限阻塞 checkpoint 完成。
+
 ### schema_save_mode [Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
@@ -91,7 +99,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  
-`DROP_DATA`： 保留数据库结构并删除数据。  
+`DROP_DATA`： 保留数据库结构并删除数据。默认清空整个目标表。当 `doris.config.partitions` 配置了以逗号分隔的 Doris 正式分区名称时，只清空这些分区，后续 Stream Load 也只写入相同分区。多表任务中的每个目标表都必须包含这些分区；分区不存在时 Doris 会拒绝清理。不支持分区值或临时分区。
 `APPEND_DATA`：保留数据库结构，保留数据。  
 `CUSTOM_PROCESSING`：用户自定义处理。  
 `ERROR_WHEN_DATA_EXISTS`：有数据时报错。
@@ -169,6 +177,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
 | JSON           | STRING                                  |
+| VARIANT        | STRING                                  |
+| IPV4<br/>IPV6  | STRING                                  |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |
@@ -178,6 +188,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 支持的格式包括 CSV 和 JSON。
 
+当从 SeaTunnel `STRING` 字段写入 Doris `VARIANT` 列时，字段值需要是合法的 JSON 文档。
+
 ## 调优指南
 适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。
 
@@ -186,6 +198,33 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发提交操作。因此，需要选择一个合适的检查点间隔。
 
 此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
+
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持，Spark 和 Flink 不会注入 `FlushSignal`。在 Zeta 中，可以在 `env` 块配置 `sink.flush.interval`，使当前 Stream Load 在达到 `doris.batch.size` 之前也能定时完成。
+
+仅当 `sink.enable-2pc=false` 时才会注册定时刷新。`sink.enable-2pc=true` 时会明确禁用该能力，因为在 checkpoint 之间完成当前 Stream Load 并开启新 Stream Load 会破坏 2PC 事务边界和精确一次保证。因此，首版定时刷新仅提供至少一次语义。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.label-prefix = "timer-flush"
+    sink.enable-2pc = false
+    doris.batch.size = 10000
+  }
+}
+```
 
 ## `307 Temporary Redirect` 排查
 
@@ -435,6 +474,62 @@ sink {
     }
 }
 ```
+
+## 常见问题
+
+### Doris Sink 支持自动建表吗？
+
+支持。精确行为、默认值以及 DDL 自定义入口，请以上面的 `schema_save_mode` 和
+`save_mode_create_template` 小节为准。
+
+### Doris Sink 如何实现精确一次（exactly-once）？
+
+Doris Sink 通过 Stream Load 两阶段提交（2PC）实现 exactly-once：
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突。
+
+### 为什么出现"Label already exists"错误？
+
+Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重启任务，可能复用相同的 label 前缀导致冲突。解决方法：
+
+- 在 `sink.label-prefix` 中加入时间戳或唯一标识，确保每次重启后 label 唯一。
+- 重启前在 Doris 中中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
+
+### Doris Sink 是否支持 CDC 的 DELETE 传播？
+
+支持。设置 `sink.enable-delete = "true"` 即可将 CDC 数据源（如 MySQL CDC）的 DELETE 事件传播到 Doris。目标表必须使用 Doris 的 **Unique Key** 模型。
+
+### Doris 列名是否区分大小写？
+
+请以上面的大小写敏感示例为准。如果上游字段名与 Doris 目标 schema 仍然对不上，应该在 sink 之前先
+做字段规范化，或直接调整目标 schema，而不是依赖并不存在的 `column_mapping` 选项。
+
+### Doris Stream Load 使用什么数据格式？
+
+默认使用 JSON 格式，可按需显式配置：
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+也支持 CSV 格式，但需要仔细配置分隔符。
 
 ## 变更日志
 

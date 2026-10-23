@@ -200,7 +200,7 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             String scrollTime,
             int scrollSize) {
-        return searchByScroll(index, source, query, scrollTime, scrollSize, null);
+        return searchByScroll(index, source, query, scrollTime, scrollSize, null, null, null);
     }
 
     /**
@@ -219,7 +219,9 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             String scrollTime,
             int scrollSize,
-            Map<String, Object> runtimeFields) {
+            Map<String, Object> runtimeFields,
+            Integer sliceId,
+            Integer sliceMax) {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
@@ -232,6 +234,12 @@ public class EsRestClient implements Closeable {
             param.put("fields", new ArrayList<>(runtimeFields.keySet()));
         }
 
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            param.put("slice", slice);
+        }
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
     }
@@ -333,6 +341,48 @@ public class EsRestClient implements Closeable {
             }
         } catch (Exception ex) {
             log.warn("Failed to clear scroll ID: " + scrollId, ex);
+            return false;
+        }
+    }
+
+    /**
+     * Close SQL cursor to release server-side resources.
+     *
+     * @param cursor The SQL cursor to close
+     * @return True if the cursor was successfully closed
+     */
+    public boolean closeSqlCursor(String cursor) {
+        if (StringUtils.isEmpty(cursor)) {
+            log.debug("SQL cursor is empty; skip closing.");
+            return false;
+        }
+
+        String endpoint = "/_sql/close";
+        Request request = new Request("POST", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("cursor", cursor);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                log.warn("POST {} response null for cursor: {}", endpoint, cursor);
+                return false;
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("succeeded").asBoolean();
+            } else {
+                log.warn(
+                        "POST {} response status code={} for cursor: {}",
+                        endpoint,
+                        response.getStatusLine().getStatusCode(),
+                        cursor);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to close SQL cursor: {}", cursor, ex);
             return false;
         }
     }
@@ -951,8 +1001,11 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             int batchSize,
             Object[] searchAfter,
-            long keepAlive) {
-        return searchWithPointInTime(pitId, source, query, batchSize, searchAfter, keepAlive, null);
+            long keepAlive,
+            Integer sliceId,
+            Integer sliceMax) {
+        return searchWithPointInTime(
+                pitId, source, query, batchSize, searchAfter, keepAlive, null, sliceId, sliceMax);
     }
 
     /**
@@ -974,7 +1027,9 @@ public class EsRestClient implements Closeable {
             int batchSize,
             Object[] searchAfter,
             long keepAlive,
-            Map<String, Object> runtimeFields) {
+            Map<String, Object> runtimeFields,
+            Integer sliceId,
+            Integer sliceMax) {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("size", batchSize);
@@ -1001,6 +1056,12 @@ public class EsRestClient implements Closeable {
         // Add search_after if provided
         if (searchAfter != null && searchAfter.length > 0) {
             requestBody.put("search_after", searchAfter);
+        }
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            requestBody.put("slice", slice);
         }
 
         String endpoint = "/_search";
@@ -1091,7 +1152,7 @@ public class EsRestClient implements Closeable {
         String updatedPitId = rootNode.has("pit_id") ? rootNode.get("pit_id").asText() : pitId;
 
         // Determine if there are more results
-        boolean hasMore = docs.size() > 0 && totalHits > 0 && docs.size() < totalHits;
+        boolean hasMore = !docs.isEmpty();
 
         return new PointInTimeResult(updatedPitId, docs, totalHits, searchAfter, hasMore);
     }

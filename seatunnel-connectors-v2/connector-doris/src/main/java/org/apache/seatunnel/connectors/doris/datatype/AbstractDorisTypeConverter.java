@@ -75,12 +75,18 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
     public static final String DORIS_JSON = "JSON";
     public static final String DORIS_JSONB = "JSONB";
+    public static final String DORIS_VARIANT = "VARIANT";
+    public static final String DORIS_IPV4 = "IPV4";
+    public static final String DORIS_IPV6 = "IPV6";
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;
 
     public static final Integer DEFAULT_SCALE = 0;
     public static final Integer MAX_SCALE = 10;
+
+    /** Maximum decimal scale supported by Doris 1.x, whose DECIMAL is DecimalV2 (max 27, 9). */
+    public static final Integer MAX_DECIMALV2_SCALE = 9;
 
     public static final Integer MAX_DATETIME_SCALE = 6;
 
@@ -92,6 +98,10 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final long POWER_2_8 = (long) Math.pow(2, 8);
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long MAX_STRING_LENGTH = 2147483643;
+    // dotted-decimal IPv4 text, e.g. 255.255.255.255
+    public static final long MAX_IPV4_STRING_LENGTH = 15;
+    // full-form IPv6 text, e.g. ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+    public static final long MAX_IPV6_STRING_LENGTH = 39;
 
     protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
             BasicTypeDefine typeDefine, boolean caseSensitive) {
@@ -184,8 +194,17 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             case DORIS_STRING:
             case DORIS_JSON:
+            case DORIS_VARIANT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
+                break;
+            case DORIS_IPV4:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(MAX_IPV4_STRING_LENGTH);
+                break;
+            case DORIS_IPV6:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(MAX_IPV6_STRING_LENGTH);
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
@@ -238,6 +257,18 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
         throw CommonError.convertToConnectorTypeError(
                 IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
+    }
+
+    /**
+     * Maximum decimal scale accepted by the target Doris version.
+     *
+     * <p>DECIMALV3 only requires the scale to not exceed the precision, which the caller already
+     * enforces, so the default imposes no further limit. Doris 1.x is stricter and overrides this.
+     *
+     * @return the largest scale that may be emitted for a decimal column
+     */
+    protected int getMaxDecimalScale() {
+        return MAX_PRECISION.intValue();
     }
 
     protected BasicTypeDefine sampleReconvert(
@@ -294,7 +325,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 int scale = decimalType.getScale();
                 if (precision <= 0) {
                     precision = MAX_PRECISION.intValue();
-                    scale = MAX_SCALE;
+                    scale = Math.min(MAX_SCALE, getMaxDecimalScale());
                     log.warn(
                             "The decimal column {} type decimal({},{}) is out of range, "
                                     + "which is precision less than 0, "
@@ -316,6 +347,20 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                     builder.dataType(DORIS_VARCHAR);
                     builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 200));
                     break;
+                }
+
+                if (scale > getMaxDecimalScale()) {
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum scale of {} supported by this "
+                                    + "Doris version, it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            getMaxDecimalScale(),
+                            precision,
+                            getMaxDecimalScale());
+                    scale = getMaxDecimalScale();
                 }
 
                 if (scale < 0) {
@@ -352,6 +397,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.length(8L);
                 builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 8));
                 builder.dataType(DORIS_VARCHAR);
+                break;
+            case TIMESTAMP_TZ:
+                // Doris has no timezone-aware datetime type; store as DATETIME (wall-clock value)
+                builder.columnType(String.format("%s(%s)", DORIS_DATETIME, MAX_DATETIME_SCALE));
+                builder.dataType(DORIS_DATETIME);
+                builder.scale(MAX_DATETIME_SCALE);
                 break;
             case ARRAY:
                 SeaTunnelDataType<?> dataType = column.getDataType();
@@ -426,6 +477,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(DORIS_DATEV2_ARRAY);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 builder.columnType(DORIS_DATETIMEV2_ARRAY);
                 builder.dataType(DORIS_DATETIMEV2_ARRAY);
                 break;

@@ -37,7 +37,11 @@ class AesGcmEncryptorTest {
     private AesGcmEncryptor encryptor;
 
     private static final String TEST_KEY =
-            "base64:" + Base64.getEncoder().encodeToString("1234567890123456".getBytes());
+            "base64:"
+                    + Base64.getEncoder()
+                            .encodeToString(
+                                    "1234567890123456"
+                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
     @BeforeEach
     void setUp() {
@@ -101,7 +105,11 @@ class AesGcmEncryptorTest {
         AesGcmEncryptor another = new AesGcmEncryptor();
 
         String otherKey =
-                "base64:" + Base64.getEncoder().encodeToString("abcdefabcdefabcd".getBytes());
+                "base64:"
+                        + Base64.getEncoder()
+                                .encodeToString(
+                                        "abcdefabcdefabcd"
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         another.init(otherKey);
 

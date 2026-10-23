@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
@@ -80,6 +81,8 @@ public class PhysicalPlan {
 
     private JobMaster jobMaster;
 
+    private EngineConfig engineConfig;
+
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new HashMap<>();
 
@@ -133,6 +136,7 @@ public class PhysicalPlan {
     public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
         pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
+        this.engineConfig = jobMaster.getEngineConfig();
     }
 
     public PassiveCompletableFuture<JobResult> initStateFuture() {
@@ -219,6 +223,25 @@ public class PhysicalPlan {
             return;
         }
         updateJobState(JobStatus.DOING_SAVEPOINT);
+    }
+
+    /**
+     * Stop every pipeline after a savepoint failure while the job is in {@link
+     * JobStatus#DOING_SAVEPOINT}.
+     *
+     * <p>Some pipelines may already have completed the savepoint and stopped when another pipeline
+     * fails. Reverting only the global job state to {@link JobStatus#RUNNING} would leave those
+     * completed pipelines stopped while the job appears to be running. The same fallback used by a
+     * stop request during {@code DOING_SAVEPOINT} finishes completed pipelines and force-stops the
+     * rest so the job reaches one terminal state.
+     */
+    public synchronized void savepointFailed() {
+        if (getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+            log.warn(
+                    "{} savepoint failed, stop all pipelines with checkpoint fallback",
+                    jobFullName);
+            stopJob();
+        }
     }
 
     public void stopJob() {
@@ -314,6 +337,8 @@ public class PhysicalPlan {
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
             updateStateInfo(current, targetState);
+            reportJobStateEvent(targetState);
+
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -388,17 +413,28 @@ public class PhysicalPlan {
             case FINISHED:
                 stopJobStateProcess();
                 jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
+        }
+    }
+
+    private void reportJobStateEvent(JobStatus jobStatus) {
+        try {
+            if (jobStatus.isEndState()
+                    || (this.engineConfig != null
+                            && this.engineConfig.isReportNonTerminalJobState())) {
                 jobMaster
                         .getCoordinatorService()
                         .getEventProcessor()
                         .process(
                                 new JobStateEvent(
-                                        jobImmutableInformation.getJobId(),
+                                        jobId,
                                         jobImmutableInformation.getJobConfig().getName(),
                                         jobStatus));
-                return;
-            default:
-                throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to report job {} state event", jobId, e);
         }
     }
 

@@ -69,10 +69,6 @@ public class CosFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        FileBaseSourceOptions.SHEET_NAME)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -95,12 +91,31 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.EXCEL_USE_HEADER_LINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,
                         FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.PDF,
+                        FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
+                .optional(
+                        FileBaseSourceOptions.READ_PARTITIONS,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_START,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_END,
+                        FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME)
+                .optional(
+                        FileBaseSourceOptions.CSV_USE_HEADER_LINE,
+                        FileBaseSourceOptions.BINARY_CHUNK_SIZE,
+                        FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE)
                 .build();
     }
 

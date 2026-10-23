@@ -358,9 +358,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     public void alterTable(
             Identifier identifier, SchemaChange schemaChange, boolean ignoreIfNotExists) {
         try {
-            catalog.alterTable(identifier, schemaChange, true);
+            catalog.alterTable(identifier, schemaChange, ignoreIfNotExists);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
-            throw new CatalogException("TableNotExistException: {}", e);
+            throw new TableNotExistException(
+                    this.catalogName,
+                    TablePath.of(identifier.getDatabaseName(), identifier.getTableName()),
+                    e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
             throw new CatalogException("ColumnAlreadyExistException: {}", e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
@@ -371,9 +374,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     public void alterTable(
             Identifier identifier, List<SchemaChange> schemaChanges, boolean ignoreIfNotExists) {
         try {
-            catalog.alterTable(identifier, schemaChanges, true);
+            catalog.alterTable(identifier, schemaChanges, ignoreIfNotExists);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
-            throw new CatalogException("TableNotExistException: {}", e);
+            throw new TableNotExistException(
+                    this.catalogName,
+                    TablePath.of(identifier.getDatabaseName(), identifier.getTableName()),
+                    e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
             throw new CatalogException("ColumnAlreadyExistException: {}", e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {

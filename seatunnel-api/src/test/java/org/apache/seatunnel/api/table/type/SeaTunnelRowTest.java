@@ -28,7 +28,114 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/** Verifies row copy and equality behavior after stain trace metadata was added to row options. */
 public class SeaTunnelRowTest {
+
+    @Test
+    void testGetOptionsOrNull() {
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        Assertions.assertNull(row.getOptionsOrNull());
+        row.getOptions().put("k", "v");
+        Assertions.assertNotNull(row.getOptionsOrNull());
+        Assertions.assertEquals("v", row.getOptionsOrNull().get("k"));
+    }
+
+    @Test
+    void testToStringShowsOptionsAndTraceFlag() {
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        String s1 = row.toString();
+        Assertions.assertFalse(s1.contains("tracePayloadPresent=true"));
+
+        row.getOptions().put("__st_trace_payload", new byte[] {1});
+        String s2 = row.toString();
+        Assertions.assertTrue(s2.contains("tracePayloadPresent=true"));
+    }
+
+    @Test
+    void testEqualsAndHashCodeConsiderOptions() {
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1, "a"});
+        row1.setTableId("t");
+
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {1, "a"});
+        row2.setTableId("t");
+
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        row2.setOptions(new HashMap<>());
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        row2.getOptions().put("k", "v");
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+    }
+
+    @Test
+    void testEqualsAndHashCodeIgnoreTracePayloadByteArray() {
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1, "a"});
+        row1.setTableId("t");
+        row1.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {1, "a"});
+        row2.setTableId("t");
+        row2.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {1, "a"});
+        row3.setTableId("t");
+        Assertions.assertEquals(row1, row3);
+        Assertions.assertEquals(row1.hashCode(), row3.hashCode());
+    }
+
+    @Test
+    void testHasSameTracePayload() {
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1, "a"});
+        row1.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {1, "a"});
+        row2.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {1, "a"});
+        row3.getOptions().put("__st_trace_payload", new byte[] {4, 5, 6});
+
+        SeaTunnelRow row4 = new SeaTunnelRow(new Object[] {1, "a"});
+
+        Assertions.assertTrue(row1.hasSameTracePayload(row2));
+        Assertions.assertFalse(row1.hasSameTracePayload(row3));
+        Assertions.assertFalse(row1.hasSameTracePayload(row4));
+        Assertions.assertFalse(row1.hasSameTracePayload(null));
+    }
+
+    @Test
+    void testCopyDoesNotAllocateOptionsWhenSourceOptionsMissing() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "a"});
+
+        SeaTunnelRow copied = row.copy();
+
+        Assertions.assertNull(row.getOptionsOrNull());
+        Assertions.assertNull(copied.getOptionsOrNull());
+    }
+
+    @Test
+    void testCopyUsesCopyOnWriteOptions() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "a"});
+        Map<String, Object> options = new HashMap<>();
+        options.put("business", "value");
+        row.setOptions(options);
+
+        SeaTunnelRow copied = row.copy();
+        copied.getOptions().put("__st_trace_payload", new byte[] {1});
+
+        Assertions.assertSame(options, row.getOptionsOrNull());
+        Assertions.assertNotSame(row.getOptionsOrNull(), copied.getOptionsOrNull());
+        Assertions.assertEquals("value", row.getOptionsOrNull().get("business"));
+        Assertions.assertNull(row.getOptionsOrNull().get("__st_trace_payload"));
+        Assertions.assertArrayEquals(
+                new byte[] {1}, (byte[]) copied.getOptionsOrNull().get("__st_trace_payload"));
+    }
 
     @Test
     void testForRowSize() {
@@ -140,5 +247,28 @@ public class SeaTunnelRowTest {
         Map<String, String> map = Collections.singletonMap("key", "value");
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
         Assertions.assertEquals(8, row.getBytesSize());
+    }
+
+    @Test
+    void testRowTypeCopiesConstructorArrays() {
+        String[] fieldNames = new String[] {"id", "name"};
+        SeaTunnelDataType<?>[] fieldTypes =
+                new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.STRING_TYPE};
+        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+
+        Assertions.assertEquals(0, rowType.indexOf("id", false));
+        Assertions.assertEquals(1, rowType.indexOf("name", false));
+
+        // Mutating the arrays passed to the constructor must not change the row type.
+        fieldNames[0] = "name";
+        fieldNames[1] = "id";
+        fieldTypes[0] = BasicType.STRING_TYPE;
+        fieldTypes[1] = BasicType.INT_TYPE;
+
+        Assertions.assertEquals(0, rowType.indexOf("id", false));
+        Assertions.assertEquals(1, rowType.indexOf("name", false));
+        Assertions.assertEquals(BasicType.INT_TYPE, rowType.getFieldType(0));
+        Assertions.assertEquals(BasicType.STRING_TYPE, rowType.getFieldType(1));
+        Assertions.assertArrayEquals(new String[] {"id", "name"}, rowType.getFieldNames());
     }
 }

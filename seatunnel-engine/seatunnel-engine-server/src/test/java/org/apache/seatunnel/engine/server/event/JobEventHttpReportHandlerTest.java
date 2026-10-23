@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+/** Covers buffering and shutdown behavior for HTTP-based job event reporting. */
 public class JobEventHttpReportHandlerTest {
     private static final String ringBufferName = "test";
     private static final int capacity = 1000;
@@ -125,10 +126,44 @@ public class JobEventHttpReportHandlerTest {
         }
     }
 
+    @Test
+    public void testCloseWhenHazelcastNotActive() {
+        String closeTestRingBufferName = "close-test";
+        Config config = new Config();
+        config.setRingbufferConfigs(
+                Collections.singletonMap(
+                        closeTestRingBufferName,
+                        new RingbufferConfig(closeTestRingBufferName)
+                                .setCapacity(capacity)
+                                .setBackupCount(0)
+                                .setAsyncBackupCount(1)
+                                .setTimeToLiveSeconds(0)
+                                .setRingbufferStoreConfig(
+                                        new RingbufferStoreConfig().setEnabled(false))));
+
+        HazelcastInstance localHazelcast = Hazelcast.newHazelcastInstance(config);
+        JobEventHttpReportHandler handler = null;
+        try {
+            Ringbuffer ringbuffer = localHazelcast.getRingbuffer(closeTestRingBufferName);
+            handler =
+                    new JobEventHttpReportHandler(
+                            mockWebServer.url("/api").toString(),
+                            Duration.ofSeconds(1),
+                            ringbuffer);
+        } finally {
+            localHazelcast.shutdown();
+        }
+
+        Assertions.assertNotNull(handler);
+        JobEventHttpReportHandler finalHandler = handler;
+        Assertions.assertDoesNotThrow(finalHandler::close);
+    }
+
     @Getter
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
+    /** Minimal event implementation used to exercise the handler's buffering logic. */
     static class TestEvent implements Event {
         private long createdTime;
         private String jobId;

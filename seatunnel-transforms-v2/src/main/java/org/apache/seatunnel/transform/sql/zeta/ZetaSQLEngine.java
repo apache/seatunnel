@@ -73,6 +73,13 @@ public class ZetaSQLEngine implements SQLEngine {
     private ZetaUDFContext udfContext;
 
     private Integer allColumnsCount = null;
+    private boolean udfOpened;
+
+    /**
+     * Field indexes for the common {@code SELECT source_column AS target_column} projection.
+     * Keeping this plan avoids evaluating a full SQL expression tree for every row.
+     */
+    @Nullable private int[] directProjectionIndexes;
 
     public ZetaSQLEngine() {}
 
@@ -95,7 +102,6 @@ public class ZetaSQLEngine implements SQLEngine {
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
-        openUDFs();
     }
 
     protected List<ZetaUDF> loadUDFs() {
@@ -111,6 +117,14 @@ public class ZetaSQLEngine implements SQLEngine {
             try {
                 udf.open();
             } catch (Exception e) {
+                try {
+                    udf.close();
+                } catch (Exception closeException) {
+                    log.warn(
+                            "Best-effort close failed for udf {}",
+                            udf.functionName(),
+                            closeException);
+                }
                 closeUDFs(i - 1);
                 log.error("Open udf {} failed", udf.functionName(), e);
                 throw new TransformException(
@@ -121,17 +135,68 @@ public class ZetaSQLEngine implements SQLEngine {
         }
     }
 
+    private void ensureUdfOpened() {
+        if (udfOpened || CollectionUtils.isEmpty(udfList)) {
+            return;
+        }
+        synchronized (this) {
+            if (udfOpened) {
+                return;
+            }
+            openUDFs();
+            udfOpened = true;
+        }
+    }
+
     private void parseSQL() {
         try {
             Statement statement = CCJSqlParserUtil.parse(sql);
             // validate SQL statement
             validateSQL(statement);
             this.selectBody = (PlainSelect) ((Select) statement).getSelectBody();
+            prepareDirectProjection();
         } catch (JSQLParserException e) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL parse failed: %s, cause: %s", sql, e.getMessage()));
         }
+    }
+
+    /**
+     * Enables the fast path only for plain column projections. Any expression that needs the
+     * original evaluator, such as literals, nested fields, functions, or wildcards, leaves this
+     * disabled.
+     */
+    private void prepareDirectProjection() {
+        directProjectionIndexes = null;
+        if (selectBody.getWhere() != null
+                || selectBody.getHaving() != null
+                || selectBody.getDistinct() != null) {
+            return;
+        }
+
+        List<SelectItem<?>> selectItems = selectBody.getSelectItems();
+        int[] projectionIndexes = new int[selectItems.size()];
+        for (int i = 0; i < selectItems.size(); i++) {
+            Expression expression = selectItems.get(i).getExpression();
+            if (!(expression instanceof Column)) {
+                return;
+            }
+
+            String columnName = ((Column) expression).getColumnName();
+            int index = inputRowType.indexOf(columnName, false);
+            if (index == -1
+                    && columnName.startsWith(ESCAPE_IDENTIFIER)
+                    && columnName.endsWith(ESCAPE_IDENTIFIER)) {
+                columnName = columnName.substring(1, columnName.length() - 1);
+                index = inputRowType.indexOf(columnName, false);
+            }
+            if (index == -1) {
+                return;
+            }
+            projectionIndexes[i] = index;
+        }
+        directProjectionIndexes = projectionIndexes;
     }
 
     private void validateSQL(Statement statement) {
@@ -262,6 +327,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outRowType) {
+        ensureUdfOpened();
         // ------Physical Query Plan Execution------
         // Scan Table
         Object[] inputFields = scanTable(inputRow);
@@ -298,6 +364,20 @@ public class ZetaSQLEngine implements SQLEngine {
     }
 
     private Object[] project(Object[] inputFields) {
+        if (directProjectionIndexes != null) {
+            Object[] fields = new Object[directProjectionIndexes.length];
+            List<SelectItem<?>> selectItems = selectBody.getSelectItems();
+            for (int i = 0; i < directProjectionIndexes.length; i++) {
+                try {
+                    fields[i] = inputFields[directProjectionIndexes[i]];
+                } catch (Exception e) {
+                    throw TransformCommonError.sqlExpressionError(
+                            selectItems.get(i).getExpression().toString(), e);
+                }
+            }
+            return fields;
+        }
+
         List<SelectItem<?>> selectItems = selectBody.getSelectItems();
 
         int columnsSize = countColumnsSize(selectItems);
@@ -343,10 +423,11 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public void close() {
-        if (udfList == null || udfList.isEmpty()) {
+        if (CollectionUtils.isEmpty(udfList) || !udfOpened) {
             return;
         }
         closeUDFs(udfList.size() - 1);
+        udfOpened = false;
     }
 
     private void closeUDFs(int lastIndex) {

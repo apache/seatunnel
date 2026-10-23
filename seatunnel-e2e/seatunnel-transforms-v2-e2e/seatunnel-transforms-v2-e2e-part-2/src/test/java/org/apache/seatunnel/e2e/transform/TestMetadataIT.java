@@ -33,4 +33,20 @@ public class TestMetadataIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/metadata_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testMetadataSingleTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/metadata_single_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testMetadataTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/metadata_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

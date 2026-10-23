@@ -100,11 +100,6 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -138,10 +133,9 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
                         .withPrivilegedMode(true); // Set privileged mode
         // Mount cgroup volume
         container.addFileSystemBind("/sys/fs/cgroup", "/sys/fs/cgroup", BindMode.READ_ONLY);
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", CLOUDBERRY_CONTAINER_PORT, CLOUDBERRY_CONTAINER_PORT)));
+        container.addExposedPort(CLOUDBERRY_CONTAINER_PORT);
+        // The database is started by beforeStartUP(), so its port cannot be ready yet.
+        container.setWaitStrategy(null);
         return container;
     }
 
@@ -159,8 +153,11 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
     protected void beforeStartUP() {
         log.info("Setting up Apache Cloudberry...");
         try {
-            // Wait for container to start
-            Thread.sleep(5000);
+            given().ignoreExceptions()
+                    .await()
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> dbServer != null && dbServer.isRunning());
             // Switch to gpadmin user and start database
             Container.ExecResult execResult =
                     dbServer.execInContainer("bash", "-c", "su - gpadmin -c 'gpstart -a'");
@@ -178,7 +175,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
                             "bash", "-c", "su - gpadmin -c 'psql -c \"SELECT version();\"'");
             log.info("Apache Cloudberry version: {}", execResult.getStdout());
 
-        } catch (InterruptedException | IOException e) {
+        } catch (IOException | InterruptedException e) {
             log.error("Failed to initialize Apache Cloudberry", e);
             throw new RuntimeException("Failed to initialize Apache Cloudberry", e);
         }
@@ -190,6 +187,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
         dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
         Startables.deepStart(Stream.of(dbServer)).join();
         jdbcCase = getJdbcCase();
+        updateJdbcCaseWithMappedPort();
         beforeStartUP();
         // Increase retry count and timeout, CloudberryDB might need more time to start
         given().ignoreExceptions()

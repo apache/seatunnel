@@ -101,6 +101,10 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
         return isSendNoMoreElementEvent.get();
     }
 
+    public void resetNoMoreElementEvent() {
+        isSendNoMoreElementEvent.set(false);
+    }
+
     @Override
     public EventListener getEventListener() {
         return eventListener;

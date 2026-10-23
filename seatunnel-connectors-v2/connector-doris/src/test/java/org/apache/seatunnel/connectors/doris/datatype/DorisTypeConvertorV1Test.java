@@ -318,6 +318,21 @@ public class DorisTypeConvertorV1Test {
     }
 
     @Test
+    public void testConvertVariant() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("variant")
+                        .dataType("variant")
+                        .build();
+        Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
@@ -474,6 +489,8 @@ public class DorisTypeConvertorV1Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
+        // Doris 1.x decimals are DecimalV2, so the fallback scale is capped at 9 rather than
+        // MAX_SCALE.
         BasicTypeDefine<?> typeDefine = DorisTypeConverterV1.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
@@ -481,7 +498,7 @@ public class DorisTypeConvertorV1Test {
                         "%s(%s,%s)",
                         DorisTypeConverterV1.DORIS_DECIMALV3,
                         DorisTypeConverterV1.MAX_PRECISION,
-                        DorisTypeConverterV1.MAX_SCALE),
+                        9),
                 typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV1.DORIS_DECIMALV3, typeDefine.getDataType());
 
@@ -502,6 +519,18 @@ public class DorisTypeConvertorV1Test {
         Assertions.assertEquals(
                 String.format("%s(%s)", DorisTypeConverterV1.DORIS_VARCHAR, 200),
                 typeDefine.getColumnType());
+
+        // A scale above 9 is valid for DECIMALV3 but rejected by Doris 1.x with
+        // "Scale of decimal must between 0 and 9", so it must be capped.
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(20, 10)).build();
+
+        typeDefine = DorisTypeConverterV1.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV1.DORIS_DECIMALV3, typeDefine.getDataType());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DorisTypeConverterV1.DORIS_DECIMALV3, 20, 9),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(9, typeDefine.getScale());
     }
 
     @Test

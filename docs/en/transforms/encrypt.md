@@ -8,12 +8,13 @@ The Encrypt transform plugin is used to encrypt or decrypt specified fields in r
 
 ## Options
 
-| name        | type   | required | default value | description                       |
-|-------------|--------|----------|---------------|-----------------------------------|
-| `fields`    | Array  | Yes      | -             | List of fields to encrypt/decrypt |
-| `algorithm` | String | No       | `AES_GCM`     | Encryption algorithm              |
-| `key`       | String | Yes      | -             | Base64-encoded encryption key     |
-| `mode`      | String | No       | `ENCRYPT`     | `ENCRYPT`or `DECRYPT`             |
+| name               | type    | required | default value | description                                      |
+|--------------------|---------|----------|---------------|--------------------------------------------------|
+| `fields`           | Array   | Yes      | -             | List of fields to encrypt/decrypt                |
+| `algorithm`        | String  | No       | `AES_GCM`     | Encryption algorithm                             |
+| `key`              | String  | Yes      | -             | Base64-encoded encryption key                    |
+| `mode`             | String  | No       | `encrypt`     | `encrypt` or `decrypt`                           |
+| `max_field_length` | Integer | No       | `10485760`    | Maximum string field length before processing    |
 
 ### algorithm [string]
 
@@ -37,30 +38,38 @@ For both `AES_GCM` and `AES_CBC`, valid key lengths are 16, 24, or 32 bytes (cor
 - `base64:AAAAAAAAAAAAAAAAAAAAAA==`
 - `AAAAAAAAAAAAAAAAAAAAAA==`
 
+### mode [string]
+
+The transform mode. Supported values are `encrypt` and `decrypt`. The comparison is case-insensitive, but new examples should use lowercase values to match the default.
+
+### max_field_length [int]
+
+The maximum string length that can be encrypted or decrypted for each configured field. If a field value exceeds this limit, the transform fails fast instead of processing an unexpectedly large value.
+
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Example
 
-```
+```hocon
 transform {
   FieldEncrypt {
-	fields = ["name"]
+    fields = ["name"]
     key = "base64:AAAAAAAAAAAAAAAAAAAAAA=="
     algorithm = "AES_CBC"
-    mode = "ENCRYPT"
+    mode = "encrypt"
   }
 }
 ```
 
-```
+```hocon
 transform {
   FieldEncrypt {
-	fields = ["name"]
+    fields = ["name"]
     key = "base64:AAAAAAAAAAAAAAAAAAAAAA=="
     algorithm = "AES_CBC"
-    mode = "DECRYPT"
+    mode = "decrypt"
   }
 }
 ```

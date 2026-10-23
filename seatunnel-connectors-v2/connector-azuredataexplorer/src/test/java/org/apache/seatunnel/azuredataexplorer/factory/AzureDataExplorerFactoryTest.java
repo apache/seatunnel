@@ -26,7 +26,10 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions;
 import org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSourceOptions;
@@ -39,9 +42,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 
 public class AzureDataExplorerFactoryTest {
 
@@ -115,6 +120,28 @@ public class AzureDataExplorerFactoryTest {
         TableSource<?, ?, ?> tableSource = factory.createSource(context);
         SeaTunnelSource<?, ?, ?> source = tableSource.createSource();
         Assertions.assertInstanceOf(AzureDataExplorerSource.class, source);
+    }
+
+    @Test
+    public void testFactoriesAreDiscoverableThroughSpi() {
+        List<Class<?>> sourceFactories = new ArrayList<>();
+        List<Class<?>> sinkFactories = new ArrayList<>();
+        for (Factory factory : ServiceLoader.load(Factory.class, getClass().getClassLoader())) {
+            if (!"AzureDataExplorer".equals(factory.factoryIdentifier())) {
+                continue;
+            }
+            if (factory instanceof TableSourceFactory) {
+                sourceFactories.add(factory.getClass());
+            }
+            if (factory instanceof TableSinkFactory) {
+                sinkFactories.add(factory.getClass());
+            }
+        }
+
+        Assertions.assertEquals(
+                Collections.singletonList(AzureDataExplorerSourceFactory.class), sourceFactories);
+        Assertions.assertEquals(
+                Collections.singletonList(AzureDataExplorerSinkFactory.class), sinkFactories);
     }
 
     private static List<Option<?>> flattenRequiredOptions(OptionRule rule) {

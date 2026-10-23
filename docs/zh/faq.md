@@ -30,7 +30,7 @@ SeaTunnel 支持自定义数据清洗规则。可以在 `transform` 模块中配
 SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据库的增量同步，适用于需要实时捕获数据变更的场景。
 
 ## SeaTunnel 目前支持哪些数据源的 CDC ？
-目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](./connectors/source)。
+目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC、DB2 CDC、OceanBase CDC、Vitess CDC等，更多请查阅[Source](./connectors/source)。
 
 ## SeaTunnel CDC 同步需要的权限如何开启？
 这样就可以了。
@@ -40,9 +40,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 支持，是通过订阅 MySQL binlog 日志方式到同步服务器上解析 binlog 日志方式进行
 
 ## SeaTunnel 是否支持无主键表的 CDC 同步？
-不支持无主键表的 cdc 同步。原因如下：
-比如上游有 2 条一模一样的数据，然后上游删除或修改了一条，下游由于无法区分到底是哪条需要删除或修改，会出现这 2 条都被删除或修改的情况。
-没主键要类似去重的效果本身有点儿自相矛盾，就像辨别西游记里的真假悟空，到底哪个是真的
+支持，但有限制。没有唯一键时，下游无法区分两条完全相同的记录，更新和删除可能同时影响这两条记录。对于没有主键的表，基于 JDBC 的 CDC 连接器（MySQL、OpenGauss、PostgreSQL、Oracle、SQL Server、DB2）会回退使用非空的唯一键列作为快照切分列；如果没有合适的键列，则整张表作为一个快照分片读取。也可以通过 `table-names-config.primaryKeys` 或 `snapshotSplitColumn` 显式指定切分列。另有两点限制：并行读取快照需要有这样的键列；开启 `exactly_once = true` 时必须存在主键或非空唯一键，否则作业在启动时报错。
 
 ## SeaTunnel 是否支持自动建表？
 在同步任务启动之前，可以为目标端已有的表结构选择不同的处理方案。是通过 `schema_save_mode` 参数来控制的。
@@ -52,6 +50,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**：当表不存在时会报错。
 - **`IGNORE`**：忽略对表的处理。
   目前很多 connector 已经支持了自动建表，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](./connectors/sink/Jdbc.md#schema_save_mode-enum)
+  跨 Sink 的行为边界，以及它和 `generate_sink_sql` 的关系，请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
 
 ## SeaTunnel 是否支持数据同步任务开始前对已有数据进行处理？
 在同步任务启动之前，可以为目标端已有的数据选择不同的处理方案。是通过 `data_save_mode` 参数来控制的。
@@ -63,9 +62,24 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 
   目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum)
   注意：对于 JDBC sink，当 sink 配置了 `query`（自定义写入 SQL）时，当前不会执行 save mode 处理，因此 `CUSTOM_PROCESSING`/`custom_sql` 不会生效。
+  具体 connector 支持边界，以及 File/Object Storage Sink 的差异，请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
+
+## JDBC Sink 应该使用 `generate_sink_sql` 还是 `query`？
+当你希望 SeaTunnel 自动生成 INSERT、UPSERT、UPDATE、DELETE，并且需要 save mode 或自动建表时，优先使用 `generate_sink_sql = true`，并配置 `database`、`table`，通常还要配置 `primary_keys`。只有在必须完全控制逐行写入 SQL 时才使用 `query`。不要同时配置两种模式。完整决策表请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
 
 ## SeaTunnel 是否支持精确一致性管理？
 SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、PostgreSQL 等数据库的事务写入，确保数据在同步过程中的一致性，另外精确一致性也要看数据库本身是否可以支持
+
+## 为什么 Oracle JDBC 任务登录时报 `Connection reset by peer` 和 `Authentication lapse`？
+在部分 Java 8 主机上，Oracle JDBC 驱动会在登录认证阶段等待安全随机数。如果操作系统熵供给不足，客户端可能迟迟没有发出最终认证响应，直到 Oracle 或中间网络设备关闭连接。
+
+这通常是运行环境问题，不是 SeaTunnel 任务配置错误。对于 Zeta 任务，可以在实际建立 Oracle 连接的 JVM 中加入：
+
+```text
+-Djava.security.egd=file:/dev/./urandom
+```
+
+使用 `seatunnel.sh` 提交任务时，优先检查 `$SEATUNNEL_HOME/config/jvm_client_options`；如果连接由引擎服务进程建立，还需要同步调整对应的服务端 JVM 参数。详见[配置 JVM 参数](./engines/zeta/user-command.md#配置jvm参数)。同时建议按操作系统方式恢复主机熵供给，例如启用 `rngd`。`connection_check_timeout_sec` 不控制这个登录认证阶段。
 
 ## SeaTunnel 可以定期执行任务吗？
 您可以通过使用 linux 自带 cron 能力来实现定时数据同步任务，也可以结合 DolphinScheduler 等调度工具实现复杂的定时任务管理。
@@ -94,7 +108,7 @@ transform {
 ```bash
 $SEATUNNEL_HOME/bin/seatunnel.sh \
 -c $SEATUNNEL_HOME/config/your_app.conf \
--m local[2] \
+-m local \
 -i city=Singapore \
 -i date=20231110
 ```
@@ -131,4 +145,4 @@ SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码�
 
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？
 不需要，您只需要关注 source、sink、transform 对应的接口即可。
-如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](../../seatunnel-connectors-v2/README.zh.md)** 。
+如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)** 。

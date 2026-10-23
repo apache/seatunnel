@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -27,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -36,6 +35,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
@@ -92,17 +92,41 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final Integer PORT = 9042;
     private static final String INIT_CASSANDRA_PATH = "/init/cassandra_init.conf";
     private static final String CASSANDRA_JOB_CONFIG = "/cassandra_to_cassandra.conf";
+    private static final String CASSANDRA_MULTI_TABLE_JOB_CONFIG =
+            "/cassandra_multitable_source.conf";
     private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
     private static final String INSERT_CQL = "insert_cql";
+    private static final String MT_SOURCE_TABLE_A = "mt_source_a";
+    private static final String MT_SOURCE_TABLE_B = "mt_source_b";
+    private static final String MT_SINK_TABLE = "mt_sink_table";
+    private static final String MT_INSERT_A = "mt_insert_a";
+    private static final String MT_INSERT_B = "mt_insert_b";
+    private static final int MT_ROWS_PER_TABLE = 5;
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private Config config;
     private CassandraContainer<?> container;
     private CqlSession session;
+
+    @Test
+    public void testUnavailableBootstrapContactPoint() {
+        String available = container.getHost() + ":" + container.getMappedPort(PORT);
+        String unavailable = container.getHost() + ":1";
+        for (String hosts :
+                Arrays.asList(unavailable + "," + available, available + "," + unavailable)) {
+            try (CqlSession connected =
+                    CassandraClient.getCqlSessionBuilder(hosts, KEYSPACE, "", "", DATACENTER)
+                            .build()) {
+                Assertions.assertEquals(KEYSPACE, connected.getKeyspace().get().asInternal());
+                Assertions.assertNotNull(
+                        connected.execute("SELECT * FROM source_table LIMIT 1").one());
+            }
+        }
+    }
 
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {
@@ -112,6 +136,24 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         compareResult();
         clearSinkTable();
         Assertions.assertNull(getRow());
+    }
+
+    @TestTemplate
+    public void testCassandraMultiTableSource(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CASSANDRA_MULTI_TABLE_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        long sinkCount = getMTSinkRowCount();
+        Assertions.assertEquals(MT_ROWS_PER_TABLE * 2L, sinkCount);
+        Set<Long> sinkIds = getMTSinkIds();
+        for (long i = 0; i < MT_ROWS_PER_TABLE; i++) {
+            Assertions.assertTrue(
+                    sinkIds.contains(i), "Expected id " + i + " from mt_source_a in sink");
+        }
+        for (long i = MT_ROWS_PER_TABLE; i < MT_ROWS_PER_TABLE * 2L; i++) {
+            Assertions.assertTrue(
+                    sinkIds.contains(i), "Expected id " + i + " from mt_source_b in sink");
+        }
+        clearMTSinkTable();
     }
 
     @BeforeAll
@@ -124,7 +166,6 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CASSANDRA_DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Cassandra container started");
         Awaitility.given()
@@ -134,6 +175,8 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initConnection);
         this.initializeCassandraTable();
         this.batchInsertData();
+        this.initializeMTTables();
+        this.batchInsertMTData();
     }
 
     private void initializeCassandraTable() {
@@ -162,8 +205,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                     CqlSession.builder()
                             .addContactPoint(
                                     new InetSocketAddress(
-                                            container.getHost(),
-                                            container.getExposedPorts().get(0)))
+                                            container.getHost(), container.getMappedPort(PORT)))
                             .withLocalDatacenter(DATACENTER)
                             .withConfigLoader(DriverConfigLoader.fromFile(file))
                             .build();
@@ -388,12 +430,95 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void initializeMTTables() {
+        try {
+            session.execute(
+                    SimpleStatement.builder(config.getString(MT_SOURCE_TABLE_A))
+                            .setKeyspace(KEYSPACE)
+                            .setTimeout(Duration.ofSeconds(10))
+                            .build());
+            session.execute(
+                    SimpleStatement.builder(config.getString(MT_SOURCE_TABLE_B))
+                            .setKeyspace(KEYSPACE)
+                            .setTimeout(Duration.ofSeconds(10))
+                            .build());
+            session.execute(
+                    SimpleStatement.builder(config.getString(MT_SINK_TABLE))
+                            .setKeyspace(KEYSPACE)
+                            .setTimeout(Duration.ofSeconds(10))
+                            .build());
+        } catch (Exception e) {
+            throw new RuntimeException("Initializing MT tables failed!", e);
+        }
+    }
+
+    private void batchInsertMTData() {
+        try {
+            BoundStatement stmtA =
+                    session.prepare(
+                                    SimpleStatement.builder(config.getString(MT_INSERT_A))
+                                            .setKeyspace(KEYSPACE)
+                                            .build())
+                            .bind();
+            BatchStatement batchA = BatchStatement.builder(BatchType.UNLOGGED).build();
+            for (int i = 0; i < MT_ROWS_PER_TABLE; i++) {
+                batchA = batchA.add(stmtA.setLong(0, i).setInt(1, i));
+            }
+            session.execute(batchA);
+
+            BoundStatement stmtB =
+                    session.prepare(
+                                    SimpleStatement.builder(config.getString(MT_INSERT_B))
+                                            .setKeyspace(KEYSPACE)
+                                            .build())
+                            .bind();
+            BatchStatement batchB = BatchStatement.builder(BatchType.UNLOGGED).build();
+            for (int i = MT_ROWS_PER_TABLE; i < MT_ROWS_PER_TABLE * 2; i++) {
+                batchB = batchB.add(stmtB.setLong(0, i).setInt(1, i));
+            }
+            session.execute(batchB);
+        } catch (Exception e) {
+            throw new RuntimeException("Batch insert MT data failed!", e);
+        }
+    }
+
+    private long getMTSinkRowCount() {
+        ResultSet rs =
+                session.execute(
+                        SimpleStatement.builder("select count(*) from " + MT_SINK_TABLE)
+                                .setKeyspace(KEYSPACE)
+                                .build());
+        Row row = rs.one();
+        return row != null ? row.getLong(0) : 0;
+    }
+
+    private Set<Long> getMTSinkIds() {
+        ResultSet rs =
+                session.execute(
+                        SimpleStatement.builder("select id from " + MT_SINK_TABLE)
+                                .setKeyspace(KEYSPACE)
+                                .build());
+        return rs.all().stream().map(row -> row.getLong(0)).collect(Collectors.toSet());
+    }
+
+    private void clearMTSinkTable() {
+        session.execute(
+                SimpleStatement.builder(String.format("truncate table %s", MT_SINK_TABLE))
+                        .setKeyspace(KEYSPACE)
+                        .build());
+    }
+
     private void initCassandraConfig() {
         File file = ContainerUtil.getResourcesFile(INIT_CASSANDRA_PATH);
         Config config = ConfigFactory.parseFile(file);
         assert config.hasPath(SOURCE_TABLE)
                 && config.hasPath(SINK_TABLE)
-                && config.hasPath(INSERT_CQL);
+                && config.hasPath(INSERT_CQL)
+                && config.hasPath(MT_SOURCE_TABLE_A)
+                && config.hasPath(MT_SOURCE_TABLE_B)
+                && config.hasPath(MT_SINK_TABLE)
+                && config.hasPath(MT_INSERT_A)
+                && config.hasPath(MT_INSERT_B);
         this.config = config;
     }
 

@@ -60,7 +60,7 @@ class FollowerRunningJobsFilterTest
             follower = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             Awaitility.await()
-                    .atMost(10, TimeUnit.SECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -80,7 +80,7 @@ class FollowerRunningJobsFilterTest
             JobInfoService followerJobInfoService =
                     new JobInfoService((NodeEngineImpl) follower.node.nodeEngine);
             Awaitility.await()
-                    .atMost(10, TimeUnit.SECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(

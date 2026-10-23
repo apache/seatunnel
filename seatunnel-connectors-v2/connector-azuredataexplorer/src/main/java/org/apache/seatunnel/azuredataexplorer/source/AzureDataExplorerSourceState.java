@@ -20,15 +20,15 @@ package org.apache.seatunnel.azuredataexplorer.source;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/** Stores pending query assignments for enumerator checkpoint restore. */
 @AllArgsConstructor
 @Getter
 public class AzureDataExplorerSourceState implements Serializable {
-    @Serial private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
     private final boolean shouldEnumerate;
     private final Map<Integer, List<AzureDataExplorerSourceSplit>> pendingSplit;
