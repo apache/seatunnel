@@ -428,7 +428,11 @@ public class ConfigBuilder {
                         defaultConfigMap);
 
         if (!replacedValue.equals(variableString)) {
-            variableValue = ConfigValueUtils.parseValue(replacedValue);
+            if (PlaceholderUtils.isSinglePlaceholder(variableString)) {
+                variableValue = ConfigValueUtils.parseValue(replacedValue);
+            } else {
+                variableValue = replacedValue;
+            }
         }
         parentMap.put(variableKey, variableValue);
     }
