@@ -42,7 +42,7 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | client_id | string | 条件必填 | - | Microsoft Entra 应用程序 ID。 |
 | client_secret | string | 条件必填 | - | Microsoft Entra 客户端密钥。 |
 | authority_host | string | 否 | `https://login.microsoftonline.com` | OAuth 客户端凭据认证使用的 HTTPS authority 源站。 |
-| hadoop_adls_properties | map | 否 | - | 额外的 Hadoop ABFS 属性。 |
+| hadoop_adls_properties | map | 否 | - | 由可信任的操作人员提供的额外 Hadoop ABFS 属性。参见下方的 ADLS 配置规则。 |
 | file_filter_pattern | string | 否 | - | 选择文件的正则表达式。 |
 | recursive_file_scan | boolean | 否 | `true` | 是否扫描嵌套目录。 |
 | parse_partition_from_path | boolean | 否 | `true` | 从 `key=value` 路径片段解析分区字段。 |
@@ -102,11 +102,15 @@ DNS 后缀。
 `client_secret` 发送到该源站下的令牌端点。仅应由可信任的操作人员设置此选项，并使用其 Azure 云对应的
 Microsoft Entra authority。不要从不可信任的作业输入中接受此配置。
 
-`hadoop_adls_properties` 仅用于 ABFS 参数调整。不允许 `fs.defaultFS`，以及以下前缀开头的键：
+`hadoop_adls_properties` 可用于 ABFS 参数调整。不允许 `fs.defaultFS`，以及以下前缀开头的键：
 `fs.abfs`、`fs.s3`、`fs.azure.account.auth.type`、`fs.azure.account.key`、
 `fs.azure.account.oauth`、`fs.azure.sas.`、`fs.azure.delegation.`、
 `fs.azure.enable.delegation.token`、`fs.azure.identity.`、`fs.azure.shellkeyprovider.`。
 匹配时不区分大小写；这些路由、凭据和提供程序设置由连接器管理。
+
+校验采用键名完全匹配或前缀匹配的拒绝列表。该列表并不完整：其他 Hadoop 配置仍可能加载类，或选择
+凭据/令牌提供程序。`hadoop_adls_properties` 仅应由可信任的操作人员提供，不要从不可信任的作业输入中
+接受此配置映射。
 
 解析配置时，日志会自动遮盖 `account_key` 和 `client_secret`。这只是日志遮盖，不是配置加密。
 `account_key` 是 core-starter 的全局日志遮盖关键字，也会影响其他使用同名选项的连接器。

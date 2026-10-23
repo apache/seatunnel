@@ -58,7 +58,7 @@ as bytes. Markdown and PDF readers expose structured document fields.
 | client_id | string | conditional | - | Microsoft Entra application/client ID. |
 | client_secret | string | conditional | - | Microsoft Entra client secret. |
 | authority_host | string | no | `https://login.microsoftonline.com` | HTTPS authority origin used for OAuth client credentials. |
-| hadoop_adls_properties | map | no | - | Additional Hadoop ABFS properties. |
+| hadoop_adls_properties | map | no | - | Additional Hadoop ABFS properties supplied by trusted operators. See ADLS configuration rules below. |
 | file_filter_pattern | string | no | - | Regular expression used to select files. |
 | recursive_file_scan | boolean | no | `true` | Scan nested directories. |
 | parse_partition_from_path | boolean | no | `true` | Derive partition fields from `key=value` path segments. |
@@ -124,6 +124,10 @@ their Azure cloud. Do not accept it from untrusted job input.
 `fs.azure.account.oauth`, `fs.azure.sas.`, `fs.azure.delegation.`,
 `fs.azure.enable.delegation.token`, `fs.azure.identity.`, or `fs.azure.shellkeyprovider.`
 (case-insensitive). These routing, credential, and provider settings are connector-owned.
+
+Validation uses an exact-key/prefix denylist. The denylist is not exhaustive: other Hadoop
+settings can still load classes or select credential/token providers. Only trusted operators
+should supply `hadoop_adls_properties`. Do not accept this map from untrusted job input.
 
 `account_key` and `client_secret` are automatically masked in parsed-configuration logs. This
 is log masking, not configuration encryption. The `account_key` log-mask keyword is a global

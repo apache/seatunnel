@@ -84,11 +84,16 @@ public class ADLSFileBaseOptions extends FileBaseSourceOptions {
                             "Microsoft Entra HTTPS authority origin receiving OAuth client credentials. "
                                     + "Use only a trusted authority; validation checks URL syntax, not host trust.");
 
-    // This escape hatch is limited to non-routing, non-credential ABFS tuning; the validator
-    // rejects connector-owned keys before the map reaches Hadoop.
+    // The validator blocks selected keys and prefixes, not every class-loading or credential
+    // provider setting. This escape hatch must only receive properties from trusted operators.
     public static final Option<Map<String, String>> HADOOP_PROPERTIES =
             Options.key("hadoop_adls_properties")
                     .mapType()
                     .noDefaultValue()
-                    .withDescription("Additional Hadoop ABFS properties");
+                    .withDescription(
+                            "Additional Hadoop ABFS properties supplied by trusted operators. "
+                                    + "A case-insensitive key/prefix denylist blocks selected settings, "
+                                    + "but does not cover all class-loading or "
+                                    + "credential/token-provider settings. "
+                                    + "Do not accept this map from untrusted job input.");
 }

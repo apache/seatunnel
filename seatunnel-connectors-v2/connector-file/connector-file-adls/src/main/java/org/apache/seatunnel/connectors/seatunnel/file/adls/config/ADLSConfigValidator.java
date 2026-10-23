@@ -102,8 +102,9 @@ final class ADLSConfigValidator {
                                 "'hadoop_adls_properties' cannot contain blank keys or null values");
                     }
                     String normalized = key.trim().toLowerCase(Locale.ROOT);
-                    // Routing and credential keys remain connector-owned so the validated account,
-                    // endpoint, and auth mode cannot be changed through the advanced escape hatch.
+                    // Block selected routing, credential, and provider keys by exact key or prefix.
+                    // This denylist is not exhaustive; other Hadoop settings can load classes or
+                    // select credential/token providers, so this map requires trusted operators.
                     if (normalized.equals("fs.defaultfs")
                             || normalized.startsWith("fs.abfs")
                             || normalized.startsWith("fs.azure.account.auth.type")
