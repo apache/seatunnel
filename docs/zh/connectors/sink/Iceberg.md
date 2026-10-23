@@ -76,7 +76,7 @@ libfb303-xxx.jar
 | iceberg.table.auto-create-props        | map     | no   | -                            | Iceberg 自动建表时指定的配置                                                                                                                                                                                                |
 | iceberg.table.schema-evolution-enabled | boolean | no   | false                        | 设置为 true 时，Iceberg 表可以在同步过程中支持 schema 变更                                                                                                                                                                          |
 | iceberg.table.primary-keys             | string  | no   | -                            | 用于标识表中一行数据的主键列列表，默认情况下以逗号分隔                                                                                                                                                                                       |
-| iceberg.table.partition-keys           | string  | no   | -                            | 创建表时使用的分区字段列表，默认情况下以逗号分隔。在多表写入作业中作为单一全局默认值应用于每张自动建出的表。                                                                                                                                                 |
+| iceberg.table.partition-keys           | string  | no   | -                            | 创建表时使用的分区字段列表，以逗号分隔。固定值应用于每张表；`${partition_keys}` 可使用各上游表元数据中提供的分区键。                                                                                                                                                 |
 | iceberg.table.upsert-mode-enabled      | boolean | no   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
 | schema_save_mode                       | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
@@ -95,7 +95,7 @@ libfb303-xxx.jar
 
 ### iceberg.table.partition-keys [string]
 
-使用英文逗号分隔多个分区字段，例如 `dt,region`，也可以使用 Iceberg transform，例如 `days(ts)`。在多表写入作业中，该选项只会被读取一次，并作为单一全局默认值应用于每张自动建出的表（行为与 `iceberg.table.primary-keys` 一致）；Iceberg Sink 当前并不提供针对每张上游表的 `${partition_keys}` 占位符替换。
+使用英文逗号分隔多个分区字段，例如 `dt,region`，也可以使用 Iceberg transform，例如 `days(ts)`。在多表写入作业中，固定值应用于每张自动建出的表。若要使用各上游表的分区键，可设置 `iceberg.table.partition-keys = "${partition_keys}"`，SeaTunnel 会在创建各表的 Sink 前，根据该表的元数据替换此占位符。若上游元数据没有提供分区键，则需显式配置。
 
 ### iceberg.table.commit-branch [string]
 
@@ -375,7 +375,7 @@ sink {
 
 ### `iceberg.table.partition-keys` 支持什么格式？
 
-支持以逗号分隔的列名（例如 `dt,region`）或 Iceberg transform 表达式（例如 `days(ts)`）。该选项只会被读取一次，作为单一全局默认值应用于多表写入作业中的每张自动建出的表——Iceberg Sink 并不提供针对每张上游表的 `${partition_keys}` 占位符替换；若需要为不同表设置不同的分区键，请改为在各自的 Iceberg 连接器实例中显式配置。
+支持以逗号分隔的列名（例如 `dt,region`）或 Iceberg transform 表达式（例如 `days(ts)`）。固定值应用于每张自动建出的表。对于上游表元数据包含分区键的多表作业，`iceberg.table.partition-keys = "${partition_keys}"` 会通过 SeaTunnel 通用表占位符机制，分别替换为各表的分区键。若上游元数据没有提供分区键，则需显式配置。
 
 ### 如何提交到非默认 Iceberg 分支？
 
