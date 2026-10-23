@@ -106,8 +106,8 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     /**
-     * Best-effort Flink job id resolution for event enrichment. Failure must never abort
-     * checkpoint/savepoint restore (see issue #10193).
+     * Best-effort Flink job id resolution for event enrichment. This metadata lookup must not
+     * prevent enumerator construction; it does not determine checkpoint/savepoint restore success.
      */
     private static String getFlinkJobId(SplitEnumeratorContext enumContext) {
         try {
@@ -129,12 +129,16 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
      */
     private static String getJobIdForV15(SplitEnumeratorContext enumContext) throws Exception {
         if (!(enumContext instanceof SourceCoordinatorContext)) {
+            log.debug("Flink job id unavailable: context is not a SourceCoordinatorContext.");
             return null;
         }
         SourceCoordinatorContext coordinatorContext = (SourceCoordinatorContext) enumContext;
         Field operatorCoordinatorContextField =
                 findDeclaredField(coordinatorContext.getClass(), "operatorCoordinatorContext");
         if (operatorCoordinatorContextField == null) {
+            log.debug(
+                    "Flink job id unavailable: {} has no operatorCoordinatorContext field.",
+                    coordinatorContext.getClass().getName());
             return null;
         }
         operatorCoordinatorContextField.setAccessible(true);
@@ -142,6 +146,7 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
                 (OperatorCoordinator.Context)
                         operatorCoordinatorContextField.get(coordinatorContext);
         if (operatorCoordinatorContext == null) {
+            log.debug("Flink job id unavailable: operator coordinator context is null.");
             return null;
         }
 
@@ -161,6 +166,7 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
                     (OperatorCoordinator.Context)
                             nestedContextField.get(operatorCoordinatorContext);
             if (operatorCoordinatorContext == null) {
+                log.debug("Flink job id unavailable: nested restore coordinator context is null.");
                 return null;
             }
         }
@@ -168,6 +174,9 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         Field globalFailureHandlerField =
                 findDeclaredField(operatorCoordinatorContext.getClass(), "globalFailureHandler");
         if (globalFailureHandlerField == null) {
+            log.debug(
+                    "Flink job id unavailable: {} has no globalFailureHandler field.",
+                    operatorCoordinatorContext.getClass().getName());
             return null;
         }
         globalFailureHandlerField.setAccessible(true);
@@ -182,11 +191,15 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
 
         Field schedulerField = findDeclaredField(globalFailureHandler.getClass(), "arg$1");
         if (schedulerField == null) {
+            log.debug(
+                    "Flink job id unavailable: failure handler {} has no scheduler field arg$1.",
+                    globalFailureHandler.getClass().getName());
             return null;
         }
         schedulerField.setAccessible(true);
         Object scheduler = schedulerField.get(globalFailureHandler);
         if (!(scheduler instanceof SchedulerBase)) {
+            log.debug("Flink job id unavailable: reflected scheduler is not a SchedulerBase.");
             return null;
         }
         return ((SchedulerBase) scheduler).getExecutionGraph().getJobID().toString();
