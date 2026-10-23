@@ -44,9 +44,9 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     private static final Logger LOG = LoggerFactory.getLogger(HybridSplitAssigner.class);
 
-    private final SnapshotSplitAssigner<C> snapshotSplitAssigner;
+    protected final SnapshotSplitAssigner<C> snapshotSplitAssigner;
 
-    private final IncrementalSplitAssigner<C> incrementalSplitAssigner;
+    protected final IncrementalSplitAssigner<C> incrementalSplitAssigner;
 
     public HybridSplitAssigner(
             SplitAssigner.Context<C> context,
@@ -83,7 +83,7 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
                         checkpoint.getIncrementalPhaseState()));
     }
 
-    private HybridSplitAssigner(
+    protected HybridSplitAssigner(
             SnapshotSplitAssigner<C> snapshotSplitAssigner,
             IncrementalSplitAssigner<C> incrementalSplitAssigner) {
         this.snapshotSplitAssigner = snapshotSplitAssigner;
