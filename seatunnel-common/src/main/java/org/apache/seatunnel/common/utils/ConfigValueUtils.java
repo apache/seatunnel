@@ -129,34 +129,6 @@ public class ConfigValueUtils {
         return parsedList;
     }
 
-    public static ConfigValue processAmbiguousFormat(String inputValue, ConfigValue parsedValue) {
-
-        if (parsedValue instanceof List) {
-            ConfigList parsedList = (ConfigList) parsedValue;
-            return processAmbiguousFormatInBrackets(inputValue, parsedList);
-        }
-        return parsedValue;
-        // TODO: strict config params after PR #12810 merged
-        /*else {
-            // check type of elements, element of string type must be wrapped in quotes
-            List<Object> elements = (List<Object>) parsedValue.unwrapped();
-            for (int i = 0; i < elements.size(); i++) {
-                Object element = elements.get(i);
-                if (element instanceof String) {
-                    String quotedElement = StringUtils.wrap((String) element, "\"");
-                    String originElement = content.split(",")[i];
-                    if (!quotedElement.equals(originElement)) {
-                        throw new IllegalArgumentException(
-                                String.format(
-                                        "Element: '%s' of string type in list: '%s' must be wrapped in quotes",
-                                        originElement, value));
-                    }
-                }
-            }
-        }*/
-
-    }
-
     /**
      * Returns {@code true} if the quote character at {@code quoteIndex} is escaped by a preceding
      * backslash.
