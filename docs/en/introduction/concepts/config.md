@@ -210,9 +210,10 @@ In a config file, we can define variables and replace them at runtime. However, 
 - `${varName}`: If the variable is not provided, an exception will be thrown.
 - `${varName:}`: If the variable is not provided, an empty string will be used.
 - `${varName:default}`: If the variable is not provided, the default value will be used. 
+  - Default values must be static literals, any unresolved placeholder contained is disallowed, placeholders inside quotes will be preserved as literal text.
   - Duplicate placeholder keys in the configuration file must have identical default values, either none of the occurrences has a default value, or all default values must be identical.  
   - Top node as source/transform/sink and plugin node shall not be configured with default value in JSON format directly. 
-  - If you set a plain default value, it should be enclosed in double quotes. 
+  - Placeholder with a plain default value should be enclosed in double quotes, such as `username="${username:root}"`. 
   - If default variable value must contain double quotes as content(like JSON), it needs to be wrapped in triple quotes, JSON example as follows:
 
     `properties = """${mysql_props:{"useSSL":"false","connectionTimeZone":"Asia/Shanghai","serverTimezone":"UTC","allowPublicKeyRetrieval":"true"}}"""`

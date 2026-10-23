@@ -210,10 +210,10 @@ sql = """ select * from "table" """
  - `${varName}`，如果变量未传值，则抛出异常。
  - `${varName:}`，如果变量未传值，则使用空字符串。
  - `${varName:default}`，如果变量未传值，则使用默认值。
-   - 配置文件中多个占位符相同的key默认值也必须相同，不允许相同key的占位符部分有默认值部分无默认值。
-   - 默认值必须是静态字面量，不能包含任何未解析的占位符，引号内的占位符会作为字面量原样保留。
-   - 顶层的source/transform/sink节点和插件所在的节点不允许直接设置json默认值。
-   - 如果设置默认值，普通变量需要写在双引号中。
+   - 默认值必须是**静态字面量**，不能包含任何未解析的占位符，引号内的占位符会作为字面量原样保留。
+   - 相同 key 的占位符默认值必须一致：要么都没有默认值，要么所有默认值相同。
+   - 顶层的source/transform/sink节点和插件所在的节点不允许直接设置JSON默认值。
+   - 带普通默认值的占位符需要写在双引号中，如 `username="${username:root}"`。
    - 如果默认值内容必须包含双引号（如JSON），需要写在三引号中，以JSON为例，如下：
 
      `properties = """${mysql_props:{"useSSL":"false","connectionTimeZone":"Asia/Shanghai","serverTimezone":"UTC","allowPublicKeyRetrieval":"true"}}"""`
