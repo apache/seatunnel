@@ -454,24 +454,22 @@ public class ConfigShadeTest {
         for (ConfigObject configObject : sourceConfigs) {
             Config sourceConfig = configObject.toConfig();
 
-            if (sourceConfig.hasPath("properties")) {
-                Map<String, Object> mysqlProperties =
-                        sourceConfig.getObject("properties").unwrapped();
-                Assertions.assertTrue(
-                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
-                        "properties should contain key: 'allowPublicKeyRetrieval'");
+            Assertions.assertTrue(sourceConfig.hasPath("properties"));
 
-                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
-                boolean useRegex =
-                        tableList.stream()
-                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
-                                .findFirst()
-                                .get();
+            Map<String, Object> mysqlProperties = sourceConfig.getObject("properties").unwrapped();
+            Assertions.assertTrue(
+                    mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                    "properties should contain key: 'allowPublicKeyRetrieval'");
 
-                Assertions.assertTrue(
-                        useRegex,
-                        "useRegex should contain replaced placeholder value: " + useRegex);
-            }
+            List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+            boolean useRegex =
+                    tableList.stream()
+                            .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                            .findFirst()
+                            .get();
+
+            Assertions.assertTrue(
+                    useRegex, "useRegex should contain replaced placeholder value: " + useRegex);
         }
     }
 
@@ -515,30 +513,27 @@ public class ConfigShadeTest {
         for (ConfigObject configObject : sourceConfigs) {
             Config sourceConfig = configObject.toConfig();
 
-            if (sourceConfig.hasPath("properties")) {
-                Map<String, Object> mysqlProperties =
-                        sourceConfig.getObject("properties").unwrapped();
-                // properties comes from default value
-                Assertions.assertTrue(
-                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
-                        "properties should contain key: 'allowPublicKeyRetrieval'");
+            Assertions.assertTrue(sourceConfig.hasPath("properties"));
+            Map<String, Object> mysqlProperties = sourceConfig.getObject("properties").unwrapped();
+            // properties comes from default value
+            Assertions.assertTrue(
+                    mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                    "properties should contain key: 'allowPublicKeyRetrieval'");
 
-                // empty default value
-                String password = sourceConfig.getString("password");
-                Assertions.assertEquals("", password);
+            // empty default value
+            String password = sourceConfig.getString("password");
+            Assertions.assertEquals("", password);
 
-                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
-                // use_regex comes from user variable, overrides default value of table_list option
-                boolean useRegex =
-                        tableList.stream()
-                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
-                                .findFirst()
-                                .get();
+            List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+            // use_regex comes from user variable, overrides default value of table_list option
+            boolean useRegex =
+                    tableList.stream()
+                            .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                            .findFirst()
+                            .get();
 
-                Assertions.assertTrue(
-                        useRegex,
-                        "useRegex should contain replaced placeholder value: " + useRegex);
-            }
+            Assertions.assertTrue(
+                    useRegex, "useRegex should contain replaced placeholder value: " + useRegex);
         }
     }
 
