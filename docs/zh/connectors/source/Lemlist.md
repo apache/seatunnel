@@ -22,7 +22,7 @@ Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求
 
 | 数据源     | 支持版本 | 依赖                                                                                            |
 |------------|----------|-------------------------------------------------------------------------------------------------|
-| Lemlist    | 通用     | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)              |
+| Lemlist    | 通用     | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-lemlist)              |
 
 ## 关键特性
 

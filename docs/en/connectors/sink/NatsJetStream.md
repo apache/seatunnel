@@ -17,7 +17,7 @@ The sink does **not** create streams or manage JetStream resources. You must pre
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -59,7 +59,7 @@ Even with that setup, the connector must still be treated as **at-least-once**.
 - Authentication: use either no credentials, `username` + `password`, or `token`; `token` is mutually exclusive with `username` / `password`.
 - Initial limitations: synchronous per-record publish only; batching and connector-managed retry controls are out of scope.
 - Non-goals: stream administration, exactly-once, source support, schema evolution handling beyond incoming rows, and formats beyond documented JSON/native mode.
-- Multi-table sink: the same sink instance accepts rows from multiple upstream tables. Each row is published to the configured `subject` (in JSON mode) or its resolved native subject; the connector does not choose a different mutation per table.
+- Multiple upstream tables: Zeta creates an independent sink instance for each table using the sink template. JSON-mode instances publish to the same configured `subject`; native-mode instances resolve the subject for each row. The connector does not implement the shared multi-table sink API.
 
 ## Broker setup
 
@@ -355,9 +355,10 @@ sink {
 
 ### Writing multiple upstream tables
 
-The same sink instance accepts rows from multiple upstream tables in JSON
-mode. Every row is published to the configured subject; the connector does not
-pick a different mutation per table.
+Zeta applies the sink template separately to each upstream table, creating an
+independent sink instance per table. In this JSON-mode example, all instances
+publish to the same configured `subject`; the connector does not select a
+different subject for each table.
 
 ```hocon
 env {

@@ -23,7 +23,7 @@ It can be downloaded via install-plugin.sh or from the Maven central repository.
 
 | Datasource   | Supported Versions |                                         Dependency                                          |
 |--------------|--------------------|-----------------------------------------------------------------------------------------------|
-| Lemlist      | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)       |
+| Lemlist      | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-lemlist)       |
 
 ## Key features
 

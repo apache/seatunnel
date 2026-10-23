@@ -39,7 +39,7 @@ My Hours 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请�
 
 | 数据源 | 支持的版本 | 依赖 |
 |--------|-----------|------|
-| My Hours | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base) |
+| My Hours | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-myhours) |
 
 ## 源选项
 

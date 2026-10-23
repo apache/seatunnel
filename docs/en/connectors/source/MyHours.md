@@ -39,7 +39,7 @@ It can be downloaded via install-plugin.sh or from the Maven central repository.
 
 | Datasource | Supported Versions |                                         Dependency                                          |
 |------------|--------------------|---------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)      |
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-myhours)      |
 
 ## Source Options
 

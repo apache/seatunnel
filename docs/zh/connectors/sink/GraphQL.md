@@ -183,6 +183,55 @@ sink {
 }
 ```
 
+### 在流模式下持续写入
+
+流模式下 Sink 会持续接收上游行数据，并对每条行执行一次 mutation 请求。配合 `retry` 和
+指数退避参数可以吸收偶发的 HTTP 抖动。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "events"
+    schema = {
+      fields {
+        id = int
+        val_string = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "first"] }
+      { kind = INSERT, fields = [2, "second"] }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "events"
+    url = "http://graphql:8080/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+  }
+}
+```
+
 ### 写入多张上游表
 
 ```hocon
@@ -237,55 +286,6 @@ sink {
         }
       }
     """
-  }
-}
-```
-
-### 在流模式下持续写入
-
-流模式下 Sink 会持续接收上游行数据，并对每条行执行一次 mutation 请求。配合 `retry` 和
-指数退避参数可以吸收偶发的 HTTP 抖动。
-
-```hocon
-env {
-  parallelism = 2
-  job.mode = "STREAMING"
-  checkpoint.interval = 30000
-}
-
-source {
-  FakeSource {
-    plugin_output = "events"
-    schema = {
-      fields {
-        id = int
-        val_string = string
-      }
-    }
-    rows = [
-      { kind = INSERT, fields = [1, "first"] }
-      { kind = INSERT, fields = [2, "second"] }
-    ]
-  }
-}
-
-sink {
-  GraphQL {
-    plugin_input = "events"
-    url = "http://graphql:8080/v1/graphql"
-    headers = {
-      Authorization = "Bearer ${secret}"
-    }
-    query = """
-      mutation MyMutation($id: Int!, $val_string: String!) {
-        insert_event(objects: {id: $id, val_string: $val_string}) {
-          affected_rows
-        }
-      }
-    """
-    retry = 5
-    retry_backoff_multiplier_ms = 200
-    retry_backoff_max_ms = 5000
   }
 }
 ```

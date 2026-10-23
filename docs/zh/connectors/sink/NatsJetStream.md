@@ -17,7 +17,7 @@ NatsJetStream 是一个 **JetStream sink**，不是 core NATS publish 连接器�
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
@@ -59,7 +59,7 @@ native 模式中的 message ID 只能作为 **broker 侧的重复缓解提示**�
 - 认证：只能使用无认证、`username` + `password`，或单独 `token`；`token` 与 `username` / `password` 互斥。
 - 初始限制：仅支持同步逐条发布；batching 和连接器自管 retry 不在范围内。
 - 非目标：stream 管理、exactly-once、source 支持、超出输入行模式的 schema evolution，以及文档之外的格式。
-- 多表 sink：同一个 sink 实例会接受来自多张上游表的行。每一行都发布到配置的 `subject`（JSON 模式）或解析后的 native subject；连接器不会按表自动选择不同的 mutation。
+- 多张上游表：Zeta 使用 sink 模板为每张表创建独立的 sink 实例。JSON 模式下各实例发布到同一个配置的 `subject`；native 模式下各实例逐行解析 subject。连接器未实现共享的多表 sink API。
 
 ## Broker 准备
 
@@ -355,8 +355,9 @@ sink {
 
 ### 写入多张上游表
 
-同一个 sink 实例在 JSON 模式下可以接受来自多张上游表的行。每一行都会发布到
-配置的 subject；连接器不会按表自动选择不同的 mutation。
+Zeta 为每张上游表分别应用 sink 模板，创建独立的 sink 实例。在这个 JSON 模式的
+示例中，所有实例都发布到同一个配置的 `subject`；连接器不会为每张表自动选择不同
+的 subject。
 
 ```hocon
 env {
