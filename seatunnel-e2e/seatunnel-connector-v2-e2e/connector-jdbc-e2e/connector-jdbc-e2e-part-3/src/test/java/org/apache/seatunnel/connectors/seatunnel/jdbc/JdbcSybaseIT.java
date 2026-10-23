@@ -158,7 +158,8 @@ public class JdbcSybaseIT extends AbstractJdbcIT {
                                 i % 2 == 0, // BIT_TEST
                                 "CharValue" + i, // CHAR_TEST
                                 java.sql.Date.valueOf(LocalDate.now()), // DATE_TEST
-                                java.sql.Timestamp.valueOf(LocalDateTime.now()), // DATETIME_TEST
+                                java.sql.Timestamp.valueOf(
+                                        LocalDateTime.of(2026, 1, 2, 3, 4, 5)), // DATETIME_TEST
                                 new BigDecimal("123.45"), // DECIMAL_TEST
                                 3.14d, // FLOAT_TEST
                                 new BigDecimal("567.89"), // MONEY_TEST

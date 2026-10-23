@@ -50,6 +50,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > 请下载对应 'Maven' 的支持列表，并将其复制到 '$SEATUNNEL_HOME/plugins/jdbc/lib/' 工作目录<br/>
 > 例如 Sybase 数据源：cp jtds-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
+## 当前限制
+
+该方言通过通用 JDBC 元数据回退路径读取 Sybase，没有提供 Sybase Catalog。精确的 `table_path` 和 `table_list` 条目使用此回退路径。Sybase 尚未实现依赖 Catalog 的正则表达式表发现（`use_regex`）；请使用明确的表条目或 `query`。
+
+仅支持下方映射表列出的类型。BINARY、VARBINARY、IMAGE、UNICHAR、UNIVARCHAR、UNITEXT、无符号整数、BIGDATETIME、BIGTIME 和二进制 rowversion TIMESTAMP 尚未映射。请显式选择支持的列，或在 `query` 中将不支持的列转换为支持的类型。
+
+示例使用明文 TDS。需要加密连接时，必须配置支持所需加密和证书校验的驱动与数据库部署；连接器本身不配置 TLS。jTDS 驱动由用户提供，本 PR 中的依赖仅用于测试。该驱动未实现 JDBC 4 `Connection.isValid()`，因此 `connection_check_timeout_sec` 无法使此操作兼容；连接校验兼容性仍需运行时修复。
+
 ## 数据类型映射
 
 | Sybase 数据类型 | Seatunnel 数据类型 |

@@ -50,6 +50,14 @@ Read external data source data through JDBC.
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example Sybase datasource: cp jtds-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
+## Current limitations
+
+This dialect reads Sybase through the generic JDBC metadata fallback; it does not provide a Sybase catalog. Exact `table_path` and `table_list` entries use that fallback. Catalog-backed regular-expression table discovery (`use_regex`) is not implemented for Sybase; use explicit table entries or `query` instead.
+
+Only the types in the mapping table below are supported. BINARY, VARBINARY, IMAGE, UNICHAR, UNIVARCHAR, UNITEXT, unsigned integer types, BIGDATETIME, BIGTIME, and the binary rowversion TIMESTAMP type are not mapped. Select supported columns explicitly or cast unsupported columns to a supported type in `query`.
+
+The examples use plaintext TDS. For encrypted connections, configure a driver and database deployment that supports the required encryption and certificate validation; this connector does not configure TLS itself. The jTDS driver is supplied by the user, and its dependency in this PR is test-scoped. The driver does not implement JDBC 4 `Connection.isValid()`, so `connection_check_timeout_sec` does not make that operation compatible; connection validation compatibility still requires a runtime fix.
+
 ## Data Type Mapping
 
 |                         Sybase Data type                          | Seatunnel Data type |

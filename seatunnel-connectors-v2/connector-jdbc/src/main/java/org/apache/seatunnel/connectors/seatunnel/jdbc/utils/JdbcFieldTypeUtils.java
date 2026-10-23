@@ -127,8 +127,8 @@ public final class JdbcFieldTypeUtils {
         // Prefer the modern JDBC 4.2 API — returns wall-clock value directly, no TZ involved
         try {
             return resultSet.getObject(columnIndex, LocalDateTime.class);
-        } catch (SQLException | UnsupportedOperationException ignored) {
-            // Driver does not support getObject(index, LocalDateTime.class) — fall back
+        } catch (SQLException | UnsupportedOperationException | AbstractMethodError ignored) {
+            // JDBC 3 drivers such as jTDS cannot implement the JDBC 4.2 typed getter.
         }
         // Try UTC Calendar to avoid JVM-default-timezone influence.
         // A new Calendar is created per call to avoid thread-safety issues with a shared instance.

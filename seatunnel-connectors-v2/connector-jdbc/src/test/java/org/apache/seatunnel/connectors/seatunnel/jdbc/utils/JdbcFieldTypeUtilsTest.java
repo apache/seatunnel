@@ -23,15 +23,63 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Calendar;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class JdbcFieldTypeUtilsTest {
+
+    @Test
+    public void testGetLocalDateTimeUsesTypedGetter() throws SQLException {
+        LocalDateTime expected = LocalDateTime.of(2026, 1, 2, 3, 4, 5, 123456789);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalDateTime.class)).thenReturn(expected);
+
+        assertEquals(expected, JdbcFieldTypeUtils.getLocalDateTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalDateTimeFallsBackForJdbc3Driver() throws SQLException {
+        LocalDateTime expected = LocalDateTime.of(2026, 1, 2, 3, 4, 5, 123456789);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalDateTime.class)).thenThrow(new AbstractMethodError());
+        when(rs.getTimestamp(eq(1), any(Calendar.class))).thenReturn(Timestamp.valueOf(expected));
+
+        assertEquals(expected, JdbcFieldTypeUtils.getLocalDateTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalDateTimePreservesNullForJdbc3Driver() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalDateTime.class)).thenThrow(new AbstractMethodError());
+        when(rs.getTimestamp(eq(1), any(Calendar.class))).thenReturn(null);
+
+        assertNull(JdbcFieldTypeUtils.getLocalDateTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalDateTimePropagatesUnrelatedLinkageError() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        NoClassDefFoundError failure = new NoClassDefFoundError("driver dependency");
+        when(rs.getObject(1, LocalDateTime.class)).thenThrow(failure);
+
+        assertSame(
+                failure,
+                assertThrows(
+                        NoClassDefFoundError.class,
+                        () -> JdbcFieldTypeUtils.getLocalDateTime(rs, 1)));
+    }
 
     @Test
     public void testGetOffsetDateTimeFromTimestampUsesInstant() throws SQLException {
