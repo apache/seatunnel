@@ -208,7 +208,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
-    @Order(7)
+    @Order(8)
     public void testDropTable() throws Exception {
         TablePath tablePath = getMainTablePath(TABLE_NAME);
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
@@ -219,7 +219,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
-    @Order(8)
+    @Order(9)
     public void testMetadataLookupWithApostrophes() throws Exception {
         TablePath tablePath = TablePath.of(DATABASE_NAME, "odd'schema", "odd'table");
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
@@ -310,7 +310,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
-    @Order(8)
+    @Order(10)
     public void testBitAndLongEnumLabelUseUnboundedSinkTypes() throws Exception {
         String label = String.join("", Collections.nCopies(400, "m"));
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
