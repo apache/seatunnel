@@ -135,6 +135,21 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testGenerateDynamicLookupPhysicalAndCheckpointPlan() {
+        generateAndVerifyDynamicLookupPlan(1);
+    }
+
+    @Test
+    public void testRejectDynamicLookupParallelismWithoutKeyedExchange() {
+        IllegalArgumentException error =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> generateAndVerifyDynamicLookupPlan(2));
+        Assertions.assertEquals(
+                "Dynamic lookup M0 requires fact, dimension and lookup parallelism = 1 until keyed exchange is supported",
+                error.getMessage());
+    }
+
+    private void generateAndVerifyDynamicLookupPlan(int parallelism) {
         IdGenerator idGenerator = new IdGenerator();
         JobContext jobContext = new JobContext(2L);
         jobContext.setJobMode(JobMode.STREAMING);
@@ -149,7 +164,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         createFakeSource(jobContext),
                         Collections.emptySet(),
                         Collections.emptySet());
-        fact.setParallelism(2);
+        fact.setParallelism(parallelism);
         Action dimension =
                 new SourceAction<>(
                         idGenerator.getNextId(),
@@ -157,7 +172,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         createFakeSource(jobContext),
                         Collections.emptySet(),
                         Collections.emptySet());
-        dimension.setParallelism(2);
+        dimension.setParallelism(parallelism);
         DynamicLookupAction lookup =
                 new DynamicLookupAction(
                         idGenerator.getNextId(),
@@ -173,7 +188,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         512L * 1024L * 1024L,
                         Collections.emptySet(),
                         Collections.emptySet());
-        lookup.setParallelism(2);
+        lookup.setParallelism(parallelism);
         LogicalDag logicalDag =
                 new LogicalDagGenerator(Collections.singletonList(lookup), config, idGenerator)
                         .generate();
@@ -209,14 +224,14 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                 plans.f0().getPipelineList().get(0).getPhysicalVertexList();
         List<PhysicalVertex> coordinatorVertices =
                 plans.f0().getPipelineList().get(0).getCoordinatorVertexList();
-        Assertions.assertEquals(2, physicalVertices.size());
+        Assertions.assertEquals(1, physicalVertices.size());
         Assertions.assertEquals(3, coordinatorVertices.size());
 
         List<PhysicalVertex> lookupPhysicalVertices =
                 physicalVertices.stream()
                         .filter(vertex -> !vertex.getInputPorts().isEmpty())
                         .collect(Collectors.toList());
-        Assertions.assertEquals(2, lookupPhysicalVertices.size());
+        Assertions.assertEquals(1, lookupPhysicalVertices.size());
         for (PhysicalVertex lookupVertex : lookupPhysicalVertices) {
             Map<Integer, InputPortDescriptor> ports =
                     lookupVertex.getInputPorts().stream()
@@ -250,13 +265,10 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                                                 : "customer_dimension",
                                                         channel.getLogicalChannelKey()
                                                                 .getSourceActionUid());
-                                                Assertions.assertTrue(
+                                                Assertions.assertEquals(
+                                                        0,
                                                         channel.getLogicalChannelKey()
-                                                                                .getDownstreamSubtask()
-                                                                        >= 0
-                                                                && channel.getLogicalChannelKey()
-                                                                                .getDownstreamSubtask()
-                                                                        < 2);
+                                                                .getDownstreamSubtask());
                                             }));
         }
 
@@ -301,11 +313,11 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         .contains(firstAttempt.getChannelKey().getSourceActionUid()));
 
         CheckpointPlan checkpointPlan = plans.f1().get(1);
-        Assertions.assertTrue(checkpointPlan.getPipelineSubtasks().size() >= 7);
+        Assertions.assertEquals(6, checkpointPlan.getPipelineSubtasks().size());
         Assertions.assertEquals(2, checkpointPlan.getStartingSubtasks().size());
         Assertions.assertEquals(1, checkpointPlan.getCoordinatorCheckpointRoots().size());
         Assertions.assertEquals(1, checkpointPlan.getCoordinatorTasks().size());
-        Assertions.assertEquals(2, checkpointPlan.getInputPortsByTask().size());
+        Assertions.assertEquals(1, checkpointPlan.getInputPortsByTask().size());
         Assertions.assertEquals(4, checkpointPlan.getPipelineActions().size());
         CoordinatorStateKey coordinatorStateKey =
                 checkpointPlan.getCoordinatorTasks().keySet().stream()

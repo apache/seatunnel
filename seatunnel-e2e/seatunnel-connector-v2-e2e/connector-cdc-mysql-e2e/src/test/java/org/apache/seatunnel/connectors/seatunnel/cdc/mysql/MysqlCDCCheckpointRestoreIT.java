@@ -409,7 +409,7 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                 statement.execute("LOCK TABLES mysql_cdc.lookup_dimension WRITE");
                 failed = runLookupJob(container, config, failedJob, null);
                 try {
-                    awaitJobStatus(container, Long.parseLong(failedJob), "RUNNING");
+                    awaitLookupJobRunning(container, failedJob, failed);
                     Awaitility.await()
                             .atMost(2, TimeUnit.MINUTES)
                             .untilAsserted(
@@ -462,6 +462,7 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
             CompletableFuture<Container.ExecResult> source =
                     runLookupJob(container, config, sourceJob, null);
             try {
+                awaitLookupJobRunning(container, sourceJob, source);
                 awaitLookupRows(Arrays.asList(Arrays.asList(1, "Alice"), Arrays.asList(2, "Bob")));
                 produceLookupFact(kafka, 3, 1);
                 awaitLookupRows(
@@ -482,7 +483,7 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
             CompletableFuture<Container.ExecResult> restored =
                     runLookupJob(container, config, restoreJob, sourceJob);
             try {
-                awaitJobStatus(container, Long.parseLong(restoreJob), "RUNNING");
+                awaitLookupJobRunning(container, restoreJob, restored);
                 produceLookupFact(kafka, 4, 2);
                 awaitLookupRows(
                         Arrays.asList(
@@ -511,6 +512,31 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                         throw new RuntimeException(e);
                     }
                 });
+    }
+
+    /** Surfaces asynchronous submission failures instead of masking them as REST poll timeouts. */
+    private void awaitLookupJobRunning(
+            TestContainer container,
+            String job,
+            CompletableFuture<Container.ExecResult> submission) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .until(
+                        () -> {
+                            if (submission.isDone()) {
+                                Container.ExecResult result = submission.get();
+                                throw new IllegalStateException(
+                                        "Lookup job "
+                                                + job
+                                                + " exited before RUNNING, exit code: "
+                                                + result.getExitCode()
+                                                + ", stdout: "
+                                                + result.getStdout()
+                                                + ", stderr: "
+                                                + result.getStderr());
+                            }
+                            return "RUNNING".equals(container.getJobStatus(job));
+                        });
     }
 
     private void produceLookupFact(GenericContainer<?> kafka, int orderId, int customerId)
