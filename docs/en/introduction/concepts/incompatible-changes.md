@@ -19,6 +19,10 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
 
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
