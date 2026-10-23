@@ -5,6 +5,23 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta SQL: FORMATDATETIME and FROM_UNIXTIME use a fixed English locale
+
+- **Behavior change: the output of these two functions no longer follows the worker's default locale**
+  - **Description**: `FORMATDATETIME` and `FROM_UNIXTIME` built their formatter with `DateTimeFormatter.ofPattern(format)`, which captures the JVM default locale. Any pattern letter that renders text rather than digits (`MMM`, `MMMM`, `LLLL`, `EEE`, `EEEE`, `ccc`, `a`, `G`, `QQQ`, `QQQQ`) was therefore translated into the language of whichever worker ran the transform, so the same job wrote `23 Oct 2026` on one worker and `23 Eki 2026` on another. `DAYNAME` and `MONTHNAME` were never affected, because they pin English, so the two disagreed on the same row. Both functions now pass `Locale.ENGLISH`.
+  - **Impact on text**: On a worker whose default locale is English, text output is unchanged. On a worker with a non-English default locale, these names change from the local language to English, and are now stable across workers and environments.
+  - **Impact on the localised week fields**: the formatter locale also selects the week rules, through `WeekFields.of(locale)`, so the week based year `Y`, the week of year `w`, the week of month `W` and the numeric day of week `e` and `c` now follow the English rules on every worker: the week starts on Sunday, and one day is enough to make the first week. These patterns produce digits, so a numeric result is not by itself evidence that a pattern was unaffected. An English language regional default is not interchangeable either, because `en-GB` starts the week on Monday and requires 4 days. Measured for `2021-01-01`, a Friday:
+
+    | pattern | was, `en-US` | was, `en-GB` | was, `de-DE` | was, `tr-TR` | was, `ja-JP` | now, every worker |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `YYYY` | `2021` | `2020` | `2020` | `2021` | `2021` | `2021` |
+    | `ww` | `01` | `53` | `53` | `01` | `01` | `01` |
+    | `W` | `1` | `0` | `0` | `1` | `1` | `1` |
+    | `e` | `6` | `5` | `5` | `5` | `6` | `6` |
+
+  - **Unaffected**: patterns built only from fields that are not locale dependent keep their previous output on every worker, including `y`, `M`, `d`, `H`, `m`, `s`, `S` and the day of year `D`, so an ordinary pattern such as `yyyy-MM-dd HH:mm:ss` is unchanged. Every pattern in `ZetaDateTimeFormat` is made only of such fields and is unchanged.
+  - **Migration Guide**: No configuration change is needed. If a downstream consumer relied on localised month or weekday text from a non-English worker, translate it downstream, since that text was never reproducible across workers. If a job keyed rows on `Y`, `w`, `W`, `e` or `c` and has to keep the ISO week numbering it got from a Monday based worker, compute that week upstream of the transform and pass it in as its own column, because these two functions no longer take the week rules from the worker.
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
