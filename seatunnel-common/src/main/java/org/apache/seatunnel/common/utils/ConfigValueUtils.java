@@ -103,7 +103,9 @@ public class ConfigValueUtils {
                     } else {
                         return ConfigValueFactory.fromAnyRef(value);
                     }
-                } else {
+                }
+                // TODO: strict config params after PR #12810 merged
+                /*else {
                     // check type of elements, element of string type must be wrapped in quotes
                     List<Object> elements = (List<Object>) parsedValue.unwrapped();
                     for (int i = 0; i < elements.size(); i++) {
@@ -119,7 +121,7 @@ public class ConfigValueUtils {
                             }
                         }
                     }
-                }
+                }*/
             }
             return parsedValue;
         } catch (ConfigException e) {
