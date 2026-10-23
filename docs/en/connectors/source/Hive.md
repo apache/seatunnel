@@ -22,7 +22,7 @@ When using markdown format, SeaTunnel can parse markdown files stored in Hive ta
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 Note: Markdown format only supports reading, not writing.
 

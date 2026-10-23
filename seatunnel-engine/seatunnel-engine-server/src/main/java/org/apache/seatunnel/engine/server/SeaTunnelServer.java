@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -234,7 +235,27 @@ public class SeaTunnelServer
     private void startMaster() {
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
-        checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
+        int monitorHistorySize =
+                seaTunnelConfig.getEngineConfig().getCheckpointConfig().getMonitorHistorySize();
+        if (monitorHistorySize
+                > ServerConfigOptions.MasterServerConfigOptions
+                        .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD) {
+            // Legal but worth saying out loud: every checkpoint event rewrites
+            // the whole checkpoint overview entry in the IMap, so a large
+            // window is paid on every trigger and acknowledgement rather than
+            // once. Logged here, at the only place the value is read, so the
+            // line appears in the master log next to the rest of startup.
+            log.warn(
+                    "seatunnel.engine.checkpoint.monitor-history-size is set to {}, above the "
+                            + "recommended {}. The checkpoint overview is rewritten in full on "
+                            + "every checkpoint event, so a window this large costs master CPU, "
+                            + "network and backup traffic proportional to history size x running "
+                            + "pipelines. Lower it unless you need that much history.",
+                    monitorHistorySize,
+                    ServerConfigOptions.MasterServerConfigOptions
+                            .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD);
+        }
+        checkpointMonitorService = new CheckpointMonitorService(engineContext, monitorHistorySize);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(
