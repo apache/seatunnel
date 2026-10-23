@@ -79,6 +79,10 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
             "/savepoint-restore/stream_checkpointable_sequence_to_localfile.conf";
     private static final String SINK_OUTPUT_DIR =
             HOST_VOLUME_MOUNT_PATH + "/savepoint-restore/sinkfile";
+    private static final int PUBLICATION_REST_REQUEST_TIMEOUT_MILLIS = 5_000;
+    private static final int LOCAL_UNRESPONSIVE_REST_TIMEOUT_MILLIS = 1_000;
+    private static final int PUBLICATION_READER_SHUTDOWN_TIMEOUT_MILLIS =
+            PUBLICATION_REST_REQUEST_TIMEOUT_MILLIS * 2 + 1_000;
 
     private boolean checkConnectorPublication;
     private int publicationChecks;
@@ -89,7 +93,11 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
     public void testPublicationRestRequestTimesOut() throws Exception {
         ExecutorService caller = Executors.newSingleThreadExecutor();
         try (UnresponsiveRestServer http = new UnresponsiveRestServer()) {
-            Future<?> request = caller.submit(() -> http.probe.checkJobInfoAvailable("probe"));
+            Future<?> request =
+                    caller.submit(
+                            () ->
+                                    http.probe.checkJobInfoAvailable(
+                                            "probe", LOCAL_UNRESPONSIVE_REST_TIMEOUT_MILLIS));
             Assertions.assertTrue(
                     http.received.await(5, TimeUnit.SECONDS), "Expected a REST request");
             request.get(3, TimeUnit.SECONDS);
@@ -98,6 +106,16 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
             caller.shutdownNow();
             Assertions.assertTrue(
                     caller.awaitTermination(5, TimeUnit.SECONDS), "REST caller leaked");
+        }
+    }
+
+    @Test
+    public void testPublicationRestRequestAllowsSlowHealthyResponse() throws Exception {
+        try (DelayedHealthyRestServer http = new DelayedHealthyRestServer()) {
+            http.probe.checkJobInfoAvailable("probe");
+            Assertions.assertNull(
+                    http.probe.publicationFailure.get(),
+                    "A slow healthy response must not fail connector publication");
         }
     }
 
@@ -139,6 +157,42 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
         @Override
         public void close() throws InterruptedException {
             release.countDown();
+            http.stop(0);
+            executor.shutdownNow();
+            Assertions.assertTrue(
+                    executor.awaitTermination(5, TimeUnit.SECONDS), "HTTP fixture leaked");
+        }
+    }
+
+    private static final class DelayedHealthyRestServer implements AutoCloseable {
+        private final ExecutorService executor = Executors.newSingleThreadExecutor();
+        private final com.sun.net.httpserver.HttpServer http;
+        private final SavepointRestoreIT probe = new SavepointRestoreIT();
+
+        private DelayedHealthyRestServer() throws IOException {
+            http =
+                    com.sun.net.httpserver.HttpServer.create(
+                            new InetSocketAddress("127.0.0.1", 0), 0);
+            http.setExecutor(executor);
+            http.createContext(
+                    "/job-info/probe",
+                    exchange -> {
+                        try {
+                            Thread.sleep(1500);
+                            exchange.sendResponseHeaders(200, -1);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            exchange.close();
+                        }
+                    });
+            http.start();
+            probe.server = mock(GenericContainer.class);
+            when(probe.server.getMappedPort(8080)).thenReturn(http.getAddress().getPort());
+        }
+
+        @Override
+        public void close() throws InterruptedException {
             http.stop(0);
             executor.shutdownNow();
             Assertions.assertTrue(
@@ -327,14 +381,18 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
     }
 
     private void checkJobInfoAvailable(String jobId) {
+        checkJobInfoAvailable(jobId, PUBLICATION_REST_REQUEST_TIMEOUT_MILLIS);
+    }
+
+    private void checkJobInfoAvailable(String jobId, int requestTimeoutMillis) {
         publicationRequests.incrementAndGet();
         HttpURLConnection connection = null;
         try {
             connection =
                     (HttpURLConnection)
                             new URL(getRestBaseUrl() + "/job-info/" + jobId).openConnection();
-            connection.setConnectTimeout(1000);
-            connection.setReadTimeout(1000);
+            connection.setConnectTimeout(requestTimeoutMillis);
+            connection.setReadTimeout(requestTimeoutMillis);
             Assertions.assertEquals(
                     200, connection.getResponseCode(), "REST failed during connector publication");
         } catch (Throwable failure) {
@@ -360,7 +418,10 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
         public void close() {
             boolean interrupted = Thread.interrupted();
             executor.shutdownNow();
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            long deadline =
+                    System.nanoTime()
+                            + TimeUnit.MILLISECONDS.toNanos(
+                                    PUBLICATION_READER_SHUTDOWN_TIMEOUT_MILLIS);
             try {
                 while (!executor.isTerminated()) {
                     long remaining = deadline - System.nanoTime();
@@ -385,7 +446,10 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
     public void testPublicationReaderStopsOnInterrupt() throws Exception {
         try (UnresponsiveRestServer http = new UnresponsiveRestServer()) {
             PublicationRestReader reader =
-                    new PublicationRestReader(() -> http.probe.checkJobInfoAvailable("probe"));
+                    new PublicationRestReader(
+                            () ->
+                                    http.probe.checkJobInfoAvailable(
+                                            "probe", LOCAL_UNRESPONSIVE_REST_TIMEOUT_MILLIS));
             try {
                 Assertions.assertTrue(
                         http.received.await(5, TimeUnit.SECONDS),
@@ -407,7 +471,10 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
     public void testPublicationReaderStopsAfterCopyFailure() throws Exception {
         try (UnresponsiveRestServer http = new UnresponsiveRestServer()) {
             PublicationRestReader reader =
-                    new PublicationRestReader(() -> http.probe.checkJobInfoAvailable("probe"));
+                    new PublicationRestReader(
+                            () ->
+                                    http.probe.checkJobInfoAvailable(
+                                            "probe", LOCAL_UNRESPONSIVE_REST_TIMEOUT_MILLIS));
             IOException expected = new IOException("controlled copy failure");
             IOException failure =
                     Assertions.assertThrows(

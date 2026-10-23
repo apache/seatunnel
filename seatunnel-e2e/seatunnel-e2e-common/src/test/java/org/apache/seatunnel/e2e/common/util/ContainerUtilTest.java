@@ -41,11 +41,31 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ContainerUtilTest {
+
+    @Test
+    void shouldCopyConnectorJarDirectlyWithoutContainerExec() throws Exception {
+        GenericContainer<?> container = mock(GenericContainer.class);
+        Path jar = Files.createTempFile("connector-direct-copy-", ".jar");
+        try {
+            ContainerUtil.copyConnectorJarDirectly(container, jar.toFile(), "/tmp/seatunnel/");
+
+            verify(container)
+                    .copyFileToContainer(
+                            any(MountableFile.class),
+                            eq("/tmp/seatunnel/connectors/" + jar.getFileName()));
+            verify(container, never()).execInContainer(any(String[].class));
+        } finally {
+            Files.deleteIfExists(jar);
+        }
+    }
 
     @Test
     void shouldPublishNewContentUsingContainerPaths() throws Exception {
