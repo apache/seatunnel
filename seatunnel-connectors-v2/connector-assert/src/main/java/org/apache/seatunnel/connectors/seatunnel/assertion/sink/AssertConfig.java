@@ -57,6 +57,9 @@ public class AssertConfig {
     public static final String COLUMN_DEFAULT_VALUE = "default_value";
     public static final String COLUMN_COMMENT = "comment";
 
+    /** Optional expected sink type of a column, only compared when it is declared. */
+    public static final String COLUMN_SINK_TYPE = "sink_type";
+
     public static final String TABLE_PATH = "table_path";
 
     public static class TableIdentifierRule {

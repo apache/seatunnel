@@ -145,6 +145,20 @@ class HadoopFileSystemProxyTest {
         }
     }
 
+    @Test
+    void testCloseClearsFileSystemSoProxyCanBeReused() throws Exception {
+        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
+        try {
+            FileSystem first = proxy.getFileSystem();
+
+            proxy.close();
+
+            Assertions.assertNotSame(first, proxy.getFileSystem());
+        } finally {
+            proxy.close();
+        }
+    }
+
     private static HadoopFileSystemProxy newProxy(FileSystem fileSystem) {
         HadoopFileSystemProxy proxy =
                 Mockito.mock(HadoopFileSystemProxy.class, Mockito.CALLS_REAL_METHODS);

@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 - [x] 多表 Source
 - [x] 文件格式：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`markdown` 和 `pdf`
 
@@ -50,7 +50,8 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | hadoop_gcs_properties | map | 否 | - | 额外的 `fs.gs.*` Hadoop 属性。显式连接器配置优先。 |
 | schema | config | 条件必填 | - | `text`、`json`、`excel`、`csv` 和 `xml` 格式需要配置。参见 [Schema 功能](../../introduction/concepts/schema-feature.md)。 |
 | read_columns | list | 否 | - | 从数据源投影的列。 |
-| field_delimiter | string | 否 | text 为 `\001`，CSV 为 `,` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
+| field_delimiter | string | 否 | `\001` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
 | row_delimiter | string | 否 | `\n` | text 文件的行分隔符。 |
 | skip_header_row_number | long | 否 | `0` | 跳过 text 或 CSV 文件开头的行数。 |
 | encoding | string | 否 | `UTF-8` | text、JSON、CSV 和 XML 的字符编码。 |
@@ -63,6 +64,8 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | enable_file_split | boolean | 否 | `false` | 为未压缩的 text、CSV、JSON 和 Parquet 文件启用逻辑切分。 |
 | file_split_size | long | 条件必填 | `134217728` | `enable_file_split=true` 时的切分大小，单位为字节。 |
 | null_format | string | 否 | - | 表示空值的文本。 |
+| binary_chunk_size | int | 否 | 1024 | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。较大的值可能会提高大文件的性能，但会使用更多内存。 |
+| binary_complete_file_mode | boolean | 否 | false | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。 |
 | quote_char | string | 否 | `"` | CSV 引号字符。 |
 | escape_char | string | 否 | - | CSV 转义字符。 |
 | sheet_name | string | 否 | - | 要读取的 Excel 工作表。 |
@@ -70,6 +73,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | poi_excel_max_file_size | long | 否 | `52428800` | POI 引擎可读取的最大 Excel 文件字节数。 |
 | xml_row_tag | string | 条件必填 | - | 表示一行数据的 XML 元素。 |
 | xml_use_attr_format | boolean | 条件必填 | - | 是否从 XML 属性读取值。 |
+| csv_use_header_line | boolean | 否 | false | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用。 |
 | discovery_mode | string | 否 | `once` | `once` 或 `continuous`。连续发现当前要求 update 同步和 binary 格式。 |
 | scan_interval | string | 否 | `10S` | 连续发现的轮询间隔。 |
 | start_mode | string | 否 | `earliest` | `earliest` 处理已有文件，`latest` 从后续变更开始。 |
@@ -84,6 +88,9 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | backup_path | string | 条件必填 | - | `post_sync_action=backup` 时必填，且不能与源路径重叠。 |
 | retention_max_age | string | 否 | - | SeaTunnel 备份对象的最大保留时间。 |
 | retention_check_interval | string | 否 | `1H` | 备份保留扫描间隔。 |
+| file_filter_modified_start | string | 否 | - | 按文件最后修改时间筛选文件的起始时间（包含该时间）。默认格式：`yyyy-MM-dd HH:mm:ss`。 |
+| file_filter_modified_end | string | 否 | - | 按文件最后修改时间筛选文件的结束时间（不包含该时间）。默认格式：`yyyy-MM-dd HH:mm:ss`。 |
+| sort_files_by_modification_time | boolean | 否 | false | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。 |
 | common-options | | 否 | - | 参见 [Source 通用配置](../common-options/source-common-options.md)。 |
 
 ## 示例
