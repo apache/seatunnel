@@ -7,7 +7,7 @@
 ## 功能特性
 
 - **自然语言转配置** -- 用中文或英文描述需求，即可获得有效的 SeaTunnel 配置
-- **多 LLM 提供商** -- 支持 AWS Bedrock、Anthropic API、OpenAI（及兼容 API，如 Azure OpenAI）
+- **多 LLM 提供商** -- 支持 AWS Bedrock、Anthropic API、OpenAI（及兼容 API，如 Azure OpenAI）、OrcaRouter AI 网关
 - **多智能体流水线** -- 规划器 -> 生成器 -> 校验器 -> 自动修复，最多 3 轮纠错
 - **100+ 连接器** -- 全面覆盖 SeaTunnel 连接器生态，支持运行时元数据反射
 - **Transform 元数据** -- Source、Sink 和 Transform 插件在生成配置时都支持完整选项规则和值约束
@@ -54,9 +54,10 @@ cd seatunnel-cli
 
 # 快速安装（安装所有提供商 + 开发工具）
 bash setup.sh
+source .venv/bin/activate
 ```
 
-然后配置 LLM 提供商：
+脚本会将依赖安装到 `seatunnel-cli/.venv`，再次运行时复用该环境。使用 `seatunnel` 前请先激活环境，也可直接运行 `.venv/bin/seatunnel`；脚本不会把依赖安装到系统 Python。然后配置 LLM 提供商：
 
 ```bash
 seatunnel --init
@@ -136,6 +137,28 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 # export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
+#### 方案 D：OrcaRouter AI 网关
+
+```bash
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+
+# 模型覆盖（可选）——OrcaRouter 模型 ID 使用 provider/model 命名空间，
+# 例如 openai/gpt-5.5-pro、deepseek/deepseek-v4-pro、anthropic/claude-fable-5。
+# 特殊模型 `orcarouter/auto` 会自动评级并路由每个请求。
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
+```
+
+需要：`pip install -e ".[openai]"`（`openai` 包）。
+
+[OrcaRouter](https://www.orcarouter.ai) 是一个 OpenAI 兼容的 AI 网关，在单个端点
+（`https://api.orcarouter.ai/v1`）之后暴露众多模型——Claude、GPT、Gemini、
+DeepSeek、Qwen 等。模型 ID 使用 `provider/model` 命名空间，`orcarouter/auto`
+模型会自动为每个请求选择最佳模型。OrcaRouter 提供商使用 OpenAI Chat Completions
+协议，因此与 `openai` 提供商一样支持 reasoning_content 回放、流式输出和工具调用。
+
 ### SEATUNNEL_HOME
 
 `SEATUNNEL_HOME` 是 Apache SeaTunnel 引擎的安装路径。CLI 使用它来：
@@ -151,7 +174,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **默认行为：** 如果未设置 `SEATUNNEL_HOME`，CLI 会根据自身包位置自动检测。在发行版压缩包中，CLI 位于 `cli/seatunnel_cli/`，因此会向上解析两级到压缩包根目录：
 
 ```
-apache-seatunnel-3.0.0/          <-- 自动检测为 SEATUNNEL_HOME
+apache-seatunnel-3.0.1/          <-- 自动检测为 SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI 包位置
@@ -169,7 +192,7 @@ apache-seatunnel-3.0.0/          <-- 自动检测为 SEATUNNEL_HOME
 如需实时连接器元数据和 REST API 作业提交，请启动 SeaTunnel 服务：
 
 ```bash
-export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
+export SEATUNNEL_API_BASE=http://localhost:8080  # 默认值：引擎的 Jetty HTTP 端口
 ```
 
 引擎运行时，CLI 以**集群模式**运行，支持实时连接器元数据、引擎级校验和通过 REST API 直接提交作业。引擎不可用时，回退到**离线模式**，使用内置的连接器元数据。
@@ -178,18 +201,22 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 
 | 变量 | 是否必需 | 默认值 | 说明 |
 |------|---------|--------|------|
-| `AI_PROVIDER` | 否 | `bedrock` | LLM 提供商：`bedrock`、`anthropic` 或 `openai` |
+| `AI_PROVIDER` | 否 | `bedrock` | LLM 提供商：`bedrock`、`bedrock-mantle`、`anthropic`、`openai` 或 `orcarouter` |
 | `AWS_REGION` | Bedrock 必需 | `us-east-1` | Bedrock 使用的 AWS 区域 |
 | `ANTHROPIC_API_KEY` | Anthropic 必需 | -- | Anthropic API 密钥 |
 | `OPENAI_API_KEY` | OpenAI 必需 | -- | OpenAI API 密钥 |
 | `OPENAI_BASE_URL` | 否 | -- | OpenAI 兼容 API 的自定义端点 |
 | `OPENAI_ECHO_REASONING_CONTENT` | 否 | `true` | 为 DeepSeek、GLM 思考模式等 OpenAI 兼容推理模型保留并回传 `reasoning_content` |
+| `ORCAROUTER_API_KEY` | OrcaRouter 必需 | -- | OrcaRouter API 密钥 |
 | `ANTHROPIC_MODEL` | 否 | 提供商默认值 | 覆盖主模型 ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | 否 | 提供商默认值 | 覆盖快速模型 ID |
 | `OPENAI_MODEL` | 否 | `gpt-4o` | OpenAI 提供商的主模型 |
 | `OPENAI_SMALL_FAST_MODEL` | 否 | `gpt-4o-mini` | OpenAI 提供商的快速模型 |
+| `ORCAROUTER_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的主模型（provider/model 命名空间） |
+| `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
-| `SEATUNNEL_API_BASE` | 否 | `http://localhost:5801` | SeaTunnel REST API 端点 |
+| `SEATUNNEL_API_BASE` | 否 | `http://localhost:8080` | SeaTunnel REST API 端点（引擎的 Jetty HTTP 端口，不是 5801 成员端口） |
 | `SEATUNNEL_CLI_DATA` | 否 | `<cli-package>/.data/` | 覆盖 CLI 数据目录（会话、记忆、配置） |
 
 ## 使用方法
@@ -217,6 +244,82 @@ seatunnel "从 Kafka 读取订单数据写入 ClickHouse" -o my_job.conf
 seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model gpt-4o
 ```
 
+### 诊断作业
+
+`--diagnose` 用引擎已经暴露的信息回答"这个作业为什么不往前走"。它是只读的——
+只发 `GET /job-info/<id>` 和 `GET /jobs/checkpoints/<id>`，不会提交也不会停止
+作业——并且完全不调用 LLM，因此在没有 API key、没有配置任何提供商的情况下也能用：
+
+```bash
+seatunnel --diagnose 852362670771666945
+
+# 集群在其他主机上，或 enable-dynamic-port 让监听端口发生了变化
+SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 852362670771666945
+```
+
+`/job-info` 属于 v2 REST API，由 Zeta 的 Jetty HTTP 端口提供服务——打包配置
+`config/seatunnel.yaml` 中是 `8080`。集群在别处或端口不同时，请把
+`SEATUNNEL_API_BASE` 指向该地址。
+
+```
+Job 852362670771666945 mysql-to-doris — RUNNING
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
+```
+
+它会报告：失败作业解析出的错误码与根因、反复重启的 pipeline（以及是否已用尽
+重启次数）、在运行前状态停留过久的作业、以及源端读不到数据或目标端写不出数据的
+运行中作业。只有作业本身处于 `FAILED` 时退出码才非零——卡住但仍存活的作业不会被
+当成命令执行失败。
+
+它还会回答**原本很快的作业为什么变慢了**——这是作业状态本身无法解释的：出现延迟的
+作业仍然是 `RUNNING`，两侧的行数也都在涨。checkpoint 历史补上了缺失的那个对比：
+
+```
+Job 852362670771666945 mysql-cdc-to-doris — RUNNING
+  [warning] Pipeline 1 checkpoints are getting slower: recently 48.0s against 4.0s
+            earlier in the retained history. (median durationMillis 4000 -> 48000 over 16 checkpoints)
+  [warning] Pipeline 1 now spends almost all its time checkpointing: a checkpoint takes
+            48.0s and one is triggered every 1m00s. (recent median duration 48000ms vs interval 60000ms)
+  [info]    Pipeline 1 checkpoint state is growing: recently 120.0MiB against 12.0MiB earlier.
+```
+
+卡住的 checkpoint 还会定位到是哪些 subtask 在挡住 barrier（`3 of 8 subtasks have
+acknowledged it`），指向具体的某一环而不是整个作业。
+
+引擎每个 pipeline 只保留最近 32 个 checkpoint，因此趋势只覆盖这个窗口，而非整个
+运行周期。「几乎全部时间都在做 checkpoint」这条规则不需要基线，所以对于更早就已经
+退化、之后一直慢的作业同样有效。如果集群版本没有该 checkpoint 端点，或其监控服务
+未开启，诊断的其余部分照常输出，并会额外打印一行说明这部分分析没有执行。
+
+每条规则都刻意只说单次响应能证明的事情，因为错误的提示比没有提示代价更大：
+
+- `restoreCount` 统计的是自提交以来的重启次数，所以它的含义完全取决于 pipeline
+  当前的状态。`FINISHED` / `CANCELED` 的 pipeline 已经结束，不会输出任何内容；
+  `FAILED` 的只在重启预算用尽时以过去时报告；正在关停的则把重启次数作为历史
+  记录输出。只有当 pipeline 处于两次尝试之间、或距上次重启运行不足 10 分钟时，
+  才会判定为重启循环——因此每次尝试都能存活超过 10 分钟的循环会被当作历史
+  记录，而不是当前故障。有一个例外：重启预算已经用尽的 pipeline 即使只重启过
+  一次也会被报告，`job.retry.times = 1` 的作业就会遇到这种情况。
+- 行数规则要等作业进入 RUNNING 满两分钟后才生效；对 `job.mode = STREAMING`
+  的作业，源端空闲只作为提示而非告警——安静的 topic 和配错的 topic 在这里
+  读数完全相同。
+- `DOING_SAVEPOINT` 只报告持续时长，不会说成任务挂死：状态大时写 savepoint
+  本来就要几分钟。
+- checkpoint 失败只有在**最近一次失败比最近一次成功更新**时才告警。
+  `counts.failed` 是自提交以来的累计值，一次早已过期的 checkpoint 会让它永远
+  大于零。
+- checkpoint 卡住的判定阈值是进行中超过 2 分钟，高于打包配置里的
+  `checkpoint.timeout`（60 秒）。默认配置下挂死的 checkpoint 会先超时、以失败
+  的形式报出，因此这条规则主要服务于调高了该超时的集群。
+- 时长以引擎自己的时钟为基准计算：作业规则和 checkpoint 规则都使用
+  `/job-info` 响应里的 `diagnostics.generatedAt`（由 master 在构造响应时打上），
+  因此客户端时钟与集群不一致时不会凭空造出一个"卡住"的作业。checkpoint
+  overview 自带的 `updatedAt` 刻意不使用——引擎只在记录 checkpoint 事件时才
+  写入它，所以当某个 checkpoint 卡在最后一个 subtask 上时它就不再前进，反而
+  会把这条规则本该发现的卡死隐藏掉。
+
 ### CLI 参数
 
 ```
@@ -227,9 +330,10 @@ seatunnel [request] [options]
 
 选项：
   -o, --output PATH        将生成的配置保存到文件
-  --provider PROVIDER      LLM 提供商：bedrock | anthropic | openai
+  --provider PROVIDER      LLM 提供商：bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            覆盖主模型 ID
   --fast-model MODEL       覆盖快速模型 ID
+  --diagnose JOB_ID        诊断作业当前状态后退出（只读，不调用 LLM）
   --sync-catalog PATH      从 SeaTunnel 源码重新生成连接器目录
   -V, --version            显示版本
   -h, --help               显示帮助信息
@@ -252,6 +356,10 @@ seatunnel [request] [options]
 | `/clear` | 清除对话历史并开始新会话 |
 | `/help` | 显示帮助面板 |
 | `/quit` | 退出 |
+
+会话列表和自动恢复按最近活跃时间排序。恢复旧会话并继续使用后，它会成为最近会话；无法读取的会话文件会被跳过。
+
+`/new`、`/clear` 和成功的 `/resume` 会丢弃上一会话未回答的澄清请求，下一条请求只使用所选会话的上下文。
 
 ## 示例
 
@@ -379,6 +487,8 @@ Transform 元数据与 Source、Sink 元数据走同一条解析路径，因此�
 ### 记忆系统
 
 CLI 跨会话记忆信息，以提高配置准确性：
+
+会话摘要采用与已保存历史相同的凭据脱敏规则：生成摘要的请求和保存的摘要都会移除已识别的敏感值。
 
 - **项目上下文** -- 表名、数据库名、常用模式。
 - **偏好设置** -- 并行度、格式、语言偏好。

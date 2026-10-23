@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -59,12 +60,19 @@ public class EasysearchSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(EasysearchSourceOptions.HOSTS, EasysearchSourceOptions.INDEX)
+                .required(
+                        EasysearchSourceOptions.HOSTS,
+                        Conditions.notEmpty(EasysearchSourceOptions.HOSTS))
+                .required(
+                        EasysearchSourceOptions.INDEX,
+                        Conditions.notBlank(EasysearchSourceOptions.INDEX))
+                .optional(
+                        EasysearchSourceOptions.SCROLL_SIZE,
+                        Conditions.greaterThan(EasysearchSourceOptions.SCROLL_SIZE, 0))
                 .optional(
                         EasysearchSourceOptions.USERNAME,
                         EasysearchSourceOptions.PASSWORD,
                         EasysearchSourceOptions.SCROLL_TIME,
-                        EasysearchSourceOptions.SCROLL_SIZE,
                         EasysearchSourceOptions.QUERY,
                         EasysearchSourceOptions.TLS_VERIFY_CERTIFICATE,
                         EasysearchSourceOptions.TLS_VERIFY_HOSTNAME,

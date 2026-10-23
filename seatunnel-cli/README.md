@@ -7,7 +7,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 ## Features
 
 - **Natural Language to Config** -- Describe what you want in plain English or Chinese, get a valid SeaTunnel config
-- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
+- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
 - **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
@@ -27,6 +27,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
   - **AWS Bedrock** -- requires AWS credentials and `boto3`
   - **Anthropic API** -- requires `ANTHROPIC_API_KEY` and `anthropic` package
   - **OpenAI API** -- requires `OPENAI_API_KEY` and `openai` package
+  - **OrcaRouter** -- requires `ORCAROUTER_API_KEY` and `openai` package
 - (Optional) Running Apache SeaTunnel engine for live metadata and job execution
 
 > **Note:** When launched via `bin/seatunnel-ai.sh`, Python dependencies are installed automatically on first run. No manual `pip install` needed.
@@ -54,9 +55,10 @@ cd seatunnel-cli
 
 # Quick setup (installs all providers + dev tools)
 bash setup.sh
+source .venv/bin/activate
 ```
 
-Then configure your LLM provider:
+The setup script installs into `seatunnel-cli/.venv` and reuses that environment on later runs. Activate it before using `seatunnel`, or call `.venv/bin/seatunnel` directly. It does not install packages into the system Python. Then configure your LLM provider:
 
 ```bash
 seatunnel --init
@@ -67,7 +69,7 @@ seatunnel --init
 ```bash
 pip install -e ".[bedrock]"    # AWS Bedrock
 pip install -e ".[anthropic]"  # Anthropic API
-pip install -e ".[openai]"     # OpenAI API
+pip install -e ".[openai]"     # OpenAI API / OrcaRouter
 pip install -e ".[all]"        # All providers
 pip install -e ".[dev]"        # Development (all providers + pytest, ruff)
 ```
@@ -165,6 +167,30 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 # export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
+#### Option D: OrcaRouter AI Gateway
+
+```bash
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+
+# Model overrides (optional) — OrcaRouter model IDs use a provider/model namespace,
+# e.g. openai/gpt-5.5-pro, deepseek/deepseek-v4-pro, anthropic/claude-fable-5.
+# The special model `orcarouter/auto` auto-grades and auto-routes each request.
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+```
+
+Requires: `pip install -e ".[openai]"` (the `openai` package).
+
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible AI gateway
+that exposes many models — including Claude, GPT, Gemini, DeepSeek and Qwen —
+behind a single endpoint (`https://api.orcarouter.ai/v1`). Model IDs follow a
+`provider/model` namespace, and the `orcarouter/auto` model automatically
+selects the best model per request. The OrcaRouter provider speaks the OpenAI
+Chat Completions protocol, so it inherits the same reasoning-content replay,
+streaming and tool-calling support as the `openai` provider.
+
 ### SEATUNNEL_HOME
 
 `SEATUNNEL_HOME` is the path to your Apache SeaTunnel engine installation. The CLI uses it to:
@@ -180,7 +206,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **Default behavior:** If `SEATUNNEL_HOME` is not set, the CLI auto-detects from its package location. In the distribution tarball the CLI lives at `cli/seatunnel_cli/`, so it resolves two levels up to the tarball root:
 
 ```
-apache-seatunnel-3.0.0/          <-- auto-detected as SEATUNNEL_HOME
+apache-seatunnel-3.0.1/          <-- auto-detected as SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI package location
@@ -198,7 +224,7 @@ For source installs (`setup.sh` / `pip install`), the directory structure does n
 For live connector metadata and REST API job submission, start the SeaTunnel server:
 
 ```bash
-export SEATUNNEL_API_BASE=http://localhost:5801  # Default
+export SEATUNNEL_API_BASE=http://localhost:8080  # Default: the engine's Jetty HTTP port
 ```
 
 When the engine is running, the CLI operates in **cluster mode** with live connector metadata, engine-level validation, and direct job submission via REST API. When unavailable, it falls back to **offline mode** using the bundled connector metadata.
@@ -207,18 +233,22 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, or `openai` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, or `orcarouter` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
 | `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
+| `ORCAROUTER_API_KEY` | OrcaRouter | -- | OrcaRouter API key |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
 | `OPENAI_SMALL_FAST_MODEL` | No | `gpt-4o-mini` | Fast model for OpenAI provider |
+| `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
+| `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
-| `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
+| `SEATUNNEL_API_BASE` | No | `http://localhost:8080` | SeaTunnel REST API endpoint (the engine's Jetty HTTP port, not the 5801 member port) |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
 
 ## Usage
@@ -246,6 +276,96 @@ seatunnel "从 Kafka 读取订单数据写入 ClickHouse" -o my_job.conf
 seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model gpt-4o
 ```
 
+### Diagnosing a Job
+
+`--diagnose` answers "why is this job not making progress?" from what the
+engine already publishes. It is read-only -- a `GET /job-info/<id>` and a
+`GET /jobs/checkpoints/<id>`, never a submit or a stop -- and uses no LLM at
+all, so it works with no API key and no provider configured:
+
+```bash
+seatunnel --diagnose 852362670771666945
+
+# Another host, or a cluster whose enable-dynamic-port moved the listener
+SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 852362670771666945
+```
+
+`/job-info` is part of the v2 REST API, which Zeta serves from its Jetty HTTP
+port -- `8080` in the packaged `config/seatunnel.yaml`. Point
+`SEATUNNEL_API_BASE` there if your cluster is elsewhere or uses another port.
+
+```
+Job 852362670771666945 mysql-to-doris — RUNNING
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
+```
+
+What it reports: the parsed error code and root cause of a failed job, a
+pipeline restarting in a loop (and whether it has used up its restore budget),
+a job that has sat in a pre-running state too long to be normal, and a running
+job whose source reads nothing or whose sink writes nothing. Exit status is
+non-zero only when the job itself is `FAILED`, so a stuck-but-live job does not
+look like a command failure.
+
+It also reports **why a job that used to be fast has got slower**, which the
+job state alone cannot explain: a job that is lagging is still `RUNNING` with
+both row counters moving. Checkpoint history supplies the missing comparison:
+
+```
+Job 852362670771666945 mysql-cdc-to-doris — RUNNING
+  [warning] Pipeline 1 checkpoints are getting slower: recently 48.0s against 4.0s
+            earlier in the retained history. (median durationMillis 4000 -> 48000 over 16 checkpoints)
+  [warning] Pipeline 1 now spends almost all its time checkpointing: a checkpoint takes
+            48.0s and one is triggered every 1m00s. (recent median duration 48000ms vs interval 60000ms)
+  [info]    Pipeline 1 checkpoint state is growing: recently 120.0MiB against 12.0MiB earlier.
+```
+
+A stalled checkpoint is also named down to the subtasks holding up the barrier
+(`3 of 8 subtasks have acknowledged it`), which points at one stage rather than
+at the job as a whole.
+
+The engine keeps the last 32 checkpoints per pipeline, so the trend covers that
+window rather than the whole run. The "spends its time checkpointing" rule
+needs no baseline and so still fires on a job that degraded earlier and has
+been slow since. If the cluster predates the checkpoint endpoint, or its
+monitor service is off, the rest of the diagnosis is printed unchanged, with
+one line noting that this part of the analysis did not run.
+
+Every rule is deliberately limited to what one response can prove, because a
+wrong hint costs more than a missing one:
+
+- `restoreCount` counts restores since submission, so what it means depends on
+  the pipeline's current state. A pipeline that is `FINISHED` or `CANCELED` is
+  over and says nothing; a `FAILED` one is reported only if it spent its whole
+  restore budget, in the past tense; one that is shutting down reports its
+  restores as history. A loop is only claimed when the pipeline is between
+  attempts, or has been running for less than 10 minutes since its last
+  restore — so a loop whose attempts each survive longer than that is reported
+  as history rather than as a live fault. One exception: a pipeline that has
+  used its whole restore budget is reported even after a single restore, which
+  you will see on a job with `job.retry.times = 1`.
+- the row-count rules wait until the job has been RUNNING for two minutes, and
+  for a `job.mode = STREAMING` job an idle source is reported as a note rather
+  than a warning -- a quiet topic and a misconfigured one read the same here.
+- `DOING_SAVEPOINT` is reported as a duration, not as a hung task: a large
+  state legitimately takes minutes to write.
+- a checkpoint failure is only a warning while the **latest** failure is newer
+  than the latest completion. `counts.failed` is cumulative, so one expired
+  checkpoint would otherwise keep it above zero forever.
+- the stalled-checkpoint rule fires after 2 minutes in progress, which is above
+  the packaged `checkpoint.timeout` of 60s. On default settings a hung
+  checkpoint expires first and is reported as a failure instead, so this rule
+  matters on clusters that have raised that timeout.
+- durations are measured against the engine's own clock: `diagnostics.generatedAt`
+  from the `/job-info` response, which the master stamps when it builds the
+  reply, is used for both the job rules and the checkpoint rules, so a client
+  clock that disagrees with the cluster cannot invent a stuck job. The
+  checkpoint overview's own `updatedAt` is deliberately not used -- the engine
+  writes it only when a checkpoint event is recorded, so for a checkpoint hung
+  on its last subtask it stops advancing and would hide the very stall the
+  rule looks for.
+
 ### CLI Arguments
 
 ```
@@ -256,9 +376,10 @@ Positional:
 
 Options:
   -o, --output PATH        Save generated config to file
-  --provider PROVIDER      LLM provider: bedrock | anthropic | openai
+  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
+  --diagnose JOB_ID        Explain a job's current state and exit (read-only, no LLM)
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source
   -V, --version            Show version
   -h, --help               Show help message
@@ -281,6 +402,10 @@ Options:
 | `/clear` | Clear conversation history and start a new session |
 | `/help` | Show help panel |
 | `/quit` | Exit |
+
+Sessions are listed and automatically resumed by their last activity time. Continuing an older session makes it the most recent session; unreadable session files are skipped.
+
+`/new`, `/clear`, and a successful `/resume` discard any unanswered clarification from the previous session. The next request uses the selected session only.
 
 ## Examples
 
@@ -408,6 +533,8 @@ Transform metadata is resolved through the same path as source and sink metadata
 ### Memory System
 
 The CLI remembers facts across sessions to improve config accuracy:
+
+Conversation summaries use the same credential redaction as saved history: recognized secrets are removed before the summary request and before the summary is saved.
 
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.

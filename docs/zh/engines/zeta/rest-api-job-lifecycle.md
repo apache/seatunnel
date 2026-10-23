@@ -148,7 +148,7 @@ curl http://<master>:8080/job-info/<jobId>
 |---|---|
 | `jobId` | 作业唯一标识 |
 | `jobName` | 作业名称 |
-| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELLED` |
+| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELED` |
 | `envOptions` | 生效的 env 配置 |
 | `createTime` | 作业创建时间戳 |
 | `jobDag` | DAG 拓扑结构 |
@@ -224,12 +224,9 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 路径会打印在作业日志中，也可通过查询已完成作业获取：
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+Savepoint 会写入所配置的 checkpoint 存储（参见所用集群的 checkpoint 存储配置）。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
+如需稍后恢复，请使用 `restoreMode=SAVEPOINT`（配合 `restoreSourceJobId`）重新提交，引擎会自动
+选取该作业最新的 Savepoint。完整请求示例见 6.2 节。
 
 ### 5.3 强制取消
 
@@ -283,7 +280,7 @@ seatunnel:
       retain-after-job-cancelled: true
 ```
 
-2. 在 REST 请求体中配置作业级 `env` 覆盖, 仅对当前作业生效: 
+2. 在 REST 请求体中配置作业级 `env` 覆盖, 仅对当前作业生效:
 
 ```json
 {
@@ -319,21 +316,10 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 
 ### 6.3 从指定 Savepoint 路径恢复
 
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+REST API 不支持指定具体的 Savepoint 路径进行恢复。不存在 `restore.mode` 或 `savepoint.path` 之类的
+env 选项；恢复行为只由请求参数 `restoreMode` 和 `restoreSourceJobId` 控制，并且
+`restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint（按 pipeline 取 checkpoint id 最高的那
+个）。REST API 没有选择更早 Savepoint 的受支持方式。
 
 ---
 

@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonToken;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
@@ -76,6 +80,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final TablePath tablePath;
 
+    /** Cached {@link TablePath#toString()} to avoid rebuilding the table id on every row. */
+    private final String tableId;
+
     public DebeziumJsonDeserializationSchema(CatalogTable catalogTable, boolean ignoreParseErrors) {
         this(catalogTable, ignoreParseErrors, false);
     }
@@ -89,6 +96,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = debeziumEnabledSchema;
         this.tablePath = Optional.of(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+        this.tableId = tablePath != null ? tablePath.toString() : null;
     }
 
     @Override
@@ -110,9 +118,17 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
 
         try {
-            JsonNode root = jsonDeserializer.deserializeToJsonNode(message);
-            JsonNode payload = getPayload(root);
-            parsePayload(out, tablePath, root, payload);
+            // Only schema-enabled messages need per-field logical type metadata. Keep the
+            // schema-less hot path free of metadata maps and continue skipping unused objects.
+            Map<String, Map<String, String>> fieldSchemaNames =
+                    debeziumEnabledSchema ? new HashMap<>() : Collections.emptyMap();
+            JsonNode payload = readDebeziumPayload(message, fieldSchemaNames);
+            parsePayload(
+                    out,
+                    tablePath,
+                    payload,
+                    fieldSchemaNames.getOrDefault(DATA_BEFORE, Collections.emptyMap()),
+                    fieldSchemaNames.getOrDefault(DATA_AFTER, Collections.emptyMap()));
         } catch (Exception e) {
             // a big try catch to protect the processing.
             if (!ignoreParseErrors) {
@@ -141,6 +157,11 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 extractFieldSchemaNames(root, DATA_AFTER));
     }
 
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.rowType;
+    }
+
     private void parsePayload(Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode payload)
             throws IOException {
         parsePayload(out, tablePath, payload, Collections.emptyMap(), Collections.emptyMap());
@@ -155,6 +176,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             throws IOException {
         String op = payload.get(OP_KEY).asText();
         JsonNode tsNode = payload.get(DATA_TS);
+        String resolvedTableId = resolveTableId(tablePath);
+        Long eventTime = tsNode != null ? tsNode.asLong() : null;
 
         switch (op) {
             case OP_CREATE:
@@ -162,12 +185,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 SeaTunnelRow insert =
                         debeziumRowConverter.parse(payload.get(DATA_AFTER), afterFieldSchemaNames);
                 insert.setRowKind(RowKind.INSERT);
-                if (tablePath != null) {
-                    insert.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(insert, tsNode.asLong());
-                }
+                applyRowMeta(insert, resolvedTableId, eventTime);
                 out.collect(insert);
                 break;
             case OP_UPDATE:
@@ -179,23 +197,12 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 before.setRowKind(RowKind.UPDATE_BEFORE);
-                if (tablePath != null) {
-                    before.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(before, tsNode.asLong());
-                }
+                applyRowMeta(before, resolvedTableId, eventTime);
 
                 SeaTunnelRow after =
                         debeziumRowConverter.parse(payload.get(DATA_AFTER), afterFieldSchemaNames);
                 after.setRowKind(RowKind.UPDATE_AFTER);
-
-                if (tablePath != null) {
-                    after.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(after, tsNode.asLong());
-                }
+                applyRowMeta(after, resolvedTableId, eventTime);
                 out.collect(before);
                 out.collect(after);
                 break;
@@ -208,12 +215,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                             String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
                 }
                 delete.setRowKind(RowKind.DELETE);
-                if (tablePath != null) {
-                    delete.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(delete, tsNode.asLong());
-                }
+                applyRowMeta(delete, resolvedTableId, eventTime);
                 out.collect(delete);
                 break;
             default:
@@ -221,6 +223,12 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
+    /**
+     * Reads immediate column logical types from the selected before/after envelope schema.
+     *
+     * <p>The converter uses these names before its numeric TIME fallback. This flat map does not
+     * traverse nested ROW schemas; missing logical names retain the compatibility fallback.
+     */
     static Map<String, String> extractFieldSchemaNames(JsonNode root, String envelopeField) {
         JsonNode schema = root == null ? null : root.get(DATA_SCHEMA);
         JsonNode fields = schema == null ? null : schema.get(SCHEMA_FIELDS);
@@ -255,15 +263,184 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         return value == null || value.isNull() ? null : value.asText();
     }
 
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
+    /**
+     * Resolves the table id string for the emitted row. Call sites normally pass {@link
+     * #tablePath}; the identity check reuses the cached {@link #tableId}, while the fallback covers
+     * the public {@link #deserializeMessage(byte[], Collector, TablePath)} contract if a different
+     * path is supplied.
+     */
+    private String resolveTableId(TablePath tablePath) {
+        if (tablePath == null) {
+            return null;
+        }
+        if (tablePath == this.tablePath) {
+            return tableId;
+        }
+        return tablePath.toString();
     }
 
-    private JsonNode getPayload(JsonNode jsonNode) {
-        if (debeziumEnabledSchema) {
-            return jsonNode.get(DATA_PAYLOAD);
+    /** Applies table id and optional event-time metadata to a newly parsed row. */
+    private static void applyRowMeta(SeaTunnelRow row, String tableId, Long eventTime) {
+        if (tableId != null) {
+            row.setTableId(tableId);
         }
-        return jsonNode;
+        if (eventTime != null) {
+            MetadataUtil.setEventTime(row, eventTime);
+        }
+    }
+
+    /**
+     * Parses a Debezium JSON envelope while skipping unused objects such as {@code source}, {@code
+     * transaction}. Only CDC payload fields are materialized as JsonNodes. With schema enabled,
+     * retain the immediate before/after field logical names without building the schema tree;
+     * schema and payload may occur in either order in the envelope.
+     */
+    private JsonNode readDebeziumPayload(
+            byte[] message, Map<String, Map<String, String>> fieldSchemaNames) throws IOException {
+        ObjectMapper objectMapper = jsonDeserializer.getObjectMapper();
+        try (JsonParser parser = objectMapper.getFactory().createParser(message)) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                throw new IOException("Expected START_OBJECT for Debezium JSON message");
+            }
+            if (debeziumEnabledSchema) {
+                JsonNode payload = null;
+                while (parser.nextToken() != JsonToken.END_OBJECT) {
+                    String fieldName = parser.currentName();
+                    parser.nextToken();
+                    if (DATA_PAYLOAD.equals(fieldName)) {
+                        payload = readPayloadFields(objectMapper, parser);
+                    } else if (DATA_SCHEMA.equals(fieldName)) {
+                        fieldSchemaNames.clear();
+                        readEnvelopeFieldSchemaNames(parser, fieldSchemaNames);
+                    } else {
+                        parser.skipChildren();
+                    }
+                }
+                if (payload == null) {
+                    throw new IOException("Missing payload field in schema-included Debezium JSON");
+                }
+                return payload;
+            }
+            return readPayloadFields(objectMapper, parser);
+        }
+    }
+
+    /**
+     * Reads only the immediate before/after schema descriptors. Schema attributes and nested
+     * metadata unrelated to TIME conversion remain streaming skips rather than JsonNode trees.
+     */
+    private static void readEnvelopeFieldSchemaNames(
+            JsonParser parser, Map<String, Map<String, String>> fieldSchemaNames)
+            throws IOException {
+        if (parser.currentToken() != JsonToken.START_OBJECT) {
+            parser.skipChildren();
+            return;
+        }
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+            String name = parser.currentName();
+            parser.nextToken();
+            if (SCHEMA_FIELDS.equals(name)) {
+                fieldSchemaNames.clear();
+                if (parser.currentToken() == JsonToken.START_ARRAY) {
+                    while (parser.nextToken() != JsonToken.END_ARRAY) {
+                        readEnvelopeFieldSchema(parser, fieldSchemaNames);
+                    }
+                } else {
+                    parser.skipChildren();
+                }
+            } else {
+                parser.skipChildren();
+            }
+        }
+    }
+
+    /**
+     * Preserves field-order independence, including descriptors whose fields precede field. Schema
+     * JSON property order must not determine which logical type names reach the converter.
+     */
+    private static void readEnvelopeFieldSchema(
+            JsonParser parser, Map<String, Map<String, String>> fieldSchemaNames)
+            throws IOException {
+        if (parser.currentToken() != JsonToken.START_OBJECT) {
+            parser.skipChildren();
+            return;
+        }
+        String envelopeField = null;
+        Map<String, String> logicalNames = Collections.emptyMap();
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+            String name = parser.currentName();
+            parser.nextToken();
+            if (SCHEMA_FIELD.equals(name)) {
+                envelopeField = parser.getValueAsString();
+                parser.skipChildren();
+            } else if (SCHEMA_FIELDS.equals(name)) {
+                logicalNames = readFieldSchemaNames(parser);
+            } else {
+                parser.skipChildren();
+            }
+        }
+        if ((DATA_BEFORE.equals(envelopeField) || DATA_AFTER.equals(envelopeField))
+                && !fieldSchemaNames.containsKey(envelopeField)) {
+            fieldSchemaNames.put(envelopeField, logicalNames);
+        }
+    }
+
+    /**
+     * Extracts only immediate field/name string pairs, matching the dispatcher tree path. Nested
+     * column-schema objects are skipped because the converter retains the existing flat contract.
+     */
+    private static Map<String, String> readFieldSchemaNames(JsonParser parser) throws IOException {
+        if (parser.currentToken() != JsonToken.START_ARRAY) {
+            parser.skipChildren();
+            return Collections.emptyMap();
+        }
+        Map<String, String> logicalNames = new HashMap<>();
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            if (parser.currentToken() != JsonToken.START_OBJECT) {
+                parser.skipChildren();
+                continue;
+            }
+            String fieldName = null;
+            String schemaName = null;
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String name = parser.currentName();
+                parser.nextToken();
+                if (SCHEMA_FIELD.equals(name)) {
+                    fieldName = parser.getValueAsString();
+                } else if (SCHEMA_NAME.equals(name)) {
+                    schemaName = parser.getValueAsString();
+                }
+                parser.skipChildren();
+            }
+            if (fieldName != null && schemaName != null) {
+                logicalNames.put(fieldName, schemaName);
+            }
+        }
+        return logicalNames;
+    }
+
+    /**
+     * Reads the current object value from {@code parser}, keeping only CDC payload fields and
+     * skipping everything else (notably {@code source} and {@code transaction}).
+     */
+    private static JsonNode readPayloadFields(ObjectMapper objectMapper, JsonParser parser)
+            throws IOException {
+        if (parser.currentToken() != JsonToken.START_OBJECT) {
+            throw new IOException("Expected START_OBJECT for Debezium payload");
+        }
+        ObjectNode payload = objectMapper.createObjectNode();
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+            if (DATA_BEFORE.equals(fieldName)
+                    || DATA_AFTER.equals(fieldName)
+                    || OP_KEY.equals(fieldName)
+                    || DATA_TS.equals(fieldName)) {
+                payload.set(fieldName, objectMapper.readTree(parser));
+            } else {
+                parser.skipChildren();
+            }
+        }
+        return payload;
     }
 }

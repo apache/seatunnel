@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class GraphQLSinkFactory extends HttpSinkFactory {
     @Override
@@ -43,7 +45,7 @@ public class GraphQLSinkFactory extends HttpSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(GraphQLSinkOptions.QUERY)
+                .required(GraphQLSinkOptions.QUERY, notBlank(GraphQLSinkOptions.QUERY))
                 .optional(GraphQLSinkOptions.TIMEOUT)
                 .optional(GraphQLSinkOptions.VALUE_COVER)
                 .optional(GraphQLSinkOptions.VARIABLES)
