@@ -19,6 +19,10 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
 
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
@@ -152,6 +156,26 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### SQL ARRAY_MAX and ARRAY_MIN Precision
+
+- **Behavior correction: exact integral and DECIMAL array extrema**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform with
+    `engine = ZETA` (default) or `INTERNAL`, on Zeta, Flink and Spark execution engines.
+  - **Description**: Arrays containing only Byte, Short, Integer, Long and BigDecimal
+    values are compared exactly, including mixtures of integral and DECIMAL values.
+    For example, `ARRAY_MAX` over BIGINT values `[9007199254740992, 9007199254740993]`
+    now selects `9007199254740993`. A Long `1` and BigDecimal
+    `1.00000000000000000001` no longer compare equal. If any Float, Double or other
+    Number subtype (including BigInteger) is present, the whole array retains
+    legacy double-based ordering and its possible precision loss.
+  - **Impact**: Jobs relying on rounded comparisons may select different values.
+    The selected original element retains its type and DECIMAL scale, so a different
+    result may also have a different original scale. Equal values retain the first
+    element. Declared output types, input coercion, null handling and floating-point
+    ordering are unchanged.
+  - **Migration Guide**: No configuration or state migration is required. Review
+    downstream expectations that depended on the previous rounded results.
+
 ### Transform Dependency Resolution
 
 - **Behavior change: Reject unresolved inputs in multi-transform jobs**
@@ -227,6 +251,15 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
   values and previously ran successfully will now fail fast at startup with a validation
   error.
+
+### DataValidator Array Length
+
+The `LENGTH` rule now counts array elements rather than characters in the
+array's Java identity string. This can change which array-valued rows pass
+validation. Review array length limits that were adjusted to the previous
+behavior, and check previously skipped or routed data before replaying it.
+String, collection, binary and null handling remain unchanged. No configuration
+or state format migration is required.
 
 ### Zeta REST Pagination Parameter Validation
 
@@ -564,6 +597,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
 
 ### Engine Behavior Changes
+
+- **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
+  - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.
+  - **Impact**: Clusters using file-based IMap persistence can upgrade and restart across the #9689 relocation without manual WAL surgery. Writing is unaffected: new WAL entries always record the current class names. Note that the rewrite is one-directional: WAL files written by a current distribution contain class names that older releases cannot resolve, so downgrading a cluster after it has written new WAL entries requires deleting or manually rewriting the persisted WAL data. (#11781)
 
 - **Behavior change: the REST log-content endpoints return at most 64 MB by default**
   - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
