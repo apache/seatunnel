@@ -273,12 +273,12 @@ public class PlaceholderUtils {
         return -1;
     }
 
-    public static boolean isSinglePlaceholder(String input) {
+    public static boolean isSinglePlaceholderOnly(String input) {
         String trimmedInput = input.trim();
-        if (trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
+        if (!trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
             return false;
         }
-        int closePos = findPlaceholderClosePos(input, trimmedInput.length());
+        int closePos = findPlaceholderClosePos(trimmedInput, 2);
         return closePos == trimmedInput.length() - 1;
     }
 
