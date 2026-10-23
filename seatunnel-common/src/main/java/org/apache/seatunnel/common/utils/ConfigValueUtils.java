@@ -89,39 +89,9 @@ public class ConfigValueUtils {
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
             ConfigValue parsedValue = parsed.root().get("v");
-            // check ambiguous format in []
-            // config file : option=[${name}]
-            // -i name=[0-9] -> k:string "[0-9]"
-            // -i name=["0-9"]-> k: a list contains single element "0-9",`"` is not a part of the
-            // element
             if (parsedValue instanceof List) {
                 ConfigList parsedList = (ConfigList) parsedValue;
-                String content = value.substring(0, value.length() - 1);
-                if ((parsedList).size() == 1) {
-                    if (content.startsWith("\"") && content.endsWith("\"")) {
-                        return parsedValue;
-                    } else {
-                        return ConfigValueFactory.fromAnyRef(value);
-                    }
-                }
-                // TODO: strict config params after PR #12810 merged
-                /*else {
-                    // check type of elements, element of string type must be wrapped in quotes
-                    List<Object> elements = (List<Object>) parsedValue.unwrapped();
-                    for (int i = 0; i < elements.size(); i++) {
-                        Object element = elements.get(i);
-                        if (element instanceof String) {
-                            String quotedElement = StringUtils.wrap((String) element, "\"");
-                            String originElement = content.split(",")[i];
-                            if (!quotedElement.equals(originElement)) {
-                                throw new IllegalArgumentException(
-                                        String.format(
-                                                "Element: '%s' of string type in list: '%s' must be wrapped in quotes",
-                                                originElement, value));
-                            }
-                        }
-                    }
-                }*/
+                return processAmbiguousFormatInBrackets(value, parsedList);
             }
             return parsedValue;
         } catch (ConfigException e) {
@@ -135,6 +105,56 @@ public class ConfigValueUtils {
                             value),
                     e);
         }
+    }
+
+    /**
+     * check ambiguous format in [] For example: config file : option=[${name}] or
+     * option="${name:[0-9]}" or option="${name:["0-9"]}" -i name=[0-9] -> k:string "[0-9]" -i
+     * name=["0-9"]-> k: a list contains single element "0-9",`"` is not a part of the element
+     *
+     * @param inputValue user input value from cli or default value from config file
+     * @param parsedList HOCON parsed list with text inside brackets
+     * @return processed ConfigValue
+     */
+    private static ConfigValue processAmbiguousFormatInBrackets(
+            String inputValue, ConfigList parsedList) {
+        String content = inputValue.substring(1, inputValue.length() - 1);
+        if ((parsedList).size() == 1) {
+            if (content.startsWith("\"") && content.endsWith("\"")) {
+                return parsedList;
+            } else {
+                return ConfigValueFactory.fromAnyRef(inputValue);
+            }
+        }
+        return parsedList;
+    }
+
+    public static ConfigValue processAmbiguousFormat(String inputValue, ConfigValue parsedValue) {
+
+        if (parsedValue instanceof List) {
+            ConfigList parsedList = (ConfigList) parsedValue;
+            return processAmbiguousFormatInBrackets(inputValue, parsedList);
+        }
+        return parsedValue;
+        // TODO: strict config params after PR #12810 merged
+        /*else {
+            // check type of elements, element of string type must be wrapped in quotes
+            List<Object> elements = (List<Object>) parsedValue.unwrapped();
+            for (int i = 0; i < elements.size(); i++) {
+                Object element = elements.get(i);
+                if (element instanceof String) {
+                    String quotedElement = StringUtils.wrap((String) element, "\"");
+                    String originElement = content.split(",")[i];
+                    if (!quotedElement.equals(originElement)) {
+                        throw new IllegalArgumentException(
+                                String.format(
+                                        "Element: '%s' of string type in list: '%s' must be wrapped in quotes",
+                                        originElement, value));
+                    }
+                }
+            }
+        }*/
+
     }
 
     /**
