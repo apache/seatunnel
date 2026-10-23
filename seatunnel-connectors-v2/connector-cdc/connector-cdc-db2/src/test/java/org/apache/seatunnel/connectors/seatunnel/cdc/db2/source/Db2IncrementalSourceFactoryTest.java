@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.db2.config.Db2SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.db2.config.Db2SourceConfigFactory;
 
@@ -28,7 +31,12 @@ import org.mockito.Mockito;
 import io.debezium.relational.TableId;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
+/**
+ * Covers DB2 factory contracts and consistent unquoted table names without losing split overrides.
+ */
 class Db2IncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
@@ -45,5 +53,83 @@ class Db2IncrementalSourceFactoryTest {
         Assertions.assertEquals(
                 new TableId("", "DB2INST1", "CUSTOMERS"),
                 dialect.toTableId(TablePath.of("SAMPLE", "DB2INST1", "CUSTOMERS")));
+    }
+
+    @Test
+    void shouldNormalizeNamesWithoutLosingSplitOverrides() {
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("table", "e2e.db2inst1.customers");
+        tableConfig.put("primaryKeys", Collections.singletonList("ID"));
+        tableConfig.put("snapshotSplitColumn", "ID");
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("table-names", Collections.singletonList("e2e.db2inst1.customers"));
+        raw.put("table-names-config", Collections.singletonList(tableConfig));
+        raw.put("base-url", "jdbc:db2://localhost:50000/E2E");
+        raw.put("exactly_once", true);
+        raw.put("enable_concurrent_read", false);
+        ReadonlyConfig original = ReadonlyConfig.fromMap(raw);
+
+        ReadonlyConfig normalized = Db2IncrementalSourceFactory.normalizeDb2Options(original);
+        JdbcSourceTableConfig table =
+                normalized.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0);
+
+        Assertions.assertEquals(
+                Collections.singletonList("E2E.DB2INST1.CUSTOMERS"),
+                normalized.get(ConnectorCommonOptions.TABLE_NAMES));
+        Assertions.assertEquals("E2E.DB2INST1.CUSTOMERS", table.getTable());
+        Assertions.assertEquals(Collections.singletonList("ID"), table.getPrimaryKeys());
+        Assertions.assertEquals("ID", table.getSnapshotSplitColumn());
+        Assertions.assertEquals(
+                "jdbc:db2://localhost:50000/E2E", normalized.get(Db2IncrementalSourceOptions.URL));
+        Assertions.assertTrue(normalized.get(Db2IncrementalSourceOptions.EXACTLY_ONCE));
+        Assertions.assertEquals(
+                Collections.singletonList("e2e.db2inst1.customers"),
+                original.get(ConnectorCommonOptions.TABLE_NAMES));
+        Assertions.assertEquals("e2e.db2inst1.customers", tableConfig.get("table"));
+    }
+
+    @Test
+    void shouldKeepTablePatternAndQuotedSpellingUnchanged() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("table-pattern", "e2e.DB2INST1.Customer.*");
+        ReadonlyConfig normalized =
+                Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw));
+        Assertions.assertEquals(
+                "e2e.DB2INST1.Customer.*", normalized.get(ConnectorCommonOptions.TABLE_PATTERN));
+        Assertions.assertFalse(
+                normalized.getOptional(ConnectorCommonOptions.TABLE_NAMES).isPresent());
+
+        raw.remove("table-pattern");
+        raw.put("table-names", Collections.singletonList("E2E.DB2INST1.\"Customers\""));
+        normalized = Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw));
+        Assertions.assertEquals(
+                Collections.singletonList("E2E.DB2INST1.\"Customers\""),
+                normalized.get(ConnectorCommonOptions.TABLE_NAMES));
+    }
+
+    @Test
+    void shouldUseNormalizedNamesForDebeziumCaptureFilter() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("table-names", Collections.singletonList("e2e.db2inst1.customers"));
+        raw.put("username", "user");
+        raw.put("password", "password");
+        raw.put("exactly_once", true);
+        raw.put("enable_concurrent_read", false);
+        Db2SourceConfigFactory factory = new Db2SourceConfigFactory();
+        factory.fromReadonlyConfig(
+                Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw)));
+        factory.hostname("localhost").port(50000).databaseList("E2E");
+        Db2SourceConfig config = factory.create(0);
+
+        Assertions.assertTrue(
+                config.getTableFilters()
+                        .dataCollectionFilter()
+                        .isIncluded(new TableId("", "DB2INST1", "CUSTOMERS")));
+        Assertions.assertFalse(
+                config.getTableFilters()
+                        .dataCollectionFilter()
+                        .isIncluded(new TableId("", "DB2INST1", "ORDERS")));
+        Assertions.assertTrue(config.isExactlyOnce());
+        Assertions.assertFalse(config.isEnableConcurrentRead());
     }
 }

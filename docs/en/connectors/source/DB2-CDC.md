@@ -195,6 +195,22 @@ source {
 }
 ```
 
+
+### Capture registrations and recovery
+
+Active Capture registrations remain readable as `CD_NEW_SYNCHPOINT` advances.
+`CD_OLD_SYNCHPOINT` is the readable starting point, not a stop watermark.
+Unquoted names in `table-names` and `table-names-config.table` are normalized to
+uppercase before catalog lookup and capture filtering; `table-pattern` is kept unchanged.
+
+Savepoint recovery must preserve the schema component of DB2's two-part table identifiers.
+A restored job can catch up changes committed while it was stopped and discover a newly
+configured capture-enabled table. Existing configuration keys, offsets and checkpoint
+serialization formats remain unchanged.
+
+The DB2 container regression tests use a synthetic ASNCDC catalog. They do not replace
+validation against IBM's ASN capture agent or exercise its DDL-history replay.
+
 ## Changelog
 
 <ChangeLog />

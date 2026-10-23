@@ -46,6 +46,7 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,13 +161,16 @@ public class Db2Dialect implements JdbcDataSourceDialect {
 
     @Override
     public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
-        return Optional.ofNullable(
-                tableMap.get(toDb2TableId(tableId)).getTableSchema().getPrimaryKey());
+        CatalogTable table = tableMap.get(toDb2TableId(tableId));
+        return table == null
+                ? Optional.empty()
+                : Optional.ofNullable(table.getTableSchema().getPrimaryKey());
     }
 
     @Override
     public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
-        return tableMap.get(toDb2TableId(tableId)).getTableSchema().getConstraintKeys();
+        CatalogTable table = tableMap.get(toDb2TableId(tableId));
+        return table == null ? Collections.emptyList() : table.getTableSchema().getConstraintKeys();
     }
 
     private static Map<TableId, CatalogTable> createDb2TableMap(List<CatalogTable> catalogTables) {

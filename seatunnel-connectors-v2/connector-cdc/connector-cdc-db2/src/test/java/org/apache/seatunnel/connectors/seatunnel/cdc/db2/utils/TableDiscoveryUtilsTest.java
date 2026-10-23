@@ -66,4 +66,24 @@ class TableDiscoveryUtilsTest {
                                 Collections.singletonList(
                                         new TableId("", "DB2INST1", "CUSTOMERS"))));
     }
+
+    @Test
+    void shouldFoldConfiguredUnquotedNamesAndKeepCapturedCase() {
+        Assertions.assertEquals(
+                new TableId("", "DB2INST1", "CUSTOMERS"),
+                TableDiscoveryUtils.toConfiguredDb2TableId("e2e.db2inst1.customers"));
+        Assertions.assertEquals(
+                new TableId("", "MixedSchema", "Customers"),
+                TableDiscoveryUtils.normalizeCapturedTableId(
+                        new TableId("E2E", "MixedSchema", "Customers")));
+        SeaTunnelException error =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                TableDiscoveryUtils.validateExplicitCaptureTables(
+                                        Collections.singletonList("e2e.db2inst1.orders"),
+                                        Collections.singletonList(
+                                                new TableId("", "DB2INST1", "CUSTOMERS"))));
+        Assertions.assertTrue(error.getMessage().contains("e2e.db2inst1.orders"));
+    }
 }
