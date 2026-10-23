@@ -56,9 +56,12 @@ Used to read data from Apache Doris. The connector uses the MySQL client protoco
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` and `IPV6` are read as their text form, for example `192.168.0.1` and `2001:db8::1`. They are recognized only when the Doris version reports them in `information_schema.columns` (verified on Doris 4.0.6; Doris 2.1.0 reports these columns as `unknown`).
 
 ## Source Options
 
@@ -78,7 +81,7 @@ Base configuration:
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization. Note: this is the current runtime option name and includes a historical typo. Use this exact key when tuning the queue size. |
+| doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single BE scan request. The default memory is 2G (2147483648).  |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
@@ -236,9 +239,9 @@ sink{
 
 ## FAQ
 
-### Why is one option named `doris.request.retriesdoris.deserialize.queue.size`?
+### How do I configure asynchronous Arrow deserialization?
 
-This is the historical runtime option key. The name is intentionally left unchanged for backward compatibility — when you tune the asynchronous Arrow deserialization queue, use this exact key (including the duplicated `doris.retries` segment). There is no shorter alias at the moment.
+Set `doris.deserialize.arrow.async=true` to enable asynchronous Arrow deserialization. Use `doris.deserialize.queue.size` to configure its queue size; the default is `64`.
 
 ### How do I read multiple Doris tables in one job?
 

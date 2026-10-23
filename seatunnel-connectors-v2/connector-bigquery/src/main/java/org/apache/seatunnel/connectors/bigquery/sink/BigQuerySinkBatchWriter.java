@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
@@ -29,7 +30,6 @@ import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import org.json.JSONArray;
 
-import com.google.api.core.ApiFuture;
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -40,7 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
@@ -49,16 +48,18 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
     private final String restoredStreamName;
     private final long restoredNextOffset;
 
-    public BigQuerySinkBatchWriter(ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
-        this(readOnlyConfig, serializer, null, 0L);
+    public BigQuerySinkBatchWriter(
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer, TableSchema tableSchema) {
+        this(readOnlyConfig, serializer, tableSchema, null, 0L);
     }
 
     public BigQuerySinkBatchWriter(
             ReadonlyConfig readOnlyConfig,
             BigQuerySerializer serializer,
+            TableSchema tableSchema,
             String restoredStreamName,
             long restoredNextOffset) {
-        super(readOnlyConfig, serializer);
+        super(readOnlyConfig, serializer, tableSchema);
         this.restoredStreamName = restoredStreamName;
         this.restoredNextOffset = restoredNextOffset;
     }
@@ -96,8 +97,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         buffer = new JSONArray();
 
         try {
-            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
-            AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
+            AppendRowsResponse response = appendRows(dataToSend);
 
             if (response.hasError()) {
                 if (isAlreadyExists(response)) {
