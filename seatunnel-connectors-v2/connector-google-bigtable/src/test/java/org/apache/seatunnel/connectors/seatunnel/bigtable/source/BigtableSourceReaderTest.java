@@ -138,6 +138,77 @@ class BigtableSourceReaderTest {
     }
 
     /**
+     * Checkpoint taken mid-scan must persist the last emitted rowkey so failover can resume inside
+     * the split instead of re-scanning from split start.
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    void testSnapshotStateCapturesLastReadRowKeyDuringScan() throws Exception {
+        BigtableSourceSplit split = new BigtableSourceSplit(0, "a", "z");
+        final List<BigtableSourceSplit>[] capturedState = new List[1];
+
+        Row fakeRow = mock(Row.class);
+        RowCell cell = mock(RowCell.class);
+        when(cell.getFamily()).thenReturn("cf");
+        when(cell.getQualifier()).thenReturn(ByteString.copyFromUtf8("name"));
+        when(cell.getValue()).thenReturn(ByteString.copyFromUtf8("bob"));
+        when(fakeRow.getCells()).thenReturn(Collections.singletonList(cell));
+        when(fakeRow.getKey()).thenReturn(ByteString.copyFromUtf8("row-490"));
+
+        BigtableSourceReader reader = createOpenedReader(parameters, rowType);
+        reader.addSplits(Collections.singletonList(split));
+
+        ServerStream<Row> fakeStream = mock(ServerStream.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Consumer<Row> action = invocation.getArgument(0);
+                            action.accept(fakeRow);
+                            capturedState[0] = reader.snapshotState(99L);
+                            return null;
+                        })
+                .when(fakeStream)
+                .forEach(any());
+        when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
+
+        Collector<SeaTunnelRow> collector = mock(Collector.class);
+        when(collector.getCheckpointLock()).thenReturn(new Object());
+
+        reader.pollNext(collector);
+
+        assertEquals(1, capturedState[0].size());
+        assertEquals("row-490", capturedState[0].get(0).getLastReadRowKey());
+        assertEquals("row-490", capturedState[0].get(0).getResumeStartRowKey());
+    }
+
+    /**
+     * A split restored from checkpoint with {@code lastReadRowKey} must use that key as the scan
+     * start when {@link BigtableSourceReader} issues the read request.
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    void testRestoredSplitResumesFromLastReadRowKey() throws Exception {
+        BigtableSourceSplit restoredSplit = new BigtableSourceSplit(0, "a", "z", "row-490");
+
+        ServerStream<Row> fakeStream = mock(ServerStream.class);
+        Mockito.doAnswer(invocation -> null).when(fakeStream).forEach(any());
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(mockDataClient.readRows(queryCaptor.capture())).thenReturn(fakeStream);
+
+        BigtableSourceReader reader = createOpenedReader(parameters, rowType);
+        reader.addSplits(Collections.singletonList(restoredSplit));
+
+        Collector<SeaTunnelRow> collector = mock(Collector.class);
+        when(collector.getCheckpointLock()).thenReturn(new Object());
+
+        reader.pollNext(collector);
+
+        assertEquals("row-490", restoredSplit.getResumeStartRowKey());
+        assertTrue(
+                queryCaptor.getValue().toString().contains("row-490"),
+                "Query should scan from restored lastReadRowKey");
+    }
+
+    /**
      * After readSplit() completes, currentSplit is cleared. A snapshot taken after that must NOT
      * re-include the already-finished split.
      */

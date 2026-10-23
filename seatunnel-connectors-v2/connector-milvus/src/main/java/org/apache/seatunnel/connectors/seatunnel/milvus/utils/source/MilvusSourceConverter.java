@@ -262,6 +262,7 @@ public class MilvusSourceConverter {
         PhysicalColumn.PhysicalColumnBuilder builder = PhysicalColumn.builder();
         builder.name(fieldSchema.getName());
         builder.sourceType(dataType.name());
+        builder.nullable(fieldSchema.getNullable());
         builder.comment(fieldSchema.getDescription());
 
         switch (dataType) {

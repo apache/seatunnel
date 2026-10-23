@@ -45,7 +45,7 @@ network:
 
 > |  参数名称  | 是否必传 | 参数类型 |                   参数描述                    |
 > |--------|------|------|-----------------------------------------|
-> | type   | 是    | string | 插件类型，当前支持 `source` 和 `sink`        |
+> | type   | 是    | string | 插件类型，支持 `source`、`sink` 和 `transform`        |
 > | plugin | 是    | string | connector 的 factory identifier，例如 `FakeSource` 或 `Console` |
 
 #### 响应
@@ -107,6 +107,10 @@ network:
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -115,7 +119,29 @@ network:
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 0",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 0,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -125,6 +151,9 @@ network:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- `optionRule.valueConstraints` 描述取值级别的校验规则（例如数值范围、字符串模式、跨字段比较）。每个条目包含人类可读的 `expression` 字符串和结构化的 `conditionTree`。当 connector 没有取值约束时该数组为空。
+- 在 `conditionTree` 中，`compareOperator` 在 `EQUAL` 时为 `null`，其余情况下为运行时规则暴露的操作符符号（例如 `>=`、`is not blank`、`extension`）。`compareOption` 仅在跨字段比较时填充。
+- `conditionOperator` 是稳定的操作符标识，取值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 表示操作符类别，例如 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
 
 </details>
 
@@ -145,12 +174,13 @@ network:
 
 ```json
 {
-    "projectVersion":"2.3.10-SNAPSHOT",
+    "projectVersion":"3.0.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
+    "pendingJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
     "cancelledJobs":"0"
@@ -159,7 +189,54 @@ network:
 
 **注意:**
 - 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
-- 当添加标签过滤后, `works`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
+- 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 没有固定的 Slot 容量。此时，`totalSlots` 表示当前已跟踪的已分配和未分配 Slot 总数，`freeSlots` 表示当前未分配数量。解释容量时，请结合 `dynamicSlot` 以及 CPU 和堆内存字段。
+- 当 `available` 为 `false` 时，表示当前无法读取 Master 资源快照，`workers` 为空。客户端应重试，而不应将该响应解释为空集群。
+- `collectedAt` 表示 Master 构建本次响应的时间。Worker 字段来自资源管理器收到的最近一次心跳，并不与 `/system-monitoring-information` 构成原子快照。
+- 如果最近一次 Worker 心跳尚未包含资源或使用率数据，对应字段不会返回。
 
 </details>
 
@@ -228,12 +305,44 @@ network:
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
 ```
+
+**说明:**
+- `metrics` 对象的键遵循引擎的指标命名：除 `SourceReceivedCount` 和 `SinkWriteCount` 外，还可能包含 `SinkCommitted*`、`*Bytes`、`*Qps`、`IntermediateQueueSize`、`FlushSignal*` 以及 `Table*` 等条目。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 获取运行中作业摘要
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs/summary</b></code> <code>(返回不包含 DAG 和指标的轻量运行中作业列表。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+[
+  {
+    "jobId": "733584788375666689",
+    "jobName": "rest_api_test",
+    "jobStatus": "RUNNING",
+    "createTime": "2024-08-01 12:00:00"
+  }
+]
+```
+
+**说明:**
+- 这是 `/running-jobs` 的轻量版本，Web UI 会使用该接口：每个作业只返回 `jobId`、`jobName`、`jobStatus` 和 `createTime`，不解析 DAG 和指标。
 
 </details>
 
@@ -258,6 +367,7 @@ network:
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -299,7 +409,7 @@ network:
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -311,7 +421,8 @@ network:
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。该字段只在本接口返回，`/running-jobs` 不返回。
 
 #### 指标字段说明
 
@@ -329,15 +440,16 @@ network:
 | SinkCommittedQPS | Sink 已提交速率（行/秒） |
 | SinkCommittedBytes | checkpoint 成功后的 Sink 已提交字节数 |
 | SinkCommittedBytesPerSeconds | Sink 已提交速率（字节/秒） |
+| IntermediateQueueSize | 中间队列中当前积压的记录数 |
 | TableSourceReceived* | 按表汇总的源指标，键格式 `TableSourceReceivedXXX#<表>` |
 | TableSinkWrite* | 按表汇总的 Sink 写入尝试，键格式 `TableSinkWriteXXX#<表>` |
 | TableSinkCommitted* | 按表汇总的 Sink 已提交指标，键格式 `TableSinkCommittedXXX#<表>` |
 
-当我们查询不到这个Job时，返回结果为：
+当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -366,6 +478,7 @@ network:
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -382,10 +495,10 @@ network:
     "pipelineEdges": {}
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "SourceReceivedCount": "",
+    "SinkWriteCount": ""
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -397,13 +510,13 @@ network:
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 
-当我们查询不到这个Job时，返回结果为：
+当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -521,6 +634,9 @@ network:
 ]
 ```
 
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -574,7 +690,7 @@ network:
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "rest_api_test"
 }
 ```
@@ -714,7 +830,7 @@ network:
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 
@@ -925,13 +1041,11 @@ network:
 
 #### 请求参数
 
-#### 参数(在请求体中params字段中添加)
-
 > |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
 > |----------------------|----------|--------|-----------------------------------|
-> | jobId                | optional | string | job id                            |
+> | jobId                | optional | string | job id，作为路径片段 `/logs/{jobId}` 追加 |
 
-当`jobId`为空时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
+当`jobId`省略时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
 
 #### 响应
 
@@ -944,26 +1058,35 @@ network:
 ```json
 [
   {
-    "node": "localhost:5801",
-    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899485770241277953.log",
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
     "logName": "job-899485770241277953.log"
   },
   {
-    "node": "localhost:5801",
-    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899470314109468673.log",
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
     "logName": "job-899470314109468673.log"
   }
 ]
 ```
 
+`logLink` 和 `node` 指向各节点的 Jetty HTTP 服务（默认端口 `8080`，见 `seatunnel.engine.http`），
+而不是 Hazelcast REST 端口。这些端点需要 `seatunnel.engine.http.enable-http: true`（默认为 `false`）。
+
 当前支持的格式有`json`和`html`，默认为`html`。
+
+#### 响应大小限制
+
+读取日志文件时最多返回 `seatunnel.engine.http.log-response-max-size-mb` 大小的内容（默认 64 MB），
+规则与 [v2 接口](rest-api-v2.md#log-response-size-limit) 完全一致：超过限制的日志文件只返回末尾内容，
+并在响应开头附上一行截断提示。把该项设为 `0` 可恢复不限制读取。
 
 #### 例子
 
 获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
 获取所有节点日志列表：`http://localhost:5801/hazelcast/rest/maps/logs`
 获取所有节点日志列表以JSON格式返回：`http://localhost:5801/hazelcast/rest/maps/logs?format=json`
-获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log`
 
 
 </details>
@@ -982,5 +1105,7 @@ network:
 
 获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
 获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
+
+日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
 </details>

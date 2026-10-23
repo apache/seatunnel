@@ -23,8 +23,10 @@ import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
@@ -32,16 +34,18 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @AutoService(Factory.class)
-public class JdbcSourceFactory implements TableSourceFactory {
+public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
@@ -57,10 +61,9 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         config.getJdbcConnectionConfig().getDialect(),
                         config.getJdbcConnectionConfig().getCompatibleMode(),
                         config.getJdbcConnectionConfig());
-        jdbcDialect.connectionUrlParse(
+        jdbcDialect.configureSourceConnection(
                 config.getJdbcConnectionConfig().getUrl(),
-                config.getJdbcConnectionConfig().getProperties(),
-                jdbcDialect.defaultParameter());
+                config.getJdbcConnectionConfig().getProperties());
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
     }
 
@@ -81,6 +84,16 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
                         JdbcSourceOptions.CONNECTION_CHECK_TIMEOUT_SEC,
+                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSourceOptions.SOCKET_TIMEOUT_MS,
+                        JdbcSourceOptions.HANDLE_BLOB_AS_STRING,
+                        JdbcSourceOptions.USE_KERBEROS,
+                        JdbcSourceOptions.KERBEROS_PRINCIPAL,
+                        JdbcSourceOptions.KERBEROS_KEYTAB_PATH,
+                        JdbcSourceOptions.KRB5_PATH,
+                        JdbcSourceOptions.ACCESS_KEY_ID,
+                        JdbcSourceOptions.SECRET_ACCESS_KEY,
+                        JdbcSourceOptions.REGION,
                         JdbcSourceOptions.FETCH_SIZE,
                         JdbcSourceOptions.PARTITION_COLUMN,
                         JdbcSourceOptions.PARTITION_UPPER_BOUND,
@@ -104,13 +117,40 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
-                        JdbcSourceOptions.DIALECT)
+                        JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL,
+                        JdbcSourceOptions.DIALECT,
+                        JdbcSourceOptions.ENABLE_CONCURRENT_READ)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return JdbcSource.class;
+    }
+
+    /**
+     * Infers source schemas for {@code --dry-run connect} by reading table metadata through the
+     * same catalog path used at runtime. This opens a real connection but never creates readers or
+     * reads records.
+     */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws Exception {
+        JdbcSourceConfig config = JdbcSourceConfig.of(context.getOptions());
+        return JdbcCatalogUtils.getTables(
+                        config.getJdbcConnectionConfig(),
+                        config.getTableConfigList(),
+                        config.getMultiTableFailurePolicy())
+                .values().stream()
+                .map(JdbcSourceTable::getCatalogTable)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        // Schema inference above already opened a real connection and read table metadata,
+        // which covers credentials, permissions, and source table existence.
     }
 
     /**

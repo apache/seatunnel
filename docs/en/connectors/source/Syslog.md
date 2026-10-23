@@ -34,6 +34,14 @@ connector acts as a TCP listener and does not have a natural end-of-input.
 Each message is parsed into structured fields: facility, severity, timestamp, hostname, app name,
 process ID, and message body.
 
+## Delivery and deployment limits
+
+Use `parallelism = 1`. The source does not persist TCP receive buffers or pending rows in checkpoint state and cannot replay them after a task failure. Receiving a TCP write is not an acknowledgement that the row reached a completed checkpoint or the sink. The receive path is at-most-once across failures; end-to-end exactly-once and at-least-once delivery are not guaranteed.
+
+RFC 3164 over TCP is plaintext and does not authenticate senders. `host` defaults to `0.0.0.0`, which listens on every network interface. Bind explicitly to `127.0.0.1` for a local sender, or to the intended private interface and restrict access using the deployment network controls. This source does not implement the Syslog sink connector's TLS options.
+
+Ports below 1024, including the conventional port 514, may require elevated privileges. The example uses the unprivileged port 5140.
+
 ## Options
 
 | Name           | Type    | Required | Default   | Description                                                                                                          |
