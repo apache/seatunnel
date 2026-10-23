@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -36,11 +37,13 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
@@ -722,7 +725,21 @@ public class CheckpointCoordinatorFailoverIT {
      */
     @Test
     public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
-        String testCaseName = "testStreamJobFailsAfterCheckpointTriggerDispatchFailure";
+        assertCheckpointDispatchFailure(
+                "testStreamJobFailsAfterCheckpointTriggerDispatchFailure", false);
+    }
+
+    /**
+     * A barrier sent to a live task group with a missing task must report the real RPC failure,
+     * before the checkpoint timeout. The worker remains in the cluster throughout the test.
+     */
+    @Test
+    public void testStreamJobFailsAfterCheckpointBarrierRpcFailure() throws Exception {
+        assertCheckpointDispatchFailure("testStreamJobFailsAfterCheckpointBarrierRpcFailure", true);
+    }
+
+    private void assertCheckpointDispatchFailure(String testCaseName, boolean failRpc)
+            throws Exception {
         String testClusterName = "CheckpointCoordinatorFailoverIT_" + testCaseName;
         // Single-pipeline job (one FakeSource, one LocalFile sink): PipelineGenerator assigns
         // pipeline ids starting at 1, so this is the fixed key identifying this job's sole
@@ -789,30 +806,60 @@ public class CheckpointCoordinatorFailoverIT {
                                                 + " before injecting the fault");
                             });
 
-            // Real-fault injection: remove this pipeline's entry from the same live, shared,
-            // named Hazelcast IMap (engine_ownedSlotProfilesIMap) that
-            // JobMaster#queryTaskGroupAddress consults on every checkpoint-barrier dispatch. See
-            // the class javadoc above for why this is real (not mocked/reflected),
-            // deterministic, and cannot be short-circuited by any other code path.
-            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
-                    node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-            PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
-            Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
-                    ownedSlotProfilesIMap.remove(pipelineLocation);
-            Assertions.assertNotNull(
-                    removedSlotProfiles,
-                    "the running task's slot-profile bookkeeping should exist before injection");
-            log.info(
-                    "Job {} checkpoint id counter reached 2; removed pipeline {}'s slot-profile"
-                            + " bookkeeping ({} task group(s)) so the next checkpoint-barrier"
-                            + " dispatch hits CheckpointCoordinator's real, unmodified"
-                            + " queryTaskGroupAddress failure path.",
-                    jobId,
-                    pipelineId,
-                    removedSlotProfiles.size());
+            if (failRpc) {
+                CheckpointCoordinator coordinator =
+                        getJobMaster(node, jobId)
+                                .getCheckpointManager()
+                                .getCheckpointCoordinator(pipelineId);
+                CheckpointPlan plan =
+                        (CheckpointPlan)
+                                ReflectionUtils.getField(coordinator, "plan")
+                                        .orElseThrow(IllegalStateException::new);
+                Set<TaskLocation> startingTasks = plan.getStartingSubtasks();
+                Assertions.assertEquals(1, startingTasks.size());
+                TaskLocation originalTask = startingTasks.iterator().next();
+                TaskLocation missingTask =
+                        new TaskLocation(originalTask.getTaskGroupLocation(), 0L, 0);
+                // Generated task IDs are non-negative. Keep the live task-group address so the
+                // send succeeds and the real worker fails its task lookup asynchronously.
+                missingTask.setTaskID(Long.MIN_VALUE);
+                IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlots =
+                        node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+                Assertions.assertTrue(
+                        ownedSlots
+                                .get(new PipelineLocation(jobId, pipelineId))
+                                .containsKey(originalTask.getTaskGroupLocation()));
+                // Add before removing so a concurrent trigger never sees an empty source set.
+                startingTasks.add(missingTask);
+                startingTasks.remove(originalTask);
+            } else {
+                // Real-fault injection: remove this pipeline's entry from the same live, shared,
+                // named Hazelcast IMap (engine_ownedSlotProfilesIMap) that
+                // JobMaster#queryTaskGroupAddress consults on every checkpoint-barrier dispatch.
+                // See
+                // the class javadoc above for why this is real (not mocked/reflected),
+                // deterministic, and cannot be short-circuited by any other code path.
+                IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                        node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+                PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
+                Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
+                        ownedSlotProfilesIMap.remove(pipelineLocation);
+                Assertions.assertNotNull(
+                        removedSlotProfiles,
+                        "the running task's slot-profile bookkeeping should exist before injection");
+                log.info(
+                        "Job {} checkpoint id counter reached 2; removed pipeline {}'s slot-profile"
+                                + " bookkeeping ({} task group(s)) so the next checkpoint-barrier"
+                                + " dispatch hits CheckpointCoordinator's real, unmodified"
+                                + " queryTaskGroupAddress failure path.",
+                        jobId,
+                        pipelineId,
+                        removedSlotProfiles.size());
+            }
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    // The RPC case must fail before the template's 30-second timeout backstop.
+                    .atMost(failRpc ? 25 : 60, TimeUnit.SECONDS)
                     .pollInterval(500, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
@@ -832,6 +879,14 @@ public class CheckpointCoordinatorFailoverIT {
                                     + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
                                     + " CheckpointCoordinator#handleCoordinatorError), but got: "
                                     + jobResult.getError());
+            if (failRpc) {
+                Assertions.assertTrue(
+                        jobResult.getError().contains("CheckpointBarrierTriggerOperation"),
+                        jobResult.getError());
+                Assertions.assertTrue(
+                        jobResult.getError().contains("NullPointerException"),
+                        jobResult.getError());
+            }
         } finally {
             if (engineClient != null) {
                 engineClient.close();
