@@ -22,16 +22,13 @@ import org.apache.seatunnel.e2e.common.container.ReusableTestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.support.AnnotationSupport;
-import org.opentest4j.TestAbortedException;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -76,32 +73,6 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
                 AnnotationUtil.filterDisabledContainers(
                         containersFactories.get(0).create(),
                         context.getRequiredTestInstance().getClass());
-        if (testContainers.isEmpty()) {
-            // The engine selection of a PR build (RUN_ENGINES, RUN_ALL_CONTAINER and
-            // RUN_ZETA_CONTAINER) can exclude every container this suite is able to run, e.g. a
-            // Flink/Spark-only suite on a Zeta-only run. Skip the suite only when the engine
-            // selection is what left it empty: the suite still has an enabled container once
-            // the selection is lifted. A suite that is empty for any other reason - a factory
-            // that creates nothing, an annotation that disables every container it could run -
-            // falls through, so JUnit keeps failing every @TestTemplate with its
-            // "provided a non-empty stream" PreconditionViolationException instead of
-            // reporting the suite as skipped.
-            List<TestContainer> everyContainer = ContainerUtil.discoverAllTestContainers();
-            if (engineSelectionLeftSuiteWithoutContainers(
-                    everyContainer,
-                    ContainerUtil.applyEngineSelection(everyContainer),
-                    context.getRequiredTestInstance().getClass())) {
-                throw new TestAbortedException(
-                        String.format(
-                                "Skip %s: no enabled TestContainer under the current engine"
-                                        + " selection (RUN_ENGINES=%s, RUN_ALL_CONTAINER=%s,"
-                                        + " RUN_ZETA_CONTAINER=%s).",
-                                context.getRequiredTestClass().getName(),
-                                System.getenv("RUN_ENGINES"),
-                                System.getenv("RUN_ALL_CONTAINER"),
-                                System.getenv("RUN_ZETA_CONTAINER")));
-            }
-        }
         Set<TestContainerId> sharedContainerIds = getSharedContainerIds(context);
         List<SharedTestContainerResource> sharedResources = new ArrayList<>();
         try {
@@ -185,22 +156,6 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
                         context.getRequiredTestClass(), ReuseTestContainers.class)
                 .map(annotation -> new HashSet<>(Arrays.asList(annotation.value())))
                 .orElseGet(HashSet::new);
-    }
-
-    /**
-     * Returns whether the engine selection of the build - not the suite itself - is what left the
-     * suite without any container to run: the suite still has an enabled container before the
-     * selection ({@code everyContainer}) and the selection ({@code selectedContainers}) removes it.
-     * A suite without any enabled container even before the selection, or whose factory produced
-     * fewer containers than the selection explains, is broken and returns {@code false} so the
-     * original failure stands.
-     */
-    static boolean engineSelectionLeftSuiteWithoutContainers(
-            List<TestContainer> everyContainer,
-            List<TestContainer> selectedContainers,
-            AnnotatedElement suite) {
-        return !AnnotationUtil.filterDisabledContainers(everyContainer, suite).isEmpty()
-                && AnnotationUtil.filterDisabledContainers(selectedContainers, suite).isEmpty();
     }
 
     private void checkExactlyOneAnnotatedField(
