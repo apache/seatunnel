@@ -78,7 +78,11 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. |
 | quote_char | string | no | `"` | CSV quote character. |
 | escape_char | string | no | - | CSV escape character. |
+| date_format | string | no | yyyy-MM-dd | Format used to parse `Date` columns. |
+| datetime_format | string | no | yyyy-MM-dd HH:mm:ss | Format used to parse `Timestamp` columns. |
+| time_format | string | no | HH:mm:ss | Format used to parse `Time` columns. |
 | sheet_name | string | no | - | Excel worksheet to read. |
+| excel_use_header_line | boolean | no | false | Use the first Excel row as column headers for name-based mapping. Only used when file_format_type is excel. |
 | excel_engine | string | no | `POI` | Excel reader: `POI` or `EasyExcel`. |
 | poi_excel_max_file_size | long | no | `52428800` | Maximum Excel file size in bytes for the POI engine. |
 | xml_row_tag | string | conditional | - | XML element representing one row. |
@@ -102,6 +106,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | file_filter_modified_end | string | no | - | File modification time filter. The connector will filter files based on the last modification end time (exclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
 | sort_files_by_modification_time | boolean | no | false | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | common-options | | no | - | See [Source Common Options](../common-options/source-common-options.md). |
+| metalake_type | string | no | gravitino | The type of metalake service, currently supports `gravitino`. |
 
 ## Example
 

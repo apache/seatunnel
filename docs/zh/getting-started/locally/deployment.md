@@ -59,7 +59,7 @@ connector-console
 --end--
 ```
 
-您可以在`${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`下找到所有支持的连接器和相应的plugin_config配置名称。
+您可以在`${SEATUNNEL_HOME}/connectors/plugin-mapping.properties`下找到所有支持的连接器和相应的plugin_config配置名称。
 
 :::tip 提示
 

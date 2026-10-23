@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 | method                      | String  | 否  | get   | HTTP 请求方法，仅支持 GET、POST 方法                                                                   |
 | schema                      | Config  | 否  | -     | HTTP 和 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | schema.fields               | Config  | 否  | -     | 上游数据的模式字段                                                                                   |
-| format                      | String  | 否  | json  | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。                                                      |
+| format                      | enum    | 否  | text  | 上游数据的格式，现在仅支持 `json` `text`，默认 `text`。                                                      |
 | params                      | Map     | 否  | -     | HTTP 参数                                                                                     |
 | body                        | String  | 否  | -     | HTTP 请求体                                                                                    |
 | json_field                  | Config  | 否  | -     | JSON 字段配置                                                                                   |
@@ -76,7 +76,7 @@ HTTP 请求失败时的最大重试退避时间（毫秒）
 
 ### format [String]
 
-上游数据的格式，现在仅支持 `json` `text`，默认 `json`。
+上游数据的格式，现在仅支持 `json` `text`，默认 `text`。
 
 ### schema [Config]
 

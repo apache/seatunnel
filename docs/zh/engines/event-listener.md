@@ -29,10 +29,12 @@ SeaTunnel提供了丰富的事件监听器功能，用于管理数据同步时�
 | `SCHEMA_CHANGE_ADD_COLUMN`     | 表添加列事件   | `AlterTableAddColumnEvent`    |
 | `SCHEMA_CHANGE_DROP_COLUMN`    | 表删除列事件   | `AlterTableDropColumnEvent`   |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`  | 表修改列事件   | `AlterTableModifyColumnEvent` |
-| `READER_OPEN`                  | 读取器打开事件  | `ReaderOpenEvent`             |
-| `READER_CLOSE`                 | 读取器关闭事件  | `ReaderCloseEvent`            |
-| `WRITER_OPEN`                  | 写入器打开事件  | `WriterOpenEvent`             |
-| `WRITER_CLOSE`                 | 写入器关闭事件  | `WriterCloseEvent`            |
+| `LIFECYCLE_ENUMERATOR_OPEN`    | 枚举器打开事件  | `EnumeratorOpenEvent`         |
+| `LIFECYCLE_ENUMERATOR_CLOSE`   | 枚举器关闭事件  | `EnumeratorCloseEvent`        |
+| `LIFECYCLE_READER_OPEN`        | 读取器打开事件  | `ReaderOpenEvent`             |
+| `LIFECYCLE_READER_CLOSE`       | 读取器关闭事件  | `ReaderCloseEvent`            |
+| `LIFECYCLE_WRITER_CLOSE`       | 写入器关闭事件  | `WriterCloseEvent`            |
+| `READER_MESSAGE_DELAYED`       | 读取器消息延迟事件 | `MessageDelayedEvent`        |
 
 > 注意：不同事件类型对应不同的事件数据结构，在自定义事件处理器时需通过`event.getEventType()`进行类型判断，以确保类型安全转换。
 
@@ -192,9 +194,9 @@ import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
-import org.apache.seatunnel.api.event.schema.AlterTableAddColumnEvent;
-import org.apache.seatunnel.api.event.source.ReaderOpenEvent;
-import org.apache.seatunnel.api.event.sink.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 
 /**
  * 自定义多类型事件处理器示例，包含多种事件的处理逻辑
@@ -214,10 +216,10 @@ public class CustomMultiEventHandler implements EventHandler {
             case SCHEMA_CHANGE_ADD_COLUMN:
                 handleAddColumnEvent((AlterTableAddColumnEvent) event);
                 break;
-            case READER_OPEN:
+            case LIFECYCLE_READER_OPEN:
                 handleReaderOpenEvent((ReaderOpenEvent) event);
                 break;
-            case WRITER_CLOSE:
+            case LIFECYCLE_WRITER_CLOSE:
                 handleWriterCloseEvent((WriterCloseEvent) event);
                 break;
             // 可根据需要添加其他事件类型的处理
@@ -258,8 +260,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理表添加列事件
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
-        log.info("表添加列 | 表名: {}, 新增列: {}, 时间: {}",
-            event.getTableName(), event.getAddedColumns(), event.getEventTime());
+        log.info("表添加列 | 表: {}, 列: {}, 时间: {}",
+            event.getTableIdentifier().getTablePath(), event.getColumn(), event.getCreatedTime());
         // 处理表结构变更逻辑
     }
 
@@ -267,8 +269,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理读取器打开事件
      */
     private void handleReaderOpenEvent(ReaderOpenEvent event) {
-        log.info("读取器打开 | 插件ID: {}, 并行度: {}, 时间: {}",
-            event.getPluginId(), event.getParallelism(), event.getEventTime());
+        log.info("读取器打开 | jobId: {}, 时间: {}",
+            event.getJobId(), event.getCreatedTime());
         // 处理读取器初始化逻辑
     }
 
@@ -276,8 +278,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理写入器关闭事件
      */
     private void handleWriterCloseEvent(WriterCloseEvent event) {
-        log.info("写入器关闭 | 插件ID: {}, 处理记录数: {}, 时间: {}",
-            event.getPluginId(), event.getRecordCount(), event.getEventTime());
+        log.info("写入器关闭 | jobId: {}, 时间: {}",
+            event.getJobId(), event.getCreatedTime());
         // 处理写入器资源清理逻辑
     }
 
