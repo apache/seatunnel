@@ -325,6 +325,8 @@ jobs:
   document:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
     needs: [ changes, sanity-check ]
+    permissions:
+      contents: read
     name: Build website
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -344,12 +346,17 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: 18.20.7
-      - name: Run docusaurus build
+      - name: Install website dependencies
         run: |
           cd seatunnel-website
           npm set strict-ssl false
           npm install
-          npm run build
+      - name: Run docusaurus build
+        working-directory: seatunnel-website
+        env:
+          # The website prebuild fetches public contributor data from GitHub.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run build
 
   seatunnel-ui:
     if: needs.changes.outputs.api == 'true'

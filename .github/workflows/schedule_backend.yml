@@ -27,6 +27,7 @@ concurrency:
 jobs:
   call-build-and-test:
     permissions:
+      contents: read
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
