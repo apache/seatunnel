@@ -386,15 +386,12 @@ public class ConfigBuilder {
                         variable -> {
                             if (variable instanceof String) {
                                 String variableString = (String) variable;
-                                String replacedValue =
-                                        PlaceholderUtils.processPlaceholders(
-                                                variableString,
-                                                TablePlaceholder::isSystemPlaceholder,
-                                                userConfigMap,
-                                                defaultConfigMap);
-                                if (!replacedValue.equals(variableString)) {
-                                    return ConfigValueUtils.parseValue(replacedValue);
-                                }
+
+                                return PlaceholderUtils.processPlaceholders(
+                                        variableString,
+                                        TablePlaceholder::isSystemPlaceholder,
+                                        userConfigMap,
+                                        defaultConfigMap);
                             } else if (variable instanceof Map) {
                                 processVariablesMap(
                                         (Map<String, Object>) variable,
@@ -427,14 +424,7 @@ public class ConfigBuilder {
                         userConfigMap,
                         defaultConfigMap);
 
-        if (!replacedValue.equals(variableString)) {
-            if (PlaceholderUtils.isSinglePlaceholder(variableString)) {
-                variableValue = ConfigValueUtils.parseValue(replacedValue);
-            } else {
-                variableValue = replacedValue;
-            }
-        }
-        parentMap.put(variableKey, variableValue);
+        parentMap.put(variableKey, replacedValue);
     }
 
     public static String mapToString(Map<String, Object> configMap) {
