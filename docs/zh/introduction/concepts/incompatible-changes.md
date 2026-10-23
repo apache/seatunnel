@@ -18,6 +18,10 @@
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
 
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
@@ -111,6 +115,41 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
+
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
@@ -149,6 +188,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
+
+### DataValidator 数组长度
+
+`LENGTH` 规则现在计算数组元素个数，而非数组的 Java 标识字符串长度。
+因此，包含数组的行可能得到与此前不同的验证结果。请检查曾为适应旧行为而调整的数组长度限制，
+并在重放数据前核对此前被跳过或路由到错误表的数据。
+字符串、集合、二进制值和空值的处理保持不变，无需迁移配置或状态格式。
 
 ### Zeta REST 分页参数校验
 
@@ -451,6 +497,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
 ### 引擎行为变更
+
+- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
+  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
+  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
 
 - **行为变更：REST 日志内容接口默认最多返回 64 MB**
   - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
