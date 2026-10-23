@@ -369,6 +369,13 @@ conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 
 Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
 
+Two kinds of keys are recognized here:
+
+- **HikariCP pool properties** — `maxLifetime`, `idleTimeout`, `keepaliveTime`, `validationTimeout`, `connectionTimeout`, `maximumPoolSize`, `minimumIdle`, `connectionTestQuery` (or `connection-test-query`). These are applied to the connection pool itself (not forwarded to the JDBC driver), so they take effect on the pooled connection lifecycle.
+- Any other key is forwarded to the underlying JDBC `DataSource` as a connection property (for example MySQL's `useSSL`, `rewriteBatchedStatements`).
+
+Setting `connectionTestQuery` makes the connector validate a pooled connection with that SQL statement instead of `Connection.isValid()`, which is useful for drivers whose `isValid()` returns false positives. When a cached connection is found dead (idle timeout, server-side `wait_timeout`, or a dropped socket) it is closed and replaced before the next write.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details

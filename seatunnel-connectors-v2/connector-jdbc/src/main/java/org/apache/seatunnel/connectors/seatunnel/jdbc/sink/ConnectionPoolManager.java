@@ -65,16 +65,24 @@ public class ConnectionPoolManager {
      * surfaces as a write error after the record has already been consumed.
      */
     public Connection getConnection(int index) {
+        // Check if the cached connection has been closed by HikariCP (e.g., due to
+        // idleTimeout or maxLifetime eviction). If so, evict the stale reference and
+        // obtain a fresh connection from the pool. This prevents "No operations allowed
+        // after statement closed" errors in long-running streaming jobs.
+        Connection cached = connectionMap.get(index);
+        if (cached != null && isUsable(cached)) {
+            return cached;
+        }
         return connectionMap.compute(
                 index,
-                (i, cached) -> {
-                    if (cached != null && isUsable(cached)) {
-                        return cached;
+                (i, existing) -> {
+                    if (existing != null && isUsable(existing)) {
+                        return existing;
                     }
-                    if (cached != null) {
+                    if (existing != null) {
                         logReplacement(i);
                     }
-                    closeQuietly(cached);
+                    closeQuietly(existing);
                     try {
                         return connectionPool.getConnection();
                     } catch (SQLException e) {
