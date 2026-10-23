@@ -258,8 +258,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
 | YashanDB  |            |          |
-| Ingres    |              |          |
-
+| Ingres    |            |          |
 
 #### Ingres
 
