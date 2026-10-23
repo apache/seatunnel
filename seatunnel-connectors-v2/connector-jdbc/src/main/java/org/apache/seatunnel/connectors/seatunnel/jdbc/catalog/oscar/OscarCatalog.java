@@ -1,0 +1,285 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oscar;
+
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oscar.OscarTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oscar.OscarTypeMapper;
+
+import org.apache.commons.collections4.CollectionUtils;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+@Slf4j
+public class OscarCatalog extends AbstractJdbcCatalog {
+
+    protected static List<String> EXCLUDED_SCHEMAS =
+            Collections.unmodifiableList(
+                    Arrays.asList(
+                            "DIRECTORIES",
+                            "INFO_SCHEM",
+                            "NT AUTHORITY\\SYSTEM",
+                            "PUBLIC",
+                            "REPLICATION",
+                            "STAGENT",
+                            "SYSAUDIT",
+                            "SYSFTSDBA",
+                            "SYSMONITOR",
+                            "SYSSECURE",
+                            "SYS_GLOBAL_TEMP",
+                            "WMSYS",
+                            "SYS_RDR"));
+
+    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
+            "SELECT\n"
+                    + "    COLUMN_NAME ,\n"
+                    + "    TYPE_NAME ,\n"
+                    + "    CASE \n"
+                    + "        WHEN TYPE_NAME LIKE 'INTERVAL%%' THEN 'INTERVAL' \n"
+                    + "        ELSE REGEXP_SUBSTR (TYPE_NAME , '^[^(]+')\n"
+                    + "    END AS TYPE_NAME ,\n"
+                    + "    TYPE_NAME || CASE \n"
+                    + "        WHEN TYPE_NAME IN ('VARCHAR' ,\n"
+                    + "        'VARCHAR2' ,\n"
+                    + "        'CHAR' ,\n"
+                    + "        'BIT' ,\n"
+                    + "        'VARBIT' ,\n"
+                    + "        'BINARY' ,\n"
+                    + "        'VARBINARY') THEN '(' || COLUMN_SIZE || ')' \n"
+                    + "        WHEN TYPE_NAME IN ('NVARCHAR2' ,\n"
+                    + "        'NCHAR') THEN '(' || COLUMN_SIZE || ')' \n"
+                    + "        WHEN TYPE_NAME IN ('NUMBER' ,\n"
+                    + "        'NUMERIC' ,\n"
+                    + "        'LPFLOAT' ,\n"
+                    + "        'HPFLOAT') \n"
+                    + "        AND COLUMN_SIZE IS NOT NULL \n"
+                    + "        AND DECIMAL_DIGITS IS NOT NULL THEN '(' || COLUMN_SIZE || ', ' || DECIMAL_DIGITS || ')' \n"
+                    + "        WHEN TYPE_NAME IN ('NUMBER' ,\n"
+                    + "        'NUMERIC' ,\n"
+                    + "        'LPFLOAT' ,\n"
+                    + "        'HPFLOAT') \n"
+                    + "        AND COLUMN_SIZE IS NOT NULL \n"
+                    + "        AND (DECIMAL_DIGITS = - 1 \n"
+                    + "        OR DECIMAL_DIGITS IS NULL) THEN '(' || COLUMN_SIZE || ')' \n"
+                    + "        WHEN TYPE_NAME IN ('RAW') THEN '(' || COLUMN_SIZE || ')' \n"
+                    + "        WHEN TYPE_NAME IN ('TIME' ,\n"
+                    + "        'TIMESTAMP') \n"
+                    + "        AND (DECIMAL_DIGITS != - 1 \n"
+                    + "        AND DECIMAL_DIGITS IS NOT NULL) THEN '(' || DECIMAL_DIGITS || ')' \n"
+                    + "        ELSE '' \n"
+                    + "    END AS FULL_TYPE_NAME ,\n"
+                    + "    BUFFER_LENGTH AS COLUMN_LENGTH ,\n"
+                    + "    COLUMN_SIZE AS COLUMN_PRECISION ,\n"
+                    + "    DECIMAL_DIGITS AS COLUMN_SCALE ,\n"
+                    + "    REMARKS AS COLUMN_COMMENT ,\n"
+                    + "    COLUMN_DEF AS DEFAULT_VALUE ,\n"
+                    + "    IS_NULLABLE \n"
+                    + "FROM \n"
+                    + "    v_sys_columns \n"
+                    + "WHERE \n"
+                    + "    TABLE_SCHEM = '%s' \n"
+                    + "    AND table_name = '%s' \n"
+                    + "    AND ORDINAL_POSITION > 0 \n"
+                    + "ORDER BY \n"
+                    + "    ORDINAL_POSITION";
+
+    public OscarCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
+    }
+
+    @Override
+    protected void createDatabaseInternal(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void dropDatabaseInternal(String databaseName) throws CatalogException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected String getListDatabaseSql() {
+        return "SELECT name FROM v$database";
+    }
+
+    @Override
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OscarCreateTableSqlBuilder(table, createIndex).build(tablePath);
+    }
+
+    @Override
+    protected String getDropTableSql(TablePath tablePath) {
+        return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
+    }
+
+    @Override
+    protected String getListTableSql(String databaseName) {
+        return "SELECT TABLE_SCHEM,TABLE_NAME FROM V_SYS_TABLES \n"
+                + "WHERE \n"
+                + "    TABLE_SCHEM NOT LIKE 'SYS_TMP_%' \n"
+                + "    AND TABLE_SCHEM NOT IN ('INFO_SCHEM' , 'REPLICATION' , 'NT AUTHORITY\\\\SYSTEM' , 'SYS_RDR')\n"
+                + "    AND TABLE_TYPE = 'TABLE'";
+    }
+
+    @Override
+    protected String getTableName(ResultSet rs) throws SQLException {
+        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
+            return null;
+        }
+        return rs.getString(1) + "." + rs.getString(2);
+    }
+
+    @Override
+    protected String getSelectColumnsSql(TablePath tablePath) {
+        return String.format(
+                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected Column buildColumn(ResultSet resultSet) throws SQLException {
+        String columnName = resultSet.getString("COLUMN_NAME");
+        // e.g NUMBER
+        String typeName = resultSet.getString("TYPE_NAME");
+        // e.g NUMBER(10, 2)
+        String fullTypeName = resultSet.getString("FULL_TYPE_NAME");
+        long columnLength = resultSet.getLong("COLUMN_LENGTH");
+        Long columnPrecision = resultSet.getObject("COLUMN_PRECISION", Long.class);
+        Integer columnScale = resultSet.getObject("COLUMN_SCALE", Integer.class);
+        String columnComment = resultSet.getString("COLUMN_COMMENT");
+        Object defaultValue = resultSet.getObject("DEFAULT_VALUE");
+        boolean isNullable = resultSet.getString("IS_NULLABLE").equals("YES");
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(fullTypeName)
+                        .dataType(typeName)
+                        .length(columnLength)
+                        .precision(columnPrecision)
+                        .scale(columnScale)
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(columnComment)
+                        .build();
+        return OscarTypeConverter.INSTANCE.convert(typeDefine);
+    }
+
+    @Override
+    protected String getUrlFromDatabaseName(String databaseName) {
+        return defaultUrl;
+    }
+
+    @Override
+    protected String getOptionTableName(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+            return listTables().contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    private List<String> listTables() {
+        List<String> databases = listDatabases();
+        if (CollectionUtils.isEmpty(databases)) {
+            return new ArrayList<>();
+        }
+        return listTables(databases.get(0));
+    }
+
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OscarTypeMapper());
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        return String.format(
+                "TRUNCATE TABLE \"%s\".\"%s\"",
+                tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected String getExistDataSql(TablePath tablePath) {
+        return String.format(
+                "select * from \"%s\".\"%s\" WHERE rownum = 1",
+                tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        try {
+            return getConstraintKeys(
+                    metaData,
+                    tablePath.getDatabaseName(),
+                    tablePath.getSchemaName(),
+                    tablePath.getTableName());
+        } catch (SQLException e) {
+            log.info("Obtain constraint failure", e);
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    protected String getCreateDatabaseSql(String databaseName) {
+        return String.format("CREATE SCHEMA \"%s\"", databaseName);
+    }
+
+    @Override
+    protected String getDropDatabaseSql(String databaseName) {
+        return String.format("DROP SCHEMA \"%s\"", databaseName);
+    }
+}
