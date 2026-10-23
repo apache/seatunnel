@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
+
+When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
+
+Such a value now causes a parse error that identifies the field and the expected container type; with `ignore-parse-errors = true` only that container value is set to `null`, and every other value of the row is kept. The same holds for a wrong container type nested inside an array or a map: only the offending nested value becomes `null` while its siblings and the enclosing container are retained, and empty arrays and objects of the declared container type, `null` and missing values, and the conversion of elements and keys are unchanged. To migrate, provide an actual JSON array for an `ARRAY` field and an actual JSON object for a `MAP` field, or set `ignore-parse-errors = true` so that malformed container values become `null` instead of failing the job.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
