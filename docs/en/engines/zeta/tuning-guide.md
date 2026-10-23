@@ -169,6 +169,10 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 ```bash
 # Check the slow operation log frequency and timing
+
+> Log file names differ by deployment mode: hybrid mode writes `seatunnel-engine-server.log`, while separated
+> mode writes `seatunnel-engine-master.log` on the master and `seatunnel-engine-worker.log` on workers. Replace the
+> file name below accordingly — the examples use the hybrid name for brevity.
 grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50
 ```
 

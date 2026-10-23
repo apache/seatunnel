@@ -169,6 +169,10 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 
 ```bash
 # 检查慢操作日志的频率和时间
+
+> 日志文件名因部署模式而异：混合模式写入 `seatunnel-engine-server.log`，分离模式下 Master 写
+> `seatunnel-engine-master.log`、Worker 写 `seatunnel-engine-worker.log`。请按实际模式替换下方示例中的文件名
+>（示例为简洁起见使用混合模式的名称）。
 grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50
 ```
 

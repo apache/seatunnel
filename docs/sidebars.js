@@ -31,7 +31,6 @@ const sidebars = {
                     "type": "category",
                     "label": "Concepts",
                     "items": [
-                        "introduction/concepts/config",
                         "introduction/concepts/connector-v2-features",
                         "introduction/concepts/schema-feature",
                         "introduction/concepts/incompatible-changes",
