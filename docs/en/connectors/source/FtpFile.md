@@ -70,6 +70,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number      | long    | no       | 0                           |
 | schema                      | config  | no       | -                           |
 | sheet_name                  | string  | no       | -                           |
+| excel_use_header_line      | boolean | no       | false                       |
 | excel_engine                | string  | no       | POI                         |
 | poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |

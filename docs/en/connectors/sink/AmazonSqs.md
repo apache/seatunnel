@@ -32,7 +32,7 @@ is serialized by the configured `format`, and the serialized value is sent as th
 | region            | String | Yes      | -       | AWS region of the SQS queue, for example `us-east-1`.                                                                                                       |
 | access_key_id     | String | No       | -       | AWS access key ID. Set it together with `secret_access_key` to use static credentials. Leave both unset to use the AWS default credential provider chain.     |
 | secret_access_key | String | No       | -       | AWS secret access key. Set it together with `access_key_id` to use static credentials.                                                                       |
-| format            | String | No       | json    | Message body format. Supported values are `json`, `text`, `canal_json`, and `debezium_json`.                                                                |
+| format            | enum   | No       | json    | Message body format. Supported values are `json`, `text`, `canal_json`, and `debezium_json`.                                                                |
 | field_delimiter   | String | No       | ,       | Field delimiter used when `format = text`.                                                                                                                  |
 | common-options    |        | No       | -       | Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).                                            |
 

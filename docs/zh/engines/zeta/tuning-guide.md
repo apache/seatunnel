@@ -169,7 +169,7 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 
 ```bash
 # 检查慢操作日志的频率和时间
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -50
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50
 ```
 
 将时间戳与以下事件关联：
@@ -190,7 +190,7 @@ free -h
 
 **REST 提交延迟：**
 - 症状：通过 REST API 提交作业时出现慢操作，且提交客户端响应时间较长。
-- 检查：`grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-server.log` —— 关注耗时。
+- 检查：`grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log` —— 关注耗时。
 - 常见原因：Master 节点并发提交过载，或作业配置非常庞大（连接器/Transform 数量多）。
 - 缓解：限制并发提交速率、增加 Master 节点资源、或调整 `hazelcast.operation.generic.thread.count`。
 
@@ -208,16 +208,16 @@ free -h
 
 **Checkpoint 存储延迟：**
 - 症状：慢操作与 Checkpoint 间隔对齐，且 Checkpoint 耗时超过配置的超时。
-- 检查：为 `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator` 启用 DEBUG 日志，然后执行 `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | grep -oP 'cost: \d+ms'` 查看 Checkpoint 耗时。
+- 检查：为 `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator` 启用 DEBUG 日志，然后执行 `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | grep -oP 'cost: \d+ms'` 查看 Checkpoint 耗时。
 - 如果使用 S3：运行 `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` 测量延迟，或查看 CloudWatch S3 指标（`FirstByteLatency`、`TotalRequestLatency`）。
 - 常见原因：到 S3/HDFS 的网络延迟高、小文件导致多次往返、或 S3 限流。
 - 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)。
 
 **IMap / MapStore 延迟：**
 - 症状：对 IMap 键执行 `PutOperation` 或 `GetOperation` 时出现慢操作。
-- 检查：`du -sh $SEATUNNEL_HOME/imap/wal/` 和 `du -sh $SEATUNNEL_HOME/imap/maps/` —— WAL 目录过大表示写入压力大。
+- 检查：在 IMap 存储文件系统上执行 `du -sh <namespace>/<clusterName>/<businessName>/` —— 目录过大表示写入压力大。
 - 常见原因：MapStore 目录磁盘 I/O 饱和、WAL 写入频率过高、或磁盘空间耗尽。
-- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)，增加 `write-behind-delay-seconds`，启用 WAL 压缩。
+- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)，缩短 `history-job-expire-minutes`，并提升磁盘 IOPS。
 
 ### 3. 合理配置 `hazelcast.operation.generic.thread.count`
 
@@ -307,7 +307,7 @@ SeaTunnel 定期输出健康监控日志（默认每 60 秒一次）。这些日
 
 ```bash
 # 提取慢操作告警及其耗时
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -20
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -20
 ```
 
 #### 4.3 节点资源指标
@@ -514,14 +514,16 @@ loggers:
     level: WARN
 ```
 
-#### 7.6 MapStore 和 WAL 的存储
+#### 7.6 IMap 状态的存储
 
-使用持久卷存储 MapStore 和 WAL 目录，以便在 Pod 重启后仍然存在：
+如果通过 Hazelcast MapStore 启用了 IMap 持久化（参见[状态存储与恢复](state-storage-and-recovery.md)），
+请将 IMap 存储目录（MapStore 配置中的 `namespace` 属性，例如 `/seatunnel-imap`）挂载到持久卷上，
+以便在 Pod 重启后仍然存在：
 
 ```yaml
 volumeMounts:
   - name: imap-storage
-    mountPath: /tmp/seatunnel/imap
+    mountPath: /seatunnel-imap
 volumes:
   - name: imap-storage
     persistentVolumeClaim:
@@ -530,7 +532,7 @@ volumes:
 
 使用以下命令监控 PVC 使用量：
 ```bash
-kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
+kubectl exec <pod> -- du -sh /seatunnel-imap/
 ```
 
 ### 快速参考排查表
@@ -544,5 +546,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | 慢操作 + 高 GC | JVM 堆压力 | 增加 `-Xmx`，减少并发任务 |
 | `executor.q.operations.size` > 0 | 操作线程池饱和 | 增加 `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | 远程调用积压 | 检查网络，增加 `generic.thread.count` |
-| WAL 目录持续增长，IMap 操作变慢 | MapStore 写入压力 | 增加 `write-behind-delay-seconds`，增加磁盘 IOPS |
+| IMap 存储目录持续增长，IMap 操作变慢 | MapStore 写入压力 | 缩短 `history-job-expire-minutes`，增加磁盘 IOPS |
 | Checkpoint 耗时 > 60s | 状态数据过大或存储慢 | 减少 Checkpoint 状态大小，优化存储 |

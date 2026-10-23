@@ -55,7 +55,7 @@ This source supports connection/authentication and existing-queue metadata check
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
 | tables_configs             | array   | no       | -             |
-| format                     | string  | no       | json          |
+| format                     | enum    | no       | json          |
 | protobuf_schema            | string  | no       | -             |
 | protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
