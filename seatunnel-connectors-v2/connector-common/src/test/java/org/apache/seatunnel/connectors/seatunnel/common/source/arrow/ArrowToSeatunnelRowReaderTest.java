@@ -496,13 +496,17 @@ public class ArrowToSeatunnelRowReaderTest {
         // cell a genuine null and the old out-of-range read would look the same.
         List<Long> expectedLongs = Arrays.asList(10L, 11L, 20L, null, 22L);
         List<String> expectedStrings = Arrays.asList("s0", "s1", "s2", "s3", "s4");
+        // Absolute row 4, the last row of the final batch, is null in the array column. A null
+        // complex cell after the boundary is what separates a genuine null from the old
+        // out-of-range read for the list dispatch, the same way the long column does for the
+        // scalar one, and it lands on a different row so neither null masks the other.
         List<List<Integer>> expectedArrays =
                 Arrays.asList(
                         Arrays.asList(0),
                         Arrays.asList(1, 1),
                         Arrays.asList(2, 2, 2),
                         Arrays.asList(3),
-                        Arrays.asList(4, 4));
+                        null);
         List<LocalDateTime> expectedTimestamps =
                 Arrays.asList(
                         LocalDateTime.parse("2026-01-01T00:00:00"),
@@ -635,6 +639,11 @@ public class ArrowToSeatunnelRowReaderTest {
                 actualLongs.get(3), "the deliberately null cell must still read as null");
         Assertions.assertNotNull(
                 actualStrings.get(3), "a null in one column must not blank its neighbours");
+        Assertions.assertNull(
+                actualArrays.get(4),
+                "the deliberately null list cell must still read as null after the empty batch");
+        Assertions.assertNotNull(
+                actualLongs.get(4), "a null list must not blank the scalars in its own row");
         // DorisValueReader and StarRocksBeReadClient advance the BE scan offset with this value,
         // so it has to match the number of rows actually surfaced.
         Assertions.assertEquals(
@@ -654,6 +663,11 @@ public class ArrowToSeatunnelRowReaderTest {
         List<String> expectedStructLabels = Arrays.asList("a0", "a1", "b0", "b1", "b2");
         // Same {2, 0, 3} shape as the scalar case, so the empty middle batch exercises the
         // continue branch of readArrow() for the complex dispatch too.
+        //
+        // Null cells after the boundary are covered in the scalar case, by the long column and
+        // by the list column. They are left out here because a null struct and a null map are
+        // mishandled by their own converters today, which is a separate defect from the batch
+        // boundary this test is about.
         int[] batchPlan = {2, 0, 3};
 
         byte[] payload;
@@ -834,11 +848,15 @@ public class ArrowToSeatunnelRowReaderTest {
             }
             stringVector.setSafe(i, strings.get(row).getBytes(StandardCharsets.UTF_8));
             arrayWriter.setPosition(i);
-            arrayWriter.startList();
-            for (int element : arrays.get(row)) {
-                arrayWriter.writeInt(element);
+            if (arrays.get(row) == null) {
+                arrayWriter.writeNull();
+            } else {
+                arrayWriter.startList();
+                for (int element : arrays.get(row)) {
+                    arrayWriter.writeInt(element);
+                }
+                arrayWriter.endList();
             }
-            arrayWriter.endList();
             // The converter reads the stored micros as UTC and shifts them into the default zone,
             // so the value is written through the same zone to round-trip on any host.
             timestampVector.setSafe(
