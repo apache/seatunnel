@@ -127,11 +127,13 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 | poll.await.time.ms                 | Integer | 否   | 1000    | 检查变更流新结果前等待的时间，单位为毫秒。                                                                                  |
 | heartbeat.interval.ms              | Integer | 否   | 0       | 发送心跳消息的间隔，单位为毫秒。设置为 `0` 表示禁用心跳。                                                                   |
 | incremental.snapshot.chunk.size.mb | Integer | 否   | 64      | 增量快照读取时的分片大小，单位为 MB。                                                                                       |
+| incremental.parallelism            | Integer | 否   | 1       | 增量阶段中并行读取器的数量。                                                                                               |
 | startup.mode                       | Enum    | 否   | INITIAL | MongoDB CDC 的启动模式，可选值为 `initial`、`latest` 和 `timestamp`。详见下方[启动模式](#启动模式)。                         |
 | startup.timestamp                  | Long    | 否   | -       | 从指定的毫秒级时间戳开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                                   |
 | stop.mode                          | Enum    | 否   | NEVER   | MongoDB CDC 的停止模式，可选值为 `never` 和 `timestamp`。详见下方[停止模式](#停止模式)。                                    |
 | stop.timestamp                     | Long    | 否   | -       | 在该毫秒级时间戳对应的变更流位置停止。仅在 `stop.mode` 为 `timestamp` 时使用。                                               |
 | exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。开启后，大表快照阶段恢复时可能增加内存使用。                                                              |
+| format                             | Enum    | 否   | DEFAULT | MongoDB CDC 的输出数据格式，可选值为 `DEFAULT` 和 `COMPATIBLE_DEBEZIUM_JSON`。                                              |
 | debezium                           | Config  | 否   | -       | 透传给内嵌 Debezium 引擎的配置。                                                                                            |
 | common-options                     |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。                                             |
 

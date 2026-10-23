@@ -23,7 +23,9 @@ public enum PostgresConnectorErrorCode implements SeaTunnelErrorCode {
     NEW_SCHEMA_FAILED("POSTGRES-01", "Failed to initialize PostgresSchema"),
     CREATE_REPLICATION_CONNECTION_FAILED("POSTGRES-02", "Failed to create replication connection"),
     READ_COMMITTED_OFFSET_FAILED(
-            "POSTGRES-03", "Failed to read the committed replication slot offset");
+            "POSTGRES-03", "Failed to read the committed replication slot offset"),
+    REPLICATION_SLOT_INVALIDATED(
+            "POSTGRES-04", "The replication slot has been invalidated by PostgreSQL");
     private final String code;
     private final String description;
 
