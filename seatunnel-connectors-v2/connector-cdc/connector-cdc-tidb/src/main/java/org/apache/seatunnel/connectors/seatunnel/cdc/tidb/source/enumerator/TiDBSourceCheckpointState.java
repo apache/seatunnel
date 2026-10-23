@@ -19,20 +19,85 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.enumerator;
 
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Getter
-@Setter
-@AllArgsConstructor
 @ToString
 public class TiDBSourceCheckpointState implements Serializable {
     private static final long serialVersionUID = 6292978509042158791L;
     private boolean shouldEnumerate;
-    private Map<Integer, TiDBSourceSplit> pendingSplit;
+    private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
+    private int assignCount;
+
+    public TiDBSourceCheckpointState(boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
+        this(shouldEnumerate, pendingSplit, 0);
+    }
+
+    public TiDBSourceCheckpointState(
+            boolean shouldEnumerate, Map<Integer, ?> pendingSplit, int assignCount) {
+        this.shouldEnumerate = shouldEnumerate;
+        this.pendingSplit = normalizePendingSplit(pendingSplit);
+        this.assignCount = assignCount;
+    }
+
+    public void setShouldEnumerate(boolean shouldEnumerate) {
+        this.shouldEnumerate = shouldEnumerate;
+    }
+
+    public void setPendingSplit(Map<Integer, ?> pendingSplit) {
+        this.pendingSplit = normalizePendingSplit(pendingSplit);
+    }
+
+    public Map<Integer, List<TiDBSourceSplit>> getPendingSplit() {
+        pendingSplit = normalizePendingSplit(pendingSplit);
+        return pendingSplit;
+    }
+
+    private static Map<Integer, List<TiDBSourceSplit>> normalizePendingSplit(
+            Map<Integer, ?> pendingSplit) {
+        Map<Integer, List<TiDBSourceSplit>> normalizedPendingSplit = new HashMap<>();
+        if (pendingSplit == null) {
+            return normalizedPendingSplit;
+        }
+        for (Map.Entry<Integer, ?> entry : pendingSplit.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof TiDBSourceSplit) {
+                normalizedPendingSplit.put(
+                        entry.getKey(),
+                        new ArrayList<>(Collections.singletonList((TiDBSourceSplit) value)));
+            } else if (value instanceof List) {
+                normalizedPendingSplit.put(entry.getKey(), copyPendingSplits((List<?>) value));
+            } else if (value == null) {
+                normalizedPendingSplit.put(entry.getKey(), new ArrayList<>());
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Unsupported pending split value type %s for reader %s.",
+                                value.getClass().getName(), entry.getKey()));
+            }
+        }
+        return normalizedPendingSplit;
+    }
+
+    private static List<TiDBSourceSplit> copyPendingSplits(List<?> pendingSplits) {
+        List<TiDBSourceSplit> copiedPendingSplits = new ArrayList<>();
+        for (Object pendingSplit : pendingSplits) {
+            if (!(pendingSplit instanceof TiDBSourceSplit)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Unsupported pending split list value type %s.",
+                                pendingSplit == null ? "null" : pendingSplit.getClass().getName()));
+            }
+            copiedPendingSplits.add((TiDBSourceSplit) pendingSplit);
+        }
+        return copiedPendingSplits;
+    }
 }

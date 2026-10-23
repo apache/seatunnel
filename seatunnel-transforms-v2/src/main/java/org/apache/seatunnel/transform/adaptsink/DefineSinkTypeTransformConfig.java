@@ -33,8 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
-
 @Data
 @AllArgsConstructor
 public class DefineSinkTypeTransformConfig implements Serializable {
@@ -82,16 +80,6 @@ public class DefineSinkTypeTransformConfig implements Serializable {
 
     public static DefineSinkTypeTransformConfig of(ReadonlyConfig config) {
         List<DefineColumnType> columns = config.get(COLUMNS);
-
-        checkArgument(columns != null && !columns.isEmpty(), "The columns must be set");
-        columns.forEach(
-                defineColumnType -> {
-                    checkArgument(
-                            defineColumnType.getColumn() != null, "The column name must be set");
-                    checkArgument(
-                            defineColumnType.getType() != null, "The column type must be set");
-                });
-
         return new DefineSinkTypeTransformConfig(columns);
     }
 }

@@ -136,4 +136,16 @@ class SqlServerURLParserTest {
         assertEquals(
                 "jdbc:sqlserver://sqlserver:1433;encrypt=false", urlInfo.getUrlWithoutDatabase());
     }
+
+    @Test
+    public void testWithDatabaseNameAndEncryptSuffix() {
+        String url = "jdbc:sqlserver://sqlserver;databaseName=master;encrypt=false;";
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url);
+        assertEquals("sqlserver", urlInfo.getHost());
+        assertEquals(1433, urlInfo.getPort());
+        assertEquals("master", urlInfo.getDefaultDatabase().get());
+        assertEquals("encrypt=false", urlInfo.getSuffix());
+        assertEquals(
+                "jdbc:sqlserver://sqlserver:1433;encrypt=false", urlInfo.getUrlWithoutDatabase());
+    }
 }

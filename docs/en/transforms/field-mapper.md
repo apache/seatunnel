@@ -18,7 +18,7 @@ Specify the field mapping relationship between input and output
 
 ### common options [config]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details.
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details.
 
 ## Example
 
@@ -60,5 +60,5 @@ Then the data in result table `fake1` will like this
 
 ### new version
 
-- Add Copy Transform Connector
+- Add FieldMapper Transform Connector
 

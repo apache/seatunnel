@@ -38,6 +38,8 @@ import java.util.Map;
 @Builder
 @AllArgsConstructor
 public class JobPipelineCheckpointData implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private long jobId;
     private int pipelineId;
     private long checkpointId;
@@ -52,6 +54,8 @@ public class JobPipelineCheckpointData implements Serializable {
     @Data
     @AllArgsConstructor
     public static class ActionState implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private List<byte[]> coordinatorState;
         private List<ActionSubtaskState> subtaskState;
     }
@@ -59,6 +63,8 @@ public class JobPipelineCheckpointData implements Serializable {
     @Data
     @AllArgsConstructor
     public static class ActionSubtaskState implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private final int index;
         private final List<byte[]> state;
     }

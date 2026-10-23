@@ -19,6 +19,8 @@ package io.debezium.connector.sqlserver;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.JdbcIdentifierUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -127,6 +129,15 @@ public class SqlServerConnection extends JdbcConnection {
 
     private static final String GET_NEW_CHANGE_TABLES =
             "SELECT * FROM [#db].cdc.change_tables WHERE start_lsn BETWEEN ? AND ?";
+    private static final String GET_DDL_HISTORY =
+            "SELECT OBJECT_SCHEMA_NAME(source_object_id, DB_ID(?)),"
+                    + " OBJECT_NAME(source_object_id, DB_ID(?)),"
+                    + " ddl_command,"
+                    + " ddl_lsn,"
+                    + " ddl_time"
+                    + " FROM [#db].cdc.ddl_history"
+                    + " WHERE ddl_lsn >= ? AND ddl_lsn <= ?"
+                    + " ORDER BY ddl_lsn ASC";
     private static final String OPENING_QUOTING_CHARACTER = "[";
     private static final String CLOSING_QUOTING_CHARACTER = "]";
 
@@ -375,36 +386,29 @@ public class SqlServerConnection extends JdbcConnection {
     protected Optional<ColumnEditor> readTableColumn(
             ResultSet columnMetadata, TableId tableId, Tables.ColumnNameFilter columnFilter)
             throws SQLException {
-        return doReadTableColumn(columnMetadata, tableId, columnFilter);
+        return doReadTableColumn(columnMetadata, tableId, columnFilter, null);
     }
 
+    /**
+     * Reads a single column from the JDBC metadata ResultSet.
+     *
+     * @param columnTypeMapping pre-fetched UDT name map (column name → type name) for the table, or
+     *     {@code null} to fall back to per-column query
+     */
     private Optional<ColumnEditor> doReadTableColumn(
-            ResultSet columnMetadata, TableId tableId, Tables.ColumnNameFilter columnFilter)
+            ResultSet columnMetadata,
+            TableId tableId,
+            Tables.ColumnNameFilter columnFilter,
+            Map<String, String> columnTypeMapping)
             throws SQLException {
         // Oracle drivers require this for LONG/LONGRAW to be fetched first.
         final String defaultValue = columnMetadata.getString(13);
-        String tableSql =
-                StringUtils.isNotEmpty(tableId.table())
-                        ? "AND tbl.name = '" + tableId.table() + "'"
-                        : "";
 
-        Map<String, String> columnTypeMapping = new HashMap<>();
-
-        // Support user-defined types (UDTs)
-        try (PreparedStatement ps =
-                        connection()
-                                .prepareStatement(
-                                        String.format(
-                                                SELECT_COLUMNS_SQL_TEMPLATE,
-                                                tableId.schema(),
-                                                tableSql));
-                ResultSet resultSet = ps.executeQuery()) {
-            while (resultSet.next()) {
-                String columnName = resultSet.getString("column_name");
-                String dataType = resultSet.getString("type");
-                columnTypeMapping.put(columnName, dataType);
-            }
+        if (columnTypeMapping == null) {
+            // Fallback: fetch UDT mapping for this single call
+            columnTypeMapping = fetchColumnTypeMapping(tableId);
         }
+
         final String columnName = columnMetadata.getString(4);
         if (columnFilter == null
                 || columnFilter.matches(
@@ -442,6 +446,32 @@ public class SqlServerConnection extends JdbcConnection {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Fetches UDT type names for all columns in {@code tableId} in a single query.
+     *
+     * @return map of column name -> resolved type name (empty map if the query returns no rows)
+     */
+    private Map<String, String> fetchColumnTypeMapping(TableId tableId) throws SQLException {
+        String tableSql =
+                StringUtils.isNotEmpty(tableId.table())
+                        ? "AND tbl.name = '" + tableId.table() + "'"
+                        : "";
+        Map<String, String> mapping = new HashMap<>();
+        try (PreparedStatement ps =
+                        connection()
+                                .prepareStatement(
+                                        String.format(
+                                                SELECT_COLUMNS_SQL_TEMPLATE,
+                                                tableId.schema(),
+                                                tableSql));
+                ResultSet resultSet = ps.executeQuery()) {
+            while (resultSet.next()) {
+                mapping.put(resultSet.getString("column_name"), resultSet.getString("type"));
+            }
+        }
+        return mapping;
     }
 
     /**
@@ -693,11 +723,44 @@ public class SqlServerConnection extends JdbcConnection {
                 });
     }
 
+    public List<SqlServerDdlEntry> getDdlHistory(String databaseName, Lsn fromLsn, Lsn toLsn)
+            throws SQLException {
+        final String query = replaceDatabaseNamePlaceholder(GET_DDL_HISTORY, databaseName);
+
+        return prepareQueryAndMap(
+                query,
+                ps -> {
+                    ps.setString(1, databaseName);
+                    ps.setString(2, databaseName);
+                    ps.setBytes(3, fromLsn.getBinary());
+                    ps.setBytes(4, toLsn.getBinary());
+                },
+                rs -> {
+                    final List<SqlServerDdlEntry> ddlEntries = new ArrayList<>();
+                    while (rs.next()) {
+                        ddlEntries.add(
+                                new SqlServerDdlEntry(
+                                        new TableId(databaseName, rs.getString(1), rs.getString(2)),
+                                        rs.getString(3),
+                                        Lsn.valueOf(rs.getBytes(4)),
+                                        rs.getTimestamp(5)));
+                    }
+                    return ddlEntries;
+                });
+    }
+
     public Table getTableSchemaFromTable(String databaseName, SqlServerChangeTable changeTable)
             throws SQLException {
         final DatabaseMetaData metadata = connection().getMetaData();
+        JdbcIdentifierUtils.IdentifierCaseStrategy identifierCaseStrategy =
+                JdbcIdentifierUtils.identifierCaseStrategy(metadata);
+
+        // Fetch UDT type mapping once for the whole table to avoid N queries inside the column
+        final Map<String, String> columnTypeMapping =
+                fetchColumnTypeMapping(changeTable.getSourceTableId());
 
         List<Column> columns = new ArrayList<>();
+        int filteredRows = 0;
         try (ResultSet rs =
                 metadata.getColumns(
                         databaseName,
@@ -705,7 +768,25 @@ public class SqlServerConnection extends JdbcConnection {
                         changeTable.getSourceTableId().table(),
                         null)) {
             while (rs.next()) {
-                readTableColumn(rs, changeTable.getSourceTableId(), null)
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                String actualTableName = rs.getString("TABLE_NAME");
+                if (!JdbcIdentifierUtils.identifierEquals(
+                        identifierCaseStrategy,
+                        changeTable.getSourceTableId().table(),
+                        actualTableName)) {
+                    filteredRows++;
+                    continue;
+                }
+                String actualSchemaName = rs.getString("TABLE_SCHEM");
+                if (!JdbcIdentifierUtils.identifierEquals(
+                        identifierCaseStrategy,
+                        changeTable.getSourceTableId().schema(),
+                        actualSchemaName)) {
+                    filteredRows++;
+                    continue;
+                }
+                doReadTableColumn(rs, changeTable.getSourceTableId(), null, columnTypeMapping)
                         .ifPresent(
                                 ce -> {
                                     // Filter out columns not included in the change table.
@@ -714,6 +795,14 @@ public class SqlServerConnection extends JdbcConnection {
                                     }
                                 });
             }
+        }
+        if (columns.isEmpty() && filteredRows > 0) {
+            LOGGER.warn(
+                    "No columns found for table '{}' in database '{}'. Filtered {} rows returned by JDBC driver. "
+                            + "The table may not exist or the database requires exact identifier case.",
+                    changeTable.getSourceTableId(),
+                    databaseName,
+                    filteredRows);
         }
 
         final List<String> pkColumnNames =
@@ -730,6 +819,50 @@ public class SqlServerConnection extends JdbcConnection {
 
     public String getNameOfChangeTable(String captureName) {
         return captureName + "_CT";
+    }
+
+    public static class SqlServerDdlEntry {
+        private final TableId sourceTableId;
+        private final String ddl;
+        private final Lsn ddlLsn;
+        private final java.sql.Timestamp ddlTime;
+
+        public SqlServerDdlEntry(
+                TableId sourceTableId, String ddl, Lsn ddlLsn, java.sql.Timestamp ddlTime) {
+            this.sourceTableId = sourceTableId;
+            this.ddl = ddl;
+            this.ddlLsn = ddlLsn;
+            this.ddlTime = ddlTime;
+        }
+
+        public TableId getSourceTableId() {
+            return sourceTableId;
+        }
+
+        public String getDdl() {
+            return ddl;
+        }
+
+        public Lsn getDdlLsn() {
+            return ddlLsn;
+        }
+
+        public java.sql.Timestamp getDdlTime() {
+            return ddlTime;
+        }
+
+        @Override
+        public String toString() {
+            return "SqlServerDdlEntry{"
+                    + "sourceTableId="
+                    + sourceTableId
+                    + ", ddlLsn="
+                    + ddlLsn
+                    + ", ddl='"
+                    + ddl
+                    + "'"
+                    + '}';
+        }
     }
 
     /**

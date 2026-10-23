@@ -23,9 +23,11 @@ import org.junit.jupiter.api.Test;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -34,9 +36,11 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,12 +51,56 @@ public class ConnectorOptionCheckTest {
             "src" + File.separator + "main" + File.separator + "java";
     private static final String JAVA_FILE_EXTENSION = ".java";
     private static final String CONNECTOR_DIR = "seatunnel-connectors-v2";
-    private static final JavaParser JAVA_PARSER = new JavaParser();
+    private static final Path SOURCE_ROOT_FRAGMENT = Paths.get("src", "main", "java");
+    private static final String SOURCE_FQN = "org.apache.seatunnel.api.source.SeaTunnelSource";
+    private static final String SINK_FQN = "org.apache.seatunnel.api.sink.SeaTunnelSink";
+
+    /**
+     * Directly known connector base classes. Only used as the fallback when the type hierarchy of a
+     * class cannot be resolved; the resolved check covers these and every other transitive base
+     * class automatically.
+     */
+    private static final Set<String> DIRECT_CONNECTOR_BASE_CLASSES =
+            new HashSet<>(
+                    Arrays.asList(
+                            "AbstractSimpleSink",
+                            "AbstractSingleSplitSource",
+                            "IncrementalSource",
+                            "BaseMultipleTableFileSink",
+                            "BaseFileSource",
+                            "BaseFileSink",
+                            "HttpSource",
+                            "HttpSink"));
+
+    private static final JavaParser JAVA_PARSER;
+
+    static {
+        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
+        typeSolver.add(new ReflectionTypeSolver());
+        try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
+            // Only real source roots can resolve symbols; registering nested directories or
+            // individual files only slows every symbol resolution down.
+            paths.filter(Files::isDirectory)
+                    .filter(path -> path.endsWith(SOURCE_ROOT_FRAGMENT))
+                    .forEach(
+                            path -> {
+                                try {
+                                    typeSolver.add(new JavaParserTypeSolver(path.toFile()));
+                                } catch (Exception e) {
+                                    // ignore
+                                }
+                            });
+        } catch (IOException e) {
+            log.error("Failed to setup type solver", e);
+        }
+        JAVA_PARSER = new JavaParser();
+        JAVA_PARSER.getParserConfiguration().setSymbolResolver(new JavaSymbolSolver(typeSolver));
+    }
 
     @Test
     public void checkConnectorOptionExist() {
-        Set<String> connectorOptionFileNames = new HashSet<>();
-        Set<String> whiteListConnectorOptionFileNames = buildWhiteList();
+        // A TreeSet keeps the failure output stable across runs.
+        Set<String> connectorOptionFileNames = new TreeSet<>();
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             List<Path> connectorClassPaths =
                     paths.filter(
@@ -81,97 +129,18 @@ public class ConnectorOptionCheckTest {
                                                             || classDeclaration.isInterface()) {
                                                         continue;
                                                     }
-                                                    NodeList<ClassOrInterfaceType>
-                                                            implementedTypes =
-                                                                    classDeclaration
-                                                                            .getImplementedTypes();
-                                                    implementedTypes.forEach(
-                                                            implementedType -> {
-                                                                if (implementedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "SeaTunnelSource")
-                                                                        || implementedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "SeaTunnelSink")) {
-                                                                    connectorOptionFileNames.add(
-                                                                            path.getFileName()
-                                                                                    .toString()
-                                                                                    .replace(
-                                                                                            JAVA_FILE_EXTENSION,
-                                                                                            "")
-                                                                                    .concat(
-                                                                                            "Options"));
-                                                                }
-                                                            });
-                                                    NodeList<ClassOrInterfaceType> extendedTypes =
-                                                            classDeclaration.getExtendedTypes();
-                                                    extendedTypes.forEach(
-                                                            extendedType -> {
-                                                                if (extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "AbstractSimpleSink")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "AbstractSingleSplitSource")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "IncrementalSource")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "BaseMultipleTableFileSink")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "BaseFileSource")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "BaseFileSink")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "HttpSource")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "HttpSink")) {
-                                                                    connectorOptionFileNames.add(
-                                                                            path.getFileName()
-                                                                                    .toString()
-                                                                                    .replace(
-                                                                                            JAVA_FILE_EXTENSION,
-                                                                                            "")
-                                                                                    .concat(
-                                                                                            "Options"));
-                                                                }
-                                                            });
+                                                    if (isSeaTunnelConnector(classDeclaration)) {
+                                                        connectorOptionFileNames.add(
+                                                                classNameOf(path)
+                                                                        .concat("Options"));
+                                                    }
                                                 }
                                             });
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     });
-            connectorClassPaths.forEach(
-                    path -> {
-                        String className =
-                                path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "");
-                        connectorOptionFileNames.remove(className);
-                    });
-
-            whiteListConnectorOptionFileNames.forEach(
-                    whiteListConnectorOptionFileName -> {
-                        Assertions.assertTrue(
-                                connectorOptionFileNames.remove(whiteListConnectorOptionFileName),
-                                "This [Options] class is in white list, but not found related connector classes, please check: ["
-                                        + whiteListConnectorOptionFileName
-                                        + "]\n");
-                    });
+            connectorClassPaths.forEach(path -> connectorOptionFileNames.remove(classNameOf(path)));
 
             Assertions.assertEquals(
                     0,
@@ -187,13 +156,43 @@ public class ConnectorOptionCheckTest {
         }
     }
 
-    private Set<String> buildWhiteList() {
-        Set<String> whiteList = new HashSet<>();
-        whiteList.add("PostgresIncrementalSourceOptions");
-        whiteList.add("SqlServerIncrementalSourceOptions");
-        whiteList.add("OracleIncrementalSourceOptions");
-        whiteList.add("MySqlIncrementalSourceOptions");
-        whiteList.add("MongodbIncrementalSourceOptions");
-        return whiteList;
+    private String classNameOf(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(JAVA_FILE_EXTENSION)
+                ? fileName.substring(0, fileName.length() - JAVA_FILE_EXTENSION.length())
+                : fileName;
+    }
+
+    private boolean isSeaTunnelConnector(ClassOrInterfaceDeclaration classDeclaration) {
+        try {
+            // Resolve the whole hierarchy instead of matching only the directly declared
+            // types: connectors that implement SeaTunnelSource/SeaTunnelSink through an
+            // intermediate base class were missed by the direct check.
+            return classDeclaration.resolve().getAllAncestors().stream()
+                    .anyMatch(
+                            ancestor -> {
+                                String name = ancestor.getQualifiedName();
+                                return SOURCE_FQN.equals(name) || SINK_FQN.equals(name);
+                            });
+        } catch (Exception e) {
+            // Fall back to direct-name matching when the hierarchy cannot be resolved, for
+            // example when an ancestor comes from a dependency that is not a source root.
+            return matchesConnectorByDirectTypes(classDeclaration);
+        }
+    }
+
+    private boolean matchesConnectorByDirectTypes(ClassOrInterfaceDeclaration classDeclaration) {
+        return classDeclaration.getImplementedTypes().stream()
+                        .anyMatch(
+                                type -> {
+                                    String name = type.getNameAsString();
+                                    return name.equals("SeaTunnelSource")
+                                            || name.equals("SeaTunnelSink");
+                                })
+                || classDeclaration.getExtendedTypes().stream()
+                        .anyMatch(
+                                type ->
+                                        DIRECT_CONNECTOR_BASE_CLASSES.contains(
+                                                type.getNameAsString()));
     }
 }

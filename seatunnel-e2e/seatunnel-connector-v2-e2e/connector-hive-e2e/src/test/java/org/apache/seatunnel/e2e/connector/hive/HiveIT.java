@@ -41,7 +41,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -105,36 +104,41 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    score  INT"
                     + ")";
 
+    private static final String CREATE_EMPTY_TEXT_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_text"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")"
+                    + " ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LINES TERMINATED BY '\\n' STORED AS TEXTFILE";
+
+    private static final String CREATE_EMPTY_PARQUET_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_parquet"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS PARQUET";
+
+    private static final String CREATE_EMPTY_ORC_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_orc"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS ORC";
+
+    private static final String CREATE_EMPTY_PARQUET_TARGET_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_parquet_target"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS PARQUET";
+
     private static final String HMS_HOST = "metastore";
     private static final String HIVE_SERVER_HOST = "hiveserver2";
-
-    private String hiveExeUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
-    }
-
-    private String libFb303Url() {
-        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.3/libfb303-0.9.3.jar";
-    }
-
-    private String hadoopAwsUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    }
-
-    private String aliyunSdkOssUrl() {
-        return "https://repo1.maven.org/maven2/com/aliyun/oss/aliyun-sdk-oss/3.4.1/aliyun-sdk-oss-3.4.1.jar";
-    }
-
-    private String jdomUrl() {
-        return "https://repo1.maven.org/maven2/org/jdom/jdom/1.1/jdom-1.1.jar";
-    }
-
-    private String hadoopAliyunUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
-    }
-
-    private String hadoopCosUrl() {
-        return "https://repo1.maven.org/maven2/com/qcloud/cos/hadoop-cos/2.6.5-8.0.2/hadoop-cos-2.6.5-8.0.2.jar";
-    }
 
     private HiveContainer hiveServerContainer;
     private HiveContainer hmsContainer;
@@ -143,57 +147,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                // The jar of hive-exec
-                Container.ExecResult downloadHiveExeCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p "
-                                        + pluginHiveDir
-                                        + " && cd "
-                                        + pluginHiveDir
-                                        + " && wget "
-                                        + hiveExeUrl());
-                Assertions.assertEquals(
-                        0,
-                        downloadHiveExeCommands.getExitCode(),
-                        downloadHiveExeCommands.getStderr());
-                Container.ExecResult downloadLibFb303Commands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + libFb303Url());
-                Assertions.assertEquals(
-                        0,
-                        downloadLibFb303Commands.getExitCode(),
-                        downloadLibFb303Commands.getStderr());
-                // The jar of s3
-                Container.ExecResult downloadS3Commands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopAwsUrl());
-                Assertions.assertEquals(
-                        0, downloadS3Commands.getExitCode(), downloadS3Commands.getStderr());
-                // The jar of oss
-                Container.ExecResult downloadOssCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd "
-                                        + pluginHiveDir
-                                        + " && wget "
-                                        + aliyunSdkOssUrl()
-                                        + " && wget "
-                                        + jdomUrl()
-                                        + " && wget "
-                                        + hadoopAliyunUrl());
-                Assertions.assertEquals(
-                        0, downloadOssCommands.getExitCode(), downloadOssCommands.getStderr());
-                // The jar of cos
-                Container.ExecResult downloadCosCommands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopCosUrl());
-                Assertions.assertEquals(
-                        0, downloadCosCommands.getExitCode(), downloadCosCommands.getStderr());
-            };
+            container -> HiveDependencies.copyTo(container, pluginHiveDir);
 
     @BeforeAll
     @Override
@@ -203,8 +157,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         .withCreateContainerCmdModifier(cmd -> cmd.withName(HMS_HOST))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HMS_HOST);
-        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
-
         Startables.deepStart(Stream.of(hmsContainer)).join();
         log.info("HMS just started");
 
@@ -221,8 +173,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                                         + " -Dmetastore.warehouse.dir=/opt/hive/data/warehouse")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
-        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
-
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
         log.info("HiveServer2 just started");
         given().ignoreExceptions()
@@ -258,6 +208,10 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
             statement.execute(CREATE_FAILOVER_SQL);
+            statement.execute(CREATE_EMPTY_TEXT_SQL);
+            statement.execute(CREATE_EMPTY_PARQUET_SQL);
+            statement.execute(CREATE_EMPTY_ORC_SQL);
+            statement.execute(CREATE_EMPTY_PARQUET_TARGET_SQL);
             statement.execute(CREATE_REGEX_DB_A_SQL);
             statement.execute(CREATE_REGEX_DB_ABC_SQL);
             statement.execute(CREATE_REGEX_TABLE_1_SQL);
@@ -292,6 +246,24 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 container,
                 "/fake_to_hive_metastore_uri_failover.conf",
                 "/hive_to_assert_metastore_uri_failover.conf");
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyTextTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_text_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyOrcTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_orc_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyParquetTableToHive(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_parquet_to_hive.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate

@@ -20,12 +20,18 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
+import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.rest.service.LogService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -40,21 +46,36 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.Node;
+import io.restassured.common.mapper.TypeRef;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
@@ -81,6 +102,8 @@ public class RestApiIT {
 
     private static Map<Integer, Integer> ports;
 
+    private static CheckpointMonitorService checkpointMonitorService;
+
     @BeforeEach
     void beforeClass() throws Exception {
         LoggerContext context = (LoggerContext) LogManager.getContext(false);
@@ -93,6 +116,8 @@ public class RestApiIT {
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        node1Config.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
+        node1Config.getEngineConfig().getHttpConfig().setLogResponseMaxSizeMb(1);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
@@ -105,13 +130,15 @@ public class RestApiIT {
         node2Tags.setAttribute("node", "node2");
         Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
         node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        // Dynamically generated port
-        node2Config.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
-        node2Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        // Both members deliberately share the same configured port and mutable HTTP bean.
+        // Node2 must bind another port without changing what either member advertises.
+        node2Config.getEngineConfig().setHttpConfig(node1Config.getEngineConfig().getHttpConfig());
         node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node2Config.setHazelcastConfig(node2hzconfig);
         node2 = SeaTunnelServerStarter.createHazelcastInstance(node2Config);
+
+        checkpointMonitorService = resolveCheckpointMonitorService(node1);
 
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -145,12 +172,51 @@ public class RestApiIT {
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, batchJobProxy.getJobStatus()));
         ports = new HashMap<>();
-        ports.put(
-                node1.getCluster().getLocalMember().getAddress().getPort(),
-                node1Config.getEngineConfig().getHttpConfig().getPort());
-        ports.put(
-                node2.getCluster().getLocalMember().getAddress().getPort(),
-                node2Config.getEngineConfig().getHttpConfig().getPort());
+        ports.put(node1.getCluster().getLocalMember().getAddress().getPort(), httpPort(node1));
+        ports.put(node2.getCluster().getLocalMember().getAddress().getPort(), httpPort(node2));
+    }
+
+    @Test
+    public void testLogResponseLimitIsAppliedToV1AndV2() throws Exception {
+        Path directory = Paths.get(new LogService(node1.node.getNodeEngine()).getLogPath());
+        Path file = Files.createTempFile(directory, "rest-response-limit-", ".log");
+        StringBuilder content = new StringBuilder("FIRST-RECORD-MUST-BE-TRUNCATED\n");
+        for (int i = 0; i < 40000; i++) {
+            content.append("日志0123456789abcdefghijklmnopqrstuvwxyz\n");
+        }
+        content.append("END-OF-LOG\n");
+        String original = content.toString();
+        int limit = 1024 * 1024;
+        Files.write(file, original.getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(Files.size(file) > limit);
+        String v1 =
+                HOST + node1.getCluster().getLocalMember().getAddress().getPort() + CONTEXT_PATH;
+        String v2 = buildHttpBaseUrl(httpPort(node1));
+        try {
+            for (String base : Arrays.asList(v1, v2)) {
+                for (String endpoint :
+                        Arrays.asList(RestConstant.REST_URL_LOG, RestConstant.REST_URL_LOGS)) {
+                    String response =
+                            given().get(base + endpoint + "/" + file.getFileName())
+                                    .then()
+                                    .statusCode(200)
+                                    .extract()
+                                    .asString();
+                    String[] parts = response.split("\n", 2);
+                    Assertions.assertTrue(parts[0].startsWith("[SeaTunnel] Log truncated:"));
+                    Assertions.assertEquals(2, parts.length);
+                    String tail = parts[1];
+                    Assertions.assertTrue(tail.getBytes(StandardCharsets.UTF_8).length <= limit);
+                    Assertions.assertTrue(original.endsWith(tail));
+                    Assertions.assertTrue(tail.endsWith("END-OF-LOG\n"));
+                    Assertions.assertTrue(tail.contains("日志"));
+                    Assertions.assertFalse(tail.contains("\uFFFD"));
+                    Assertions.assertFalse(tail.contains("FIRST-RECORD-MUST-BE-TRUNCATED"));
+                }
+            }
+        } finally {
+            Files.deleteIfExists(file);
+        }
     }
 
     @Test
@@ -228,6 +294,193 @@ public class RestApiIT {
                                             verifyLogLink(logListV1);
                                             verifyLogLink(logListV2);
                                         }));
+    }
+
+    @Test
+    public void testDynamicHttpPortIsResolvableByPeers() throws Exception {
+        int node1HttpPort = httpPort(node1);
+        int node2HttpPort = httpPort(node2);
+
+        Assertions.assertSame(
+                node1Config.getEngineConfig().getHttpConfig(),
+                node2Config.getEngineConfig().getHttpConfig());
+        Assertions.assertEquals(8080, node2Config.getEngineConfig().getHttpConfig().getPort());
+        Assertions.assertNotEquals(
+                node1HttpPort,
+                node2HttpPort,
+                "node2 must expose the dynamically chosen REST port, not the configured one");
+
+        // Embedded members share the Log4j context and job-log directory. Both must have a
+        // log to list, otherwise counting distinct nodes could hide a fan-out regression.
+        Path node1LogPath =
+                Paths.get(new LogService(node1.node.getNodeEngine()).getLogPath()).toRealPath();
+        Path node2LogPath =
+                Paths.get(new LogService(node2.node.getNodeEngine()).getLogPath()).toRealPath();
+        Assertions.assertEquals(node1LogPath, node2LogPath);
+        Assertions.assertTrue(
+                node1LogPath
+                        .resolve("job-" + clientJobProxy.getJobId() + ".log")
+                        .toFile()
+                        .isFile());
+
+        List<Map<String, Object>> logEntries =
+                given().get(
+                                buildHttpBaseUrl(node1HttpPort)
+                                        + RestConstant.REST_URL_LOGS
+                                        + "?format=JSON")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+
+        Set<String> reportedNodes =
+                logEntries.stream()
+                        .map(entry -> String.valueOf(entry.get("node")))
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                new HashSet<>(expectedNodeIds()),
+                reportedNodes,
+                "GET /logs must enumerate both members, got " + reportedNodes);
+        Assertions.assertTrue(
+                reportedNodes.stream().anyMatch(node -> node.endsWith(":" + node2HttpPort)),
+                "GET /logs must report node2 on its dynamic port, got " + reportedNodes);
+    }
+
+    @Test
+    public void testLoggers() {
+        String loggersUrl =
+                HOST
+                        + httpPort(node1)
+                        + node1Config.getEngineConfig().getHttpConfig().getContextPath()
+                        + RestConstant.REST_URL_LOGGERS;
+        // a logger of this test only, so that changing its level cannot hide job logs
+        String logger = "org.apache.seatunnel.engine.e2e.RestApiIT.loggers";
+
+        // the list reports every configured logger, the root logger included
+        given().get(loggersUrl)
+                .then()
+                .statusCode(200)
+                .body("node", notNullValue())
+                .body("loggers.name", hasItem("root"));
+
+        given().get(loggersUrl + "/root")
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("root"))
+                .body("level", notNullValue())
+                .body("origin", equalTo("file"));
+
+        // an unknown level is rejected instead of being reported as applied
+        given().post(loggersUrl + "/" + logger + "?level=DEBUGG")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("valid levels are"));
+
+        // a request without a level does not silently do nothing either
+        given().post(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(400)
+                .body("message", containsString("level is required"));
+
+        given().post(loggersUrl + "?level=DEBUG")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("logger name"));
+
+        given().get(loggersUrl + "?scope=galaxy")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("valid scopes are"));
+
+        // the level is applied and reported as a runtime override, not as the file level
+        given().body("{\"level\":\"debug\"}")
+                .post(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("SUCCESS"))
+                .body("name", equalTo(logger))
+                .body("level", equalTo("DEBUG"))
+                .body("origin", equalTo("runtime-override"));
+
+        given().get(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("level", equalTo("DEBUG"))
+                .body("origin", equalTo("runtime-override"));
+
+        // and the override can be reverted, which the legacy log-level endpoint cannot do
+        given().delete(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("SUCCESS"))
+                .body("previousLevel", equalTo("DEBUG"))
+                .body("origin", equalTo("file"));
+
+        given().delete(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("NO_OVERRIDE"));
+
+        // the cluster scope answers for every member
+        given().get(loggersUrl + "?scope=cluster")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("nodes", hasSize(ports.size()))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])));
+
+        given().post(loggersUrl + "/" + logger + "?scope=cluster&level=TRACE")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("level", equalTo("TRACE"))
+                .body("nodes", hasSize(ports.size()))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])))
+                .body("nodes[0].level", equalTo("TRACE"))
+                .body("nodes[0].origin", equalTo("runtime-override"));
+
+        given().delete(loggersUrl + "/" + logger + "?scope=cluster")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("nodes.node", containsInAnyOrder(expectedNodeIds().toArray(new String[0])))
+                .body("nodes[0].origin", equalTo("file"));
+    }
+
+    private int httpPort(HazelcastInstanceImpl instance) {
+        SeaTunnelServer server =
+                instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getHttpPort();
+    }
+
+    private List<String> expectedNodeIds() {
+        return Arrays.asList(node1, node2).stream()
+                .map(
+                        instance ->
+                                instance.getCluster().getLocalMember().getAddress().getHost()
+                                        + ":"
+                                        + httpPort(instance))
+                .collect(Collectors.toList());
+    }
+
+    private CheckpointMonitorService resolveCheckpointMonitorService(
+            HazelcastInstanceImpl instance) {
+        try {
+            Field nodeField = HazelcastInstanceImpl.class.getDeclaredField("node");
+            nodeField.setAccessible(true);
+            Node node = (Node) nodeField.get(instance);
+            SeaTunnelServer seaTunnelServer =
+                    (SeaTunnelServer)
+                            node.getNodeExtension()
+                                    .createExtensionServices()
+                                    .get(Constant.SEATUNNEL_SERVICE_NAME);
+            return seaTunnelServer.getCheckpointMonitorService();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to resolve CheckpointMonitorService", e);
+        }
     }
 
     private static void verifyLogLink(String logListV1) {
@@ -568,10 +821,10 @@ public class RestApiIT {
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
-                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        "metrics.TableSourceReceivedCount.'Source[0].fake'",
                                                         equalTo("5"))
                                                 .body(
-                                                        "metrics.TableSinkWriteCount.fake",
+                                                        "metrics.TableSinkWriteCount.'Sink[0].fake'",
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
@@ -634,10 +887,10 @@ public class RestApiIT {
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
-                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        "metrics.TableSourceReceivedCount.'Source[0].fake'",
                                                         equalTo("5"))
                                                 .body(
-                                                        "metrics.TableSinkWriteCount.fake",
+                                                        "metrics.TableSinkWriteCount.'Sink[0].fake'",
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
@@ -649,6 +902,40 @@ public class RestApiIT {
                                                 .body("jobStatus", equalTo("FINISHED"));
                                     });
                         });
+    }
+
+    @Test
+    public void testGetJobDiagnosticsOfRunningJob() {
+        // the diagnostics of a running job must be identical no matter which member serves the
+        // request: the master builds them locally, other members fetch them from the master
+        ports.forEach(
+                (key, value) ->
+                        given().get(
+                                        HOST
+                                                + value
+                                                + node1Config
+                                                        .getEngineConfig()
+                                                        .getHttpConfig()
+                                                        .getContextPath()
+                                                + RestConstant.REST_URL_JOB_INFO
+                                                + "/"
+                                                + clientJobProxy.getJobId())
+                                .then()
+                                .statusCode(200)
+                                .body("jobStatus", equalTo("RUNNING"))
+                                .body(
+                                        "diagnostics.jobId",
+                                        equalTo(Long.toString(clientJobProxy.getJobId())))
+                                .body("diagnostics.generatedAt", notNullValue())
+                                .body("diagnostics.stateTimestamps.RUNNING", notNullValue())
+                                .body("diagnostics.pipelines", hasSize(1))
+                                .body("diagnostics.pipelines[0].pipelineId", equalTo(1))
+                                .body("diagnostics.pipelines[0].pipelineStatus", equalTo("RUNNING"))
+                                .body("diagnostics.pipelines[0].restoreCount", equalTo(0))
+                                .body(
+                                        "diagnostics.pipelines[0].stateTimestamps.RUNNING",
+                                        notNullValue())
+                                .body("diagnostics.totalPipelineRestoreCount", equalTo(0)));
     }
 
     @Test
@@ -1170,6 +1457,130 @@ public class RestApiIT {
                         });
     }
 
+    @Test
+    public void testCheckpointOverviewAndHistoryApi() {
+        long jobId = clientJobProxy.getJobId();
+        List<Integer> httpPorts = new ArrayList<>(ports.values());
+
+        AtomicReference<Map<String, Object>> overviewRef = new AtomicReference<>();
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .until(
+                        () -> {
+                            Map<String, Object> overview =
+                                    getCheckpointOverview(jobId, buildHttpBaseUrl(httpPort(node1)));
+                            List<Map<String, Object>> pipelines =
+                                    castList(overview.get("pipelines"));
+                            if (pipelines.isEmpty()) {
+                                return false;
+                            }
+                            Map<String, Object> pipeline = pipelines.get(0);
+                            Map<String, Object> counts = castMap(pipeline.get("counts"));
+                            if (counts.isEmpty()) {
+                                return false;
+                            }
+                            if (getLong(counts, "completed") > 0L) {
+                                overviewRef.set(overview);
+                                return true;
+                            }
+                            return false;
+                        });
+
+        Map<String, Object> latestOverview = overviewRef.get();
+        Assertions.assertNotNull(
+                latestOverview, "Failed to fetch checkpoint overview with completed counts");
+        List<Map<String, Object>> pipelines = castList(latestOverview.get("pipelines"));
+        Assertions.assertFalse(
+                pipelines.isEmpty(), "Checkpoint overview does not contain any pipelines");
+        Map<String, Object> pipeline = pipelines.get(0);
+        int pipelineId = ((Number) pipeline.get("pipelineId")).intValue();
+        Map<String, Object> counts = castMap(pipeline.get("counts"));
+        Assertions.assertFalse(counts.isEmpty(), "Checkpoint overview missing count metrics");
+        Assertions.assertTrue(getLong(counts, "triggered") >= 1L);
+        Assertions.assertTrue(getLong(counts, "completed") >= 1L);
+        Assertions.assertEquals(0L, getLong(counts, "failed"));
+
+        long failedCheckpointId = System.currentTimeMillis();
+        checkpointMonitorService.onCheckpointFailed(
+                jobId,
+                pipelineId,
+                failedCheckpointId,
+                CheckpointType.CHECKPOINT_TYPE,
+                CheckpointCloseReason.CHECKPOINT_EXPIRED,
+                new RuntimeException("mock failure"),
+                System.currentTimeMillis());
+        long inProgressCheckpointId = failedCheckpointId + 1;
+        checkpointMonitorService.onCheckpointTriggered(
+                jobId,
+                pipelineId,
+                inProgressCheckpointId,
+                CheckpointType.CHECKPOINT_TYPE,
+                System.currentTimeMillis(),
+                4);
+        checkpointMonitorService.onCheckpointAcknowledge(
+                jobId, pipelineId, inProgressCheckpointId, 2, 4);
+        checkpointMonitorService.onPipelineRestored(jobId, pipelineId);
+
+        httpPorts.stream()
+                .map(this::buildHttpBaseUrl)
+                .forEach(
+                        baseUrl ->
+                                Awaitility.await()
+                                        .atMost(30, TimeUnit.SECONDS)
+                                        .untilAsserted(
+                                                () -> {
+                                                    Map<String, Object> overview =
+                                                            getCheckpointOverview(jobId, baseUrl);
+                                                    Map<String, Object> targetPipeline =
+                                                            findPipeline(overview, pipelineId);
+                                                    Map<String, Object> targetCounts =
+                                                            castMap(targetPipeline.get("counts"));
+                                                    Assertions.assertTrue(
+                                                            getLong(targetCounts, "failed") >= 1L);
+                                                    Assertions.assertTrue(
+                                                            getLong(targetCounts, "restored")
+                                                                    >= 1L);
+                                                    List<Map<String, Object>> inProgress =
+                                                            castList(
+                                                                    targetPipeline.get(
+                                                                            "inProgress"));
+                                                    Assertions.assertTrue(
+                                                            inProgress.stream()
+                                                                    .map(this::castMap)
+                                                                    .anyMatch(
+                                                                            info ->
+                                                                                    getLong(
+                                                                                                            info,
+                                                                                                            "checkpointId")
+                                                                                                    == inProgressCheckpointId
+                                                                                            && getInt(
+                                                                                                            info,
+                                                                                                            "acknowledged")
+                                                                                                    == 2
+                                                                                            && getInt(
+                                                                                                            info,
+                                                                                                            "total")
+                                                                                                    == 4));
+                                                    List<Map<String, Object>> history =
+                                                            getCheckpointHistory(
+                                                                    jobId, baseUrl, "FAILED");
+                                                    Assertions.assertTrue(
+                                                            history.stream()
+                                                                    .map(
+                                                                            record ->
+                                                                                    castMap(
+                                                                                            record
+                                                                                                    .get(
+                                                                                                            "checkpoint")))
+                                                                    .anyMatch(
+                                                                            checkpoint ->
+                                                                                    getLong(
+                                                                                                    checkpoint,
+                                                                                                    "checkpointId")
+                                                                                            == failedCheckpointId));
+                                                }));
+    }
+
     @AfterEach
     void afterClass() {
         if (engineClient != null) {
@@ -1182,5 +1593,61 @@ public class RestApiIT {
         if (node2 != null) {
             node2.shutdown();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> List<T> castList(Object value) {
+        if (value == null) {
+            return Collections.emptyList();
+        }
+        return (List<T>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> castMap(Object value) {
+        if (value == null) {
+            return Collections.emptyMap();
+        }
+        return (Map<String, Object>) value;
+    }
+
+    private long getLong(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private int getInt(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    private Map<String, Object> getCheckpointOverview(long jobId, String baseUrl) {
+        return given().get(baseUrl + RestConstant.REST_URL_CHECKPOINT_OVERVIEW + "/" + jobId)
+                .then()
+                .statusCode(200)
+                .extract()
+                .as(new TypeRef<Map<String, Object>>() {});
+    }
+
+    private List<Map<String, Object>> getCheckpointHistory(
+            long jobId, String baseUrl, String status) {
+        return given().queryParam("status", status)
+                .get(baseUrl + RestConstant.REST_URL_CHECKPOINT_HISTORY + "/" + jobId)
+                .then()
+                .statusCode(200)
+                .extract()
+                .as(new TypeRef<List<Map<String, Object>>>() {});
+    }
+
+    private Map<String, Object> findPipeline(Map<String, Object> overview, int pipelineId) {
+        return castList(overview.get("pipelines")).stream()
+                .map(item -> (Map<String, Object>) item)
+                .filter(pipeline -> ((Number) pipeline.get("pipelineId")).intValue() == pipelineId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Pipeline not found"));
+    }
+
+    private String buildHttpBaseUrl(int httpPort) {
+        return HOST + httpPort + node1Config.getEngineConfig().getHttpConfig().getContextPath();
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
 import java.util.List;
 
@@ -33,13 +34,28 @@ public class RegexExtractMultiCatalogTransform extends AbstractMultiCatalogMapTr
     }
 
     @Override
+    public String getPluginName() {
+        return RegexExtractTransform.PLUGIN_NAME;
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new RegexExtractTransform(RegexExtractTransformConfig.of(config), inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
     @Override
-    public String getPluginName() {
-        return RegexExtractTransform.PLUGIN_NAME;
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(
+                config,
+                RegexExtractTransformConfig.KEY_SOURCE_FIELD,
+                RegexExtractTransformConfig.KEY_REGEX_PATTERN,
+                RegexExtractTransformConfig.KEY_OUTPUT_FIELDS);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityMapTransform(catalogTable);
     }
 }

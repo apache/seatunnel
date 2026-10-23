@@ -1,19 +1,20 @@
 # 字段重命名
 
-> FieldRename 转换插件
+> FieldRename：批量重命名字段名，统一输出字段命名
 
 ## 描述
 
-FieldRename 用于批量重命名字段名。
+FieldRename 转换插件用于批量重命名字段名。
 
 ## 选项
 
 |          参数           | 类型   | 必选 | 默认值 | 说明                                                                                                    |
 |:-----------------------:|--------|------|--------|---------------------------------------------------------------------------------------------------------|
-|      convert_case       | string | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
+|      convert_case       | enum   | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
 |         prefix          | string | 否   |        | 追加到字段名前的前缀                                                                                    |
 |         suffix          | string | 否   |        | 追加到字段名后的后缀                                                                                    |
-| replacements_with_regex | array  | 否   |        | 正则替换规则数组，元素为包含 `replace_from`、`replace_to` 的映射，用于批量替换字段名                    |
+| replacements_with_regex | array  | 否   |        | 替换规则数组，元素为包含 `replace_from`、`replace_to` 以及可选 `is_regex`（默认 `true`）的映射；当 `is_regex=false` 时，`replace_from` 按字段名精确匹配（全匹配） |
+|        specific         | array  | 否   |        | 指定字段重命名规则，元素为包含 `field_name` 和 `target_name` 的映射；命中后会直接重命名并跳过其他规则 |
 
 ## 示例
 
@@ -69,6 +70,21 @@ sink {
     
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### 指定字段重命名
+
+```
+transform {
+  FieldRename {
+    plugin_input = "input"
+    plugin_output = "output"
+
+    specific = [
+      { field_name = "InvoiceNum", target_name = "invoice_num" }
+    ]
   }
 }
 ```
@@ -130,4 +146,3 @@ sink {
   }
 }
 ```
-

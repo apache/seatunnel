@@ -58,6 +58,7 @@ public class TaskStatistics implements Serializable {
         if (subtaskStats.get(subtaskIndex) == null) {
             subtaskStats.set(subtaskIndex, subtask);
             numAcknowledgedSubtasks++;
+            latestAckedSubtaskStatistics = subtask;
             return true;
         } else {
             return false;
@@ -92,6 +93,14 @@ public class TaskStatistics implements Serializable {
 
     public void completed(int subtaskIndex) {
         subtaskCompleted[subtaskIndex] = true;
+    }
+
+    public int getNumAcknowledgedSubtasks() {
+        return numAcknowledgedSubtasks;
+    }
+
+    public int getParallelism() {
+        return subtaskStats.size();
     }
 
     public boolean isCompleted() {

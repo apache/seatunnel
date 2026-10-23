@@ -54,6 +54,15 @@ public final class ConfigShadeUtils {
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
             new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
 
+    private static final String[] DEFAULT_LOG_MASK_ONLY_KEYWORDS =
+            new String[] {
+                "sasl.jaas.config",
+                "community",
+                "client_secret",
+                "security_token",
+                "connection_string"
+            };
+
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
     private static final ConfigShade DEFAULT_SHADE = new DefaultConfigShade();
@@ -146,66 +155,91 @@ public final class ConfigShadeUtils {
     @SuppressWarnings("unchecked")
     private static Config processConfig(
             String identifier, Config config, boolean isDecrypted, Map<String, Object> props) {
-        ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
-        // call open method before the encrypt/decrypt
-        configShade.open(props);
-
-        Set<String> sensitiveOptions = new HashSet<>(getSensitiveOptions(config));
-        sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
-        BiFunction<String, Object, Object> processFunction =
-                (key, value) -> {
-                    if (value instanceof List) {
-                        List<String> list = (List<String>) value;
-                        List<String> processedList = new ArrayList<>();
-                        for (String element : list) {
-                            processedList.add(
-                                    isDecrypted
-                                            ? configShade.decrypt(element)
-                                            : configShade.encrypt(element));
-                        }
-                        return processedList;
-                    } else {
-                        return isDecrypted
-                                ? configShade.decrypt((String) value)
-                                : configShade.encrypt((String) value);
-                    }
-                };
         String jsonString = config.root().render(ConfigRenderOptions.concise());
         ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
         Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
+
         List<Map<String, Object>> sources =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
-        List<Map<String, Object>> sinks =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
+                (List<Map<String, Object>>) configMap.get(Constants.SOURCE);
+        List<Map<String, Object>> sinks = (List<Map<String, Object>>) configMap.get(Constants.SINK);
         List<Map<String, Object>> transforms =
-                (ArrayList<Map<String, Object>>)
+                (List<Map<String, Object>>)
                         configMap.getOrDefault(Constants.TRANSFORM, new ArrayList<>());
+
         Preconditions.checkArgument(
-                !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
+                sources != null && !sources.isEmpty(),
+                "Miss <Source> config! Please check the config file.");
         Preconditions.checkArgument(
-                !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
-        sources.forEach(
-                source -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        source.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        sinks.forEach(
-                sink -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        sink.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        transforms.forEach(
-                transform -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        transform.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        configMap.put(Constants.SOURCE, sources);
-        configMap.put(Constants.SINK, sinks);
-        configMap.put(Constants.TRANSFORM, transforms);
-        return ConfigFactory.parseMap(configMap);
+                sinks != null && !sinks.isEmpty(),
+                "Miss <Sink> config! Please check the config file.");
+        try {
+            ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
+            if (Base64ConfigShade.IDENTIFIER.equals(identifier)) {
+                log.warn(
+                        "Config shade '{}' encodes sensitive options, it does not encrypt them:"
+                                + " anyone who reads the config can decode the values.",
+                        Base64ConfigShade.IDENTIFIER);
+            }
+            // call open method before the encrypt/decrypt
+            configShade.open(props);
+
+            Set<String> sensitiveOptions = new HashSet<>(getSensitiveOptions(config));
+            sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
+            BiFunction<String, Object, Object> processFunction =
+                    (key, value) -> {
+                        if (value instanceof List) {
+                            List<String> list = (List<String>) value;
+                            List<String> processedList = new ArrayList<>();
+                            for (String element : list) {
+                                processedList.add(
+                                        isDecrypted
+                                                ? configShade.decrypt(element)
+                                                : configShade.encrypt(element));
+                            }
+                            return processedList;
+                        } else {
+                            return isDecrypted
+                                    ? configShade.decrypt((String) value)
+                                    : configShade.encrypt((String) value);
+                        }
+                    };
+
+            sources.forEach(
+                    source -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            source.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            sinks.forEach(
+                    sink -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            sink.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            transforms.forEach(
+                    transform -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            transform.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            configMap.put(Constants.SOURCE, sources);
+            configMap.put(Constants.SINK, sinks);
+            configMap.put(Constants.TRANSFORM, transforms);
+            return ConfigFactory.parseMap(configMap);
+        } catch (Exception e) {
+            // Log desensitized error information
+            log.error(
+                    "Failed to {} config with identifier: {}",
+                    isDecrypted ? "decrypt" : "encrypt",
+                    identifier,
+                    e);
+            // Rethrow exception without sensitive information
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Failed to %s config. Please check your configuration.",
+                            isDecrypted ? "decrypt" : "encrypt"),
+                    e);
+        }
     }
 
     public static Set<String> getSensitiveOptions(Config config) {
@@ -218,6 +252,19 @@ public final class ConfigShadeUtils {
                                 SHADE_OPTIONS_OPTION,
                                 new ArrayList<>()));
         sensitiveOptions.addAll(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
+        return sensitiveOptions;
+    }
+
+    /**
+     * Returns option names used only for parsed-config log masking.
+     *
+     * <p>This method extends the encryption/decryption option list with log-only option names.
+     * Adding entries here changes only the rendered log output and does not change how existing
+     * configs are encrypted or decrypted.
+     */
+    public static Set<String> getLogDesensitizationOptions(Config config) {
+        Set<String> sensitiveOptions = getSensitiveOptions(config);
+        sensitiveOptions.addAll(Arrays.asList(DEFAULT_LOG_MASK_ONLY_KEYWORDS));
         return sensitiveOptions;
     }
 

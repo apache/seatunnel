@@ -51,8 +51,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -69,6 +69,14 @@ import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_3_
 public final class ContainerUtil {
 
     public static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
+
+    /**
+     * Engines whose containers an E2E suite runs, for example {@code RUN_ENGINES=zeta} or {@code
+     * RUN_ENGINES=["flink","spark"]}. CI sets it from the changed modules and developers use it to
+     * verify a suite locally against a single engine. Leaving it unset, blank, or {@code all} keeps
+     * every engine, while an unknown engine name fails fast with a clear error.
+     */
+    public static final String RUN_ENGINES = "RUN_ENGINES";
 
     /** An error occurs when the user is not a submodule of seatunnel-e2e. */
     public static final String PROJECT_ROOT_PATH = getProjectRootPath();
@@ -276,7 +284,16 @@ public final class ContainerUtil {
     public static List<File> getConnectorFiles(
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
-        for (File file : Objects.requireNonNull(currentModule.listFiles())) {
+        File[] moduleFiles = currentModule.listFiles();
+        if (moduleFiles == null) {
+            throw new IllegalStateException(
+                    "Connector root path is not a directory or is not readable: "
+                            + currentModule.getAbsolutePath()
+                            + ". This usually means the project root was resolved incorrectly (user.dir="
+                            + System.getProperty("user.dir")
+                            + ") or the repository checkout is incomplete.");
+        }
+        for (File file : moduleFiles) {
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
         }
         if (connectorNames.stream().anyMatch(connectorName -> connectorName.contains("cdc"))) {
@@ -306,7 +323,18 @@ public final class ContainerUtil {
         }
         if (connectorNames.contains(currentModule.getName())) {
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
-            for (File file : Objects.requireNonNull(targetPath.listFiles())) {
+            File[] targetFiles = targetPath.listFiles();
+            if (targetFiles == null) {
+                throw new IllegalStateException(
+                        "Connector module '"
+                                + currentModule.getName()
+                                + "' is required by the job config, but its build output directory does not exist: "
+                                + targetPath.getAbsolutePath()
+                                + ". Please build it before running e2e tests (e.g. ./mvnw -pl :"
+                                + currentModule.getName()
+                                + " -am package), or include it in the CI '-pl' module list.");
+            }
+            for (File file : targetFiles) {
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
                         && !file.getName().endsWith("tests.jar")) {
@@ -317,7 +345,11 @@ public final class ContainerUtil {
         }
 
         if (currentModule.getName().startsWith(connectorPrefix)) {
-            for (File file : Objects.requireNonNull(currentModule.listFiles())) {
+            File[] moduleFiles = currentModule.listFiles();
+            if (moduleFiles == null) {
+                return;
+            }
+            for (File file : moduleFiles) {
                 getConnectorFiles(file, connectorNames, connectorPrefix, connectors);
             }
         }
@@ -378,32 +410,94 @@ public final class ContainerUtil {
                     testAllContainer,
                     testZetaContainer);
             if (isTestInPR) {
-                return result.stream()
-                        .filter(container -> container.identifier().isTestInPR())
-                        .filter(
-                                container -> {
-                                    if (testAllContainer
-                                            || container.identifier().equals(FLINK_1_18)
-                                            || container.identifier().equals(FLINK_1_20)
-                                            || container.identifier().equals(SPARK_3_3)) {
-                                        return true;
-                                    }
-                                    if (testZetaContainer) {
-                                        return container
-                                                .identifier()
-                                                .getEngineType()
-                                                .equals(EngineType.SEATUNNEL);
-                                    }
-                                    return true;
-                                })
-                        .collect(Collectors.toList());
+                return filterByRunEngines(
+                        result.stream()
+                                .filter(container -> container.identifier().isTestInPR())
+                                .filter(
+                                        container -> {
+                                            if (testAllContainer
+                                                    || container.identifier().equals(FLINK_1_18)
+                                                    || container.identifier().equals(FLINK_1_20)
+                                                    || container.identifier().equals(SPARK_3_3)) {
+                                                return true;
+                                            }
+                                            if (testZetaContainer) {
+                                                return container
+                                                        .identifier()
+                                                        .getEngineType()
+                                                        .equals(EngineType.SEATUNNEL);
+                                            }
+                                            return true;
+                                        })
+                                .collect(Collectors.toList()));
             } else {
-                return result;
+                return filterByRunEngines(result);
             }
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for containers.", e);
             throw new FactoryException("Could not load service provider for containers.", e);
         }
+    }
+
+    /**
+     * Keeps the containers of the engines listed in {@code RUN_ENGINES}.
+     *
+     * <p>When the variable is unset, blank, {@code all}, or matches none of the discovered
+     * containers, every discovered container is kept, so an engine cannot silently disappear from a
+     * suite. An engine name that cannot be parsed fails fast instead of being ignored.
+     */
+    private static List<TestContainer> filterByRunEngines(List<TestContainer> containers) {
+        return filterByRunEngines(containers, System.getenv(RUN_ENGINES));
+    }
+
+    static List<TestContainer> filterByRunEngines(
+            List<TestContainer> containers, String rawRunEngines) {
+        if (StringUtils.isBlank(rawRunEngines)) {
+            return containers;
+        }
+        Set<EngineType> engines = parseRunEngines(rawRunEngines);
+        if (engines.isEmpty()) {
+            return containers;
+        }
+        List<TestContainer> selected =
+                containers.stream()
+                        .filter(
+                                container ->
+                                        engines.contains(container.identifier().getEngineType()))
+                        .collect(Collectors.toList());
+        if (selected.isEmpty()) {
+            log.warn(
+                    "RUN_ENGINES[{}] matches none of the discovered containers, run them all",
+                    rawRunEngines);
+            return containers;
+        }
+        log.info("Run the containers of the engines: {}", rawRunEngines);
+        return selected;
+    }
+
+    /** Parses {@code RUN_ENGINES}: engine names in any case, separated by commas. */
+    private static Set<EngineType> parseRunEngines(String rawRunEngines) {
+        Set<EngineType> engines = new HashSet<>();
+        for (String engine : rawRunEngines.replace("[", "").replace("]", "").split(",")) {
+            String name = engine.replace("\"", "").replace("'", "").trim();
+            if (name.isEmpty() || "all".equalsIgnoreCase(name)) {
+                continue;
+            }
+            if ("zeta".equalsIgnoreCase(name) || "seatunnel".equalsIgnoreCase(name)) {
+                engines.add(EngineType.SEATUNNEL);
+                continue;
+            }
+            try {
+                engines.add(EngineType.valueOf(name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Unsupported engine '"
+                                + name
+                                + "' in RUN_ENGINES, expected flink, spark, zeta or all",
+                        e);
+            }
+        }
+        return engines;
     }
 
     public static void copyFileIntoContainers(

@@ -16,44 +16,25 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
 
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
+/**
+ * Compatibility adapter for historical local-file split strategy.
+ *
+ * @deprecated Use {@link AccordingToSplitSizeSplitStrategy} via {@link
+ *     org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory}.
+ */
+@Deprecated
 public class LocalFileAccordingToSplitSizeSplitStrategy extends AccordingToSplitSizeSplitStrategy {
 
     public LocalFileAccordingToSplitSizeSplitStrategy(
             String rowDelimiter, long skipHeaderRowNumber, String encodingName, long splitSize) {
-        super(rowDelimiter, skipHeaderRowNumber, encodingName, splitSize);
-    }
-
-    @Override
-    protected InputStream getInputStream(String filePath) throws IOException {
-        Path path = toLocalNioPath(filePath);
-        return new BufferedInputStream(Files.newInputStream(path));
-    }
-
-    @Override
-    protected long getFileSize(String filePath) throws IOException {
-        Path path = toLocalNioPath(filePath);
-        return Files.size(path);
-    }
-
-    private static Path toLocalNioPath(String filePath) {
-        try {
-            URI uri = URI.create(filePath);
-            if ("file".equalsIgnoreCase(uri.getScheme())) {
-                return Paths.get(uri);
-            }
-        } catch (Exception ignored) {
-            // ignore malformed URI
-        }
-        return Paths.get(filePath);
+        super(
+                new LocalFileHadoopConf(),
+                rowDelimiter,
+                skipHeaderRowNumber,
+                encodingName,
+                splitSize);
     }
 }

@@ -18,13 +18,21 @@
 package org.apache.seatunnel.transform.filter;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,9 +40,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 class FilterFieldTransformTest {
 
@@ -98,37 +108,52 @@ class FilterFieldTransformTest {
 
     @Test
     void testConfig() {
-        // test both not set
-        try {
-            new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<>()), catalogTable);
-        } catch (Exception e) {
-            Assertions.assertEquals(
-                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                    e.getMessage());
-        }
+        OptionRule rule = new FilterFieldTransformFactory().optionRule();
+
+        // test both not set — validated via Factory optionRule
+        OptionValidationException noneSetEx =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(new HashMap<>()))
+                                        .validate(rule));
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("'include_fields'"),
+                "Should mention include_fields: " + noneSetEx.getMessage());
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("'exclude_fields'"),
+                "Should mention exclude_fields: " + noneSetEx.getMessage());
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("exclusive"),
+                "Should mention exclusive: " + noneSetEx.getMessage());
 
         // test both include and exclude set
-        try {
-            new FilterFieldTransform(
-                    ReadonlyConfig.fromMap(
-                            new HashMap<String, Object>() {
-                                {
-                                    put(
-                                            FilterFieldTransformConfig.INCLUDE_FIELDS.key(),
-                                            filterKeys);
-                                    put(
-                                            FilterFieldTransformConfig.EXCLUDE_FIELDS.key(),
-                                            filterKeys);
-                                }
-                            }),
-                    catalogTable);
-        } catch (Exception e) {
-            Assertions.assertEquals(
-                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                    e.getMessage());
-        }
+        OptionValidationException bothSetEx =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(
+                                                ReadonlyConfig.fromMap(
+                                                        new HashMap<String, Object>() {
+                                                            {
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .INCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .EXCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                            }
+                                                        }))
+                                        .validate(rule));
+        Assertions.assertTrue(
+                bothSetEx.getMessage().contains("mutually exclusive"),
+                "Should mention mutually exclusive: " + bothSetEx.getMessage());
 
-        // not exception should be thrown now
+        // no exception should be thrown now
         new FilterFieldTransform(
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
@@ -227,5 +252,51 @@ class FilterFieldTransformTest {
                 Assertions.assertEquals(input.getFields()[originalIndex], output.getFields()[i]);
             }
         }
+    }
+
+    /** Tables without a matching {@code table_transform} entry must stay unchanged. */
+    @Test
+    void testMultiTableRulesOnlyLeavesUnlistedTablesUnchanged() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        CatalogTable listed =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "xyz", rowType);
+        CatalogTable unlisted =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "www", rowType);
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), Collections.singletonList("id"));
+        Map<String, Object> config = new HashMap<>();
+        config.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+
+        FilterFieldMultiCatalogTransform transform =
+                new FilterFieldMultiCatalogTransform(
+                        Arrays.asList(listed, unlisted), ReadonlyConfig.fromMap(config));
+
+        List<CatalogTable> produced = transform.getProducedCatalogTables();
+        Assertions.assertEquals(Collections.singletonList("id"), columnNames(produced.get(0)));
+        Assertions.assertEquals(Arrays.asList("id", "name"), columnNames(produced.get(1)));
+
+        SeaTunnelRow listedRow = new SeaTunnelRow(new Object[] {1, "listed"});
+        listedRow.setTableId("test.xyz");
+        SeaTunnelRow listedOutput = transform.map(listedRow);
+        Assertions.assertEquals(1, listedOutput.getArity());
+        Assertions.assertEquals(1, listedOutput.getField(0));
+
+        SeaTunnelRow unlistedRow = new SeaTunnelRow(new Object[] {2, "unlisted"});
+        unlistedRow.setTableId("test.www");
+        SeaTunnelRow unlistedOutput = transform.map(unlistedRow);
+        Assertions.assertEquals(2, unlistedOutput.getArity());
+        Assertions.assertEquals(2, unlistedOutput.getField(0));
+        Assertions.assertEquals("unlisted", unlistedOutput.getField(1));
+    }
+
+    private static List<String> columnNames(CatalogTable catalogTable) {
+        return catalogTable.getTableSchema().getColumns().stream()
+                .map(Column::getName)
+                .collect(Collectors.toList());
     }
 }

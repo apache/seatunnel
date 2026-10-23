@@ -256,6 +256,17 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
         return container;
     }
 
+    /**
+     * Clears the same schema used by the upsert job after each engine run.
+     *
+     * <p>The base implementation uses the database argument as a schema. Oscar keeps those
+     * identifiers separate, so passing OSRDB would leave SYSDBA2's sink rows behind.
+     */
+    @Override
+    protected void clearTable(String database, String schema, String table) {
+        super.clearTable(schema, table);
+    }
+
     @Override
     public String quoteIdentifier(String field) {
         return "\"" + field + "\"";

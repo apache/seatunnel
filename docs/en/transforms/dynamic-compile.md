@@ -26,7 +26,7 @@ If the conversion is too complex, it may affect performance
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ### compile_language [Enum]
 
@@ -42,7 +42,7 @@ If it is a SOURCE-CODE enumeration; the SOURCE-CODE attribute is required, and t
 
 ### absolute_path [string]
 
-The absolute path of Java or Groovy files on the server
+The absolute path of the Java, Groovy, or Scala source file on the server
 
 ### source_code [string]
 

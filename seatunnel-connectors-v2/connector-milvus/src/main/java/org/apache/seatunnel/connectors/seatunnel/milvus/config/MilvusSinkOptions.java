@@ -77,11 +77,17 @@ public class MilvusSinkOptions extends MilvusBaseOptions {
                     .defaultValue(true)
                     .withDescription("Enable dynamic field");
 
+    public static final Option<Boolean> ENABLE_NULLABLE_FIELD =
+            Options.key("enable_nullable_field")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable nullable field");
+
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
                     .defaultValue(1000)
-                    .withDescription("writer batch size");
+                    .withDescription("Non-negative writer batch size");
 
     public static final Option<Integer> RATE_LIMIT =
             Options.key("rate_limit")

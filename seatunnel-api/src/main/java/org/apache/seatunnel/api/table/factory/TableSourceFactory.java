@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.metalake.TableSchemaDiscoverer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own
@@ -38,6 +41,18 @@ public interface TableSourceFactory extends Factory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         throw new UnsupportedOperationException(
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
+    }
+
+    /**
+     * We can get the catalogTable list in the source configuration through this method
+     *
+     * @param context TableFactoryContext
+     */
+    default List<CatalogTable> discoverTableSchemas(TableSourceFactoryContext context) {
+        try (TableSchemaDiscoverer metaLakeSchemaDiscoverer =
+                new TableSchemaDiscoverer(context, factoryIdentifier())) {
+            return metaLakeSchemaDiscoverer.discoverTableSchemas();
+        }
     }
 
     /**

@@ -41,11 +41,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class ClickhouseSourceSplitEnumerator
@@ -60,6 +63,7 @@ public class ClickhouseSourceSplitEnumerator
     private final Context<ClickhouseSourceSplit> context;
     private final Map<TablePath, List<ClickHouseNode>> nodesMap;
     private final Object stateLock = new Object();
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
@@ -198,8 +202,15 @@ public class ClickhouseSourceSplitEnumerator
 
     private void addPendingSplit(Collection<ClickhouseSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (ClickhouseSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<ClickhouseSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(ClickhouseSourceSplit::getSplitId))
+                        .collect(Collectors.toList());
+
+        assignCount.set(0);
+        for (ClickhouseSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             LOG.debug("Assigning {} to {} reader.", split, ownerReader);
 
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
@@ -210,8 +221,8 @@ public class ClickhouseSourceSplitEnumerator
         pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private List<Shard> getClusterShardList(

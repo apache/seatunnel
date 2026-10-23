@@ -153,6 +153,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
+        config.getEnvOptions().put("engine.observability.split_sink_io", true);
         LogicalDag logicalDag = new LogicalDag(config, idGenerator);
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);

@@ -33,9 +33,11 @@ import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 
 import static io.debezium.config.CommonConnectorConfig.DATABASE_CONFIG_PREFIX;
 
@@ -81,6 +83,48 @@ public class OracleConnectionUtils {
                             + SHOW_CURRENT_SCN
                             + "'. Make sure your server is correctly configured",
                     e);
+        }
+    }
+
+    /**
+     * Convert timestamp (milliseconds since epoch) to Oracle SCN.
+     *
+     * @param jdbc JDBC connection
+     * @param timestampMs timestamp in milliseconds since epoch
+     * @param serverTimeZone database server time zone
+     * @return RedoLogOffset with the corresponding SCN
+     */
+    public static RedoLogOffset timestampToScn(
+            JdbcConnection jdbc, long timestampMs, String serverTimeZone) {
+        try {
+            String effectiveServerTimeZone =
+                    serverTimeZone == null ? TimeZone.getDefault().getID() : serverTimeZone;
+            LOG.info(
+                    "Converting timestamp {} to SCN with server time zone {}",
+                    timestampMs,
+                    effectiveServerTimeZone);
+            String sql = "SELECT TIMESTAMP_TO_SCN(?) AS SCN FROM DUAL";
+            return jdbc.prepareQueryAndMap(
+                    sql,
+                    statement -> {
+                        java.sql.Timestamp timestamp = new java.sql.Timestamp(timestampMs);
+                        Calendar calendar =
+                                Calendar.getInstance(TimeZone.getTimeZone(effectiveServerTimeZone));
+                        statement.setTimestamp(1, timestamp, calendar);
+                    },
+                    rs -> {
+                        if (rs.next()) {
+                            final String scn = rs.getString(1);
+                            LOG.info("Converted timestamp {} to SCN: {}", timestampMs, scn);
+                            return new RedoLogOffset(Scn.valueOf(scn).longValue());
+                        } else {
+                            throw new SeaTunnelException(
+                                    "Cannot convert timestamp to SCN. Make sure the specified timestamp is valid.");
+                        }
+                    });
+        } catch (SQLException e) {
+            LOG.error("Failed to convert timestamp to SCN", e);
+            throw new SeaTunnelException("Failed to convert timestamp to SCN", e);
         }
     }
 

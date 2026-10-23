@@ -106,7 +106,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         } finally {
             // make sure the PulsarConsumer is closed
             try {
-                consumer.close();
+                closeConsumer();
             } catch (Throwable t) {
                 LOG.warn("Error while closing pulsar consumer", t);
             } finally {
@@ -118,9 +118,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
     @Override
     public void close() throws IOException {
         running = false;
-        if (consumer != null) {
-            consumer.close();
-        }
+        closeConsumer();
     }
 
     public void committingCursor(MessageId offsetsToCommit) throws PulsarClientException {
@@ -145,6 +143,19 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                     PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED,
                     "Failed to create pulsar consumer:",
                     e);
+        }
+    }
+
+    /**
+     * Closes the Pulsar consumer while exposing the connector classloader to Pulsar cleanup code.
+     */
+    private void closeConsumer() throws IOException {
+        if (consumer != null) {
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(consumer::close);
+            } catch (Exception e) {
+                throw new IOException("Failed to close Pulsar consumer.", e);
+            }
         }
     }
 }

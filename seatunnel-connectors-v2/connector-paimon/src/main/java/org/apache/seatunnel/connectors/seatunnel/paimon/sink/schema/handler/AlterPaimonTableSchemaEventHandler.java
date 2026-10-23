@@ -23,10 +23,12 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -38,6 +40,7 @@ import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
+import org.apache.paimon.utils.BranchManager;
 import org.apache.paimon.utils.Preconditions;
 
 import lombok.extern.slf4j.Slf4j;
@@ -61,15 +64,19 @@ public class AlterPaimonTableSchemaEventHandler {
 
     private final TablePath paimonTablePath;
 
+    private final String branch;
+
     public AlterPaimonTableSchemaEventHandler(
             TableSchema sourceTableSchema,
             PaimonCatalog paimonCatalog,
             org.apache.paimon.schema.TableSchema sinkPaimonTableSchema,
-            TablePath paimonTablePath) {
+            TablePath paimonTablePath,
+            String branch) {
         this.sourceTableSchema = sourceTableSchema;
         this.paimonCatalog = paimonCatalog;
         this.sinkPaimonTableSchema = sinkPaimonTableSchema;
         this.paimonTablePath = paimonTablePath;
+        this.branch = branch;
     }
 
     public TableSchema apply(SchemaChangeEvent event) {
@@ -80,6 +87,9 @@ public class AlterPaimonTableSchemaEventHandler {
             }
         } else if (event instanceof AlterTableColumnEvent) {
             applySingleSchemaChangeEvent(event);
+        } else if (event instanceof AlterTableCommentEvent) {
+            // Table-level comment changes, handle gracefully
+            applySingleSchemaChangeEvent(event);
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }
@@ -87,9 +97,7 @@ public class AlterPaimonTableSchemaEventHandler {
     }
 
     private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {
-        Identifier identifier =
-                Identifier.create(
-                        paimonTablePath.getDatabaseName(), paimonTablePath.getTableName());
+        Identifier identifier = toIdentifier();
         if (event instanceof AlterTableAddColumnEvent) {
             AlterTableAddColumnEvent alterTableAddColumnEvent = (AlterTableAddColumnEvent) event;
             Column column = alterTableAddColumnEvent.getColumn();
@@ -125,9 +133,25 @@ public class AlterPaimonTableSchemaEventHandler {
                 paimonCatalog.alterTable(
                         identifier, SchemaChange.renameColumn(oldColumn, column.getName()), false);
             }
+        } else if (event instanceof AlterTableCommentEvent
+                || event instanceof AlterColumnCommentEvent) {
+            // Comment-only changes are not supported by Paimon sink, safely ignore
+            log.info(
+                    "Ignoring comment change event for table {} - Paimon sink does not support comment sync: {}",
+                    paimonTablePath.getFullName(),
+                    event.getClass().getSimpleName());
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }
+    }
+
+    private Identifier toIdentifier() {
+        if (StringUtils.isNotEmpty(branch)
+                && !BranchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branch)) {
+            return new Identifier(
+                    paimonTablePath.getDatabaseName(), paimonTablePath.getTableName(), branch);
+        }
+        return Identifier.create(paimonTablePath.getDatabaseName(), paimonTablePath.getTableName());
     }
 
     private void updateColumn(

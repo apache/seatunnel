@@ -235,7 +235,7 @@ public class TransformErrorTest {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
-                                put(ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), "age");
+                                put(ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), "age");
                                 put(ReplaceTransformConfig.KEY_PATTERN.key(), "1");
                                 put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "2");
                                 put(ReplaceTransformConfig.KEY_IS_REGEX.key(), "false");

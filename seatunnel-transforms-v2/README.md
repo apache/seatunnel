@@ -220,7 +220,7 @@ You can quickly implement transform development by implementing this class.
 ### AbstractMultiCatalogFlatMapTransform & AbstractMultiCatalogMapTransform
 
 The multi-table version of AbstractCatalogSupportFlatMapTransform & AbstractCatalogSupportMapTransform.
-Contains the encapsulation of multi-table transform. For more information about multi-table transform, please refer to [transform-multi-table.md](../docs/en/transform-v2/transform-multi-table.md)
+Contains the encapsulation of multi-table transform. For more information about multi-table transform, please refer to [transform-multi-table.md](../docs/en/transforms/transform-multi-table.md)
 
 ## Develop A Transform
 

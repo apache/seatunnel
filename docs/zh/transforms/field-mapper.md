@@ -18,7 +18,7 @@
 
 ### common options [config]
 
-转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情
+转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 
 ## 示例
 
@@ -60,5 +60,5 @@ transform {
 
 ### 新版本
 
-- 添加复制转换连接器
+- 添加 FieldMapper 转换插件
 

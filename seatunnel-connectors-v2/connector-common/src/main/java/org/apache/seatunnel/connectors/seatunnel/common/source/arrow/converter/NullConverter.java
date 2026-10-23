@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.NullVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(Converter.class)
 public class NullConverter implements Converter<NullVector> {
     @Override
     public Object convert(int rowIndex, NullVector fieldVector) {

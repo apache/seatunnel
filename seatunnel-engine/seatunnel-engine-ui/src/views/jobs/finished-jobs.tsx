@@ -30,10 +30,15 @@ export default defineComponent({
     const { t } = useI18n()
 
     const jobs = ref([] as Job[])
+    const page = ref(1)
+    const pageSize = ref(10)
+    const total = ref(0)
 
     let timer: NodeJS.Timeout
     const fetch = async () => {
-      jobs.value = await JobsService.getFinishedJobs()
+      const res = await JobsService.getFinishedJobs(page.value, pageSize.value)
+      jobs.value = res.data
+      total.value = res.total
       timer = setTimeout(fetch, 5000)
     }
     onUnmounted(() => clearTimeout(timer))
@@ -105,7 +110,23 @@ export default defineComponent({
     return () => (
         <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
           <h2 class="font-bold text-2xl pb-6">{t('jobs.finishedJobs')}</h2>
-          <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
+          <NDataTable columns={columns} data={jobs.value} remote={true} pagination={{
+            page: page.value,
+            pageSize: pageSize.value,
+            itemCount: total.value,
+            showSizePicker: true,
+            pageSizes: [10, 20, 50, 100, 500],
+            showQuickJumper: true,
+            onUpdatePage: (newPage: number) => {
+              page.value = newPage
+              fetch()
+            },
+            onUpdatePageSize: (newPageSize: number) => {
+              pageSize.value = newPageSize
+              page.value = 1
+              fetch()
+            }
+          }} bordered={false} />
         </div>
     )
   }

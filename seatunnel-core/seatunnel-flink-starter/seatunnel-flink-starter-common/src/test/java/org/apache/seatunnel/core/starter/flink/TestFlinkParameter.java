@@ -18,6 +18,7 @@ package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
@@ -31,8 +32,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.apache.seatunnel.core.starter.flink.AbstractFlinkStarter.RUNTIME_FILE;
 
 public class TestFlinkParameter {
 
@@ -82,5 +86,21 @@ public class TestFlinkParameter {
         checkList.sort(null);
         ExternalSettingLists.sort(null);
         Assertions.assertIterableEquals(checkList, ExternalSettingLists);
+    }
+
+    /** Test the relevant configurations associated with the yarn application mode */
+    @Test
+    public void testBuildCommandsWithYarnApplicationMode() {
+        String[] args = {"--config", "/path/to/config.conf", "--target", "yarn-application"};
+        FlinkStarter starter = new FlinkStarter(args);
+
+        List<String> commands = starter.buildCommands();
+
+        // Assert
+        Assertions.assertTrue(
+                commands.contains(
+                        String.format(
+                                "-Dyarn.ship-archives=\"%s\"",
+                                Paths.get(Common.getSeaTunnelHome(), RUNTIME_FILE))));
     }
 }

@@ -52,6 +52,12 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-server</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -68,6 +74,18 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-console</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transforms-v2</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -116,9 +134,12 @@
                             <exclude>commons-logging:*</exclude>
                             <exclude>ch.qos.logback:*</exclude>
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
-                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
+                            <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                    </transformers>
                 </configuration>
             </plugin>
         </plugins>

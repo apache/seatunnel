@@ -40,6 +40,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
 
@@ -107,8 +109,12 @@ public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
                         break;
                     case TIMESTAMP_TZ:
                         OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        // Inceptor (Hive-based) has no native timezone type; convert to UTC epoch
+                        // and pass Calendar.UTC so the driver does not apply the session timezone.
                         statement.setTimestamp(
-                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                                statementIndex,
+                                Timestamp.from(offsetDateTime.toInstant()),
+                                Calendar.getInstance(TimeZone.getTimeZone("UTC")));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

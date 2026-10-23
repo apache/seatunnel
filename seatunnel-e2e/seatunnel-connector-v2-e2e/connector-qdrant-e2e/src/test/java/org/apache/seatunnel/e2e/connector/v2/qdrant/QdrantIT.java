@@ -60,20 +60,35 @@ import static io.qdrant.client.VectorsFactory.namedVectors;
 public class QdrantIT extends TestSuiteBase implements TestResource {
 
     private static final String ALIAS = "qdrante2e";
+    private static final String AUTH_ALIAS = "qdrantauthe2e";
+    private static final String AUTH_API_KEY = "seatunnel-test-key";
     private static final String SOURCE_COLLECTION = "source_collection";
     private static final String SINK_COLLECTION = "sink_collection";
-    private static final String IMAGE = "qdrant/qdrant:latest";
+    /**
+     * Fixed Qdrant at v1.15.0 for stability; upgrading to v1.17.0+ requires ensuring the SeaTunnel
+     * Qdrant connector is compatible with the latest breaking changes.
+     */
+    private static final String IMAGE = "qdrant/qdrant:v1.15.0";
+
     private QdrantContainer container;
+    private QdrantContainer authenticatedContainer;
     private QdrantClient qdrantClient;
+    private QdrantClient authenticatedClient;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
         this.container = new QdrantContainer(IMAGE).withNetwork(NETWORK).withNetworkAliases(ALIAS);
-        Startables.deepStart(Stream.of(this.container)).join();
+        this.authenticatedContainer =
+                new QdrantContainer(IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(AUTH_ALIAS)
+                        .withEnv("QDRANT__SERVICE__API_KEY", AUTH_API_KEY);
+        Startables.deepStart(Stream.of(this.container, this.authenticatedContainer)).join();
         Awaitility.given().ignoreExceptions().await().atMost(10L, TimeUnit.SECONDS);
         this.initQdrant();
-        this.initSourceData();
+        this.initSourceData(qdrantClient);
+        this.initSourceData(authenticatedClient);
     }
 
     private void initQdrant() {
@@ -82,11 +97,18 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
                         QdrantGrpcClient.newBuilder(
                                         container.getHost(), container.getGrpcPort(), false)
                                 .build());
+        authenticatedClient =
+                new QdrantClient(
+                        QdrantGrpcClient.newBuilder(
+                                        authenticatedContainer.getHost(),
+                                        authenticatedContainer.getGrpcPort(),
+                                        false)
+                                .withApiKey(AUTH_API_KEY)
+                                .build());
     }
 
-    private void initSourceData() throws Exception {
-        qdrantClient
-                .createCollectionAsync(
+    private void initSourceData(QdrantClient client) throws Exception {
+        client.createCollectionAsync(
                         SOURCE_COLLECTION,
                         ImmutableMap.of(
                                 "my_vector",
@@ -96,8 +118,7 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
                                         .build()))
                 .get();
 
-        qdrantClient
-                .createCollectionAsync(
+        client.createCollectionAsync(
                         SINK_COLLECTION,
                         ImmutableMap.of(
                                 "my_vector",
@@ -120,8 +141,7 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
             points.add(pointStruct.build());
         }
 
-        qdrantClient
-                .upsertAsync(
+        client.upsertAsync(
                         Points.UpsertPoints.newBuilder()
                                 .setCollectionName(SOURCE_COLLECTION)
                                 .addAllPoints(points)
@@ -133,13 +153,22 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() {
         this.qdrantClient.close();
+        this.authenticatedClient.close();
     }
 
     @TestTemplate
     public void testQdrant(TestContainer container)
             throws IOException, InterruptedException, ExecutionException {
         Container.ExecResult execResult = container.executeJob("/qdrant-to-qdrant.conf");
-        Assertions.assertEquals(execResult.getExitCode(), 0);
-        Assertions.assertEquals(qdrantClient.countAsync(SINK_COLLECTION).get(), 10);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(10, qdrantClient.countAsync(SINK_COLLECTION).get());
+    }
+
+    @TestTemplate
+    public void testQdrantWithApiKey(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        Container.ExecResult execResult = container.executeJob("/qdrant-auth-to-qdrant.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(10, authenticatedClient.countAsync(SINK_COLLECTION).get());
     }
 }

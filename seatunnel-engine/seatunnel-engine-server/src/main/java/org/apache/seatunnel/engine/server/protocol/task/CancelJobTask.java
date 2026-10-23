@@ -25,7 +25,8 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class CancelJobTask extends AbstractSeaTunnelMessageTask<Long, Void> {
+public class CancelJobTask
+        extends AbstractSeaTunnelMessageTask<SeaTunnelCancelJobCodec.RequestParameters, Void> {
     protected CancelJobTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(
                 clientMessage,
@@ -37,7 +38,7 @@ public class CancelJobTask extends AbstractSeaTunnelMessageTask<Long, Void> {
 
     @Override
     protected Operation prepareOperation() {
-        return new CancelJobOperation(parameters);
+        return new CancelJobOperation(parameters.jobId, parameters.force);
     }
 
     @Override

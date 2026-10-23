@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor;
 
@@ -28,10 +29,12 @@ import com.hazelcast.instance.impl.DefaultNodeExtension;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.TextCommandServiceImpl;
+import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.util.Enumeration;
 import java.util.Map;
 
 import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_GET;
@@ -40,11 +43,33 @@ import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.
 public class NodeExtension extends DefaultNodeExtension {
     private final NodeExtensionCommon extCommon;
     @Getter private final CollectorRegistry collectorRegistry;
+    @Getter private final SeaTunnelServer seaTunnelServer;
 
+    /**
+     * Creates the Engine extension of one Hazelcast node.
+     *
+     * @param node owning Hazelcast node
+     * @param seaTunnelConfig Engine and cluster configuration
+     */
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
+        this(node, seaTunnelConfig, new ResourceManagerFactory());
+    }
+
+    public NodeExtension(
+            @NonNull Node node,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         super(node);
-        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(seaTunnelConfig));
-        collectorRegistry = CollectorRegistry.defaultRegistry;
+        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig, resourceManagerFactory);
+        extCommon = new NodeExtensionCommon(node, seaTunnelServer);
+        collectorRegistry = new CollectorRegistry(true);
+    }
+
+    /** Returns process-wide metrics followed by metrics for this node. */
+    public Enumeration<MetricFamilySamples> getMetricFamilySamples() {
+        return new ConcatenatedEnumeration<>(
+                CollectorRegistry.defaultRegistry.metricFamilySamples(),
+                collectorRegistry.metricFamilySamples());
     }
 
     @Override
@@ -92,5 +117,25 @@ public class NodeExtension extends DefaultNodeExtension {
     @Override
     public void printNodeInfo() {
         extCommon.printNodeInfo(systemLogger);
+    }
+
+    private static final class ConcatenatedEnumeration<T> implements Enumeration<T> {
+        private final Enumeration<T> first;
+        private final Enumeration<T> second;
+
+        private ConcatenatedEnumeration(Enumeration<T> first, Enumeration<T> second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            return first.hasMoreElements() || second.hasMoreElements();
+        }
+
+        @Override
+        public T nextElement() {
+            return first.hasMoreElements() ? first.nextElement() : second.nextElement();
+        }
     }
 }
