@@ -21,8 +21,6 @@ more.
 | model                  | string | yes      |               |
 | api_key                | string | no       |               |
 | api_path               | string | no       |               |
-| secret_key             | string | no       |               |
-| oauth_path             | string | no       |               |
 | process_batch_size     | int    | no       | 100           |
 | custom_config          | map    | no       |               |
 | custom_response_parse  | string | no       |               |
@@ -32,11 +30,11 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, QIANFAN, CUSTOM
+OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
 
-> tips: `api_key` is required for OPENAI, DOUBAO and MICROSOFT. `QIANFAN` additionally requires `secret_key` and `oauth_path`. `CUSTOM` does not use `api_key`.
+> tips: `api_key` is required for OPENAI, DOUBAO and MICROSOFT. DEEPSEEK, KIMIAI and ZHIPU also read `api_key`. `CUSTOM` does not use `api_key`.
 
 ### process_batch_size
 
@@ -126,14 +124,6 @@ The API key to use for the model provider.
 If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
 This option is not used when `model_provider` is `CUSTOM`; in that case the request is fully described by `custom_config`.
-
-### secret_key
-
-The secret key used by `QIANFAN` together with `api_key` for access-token authentication.
-
-### oauth_path
-
-The Oauth path of the model provider, required by `QIANFAN`.
 
 ### api_path
 

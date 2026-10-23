@@ -19,8 +19,6 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | model                  | string | yes      |             |
 | api_key                | string | no       |             |
 | api_path               | string | no       |             |
-| secret_key             | string | no       |             |
-| oauth_path             | string | no       |             |
 | process_batch_size     | int    | no       | 100         |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
@@ -30,11 +28,11 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, QIANFAN, CUSTOM
+OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
 
-> tips: `api_key` 对 OPENAI、DOUBAO 和 MICROSOFT 必填；`QIANFAN` 还需要 `secret_key` 和 `oauth_path`；`CUSTOM` 不使用 `api_key`。
+> tips: `api_key` is required for OPENAI, DOUBAO and MICROSOFT. DEEPSEEK, KIMIAI and ZHIPU also read `api_key`. `CUSTOM` does not use `api_key`.
 
 ### process_batch_size
 
@@ -121,14 +119,6 @@ transform {
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
 当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
-
-### secret_key
-
-`QIANFAN` 与 `api_key` 配合使用的密钥，用于访问令牌认证。
-
-### oauth_path
-
-模型提供者的 Oauth 路径，`QIANFAN` 必填。
 
 ### api_path
 
