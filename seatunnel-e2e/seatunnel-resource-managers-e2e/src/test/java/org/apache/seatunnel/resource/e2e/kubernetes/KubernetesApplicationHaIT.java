@@ -44,12 +44,16 @@ import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 import io.kubernetes.client.util.Yaml;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1587,11 +1591,14 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
 
     private static String exec(V1Pod pod, String[] command) throws Exception {
         Process process = new Exec(apiClient).exec(pod, command, "seatunnel", false, false);
+        // A persistent probe already blocks a common-pool task. Its two stream readers must
+        // not exhaust that same pool and prevent later commands from draining their pipes.
+        ExecutorService outputReaders = Executors.newFixedThreadPool(2);
         try {
-            java.util.concurrent.CompletableFuture<byte[]> captured =
-                    capture(process.getInputStream());
-            java.util.concurrent.CompletableFuture<byte[]> errors =
-                    capture(process.getErrorStream());
+            InputStream stdoutStream = process.getInputStream();
+            InputStream stderrStream = process.getErrorStream();
+            Future<byte[]> captured = outputReaders.submit(stdoutStream::readAllBytes);
+            Future<byte[]> errors = outputReaders.submit(stderrStream::readAllBytes);
             assertTrue(
                     process.waitFor(
                             Arrays.asList(command).contains("persistent") ? 480 : 45,
@@ -1606,22 +1613,11 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                             + new String(stderr, StandardCharsets.UTF_8));
             return new String(output, StandardCharsets.UTF_8);
         } finally {
+            outputReaders.shutdownNow();
             process.destroy();
             process.getInputStream().close();
             process.getErrorStream().close();
         }
-    }
-
-    private static java.util.concurrent.CompletableFuture<byte[]> capture(
-            java.io.InputStream stream) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        return stream.readAllBytes();
-                    } catch (java.io.IOException failure) {
-                        throw new java.io.UncheckedIOException(failure);
-                    }
-                });
     }
 
     private static void awaitHaClean(KubernetesApplicationClient application) throws Exception {

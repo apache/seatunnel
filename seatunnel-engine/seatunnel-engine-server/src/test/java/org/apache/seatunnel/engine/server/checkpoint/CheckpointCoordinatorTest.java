@@ -223,6 +223,8 @@ public class CheckpointCoordinatorTest
         ExecutorService executorService = Executors.newCachedThreadPool();
         JobMaster mockJobMaster = Mockito.mock(JobMaster.class);
         Mockito.when(mockJobMaster.getJobId()).thenReturn(1L);
+        Mockito.when(mockJobMaster.getCoordinatorService())
+                .thenReturn(server.getCoordinatorService());
         Mockito.when(mockJobMaster.isNeedRestore()).thenReturn(false);
         Mockito.when(mockJobMaster.queryTaskGroupAddress(Mockito.any(TaskGroupLocation.class)))
                 .thenReturn(nodeEngine.getThisAddress());
