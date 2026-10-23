@@ -591,10 +591,10 @@ public class SubPlan {
                                 }
                             });
 
-            // In a RUNNING pipeline a FINISHED task group can only be an idle reader that was
-            // already closed (see CheckpointCoordinator#readyToCloseIdleTask). It will never report
-            // READY_START again, so it must not block the restore, and the coordinator must know
-            // it is closed.
+            // Closed idle reader groups are FINISHED and will never report READY_START again.
+            // Rebuild their closed subtasks so checkpoint recovery does not wait for their ACK.
+            // FINISHED groups can also occur during final-checkpoint completion; this restore
+            // path does not distinguish that boundary case from idle-reader closure.
             Set<TaskGroupLocation> closedIdleTaskGroups = new HashSet<>();
             getPhysicalVertexList()
                     .forEach(

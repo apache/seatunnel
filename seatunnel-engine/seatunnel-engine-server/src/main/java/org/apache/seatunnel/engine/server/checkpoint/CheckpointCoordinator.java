@@ -707,6 +707,15 @@ public class CheckpointCoordinator {
         restoreCoordinator(alreadyStarted, Collections.emptySet());
     }
 
+    /**
+     * Restores the coordinator and rebuilds closed idle subtasks after clearing pending
+     * checkpoints.
+     *
+     * @param alreadyStarted whether the pipeline tasks have already started and do not need to
+     *     report READY_START again
+     * @param closedIdleTaskGroups task groups restored as FINISHED after the master switch, whose
+     *     subtasks must be excluded from checkpoint barriers and acknowledgements
+     */
     protected void restoreCoordinator(
             boolean alreadyStarted, Set<TaskGroupLocation> closedIdleTaskGroups) {
         LOG.info(
