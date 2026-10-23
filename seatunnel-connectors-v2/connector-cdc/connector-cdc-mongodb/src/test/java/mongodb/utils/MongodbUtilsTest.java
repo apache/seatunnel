@@ -20,12 +20,59 @@ package mongodb.utils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils;
 
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.conversions.Bson;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import io.debezium.relational.TableId;
+
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SHARD_KEY_FIELD;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class MongodbUtilsTest {
+
+    @Test
+    void testReadCollectionMetadataIncludesShardKey() {
+        MongoClient mongoClient = mock(MongoClient.class);
+        MongoDatabase configDatabase = mock(MongoDatabase.class);
+        MongoCollection<BsonDocument> collections = mock(MongoCollection.class);
+        FindIterable<BsonDocument> result = mock(FindIterable.class);
+        BsonDocument collectionMetadata =
+                new BsonDocument(SHARD_KEY_FIELD, new BsonDocument("_id", new BsonInt32(1)));
+
+        when(mongoClient.getDatabase("config")).thenReturn(configDatabase);
+        when(configDatabase.getCollection("collections", BsonDocument.class))
+                .thenReturn(collections);
+        when(collections.find(any(Bson.class))).thenReturn(result);
+        when(result.projection(any())).thenReturn(result);
+        when(result.first()).thenReturn(collectionMetadata);
+
+        Assertions.assertSame(
+                collectionMetadata,
+                MongodbUtils.readCollectionMetadata(
+                        mongoClient, TableId.parse("inventory.products")));
+
+        org.mockito.ArgumentCaptor<Bson> projectionCaptor =
+                org.mockito.ArgumentCaptor.forClass(Bson.class);
+        verify(result).projection(projectionCaptor.capture());
+        BsonDocument projection =
+                projectionCaptor
+                        .getValue()
+                        .toBsonDocument(
+                                BsonDocument.class, MongoClientSettings.getDefaultCodecRegistry());
+        Assertions.assertEquals(new BsonInt32(1), projection.get(SHARD_KEY_FIELD));
+    }
 
     @Test
     public void testBuildConnectionStringFromHostsKeepsLegacyFormat() {

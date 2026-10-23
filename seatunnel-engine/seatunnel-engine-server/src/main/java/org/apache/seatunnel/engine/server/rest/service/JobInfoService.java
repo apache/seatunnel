@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
@@ -57,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONFIG_FORMAT;
 
@@ -114,11 +116,54 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonArray getJobsByStateJson(String state) {
-        IMap<Long, JobState> finishedJob =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        IMap<Long, JobDAGInfo> finishedJobDAGInfo =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+
+        return matchingJobStates(state).stream()
+                .map(jobState -> toJobInfoJson(jobState, finishedJobDAGInfo))
+                .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    /**
+     * Returns one page of finished jobs in the given state, newest first, along with the total
+     * number of matches before slicing.
+     *
+     * <p>The slice is applied before the per-job metrics and DAG lookups, so a paged request pays
+     * those two point lookups and the metric aggregation only for the rows it actually returns
+     * rather than for every retained job.
+     */
+    public JobPage getJobsByStateJson(String state, int start, int rows) {
+        // checked here rather than left to Stream.skip/limit, so any caller gets a message naming
+        // the argument instead of an exception from inside the stream pipeline
+        if (state == null) {
+            throw new IllegalArgumentException("state must not be null, use \"\" for any state");
+        }
+        if (start < 0) {
+            throw new IllegalArgumentException("start must not be negative, but was: " + start);
+        }
+        if (rows < 1) {
+            throw new IllegalArgumentException("rows must be greater than 0, but was: " + rows);
+        }
 
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+
+        List<JobState> matches = matchingJobStates(state);
+
+        JsonArray data =
+                matches.stream()
+                        .skip(start)
+                        .limit(rows)
+                        .map(jobState -> toJobInfoJson(jobState, finishedJobDAGInfo))
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+
+        return new JobPage(data, matches.size());
+    }
+
+    /** Finished jobs matching {@code state} (all of them when it is empty), newest first. */
+    private List<JobState> matchingJobStates(String state) {
+        IMap<Long, JobState> finishedJob =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
 
         return finishedJob.values().stream()
                 .filter(java.util.Objects::nonNull)
@@ -133,15 +178,34 @@ public class JobInfoService extends BaseService {
                         Comparator.comparing(
                                 JobState::getFinishTime,
                                 Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(
-                        jobState -> {
-                            Long jobId = jobState.getJobId();
-                            return getJobInfoJson(
-                                    jobState,
-                                    getFinishedJobMetricsJson(jobId),
-                                    getFinishedJobDAGInfo(finishedJobDAGInfo, jobId));
-                        })
-                .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+                .collect(Collectors.toList());
+    }
+
+    private JsonObject toJobInfoJson(JobState jobState, IMap<Long, JobDAGInfo> finishedJobDAGInfo) {
+        Long jobId = jobState.getJobId();
+        return getJobInfoJson(
+                jobState,
+                getFinishedJobMetricsJson(jobId),
+                getFinishedJobDAGInfo(finishedJobDAGInfo, jobId));
+    }
+
+    /** A page of job listings plus the number of matches before the page was taken. */
+    public static final class JobPage {
+        private final JsonArray data;
+        private final int total;
+
+        public JobPage(JsonArray data, int total) {
+            this.data = data;
+            this.total = total;
+        }
+
+        public JsonArray getData() {
+            return data;
+        }
+
+        public int getTotal() {
+            return total;
+        }
     }
 
     private String getFinishedJobMetricsJson(Long jobId) {
@@ -175,7 +239,10 @@ public class JobInfoService extends BaseService {
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),
                                 Comparator.reverseOrder()))
-                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
+                .map(
+                        jobInfoEntry ->
+                                convertToJson(
+                                        jobInfoEntry.getValue(), jobInfoEntry.getKey(), false))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
@@ -389,6 +456,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
@@ -421,6 +489,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
@@ -440,6 +509,7 @@ public class JobInfoService extends BaseService {
                                 throw new IllegalArgumentException(
                                         "Dry-run is only supported via CLI");
                             }
+                            validateCheckpointRestoreRequest(requestParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
                             Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
@@ -449,5 +519,16 @@ public class JobInfoService extends BaseService {
                                     nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        RestoreMode restoreMode =
+                restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
+        if (restoreMode.isRestore()
+                && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when restoreMode=" + restoreMode);
+        }
     }
 }

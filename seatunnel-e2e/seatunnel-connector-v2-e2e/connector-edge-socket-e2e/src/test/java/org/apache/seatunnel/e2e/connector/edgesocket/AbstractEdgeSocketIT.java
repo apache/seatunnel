@@ -64,6 +64,7 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
     protected static final String TRANSFORM_SUFFIX = "_transformed";
     protected static final String EDGE_BATCH_PREFIX = "__BATCH__:";
     protected static final String EDGE_COMMIT_PREFIX = "__COMMIT__:";
+    protected static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
 
     protected GenericContainer<?> edgeSocketForwarderContainer;
     private String edgeSocketForwarderTargetHost;
