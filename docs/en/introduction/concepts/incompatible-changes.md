@@ -80,6 +80,7 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
 
 - **Breaking change: The same placeholder key can no longer have multiple different default values**
   - When the same placeholder key is used multiple times, older versions used the default value from its last occurrence as the unified default value. Starting from this version, the same placeholder key is no longer allowed to have multiple different default values.
+  - **Unclosed placeholder `${` now fails job submission！** Previously a value containing an unclosed placeholder (for example `password = ${abc`) was passed through as a literal string.
   - **Migration guide:**
     - For keys whose placeholders appear multiple times, either none of the occurrences has a default value, or all default values must be identical. Existing configuration files with inconsistent defaults must be updated to be consistent.
     - If you need to keep the default value so that it takes effect, you need to change the placeholder key, and change the key overridden via the `-i` parameter to the modified key in the configuration file.
