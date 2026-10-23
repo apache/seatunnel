@@ -129,7 +129,7 @@ public class ConfigValueUtilsTest {
         boolean isStructured = ConfigValueUtils.isStructured(value);
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertFalse(isStructured);
-        Assertions.assertTrue(result instanceof String);
+        Assertions.assertEquals(value, result);
     }
 
     @Test
@@ -164,6 +164,23 @@ public class ConfigValueUtilsTest {
         Assertions.assertThrows(
                 ConfigException.NotResolved.class,
                 () -> ConfigValueUtils.parseValue(value).unwrapped());
+    }
+
+    @Test
+    void testSingleValueInBrackets() {
+        String value = "[a-z]";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        Assertions.assertInstanceOf(String.class, result);
+        Assertions.assertEquals(value, result);
+    }
+
+    @Test
+    void testQuotedSingleValueInBrackets() {
+        String value = "[\"a-z\"]";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+
+        Assertions.assertInstanceOf(List.class, result);
+        Assertions.assertEquals(List.of("a-z"), result);
     }
 
     @Test
