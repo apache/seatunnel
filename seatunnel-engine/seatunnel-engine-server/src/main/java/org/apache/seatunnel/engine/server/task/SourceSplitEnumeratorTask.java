@@ -224,18 +224,27 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         int readerIndex = readerId.getTaskIndex();
+        boolean needResignalNoMoreSplits;
         this.addTaskMemberMapping(readerId, memberAddr);
-        synchronized (this) {
+        synchronized (enumeratorContext) {
             enumerator.registerReader(readerIndex);
-            if (enumeratorContext.hasNoMoreSplitsSignaled(readerIndex)) {
-                log.info(
-                        "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
-                        readerIndex);
-                enumeratorContext.signalNoMoreSplits(readerIndex);
-            }
+            needResignalNoMoreSplits = enumeratorContext.hasNoMoreSplitsSignaled(readerIndex);
+        }
+        if (needResignalNoMoreSplits) {
+            log.info(
+                    "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
+                    readerIndex);
+            enumeratorContext.signalNoMoreSplits(readerIndex);
         }
         int taskSize = taskMemberMapping.size();
         if (maxReaderSize == taskSize) {
+            // Cross-class invariant: a reader's restoreState() synchronously delivers its
+            // checkpoint-restored splits to the enumerator (RestoredSplitOperation) before it
+            // registers, and run() only fires after every reader has registered below. So in a
+            // clean full-pipeline restart the restored splits normally reach the assigner while
+            // the enumerator is not running yet. That ordering is not guaranteed (multi-reader
+            // interleaving, retry-induced delay), so IncrementalSourceEnumerator.addSplitsBack()
+            // defensively re-runs assignment when the enumerator is already running.
             readerRegisterComplete = true;
             log.debug(String.format("reader register complete, current task size %d", taskSize));
         } else {

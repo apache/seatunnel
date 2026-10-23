@@ -43,6 +43,6 @@ public class MaxcomputeSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return tablePath.toString() + "_" + index;
+        return tablePath.toString() + "_" + index + "_" + rowStart;
     }
 }

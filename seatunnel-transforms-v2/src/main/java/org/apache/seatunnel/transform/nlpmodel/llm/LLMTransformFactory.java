@@ -46,6 +46,7 @@ public class LLMTransformFactory implements TableTransformFactory {
                 .optional(
                         LLMTransformConfig.API_PATH,
                         LLMTransformConfig.OUTPUT_DATA_TYPE,
+                        LLMTransformConfig.STRICT_BOOLEAN_OUTPUT,
                         LLMTransformConfig.PROCESS_BATCH_SIZE)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,
@@ -66,6 +67,7 @@ public class LLMTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

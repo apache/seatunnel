@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourc
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaChangeResolver;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaRecord;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
@@ -44,9 +47,11 @@ import io.debezium.connector.postgresql.PostgresPartition;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
 import io.debezium.connector.postgresql.PostgresTopicSelector;
+import io.debezium.connector.postgresql.RelationAwarePostgresSchema;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
+import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
@@ -69,8 +74,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
@@ -91,7 +98,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private final EventMetadataProvider metadataProvider;
 
     @Getter private Snapshotter snapshotter;
-    private PostgresSchema databaseSchema;
+    private RelationAwarePostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
     private PostgresPartition partition;
     private TopicSelector<TableId> topicSelector;
@@ -108,15 +115,26 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private Collection<TableChanges.TableChange> engineHistory;
 
+    // Suppresses duplicate RELATION messages within one task lifetime. Accessed only by the
+    // single Debezium reader thread and cleared whenever the context is configured for a split.
+    private final Map<TableId, Table> lastRelationSchemas = new HashMap<>();
+
+    // The schema SeaTunnel had already propagated downstream before this task started. On restore,
+    // checkpoint tables take precedence over live discovery so the first RELATION can reveal a
+    // source/sink schema gap that occurred after the checkpoint.
+    private final List<CatalogTable> relationSchemaBaseline;
+
     public PostgresSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             PostgresConnection dataConnection,
-            Collection<TableChanges.TableChange> engineHistory) {
+            Collection<TableChanges.TableChange> engineHistory,
+            List<CatalogTable> relationSchemaBaseline) {
         super(sourceConfig, dataSourceDialect);
         this.dataConnection = dataConnection;
         this.metadataProvider = PostgresObjectUtils.newEventMetadataProvider();
         this.engineHistory = engineHistory;
+        this.relationSchemaBaseline = relationSchemaBaseline;
         this.postgresValueConverterBuilder =
                 newPostgresValueConverterBuilder(
                         getDbzConnectorConfig(),
@@ -127,6 +145,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
         super.registerDatabaseHistory(sourceSplitBase, dataConnection);
+        lastRelationSchemas.clear();
 
         // initial stateful objects
         final PostgresConnectorConfig connectorConfig = getDbzConnectorConfig();
@@ -168,31 +187,15 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         LoggingContext.PreviousContext previousContext =
                 taskContext.configureLoggingContext(CONTEXT_NAME);
         try {
-            // Print out the server information
-            SlotState slotInfo = null;
-            try {
-                if (log.isInfoEnabled()) {
-                    log.info(dataConnection.serverInfo().toString());
-                }
-                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
-                        PostgresConnectorConfig.LogicalDecoder.parse(
-                                connectorConfig.getConfig().getString(PLUGIN_NAME));
-                slotInfo =
-                        dataConnection.getReplicationSlotState(
-                                connectorConfig.getConfig().getString(SLOT_NAME),
-                                logicalDecoder.getPostgresPluginName());
-            } catch (SQLException e) {
-                log.warn(
-                        "unable to load info of replication slot, Debezium will try to create the slot");
-            }
+            OffsetState offsetState = null;
             if (offsetContext == null) {
                 log.info("No previous offset found");
-                // if we have no initial offset, indicate that to Snapshotter by passing null
-                snapshotter.init(connectorConfig, null, slotInfo);
             } else {
                 log.info("Found previous offset {}", offsetContext);
-                snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
+                offsetState = offsetContext.asOffsetState();
             }
+            final SlotState slotInfo =
+                    initSnapshotter(snapshotter, connectorConfig, offsetState, dataConnection);
 
             if (snapshotter.shouldStream()) {
                 // we need to create the slot before we start streaming if it doesn't exist
@@ -205,21 +208,21 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                     dataConnection,
                                     snapshotter.shouldSnapshot(),
                                     connectorConfig);
-                    try {
-                        // create the slot if it doesn't exist, otherwise update slot to add new
-                        // table(job restore and add table)
-                        replicationConnection.createReplicationSlot().orElse(null);
-                    } catch (SQLException ex) {
-                        String message = "Creation of replication slot failed";
-                        // PostgreSQL errors all have a 5-character SQLSTATE code, following the SQL
-                        // standard specification
-                        // https://www.postgresql.org/docs/current/errcodes-appendix.html
-                        if ("42710".equals(ex.getSQLState())) {
-                            message +=
-                                    "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
-                            log.warn(message);
-                        } else {
-                            throw new DebeziumException(message, ex);
+                    if (slotInfo == null) {
+                        try {
+                            replicationConnection.createReplicationSlot().orElse(null);
+                        } catch (SQLException ex) {
+                            String message = "Creation of replication slot failed";
+                            // PostgreSQL errors all have a 5-character SQLSTATE code, following the
+                            // SQL standard specification
+                            // https://www.postgresql.org/docs/current/errcodes-appendix.html
+                            if ("42710".equals(ex.getSQLState())) {
+                                message +=
+                                        "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                                log.warn(message);
+                            } else {
+                                throw new DebeziumException(message, ex);
+                            }
                         }
                     }
                 }
@@ -242,6 +245,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             // do not buffer any element, we use signal event
                             // .buffering()
                             .build();
+
+            if (connectorConfig.isSchemaChangesHistoryEnabled()) {
+                databaseSchema.setRelationChangeListener(this::dispatchRelationSchemaChange);
+            }
 
             this.dispatcher =
                     new JdbcSourceEventDispatcher<>(
@@ -287,6 +294,74 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         }
     }
 
+    /**
+     * Reads the replication slot state and initializes the snapshotter with it. An invalidated slot
+     * can never stream again, and reading its state would make Debezium retry for up to 30 minutes,
+     * so its state is not read. Whether the job streams is only asked after {@code init}, because a
+     * custom snapshotter may decide that from the state it is given.
+     */
+    static SlotState initSnapshotter(
+            Snapshotter snapshotter,
+            PostgresConnectorConfig connectorConfig,
+            OffsetState offsetState,
+            PostgresConnection dataConnection) {
+        final String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
+        final Optional<String> invalidationReason =
+                findSlotInvalidationReason(dataConnection, slotName);
+
+        // Print out the server information
+        SlotState slotInfo = null;
+        try {
+            if (log.isInfoEnabled()) {
+                log.info(dataConnection.serverInfo().toString());
+            }
+            if (invalidationReason.isPresent()) {
+                log.warn(
+                        "Replication slot '{}' has been invalidated (reason: {})",
+                        slotName,
+                        invalidationReason.get());
+            } else {
+                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                        PostgresConnectorConfig.LogicalDecoder.parse(
+                                connectorConfig.getConfig().getString(PLUGIN_NAME));
+                slotInfo =
+                        dataConnection.getReplicationSlotState(
+                                slotName, logicalDecoder.getPostgresPluginName());
+            }
+        } catch (SQLException e) {
+            log.warn(
+                    "unable to load info of replication slot, Debezium will try to create the slot");
+        }
+        // if we have no initial offset, indicate that to Snapshotter by passing null
+        snapshotter.init(connectorConfig, offsetState, slotInfo);
+
+        if (invalidationReason.isPresent() && snapshotter.shouldStream()) {
+            throw PostgresUtils.replicationSlotInvalidated(slotName, invalidationReason.get());
+        }
+        return slotInfo;
+    }
+
+    /** Returns the invalidation reason, or empty if the slot is usable or the check failed. */
+    private static Optional<String> findSlotInvalidationReason(
+            PostgresConnection dataConnection, String slotName) {
+        try {
+            return PostgresUtils.getReplicationSlotInvalidationReason(
+                    dataConnection.connection(), slotName);
+        } catch (SQLException e) {
+            log.warn(
+                    "Unable to check whether replication slot '{}' has been invalidated",
+                    slotName,
+                    e);
+            try {
+                // keep the connection usable for the slot state queries that follow
+                dataConnection.rollback();
+            } catch (SQLException rollbackException) {
+                log.warn("Failed to roll back the slot check transaction", rollbackException);
+            }
+            return Optional.empty();
+        }
+    }
+
     @Override
     public PostgresSourceConfig getSourceConfig() {
         return (PostgresSourceConfig) sourceConfig;
@@ -324,6 +399,53 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public PostgresSchema getDatabaseSchema() {
         return databaseSchema;
+    }
+
+    /** Enqueue a synthetic schema record when a streaming RELATION differs from tracked state. */
+    private void dispatchRelationSchemaChange(Table table) {
+        Table previousRelation = lastRelationSchemas.put(table.id(), table);
+        if (previousRelation != null
+                && RelationAwarePostgresSchema.hasSameRelationSchema(previousRelation, table)) {
+            return;
+        }
+        if (previousRelation == null && hasSameBaselineSchema(table)) {
+            return;
+        }
+
+        SourceRecord record =
+                PostgresRelationSchemaRecord.create(
+                        table,
+                        partition.getSourcePartition(),
+                        new HashMap<>(offsetContext.getOffset()),
+                        topicSelector.topicNameFor(table.id()));
+        try {
+            queue.enqueue(new DataChangeEvent(record));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DebeziumException(
+                    "Interrupted while dispatching PostgreSQL relation change for " + table.id(),
+                    e);
+        }
+    }
+
+    /** Compare the first RELATION for a table with initial or checkpoint-restored catalog state. */
+    private boolean hasSameBaselineSchema(Table relation) {
+        return relationSchemaBaseline.stream()
+                .filter(
+                        table ->
+                                Objects.equals(
+                                                table.getTablePath().getSchemaName(),
+                                                PostgresRelationSchemaChangeResolver
+                                                        .relationSchemaName(relation))
+                                        && Objects.equals(
+                                                table.getTablePath().getTableName(),
+                                                relation.id().table()))
+                .findFirst()
+                .map(
+                        table ->
+                                PostgresRelationSchemaChangeResolver.hasSameCatalogSchema(
+                                        table, relation))
+                .orElse(false);
     }
 
     @Override
@@ -367,6 +489,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public void close() {
         try {
+            if (Objects.nonNull(databaseSchema)) {
+                databaseSchema.setRelationChangeListener(null);
+                databaseSchema.close();
+            }
             if (Objects.nonNull(dataConnection)) {
                 this.dataConnection.close();
             }
@@ -388,12 +514,16 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         Map<String, String> offsetStrMap =
                 Objects.requireNonNull(offset, "offset is null for the sourceSplitBase")
                         .getOffset();
-        // all the keys happen to be long type for PostgresOffsetContext.Loader.load
+        // Numeric offsets are stored as strings in split state; the resume operation is an enum.
         Map<String, Object> offsetMap = new HashMap<>();
         for (String key : offsetStrMap.keySet()) {
             String value = offsetStrMap.get(key);
             if (value != null) {
-                offsetMap.put(key, Long.parseLong(value));
+                offsetMap.put(
+                        key,
+                        PostgresOffsetContext.LAST_PROCESSED_MESSAGE_TYPE_KEY.equals(key)
+                                ? value
+                                : Long.parseLong(value));
             }
         }
         return loader.load(offsetMap);

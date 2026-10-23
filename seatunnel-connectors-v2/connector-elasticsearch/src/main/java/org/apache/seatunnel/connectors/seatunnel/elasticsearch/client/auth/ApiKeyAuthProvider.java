@@ -62,20 +62,14 @@ public class ApiKeyAuthProvider extends AbstractAuthenticationProvider {
         return AUTH_TYPE;
     }
 
+    /**
+     * No-op. Presence and non-blankness of {@code auth.api_key_id} / {@code auth.api_key} are now
+     * enforced declaratively via {@code OptionRule} (conditional on {@code auth_type=api_key}).
+     * This method is kept to honor the {@link AuthenticationProvider} contract.
+     */
     @Override
     public void validate(ReadonlyConfig config) {
-        Optional<String> apiKeyId = config.getOptional(ElasticsearchBaseOptions.API_KEY_ID);
-        Optional<String> apiKey = config.getOptional(ElasticsearchBaseOptions.API_KEY);
-        Optional<String> apiKeyEncoded =
-                config.getOptional(ElasticsearchBaseOptions.API_KEY_ENCODED);
-
-        if (!apiKeyId.isPresent() || !apiKey.isPresent()) {
-            throw new IllegalArgumentException(
-                    "API key authentication with auth_type='api_key' requires both api_key_id and api_key");
-        }
-        validateApiKeyIdAndSecret(apiKeyId.get(), apiKey.get());
-
-        log.debug("API key authentication configuration validated");
+        // intentionally empty - validation handled by OptionRule
     }
 
     /**
@@ -94,16 +88,5 @@ public class ApiKeyAuthProvider extends AbstractAuthenticationProvider {
         }
 
         return null;
-    }
-
-    /** Validate API key ID and secret. */
-    private void validateApiKeyIdAndSecret(String apiKeyId, String apiKey) {
-        if (apiKeyId == null || apiKeyId.trim().isEmpty()) {
-            throw new IllegalArgumentException("API key ID cannot be null or empty");
-        }
-
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new IllegalArgumentException("API key cannot be null or empty");
-        }
     }
 }

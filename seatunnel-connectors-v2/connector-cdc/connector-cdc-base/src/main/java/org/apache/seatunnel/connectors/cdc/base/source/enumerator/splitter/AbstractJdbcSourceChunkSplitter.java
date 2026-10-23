@@ -51,6 +51,10 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleC
 @Slf4j
 public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunkSplitter {
 
+    private static final String NULLABLE_SPLIT_COLUMN_HINT =
+            "To read the snapshot in parallel, declare a NOT NULL unique column or configure a "
+                    + "non-nullable primaryKeys or snapshotSplitColumn in table-names-config.";
+
     private final JdbcSourceConfig sourceConfig;
     private final JdbcDataSourceDialect dialect;
 
@@ -62,6 +66,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
     @Override
     public Collection<SnapshotSplit> generateSplits(TableId tableId) {
+        // When concurrent read is disabled, skip split analysis and return a single full-table
+        // split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!sourceConfig.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split without analysis.",
+                    tableId);
+            return Collections.singletonList(
+                    createSnapshotSplit(null, tableId, 0, null, null, null));
+        }
+
         try (JdbcConnection jdbc = dialect.openJdbcConnection(sourceConfig)) {
             log.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();
@@ -76,7 +90,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 if (sourceConfig.isExactlyOnce()) {
                     throw new UnsupportedOperationException(
                             String.format(
-                                    "Exactly once is enabled, but not found primary key or unique key for table %s",
+                                    "Exactly once is enabled, but not found non-nullable primary key or unique key for table %s",
                                     tableId));
                 }
                 SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
@@ -122,7 +136,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         }
     }
 
-    private List<ChunkRange> splitTableIntoChunks(
+    protected List<ChunkRange> splitTableIntoChunks(
             JdbcConnection jdbc, TableId tableId, Column splitColumn) throws Exception {
         final String splitColumnName = splitColumn.name();
         final Object[] minMax = queryMinMax(jdbc, tableId, splitColumn);
@@ -137,10 +151,12 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         final double distributionFactorUpper = sourceConfig.getDistributionFactorUpper();
         final double distributionFactorLower = sourceConfig.getDistributionFactorLower();
         final int sampleShardingThreshold = sourceConfig.getSampleShardingThreshold();
+        boolean sampleShardingAllow = sourceConfig.isSampleShardingAllow();
 
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tableId,
                 splitColumnName,
                 min,
@@ -148,7 +164,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingAllow);
 
         if (isEvenlySplitColumn(splitColumn)) {
             long approximateRowCnt = queryApproximateRowCnt(jdbc, tableId);
@@ -160,14 +177,60 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             && doubleCompare(distributionFactor, distributionFactorUpper) <= 0;
 
             if (dataIsEvenlyDistributed) {
+                // When distributionFactor > 1.0, primary key IDs are not consecutive
+                // (there are gaps in the ID space). Arithmetic-based evenly-sized chunk
+                // splitting assumes gaps are uniformly distributed, which fails when
+                // gaps are clustered (e.g., large ranges of deleted IDs). In this case,
+                // prefer sampling-based splitting which uses actual data points for
+                // chunk boundaries, producing balanced splits regardless of gap
+                // distribution.
+                int shardCount = (int) Math.ceil((double) approximateRowCnt / chunkSize);
+                if (doubleCompare(distributionFactor, 1.0d) > 0
+                        && sampleShardingAllow
+                        && shardCount > 1) {
+                    int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
+                    if (inverseSamplingRate > chunkSize) {
+                        log.warn(
+                                "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
+                                inverseSamplingRate,
+                                chunkSize);
+                        inverseSamplingRate = chunkSize;
+                    }
+                    log.info(
+                            "Distribution factor {} > 1.0 for table {}, using sampling-based "
+                                    + "splitting for better chunk balance with non-consecutive IDs, "
+                                    + "the sampling rate is {}",
+                            distributionFactor,
+                            tableId,
+                            inverseSamplingRate);
+                    Object[] sample =
+                            sampleDataFromColumn(jdbc, tableId, splitColumn, inverseSamplingRate);
+                    log.info(
+                            "Sample data from table {} end, the sample size is {}",
+                            tableId,
+                            sample.length);
+                    if (sample.length >= shardCount) {
+                        return efficientShardingThroughSampling(
+                                tableId, sample, approximateRowCnt, shardCount);
+                    }
+                    log.warn(
+                            "Sampling returned insufficient data for table {} (sample size {}, required {}). "
+                                    + "This indicates highly sparse keys defeating the sampler. "
+                                    + "Falling back to splitUnevenlySizedChunks to ensure accurate chunk sizes.",
+                            tableId,
+                            sample.length,
+                            shardCount);
+                    return splitUnevenlySizedChunks(
+                            jdbc, tableId, splitColumn, min, max, chunkSize);
+                }
                 // the minimum dynamic chunk size is at least 1
                 final int dynamicChunkSize = Math.max((int) (distributionFactor * chunkSize), 1);
                 return splitEvenlySizedChunks(
                         tableId, min, max, approximateRowCnt, chunkSize, dynamicChunkSize);
             } else {
-                int shardCount = (int) (approximateRowCnt / chunkSize);
+                int shardCount = (int) Math.ceil((double) approximateRowCnt / chunkSize);
                 int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
-                if (sampleShardingThreshold < shardCount) {
+                if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
                     // It is necessary to ensure that the number of data rows sampled by the
                     // sampling rate is greater than the number of shards.
                     // Otherwise, if the sampling rate is too low, it may result in an insufficient
@@ -191,8 +254,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             "Sample data from table {} end, the sample size is {}",
                             tableId,
                             sample.length);
-                    return efficientShardingThroughSampling(
-                            tableId, sample, approximateRowCnt, shardCount);
+                    if (sample.length >= shardCount) {
+                        return efficientShardingThroughSampling(
+                                tableId, sample, approximateRowCnt, shardCount);
+                    }
+                    log.warn(
+                            "Sampling returned insufficient data for table {} (sample size {}, required {}). "
+                                    + "Falling back to splitUnevenlySizedChunks.",
+                            tableId,
+                            sample.length,
+                            shardCount);
                 }
                 return splitUnevenlySizedChunks(jdbc, tableId, splitColumn, min, max, chunkSize);
             }
@@ -401,9 +472,14 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         String tableSc =
                 splitColumnsConfig.getOrDefault(tableId.catalog() + "." + tableId.table(), null);
 
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (StringUtils.isNotEmpty(tableSc)) {
-            // Is tableSc（table split column） the unique key
-            AtomicBoolean isUniqueKey = new AtomicBoolean(false);
+            // Is tableSc (table split column) in the primary key or a unique key
+            AtomicBoolean isPrimaryOrUniqueKey =
+                    new AtomicBoolean(
+                            primaryKey
+                                    .map(key -> key.getColumnNames().contains(tableSc))
+                                    .orElse(false));
             dialect.getUniqueKeys(jdbc, tableId)
                     .forEach(
                             ck ->
@@ -411,13 +487,20 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                             .forEach(
                                                     ckc -> {
                                                         if (tableSc.equals(ckc.getColumnName())) {
-                                                            isUniqueKey.set(true);
+                                                            isPrimaryOrUniqueKey.set(true);
                                                         }
                                                     }));
 
-            if (isUniqueKey.get()) {
+            if (isPrimaryOrUniqueKey.get()) {
                 Column column = table.columnWithName(tableSc);
-                if (isEvenlySplitColumn(column)) {
+                if (dialect.isColumnNullable(jdbc, tableId, column)) {
+                    log.warn(
+                            "Config snapshotSplitColumn {} of table {} is nullable, rows with NULL in it "
+                                    + "cannot be assigned to any snapshot chunk, ignore it. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
+                            tableSc,
+                            tableId);
+                } else if (isEvenlySplitColumn(column)) {
                     return column;
                 } else {
                     log.warn(
@@ -425,16 +508,25 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             tableId);
                 }
             } else {
-                log.warn("Config snapshotSplitColumn not unique key for table {}", tableId);
+                log.warn(
+                        "Config snapshotSplitColumn not primary or unique key for table {}",
+                        tableId);
             }
         } else {
             log.info("Config snapshotSplitColumn not exists for table {}", tableId);
         }
 
-        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
             Column firstColumn = table.columnWithName(primaryKey.get().getColumnNames().get(0));
-            if (isEvenlySplitColumn(firstColumn)) {
+            // A primary key configured in table-names-config may name a nullable column
+            if (dialect.isColumnNullable(jdbc, tableId, firstColumn)) {
+                log.warn(
+                        "Skip primary key {} of table {} as snapshot split column: column {} is nullable. "
+                                + NULLABLE_SPLIT_COLUMN_HINT,
+                        primaryKey.get().getColumnNames(),
+                        tableId,
+                        firstColumn.name());
+            } else if (isEvenlySplitColumn(firstColumn)) {
                 splitColumn = columnComparable(splitColumn, firstColumn);
                 if (sqlTypePriority(splitColumn) == 1) {
                     return splitColumn;
@@ -449,6 +541,17 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             for (ConstraintKey uniqueKey : uniqueKeys) {
                 Column firstColumn =
                         table.columnWithName(uniqueKey.getColumnNames().get(0).getColumnName());
+                // A unique key may hold any number of NULLs, and NULL never matches a chunk
+                // range predicate, so such rows would be silently skipped by the snapshot.
+                if (dialect.isColumnNullable(jdbc, tableId, firstColumn)) {
+                    log.warn(
+                            "Skip unique key {} of table {} as snapshot split column: column {} is nullable. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
+                            uniqueKey.getConstraintName(),
+                            tableId,
+                            firstColumn.name());
+                    continue;
+                }
                 if (isEvenlySplitColumn(firstColumn)) {
                     splitColumn = columnComparable(splitColumn, firstColumn);
                     if (sqlTypePriority(splitColumn) == 1) {

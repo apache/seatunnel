@@ -17,27 +17,35 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufSerializationSchema;
 
 import java.util.Optional;
 
 public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private RabbitmqClient rabbitMQClient;
-    private final JsonSerializationSchema jsonSerializationSchema;
+    private final SerializationSchema serializationSchema;
 
     public RabbitmqSinkWriter(RabbitmqConfig config, SeaTunnelRowType seaTunnelRowType) {
         this.rabbitMQClient = new RabbitmqClient(config);
-        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        try {
+            this.rabbitMQClient.setupQueue();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup RabbitMQ queue", e);
+        }
+        this.serializationSchema = createSerializationSchema(config, seaTunnelRowType);
     }
 
     @Override
     public void write(SeaTunnelRow element) {
-        rabbitMQClient.write(jsonSerializationSchema.serialize(element));
+        rabbitMQClient.write(serializationSchema.serialize(element));
     }
 
     @Override
@@ -49,6 +57,26 @@ public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() {
         if (rabbitMQClient != null) {
             rabbitMQClient.close();
+        }
+    }
+
+    private SerializationSchema createSerializationSchema(
+            RabbitmqConfig config, SeaTunnelRowType seaTunnelRowType) {
+        RabbitmqMessageFormat format = config.getFormat();
+        if (format == null) {
+            format = RabbitmqMessageFormat.JSON;
+        }
+        switch (format) {
+            case JSON:
+                return new JsonSerializationSchema(seaTunnelRowType);
+            case PROTOBUF:
+                return new ProtobufSerializationSchema(
+                        seaTunnelRowType,
+                        config.getProtobufMessageName(),
+                        config.getProtobufSchema());
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported RabbitMQ message format: " + format);
         }
     }
 }

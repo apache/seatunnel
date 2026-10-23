@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -33,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.ResultSet;
@@ -57,7 +57,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected static final int QUERY_PORT = 9030;
     protected static final int HTTP_PORT = 8030;
     protected static final int BE_HTTP_PORT = 8040;
-    protected static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
+    protected static final String URL = "jdbc:mysql://%s:%s";
     protected static final String USERNAME = "root";
     protected static final String PASSWORD = "";
     protected Connection jdbcConnection;
@@ -70,8 +70,6 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     private static final String DROP_BE = "ALTER SYSTEM DROPP BACKEND \"127.0.0.1:9050\"";
     private static final String ADD_BE = "ALTER SYSTEM ADD BACKEND \"%s:9050\"";
     protected static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    protected static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     @BeforeAll
     @Override
@@ -80,12 +78,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
                         .withPrivilegedMode(true);
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
         given().pollDelay(20, TimeUnit.SECONDS)
@@ -100,13 +94,19 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                     InstantiationException, IllegalAccessException {
         log.info("doris initializing ...");
         URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                new URLClassLoader(
+                        new URL[] {mysqlDriverJarPath().toUri().toURL()},
+                        DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                        props);
         initializeBE();
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
@@ -119,6 +119,10 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 resultSet = statement.executeQuery(SHOW_BE);
             } while (!isBeReady(resultSet, Duration.ofSeconds(1L)));
         }
+    }
+
+    protected Path mysqlDriverJarPath() {
+        return DependencyJar.of(com.mysql.cj.jdbc.Driver.class).path();
     }
 
     // The Host of the official image [apache/doris:doris-all-in-one-2.1.0] BE is 127.0.0.1, causing

@@ -53,4 +53,16 @@ public class JdbcUrlUtilTest {
         Assertions.assertEquals(5310, urlInfo.getPort());
         Assertions.assertEquals(urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/"));
     }
+
+    @Test
+    public void testOracleServiceUrlWithDatabase() {
+        JdbcUrlUtil.UrlInfo urlInfo =
+                JdbcUrlUtil.getUrlInfo("jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB");
+        Assertions.assertTrue(urlInfo.getUrlWithDatabase().isPresent());
+        Assertions.assertEquals("ORCLCDB", urlInfo.getDefaultDatabase().get());
+        Assertions.assertEquals(
+                "jdbc:oracle:thin:@//oracle-host:1521", urlInfo.getUrlWithoutDatabase());
+        Assertions.assertEquals("oracle-host", urlInfo.getHost());
+        Assertions.assertEquals(1521, urlInfo.getPort());
+    }
 }

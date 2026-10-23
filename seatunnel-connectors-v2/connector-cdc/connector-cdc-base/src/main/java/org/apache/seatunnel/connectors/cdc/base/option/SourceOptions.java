@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
@@ -121,11 +124,43 @@ public class SourceOptions {
                     .withDescription(
                             "Enable send schema change events, by default is false. If set to true, the schema changes will be sent to downstream.");
 
+    public static final Option<List<String>> SCHEMA_CHANGES_INCLUDE =
+            Options.key("schema-changes.include")
+                    .listType()
+                    .defaultValue(Collections.emptyList())
+                    .withDescription(
+                            "Only schema change event types listed here are sent downstream when schema-changes.enabled is true. "
+                                    + "Empty means all event types are eligible. "
+                                    + "Valid values: "
+                                    + SchemaChangeEventType.validNames()
+                                    + " (update.columns is a group alias for all column-level changes). ");
+
+    public static final Option<List<String>> SCHEMA_CHANGES_EXCLUDE =
+            Options.key("schema-changes.exclude")
+                    .listType()
+                    .defaultValue(Collections.emptyList())
+                    .withDescription(
+                            "Schema change event types listed here are NOT sent downstream. Applied after schema-changes.include; "
+                                    + "exclude wins when a type appears in both lists. "
+                                    + "Valid values: "
+                                    + SchemaChangeEventType.validNames()
+                                    + " (update.columns is a group alias for all column-level changes). ");
+
+    public static final Option<Boolean> ENABLE_CONCURRENT_READ =
+            Options.key("enable_concurrent_read")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable concurrent read with split during snapshot phase. "
+                                    + "When set to false, the source reads the table as a single split "
+                                    + "without any split analysis, which is useful for tables without indexes.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
-                .optional(DEBEZIUM_PROPERTIES);
+                .optional(DEBEZIUM_PROPERTIES)
+                .optional(ENABLE_CONCURRENT_READ);
     }
 }

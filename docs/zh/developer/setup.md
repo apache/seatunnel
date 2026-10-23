@@ -1,5 +1,9 @@
 # 搭建开发环境
 
+## 从这里开始
+
+如果你是第一次参与贡献，建议先读 [贡献路径](./contribution-path.md)。它可以帮助你先判断应该从文档、connector 还是引擎调试入口开始，再决定是否搭建完整本地环境。
+
 在这个章节， 我们会向你展示如何搭建 SeaTunnel 的开发环境， 然后用 JetBrains IntelliJ IDEA 跑一个简单的示例。
 
 > 你可以用任何你喜欢的开发环境进行开发和测试，我们只是用 [JetBrains IDEA](https://www.jetbrains.com/idea/)
@@ -10,7 +14,7 @@
 在设置开发环境之前， 需要做一些准备工作， 确保你安装了以下软件：
 
 * 安装 [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)。
-* 安装 [Java](https://www.java.com/en/download/) (目前只支持 JDK8/JDK11) 并且设置 `JAVA_HOME` 环境变量。
+* 安装 [Java](https://www.java.com/en/download/) (目前只支持 JDK11/JDK17) 并且设置 `JAVA_HOME` 环境变量。
 * 安装 [Scala](https://www.scala-lang.org/download/2.11.12.html) (目前只支持 scala 2.11.12)。
 * 安装 [JetBrains IDEA](https://www.jetbrains.com/idea/)。
 
@@ -118,4 +122,3 @@ sink {
   Console {}
 }
 ```
-

@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorE
 
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
@@ -40,14 +41,16 @@ import org.neo4j.driver.exceptions.value.LossyCoercion;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private final SingleSplitReaderContext context;
-    private final Neo4jSourceQueryInfo neo4jSourceQueryInfo;
-    private final SeaTunnelRowType rowType;
+    private final String database;
+    private final List<Neo4jSourceTableConfig> tableConfigs;
     private final Driver driver;
     private Session session;
 
@@ -55,49 +58,116 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             SingleSplitReaderContext context,
             Neo4jSourceQueryInfo neo4jSourceQueryInfo,
             SeaTunnelRowType rowType) {
+        this(
+                context,
+                neo4jSourceQueryInfo,
+                Collections.singletonList(
+                        new Neo4jSourceTableConfig(
+                                neo4jSourceQueryInfo.getQuery(), rowType, null)));
+    }
+
+    Neo4jSourceReader(
+            SingleSplitReaderContext context,
+            Neo4jSourceQueryInfo neo4jSourceQueryInfo,
+            List<Neo4jSourceTableConfig> tableConfigs) {
         this.context = context;
-        this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
+        this.database = neo4jSourceQueryInfo.getDriverBuilder().getDatabase();
+        this.tableConfigs = Collections.unmodifiableList(new ArrayList<>(tableConfigs));
         this.driver = neo4jSourceQueryInfo.getDriverBuilder().build();
-        this.rowType = rowType;
     }
 
     @Override
     public void open() throws Exception {
-        this.session =
-                driver.session(
-                        SessionConfig.forDatabase(
-                                neo4jSourceQueryInfo.getDriverBuilder().getDatabase()));
+        this.session = driver.session(SessionConfig.forDatabase(database));
     }
 
     @Override
     public void close() throws IOException {
-        session.close();
-        driver.close();
+        // The session is only assigned in open(), so a reader whose open() failed still owns a
+        // driver that has to be released. Every step runs, and the first failure is the one that
+        // propagates: later ones are attached to it as suppressed.
+        Throwable closeFailure = null;
+        if (null != session) {
+            try {
+                session.close();
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
+            }
+        }
+        try {
+            driver.close();
+        } catch (Throwable throwable) {
+            closeFailure = appendSuppressed(closeFailure, throwable);
+        }
+        if (closeFailure != null) {
+            rethrowCloseFailure(closeFailure);
+        }
+    }
+
+    private Throwable appendSuppressed(Throwable existingFailure, Throwable newFailure) {
+        if (existingFailure == null) {
+            return newFailure;
+        }
+        existingFailure.addSuppressed(newFailure);
+        return existingFailure;
+    }
+
+    private void rethrowCloseFailure(Throwable throwable) throws IOException {
+        if (throwable instanceof IOException) {
+            throw (IOException) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException) throwable;
+        }
+        throw new IOException("Failed to close Neo4j source reader.", throwable);
     }
 
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        final Query query = new Query(neo4jSourceQueryInfo.getQuery());
-        session.readTransaction(
-                tx -> {
-                    final Result result = tx.run(query);
-                    result.stream()
-                            .forEach(
-                                    row -> {
-                                        final Object[] fields =
-                                                new Object[rowType.getTotalFields()];
-                                        for (int i = 0; i < rowType.getTotalFields(); i++) {
-                                            final String fieldName = rowType.getFieldName(i);
-                                            final SeaTunnelDataType<?> fieldType =
-                                                    rowType.getFieldType(i);
-                                            final Value value = row.get(fieldName);
-                                            fields[i] = convertType(fieldType, value);
-                                        }
-                                        output.collect(new SeaTunnelRow(fields));
-                                    });
-                    return null;
-                });
-        this.context.signalNoMoreElement();
+        try {
+            for (Neo4jSourceTableConfig tableConfig : tableConfigs) {
+                readTable(output, tableConfig);
+            }
+        } finally {
+            this.context.signalNoMoreElement();
+        }
+    }
+
+    private void readTable(Collector<SeaTunnelRow> output, Neo4jSourceTableConfig tableConfig) {
+        final Query query = new Query(tableConfig.getQuery());
+        try {
+            session.readTransaction(
+                    tx -> {
+                        final Result result = tx.run(query);
+                        result.stream()
+                                .forEach(row -> output.collect(convertRecord(row, tableConfig)));
+                        return null;
+                    });
+        } catch (RuntimeException exception) {
+            if (tableConfig.getTableId() == null) {
+                throw exception;
+            }
+            throw new Neo4jConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                    "Failed to read Neo4j table '" + tableConfig.getTableId() + "'.",
+                    exception);
+        }
+    }
+
+    static SeaTunnelRow convertRecord(Record record, Neo4jSourceTableConfig tableConfig) {
+        SeaTunnelRowType rowType = tableConfig.getRowType();
+        Object[] fields = new Object[rowType.getTotalFields()];
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            String fieldName = rowType.getFieldName(i);
+            SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
+            Value value = record.get(fieldName);
+            fields[i] = convertType(fieldType, value);
+        }
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+        if (tableConfig.getTableId() != null) {
+            seaTunnelRow.setTableId(tableConfig.getTableId());
+        }
+        return seaTunnelRow;
     }
 
     /**

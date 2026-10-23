@@ -200,29 +200,21 @@ TableSchema schema = TableSchema.builder()
 
 ### 4.1 Source → Transform → Sink Flow
 
-```
-┌──────────────┐
-│    Source    │
-│              │
-│  produces    │
-│ CatalogTable │
-└──────┬───────┘
-       │
-       ▼ (Input Schema)
-┌──────────────┐
-│  Transform   │
-│              │
-│  modifies    │
-│ CatalogTable │
-└──────┬───────┘
-       │
-       ▼ (Output Schema)
-┌──────────────┐
-│     Sink     │
-│              │
-│  validates   │
-│ CatalogTable │
-└──────────────┘
+```mermaid
+flowchart LR
+    source["Source<br/>Produce CatalogTable"]
+    transform["Transform<br/>Update CatalogTable"]
+    sink["Sink<br/>Validate CatalogTable"]
+
+    source -- "Input schema" --> transform
+    transform -- "Output schema" --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink layerBlue;
+    class transform layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 Source Schema Production
@@ -663,15 +655,15 @@ sink {
 
 - [Source Architecture](source-architecture.md)
 - [Sink Architecture](sink-architecture.md)
-- [Schema Evolution](../../introduction/concepts/schema-evolution.md)
+- [Schema Evolution](../../introduction/configuration/schema-evolution.md)
 - [Schema Feature](../../introduction/concepts/schema-feature.md)
 
 ## 11. References
 
 ### Key Source Files
 
-- [CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
-- [TableSchema.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
-- [Column.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
-- [SeaTunnelDataType.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
-- [SchemaChangeEvent.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/event/SchemaChangeEvent.java)
+- [CatalogTable.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [TableSchema.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
+- [Column.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
+- [SeaTunnelDataType.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
+- [SchemaChangeEvent.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/schema/event/SchemaChangeEvent.java)

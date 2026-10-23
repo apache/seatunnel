@@ -160,6 +160,10 @@ public class MilvusCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            return false;
+        }
+
         R<Boolean> response =
                 this.client.hasCollection(
                         HasCollectionParam.newBuilder()
@@ -229,12 +233,39 @@ public class MilvusCatalog implements Catalog {
             TablePath tablePath, List<ConstraintKey.ConstraintKeyColumn> vectorIndexes) {
         for (ConstraintKey.ConstraintKeyColumn column : vectorIndexes) {
             VectorIndex index = (VectorIndex) column;
+            String fieldName = index.getColumnName();
+            String indexName =
+                    StringUtils.isNotBlank(index.getIndexName()) ? index.getIndexName() : fieldName;
+            if (index.getIndexType() == null) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
+                        String.format(
+                                "indexType is required for vector index on column '%s'. "
+                                        + "Please specify it in schema constraintKeys configuration",
+                                fieldName));
+            }
+            if (index.getMetricType() == null) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
+                        String.format(
+                                "metricType is required for vector index on column '%s'. "
+                                        + "Please specify it in schema constraintKeys configuration",
+                                fieldName));
+            }
+            log.info(
+                    "Creating Milvus vector index. database={}, collection={}, field={}, indexName={}, indexType={}, metricType={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName(),
+                    fieldName,
+                    indexName,
+                    index.getIndexType(),
+                    index.getMetricType());
             CreateIndexParam createIndexParam =
                     CreateIndexParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
-                            .withFieldName(index.getColumnName())
-                            .withIndexName(index.getIndexName())
+                            .withFieldName(fieldName)
+                            .withIndexName(indexName)
                             .withIndexType(IndexType.valueOf(index.getIndexType().name()))
                             .withMetricType(MetricType.valueOf(index.getMetricType().name()))
                             .build();
@@ -275,7 +306,8 @@ public class MilvusCatalog implements Catalog {
                                 column,
                                 tableSchema.getPrimaryKey(),
                                 partitionKeyField,
-                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID));
+                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID),
+                                config.get(MilvusSinkOptions.ENABLE_NULLABLE_FIELD));
                 fieldTypes.add(fieldType);
             }
 

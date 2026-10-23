@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,11 +27,11 @@ import java.nio.file.Paths;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Unit tests for {@link YamlSeaTunnelDomConfigProcessor} focusing on datasource config parsing. */
+/** Unit tests for {@link YamlSeaTunnelDomConfigProcessor} focusing on Metadata config parsing. */
 public class YamlSeaTunnelDomConfigProcessorTest {
 
     @Test
-    public void testParseDataSourceConfigWithNestedProvider() throws Exception {
+    public void testParseMetadataConfigWithNestedProvider() throws Exception {
         String configPath =
                 Paths.get(
                                 YamlSeaTunnelDomConfigProcessorTest.class
@@ -41,16 +41,16 @@ public class YamlSeaTunnelDomConfigProcessorTest {
 
         SeaTunnelConfig config =
                 new YamlSeaTunnelConfigBuilder(new FileInputStream(configPath)).build();
-        DataSourceConfig dataSourceConfig = config.getEngineConfig().getDataSourceConfig();
+        MetadataConfig metadataConfig = config.getEngineConfig().getMetadataConfig();
 
         // Verify basic settings
-        assertTrue(dataSourceConfig.isEnabled());
-        assertEquals("test_kind", dataSourceConfig.getKind());
+        assertTrue(metadataConfig.isEnabled());
+        assertEquals("test_kind", metadataConfig.getKind());
 
         // Verify nested provider properties are parsed correctly
-        assertEquals(3, dataSourceConfig.getProperties().size());
-        assertEquals("http://127.0.0.1:8090", dataSourceConfig.getProperties().get("test_config1"));
-        assertEquals("test_metalake", dataSourceConfig.getProperties().get("test_config2"));
-        assertEquals("test", dataSourceConfig.getProperties().get("test_config3"));
+        assertEquals(3, metadataConfig.getProperties().size());
+        assertEquals("http://127.0.0.1:8090", metadataConfig.getProperties().get("test_config1"));
+        assertEquals("test_metalake", metadataConfig.getProperties().get("test_config2"));
+        assertEquals("test", metadataConfig.getProperties().get("test_config3"));
     }
 }

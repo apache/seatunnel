@@ -39,6 +39,13 @@ public class StarRocksSinkManager {
     private final List<byte[]> batchList;
 
     private final StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
+
+    /**
+     * Snapshot whose outcome is not confirmed yet. Its rows and label must survive failed flush
+     * calls so a later retry cannot bypass StarRocks label-based idempotency.
+     */
+    private StarRocksFlushTuple pendingFlush;
+
     private volatile boolean initialize;
     private volatile Exception flushException;
     private int batchRowCount = 0;
@@ -64,9 +71,18 @@ public class StarRocksSinkManager {
         initialize = true;
     }
 
+    /**
+     * Buffers a record after resolving any previously failed flush.
+     *
+     * <p>A new record cannot join a pending snapshot because clearing that snapshot after a retry
+     * would otherwise clear a record that was never sent.
+     */
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
+        if (pendingFlush != null) {
+            flush();
+        }
         byte[] bts = record.getBytes(StandardCharsets.UTF_8);
         batchList.add(bts);
         batchRowCount++;
@@ -81,20 +97,36 @@ public class StarRocksSinkManager {
         flush();
     }
 
+    /**
+     * Flushes buffered rows and releases them only after StarRocks confirms success or commit.
+     *
+     * <p>Failed or unknown outcomes retain both the batch snapshot and its label across calls. The
+     * label changes only when StarRocks explicitly reports that the previous transaction aborted.
+     */
     public synchronized void flush() throws IOException {
         checkFlushException();
-        if (batchList.isEmpty()) {
-            return;
+        if (pendingFlush == null) {
+            if (batchList.isEmpty()) {
+                return;
+            }
+            pendingFlush =
+                    new StarRocksFlushTuple(
+                            createBatchLabel(), batchBytesSize, new ArrayList<>(batchList));
         }
-        String label = createBatchLabel();
-        StarRocksFlushTuple tuple =
-                new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
+        StarRocksFlushTuple tuple = pendingFlush;
+        boolean loadSucceeded = false;
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 Boolean successFlag = starrocksStreamLoadVisitor.doStreamLoad(tuple);
-                if (successFlag) {
+                if (Boolean.TRUE.equals(successFlag)) {
+                    loadSucceeded = true;
                     break;
                 }
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                        String.format(
+                                "Stream Load returned a non-success result for %s.%s with label [%s].",
+                                sinkConfig.getDatabase(), sinkConfig.getTable(), tuple.getLabel()));
             } catch (Exception e) {
                 log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
 
@@ -124,10 +156,20 @@ public class StarRocksSinkManager {
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new StarRocksConnectorException(
-                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
+                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                            "Interrupted while waiting to retry Stream Load.",
+                            ex);
                 }
             }
         }
+        if (!loadSucceeded) {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.WRITE_RECORDS_FAILED,
+                    "Stream Load did not complete successfully; buffered records were retained.");
+        }
+        // Buffered rows can only be released after StarRocks confirms a successful or committed
+        // load.
+        pendingFlush = null;
         batchList.clear();
         batchRowCount = 0;
         batchBytesSize = 0;

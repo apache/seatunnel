@@ -34,7 +34,7 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     LIST_DATABASES_FAILED("API-12", "List databases failed"),
     LIST_TABLES_FAILED("API-13", "List tables failed"),
     GET_PRIMARY_KEY_FAILED("API-14", "Get primary key failed"),
-    DATASOURCE_PROVIDER_INITIALIZE_FAILED("API-15", "DataSource provider initialize failed");
+    METADATA_PROVIDER_INITIALIZE_FAILED("API-15", "MetaData provider initialize failed");
 
     private final String code;
     private final String description;

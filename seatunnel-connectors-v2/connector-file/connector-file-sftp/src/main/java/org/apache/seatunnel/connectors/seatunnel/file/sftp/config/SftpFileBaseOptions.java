@@ -27,6 +27,11 @@ public class SftpFileBaseOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SFTP server password");
+    public static final Option<String> SFTP_KEYFILE =
+            Options.key("keyfile")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SFTP private key file path");
     public static final Option<String> SFTP_USER =
             Options.key("user")
                     .stringType()

@@ -35,10 +35,11 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
-Read data from aliyun Cos file system.
+Read data from Tencent Cloud COS file system.
 
 :::tip
 
@@ -52,39 +53,44 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 ## Options
 
-| name                       | type    | required | default value               |
-|----------------------------|---------|----------|-----------------------------|
-| path                       | string  | yes      | -                           |
-| file_format_type           | string  | yes      | -                           |
-| bucket                     | string  | yes      | -                           |
-| secret_id                  | string  | yes      | -                           |
-| secret_key                 | string  | yes      | -                           |
-| region                     | string  | yes      | -                           |
-| read_columns               | list    | yes      | -                           |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
-| row_delimiter              | string  | no       | \n                          |
-| parse_partition_from_path  | boolean | no       | true                        |
-| skip_header_row_number     | long    | no       | 0                           |
-| date_format                | string  | no       | yyyy-MM-dd                  |
-| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format                | string  | no       | HH:mm:ss                    |
-| schema                     | config  | no       | -                           |
-| sheet_name                 | string  | no       | -                           |
-| xml_row_tag                | string  | no       | -                           |
-| xml_use_attr_format        | boolean | no       | -                           |
-| csv_use_header_line        | boolean | no       | false                       |
-| file_filter_pattern        | string  | no       | -                           |
-| filename_extension         | string  | no       | -                           |
-| compress_codec             | string  | no       | none                        |
-| archive_compress_codec     | string  | no       | none                        |
-| encoding                   | string  | no       | UTF-8                       |
-| binary_chunk_size          | int     | no       | 1024                        |
-| binary_complete_file_mode  | boolean | no       | false                       |
-| common-options             |         | no       | -                           |
-| file_filter_modified_start | string  | no       | -                           | 
-| file_filter_modified_end   | string  | no       | -                           | 
-| quote_char                 | string  | no       | "                           |
-| escape_char                | string  | no       | -                           |
+| name                       | type    | required | default value               | Description |
+|----------------------------|---------|----------|-----------------------------|-------------|
+| path                       | string  | yes      | -                           | The COS path to read, can have sub paths. See `parse_partition_from_path` for format requirements. |
+| file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
+| bucket                     | string  | yes      | -                           | The bucket address of the COS file system, for example `cosn://seatunnel-test`. |
+| secret_id                  | string  | yes      | -                           | The secret ID for COS authentication. |
+| secret_key                 | string  | yes      | -                           | The secret key for COS authentication. |
+| region                     | string  | yes      | -                           | The region of the COS service. |
+| read_columns               | list    | no       | -                           | Column projection list for field mapping. |
+| read_partitions            | list    | no       | -                           | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
+| delimiter/field_delimiter  | string  | no       | \001                        | **delimiter** is deprecated after 2.3.5, use **field_delimiter** instead. Field delimiter for text files. |
+| row_delimiter              | string  | no       | \n                          | Row delimiter for text files, default `\n`. |
+| parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
+| skip_header_row_number     | long    | no       | 0                           | Number of header lines to skip, only for txt and csv. |
+| date_format                | string  | no       | yyyy-MM-dd                  | Date format for string-to-date conversion, supports `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`. |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         | Datetime format for string-to-datetime conversion, supports `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`. |
+| time_format                | string  | no       | HH:mm:ss                    | Time format for string-to-time conversion, supports `HH:mm:ss` `HH:mm:ss.SSS`. |
+| schema                     | config  | no       | -                           | Upstream data schema, required when file_format_type is text, json, excel, xml, or csv. |
+| sheet_name                 | string  | no       | -                           | Workbook sheet to read, only for excel. |
+| excel_engine               | string  | no       | POI                         | Excel reading engine, supports `POI` (default) and `EasyExcel`. |
+| poi_excel_max_file_size    | long    | no       | 52428800                    | Max Excel file size in bytes for POI engine, default 50 MB. |
+| xml_row_tag                | string  | no       | -                           | Tag name of data rows in XML files, only for xml. |
+| xml_use_attr_format        | boolean | no       | -                           | Whether to use tag attribute format for XML data, only for xml. |
+| csv_use_header_line        | boolean | no       | false                       | Whether to use the header line to parse CSV files matching RFC 4180. |
+| file_filter_pattern        | string  | no       | -                           | Regex pattern for filtering files by name or path. |
+| filename_extension         | string  | no       | -                           | Filter files by the specified file extension, e.g. `csv`, `.txt`, `json`, or `.xml`. |
+| compress_codec             | string  | no       | none                        | File compression codec, supports `lzo` and `none`. |
+| archive_compress_codec     | string  | no       | none                        | Archive compression codec, supports `zip` `tar` `tar.gz` `gz` `none`. |
+| encoding                   | string  | no       | UTF-8                       | File encoding, only for json, text, csv, xml. |
+| binary_chunk_size          | int     | no       | 1024                        | Chunk size in bytes for reading binary files, default 1024. |
+| binary_complete_file_mode  | boolean | no       | false                       | Whether to read the entire file as a single chunk, only for binary. |
+| common-options             |         | no       | -                           | Source plugin common parameters, see [Source Common Options](../common-options/source-common-options.md). |
+| file_filter_modified_start | string  | no       | -                           | Filter files by modification start time (inclusive), format `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end   | string  | no       | -                           | Filter files by modification end time (exclusive), format `yyyy-MM-dd HH:mm:ss`. |
+| quote_char                 | string  | no       | "                           | Single character that encloses CSV fields. |
+| escape_char                | string  | no       | -                           | Single character for escaping quotes or special characters inside CSV fields. |
+| recursive_file_scan        | boolean | no       | true                        | Whether to scan subdirectories recursively, default true. |
+| sort_files_by_modification_time | boolean | no       | false                       | Whether to sort files by modification time in descending order. When enabled, schema inference uses the latest file when reading evolving schemas. |
 
 ### path [string]
 
@@ -94,7 +100,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -185,7 +191,7 @@ at the same time. You can find the specific usage in the example below.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -193,25 +199,61 @@ Each element is converted to a row with the following schema:
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
+
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
 ### bucket [string]
 
-The bucket address of Cos file system, for example: `Cos://tyrantlucifer-image-bed`
+The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
-The secret id of Cos file system.
+The secret id of Cos file system. Issue this from the [Tencent Cloud CAM console](https://console.cloud.tencent.com/cam/capi) (SecretId field). For production jobs, prefer a CAM role with a scoped policy (e.g. `QcloudCOSReadOnlyAccess`) and use role-based temporary keys via STS instead of long-lived keys.
 
 ### secret_key [string]
 
-The secret key of Cos file system.
+The secret key of Cos file system. The SecretKey that pairs with `secret_id`. See `secret_id` for the recommended STS-based replacement.
 
 ### region [string]
 
-The region of cos file system.
+The region of cos file system. Use a region that matches your bucket's actual location (for example `ap-guangzhou`, `ap-shanghai`, `ap-chengdu`). Bucket access from a different region still works but incurs cross-region transfer cost and latency.
 
 ### read_columns [list]
 
@@ -297,6 +339,22 @@ Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
 
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
+
 ### xml_row_tag [string]
 
 Only need to be configured when file_format is xml.
@@ -308,6 +366,12 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### csv_use_header_line [boolean]
 
@@ -427,6 +491,19 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
@@ -530,4 +607,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

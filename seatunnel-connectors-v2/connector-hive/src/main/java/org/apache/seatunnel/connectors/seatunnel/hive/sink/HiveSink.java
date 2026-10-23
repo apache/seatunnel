@@ -43,9 +43,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
@@ -240,7 +239,7 @@ public class HiveSink
             tableName = getTableInformation().getTableName();
         } else {
             // Derive from config to ensure non-null values during commit
-            String table = readonlyConfig.get(HiveConfig.TABLE_NAME);
+            String table = readonlyConfig.get(HiveSinkOptions.TABLE_NAME);
             org.apache.seatunnel.api.table.catalog.TablePath path =
                     org.apache.seatunnel.api.table.catalog.TablePath.of(table);
             dbName = path.getDatabaseName();
@@ -297,15 +296,17 @@ public class HiveSink
                 StorageFactory.getStorageType(hdfsLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HiveOptions.HDFS_SITE_PATH)
+                .getOptional(HiveSinkOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
-        readonlyConfig.getOptional(HiveOptions.REMOTE_USER).ifPresent(hadoopConf::setRemoteUser);
-        readonlyConfig.getOptional(HiveOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
-                .getOptional(HiveOptions.KERBEROS_PRINCIPAL)
+                .getOptional(HiveSinkOptions.REMOTE_USER)
+                .ifPresent(hadoopConf::setRemoteUser);
+        readonlyConfig.getOptional(HiveSinkOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
+        readonlyConfig
+                .getOptional(HiveSinkOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HiveOptions.KERBEROS_KEYTAB_PATH)
+                .getOptional(HiveSinkOptions.KERBEROS_KEYTAB_PATH)
                 .ifPresent(hadoopConf::setKerberosKeytabPath);
         return hadoopConf;
     }
@@ -313,7 +314,7 @@ public class HiveSink
     // Try to read from configuration, qualify default location via HiveLocationUtils
     private String getDefaultTableLocation(ReadonlyConfig config) {
         try {
-            String table = config.get(HiveConfig.TABLE_NAME);
+            String table = config.get(HiveSinkOptions.TABLE_NAME);
             org.apache.seatunnel.api.table.catalog.TablePath path =
                     org.apache.seatunnel.api.table.catalog.TablePath.of(table);
             return org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils

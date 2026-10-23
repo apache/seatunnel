@@ -23,11 +23,14 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.pool.HikariProxyConnection;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -35,7 +38,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -46,11 +52,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -61,10 +70,14 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.mysql.cj.jdbc.ConnectionImpl;
 
-import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -76,6 +89,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
@@ -90,7 +109,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
-    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
+    private static final String URL = "jdbc:mysql://%s:%s/seatunnel";
 
     private static final String SQL = "select * from seatunnel.source";
 
@@ -103,6 +122,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_mysql_source_and_sink.sql",
                     "/jdbc_mysql_source_and_sink_parallel.sql");
+    private static final String CANCEL_CONFIG_FILE = "/jdbc_mysql_source_cancel.conf";
+    private static final String CANCEL_QUERY_MARKER = "seatunnel-jdbc-cancel-e2e";
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -240,11 +261,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_decimal_30",
                 };
         defaultCompare(executeKey, fieldNames, "c_bigint_30");
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     @Override
@@ -434,9 +450,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-
         return container;
     }
 
@@ -454,7 +467,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     private String getUrl() {
-        return URL.replace("HOST", dbServer.getHost());
+        return String.format(URL, dbServer.getHost(), jdbcCase.getLocalPort());
     }
 
     @Test
@@ -468,6 +481,79 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     public void testTinyInt1AsBooleanOrTINYINT() throws SQLException {
         testTinyInt1AsBooleanOrTINYINT(true, BasicType.BOOLEAN_TYPE);
         testTinyInt1AsBooleanOrTINYINT(false, BasicType.BYTE_TYPE);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "TestContainer.executeJob/cancelJob/getJobStatus are only implemented by the "
+                            + "Zeta engine, and the tested cancel hook is Zeta only")
+    public void testCancelJdbcSourceQuery(TestContainer container) throws Exception {
+        // The Zeta client requires --set-job-id to be numeric, and the job status/cancel REST
+        // calls address the job by the same id.
+        String jobId = String.valueOf(System.nanoTime());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Container.ExecResult> jobFuture =
+                executor.submit(() -> container.executeJob(CANCEL_CONFIG_FILE, jobId));
+
+        try {
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", container.getJobStatus(jobId)));
+            given().await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(hasRunningCancelQuery()));
+
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            given().await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertFalse(hasRunningCancelQuery()));
+
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", container.getJobStatus(jobId)));
+            jobFuture.get(30, TimeUnit.SECONDS);
+        } finally {
+            if (!jobFuture.isDone()) {
+                container.cancelJob(jobId);
+            }
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Checks the MySQL process list for the in-flight source query, identified by the marker
+     * comment in {@code jdbc_mysql_source_cancel.conf}. Excludes this control connection itself so
+     * the helper cannot match its own {@code PROCESSLIST} statement. Connection errors are
+     * propagated so they fail with their message instead of a blind timeout.
+     */
+    private boolean hasRunningCancelQuery() throws SQLException {
+        String processListQuery =
+                "SELECT INFO FROM information_schema.PROCESSLIST "
+                        + "WHERE ID <> CONNECTION_ID() AND INFO LIKE '%"
+                        + CANCEL_QUERY_MARKER
+                        + "%'";
+        try (Connection controlConnection =
+                        DriverManager.getConnection(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()),
+                                jdbcCase.getUserName(),
+                                jdbcCase.getPassword());
+                Statement statement = controlConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(processListQuery)) {
+            return resultSet.next();
+        }
     }
 
     private void testTinyInt1AsBooleanOrTINYINT(boolean intTypeNarrowing, BasicType<?> exceptType)
@@ -497,7 +583,52 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         }
     }
 
-    void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>A SET or ENUM value list containing the word "unsigned" - MySQL's own {@code
+     * mysql.event.sql_mode} holds {@code NO_UNSIGNED_SUBTRACTION} - used to be read as the UNSIGNED
+     * attribute of the column. The type converters then appended a " UNSIGNED" suffix, producing a
+     * type that does not exist in MySQL and failing table discovery for the whole job.
+     */
+    @Test
+    public void testSetAndEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "set_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + MYSQL_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_set` set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
+        }
+    }
+
+    void defaultSinkParametersTest() throws SQLException, ClassNotFoundException {
         TableSchema tableSchema =
                 TableSchema.builder()
                         .column(
@@ -582,7 +713,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
     }
 
-    void defaultMultiSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
+    void defaultMultiSinkParametersTest() throws SQLException {
         TableSchema tableSchema =
                 TableSchema.builder()
                         .column(
@@ -615,7 +746,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
         JdbcMultiTableResourceManager multiTableResourceManager1 =
                 (JdbcMultiTableResourceManager)
-                        jdbcSink1.createWriter(null).initMultiTableResourceManager(1, 1);
+                        jdbcSink1
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
+                                .initMultiTableResourceManager(1, 1);
         Properties connectionProperties1 = getMultiSinkProperties(multiTableResourceManager1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
 
@@ -632,7 +765,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
         JdbcMultiTableResourceManager multiTableResourceManager2 =
                 (JdbcMultiTableResourceManager)
-                        jdbcSink2.createWriter(null).initMultiTableResourceManager(1, 1);
+                        jdbcSink2
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
+                                .initMultiTableResourceManager(1, 1);
         Properties connectionProperties2 = getMultiSinkProperties(multiTableResourceManager2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
 
@@ -652,7 +787,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
         JdbcMultiTableResourceManager multiTableResourceManager3 =
                 (JdbcMultiTableResourceManager)
-                        jdbcSink3.createWriter(null).initMultiTableResourceManager(1, 1);
+                        jdbcSink3
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
+                                .initMultiTableResourceManager(1, 1);
         Properties connectionProperties3 = getMultiSinkProperties(multiTableResourceManager3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
@@ -673,7 +810,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
         JdbcMultiTableResourceManager multiTableResourceManager4 =
                 (JdbcMultiTableResourceManager)
-                        jdbcSink4.createWriter(null).initMultiTableResourceManager(1, 1);
+                        jdbcSink4
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
+                                .initMultiTableResourceManager(1, 1);
         Properties connectionProperties4 = getMultiSinkProperties(multiTableResourceManager4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
@@ -688,10 +827,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 .get()
                                 .getConnectionPool()
                                 .getConnection();
-        Properties connectionProperties =
-                ((ConnectionImpl) ReflectionUtils.getField(hikariProxyConnection, "delegate").get())
-                        .getProperties();
-        return connectionProperties;
+
+        return ((ConnectionImpl) ReflectionUtils.getField(hikariProxyConnection, "delegate").get())
+                .getProperties();
     }
 
     void defaultSourceParametersTest() throws Exception {
@@ -781,14 +919,14 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     private Properties getSinkProperties(JdbcSink jdbcSink)
-            throws IOException, SQLException, ClassNotFoundException {
-        JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
+            throws SQLException, ClassNotFoundException {
+        JdbcSinkWriter jdbcSinkWriter =
+                (JdbcSinkWriter) jdbcSink.createWriter(new DefaultSinkWriterContext(0, 1));
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)
                         ReflectionUtils.getField(jdbcSinkWriter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
-        Properties connectionProperties = connection.getProperties();
-        return connectionProperties;
+        return connection.getProperties();
     }
 
     private Properties getSourceProperties(JdbcSource jdbcSource) throws Exception {
@@ -800,7 +938,83 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 (JdbcConnectionProvider)
                         ReflectionUtils.getField(splitter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
-        Properties connectionProperties = connection.getProperties();
-        return connectionProperties;
+        return connection.getProperties();
+    }
+
+    @Test
+    public void testDuckDbUnboundedStringAutoDdl() throws Exception {
+        String label = String.join("", Collections.nCopies(400, "m"));
+        String tableName = "duckdb_string_lengths";
+        DuckDBTypeConverter converter = new DuckDBTypeConverter();
+        Column bit =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("bits")
+                                .columnType("BIT")
+                                .dataType("BIT")
+                                .build());
+        Column en =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("en")
+                                .columnType("ENUM('" + label + "')")
+                                .dataType("ENUM('" + label + "')")
+                                .build());
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", MYSQL_DATABASE, "source"),
+                        TableSchema.builder().column(bit).column(en).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "");
+        String actualDDL =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of(MYSQL_DATABASE, tableName),
+                                table,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build("mysql");
+        Assertions.assertTrue(actualDDL.contains("`bits` LONGTEXT"));
+        Assertions.assertTrue(actualDDL.contains("`en` LONGTEXT"));
+        boolean created = false;
+        try (Connection connection =
+                DriverManager.getConnection(getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(actualDDL);
+                created = true;
+            }
+            try (PreparedStatement insert =
+                    connection.prepareStatement("INSERT INTO " + tableName + " VALUES (?, ?)")) {
+                insert.setString(1, "10110");
+                insert.setString(2, label);
+                Assertions.assertEquals(1, insert.executeUpdate());
+                insert.setString(1, null);
+                insert.setString(2, null);
+                Assertions.assertEquals(1, insert.executeUpdate());
+            }
+            try (PreparedStatement select =
+                            connection.prepareStatement(
+                                    "SELECT bits, en FROM "
+                                            + tableName
+                                            + " ORDER BY bits IS NULL");
+                    ResultSet rs = select.executeQuery()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("10110", rs.getString(1));
+                Assertions.assertEquals(label, rs.getString(2));
+                Assertions.assertTrue(rs.next());
+                Assertions.assertNull(rs.getString(1));
+                Assertions.assertNull(rs.getString(2));
+                Assertions.assertFalse(rs.next());
+            }
+        } finally {
+            if (created) {
+                try (Connection dropConnection =
+                                DriverManager.getConnection(
+                                        getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD);
+                        Statement dropStatement = dropConnection.createStatement()) {
+                    dropStatement.execute("DROP TABLE IF EXISTS " + tableName);
+                }
+            }
+        }
     }
 }

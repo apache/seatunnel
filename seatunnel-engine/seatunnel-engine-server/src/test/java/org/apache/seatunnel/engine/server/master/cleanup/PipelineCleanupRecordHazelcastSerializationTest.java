@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.master.cleanup;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
@@ -28,9 +30,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,10 +51,9 @@ class PipelineCleanupRecordHazelcastSerializationTest {
         String clusterName =
                 TestUtils.getClusterName(
                         "PipelineCleanupRecordHazelcastSerializationTest_testPutAndGetAcrossMembers");
-        HazelcastInstanceImpl instance1 =
-                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
-        HazelcastInstanceImpl instance2 =
-                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        int[] ports = findTwoFreePorts();
+        HazelcastInstanceImpl instance1 = createHazelcastInstance(clusterName, ports[0], ports[1]);
+        HazelcastInstanceImpl instance2 = createHazelcastInstance(clusterName, ports[1], ports[0]);
         try {
             await().atMost(30, TimeUnit.SECONDS)
                     .until(() -> instance1.getCluster().getMembers().size() == 2);
@@ -96,6 +100,50 @@ class PipelineCleanupRecordHazelcastSerializationTest {
         } finally {
             instance1.shutdown();
             instance2.shutdown();
+        }
+    }
+
+    private HazelcastInstanceImpl createHazelcastInstance(
+            String clusterName, int localPort, int peerPort) {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Config hazelcastConfig =
+                Config.loadFromString(buildHazelcastConfig(clusterName, localPort, peerPort));
+        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    }
+
+    private String buildHazelcastConfig(String clusterName, int localPort, int peerPort) {
+        return "hazelcast:\n"
+                + "  cluster-name: "
+                + clusterName
+                + "\n"
+                + "  network:\n"
+                + "    join:\n"
+                + "      tcp-ip:\n"
+                + "        enabled: true\n"
+                + "        member-list:\n"
+                + "          - 127.0.0.1:"
+                + localPort
+                + "\n"
+                + "          - 127.0.0.1:"
+                + peerPort
+                + "\n"
+                + "    port:\n"
+                + "      auto-increment: false\n"
+                + "      port-count: 1\n"
+                + "      port: "
+                + localPort
+                + "\n";
+    }
+
+    private int[] findTwoFreePorts() {
+        try (ServerSocket first = new ServerSocket(0);
+                ServerSocket second = new ServerSocket(0)) {
+            first.setReuseAddress(true);
+            second.setReuseAddress(true);
+            return new int[] {first.getLocalPort(), second.getLocalPort()};
+        } catch (IOException e) {
+            throw new RuntimeException("No free Hazelcast ports available", e);
         }
     }
 }

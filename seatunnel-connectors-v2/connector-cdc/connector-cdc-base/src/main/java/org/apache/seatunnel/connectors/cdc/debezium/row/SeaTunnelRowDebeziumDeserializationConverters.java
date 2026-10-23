@@ -165,6 +165,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return convertToTime();
             case TIMESTAMP:
                 return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampTz(serverTimeZone);
             case FLOAT:
                 return wrapNumericConverter(convertToFloat());
             case DOUBLE:
@@ -390,6 +392,131 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return TemporalConversions.toLocalTime(dbzObj);
             }
         };
+    }
+
+    /**
+     * Flexible fallback formatter that covers non-ISO variants emitted by Debezium:
+     *
+     * <ul>
+     *   <li>Space separator instead of 'T' (MySQL in certain schema-history modes): {@code
+     *       2024-01-01 12:00:00+08:00}
+     *   <li>Hour-only offset (PostgreSQL short form): {@code 2024-01-01T12:00:00+08}
+     *   <li>Both: {@code 2024-01-01 12:00:00+08}
+     * </ul>
+     */
+    private static final java.time.format.DateTimeFormatter FLEXIBLE_OFFSET_FORMATTER =
+            new java.time.format.DateTimeFormatterBuilder()
+                    .parseLenient()
+                    .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                    .optionalStart()
+                    .appendLiteral('T')
+                    .optionalEnd()
+                    .optionalStart()
+                    .appendLiteral(' ')
+                    .optionalEnd()
+                    .append(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME)
+                    .appendPattern("[XXX][XX][X]")
+                    .toFormatter();
+
+    private static DebeziumDeserializationConverter convertToTimestampTz(ZoneId serverTimeZone) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof String) {
+                    return parseOffsetDateTimeFromString((String) dbzObj, serverTimeZone);
+                }
+                java.time.LocalDateTime localDateTime =
+                        TemporalConversions.toLocalDateTime(dbzObj, serverTimeZone);
+                return localDateTime
+                        .atZone(serverTimeZone)
+                        .toOffsetDateTime()
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            }
+        };
+    }
+
+    /**
+     * Parses a Debezium-emitted timestamp string into an {@link java.time.OffsetDateTime} using a
+     * fallback chain that tolerates the variety of formats Debezium may produce:
+     *
+     * <ol>
+     *   <li>{@link java.time.OffsetDateTime#parse} — strict ISO-8601 with numeric offset, e.g.
+     *       {@code 2024-01-01T12:00:00+08:00}
+     *   <li>{@link java.time.ZonedDateTime#parse} — IANA zone-region id, e.g. {@code
+     *       2024-01-01T12:00:00 Asia/Shanghai} or {@code 2024-01-01 12:00:00 Asia/Shanghai}. The
+     *       last space before an alphabetic token is treated as the zone-id boundary; any remaining
+     *       space in the datetime portion is replaced with 'T'.
+     *   <li>{@link #FLEXIBLE_OFFSET_FORMATTER} — space date/time separator or short offset, e.g.
+     *       {@code 2024-01-01 12:00:00+08:00} or {@code 2024-01-01T12:00:00+08}
+     *   <li>{@link Instant#parse} — UTC epoch literal, e.g. {@code 2024-01-01T12:00:00Z}
+     * </ol>
+     *
+     * If all attempts fail, an {@link IllegalArgumentException} is thrown with the raw value
+     * included so that the failing CDC task carries enough context for diagnosis.
+     */
+    @VisibleForTesting
+    static java.time.OffsetDateTime parseOffsetDateTimeFromString(
+            String str, ZoneId serverTimeZone) {
+        // 1. Strict ISO-8601 with numeric offset: 2024-01-01T12:00:00+08:00 / Z
+        try {
+            return java.time.OffsetDateTime.parse(str)
+                    .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        // 2. IANA zone-region id: "2024-01-01T12:00:00 Asia/Shanghai"
+        //    or space-date/time variant: "2024-01-01 12:00:00 Asia/Shanghai"
+        // Use lastIndexOf to isolate the zone id from the datetime part so that
+        // any space between the date and time is not corrupted by a global replace.
+        try {
+            int zoneStart = str.lastIndexOf(' ');
+            if (zoneStart > 0
+                    && zoneStart + 1 < str.length()
+                    && Character.isLetter(str.charAt(zoneStart + 1))) {
+                // Replace any space between date and time in the datetime portion with 'T'.
+                String dateTimePart = str.substring(0, zoneStart).trim().replace(' ', 'T');
+                String zonePart = str.substring(zoneStart + 1);
+                String normalized = dateTimePart + "[" + zonePart + "]";
+                java.time.format.DateTimeFormatter zoneRegionFmt =
+                        new java.time.format.DateTimeFormatterBuilder()
+                                .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                .appendLiteral('[')
+                                .parseCaseSensitive()
+                                .appendZoneRegionId()
+                                .appendLiteral(']')
+                                .toFormatter();
+                return java.time.ZonedDateTime.parse(normalized, zoneRegionFmt)
+                        .toOffsetDateTime()
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+
+        // 3. Space separator or short offset: 2024-01-01 12:00:00+08:00 / +08
+        try {
+            return java.time.OffsetDateTime.parse(str, FLEXIBLE_OFFSET_FORMATTER)
+                    .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        // 4. UTC epoch literal: 2024-01-01T12:00:00Z
+        try {
+            return Instant.parse(str).atOffset(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        throw new IllegalArgumentException(
+                "Unable to parse OffsetDateTime from CDC TIMESTAMP_TZ value: '"
+                        + str
+                        + "'. Supported formats: ISO-8601 with numeric offset, IANA zone-region"
+                        + " id, space-separated date/time, short-form hour-only offset, UTC"
+                        + " epoch literal.");
     }
 
     private static DebeziumDeserializationConverter convertToTimestamp(ZoneId serverTimeZone) {

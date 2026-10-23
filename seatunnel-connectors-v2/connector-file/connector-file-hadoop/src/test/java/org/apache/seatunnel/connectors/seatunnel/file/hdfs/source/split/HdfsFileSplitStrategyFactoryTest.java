@@ -22,7 +22,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
@@ -103,7 +102,7 @@ public class HdfsFileSplitStrategyFactoryTest {
     private Map<String, Object> baseConfig(FileFormat fileFormat) {
         Map<String, Object> map = new HashMap<>();
         map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), fileFormat);
-        map.put(HdfsSourceConfigOptions.DEFAULT_FS.key(), "file:///");
+        map.put(FileBaseSourceOptions.DEFAULT_FS.key(), "file:///");
         return map;
     }
 

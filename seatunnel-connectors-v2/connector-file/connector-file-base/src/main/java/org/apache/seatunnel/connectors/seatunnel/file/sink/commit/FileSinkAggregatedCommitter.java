@@ -17,17 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+
+import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 public class FileSinkAggregatedCommitter
@@ -35,8 +41,33 @@ public class FileSinkAggregatedCommitter
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
 
+    /**
+     * True only for FTP sinks configured with APPEND_DATA. In this mode commits append staged bytes
+     * to an existing target and abort must not rename the target back to the transaction directory,
+     * because the target may already contain user data that predates this checkpoint.
+     *
+     * <p>Abort also deletes the transaction directory together with the append-length markers, so a
+     * partially applied commit can no longer be detected after restore and its rows are appended
+     * again: after an aborted commit, append mode is at-least-once, not exactly-once.
+     */
+    private final boolean appendData;
+
+    private final Set<String> pendingUuidDirectories = new LinkedHashSet<>();
+    private final Set<String> pendingJobDirectories = new LinkedHashSet<>();
+
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this(hadoopConf, false);
+    }
+
+    public FileSinkAggregatedCommitter(HadoopConf hadoopConf, boolean appendData) {
         this.hadoopConf = hadoopConf;
+        this.appendData = appendData;
+    }
+
+    public static boolean shouldAppendData(HadoopConf hadoopConf, FileSinkConfig fileSinkConfig) {
+        return fileSinkConfig.isDataSaveModeExplicitlyConfigured()
+                && DataSaveMode.APPEND_DATA.equals(fileSinkConfig.getDataSaveMode())
+                && "ftp".equalsIgnoreCase(hadoopConf.getSchema());
     }
 
     @Override
@@ -55,12 +86,26 @@ public class FileSinkAggregatedCommitter
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
-                                // first rename temp file
-                                hadoopFileSystemProxy.renameFile(
-                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                if (appendData) {
+                                    hadoopFileSystemProxy.appendFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue());
+                                } else {
+                                    hadoopFileSystemProxy.renameFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                }
                             }
-                            // second delete transaction directory
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
+                            String transactionDir = entry.getKey();
+                            // Data files are already committed after rename; tmp cleanup is
+                            // best-effort and should not fail the whole checkpoint.
+                            try {
+                                hadoopFileSystemProxy.deleteFile(transactionDir);
+                                registerTransactionParentDirectories(transactionDir);
+                            } catch (Exception cleanupException) {
+                                log.warn(
+                                        "delete transaction directory [{}] failed after successful commit, ignore this cleanup error.",
+                                        transactionDir,
+                                        cleanupException);
+                            }
                         }
                     } catch (Throwable e) {
                         log.error(
@@ -119,17 +164,22 @@ public class FileSinkAggregatedCommitter
                     try {
                         for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            // rollback the file
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
-                                if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
-                                        && !hadoopFileSystemProxy.fileExist(mvFileEntry.getKey())) {
-                                    hadoopFileSystemProxy.renameFile(
-                                            mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                            if (!appendData) {
+                                // rollback the file
+                                for (Map.Entry<String, String> mvFileEntry :
+                                        entry.getValue().entrySet()) {
+                                    if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
+                                            && !hadoopFileSystemProxy.fileExist(
+                                                    mvFileEntry.getKey())) {
+                                        hadoopFileSystemProxy.renameFile(
+                                                mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                                    }
                                 }
                             }
                             // delete the transaction dir
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
+                            String transactionDir = entry.getKey();
+                            hadoopFileSystemProxy.deleteFile(transactionDir);
+                            cleanupTransactionParentDirectories(transactionDir);
                         }
                     } catch (Exception e) {
                         log.error("abort aggregatedCommitInfo error ", e);
@@ -144,6 +194,51 @@ public class FileSinkAggregatedCommitter
      */
     @Override
     public void close() throws IOException {
-        hadoopFileSystemProxy.close();
+        try {
+            cleanupPendingTransactionParentDirectories();
+        } finally {
+            hadoopFileSystemProxy.close();
+        }
+    }
+
+    private void registerTransactionParentDirectories(String transactionDir) {
+        Path uuidDir = new Path(transactionDir).getParent();
+        if (uuidDir == null) {
+            return;
+        }
+        Path jobDir = uuidDir.getParent();
+        if (jobDir == null) {
+            return;
+        }
+        pendingUuidDirectories.add(uuidDir.toString());
+        pendingJobDirectories.add(jobDir.toString());
+    }
+
+    private void cleanupTransactionParentDirectories(String transactionDir) {
+        Path uuidDir = new Path(transactionDir).getParent();
+        if (uuidDir == null) {
+            return;
+        }
+        Path jobDir = uuidDir.getParent();
+        if (jobDir == null) {
+            return;
+        }
+        cleanupEmptyDirectory(uuidDir.toString());
+        cleanupEmptyDirectory(jobDir.toString());
+    }
+
+    private void cleanupPendingTransactionParentDirectories() {
+        pendingUuidDirectories.forEach(this::cleanupEmptyDirectory);
+        pendingJobDirectories.forEach(this::cleanupEmptyDirectory);
+        pendingUuidDirectories.clear();
+        pendingJobDirectories.clear();
+    }
+
+    private void cleanupEmptyDirectory(String directory) {
+        try {
+            hadoopFileSystemProxy.deleteEmptyDirectory(directory);
+        } catch (IOException e) {
+            log.warn("Failed to clean empty transaction parent directory: {}", directory, e);
+        }
     }
 }

@@ -58,7 +58,7 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
     @Override
     public PaimonSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new PaimonSourceState(pendingSplits, null);
+            return new PaimonSourceState(pendingSplits, (Long) null);
         }
     }
 
