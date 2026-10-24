@@ -45,16 +45,15 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | INT<br/>INTEGER                                                             | INT                 |
 | BIGINT                                                                      | LONG                |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
-| DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, 18)     |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP           |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ        |
 | BINARY<br/>VARBINARY                                                        | BYTES               |
-| GEOGRAPHY (WKB or EWKB)<br/>GEOMETRY (WKB or EWKB)                          | BYTES               |
-| GEOGRAPHY (GeoJSON, WKT or EWKT)<br/>GEOMETRY (GeoJSON, WKB or EWKB)        | STRING              |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
 
 ## Source Options
 
@@ -151,7 +150,7 @@ source {
 - Use the `Jdbc` plugin name for Snowflake jobs and set `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`.
 - Place the Snowflake JDBC driver jar in `$SEATUNNEL_HOME/plugins/jdbc/lib/` before running the job.
 - When reading in parallel, `partition_column`, `partition_lower_bound`, `partition_upper_bound`, and `partition_num` must describe the same numeric column range.
-- Snowflake geospatial columns are returned as bytes or string depending on Snowflake JDBC URL parameters such as `GEOGRAPHY_OUTPUT_FORMAT`.
+- Snowflake `GEOGRAPHY`/`GEOMETRY` columns are always mapped to the SeaTunnel `STRING` type; the returned text representation depends on Snowflake JDBC URL parameters such as `GEOGRAPHY_OUTPUT_FORMAT`.
 
 ## Changelog
 
