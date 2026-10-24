@@ -75,12 +75,30 @@ public class ResourceRequestHandler {
 
     private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final ResourceShortageListener resourceShortageListener;
+
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
             ConcurrentMap<Address, WorkerProfile> registerWorker,
             AbstractResourceManager resourceManager,
             SlotAllocationStrategy slotAllocationStrategy) {
+        this(
+                jobId,
+                resourceProfile,
+                registerWorker,
+                resourceManager,
+                slotAllocationStrategy,
+                ResourceShortageListener.NOOP);
+    }
+
+    public ResourceRequestHandler(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            ConcurrentMap<Address, WorkerProfile> registerWorker,
+            AbstractResourceManager resourceManager,
+            SlotAllocationStrategy slotAllocationStrategy,
+            ResourceShortageListener resourceShortageListener) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
@@ -90,6 +108,7 @@ public class ResourceRequestHandler {
         this.allocateStrategy =
                 resourceManager.getEngineConfig().getSlotServiceConfig().getAllocateStrategy();
         this.slotAllocationStrategy = slotAllocationStrategy;
+        this.resourceShortageListener = resourceShortageListener;
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
@@ -273,20 +292,10 @@ public class ResourceRequestHandler {
      * tag constraint.
      */
     private void recordShortage(ResourceProfile resourceProfile) {
-        if (!resourceManager.getAutoscalerRuntimeConfig().isEnabled()) {
-            return;
-        }
-        if (resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT) {
-            resourceManager
-                    .getResourceShortageStats()
-                    .recordWaitShortage(
-                            this.resourceProfile.size(), String.valueOf(resourceProfile));
-        } else {
-            resourceManager
-                    .getResourceShortageStats()
-                    .recordRejectShortage(
-                            this.resourceProfile.size(), String.valueOf(resourceProfile));
-        }
+        resourceShortageListener.recordShortage(
+                resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT,
+                this.resourceProfile.size(),
+                String.valueOf(resourceProfile));
     }
 
     @VisibleForTesting

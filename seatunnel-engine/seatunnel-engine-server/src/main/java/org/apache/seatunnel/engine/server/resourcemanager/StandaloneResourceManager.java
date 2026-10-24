@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
@@ -33,8 +32,8 @@ public class StandaloneResourceManager extends AbstractResourceManager {
     public StandaloneResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
-        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
+            ResourceShortageListener resourceShortageListener) {
+        super(nodeEngine, engineConfig, resourceShortageListener);
     }
 
     /** Synchronizes existing worker slots without creating external worker processes. */

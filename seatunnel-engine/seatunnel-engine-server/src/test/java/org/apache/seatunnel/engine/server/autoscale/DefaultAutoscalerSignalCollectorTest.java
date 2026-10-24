@@ -46,7 +46,7 @@ class DefaultAutoscalerSignalCollectorTest {
         resourceManager.workers.put(worker, worker(worker, false, 1, 3));
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         slotServiceConfig.setDynamicSlot(false);
-        resourceManager.sampleStore.record(
+        resourceManager.signals.record(
                 new WorkerMetricsSample(worker, 10_000L, 0.4d, 0.6d), 10_000L);
 
         AutoscalerMetricsSnapshot snapshot =
@@ -103,10 +103,11 @@ class DefaultAutoscalerSignalCollectorTest {
     @Test
     void includesShortageDeltaAndPendingFacts() {
         FakeResourceManager resourceManager = new FakeResourceManager();
-        resourceManager.shortageStats.recordWaitShortage(1, "slot");
+        resourceManager.signals.recordShortage(true, 1, "slot");
         DefaultAutoscalerSignalCollector collector =
                 new DefaultAutoscalerSignalCollector(
                         resourceManager,
+                        resourceManager.signals,
                         AutoscalerConfig.defaults(),
                         new SlotServiceConfig(),
                         () -> 2,
@@ -123,17 +124,83 @@ class DefaultAutoscalerSignalCollectorTest {
         Assertions.assertEquals(0L, second.getResourceShortageCount());
     }
 
+    @Test
+    void closedSignalStoreRejectsLateSamplesAndShortages() {
+        AutoscalerSignalStore signals =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+        Address worker = address(5801);
+        signals.close();
+
+        signals.record(new WorkerMetricsSample(worker, 10_000L, 0.4d, 0.6d), 10_000L);
+        signals.recordShortage(true, 1, "slot");
+
+        Assertions.assertEquals(
+                0,
+                signals.summarizeWorkers(Collections.singleton(worker), 10_000L).getValidSamples());
+        Assertions.assertEquals(0L, signals.shortageSnapshot(0L).getShortageCount());
+    }
+
+    @Test
+    void disabledSignalStoreIgnoresReportsAndWorkerRemovalDropsSamples() {
+        Address worker = address(5801);
+        WorkerMetricsSample sample = new WorkerMetricsSample(worker, 10_000L, 0.4d, 0.6d);
+        AutoscalerSignalStore disabled = new AutoscalerSignalStore(AutoscalerConfig.defaults());
+        disabled.record(sample, 10_000L);
+        disabled.recordShortage(false, 1, "slot");
+        Assertions.assertEquals(
+                0,
+                disabled.summarizeWorkers(Collections.singleton(worker), 10_000L)
+                        .getValidSamples());
+        Assertions.assertEquals(0L, disabled.shortageSnapshot(0L).getShortageCount());
+
+        AutoscalerSignalStore enabled =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+        enabled.record(sample, 10_000L);
+        Assertions.assertEquals(
+                1,
+                enabled.summarizeWorkers(Collections.singleton(worker), 10_000L).getValidSamples());
+        enabled.removeWorker(worker);
+        Assertions.assertEquals(
+                0,
+                enabled.summarizeWorkers(Collections.singleton(worker), 10_000L).getValidSamples());
+    }
+
+    @Test
+    void signalStorePreservesWaitAndRejectShortageCategories() {
+        AutoscalerSignalStore signals =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+        signals.recordShortage(true, 2, "wait");
+        signals.recordShortage(false, 1, "reject");
+
+        ResourceShortageSnapshot snapshot = signals.shortageSnapshot(0L);
+        Assertions.assertEquals(2L, snapshot.getShortageCount());
+        Assertions.assertEquals(1L, snapshot.getWaitCount());
+        Assertions.assertEquals(1L, snapshot.getRejectCount());
+    }
+
     private DefaultAutoscalerSignalCollector collector(FakeResourceManager resourceManager) {
         AutoscalerConfig config = AutoscalerConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
-                resourceManager, config, new SlotServiceConfig(), () -> 0, () -> 0L, () -> 10_500L);
+                resourceManager,
+                resourceManager.signals,
+                config,
+                new SlotServiceConfig(),
+                () -> 0,
+                () -> 0L,
+                () -> 10_500L);
     }
 
     private DefaultAutoscalerSignalCollector collector(
             FakeResourceManager resourceManager, SlotServiceConfig slotServiceConfig) {
         AutoscalerConfig config = AutoscalerConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
-                resourceManager, config, slotServiceConfig, () -> 0, () -> 0L, () -> 10_500L);
+                resourceManager,
+                resourceManager.signals,
+                config,
+                slotServiceConfig,
+                () -> 0,
+                () -> 0L,
+                () -> 10_500L);
     }
 
     private WorkerProfile worker(
@@ -164,9 +231,8 @@ class DefaultAutoscalerSignalCollectorTest {
 
     private static final class FakeResourceManager implements ResourceManager {
         private final ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
-        private final WorkerResourceSampleStore sampleStore =
-                new WorkerResourceSampleStore(5_000L, 120_000L);
-        private final ResourceShortageStats shortageStats = new ResourceShortageStats();
+        private final AutoscalerSignalStore signals =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
 
         @Override
         public void init() {}
@@ -239,24 +305,6 @@ class DefaultAutoscalerSignalCollectorTest {
         @Override
         public RequestSlotOperationStats getRequestSlotOperationStats() {
             return null;
-        }
-
-        @Override
-        public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {}
-
-        @Override
-        public WorkerResourceSampleStore getAutoscalerWorkerSampleStore() {
-            return sampleStore;
-        }
-
-        @Override
-        public ResourceShortageStats getResourceShortageStats() {
-            return shortageStats;
-        }
-
-        @Override
-        public AutoscalerConfig getAutoscalerRuntimeConfig() {
-            return AutoscalerConfig.defaults();
         }
     }
 }

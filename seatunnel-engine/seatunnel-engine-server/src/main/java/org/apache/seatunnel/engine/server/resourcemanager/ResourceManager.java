@@ -18,10 +18,6 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
-import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
-import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
-import org.apache.seatunnel.engine.server.autoscale.WorkerResourceSampleStore;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -209,12 +205,4 @@ public interface ResourceManager {
      *     these statistics do not represent platform container or pod allocation
      */
     RequestSlotOperationStats getRequestSlotOperationStats();
-
-    void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis);
-
-    WorkerResourceSampleStore getAutoscalerWorkerSampleStore();
-
-    ResourceShortageStats getResourceShortageStats();
-
-    AutoscalerConfig getAutoscalerRuntimeConfig();
 }

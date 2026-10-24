@@ -60,7 +60,6 @@ public class ReportAutoscalerMetricsOperation extends Operation
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         server.getCoordinatorService()
-                .getResourceManager()
                 .reportAutoscalerMetrics(
                         new WorkerMetricsSample(
                                 workerAddress,

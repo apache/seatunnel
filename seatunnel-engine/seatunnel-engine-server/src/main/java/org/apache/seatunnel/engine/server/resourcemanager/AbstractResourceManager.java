@@ -20,10 +20,6 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
-import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
-import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
-import org.apache.seatunnel.engine.server.autoscale.WorkerResourceSampleStore;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
@@ -53,7 +49,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -74,11 +69,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
-    @Getter private final WorkerResourceSampleStore autoscalerWorkerSampleStore;
-
-    @Getter private final ResourceShortageStats resourceShortageStats = new ResourceShortageStats();
-
-    @Getter private final AutoscalerConfig autoscalerRuntimeConfig;
+    private final ResourceShortageListener resourceShortageListener;
 
     // Track master-side slot request cost without changing allocation behavior.
     private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
@@ -88,24 +79,18 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private final AtomicLong requestSlotOperationMaxInvocationLatencyMs = new AtomicLong();
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        this(nodeEngine, engineConfig, AutoscalerConfig.defaults());
+        this(nodeEngine, engineConfig, ResourceShortageListener.NOOP);
     }
 
     public AbstractResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
+            ResourceShortageListener resourceShortageListener) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
-        this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
+        this.resourceShortageListener = resourceShortageListener;
         this.mode = engineConfig.getMode();
-        this.autoscalerWorkerSampleStore =
-                new WorkerResourceSampleStore(
-                        TimeUnit.SECONDS.toMillis(
-                                autoscalerRuntimeConfig.getFutureTimestampToleranceSeconds()),
-                        TimeUnit.SECONDS.toMillis(
-                                autoscalerRuntimeConfig.getMaxMetricStalenessSeconds()));
 
         switch (engineConfig.getSlotServiceConfig().getAllocateStrategy()) {
             case SYSTEM_LOAD:
@@ -206,7 +191,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
                         + "Node Address: "
                         + event.getMember().getAddress());
         registerWorker.remove(event.getMember().getAddress());
-        autoscalerWorkerSampleStore.remove(event.getMember().getAddress());
     }
 
     @Override
@@ -220,7 +204,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(
-                        jobId, resourceProfile, matchedWorker, this, slotAllocationStrategy)
+                        jobId,
+                        resourceProfile,
+                        matchedWorker,
+                        this,
+                        slotAllocationStrategy,
+                        resourceShortageListener)
                 .request(tagFilter);
     }
 
@@ -289,11 +278,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 requestSlotOperationFailureCount.get(),
                 requestSlotOperationLastInvocationLatencyMs.get(),
                 requestSlotOperationMaxInvocationLatencyMs.get());
-    }
-
-    @Override
-    public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {
-        autoscalerWorkerSampleStore.record(sample, receiveTimeMillis);
     }
 
     @Override

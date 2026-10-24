@@ -32,7 +32,7 @@ import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 
 /**
- * Builds immutable autoscaler snapshots from ResourceManager state.
+ * Builds immutable autoscaler snapshots from worker registration and coordinator-owned signals.
  *
  * <p>The collector normalizes worker samples, slot mode, pending jobs, and scheduler shortage
  * deltas; it does not evaluate policy. The slot mode is treated as a cluster-level deployment
@@ -42,6 +42,7 @@ import java.util.function.LongSupplier;
 public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalCollector {
 
     private final ResourceManager resourceManager;
+    private final AutoscalerSignalStore signalStore;
     private final AutoscalerConfig config;
     private final SlotServiceConfig slotServiceConfig;
 
@@ -60,6 +61,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
      * Creates a collector backed by live coordinator and resource-manager state.
      *
      * @param resourceManager resource and worker state provider
+     * @param signalStore current active master's worker samples and capacity-shortage evidence
      * @param config autoscaler runtime configuration
      * @param slotServiceConfig slot allocation mode configuration
      * @param pendingJobCountSupplier current pending job count supplier
@@ -69,12 +71,14 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
      */
     public DefaultAutoscalerSignalCollector(
             ResourceManager resourceManager,
+            AutoscalerSignalStore signalStore,
             AutoscalerConfig config,
             SlotServiceConfig slotServiceConfig,
             IntSupplier pendingJobCountSupplier,
             LongSupplier longestPendingDurationMillisSupplier,
             LongSupplier currentTimeMillisSupplier) {
         this.resourceManager = Objects.requireNonNull(resourceManager, "resourceManager");
+        this.signalStore = Objects.requireNonNull(signalStore, "signalStore");
         this.config = Objects.requireNonNull(config, "config");
         this.slotServiceConfig = Objects.requireNonNull(slotServiceConfig, "slotServiceConfig");
         this.pendingJobCountSupplier =
@@ -93,15 +97,10 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
         Map<Address, WorkerProfile> currentWorkerProfiles =
                 new HashMap<>(resourceManager.getRegisterWorker());
         HashSet<Address> currentWorkers = new HashSet<>(currentWorkerProfiles.keySet());
-        resourceManager.getAutoscalerWorkerSampleStore().retainWorkers(currentWorkers);
         WorkerSampleSummary workerSampleSummary =
-                resourceManager
-                        .getAutoscalerWorkerSampleStore()
-                        .summarize(currentWorkers, nowMillis);
+                signalStore.summarizeWorkers(currentWorkers, nowMillis);
         ResourceShortageSnapshot shortageSnapshot =
-                resourceManager
-                        .getResourceShortageStats()
-                        .getIncrementalSnapshot(lastShortageSequence.get());
+                signalStore.shortageSnapshot(lastShortageSequence.get());
         lastShortageSequence.set(shortageSnapshot.getSequence());
         SlotSummary slotSummary = summarizeSlots(currentWorkerProfiles);
 

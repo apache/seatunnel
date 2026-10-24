@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -56,16 +55,17 @@ public class ResourceManagerFactory {
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        return createResourceManager(nodeEngine, engineConfig, AutoscalerConfig.defaults());
+        return createResourceManager(nodeEngine, engineConfig, ResourceShortageListener.NOOP);
     }
 
-    /** Creates an uninitialized manager with the coordinator's autoscaler settings. */
+    /** Creates an uninitialized manager with a capacity-shortage observer. */
     public ResourceManager createResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
+            ResourceShortageListener resourceShortageListener) {
         if (DeployType.STANDALONE.equals(deployType)) {
-            return new StandaloneResourceManager(nodeEngine, engineConfig, autoscalerRuntimeConfig);
+            return new StandaloneResourceManager(
+                    nodeEngine, engineConfig, resourceShortageListener);
         }
         if (DeployType.KUBERNETES.equals(deployType)) {
             if (applicationId == null || specification == null || driver == null) {
@@ -78,7 +78,7 @@ public class ResourceManagerFactory {
                     applicationId,
                     specification,
                     driver,
-                    autoscalerRuntimeConfig);
+                    resourceShortageListener);
         }
         throw new UnsupportedDeployTypeException(deployType);
     }

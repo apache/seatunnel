@@ -54,6 +54,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerSignalStore;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoscalerSignalCollector;
@@ -61,6 +62,7 @@ import org.apache.seatunnel.engine.server.autoscale.DefaultRecommendationPublish
 import org.apache.seatunnel.engine.server.autoscale.HierarchicalAutoscalingPolicy;
 import org.apache.seatunnel.engine.server.autoscale.InMemoryAutoscalerStateStore;
 import org.apache.seatunnel.engine.server.autoscale.SystemAutoscalerTimeSource;
+import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -251,6 +253,9 @@ public class CoordinatorService {
     /** Stores the latest advisory recommendation and bounded recommendation history. */
     private final InMemoryAutoscalerStateStore autoscalerStateStore;
 
+    /** Capacity and worker samples for the current active-master incarnation. */
+    private volatile AutoscalerSignalStore autoscalerSignalStore;
+
     /** The autoscaler instance for the current master incarnation, or {@code null} when stopped. */
     private volatile DefaultAutoScaler autoScaler;
 
@@ -261,7 +266,7 @@ public class CoordinatorService {
 
     private final ResourceManagerFactory resourceManagerFactory;
 
-    /** Immutable, server-local autoscaler settings used by the coordinator and resource manager. */
+    /** Immutable, server-local autoscaler settings used by the coordinator and evaluator. */
     private final AutoscalerConfig autoscalerRuntimeConfig;
 
     private ConnectorPackageService connectorPackageService;
@@ -331,6 +336,11 @@ public class CoordinatorService {
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
         this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
+        this.autoscalerSignalStore = new AutoscalerSignalStore(autoscalerRuntimeConfig);
+        this.autoscalerStateStore =
+                new InMemoryAutoscalerStateStore(
+                        autoscalerRuntimeConfig.getHistorySize(),
+                        autoscalerRuntimeConfig.getEvaluationHistorySize());
         this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
@@ -359,10 +369,6 @@ public class CoordinatorService {
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
-        autoscalerStateStore =
-                new InMemoryAutoscalerStateStore(
-                        autoscalerRuntimeConfig.getHistorySize(),
-                        autoscalerRuntimeConfig.getEvaluationHistorySize());
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
     }
@@ -1327,6 +1333,17 @@ public class CoordinatorService {
     private synchronized void checkNewActiveMaster() {
         try {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
+                if (autoscalerSignalStore.isClosed()) {
+                    // A late heartbeat can lazily create a resource manager after demotion.
+                    // Discard it before replacing the store so its shortage listener cannot
+                    // remain bound to the closed master incarnation.
+                    ResourceManager staleManager = resourceManager;
+                    resourceManager = null;
+                    if (staleManager != null) {
+                        staleManager.close();
+                    }
+                    autoscalerSignalStore = new AutoscalerSignalStore(autoscalerRuntimeConfig);
+                }
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
@@ -1376,6 +1393,7 @@ public class CoordinatorService {
         schedulingPendingJobIds.clear();
         pendingJobQueue.release();
         stopAutoscaler();
+        autoscalerSignalStore.close();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         // Interrupt and discard every JobMaster currently sitting in pendingJobQueue. This is
@@ -1442,7 +1460,7 @@ public class CoordinatorService {
                 if (resourceManager == null) {
                     ResourceManager manager =
                             resourceManagerFactory.createResourceManager(
-                                    nodeEngine, engineConfig, autoscalerRuntimeConfig);
+                                    nodeEngine, engineConfig, autoscalerSignalStore);
                     manager.init();
                     resourceManager = manager;
                 }
@@ -1473,6 +1491,13 @@ public class CoordinatorService {
                 autoscalerRuntimeConfig.getScaleInStabilizationSeconds());
     }
 
+    /** Records a worker sample in the active master's autoscaler signal store. */
+    public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {
+        if (isActive) {
+            autoscalerSignalStore.record(sample, receiveTimeMillis);
+        }
+    }
+
     /**
      * Starts the advisory autoscaler for the active master when it is enabled.
      *
@@ -1496,6 +1521,7 @@ public class CoordinatorService {
                         autoscalerRuntimeConfig,
                         new DefaultAutoscalerSignalCollector(
                                 getResourceManager(),
+                                autoscalerSignalStore,
                                 autoscalerRuntimeConfig,
                                 engineConfig.getSlotServiceConfig(),
                                 this::getPendingJobCount,
@@ -2381,6 +2407,7 @@ public class CoordinatorService {
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
+        autoscalerSignalStore.removeWorker(event.getMember().getAddress());
         if (isCoordinatorActive()) {
             this.getResourceManager().memberRemoved(event);
         }
