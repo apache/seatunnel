@@ -31,6 +31,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Conversions;
@@ -41,24 +43,35 @@ import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.avro.AvroReadSupport;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroup;
+import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.schema.Types;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -68,6 +81,7 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -75,7 +89,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
@@ -83,6 +99,450 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 
 @Slf4j
 public class ParquetReadStrategyTest {
+    @TempDir java.nio.file.Path projectionDirectory;
+
+    @Test
+    void testProjectionRetainsAvroSchemaMetadataAndEmptyInput() throws Exception {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"Named\","
+                                        + "\"namespace\":\"example\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},"
+                                        + "{\"name\":\"text\",\"type\":\"string\",\"aliases\":[\"old_text\"]},"
+                                        + "{\"name\":\"unused\",\"type\":[\"null\",\"string\"],\"default\":null}]}");
+        for (boolean empty : new boolean[] {false, true}) {
+            Path file = new Path(projectionDirectory.resolve("avro-" + empty + ".parquet").toUri());
+            try (ParquetWriter<GenericData.Record> writer =
+                    AvroParquetWriter.<GenericData.Record>builder(file)
+                            .withSchema(schema)
+                            .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                            .build()) {
+                if (!empty) {
+                    GenericData.Record record = new GenericData.Record(schema);
+                    record.put("id", 7);
+                    record.put("text", "value");
+                    record.put("unused", null);
+                    writer.write(record);
+                }
+            }
+            ParquetReadStrategy strategy = new ParquetReadStrategy();
+            try {
+                strategy.init(new LocalFileSystemConf.LocalConf("file:///"));
+                strategy.setPluginConfig(
+                        ConfigFactory.parseString(
+                                "read_columns=[text,id]\nparse_partition_from_path=false"));
+                strategy.getSeaTunnelRowTypeInfo(file.toString());
+                TestCollector collector = new TestCollector();
+                strategy.read(file.toString(), "", collector);
+                Assertions.assertEquals(empty ? 0 : 1, collector.getRows().size());
+                if (!empty) {
+                    Assertions.assertArrayEquals(
+                            new Object[] {"value", 7}, collector.getRows().get(0).getFields());
+                }
+            } finally {
+                strategy.close();
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testProjectionRetainsLogicalSplitBoundaries(boolean nativeReader) throws Exception {
+        String id = nativeReader ? "id-value" : "id";
+        MessageType schema =
+                Types.buildMessage()
+                        .required(INT32)
+                        .named(id)
+                        .required(BINARY)
+                        .named("unused")
+                        .named("split");
+        Path file = new Path(projectionDirectory.resolve("split.parquet").toUri());
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(file)
+                        .withType(schema)
+                        .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                        .withDictionaryEncoding(false)
+                        .withRowGroupSize(1024)
+                        .withMinRowCountForPageSizeCheck(1)
+                        .withMaxRowCountForPageSizeCheck(1)
+                        .build()) {
+            for (int i = 0; i < 40; i++) {
+                writer.write(
+                        new SimpleGroup(schema).append(id, i).append("unused", "x".repeat(1024)));
+            }
+        }
+        List<FileSourceSplit> splits;
+        try (ParquetFileReader fileReader =
+                ParquetFileReader.open(HadoopInputFile.fromPath(file, new Configuration()))) {
+            Assertions.assertTrue(fileReader.getFooter().getBlocks().size() > 1);
+            splits = new ParquetFileSplitStrategy(1).split("table", file.toString());
+        }
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(new LocalFileSystemConf.LocalConf("file:///"));
+            strategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns=[\""
+                                    + id
+                                    + "\"]\nparse_partition_from_path=false\nenable_file_split=true"));
+            strategy.getSeaTunnelRowTypeInfo(file.toString());
+            TestCollector collector = new TestCollector();
+            for (FileSourceSplit split : splits) {
+                strategy.read(split, collector);
+            }
+            Assertions.assertEquals(40, collector.getRows().size());
+            for (int i = 0; i < 40; i++) {
+                Assertions.assertEquals(i, collector.getRows().get(i).getField(0));
+                Assertions.assertEquals("table", collector.getRows().get(i).getTableId());
+            }
+        } finally {
+            strategy.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "parquet.avro.projection",
+                "parquet.avro.read.schema",
+                "parquet.read.schema"
+            })
+    void testProjectionPreservesExplicitReaderSchemas(String option) throws Exception {
+        boolean nativeReader = option.equals(ReadSupport.PARQUET_READ_SCHEMA);
+        String id = nativeReader ? "id-value" : "id";
+        MessageType schema =
+                Types.buildMessage()
+                        .required(INT32)
+                        .named(id)
+                        .required(INT32)
+                        .named("unused")
+                        .named("explicit");
+        Path file = new Path(projectionDirectory.resolve("explicit.parquet").toUri());
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(file)
+                        .withType(schema)
+                        .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                        .build()) {
+            writer.write(new SimpleGroup(schema).append(id, 1).append("unused", 2));
+        }
+        String explicit =
+                nativeReader
+                        ? "message explicit { required int32 unused; }"
+                        : "{\"type\":\"record\",\"name\":\"explicit\",\"fields\":[{\"name\":\"unused\",\"type\":\"int\"}]}";
+        boolean readSchema = option.equals("parquet.avro.read.schema");
+        if (readSchema) {
+            explicit =
+                    "{\"type\":\"record\",\"name\":\"explicit\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"unused\",\"type\":\"int\"}]}";
+        }
+        LocalFileSystemConf.LocalConf conf = new LocalFileSystemConf.LocalConf("file:///");
+        conf.getExtraOptions().put(option, explicit);
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(conf);
+            strategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns=[\"" + id + "\"]\nparse_partition_from_path=false"));
+            strategy.getSeaTunnelRowTypeInfo(file.toString());
+            TestCollector collector = new TestCollector();
+            strategy.read(file.toString(), "", collector);
+            Assertions.assertEquals(1, collector.getRows().size());
+            Assertions.assertEquals(readSchema ? 1 : null, collector.getRows().get(0).getField(0));
+            Assertions.assertEquals(
+                    explicit, strategy.hadoopFileSystemProxy.getConfiguration().get(option));
+        } finally {
+            strategy.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testProjectionPreservesFiltersOnUnselectedColumns(boolean nativeReader) throws Exception {
+        String id = nativeReader ? "id-value" : "id";
+        MessageType schema =
+                Types.buildMessage()
+                        .required(INT32)
+                        .named(id)
+                        .required(INT32)
+                        .named("filter_column")
+                        .named("filtered");
+        Path file = new Path(projectionDirectory.resolve("filter.parquet").toUri());
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(file)
+                        .withType(schema)
+                        .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                        .build()) {
+            writer.write(new SimpleGroup(schema).append(id, 1).append("filter_column", 0));
+            writer.write(new SimpleGroup(schema).append(id, 2).append("filter_column", 1));
+        }
+        Configuration filterConfiguration = new Configuration(false);
+        ParquetInputFormat.setFilterPredicate(
+                filterConfiguration, FilterApi.eq(FilterApi.intColumn("filter_column"), 1));
+        LocalFileSystemConf.LocalConf conf = new LocalFileSystemConf.LocalConf("file:///");
+        conf.getExtraOptions()
+                .put(
+                        ParquetInputFormat.FILTER_PREDICATE,
+                        filterConfiguration.get(ParquetInputFormat.FILTER_PREDICATE));
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(conf);
+            strategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns=[\"" + id + "\"]\nparse_partition_from_path=false"));
+            strategy.getSeaTunnelRowTypeInfo(file.toString());
+            TestCollector collector = new TestCollector();
+            strategy.read(file.toString(), "", collector);
+            Assertions.assertEquals(1, collector.getRows().size());
+            Assertions.assertEquals(2, collector.getRows().get(0).getField(0));
+        } finally {
+            strategy.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testProjectionRetainsNestedLogicalNullAndPartitionValues(boolean nativeReader)
+            throws Exception {
+        String unused = nativeReader ? "unused-value" : "unused";
+        MessageType schema =
+                MessageTypeParser.parseMessageType(
+                        "message row { required int32 id; "
+                                + "optional binary nullable (UTF8); required int32 day (DATE); "
+                                + "required group nested { required int32 number; required binary text (UTF8); } "
+                                + "required binary "
+                                + unused
+                                + "; }");
+        java.nio.file.Path directory =
+                Files.createDirectories(projectionDirectory.resolve("region=east"));
+        Path file = new Path(directory.resolve("nested.parquet").toUri());
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(file)
+                        .withType(schema)
+                        .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                        .build()) {
+            SimpleGroup record = new SimpleGroup(schema);
+            record.append("id", 7).append("day", 1).append(unused, "discard");
+            record.addGroup("nested").append("number", 3).append("text", "value");
+            writer.write(record);
+        }
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(new LocalFileSystemConf.LocalConf("file:///"));
+            strategy.setPluginConfig(
+                    ConfigFactory.parseString("read_columns = [nested, day, nullable, id]"));
+            strategy.getSeaTunnelRowTypeInfo(file.toString());
+            TestCollector collector = new TestCollector();
+            strategy.read(new FileSourceSplit("table", file.toString()), collector);
+            Assertions.assertEquals(1, collector.getRows().size());
+            SeaTunnelRow row = collector.getRows().get(0);
+            Assertions.assertEquals("table", row.getTableId());
+            Assertions.assertEquals(5, row.getArity());
+            Assertions.assertArrayEquals(
+                    new Object[] {3, "value"}, ((SeaTunnelRow) row.getField(0)).getFields());
+            Assertions.assertEquals(LocalDate.ofEpochDay(1), row.getField(1));
+            Assertions.assertNull(row.getField(2));
+            Assertions.assertEquals(7, row.getField(3));
+            Assertions.assertEquals("east", row.getField(4));
+        } finally {
+            strategy.close();
+        }
+    }
+
+    @Test
+    void testProjectionIsPerFileAndPreservesMissingColumns() throws Exception {
+        MessageType firstSchema =
+                MessageTypeParser.parseMessageType(
+                        "message first { required int32 id; required int32 first_only; }");
+        MessageType secondSchema =
+                MessageTypeParser.parseMessageType(
+                        "message second { required int32 second_only; required int32 id; }");
+        Path first = new Path(projectionDirectory.resolve("first.parquet").toUri());
+        Path second = new Path(projectionDirectory.resolve("second.parquet").toUri());
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(first).withType(firstSchema).build()) {
+            writer.write(new SimpleGroup(firstSchema).append("id", 1).append("first_only", 9));
+        }
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(second).withType(secondSchema).build()) {
+            writer.write(new SimpleGroup(secondSchema).append("id", 2).append("second_only", 8));
+        }
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(new LocalFileSystemConf.LocalConf("file:///"));
+            strategy.setPluginConfig(ConfigFactory.parseString("parse_partition_from_path=false"));
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"first_only", "id", "absent"},
+                            new SeaTunnelDataType[] {
+                                BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.INT_TYPE
+                            });
+            strategy.setCatalogTable(CatalogTableUtil.getCatalogTable("table", rowType));
+            Configuration shared = strategy.hadoopFileSystemProxy.getConfiguration();
+            TestCollector collector = new TestCollector();
+            strategy.read(first.toString(), "", collector);
+            strategy.read(second.toString(), "", collector);
+            Assertions.assertArrayEquals(
+                    new Object[] {9, 1, null}, collector.getRows().get(0).getFields());
+            Assertions.assertArrayEquals(
+                    new Object[] {null, 2, null}, collector.getRows().get(1).getFields());
+            strategy.setCatalogTable(
+                    CatalogTableUtil.getCatalogTable(
+                            "table",
+                            new SeaTunnelRowType(
+                                    new String[] {"absent"},
+                                    new SeaTunnelDataType[] {BasicType.INT_TYPE})));
+            strategy.read(second.toString(), "", collector);
+            Assertions.assertArrayEquals(
+                    new Object[] {null}, collector.getRows().get(2).getFields());
+            Assertions.assertNull(shared.get(ReadSupport.PARQUET_READ_SCHEMA));
+            Assertions.assertNull(shared.get(AvroReadSupport.AVRO_REQUESTED_PROJECTION));
+            Assertions.assertNull(shared.get(AvroReadSupport.AVRO_COMPATIBILITY));
+        } finally {
+            strategy.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testReadColumnsPrunesPhysicalColumns(boolean nativeReader) throws Exception {
+        String id = nativeReader ? "id-value" : "id";
+        Path file = new Path(projectionDirectory.resolve("wide.parquet").toUri());
+        MessageType schema =
+                Types.buildMessage()
+                        .required(INT32)
+                        .named(id)
+                        .required(BINARY)
+                        .named("unused")
+                        .named("wide");
+        Random random = new Random(1234);
+        try (ParquetWriter<Group> writer =
+                ExampleParquetWriter.builder(file)
+                        .withType(schema)
+                        .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                        .withDictionaryEncoding(false)
+                        .build()) {
+            for (int i = 0; i < 128; i++) {
+                byte[] bytes = new byte[32768];
+                random.nextBytes(bytes);
+                writer.write(
+                        new SimpleGroup(schema)
+                                .append(id, i)
+                                .append(
+                                        "unused",
+                                        org.apache.parquet.io.api.Binary.fromConstantByteArray(
+                                                bytes)));
+            }
+        }
+        LocalFileSystemConf.LocalConf conf =
+                new LocalFileSystemConf.LocalConf("file:///") {
+                    @Override
+                    public String getFsHdfsImpl() {
+                        return CountingFileSystem.class.getName();
+                    }
+                };
+        ParquetReadStrategy strategy = new ParquetReadStrategy();
+        try {
+            strategy.init(conf);
+            strategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns = [\"" + id + "\"]\nparse_partition_from_path = false"));
+            strategy.getSeaTunnelRowTypeInfo(file.toString());
+            CountingFileSystem.BYTES.set(0);
+            TestCollector collector = new TestCollector();
+            strategy.read(file.toString(), "", collector);
+            long bytes = CountingFileSystem.BYTES.get();
+            Assertions.assertEquals(128, collector.getRows().size());
+            for (int i = 0; i < 128; i++) {
+                Assertions.assertEquals(1, collector.getRows().get(i).getArity());
+                Assertions.assertEquals(i, collector.getRows().get(i).getField(0));
+            }
+            long fileBytes = Files.size(projectionDirectory.resolve("wide.parquet"));
+            System.out.printf(
+                    "PARQUET_PROJECTION native=%s rows=128 checksum=8128 file_bytes=%d read_bytes=%d%n",
+                    nativeReader, fileBytes, bytes);
+            ParquetReadStrategy allColumns = new ParquetReadStrategy();
+            try {
+                allColumns.init(conf);
+                allColumns.setPluginConfig(
+                        ConfigFactory.parseString("parse_partition_from_path=false"));
+                allColumns.getSeaTunnelRowTypeInfo(file.toString());
+                CountingFileSystem.BYTES.set(0);
+                TestCollector allCollector = new TestCollector();
+                allColumns.read(file.toString(), "", allCollector);
+                long fullBytes = CountingFileSystem.BYTES.get();
+                Assertions.assertEquals(128, allCollector.getRows().size());
+                Random expected = new Random(1234);
+                for (int i = 0; i < 128; i++) {
+                    SeaTunnelRow row = allCollector.getRows().get(i);
+                    byte[] payload = new byte[32768];
+                    expected.nextBytes(payload);
+                    Assertions.assertEquals(2, row.getArity());
+                    Assertions.assertEquals(i, row.getField(0));
+                    Assertions.assertArrayEquals(payload, (byte[]) row.getField(1));
+                }
+                Assertions.assertTrue(fullBytes > fileBytes / 2);
+                System.out.printf(
+                        "PARQUET_ALL_COLUMNS native=%s rows=128 checksum=8128 read_bytes=%d%n",
+                        nativeReader, fullBytes);
+            } finally {
+                allColumns.close();
+            }
+            Assertions.assertTrue(
+                    bytes < fileBytes / 4,
+                    "Unselected Parquet column was read: " + bytes + " of " + fileBytes);
+        } finally {
+            strategy.close();
+        }
+    }
+
+    public static class CountingFileSystem extends RawLocalFileSystem {
+        static final AtomicLong BYTES = new AtomicLong();
+
+        @Override
+        public FSDataInputStream open(Path path, int bufferSize) throws IOException {
+            FSDataInputStream input = super.open(path, bufferSize);
+            return new FSDataInputStream(
+                    new FSInputStream() {
+                        @Override
+                        public void seek(long position) throws IOException {
+                            input.seek(position);
+                        }
+
+                        @Override
+                        public long getPos() throws IOException {
+                            return input.getPos();
+                        }
+
+                        @Override
+                        public boolean seekToNewSource(long position) throws IOException {
+                            return input.seekToNewSource(position);
+                        }
+
+                        @Override
+                        public int read() throws IOException {
+                            int value = input.read();
+                            if (value >= 0) {
+                                BYTES.incrementAndGet();
+                            }
+                            return value;
+                        }
+
+                        @Override
+                        public int read(byte[] bytes, int offset, int length) throws IOException {
+                            int read = input.read(bytes, offset, length);
+                            if (read > 0) {
+                                BYTES.addAndGet(read);
+                            }
+                            return read;
+                        }
+
+                        @Override
+                        public void close() throws IOException {
+                            input.close();
+                        }
+                    });
+        }
+    }
+
     @Test
     public void testParquetRead1() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");

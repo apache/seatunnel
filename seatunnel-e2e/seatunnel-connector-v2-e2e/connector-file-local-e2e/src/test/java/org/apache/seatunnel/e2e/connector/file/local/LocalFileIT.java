@@ -412,6 +412,13 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileParquetProjection(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
+    }
+
+    @TestTemplate
     public void testLocalFileOrcParquetBinaryXml(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
