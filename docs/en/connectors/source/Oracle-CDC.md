@@ -99,7 +99,7 @@ GRANT SELECT ANY TRANSACTION TO logminer_user;
 GRANT SELECT ON V_$TRANSACTION TO logminer_user;
 ```
 
-##### Oracle 11g is not supported
+##### The following privilege is not supported on Oracle 11g
 
 ```sql
 GRANT LOGMINING TO logminer_user;
@@ -490,7 +490,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and redo-log phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {
