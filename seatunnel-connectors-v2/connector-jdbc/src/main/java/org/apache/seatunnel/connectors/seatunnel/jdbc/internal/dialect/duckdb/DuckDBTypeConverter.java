@@ -72,6 +72,9 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DUCKDB_DATE = "DATE";
     public static final String DUCKDB_TIME = "TIME";
     public static final String DUCKDB_TIMESTAMP = "TIMESTAMP";
+    public static final String DUCKDB_TIMESTAMP_S = "TIMESTAMP_S";
+    public static final String DUCKDB_TIMESTAMP_MS = "TIMESTAMP_MS";
+    public static final String DUCKDB_TIMESTAMP_NS = "TIMESTAMP_NS";
     public static final String DUCKDB_TIMESTAMP_WITH_TZ = "TIMESTAMP WITH TIME ZONE";
 
     // Other
@@ -84,6 +87,14 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_PRECISION = 18;
     public static final int MAX_SCALE = 38;
     public static final int DEFAULT_SCALE = 3;
+
+    // Native fractional-second precision of DuckDB's timestamp types. Without these values every
+    // downstream DDL generator (for example MySQL DATETIME) silently drops the fractional seconds.
+    public static final int TIMESTAMP_SCALE = 6;
+    public static final int TIMESTAMP_S_SCALE = 0;
+    public static final int TIMESTAMP_MS_SCALE = 3;
+    public static final int TIMESTAMP_NS_SCALE = 9;
+    public static final int MAX_TIMESTAMP_SCALE = TIMESTAMP_NS_SCALE;
 
     public static final DuckDBTypeConverter INSTANCE = new DuckDBTypeConverter();
 
@@ -168,6 +179,19 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_S:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_S_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_MS:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_MS_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_NS:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_NS_SCALE);
                 break;
             case DUCKDB_TIMESTAMP_WITH_TZ:
                 builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
@@ -289,8 +313,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(DUCKDB_TIME);
                 break;
             case TIMESTAMP:
-                builder.columnType(DUCKDB_TIMESTAMP);
-                builder.dataType(DUCKDB_TIMESTAMP);
+                reconvertTimestampType(column, builder);
                 break;
             case TIMESTAMP_TZ:
                 builder.columnType(DUCKDB_TIMESTAMP_WITH_TZ);
@@ -308,6 +331,61 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         column.getName());
         }
         return builder.build();
+    }
+
+    /**
+     * Maps a SeaTunnel {@code TIMESTAMP} column back to the DuckDB timestamp type that carries its
+     * fractional-second precision.
+     *
+     * <p>DuckDB only has 0, 3, 6 and 9 fractional digits, so a scale between two native precisions
+     * is rounded up to the next native precision instead of being narrowed: widening never drops
+     * source digits, while choosing the lower precision would truncate them silently. Only a scale
+     * above {@link #MAX_TIMESTAMP_SCALE} is clamped, following the other JDBC dialects. A column
+     * without a valid scale keeps the previous microsecond mapping.
+     *
+     * <p>Together with the sink row converter, the mapping is exact for the column precision: a
+     * {@code TIMESTAMP_NS} column written through SeaTunnel keeps all nine fractional digits.
+     */
+    private void reconvertTimestampType(
+            Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
+        Integer scale = column.getScale();
+        if (scale == null || scale < 0) {
+            builder.columnType(DUCKDB_TIMESTAMP);
+            builder.dataType(DUCKDB_TIMESTAMP);
+            builder.scale(scale == null ? null : TIMESTAMP_SCALE);
+            return;
+        }
+
+        if (scale > MAX_TIMESTAMP_SCALE) {
+            log.warn(
+                    "The timestamp column {} type timestamp({}) is out of range, "
+                            + "which exceeds the maximum scale of {}, "
+                            + "it will be converted to {}",
+                    column.getName(),
+                    scale,
+                    MAX_TIMESTAMP_SCALE,
+                    DUCKDB_TIMESTAMP_NS);
+            scale = MAX_TIMESTAMP_SCALE;
+        }
+
+        String columnType;
+        int nativeScale;
+        if (scale <= TIMESTAMP_S_SCALE) {
+            columnType = DUCKDB_TIMESTAMP_S;
+            nativeScale = TIMESTAMP_S_SCALE;
+        } else if (scale <= TIMESTAMP_MS_SCALE) {
+            columnType = DUCKDB_TIMESTAMP_MS;
+            nativeScale = TIMESTAMP_MS_SCALE;
+        } else if (scale <= TIMESTAMP_SCALE) {
+            columnType = DUCKDB_TIMESTAMP;
+            nativeScale = TIMESTAMP_SCALE;
+        } else {
+            columnType = DUCKDB_TIMESTAMP_NS;
+            nativeScale = TIMESTAMP_NS_SCALE;
+        }
+        builder.columnType(columnType);
+        builder.dataType(columnType);
+        builder.scale(nativeScale);
     }
 
     private void reconvertDecimalType(
