@@ -27,19 +27,26 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +56,87 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 @Slf4j
 public class CsvWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/csv/test";
+
+    @Test
+    public void testHeaderUsesDefaultFieldDelimiter() throws Exception {
+        List<String> lines = writeCsvWithHeader("default", null, "UTF-8", "name", "a");
+
+        Assertions.assertEquals("id,name", lines.get(0));
+        Assertions.assertEquals("1,a", lines.get(1));
+    }
+
+    @Test
+    public void testHeaderUsesMultiCharacterFieldDelimiter() throws Exception {
+        List<String> lines = writeCsvWithHeader("multi", "||", "UTF-8", "name", "a");
+
+        Assertions.assertEquals("id||name", lines.get(0));
+        Assertions.assertEquals("1||a", lines.get(1));
+    }
+
+    @Test
+    public void testHeaderUsesConfiguredEncoding() throws Exception {
+        List<String> lines = writeCsvWithHeader("encoding", "|", "UTF-16LE", "名称", "测试");
+
+        Assertions.assertEquals("id|名称", lines.get(0));
+        Assertions.assertEquals("1|测试", lines.get(1));
+    }
+
+    /**
+     * Runs one real CsvWriteStrategy lifecycle (beginTransaction, write, finishAndCloseFile, close)
+     * against an in-memory Hadoop output stream and returns the produced file split into lines. The
+     * mocked HadoopFileSystemProxy hands every requested path the same ByteArrayOutputStream, so
+     * the returned bytes are exactly what the writer emitted; they are decoded with the SAME
+     * charset passed as {@code encoding}, which is what lets the UTF-16LE case detect a header
+     * written with the platform default charset instead of the configured one.
+     *
+     * @param directory unique per-test output directory suffix, keeping tmp paths distinct
+     * @param fieldDelimiter field_delimiter to configure, or null to exercise the default comma
+     * @param encoding charset name used both for the writer config and for decoding the output
+     * @param fieldName second column name (non-ASCII in the encoding case on purpose)
+     * @param fieldValue second column value written in the single data row
+     * @return the decoded output split on line breaks: header first, then the data row
+     */
+    private List<String> writeCsvWithHeader(
+            String directory,
+            String fieldDelimiter,
+            String encoding,
+            String fieldName,
+            String fieldValue)
+            throws Exception {
+        String outputPath = "file:///tmp/seatunnel/csv/" + directory;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        HadoopFileSystemProxy fileSystemProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(fileSystemProxy.getOutputStream(Mockito.anyString()))
+                .thenReturn(new FSDataOutputStream(output, null));
+
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", outputPath);
+        writeConfig.put("path", outputPath);
+        writeConfig.put("file_format_type", FileFormat.CSV.name());
+        writeConfig.put("enable_header_write", true);
+        writeConfig.put("encoding", encoding);
+        if (fieldDelimiter != null) {
+            writeConfig.put("field_delimiter", fieldDelimiter);
+        }
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", fieldName},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        TestCsvWriteStrategy writeStrategy = new TestCsvWriteStrategy(writeSinkConfig);
+        writeStrategy.setFileSystemProxy(fileSystemProxy);
+        writeStrategy.setTransactionContext("test1", "test1", 0);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {1, fieldValue}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+        return Arrays.asList(
+                new String(output.toByteArray(), Charset.forName(encoding)).split("\\R"));
+    }
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
@@ -173,5 +261,28 @@ public class CsvWriteStrategyTest {
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(1, readRows.size());
         readStrategy.close();
+    }
+
+    /**
+     * Test subclass whose only job is to inject the mocked filesystem proxy and the transaction
+     * identifiers that AbstractWriteStrategy normally receives through init()/beginTransaction()
+     * wiring. It writes through the real production code paths; nothing is overridden, so the bytes
+     * asserted by the tests come from the genuine writer logic.
+     */
+    private static class TestCsvWriteStrategy extends CsvWriteStrategy {
+
+        private TestCsvWriteStrategy(FileSinkConfig fileSinkConfig) {
+            super(fileSinkConfig);
+        }
+
+        private void setFileSystemProxy(HadoopFileSystemProxy proxy) {
+            this.hadoopFileSystemProxy = proxy;
+        }
+
+        private void setTransactionContext(String jobId, String uuidPrefix, int subTaskIndex) {
+            this.jobId = jobId;
+            this.uuidPrefix = uuidPrefix;
+            this.subTaskIndex = subTaskIndex;
+        }
     }
 }
