@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-datahub.md';
 The DataHub sink writes SeaTunnel rows to Alibaba Cloud DataHub.
 
 The connector supports single-table writes and multi-table writes. In multi-table
-jobs, use placeholders such as `${table}` in `topic` to route records from
+jobs, use placeholders such as `${table_name}` in `topic` to route records from
 different input tables to different DataHub topics.
 
 ## Key features
@@ -63,8 +63,7 @@ The DataHub project name.
 ### topic [string]
 
 The DataHub topic name. For multi-table writes, this value can contain
-placeholders such as `${table}`. `${table_name}` is only kept as a
-deprecated compatibility alias; use `${table}` for new jobs.
+placeholders such as `${table_name}`.
 
 The SeaTunnel field names must match the DataHub topic fields, because the sink
 writes fields by name according to the topic schema.
@@ -124,7 +123,7 @@ sink {
 ### Write Multiple Input Tables to Matching Topics
 
 When the upstream source provides multiple tables, configure `topic` with the
-`${table}` placeholder so each input table is routed to a topic with the same name.
+`${table_name}` placeholder so each input table is routed to a topic with the same name.
 
 ```hocon
 env {
@@ -167,7 +166,7 @@ sink {
     accessId = "your-access-id"
     accessKey = "your-access-key"
     project = "demo_project"
-    topic = "${table}"
+    topic = "${table_name}"
     timeout = 3000
     retryTimes = 3
   }
@@ -182,7 +181,7 @@ No. The connector performs best-effort writes with bounded retries (`retryTimes`
 
 ### How does multi-table routing work?
 
-When the upstream source emits more than one table, set `topic` to a value containing the `${table}` placeholder (for example `topic = "${table}"`). Each input table is then routed to a DataHub topic that shares its name. `${table_name}` is still recognized as a deprecated alias — prefer `${table}` in new jobs. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
+When the upstream source emits more than one table, set `topic` to a value containing the `${table_name}` placeholder (for example `topic = "${table_name}"`). Each input table is then routed to a DataHub topic that shares its name. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
 
 ### Why is `topic` a required field even for single-table jobs?
 

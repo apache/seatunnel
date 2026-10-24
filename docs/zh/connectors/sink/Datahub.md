@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-datahub.md';
 DataHub Sink 用于将 SeaTunnel 数据写入阿里云 DataHub。
 
 该连接器支持单表写入和多表写入。多表写入时，可以在 `topic` 中使用
-`${table}` 这类占位符，将不同输入表的数据写入不同的 DataHub Topic。
+`${table_name}` 这类占位符，将不同输入表的数据写入不同的 DataHub Topic。
 
 ## 关键特性
 
@@ -59,8 +59,7 @@ DataHub 项目名称。
 
 ### topic [string]
 
-DataHub Topic 名称。多表写入时可以使用占位符，例如 `${table}`。
-`${table_name}` 仅作为已废弃的兼容别名保留，新任务建议使用 `${table}`。
+DataHub Topic 名称。多表写入时可以使用占位符，例如 `${table_name}`。
 
 SeaTunnel 字段名需要和 DataHub Topic 中的字段名一致，因为 sink 会按照 Topic 结构里的字段名写入数据。
 
@@ -116,7 +115,7 @@ sink {
 
 ### 多表写入匹配的 Topic
 
-当上游 source 提供多个表时，可以使用 `${table}` 占位符配置 `topic`，让每个输入表路由到同名的 topic。
+当上游 source 提供多个表时，可以使用 `${table_name}` 占位符配置 `topic`，让每个输入表路由到同名的 topic。
 
 ```hocon
 env {
@@ -159,7 +158,7 @@ sink {
     accessId = "your-access-id"
     accessKey = "your-access-key"
     project = "demo_project"
-    topic = "${table}"
+    topic = "${table_name}"
     timeout = 3000
     retryTimes = 3
   }
@@ -174,7 +173,7 @@ sink {
 
 ### 多表写入是如何路由的？
 
-当上游 source 输出多张表时，把 `topic` 设置成包含 `${table}` 占位符的值（例如 `topic = "${table}"`），每张输入表就会被写到同名 DataHub topic。`${table_name}` 仍然作为已废弃的别名可以识别——新任务建议使用 `${table}`。该连接器不会自动创建目标 topic，请提前在 DataHub 项目中创建好，并保证其字段名与上游 SeaTunnel schema 一致。
+当上游 source 输出多张表时，把 `topic` 设置成包含 `${table_name}` 占位符的值（例如 `topic = "${table_name}"`），每张输入表就会被写到同名 DataHub topic。该连接器不会自动创建目标 topic，请提前在 DataHub 项目中创建好，并保证其字段名与上游 SeaTunnel schema 一致。
 
 ### 为什么单表任务 `topic` 也是必填？
 

@@ -20,7 +20,7 @@ If the SeaTunnel Engine cluster responds slowly or hangs, it may be due to insuf
 ##### Troubleshooting Process
 
 1. Check JVM heap memory usage in real time
-   Use the `jcmd` command to check JVM heap memory usage, where `<pid>` is the PID of the SeaTunnel Engine process.
+   Use the `jmap` command to check JVM heap memory usage, where `<pid>` is the PID of the SeaTunnel Engine process.
    ```bash
    jmap -heap <pid>
    ```
@@ -169,7 +169,7 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 ```bash
 # Check the slow operation log frequency and timing
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -50
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-master.log | tail -50
 ```
 
 Correlate the timestamps with:
@@ -190,7 +190,7 @@ free -h
 
 **REST submission latency:**
 - Symptom: Slow operations appear when jobs are submitted via REST API, and the submitting client experiences long response times.
-- Check: `grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-server.log` — look for elapsed time.
+- Check: `grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-engine-master.log` — look for elapsed time.
 - Common cause: Master node is overloaded with concurrent submissions, or the job configuration is very large (many connectors/transforms).
 - Mitigation: Rate-limit concurrent submissions, increase master node resources, or use `hazelcast.operation.generic.thread.count` tuning.
 
@@ -208,7 +208,7 @@ free -h
 
 **Checkpoint storage latency:**
 - Symptom: Slow operations align with checkpoint intervals, and checkpoint duration exceeds the configured timeout.
-- Check: Enable DEBUG logging for `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator`, then `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | grep -oP 'cost: \d+ms'` to see checkpoint durations.
+- Check: Enable DEBUG logging for `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator`, then `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-engine-master.log | grep -oP 'cost: \d+ms'` to see checkpoint durations.
 - If using S3: Run `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` to measure latency, or check CloudWatch S3 metrics (`FirstByteLatency`, `TotalRequestLatency`).
 - Common cause: High network latency to S3/HDFS, small files causing many round trips, or S3 throttling.
 - Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency).
@@ -307,7 +307,7 @@ SeaTunnel outputs health monitor logs periodically (every 60 seconds by default)
 
 ```bash
 # Extract slow operation warnings with their durations
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -20
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-master.log | tail -20
 ```
 
 #### 4.3 Node Resource Metrics
@@ -373,7 +373,7 @@ curl -w "DNS: %{time_namelookup}s, Connect: %{time_connect}s, TTFB: %{time_start
 **Check checkpoint write performance:**
 ```bash
 # Monitor checkpoint duration from logs (requires DEBUG logging for CheckpointCoordinator)
-grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
+grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-engine-master.log | \
   grep -oP 'cost: \d+ms' | sort -t: -k2 -nr | head -20
 ```
 
