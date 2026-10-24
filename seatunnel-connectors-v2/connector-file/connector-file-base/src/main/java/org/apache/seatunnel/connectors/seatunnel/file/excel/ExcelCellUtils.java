@@ -44,10 +44,25 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 
 public class ExcelCellUtils implements Serializable {
 
     static final long serialVersionUID = 42L;
+
+    /** Column types read from the stored number of a number cell, not its display text. */
+    public static final Set<SqlType> NUMERIC_SQL_TYPES =
+            Collections.unmodifiableSet(
+                    EnumSet.of(
+                            SqlType.TINYINT,
+                            SqlType.SMALLINT,
+                            SqlType.INT,
+                            SqlType.BIGINT,
+                            SqlType.FLOAT,
+                            SqlType.DOUBLE,
+                            SqlType.DECIMAL));
 
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
@@ -84,18 +99,34 @@ public class ExcelCellUtils implements Serializable {
         return null;
     }
 
+    /**
+     * Whether the EasyExcel cell is a number cell read into a numeric column. EasyExcel hands the
+     * text formatted with the cell's display format ("General" keeps about 10 significant digits),
+     * so such a cell is read from its stored number instead.
+     */
+    private static boolean isNumericCell(@Nullable Cell cellRaw, SqlType sqlType) {
+        return NUMERIC_SQL_TYPES.contains(sqlType)
+                && cellRaw instanceof ReadCellData
+                && ((ReadCellData<?>) cellRaw).getType() == CellDataTypeEnum.NUMBER
+                && ((ReadCellData<?>) cellRaw).getNumberValue() != null;
+    }
+
     @SneakyThrows(JsonProcessingException.class)
     public Object convert(Object field, SeaTunnelDataType<?> fieldType, @Nullable Cell cellRaw) {
         if (field == null && cellRaw == null) {
             return null;
         }
 
-        String fieldValue =
-                (field instanceof String) || cellRaw == null
-                        ? field.toString()
-                        : getCellValue((ReadCellData) cellRaw);
-
         SqlType sqlType = fieldType.getSqlType();
+
+        String fieldValue;
+        if (isNumericCell(cellRaw, sqlType)) {
+            fieldValue = ((ReadCellData<?>) cellRaw).getNumberValue().toString();
+        } else if (field instanceof String || cellRaw == null) {
+            fieldValue = field.toString();
+        } else {
+            fieldValue = getCellValue((ReadCellData) cellRaw);
+        }
 
         if (fieldValue == null || (fieldValue.equals("") && sqlType != SqlType.STRING)) {
             return null;
@@ -129,7 +160,8 @@ public class ExcelCellUtils implements Serializable {
             case SMALLINT:
                 return (short) Double.parseDouble(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                // Parse the text directly: going through double drops digits beyond ~15
+                return new BigDecimal(fieldValue.trim());
             case DATE:
                 return parseDate(field, fieldType);
             case TIME:
