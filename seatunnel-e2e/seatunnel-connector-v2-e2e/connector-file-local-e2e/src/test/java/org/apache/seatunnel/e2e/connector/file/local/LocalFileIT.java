@@ -38,6 +38,8 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +47,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
+import org.testcontainers.utility.MountableFile;
 
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import io.airlift.compress.lzo.LzopCodec;
@@ -251,6 +254,18 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
                         container);
 
+                Path headerProjectionFile =
+                        Files.createTempFile("excel-header-projection-", ".xlsx");
+                try {
+                    createExcelHeaderProjectionFile(headerProjectionFile);
+                    // Temporary files can be owner-only; allow the container process to read it.
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(headerProjectionFile, 0644),
+                            "/seatunnel/read/excel_header_projection/e2e.xlsx");
+                } finally {
+                    Files.deleteIfExists(headerProjectionFile);
+                }
+
                 Path xlsxZip =
                         convertToZipFile(
                                 Lists.newArrayList(
@@ -322,7 +337,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer(
                         "sh",
                         "-c",
-                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n## Child\\nBody\\n' > /seatunnel/read/markdown/e2e.md");
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);
@@ -360,6 +375,8 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
+        helper.execute("/excel/local_excel_header_projection_poi_to_assert.conf");
+        helper.execute("/excel/local_excel_header_projection_easyexcel_to_assert.conf");
         helper.execute("/excel/special_excel_to_assert.conf");
         helper.execute("/excel/local_filter_excel_to_assert.conf");
         helper.execute("/excel/local_filter_regex_excel_to_assert.conf");
@@ -969,6 +986,20 @@ public class LocalFileIT extends TestSuiteBase {
         outputStream.write(Files.readAllBytes(file.toPath()));
         outputStream.close();
         return path;
+    }
+
+    private void createExcelHeaderProjectionFile(Path file) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(file.toFile())) {
+            Sheet sheet = workbook.createSheet();
+            sheet.createRow(0).createCell(0).setCellValue("header-b");
+            sheet.getRow(0).createCell(1).setCellValue("header-a");
+            sheet.getRow(0).createCell(2).setCellValue("header-c");
+            sheet.createRow(1).createCell(0).setCellValue("value-b");
+            sheet.getRow(1).createCell(1).setCellValue("value-a");
+            sheet.getRow(1).createCell(2).setCellValue("value-c");
+            workbook.write(output);
+        }
     }
 
     public Path convertToZipFile(List<File> files, String name) throws IOException {

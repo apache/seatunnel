@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -75,6 +76,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    private static final SeaTunnelRowType CONTAINER_ARRAY_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "arr"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, INT_ARRAY_TYPE});
+
+    private static final SeaTunnelRowType CONTAINER_MAP_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "m"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, new MapType<>(STRING_TYPE, INT_TYPE)});
+
+    private static final ArrayType<Map<String, Integer>[], Map<String, Integer>> MAP_ARRAY_TYPE =
+            ArrayType.of(new MapType<>(STRING_TYPE, INT_TYPE));
+
+    private static final MapType<String, Integer[]> ARRAY_MAP_TYPE =
+            new MapType<>(STRING_TYPE, INT_ARRAY_TYPE);
+
+    private static final SeaTunnelRowType NESTED_CONTAINER_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "outer", "nested"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, MAP_ARRAY_TYPE, ARRAY_MAP_TYPE});
 
     @Test
     public void testTimestampTzSerializedAsSessionWallClock() {
@@ -905,5 +927,252 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(
                 LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
                 fractionalPrecisionRow.getField(0));
+    }
+
+    @Test
+    public void testArrayFieldRejectsNonArrayNodeInStrictMode() {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, false, CONTAINER_ARRAY_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"arr\":\"abc\"}",
+            "{\"id\":7,\"arr\":42}",
+            "{\"id\":7,\"arr\":true}",
+            "{\"id\":7,\"arr\":{\"k\":1}}"
+        };
+        Assertions.assertAll(
+                "ARRAY field must reject non-array JSON nodes in strict mode",
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[0], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[1], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[2], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[3], "'arr'", "ARRAY"));
+    }
+
+    @Test
+    public void testArrayFieldRejectsNonArrayNodeInLenientMode() throws Exception {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, true, CONTAINER_ARRAY_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"arr\":\"abc\"}",
+            "{\"id\":7,\"arr\":42}",
+            "{\"id\":7,\"arr\":true}",
+            "{\"id\":7,\"arr\":{\"k\":1}}"
+        };
+        Assertions.assertAll(
+                "ARRAY field must be null for non-array JSON nodes in lenient mode",
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[0]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[1]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[2]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[3]));
+    }
+
+    @Test
+    public void testArrayFieldAcceptsArrayNodeInBothModes() throws Exception {
+        String[] payloads = {
+            "{\"id\":7,\"arr\":[]}",
+            "{\"id\":\"7\",\"arr\":[1,2]}",
+            "{\"id\":7,\"arr\":[1,null]}",
+            "{\"id\":7,\"arr\":null}"
+        };
+        Object[] expected = {new Integer[0], new Integer[] {1, 2}, new Integer[] {1, null}, null};
+        for (boolean ignoreErrors : new boolean[] {false, true}) {
+            JsonDeserializationSchema schema =
+                    new JsonDeserializationSchema(false, ignoreErrors, CONTAINER_ARRAY_ROW_TYPE);
+            for (int i = 0; i < payloads.length; i++) {
+                String payload = payloads[i];
+                String message = payload + " (ignoreErrors=" + ignoreErrors + ")";
+                SeaTunnelRow rowFromBytes =
+                        schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+                SeaTunnelRow rowFromString = schema.deserialize(payload);
+                Assertions.assertNotNull(rowFromBytes, message);
+                Assertions.assertNotNull(rowFromString, message);
+                assertEquals(7, rowFromBytes.getField(0), message);
+                assertEquals(rowFromBytes.getField(0), rowFromString.getField(0), message);
+                if (expected[i] == null) {
+                    assertNull(rowFromBytes.getField(1), message);
+                    assertNull(rowFromString.getField(1), message);
+                } else {
+                    assertArrayEquals(
+                            (Integer[]) expected[i], (Integer[]) rowFromBytes.getField(1), message);
+                    assertArrayEquals(
+                            (Integer[]) expected[i],
+                            (Integer[]) rowFromString.getField(1),
+                            message);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testMapFieldRejectsNonObjectNodeInStrictMode() {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, false, CONTAINER_MAP_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"m\":\"abc\"}",
+            "{\"id\":7,\"m\":42}",
+            "{\"id\":7,\"m\":true}",
+            "{\"id\":7,\"m\":[1,2]}"
+        };
+        Assertions.assertAll(
+                "MAP field must reject non-object JSON nodes in strict mode",
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[0], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[1], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[2], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[3], "'m'", "MAP"));
+    }
+
+    @Test
+    public void testMapFieldRejectsNonObjectNodeInLenientMode() throws Exception {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, true, CONTAINER_MAP_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"m\":\"abc\"}",
+            "{\"id\":7,\"m\":42}",
+            "{\"id\":7,\"m\":true}",
+            "{\"id\":7,\"m\":[1,2]}"
+        };
+        Assertions.assertAll(
+                "MAP field must be null for non-object JSON nodes in lenient mode",
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[0]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[1]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[2]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[3]));
+    }
+
+    @Test
+    public void testMapFieldAcceptsObjectNodeInBothModes() throws Exception {
+        Map<Object, Object> oneEntry = new HashMap<>();
+        oneEntry.put("a", 1);
+        oneEntry.put("b", null);
+        String[] payloads = {
+            "{\"id\":7,\"m\":{}}", "{\"id\":7,\"m\":{\"a\":1,\"b\":null}}", "{\"id\":7,\"m\":null}"
+        };
+        Object[] expected = {new HashMap<Object, Object>(), oneEntry, null};
+        for (boolean ignoreErrors : new boolean[] {false, true}) {
+            JsonDeserializationSchema schema =
+                    new JsonDeserializationSchema(false, ignoreErrors, CONTAINER_MAP_ROW_TYPE);
+            for (int i = 0; i < payloads.length; i++) {
+                String payload = payloads[i];
+                String message = payload + " (ignoreErrors=" + ignoreErrors + ")";
+                SeaTunnelRow rowFromBytes =
+                        schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+                SeaTunnelRow rowFromString = schema.deserialize(payload);
+                Assertions.assertNotNull(rowFromBytes, message);
+                Assertions.assertNotNull(rowFromString, message);
+                assertEquals(7, rowFromBytes.getField(0), message);
+                assertEquals(rowFromBytes.getField(0), rowFromString.getField(0), message);
+                if (expected[i] == null) {
+                    assertNull(rowFromBytes.getField(1), message);
+                    assertNull(rowFromString.getField(1), message);
+                } else {
+                    assertEquals(expected[i], rowFromBytes.getField(1), message);
+                    assertEquals(rowFromBytes.getField(1), rowFromString.getField(1), message);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testNestedContainerMismatchKeepsEnclosingContainerInLenientMode() throws Exception {
+        JsonDeserializationSchema lenientSchema =
+                new JsonDeserializationSchema(false, true, NESTED_CONTAINER_ROW_TYPE);
+        JsonDeserializationSchema strictSchema =
+                new JsonDeserializationSchema(false, false, NESTED_CONTAINER_ROW_TYPE);
+
+        Map<Object, Object> firstElement = new HashMap<>();
+        firstElement.put("a", 1);
+        Map<Object, Object> secondElement = new HashMap<>();
+        secondElement.put("b", 2);
+        String outerPayload = "{\"id\":7,\"outer\":[{\"a\":1},42,{\"b\":2}]}";
+        SeaTunnelRow[] outerRows = {
+            lenientSchema.deserialize(outerPayload.getBytes(StandardCharsets.UTF_8)),
+            lenientSchema.deserialize(outerPayload)
+        };
+        for (SeaTunnelRow row : outerRows) {
+            Assertions.assertNotNull(row, outerPayload);
+            assertEquals(7, row.getField(0), outerPayload);
+            Object[] outer = (Object[]) row.getField(1);
+            Assertions.assertNotNull(outer, outerPayload);
+            assertEquals(3, outer.length, outerPayload);
+            assertEquals(firstElement, outer[0], outerPayload);
+            assertNull(outer[1], outerPayload);
+            assertEquals(secondElement, outer[2], outerPayload);
+        }
+
+        String nestedPayload = "{\"id\":7,\"nested\":{\"good\":[1,null],\"bad\":true}}";
+        SeaTunnelRow[] nestedRows = {
+            lenientSchema.deserialize(nestedPayload.getBytes(StandardCharsets.UTF_8)),
+            lenientSchema.deserialize(nestedPayload)
+        };
+        for (SeaTunnelRow row : nestedRows) {
+            Assertions.assertNotNull(row, nestedPayload);
+            assertEquals(7, row.getField(0), nestedPayload);
+            @SuppressWarnings("unchecked")
+            Map<Object, Object> nested = (Map<Object, Object>) row.getField(2);
+            Assertions.assertNotNull(nested, nestedPayload);
+            assertEquals(2, nested.size(), nestedPayload);
+            assertArrayEquals(
+                    new Integer[] {1, null}, (Integer[]) nested.get("good"), nestedPayload);
+            assertTrue(nested.containsKey("bad"), nestedPayload);
+            assertNull(nested.get("bad"), nestedPayload);
+        }
+
+        assertContainerTypeRejectedInStrictMode(strictSchema, outerPayload, "'outer'", "MAP");
+        assertContainerTypeRejectedInStrictMode(strictSchema, nestedPayload, "nested", "ARRAY");
+    }
+
+    private static void assertContainerFieldNullInLenientMode(
+            JsonDeserializationSchema schema, String payload) throws Exception {
+        SeaTunnelRow rowFromBytes = schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+        SeaTunnelRow rowFromString = schema.deserialize(payload);
+        Assertions.assertNotNull(rowFromBytes, payload);
+        Assertions.assertNotNull(rowFromString, payload);
+        assertEquals(7, rowFromBytes.getField(0), payload);
+        assertEquals(7, rowFromString.getField(0), payload);
+        assertNull(rowFromBytes.getField(1), payload);
+        assertNull(rowFromString.getField(1), payload);
+    }
+
+    private static void assertContainerTypeRejectedInStrictMode(
+            JsonDeserializationSchema schema, String payload, String fieldName, String typeToken) {
+        SeaTunnelRuntimeException fromBytes =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> schema.deserialize(payload.getBytes(StandardCharsets.UTF_8)),
+                        payload);
+        SeaTunnelRuntimeException fromString =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> schema.deserialize(payload),
+                        payload);
+        assertCauseChainMentions(fromBytes, fieldName, typeToken, payload);
+        assertCauseChainMentions(fromString, fieldName, typeToken, payload);
+    }
+
+    private static void assertCauseChainMentions(
+            Throwable failure, String fieldName, String typeToken, String payload) {
+        Throwable current = failure;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(fieldName) && message.contains(typeToken)) {
+                return;
+            }
+            current = current.getCause();
+        }
+        throw new AssertionError(
+                payload
+                        + " must fail with a cause mentioning "
+                        + fieldName
+                        + " and "
+                        + typeToken
+                        + ", but was: "
+                        + failure);
     }
 }
