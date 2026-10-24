@@ -134,6 +134,32 @@ replacement. `<application-id>-discovery` is a headless Service for stable maste
 Native clients connect through the ClusterIP with smart routing disabled; they need network access
 to that Service. Application `status` and `cancel` only require Kubernetes API access.
 
+### Controller and runtime boundaries
+
+This is the native Zeta HA follow-up to [STIP-41](https://github.com/apache/seatunnel/issues/11857)
+and [#12886](https://github.com/apache/seatunnel/issues/12886). The proposed contract is sequential
+active/standby master Pod replacement while at least one master and accessible checkpoints survive.
+Node/storage experiments below are additional diagnostics, not a broader availability guarantee.
+
+```text
+Application CLI -> suspended owner Job (application ID, UID, immutable native job ID)
+                -> master StatefulSet (2 replicas) + stable ClusterIP + master discovery Service
+                -> unsuspend owner Job
+master processes -> ApplicationJobRunner -> native coordinator election / replicated IMaps
+active coordinator -> ApplicationResourceManager -> Kubernetes driver -> fixed worker Pods
+owner observer -> owner Job metadata only -> UID-guarded terminal cleanup
+```
+
+The CLI assembles Kubernetes resources, the StatefulSet replaces masters, and the active native
+coordinator owns job execution. Each coordinator activation gets a new provider driver; retiring
+it stops its watches without deleting the fixed workers. The owner Job only observes persisted
+status and retries cleanup. It neither elects a leader nor submits or restores a job.
+
+The native takeover reconstructs the same job ID and validates all retained checkpoint entries
+before scheduling. An old initialization cannot publish into a successor activation. Worker reports
+are checked against their deployment execution ID. Neither mechanism fences external sink writers
+across a network partition.
+
 ### Submission and recovery
 
 Initial submission waits for both masters and all fixed workers. The active master claims submission
@@ -208,6 +234,35 @@ and Services `get`. The application ServiceAccount needs Jobs `get,patch`, Pods
 Workers do not mount its token. Use a dedicated namespace and restrict modification of the owner
 annotations and referenced runtime configuration. Neither identity needs permission to delete PVCs
 or remote checkpoint data.
+
+### Reproducible acceptance checks
+
+The standard Kubernetes suite covers single-master compatibility and the two-master contract:
+
+- Replace standby, active and observer Pods sequentially; require replacement Pod/native UUIDs,
+  promotion of the surviving standby, stable application/job/Service identity, unchanged worker,
+  and a newer completed checkpoint after each master rejoins.
+- Keep one native client connected across these faults, then explicitly request native cancellation
+  using a single scenario deadline and a completion handshake.
+- Hold the bounded source tail behind a test-image-only gate while failing the active master;
+  release it after recovery and compare all 240 committed IDs exactly.
+- Cancel after committing IDs 0–119, explicitly restore a new application from that checkpoint,
+  release IDs 120–239, and reconcile committed output from both applications after terminal status.
+  Logs are diagnostics rather than the no-replay oracle. This is evidence for this test pipeline,
+  not a connector-wide delivery guarantee.
+- Verify success, sink failure, fixed-worker loss, cancellation, missing restore state, observer
+  restart and cleanup retry; preserve user PVC/Secret/ConfigMap UIDs and data.
+
+```bash
+./mvnw -pl seatunnel-e2e/seatunnel-resource-managers-e2e verify \
+  -DskipUT=true -DskipIT=false -Dskip.ui=true \
+  -Djava.util.concurrent.ForkJoinPool.common.parallelism=3 \
+  '-Dit.test=KubernetesApplication*IT'
+```
+
+The test fixture temporarily holds terminal compute cleanup with namespace RBAC only long enough
+to read worker-local committed output, then restores permissions and verifies cleanup. It does not
+mount the master's checkpoint PVC on workers or change a production connector.
 
 ### Multi-node failure validation
 

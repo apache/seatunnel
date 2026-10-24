@@ -147,7 +147,6 @@ public final class KubernetesApplicationConfig {
         }
         this.namespace = requireNonBlank(options, KubernetesOptions.NAMESPACE);
         this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
-
         this.imagePullPolicy =
                 ImagePullPolicy.fromValue(options.get(KubernetesOptions.IMAGE_PULL_POLICY));
         this.imagePullSecrets = parseList(options.get(KubernetesOptions.IMAGE_PULL_SECRETS));
@@ -180,13 +179,11 @@ public final class KubernetesApplicationConfig {
         this.envFromReferences = envFromReferences(rawOptions);
         this.configMaps = configMaps(rawOptions);
         validateConfigMapMounts();
-
         this.retentionSeconds = requirePositive(options, KubernetesOptions.RETENTION_SECONDS);
         // Unset keeps the Job active until it finishes; setting it bounds startup plus the run.
         this.activeDeadlineSeconds =
                 optionalPositive(options, KubernetesOptions.ACTIVE_DEADLINE_SECONDS);
         this.checkpointPvc = optionalNonBlank(options, KubernetesOptions.CHECKPOINT_PVC);
-
         this.masterLabels = labels(options, KubernetesOptions.MASTER_LABELS);
         this.workerLabels = labels(options, KubernetesOptions.WORKER_LABELS);
         this.masterAnnotations = pairs(options, KubernetesOptions.MASTER_ANNOTATIONS);
@@ -339,7 +336,6 @@ public final class KubernetesApplicationConfig {
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
         properties.setProperty(KubernetesOptions.HA_ENABLED.key(), Boolean.toString(haEnabled));
-
         properties.setProperty(
                 KubernetesOptions.MASTER_REPLICAS.key(), Integer.toString(masterReplicas));
         if (haEnabled) {
@@ -726,7 +722,6 @@ public final class KubernetesApplicationConfig {
         Set<String> mountPaths = new HashSet<>();
         for (KubernetesConfigMapEntry entry : configMaps) {
             for (String path : entry.getMountPaths().values()) {
-
                 if (!mountPaths.add(path)) {
                     throw new IllegalArgumentException(
                             KubernetesConstants.CONFIG_MAP_OPTION

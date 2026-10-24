@@ -276,6 +276,9 @@ public class CheckpointManager {
                                 CheckpointCoordinator::getPipelineId, Function.identity()));
     }
 
+    /**
+     * Retries only an explicitly unavailable initial read; cancellation/demotion ends admission.
+     */
     private PipelineState latestRecoveryStateWithRetry(
             long sourceJobId, int pipelineId, RestoreMode mode, long deadline) throws Exception {
         CheckpointStorageUnavailableException lastFailure = null;
@@ -303,6 +306,9 @@ public class CheckpointManager {
         }
     }
 
+    /**
+     * A retired coordinator or terminal job must not publish recovery state after a blocked read.
+     */
     private void checkRecoveryActive() throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Checkpoint recovery interrupted");
@@ -316,6 +322,11 @@ public class CheckpointManager {
         }
     }
 
+    /**
+     * Validates every retained entry before selecting a checkpoint. Only a successful empty lookup
+     * permits the caller to fall back from the current job to the original restore source; storage
+     * failures and corrupt/foreign entries must never be interpreted as an empty history.
+     */
     private PipelineState latestRecoveryState(long sourceJobId, int pipelineId, RestoreMode mode)
             throws Exception {
         List<PipelineState> states =

@@ -182,3 +182,41 @@ Master 接管期间，首次列举检查点时的临时连接失败可在作业 
 测试环境需要支持 cgroup v2 的特权 Docker。节点故障会冻结该测试节点的全部进程；清理时先移除存活的
 计算资源，再解冻故障节点。测试不覆盖运行期间的网络分区恢复或严格分区保护。所有节点运行在同一
 Docker 主机上，因此不能作为独立物理主机或独立存储系统之间的故障验证。
+
+
+### 原生 Zeta HA 的职责和验证边界
+
+这是 [STIP-41](https://github.com/apache/seatunnel/issues/11857) 和
+[#12886](https://github.com/apache/seatunnel/issues/12886) 的后续设计。承诺范围为：至少一个 Master
+和可访问的检查点仍然存在时，依次替换 Active/Standby Master Pod。节点及存储故障实验不扩大此承诺。
+
+```text
+CLI -> 挂起的 Owner Job（应用 ID、UID、固定的原生作业 ID）
+    -> Master StatefulSet（2 副本）+ 稳定 ClusterIP + Master 发现 Service
+    -> 启动 Owner Job
+Master -> ApplicationJobRunner -> 原生选主 / 复制 IMap
+Active -> ApplicationResourceManager -> Kubernetes Driver -> 固定 Worker Pod
+Owner -> 只观察 Job 元数据 -> 按 UID 清理终态资源
+```
+
+每次协调器激活都会创建新的 Driver；旧协调器停止监听，但不删除固定 Worker。Owner 不选主、
+不提交作业，也不执行恢复。原生接管复用原作业 ID，并验证所有保留的检查点。旧初始化不能向新激活
+发布状态，Worker 报告须匹配部署执行 ID。这些检查不对网络分区后的外部 Sink 写入提供隔离。
+
+标准 Kubernetes E2E 验证依次替换 Standby、Active、Owner，检查 Pod/原生成员 UUID、存活 Standby
+晋升、应用/作业/Service 身份、固定 Worker 和新的已完成检查点。一个原生客户端跨故障保持连接，
+在统一场景截止时间内通过显式握手取消作业。
+
+测试镜像专用的有界源将 120–239 的尾部数据置于显式门控之后，在 Active 故障恢复后才释放，
+最终严格核对 240 个已提交 ID。冷恢复先提交 0–119 并取消，再从该检查点启动新应用，释放并核对
+120–239，合并两个应用的已提交输出以检查重复或遗漏。日志只作诊断；此结果不等于所有连接器的交付保证。
+测试临时收紧 RBAC 以保留终态 Worker 供读取本地输出，随后恢复权限并验证清理；不将 Master 检查点
+PVC 挂载到 Worker，也不修改生产连接器。成功、Sink 失败、Worker 丢失、取消、缺失恢复状态、Owner
+重启和清理重试还须保留用户 PVC/Secret/ConfigMap 的 UID 与数据。
+
+```bash
+./mvnw -pl seatunnel-e2e/seatunnel-resource-managers-e2e verify \
+  -DskipUT=true -DskipIT=false -Dskip.ui=true \
+  -Djava.util.concurrent.ForkJoinPool.common.parallelism=3 \
+  '-Dit.test=KubernetesApplication*IT'
+```

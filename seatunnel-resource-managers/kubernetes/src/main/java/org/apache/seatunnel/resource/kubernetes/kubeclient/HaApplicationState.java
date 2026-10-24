@@ -51,10 +51,15 @@ public final class HaApplicationState {
         return "true".equals(annotations(job).get(ENABLED));
     }
 
+    /** Only the initial intent is eligible for the single native submission claim. */
     public static boolean unsubmitted(KubernetesJob owner) {
         return NEW.equals(annotations(owner).get(INTENT));
     }
 
+    /**
+     * Only durable final outcomes (including startup failure) allow cleanup; unknown stays
+     * observable.
+     */
     public static ApplicationStatus terminal(KubernetesJob job) {
         if (!enabled(job)) {
             return null;
@@ -237,6 +242,7 @@ public final class HaApplicationState {
         }
     }
 
+    /** Seeds immutable identity and unclaimed intent before any native execution can start. */
     public static Map<String, String> initial(String encoded, long jobId) {
         Map<String, String> state = new HashMap<>();
         state.put(ENABLED, "true");

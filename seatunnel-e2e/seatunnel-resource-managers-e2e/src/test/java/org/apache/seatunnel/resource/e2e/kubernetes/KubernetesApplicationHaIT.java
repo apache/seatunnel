@@ -168,13 +168,18 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     @Test
     void dualMastersAndOwnerRecoverWithoutResubmissionThenCheckpointRestores() throws Exception {
         int masters = 2;
-        ApplicationSpecification first = haSpecification(null, null);
+        long scenarioDeadline = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(20);
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        V1Role originalRole = rbac.readNamespacedRole("application", namespace, null);
+        ApplicationSpecification first = gatedSpecification(null);
+        String committedPrefix;
+        String clientPrefix = "/checkpoints/ha-client-" + first.getJobId();
         Map<String, String> options = new HashMap<>(haOptions());
         options.put(KubernetesOptions.MASTER_REPLICAS.key(), Integer.toString(masters));
         try (KubernetesApplicationClient application = deployApplication(first, options)) {
             try {
                 Awaitility.await()
-                        .atMost(180, TimeUnit.SECONDS)
+                        .atMost(remaining(scenarioDeadline, 180), TimeUnit.MILLISECONDS)
                         .untilAsserted(
                                 () -> {
                                     assertEquals(masters, rolePods(application, "master").size());
@@ -188,7 +193,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                                                     pod.getStatus()
                                                                                             .getPhase())));
                                 });
-                String[] initial = awaitProgress(application, first.getJobId(), -1);
+                String[] initial =
+                        awaitProgress(application, first.getJobId(), -1, scenarioDeadline);
                 V1Pod fixedWorker = workers(application).get(0);
                 String workerMember = memberUid(initial, fixedWorker);
                 String serviceUid =
@@ -205,12 +211,14 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                 () -> {
                                     try {
                                         return probeCommand(
-                                                application, first.getJobId(), "persistent");
+                                                application,
+                                                first.getJobId(),
+                                                "persistent",
+                                                scenarioDeadline);
                                     } catch (Exception e) {
                                         throw new java.util.concurrent.CompletionException(e);
                                     }
                                 });
-                String clientPrefix = "/checkpoints/ha-client-" + first.getJobId();
                 Awaitility.await()
                         .atMost(30, TimeUnit.SECONDS)
                         .untilAsserted(
@@ -262,7 +270,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                     core.deleteNamespacedPod(
                             name, namespace, null, null, 0, null, "Background", null);
                     Awaitility.await()
-                            .atMost(180, TimeUnit.SECONDS)
+                            .atMost(remaining(scenarioDeadline, 180), TimeUnit.MILLISECONDS)
                             .untilAsserted(
                                     () -> {
                                         List<V1Pod> replacements =
@@ -292,7 +300,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                     });
                     if (!role.equals("owner")) {
                         Awaitility.await()
-                                .atMost(180, TimeUnit.SECONDS)
+                                .atMost(remaining(scenarioDeadline, 180), TimeUnit.MILLISECONDS)
                                 .ignoreExceptions()
                                 .untilAsserted(
                                         () -> {
@@ -316,7 +324,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                     // Baseline after replacement membership, so pre-fault progress cannot pass.
                     long recoveredCheckpoint =
                             Long.parseLong(probe(application, first.getJobId())[1]);
-                    awaitProgress(application, first.getJobId(), recoveredCheckpoint);
+                    awaitProgress(
+                            application, first.getJobId(), recoveredCheckpoint, scenarioDeadline);
                     String[] after = probe(application, first.getJobId());
                     LOG.info(
                             "HA recovered {} application={} job={} after={}",
@@ -364,8 +373,16 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                     .getAnnotations()
                                     .get("seatunnel.apache.org/job-id"));
                 }
+                awaitGate(fixedWorker);
+                awaitProgress(
+                        application,
+                        first.getJobId(),
+                        Long.parseLong(probe(application, first.getJobId())[1]),
+                        scenarioDeadline);
+                holdCleanup(rbac);
                 inspect("printf cancel > " + clientPrefix + ".command");
-                String persistentLog = persistent.get(60, TimeUnit.SECONDS);
+                String persistentLog =
+                        persistent.get(remaining(scenarioDeadline, 60), TimeUnit.MILLISECONDS);
                 assertTrue(persistentLog.contains("HA_PERSISTENT_RECOVERED"), persistentLog);
                 assertTrue(persistentLog.contains("HA_PERSISTENT_CANCELED"), persistentLog);
                 LOG.info(
@@ -376,47 +393,64 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
 
                 awaitStatus(application, ApplicationStatus.CANCELED);
                 assertEquals(ApplicationStatus.CANCELED, application.getStatus());
+                committedPrefix = committedOutput(fixedWorker, gatedOutput());
+                assertEquals(
+                        sequence(0, 120),
+                        committedPrefix,
+                        "Original committed prefix must be exact");
+                java.nio.file.Files.writeString(
+                        java.nio.file.Paths.get(
+                                "target", "failsafe-reports", "cold-restore-prefix.txt"),
+                        committedPrefix);
+                restoreApplicationRole(rbac, originalRole);
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
                 recordApplicationDiagnostics(application);
                 throw failure;
             } finally {
-                cancelAndAwait(application);
+                try {
+                    inspect("printf stop > " + clientPrefix + ".command");
+                } finally {
+                    try {
+                        restoreApplicationRole(rbac, originalRole);
+                    } finally {
+                        cancelAndAwait(application);
+                    }
+                }
             }
         }
-        ApplicationSpecification restored = haSpecification(null, first.getJobId());
+        ApplicationSpecification restored = gatedSpecification(first.getJobId());
         assertNotEquals(first.getJobId(), restored.getJobId());
         try (KubernetesApplicationClient application = deployApplication(restored, options)) {
             try {
+                holdCleanup(rbac);
                 awaitProgress(application, restored.getJobId(), -1);
-                List<V1Pod> restoredWorkers = workers(application);
-                assertEquals(1, restoredWorkers.size());
-                for (V1Pod worker : restoredWorkers) {
-                    Awaitility.await()
-                            .atMost(30, TimeUnit.SECONDS)
-                            .untilAsserted(
-                                    () -> {
-                                        String logs =
-                                                livePodLogs(
-                                                        application,
-                                                        worker.getMetadata().getName());
-                                        assertFalse(
-                                                logs.isEmpty(),
-                                                "Restored worker logs must be readable");
-                                        assertFalse(
-                                                logs.contains("APPLICATION_E2E_DATA"),
-                                                "Cold checkpoint restore must not replay the already committed marker");
-                                    });
-                }
-                probeCommand(application, restored.getJobId(), "cancel");
-                awaitStatus(application, ApplicationStatus.CANCELED);
+                V1Pod worker = workers(application).get(0);
+                awaitGate(worker);
+                workerCommand(worker, "touch " + KubernetesGatedSequenceSource.RELEASE);
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+                String committedTail = committedOutput(worker, gatedOutput());
+                assertEquals(
+                        sequence(120, 240),
+                        committedTail,
+                        "Restored application must commit exactly the unfinished tail");
+                assertEquals(
+                        sequence(0, 240),
+                        committedPrefix + "\n" + committedTail,
+                        "Committed IDs across original and restored applications must have no gaps or duplicates");
+                java.nio.file.Files.writeString(
+                        java.nio.file.Paths.get(
+                                "target", "failsafe-reports", "cold-restore-tail.txt"),
+                        committedTail);
+                restoreApplicationRole(rbac, originalRole);
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
                 recordApplicationDiagnostics(application);
                 throw failure;
             } finally {
+                restoreApplicationRole(rbac, originalRole);
                 cancelAndAwait(application);
             }
         }
@@ -518,19 +552,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 SeatunnelApplicationConfig.parse(scenarioFile("ha", "job.conf").toPath(), options);
         options.put("application.job-id", Long.toString(identity.getJobId()));
         String output = "/opt/seatunnel/checkpoints/ha-output/" + identity.getJobId();
-        String job =
-                "env { job.mode = BATCH, parallelism = 1, checkpoint.interval = 1000 }\n"
-                        + "source { FakeSource { row.num = 240, split.num = 120, "
-                        + "schema { fields { value = string } }, "
-                        + "rows = [{ kind = INSERT, fields = [\"MARKER_A\"] }, "
-                        + "{ kind = INSERT, fields = [\"MARKER_B\"] }] } }\n"
-                        + "sink { LocalFile { path = \""
-                        + output
-                        + "\", tmp_path = \"/checkpoints/ha-staging/"
-                        + identity.getJobId()
-                        + "\", file_format_type = text, row_delimiter = \"\\n\", "
-                        + "file_name_expression = \"${transactionId}_${now}\", "
-                        + "is_enable_transaction = true } }";
+        String job = gatedJob(output);
         ApplicationSpecification specification = SeatunnelApplicationConfig.parse(job, options);
         try (KubernetesApplicationClient application = deployApplication(specification, options)) {
             try {
@@ -544,6 +566,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 Awaitility.await()
                         .atMost(60, TimeUnit.SECONDS)
                         .untilAsserted(() -> assertTrue(committedRows(worker, output) > 0));
+                awaitGate(worker);
                 long committed = committedRows(worker, output);
                 assertTrue(
                         committed > 0 && committed < 240,
@@ -576,19 +599,16 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         awaitProgress(application, specification.getJobId(), promotedCheckpoint);
                 assertNotEquals(before[3], after[3], "The surviving master must take over");
                 assertFixedWorker(application, worker, workerMember, after);
+                workerCommand(worker, "touch " + KubernetesGatedSequenceSource.RELEASE);
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
                 String actual =
                         workerCommand(
                                         worker,
                                         "find "
                                                 + output
-                                                + " -type f ! -name '.*' -exec awk '1' {} + | sort")
+                                                + " -type f ! -name '.*' -exec awk '1' {} + | sort -n")
                                 .trim();
-                String expected =
-                        java.util.stream.Stream.concat(
-                                        Collections.nCopies(120, "MARKER_A").stream(),
-                                        Collections.nCopies(120, "MARKER_B").stream())
-                                .collect(java.util.stream.Collectors.joining("\n"));
+                String expected = sequence(0, 240);
                 assertEquals(expected, actual, "Committed marker multiset must be exact");
                 LOG.info(
                         "HA unfinished batch verified application={} committedBeforeFault={} exactRows=240 unchangedWorker={}",
@@ -618,6 +638,67 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 cancelAndAwait(application);
             }
         }
+    }
+
+    private static long remaining(long deadline, long stageSeconds) {
+        long remaining = deadline - System.currentTimeMillis();
+        assertTrue(remaining > 0, "HA scenario deadline expired");
+        return Math.min(remaining, TimeUnit.SECONDS.toMillis(stageSeconds));
+    }
+
+    private static void holdCleanup(RbacAuthorizationV1Api rbac) throws Exception {
+        V1Role restricted = rbac.readNamespacedRole("application", namespace, null);
+        restricted.getRules().stream()
+                .filter(rule -> rule.getApiGroups().contains("apps"))
+                .forEach(rule -> rule.setVerbs(Collections.singletonList("get")));
+        rbac.replaceNamespacedRole("application", namespace, restricted, null, null, null, null);
+    }
+
+    private static String gatedOutput() {
+        return "/tmp/ha-gated-output";
+    }
+
+    private static String gatedJob(String output) {
+        return "env { job.mode = BATCH, parallelism = 1, checkpoint.interval = 1000 }\n"
+                + "source { KubernetesGatedSequence {} }\n"
+                + "sink { LocalFile { path = \""
+                + output
+                + "\", tmp_path = \"/tmp/ha-gated-staging\", file_format_type = text, row_delimiter = \"\\n\", "
+                + "file_name_expression = \"${transactionId}_${now}\", is_enable_transaction = true } }";
+    }
+
+    private static ApplicationSpecification gatedSpecification(Long restore) throws Exception {
+        Map<String, String> options = new HashMap<>(haOptions());
+        if (restore != null) options.put("application.restore-job-id", restore.toString());
+        return SeatunnelApplicationConfig.parse(gatedJob(gatedOutput()), options);
+    }
+
+    private static void awaitGate(V1Pod worker) {
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                assertEquals(
+                                        "120",
+                                        workerCommand(
+                                                        worker,
+                                                        "cat "
+                                                                + KubernetesGatedSequenceSource
+                                                                        .REACHED)
+                                                .trim()));
+    }
+
+    private static String committedOutput(V1Pod worker, String output) throws Exception {
+        return workerCommand(
+                        worker,
+                        "find " + output + " -type f ! -name '.*' -exec awk '1' {} + | sort -n")
+                .trim();
+    }
+
+    private static String sequence(int start, int end) {
+        return java.util.stream.IntStream.range(start, end)
+                .mapToObj(Integer::toString)
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static long committedRows(V1Pod worker, String output) throws Exception {
@@ -1304,11 +1385,22 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     @Test
     @EnabledIfSystemProperty(named = "seatunnel.kubernetes.e2e.multinode", matches = "true")
     void coldRestoreStorageReadFailsClosedAndExplicitRetryRecovers() throws Exception {
-        ApplicationSpecification source = haSpecification(null, null);
+        ApplicationSpecification source = gatedSpecification(null);
+        String committedPrefix;
         long sourceCheckpoint;
         try (KubernetesApplicationClient application = deployRemoteApplication(source)) {
             try {
                 awaitProgress(application, source.getJobId(), 3);
+                V1Pod worker = workers(application).get(0);
+                awaitGate(worker);
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        assertEquals(
+                                                sequence(0, 120),
+                                                committedOutput(worker, gatedOutput())));
+                committedPrefix = committedOutput(worker, gatedOutput());
                 sourceCheckpoint = storedCheckpoint(source.getJobId());
                 String readable = probeCommand(application, source.getJobId(), "checkpoint-read");
                 assertTrue(readable.contains("HA_CHECKPOINT_READ_OK " + source.getJobId() + " 1"));
@@ -1330,7 +1422,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             }
         }
         sourceCheckpoint = storedCheckpoint(source.getJobId());
-        ApplicationSpecification blocked = haSpecification(null, source.getJobId());
+        ApplicationSpecification blocked = gatedSpecification(source.getJobId());
         RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
         V1Role originalRole = rbac.readNamespacedRole("application", namespace, null);
         V1Role guarded = rbac.readNamespacedRole("application", namespace, null);
@@ -1406,8 +1498,18 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                 failure.contains(Long.toString(source.getJobId())),
                                                 "Storage failure must identify the requested source checkpoint job");
                                     });
-                    assertNoSourceReplay(
-                            application, "Failed cold read must not run an empty source state");
+                    V1Pod worker = workers(application).get(0);
+                    assertEquals(
+                            "",
+                            workerCommand(
+                                            worker,
+                                            "if [ -e "
+                                                    + gatedOutput()
+                                                    + " ]; then find "
+                                                    + gatedOutput()
+                                                    + " -type f ! -name '.*' -exec awk '1' {} +; fi")
+                                    .trim(),
+                            "Failed cold read must not commit output from an empty source state");
                     recordApplicationDiagnostics(application);
                 } catch (Exception | AssertionError failure) {
                     recordApplicationDiagnostics(application, null);
@@ -1431,10 +1533,11 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             }
         }
         assertUserResourcesPreserved();
-        ApplicationSpecification retry = haSpecification(null, source.getJobId());
+        ApplicationSpecification retry = gatedSpecification(source.getJobId());
         try (KubernetesApplicationClient application = deployRemoteApplication(retry)) {
             try {
-                String[] restored = awaitProgress(application, retry.getJobId(), sourceCheckpoint);
+                holdCleanup(rbac);
+                awaitProgress(application, retry.getJobId(), sourceCheckpoint);
                 boolean loadedCheckpoint = false;
                 for (V1Pod master : rolePods(application, "master")) {
                     loadedCheckpoint |=
@@ -1446,30 +1549,31 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 }
                 assertTrue(
                         loadedCheckpoint, "Explicit retry must load the exact retained checkpoint");
-                assertNoSourceReplay(
-                        application,
-                        "Explicit retry must not replay the checkpointed source marker");
+                V1Pod worker = workers(application).get(0);
+                awaitGate(worker);
                 storedCheckpoint(retry.getJobId());
-                application.cancel();
+                workerCommand(worker, "touch " + KubernetesGatedSequenceSource.RELEASE);
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+                String tail = committedOutput(worker, gatedOutput());
+                assertEquals(sequence(120, 240), tail);
+                assertEquals(
+                        sequence(0, 240),
+                        committedPrefix + "\n" + tail,
+                        "Storage recovery must preserve the exact committed ID multiset");
+                restoreApplicationRole(rbac, originalRole);
                 awaitHaClean(application);
                 assertUserResourcesPreserved();
             } catch (Exception | AssertionError failure) {
                 recordApplicationDiagnostics(application);
                 throw failure;
             } finally {
-                cancelAndAwait(application);
+                try {
+                    restoreApplicationRole(rbac, originalRole);
+                } finally {
+                    cancelAndAwait(application);
+                }
             }
         }
-    }
-
-    private static void assertNoSourceReplay(
-            KubernetesApplicationClient application, String message) throws Exception {
-        List<V1Pod> fixedWorkers = workers(application);
-        assertEquals(1, fixedWorkers.size(), "Expected the configured fixed worker");
-        String logs = retainedPodLogs(fixedWorkers.get(0).getMetadata().getName());
-        assertFalse(
-                logs.isBlank(), "Retained worker logs are required for the no-replay assertion");
-        assertFalse(logs.contains("APPLICATION_E2E_DATA"), message);
     }
 
     private static void restoreApplicationRole(RbacAuthorizationV1Api rbac, V1Role original)
@@ -1543,6 +1647,12 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
 
     private static String probeCommand(
             KubernetesApplicationClient application, long job, String action) throws Exception {
+        return probeCommand(application, job, action, 0);
+    }
+
+    private static String probeCommand(
+            KubernetesApplicationClient application, long job, String action, long deadline)
+            throws Exception {
         V1Pod owner = core.readNamespacedPod(INSPECTOR, namespace, null);
         return exec(
                 owner,
@@ -1559,16 +1669,27 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                     application.getClusterId(),
                     Long.toString(job),
                     "5801",
-                    action
+                    action,
+                    application.getClusterId(),
+                    Long.toString(deadline)
                 });
     }
 
     private static String[] awaitProgress(
             KubernetesApplicationClient application, long job, long previous) {
+        return awaitProgress(
+                application,
+                job,
+                previous,
+                System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(180));
+    }
+
+    private static String[] awaitProgress(
+            KubernetesApplicationClient application, long job, long previous, long deadline) {
         java.util.concurrent.atomic.AtomicReference<String[]> observed =
                 new java.util.concurrent.atomic.AtomicReference<>();
         Awaitility.await()
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(remaining(deadline, 180), TimeUnit.MILLISECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .ignoreExceptions()
                 .untilAsserted(
@@ -1601,7 +1722,17 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             Future<byte[]> errors = outputReaders.submit(stderrStream::readAllBytes);
             assertTrue(
                     process.waitFor(
-                            Arrays.asList(command).contains("persistent") ? 480 : 45,
+                            Arrays.asList(command).contains("persistent")
+                                    ? Math.max(
+                                            1,
+                                            TimeUnit.MILLISECONDS.toSeconds(
+                                                            Long.parseLong(
+                                                                            command[
+                                                                                    command.length
+                                                                                            - 1])
+                                                                    - System.currentTimeMillis())
+                                                    + 30)
+                                    : 45,
                             TimeUnit.SECONDS),
                     "In-cluster command timed out");
             byte[] output = captured.get(5, TimeUnit.SECONDS);

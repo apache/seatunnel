@@ -79,10 +79,15 @@ public final class KubernetesApplicationProbe {
                                 .toString();
                 java.util.UUID clientIdentity = java.util.UUID.randomUUID();
                 java.nio.file.Files.writeString(state, "READY " + clientIdentity);
-                long deadline =
-                        System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(8);
+                // The caller supplies the same absolute deadline used by the fault scenario.
+                long deadline = Long.parseLong(args[5]);
                 boolean recovered = false;
-                while (System.nanoTime() < deadline) {
+                while (System.currentTimeMillis() < deadline) {
+                    if (java.nio.file.Files.exists(command)
+                            && "stop".equals(java.nio.file.Files.readString(command))) {
+                        System.out.println("HA_PERSISTENT_STOPPED " + clientIdentity);
+                        return;
+                    }
                     try {
                         if (jobs.getJobProxy(job).getJobStatus()
                                 == org.apache.seatunnel.engine.common.job.JobStatus.RUNNING) {

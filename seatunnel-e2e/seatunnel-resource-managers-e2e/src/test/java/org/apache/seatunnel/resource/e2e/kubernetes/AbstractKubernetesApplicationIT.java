@@ -1008,6 +1008,50 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
+            // Ship only the tiny gate fixture and its existing checkpointable split protocol.
+            // No production connector or worker checkpoint-volume behavior changes.
+            try (java.util.jar.JarOutputStream jar =
+                    new java.util.jar.JarOutputStream(
+                            Files.newOutputStream(
+                                    connectors.resolve("connector-kubernetes-gated.jar")))) {
+                java.util.List<Class<?>> classes = new java.util.ArrayList<>();
+                classes.add(KubernetesGatedSequenceSource.class);
+                classes.addAll(
+                        Arrays.asList(KubernetesGatedSequenceSource.class.getDeclaredClasses()));
+                for (String name :
+                        Arrays.asList(
+                                "CheckpointableSequenceSource",
+                                "CheckpointableSequenceSourceFactory",
+                                "CheckpointableSequenceSourceReader",
+                                "CheckpointableSequenceSplit",
+                                "CheckpointableSequenceSplitEnumerator",
+                                "CheckpointableSequenceState")) {
+                    classes.add(
+                            Class.forName(
+                                    "org.apache.seatunnel.e2e.source.checkpointable." + name));
+                }
+                for (Class<?> type : classes) {
+                    String resource = type.getName().replace('.', '/') + ".class";
+                    jar.putNextEntry(new java.util.jar.JarEntry(resource));
+                    try (InputStream input = type.getClassLoader().getResourceAsStream(resource)) {
+                        if (input == null)
+                            throw new IOException("Missing test fixture " + resource);
+                        input.transferTo(jar);
+                    }
+                    jar.closeEntry();
+                }
+                jar.putNextEntry(
+                        new java.util.jar.JarEntry(
+                                "META-INF/services/org.apache.seatunnel.api.table.factory.Factory"));
+                jar.write(
+                        (KubernetesGatedSequenceSource.Factory.class.getName() + "\n")
+                                .getBytes(StandardCharsets.UTF_8));
+                jar.closeEntry();
+            }
+            Files.writeString(
+                    connectors.resolve("plugin-mapping.properties"),
+                    "\nseatunnel.source.KubernetesGatedSequence = connector-kubernetes-gated\n",
+                    java.nio.file.StandardOpenOption.APPEND);
             String probeClass =
                     KubernetesApplicationProbe.class.getName().replace('.', '/') + ".class";
             Path probe = home.resolve("test-probe").resolve(probeClass);
