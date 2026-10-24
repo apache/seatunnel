@@ -98,6 +98,21 @@ sink {
 
 如果你需要更多 transform 能力，继续查看 [Transforms 目录](../transforms) 和 [Transform 通用参数](../transforms/common-options/common-options.md)。
 
+## 精度超过 38 的 DECIMAL
+
+Spark 的 `DECIMAL` 类型精度最大为 38，而 SeaTunnel 的类型可以更宽，例如 Doris `LARGEINT`（`DECIMAL(39, 0)`）或 PostgreSQL `NUMERIC(50, 10)`。
+
+- **顶层列和 `ROW` 内的字段**：SeaTunnel 在 Spark 中把值作为普通十进制文本放在 `STRING` 列里传递，并在列的 metadata 中记录声明的精度和小数位数。Transform 和 Sink 收到的仍然是 `DECIMAL(p, s)` 和原值，所以 Sink 自动建表得到的列类型与 Zeta、Flink 引擎一致。只有 Spark 自己看到的数据（例如 Dataset 的 schema 或临时视图）中，该列显示为 `STRING`。
+- **在 `ARRAY` 或 `MAP` 内**（元素、键或值，任意嵌套层级）：没有可以存放 metadata 的列，因此作业在启动时、读取任何数据之前就会失败。报错信息包含表名、列路径（例如 `tags.element` 或 `attrs.value`）、声明的类型以及 Spark 的上限。
+
+SeaTunnel 不会对这些值做四舍五入或截断。值超出声明的精度或小数位数时，作业会失败，并在报错中给出列名。
+
+`ARRAY` 或 `MAP` 列的绕过办法。这些办法都在 Source 端生效，因为在 Spark 上 Source 的 schema 在任何 Transform 运行之前就已构建：
+
+- 在 Source 端不读取该列，例如使用 Doris 的 `doris.read.field`，或在 JDBC 的 `query` 中不选该列；
+- 在 Source 查询中把它转换为字符串；如果确定数值放得下，也可以转换为更窄的类型；
+- 改用 Zeta 或 Flink 引擎运行作业，这两个引擎支持 `DECIMAL(p > 38)`。
+
 ## 从源码仓库运行示例
 
 如果你是在源码仓库里运行示例，对应模块是：
