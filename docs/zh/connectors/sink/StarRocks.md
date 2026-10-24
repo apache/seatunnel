@@ -43,8 +43,8 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | database                    | string  | 是    | -                            | 目标 StarRocks 表所在的数据库名称                                                                                             |
 | table                       | string  | 否    | -                            | 目标 StarRocks 表名。如果没有设置，则表名与上游表名相同                                                                                 |
 | labelPrefix                 | string  | 否    | -                            | StarRocks Stream Load 作业标签前缀                                                                                        |
-| batch_max_rows              | long    | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
-| batch_max_bytes             | int     | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_rows              | int     | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_bytes             | long    | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
 | max_retries                 | int     | 否    | -                            | 数据写入 StarRocks 失败后的重试次数                                                                                           |
 | retry_backoff_multiplier_ms | int     | 否    | -                            | 用作生成下一次退避延迟的乘数                                                                                                      |
 | max_retry_backoff_ms        | int     | 否    | -                            | 向 StarRocks 发送重试请求前的等待时长                                                                                            |
