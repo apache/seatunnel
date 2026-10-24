@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.common.constants.ApplicationOperation;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication;
 import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
@@ -344,12 +345,8 @@ class ApplicationExecuteCommandTest {
         int statusCode =
                 catchSystemExit(
                         () ->
-                                CommandLineUtils.parse(
-                                        new String[] {"status", "-t", "kubernetes", "--help"},
-                                        new ApplicationCommandArgs(),
-                                        "seatunnel-application.sh",
-                                        false,
-                                        ApplicationCommandArgs::validateCommandOptions));
+                                SeaTunnelApplication.main(
+                                        new String[] {"status", "-t", "kubernetes", "--help"}));
         assertEquals(0, statusCode);
     }
 
@@ -363,7 +360,8 @@ class ApplicationExecuteCommandTest {
                                         new ApplicationCommandArgs(),
                                         "seatunnel-application.sh",
                                         false,
-                                        ApplicationCommandArgs::validateCommandOptions));
+                                        ApplicationCommandArgs::validateCommandOptions,
+                                        0));
         assertEquals(USAGE_EXIT_CODE, statusCode);
     }
 

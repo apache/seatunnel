@@ -55,6 +55,22 @@ public class CommandLineUtils {
             String programName,
             boolean acceptUnknownOptions,
             Consumer<T> commandValidator) {
+        return parse(
+                args, obj, programName, acceptUnknownOptions, commandValidator, USAGE_EXIT_CODE);
+    }
+
+    /**
+     * Parses arguments with an explicit help exit code. The default overloads retain the usage exit
+     * code expected by the Spark and Flink launchers; direct entrypoints may opt in to a zero exit
+     * code for help. Invalid arguments always use the usage exit code.
+     */
+    public static <T extends CommandArgs> T parse(
+            String[] args,
+            T obj,
+            String programName,
+            boolean acceptUnknownOptions,
+            Consumer<T> commandValidator,
+            int helpExitCode) {
         List<String> list = Arrays.asList(args);
         if (list.contains("-can")
                 || list.contains("--cancel")
@@ -79,7 +95,7 @@ public class CommandLineUtils {
             // Help must short-circuit before command validation: a bare --help has no
             // operation/id, and validating it would report an unrelated argument error.
             if (obj.isHelp()) {
-                exit(jCommander, 0);
+                exit(jCommander, helpExitCode);
             }
             commandValidator.accept(obj);
         } catch (ParameterException e) {

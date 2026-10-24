@@ -32,7 +32,8 @@ public final class SeaTunnelApplication {
                         new ApplicationCommandArgs(),
                         EngineType.SEATUNNEL_APPLICATION.getStarterShellName(),
                         false,
-                        ApplicationCommandArgs::validateCommandOptions);
+                        ApplicationCommandArgs::validateCommandOptions,
+                        0);
         try {
             SeaTunnel.run(applicationCommandArgs.buildCommand());
         } catch (Exception e) {
