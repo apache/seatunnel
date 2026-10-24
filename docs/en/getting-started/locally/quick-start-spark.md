@@ -27,8 +27,10 @@ see [Getting Started: Standalone](https://spark.apache.org/docs/latest/spark-sta
 
 ## Step 3: Add Job Config File To Define A Job
 
-Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
-For Spark 3.5, use `config/v2.batch.config.template` with `job.mode = "BATCH"` instead.
+For Spark 3.5, edit `config/v2.batch.config.template` with `job.mode = "BATCH"`.
+Spark 3.5.8 micro-batch streaming has not been validated; the streaming template is
+not a verified Spark 3.5 example. Existing Spark 2.4/3.3 deployments can continue
+using `config/v2.streaming.conf.template` as shown below.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
 ```hocon
@@ -99,6 +101,12 @@ cd "apache-seatunnel-${version}"
 --deploy-mode client \
 --config ./config/v2.streaming.conf.template
 ```
+
+Spark 3.4.x
+
+For an existing Spark 3.4 deployment, retain `seatunnel-spark-3-starter.jar` and the
+`start-seatunnel-spark-3-connector-v2` launcher shown above. This change adds no
+separate Spark 3.4 starter and no new Spark 3.4 compatibility validation.
 
 Spark 3.5.x
 

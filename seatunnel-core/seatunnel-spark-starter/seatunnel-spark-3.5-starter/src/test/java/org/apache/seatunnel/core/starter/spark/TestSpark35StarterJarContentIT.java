@@ -24,11 +24,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +48,7 @@ class TestSpark35StarterJarContentIT {
     @TempDir Path tempDir;
 
     @Test
-    void shadedJarUsesSparkScalaAndExternalLoggingBindings() throws IOException {
+    void shadedJarUsesSparkScalaAndExternalLoggingBindings() throws Exception {
         try (JarFile jar = new JarFile(findStarterJar().toFile())) {
             Assertions.assertFalse(
                     jar.stream().anyMatch(entry -> entry.getName().startsWith("scala/")),
@@ -58,6 +61,54 @@ class TestSpark35StarterJarContentIT {
                                                     || entry.getName()
                                                             .startsWith("org/slf4j/impl/")),
                     "Logging bindings must not be embedded in the starter jar");
+        }
+        List<URL> launcherClasspath = new ArrayList<>();
+        try (Stream<Path> jars = Files.list(Paths.get("target/logging-e2e"))) {
+            for (Path jar :
+                    (Iterable<Path>)
+                            jars.filter(path -> path.toString().endsWith(".jar"))::iterator) {
+                launcherClasspath.add(jar.toUri().toURL());
+            }
+        }
+        launcherClasspath.add(findStarterJar().toUri().toURL());
+        // Do not let the test JVM's dependencies hide a missing or duplicate launcher binding.
+        try (URLClassLoader launcher =
+                new URLClassLoader(launcherClasspath.toArray(new URL[0]), null)) {
+            Assertions.assertEquals(
+                    1,
+                    Collections.list(
+                                    launcher.getResources(
+                                            "org/slf4j/impl/StaticLoggerBinder.class"))
+                            .size(),
+                    "The launcher must have exactly one SLF4J 1.7 binding");
+            Assertions.assertFalse(
+                    launcher.getResources("META-INF/services/org.slf4j.spi.SLF4JServiceProvider")
+                            .hasMoreElements(),
+                    "The SLF4J 1.7 launcher must not ship an SLF4J 2 provider");
+            Thread thread = Thread.currentThread();
+            ClassLoader previous = thread.getContextClassLoader();
+            thread.setContextClassLoader(launcher);
+            try {
+                Class<?> loggerFactory = launcher.loadClass("org.slf4j.LoggerFactory");
+                Assertions.assertTrue(
+                        loggerFactory.getPackage().getImplementationVersion().startsWith("1.7."));
+                Object factory = loggerFactory.getMethod("getILoggerFactory").invoke(null);
+                Assertions.assertEquals(
+                        "org.apache.logging.slf4j.Log4jLoggerFactory",
+                        factory.getClass().getName());
+                loggerFactory.getMethod("getLogger", String.class).invoke(null, "launcher-logging");
+                Class<?> logManager = launcher.loadClass("org.apache.logging.log4j.LogManager");
+                try {
+                    Object backend = logManager.getMethod("getFactory").invoke(null);
+                    Assertions.assertEquals(
+                            "org.apache.logging.log4j.core.impl.Log4jContextFactory",
+                            backend.getClass().getName());
+                } finally {
+                    logManager.getMethod("shutdown").invoke(null);
+                }
+            } finally {
+                thread.setContextClassLoader(previous);
+            }
         }
     }
 
