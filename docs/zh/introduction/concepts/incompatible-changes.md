@@ -26,6 +26,20 @@
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
 
+### Spark 数组转换
+
+- **行为变更：保留 null 映射元素和有类型的数组**
+  - **影响范围**：`seatunnel-translation/seatunnel-translation-spark`
+  - **变更说明**：此前，数组中的 null 映射元素在 Spark Source 转换路径上会变为空映射（`{}`）。
+    现在该元素保持为 `null`，空映射仍保持为空映射。从 Spark 行返回给 SeaTunnel Transform 的数组
+    现在使用声明的元素类型（例如 `String[]` 或 `Integer[]`），而不是通用的 `Object[]`。
+    返回给 Transform 或 Sink 的空数组也会保留声明的数组类型。
+  - **影响**：依赖 null 到空映射转换、精确检查 `Object[]` 类型，或向返回数组写入其他类型元素的
+    自定义 Transform 或连接器，在升级后可能出现不同的行为。Sink Writer 遍历映射元素时，
+    如果没有检查 null，现在可能抛出 `NullPointerException`。
+  - **迁移指南**：分别处理 null 映射元素和空映射。读写数组时使用声明的 SeaTunnel 元素类型；
+    如果自定义代码需要通用的工作数组，请复制到新的 `Object[]`。无需修改配置或 checkpoint 格式。
+
 ### Markdown File Source 的 `child_ids` 数组
 
 Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
