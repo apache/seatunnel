@@ -318,6 +318,8 @@ Datetime类型格式，用于告诉连接器如何将字符串转换为日期时
 
 default `yyyy-MM-dd HH:mm:ss`
 
+读取 CSV 和 Text 文件时，`TIMESTAMP` 的格式会自动识别，因此 Source 的 `datetime_format` 选项不用于选择该格式，Sink 的 `datetime_format` 选项只控制输出格式。详见 [LocalFile 说明](LocalFile.md#datetime_format-string)。
+
 ### time_format [string]
 
 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式:

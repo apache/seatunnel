@@ -305,6 +305,8 @@ Datetime type format, used to tell connector how to convert string to datetime, 
 
 default `yyyy-MM-dd HH:mm:ss`
 
+For CSV and Text files, `TIMESTAMP` columns automatically match supported timestamp patterns. Fractional-second precision can vary between rows, for example `2023-01-01 00:00:00`, `2023-01-01 00:00:00.123`, and `2023-01-01 00:00:00.123456789`. Values that match no supported pattern are rejected. The source `datetime_format` option does not select the parsing pattern of a CSV or Text `TIMESTAMP` column, because the parsing pattern is auto-detected; the sink `datetime_format` option only controls how values are written.
+
 ### time_format [string]
 
 Time type format, used to tell connector how to convert string to time, supported as the following formats:
