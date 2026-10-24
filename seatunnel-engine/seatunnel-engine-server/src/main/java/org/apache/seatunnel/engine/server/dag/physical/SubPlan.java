@@ -41,8 +41,10 @@ import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -590,19 +592,28 @@ public class SubPlan {
                                 }
                             });
 
+            // Closed idle reader groups are FINISHED and will never report READY_START again.
+            // Rebuild their closed subtasks so checkpoint recovery does not wait for their ACK.
+            // FINISHED groups can also occur during final-checkpoint completion; this restore
+            // path does not distinguish that boundary case from idle-reader closure.
+            Set<TaskGroupLocation> closedIdleTaskGroups = new HashSet<>();
             getPhysicalVertexList()
                     .forEach(
                             task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
+                                if (task.getExecutionState().equals(ExecutionState.FINISHED)) {
+                                    closedIdleTaskGroups.add(task.getTaskGroupLocation());
+                                } else if (!task.getExecutionState()
+                                        .equals(ExecutionState.RUNNING)) {
                                     allTaskRunning.set(false);
-                                    return;
                                 }
                             });
 
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(),
+                            allTaskRunning.get(),
+                            closedIdleTaskGroups);
         }
         startSubPlanStateProcess();
     }
