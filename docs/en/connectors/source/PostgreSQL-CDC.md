@@ -111,6 +111,9 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| sslmode                                   | String   | No       | -        | SSL mode for the Debezium PostgreSQL replication and data connections. Valid values: `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`. Opt-in: only when this option is set is it written to `database.sslmode`, overriding `debezium.database.sslmode`. When unset, `database.sslmode` is left untouched (the `sslmode` query parameter of the JDBC `url` is not inherited), so `debezium.database.sslmode` applies if configured and otherwise the effective default is Debezium's `disable`. |
+| publication.name                          | String   | No       | -        | PostgreSQL publication name used by the `pgoutput` plugin, defaulting to `dbz_publication` when unset. A publication defines which tables' changes PostgreSQL outputs on the server side (table filtering only; it does not store consumption progress). Effective only when `decoding.plugin.name = "pgoutput"` (default).                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| publication.autocreate.mode               | String   | No       | -        | Controls how the connector creates or uses the publication specified by `publication.name` (effective only for `pgoutput`, default `all_tables`):<br/> `all_tables`: If the publication does not exist, automatically runs `CREATE PUBLICATION ... FOR ALL TABLES` (requires database superuser privilege), and PostgreSQL outputs changes for all tables in the database.<br/> `filtered`: If the publication does not exist, automatically runs `CREATE PUBLICATION ... FOR TABLE ...` for the monitored tables only (requires `CREATE` privilege on the database and ownership of the monitored tables). When running multiple jobs with `filtered`, configure a different `publication.name` per job so they do not overwrite each other's table list.<br/> `disabled`: Never creates or alters the publication; uses the existing `publication.name` directly (and fails if it does not exist). Recommended for least-privilege production setups where an administrator pre-creates a `FOR TABLE` publication; multiple jobs can safely share the same pre-created publication. |
 | decoding.plugin.name                      | String   | No       | pgoutput | The name of the Postgres logical decoding plug-in installed on the server,Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,wal2json_rds_streaming and pgoutput.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | server-time-zone                          | String   | No       | -        | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | connect.timeout.ms                        | Long     | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -230,6 +233,33 @@ source {
   }
 }
 ```
+
+### Configure publication
+
+In cloud RDS or permission-restricted production environments, the CDC user typically does not have database superuser privileges to run `CREATE PUBLICATION ... FOR ALL TABLES`. An administrator can pre-create a table-scoped publication on PostgreSQL:
+
+```sql
+CREATE PUBLICATION seatunnel_pub FOR TABLE inventory.postgres_cdc_table_1;
+```
+
+Then configure `publication.name = "seatunnel_pub"` and `publication.autocreate.mode = "disabled"` in the job:
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://localhost:5432/postgres_cdc"
+    slot.name = "seatunnel_postgres_cdc"
+    publication.name = "seatunnel_pub"
+    publication.autocreate.mode = "disabled"
+  }
+}
+```
+
+If you use `debezium.heartbeat.action.query` with `publication.autocreate.mode = "disabled"` or `filtered`, include the heartbeat table in the publication as well.
 
 ### Configure Debezium heartbeat
 
@@ -372,6 +402,11 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
 
 Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.conf` to allow the replication connection.
 
+When using the default `pgoutput` plugin, publication permissions depend on `publication.autocreate.mode`:
+- `disabled` (recommended for production, least privilege): an administrator pre-creates `CREATE PUBLICATION <publication.name> FOR TABLE ...;`, and the CDC user needs no object-creation privileges.
+- `filtered`: the CDC user needs `CREATE` privilege on the database and must be the owner of the monitored tables.
+- `all_tables` (default): if the publication does not yet exist, the CDC user needs superuser (or cloud `rds_superuser`) privileges to create a `FOR ALL TABLES` publication.
+
 ### Which logical decoding plugins are supported?
 
 SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
@@ -413,6 +448,25 @@ may replay a row at an ambiguous boundary to avoid losing it.
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+### How does PostgreSQL CDC recover from a connection reset or network interruption?
+
+While streaming, the connector probes the JDBC metadata connection every `status.update.interval.ms`
+(Debezium default: 10 seconds, configurable through `debezium {}`). If the probe fails, it closes and
+reopens that connection once and continues when the database is reachable again.
+
+The probe reconnect cannot succeed while the database or network is still unavailable, and it does
+not cover a lost logical replication (walsender) connection. In those cases the source task fails;
+the Zeta engine restores the pipeline from the last completed checkpoint according to
+`job.retry.times` (default `3`) and `job.retry.interval.seconds` (default `3`). Keep
+`checkpoint.interval` enabled and do not set `job.retry.times = 0` for streaming CDC jobs. The retry
+budget is cumulative for the lifetime of the pipeline, so size it for the longest outage the job
+must survive.
+
+Checkpoint restore resumes from the last committed LSN; it does not re-run the snapshot, and rows
+written after recovery continue to be consumed. `debezium.heartbeat.interval.ms` and
+`status.update.interval.ms` keep the replication and metadata connections active, and
+`tcpKeepAlive=true` in the JDBC URL is recommended.
 
 ## See Also
 
