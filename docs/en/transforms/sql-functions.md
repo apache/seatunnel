@@ -1127,6 +1127,29 @@ or
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
+### UNIX_TIMESTAMP
+
+```UNIX_TIMESTAMP() | UNIX_TIMESTAMP(string[, pattern]) | UNIX_TIMESTAMP(dateTime) -> BIGINT```
+
+Convert a datetime to the number of seconds since the UNIX epoch (1970-01-01 00:00:00 UTC). The inverse of `FROM_UNIXTIME`.
+
+- No argument: current epoch seconds.
+- String argument: parsed with the given `pattern` (default `yyyy-MM-dd HH:mm:ss`). For pattern characters see `java.time.format.DateTimeFormatter`.
+- `dateTime` argument: a TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE column.
+
+`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. A string whose pattern carries a zone offset (for example `yyyy-MM-dd HH:mm:ssXXX`) uses that offset rather than the system time zone. Unparseable string input returns NULL rather than raising an error. An explicit NULL pattern or an invalid pattern string returns NULL for all input types. The `pattern` argument is only consulted for string input; it is ignored for typed datetime arguments. A pattern without a full date (for example `HH:mm:ss` or `yyyy-MM`) causes every row to return NULL, because the parser requires at least a date component. Numeric input is not supported and returns NULL; other non-temporal types (for example TIME, BOOLEAN, BYTES) raise an error. An out-of-range day-of-month (for example `2023-02-30`) is adjusted to the last valid day of that month, consistent with the other date-time functions. Unlike `FROM_UNIXTIME`, `UNIX_TIMESTAMP` does not accept a time zone argument. To convert a datetime in a specific time zone, use `AT TIME ZONE` to obtain a TIMESTAMP_TZ value first. If a user-defined function (UDF) with the same name exists, it is shadowed by this built-in.
+
+Example:
+
+select UNIX_TIMESTAMP('2023-01-01 00:00:00') as ts
+
+select UNIX_TIMESTAMP('2023/01/01 00:00:00', 'yyyy/MM/dd HH:mm:ss') as ts
+
+select UNIX_TIMESTAMP(dt) as ts
+
+-- convert a TIMESTAMP in a non-default time zone
+select UNIX_TIMESTAMP(dt AT TIME ZONE 'UTC+8') as ts
+
 ### AT TIME ZONE
 
 ```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```

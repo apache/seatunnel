@@ -221,6 +221,22 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
     `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
 
+### Zeta SQL Transform: built-in UNIX_TIMESTAMP
+
+- **Behavior change: UNIX_TIMESTAMP is now a built-in function**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `UNIX_TIMESTAMP()` / `UNIX_TIMESTAMP(string[, pattern])` /
+    `UNIX_TIMESTAMP(dateTime)` is now a built-in Zeta SQL function, dispatched before
+    user-registered `ZetaUDF`s, and its output type is resolved as `BIGINT`
+    (`BasicType.LONG_TYPE`).
+  - **Impact**: A job that registered a custom `ZetaUDF` named `UNIX_TIMESTAMP` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start
+    using this built-in implementation instead of the UDF. The declared output type is
+    now forced to `BIGINT` regardless of what the UDF's `resultType` returned, which may
+    break the downstream sink schema if the UDF returned a different type.
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in function.
+    See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
