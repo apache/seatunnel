@@ -81,6 +81,19 @@ test_rejects_missing_regular_distribution() {
     assert_contains "No current dev distribution found" "${output}"
 }
 
+test_rejects_multiple_regular_distributions() {
+    reset_distributions
+    touch "${DIST_DIR}/apache-seatunnel-3.1.0-SNAPSHOT-bin.tar.gz"
+    touch "${DIST_DIR}/apache-seatunnel-3.1.1-SNAPSHOT-bin.tar.gz"
+
+    local output
+    if output="$(find_current_distribution 2>&1)"; then
+        echo "Expected multiple regular distributions to fail" >&2
+        exit 1
+    fi
+    assert_contains "Multiple current dev distributions found" "${output}"
+}
+
 test_waits_for_engine_log() {
     local dist_dir="${TEST_ROOT}/distribution"
     local launch_log="${TEST_ROOT}/cluster-launch.log"
@@ -125,6 +138,7 @@ EOF
 test_selects_regular_distribution
 test_uses_explicit_distribution
 test_rejects_missing_regular_distribution
+test_rejects_multiple_regular_distributions
 test_waits_for_engine_log
 
 echo "Upgrade compatibility runner tests passed"
