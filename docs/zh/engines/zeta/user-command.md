@@ -109,6 +109,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
 | Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 支持（[元数据 + 本地序列化检查](../../connectors/sink/Kafka.md#连通性-dry-run)；动态主题仅执行有限检查，不检查 Produce/事务权限） |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
+| Cassandra | 支持（[预编译 SELECT 元数据](../../connectors/source/Cassandra.md#连接预检查)，不读取业务行） | 不支持 |
 | Clickhouse | 不支持 | 支持（[首个 host 的连通性 + 目标元数据](../../connectors/sink/Clickhouse.md#连通性-dry-run)，不校验写入权限或字段兼容性） |
 | MongoDB | 支持（[集合可见性 + 配置的 schema](../../connectors/source/MongoDB.md#连通性预检查)，要求 MongoDB 4.0+，不验证文档读取权限） | 支持（[连通性 + 配置的认证](../../connectors/sink/MongoDB.md#连通性-dry-run)，不检查集合、schema、写入权限或事务） |
 | Neo4j | 支持（[驱动连通性 + 配置 schema，不含数据库/查询校验](../../connectors/source/Neo4j.md#连接预检查)） | 不支持 |
