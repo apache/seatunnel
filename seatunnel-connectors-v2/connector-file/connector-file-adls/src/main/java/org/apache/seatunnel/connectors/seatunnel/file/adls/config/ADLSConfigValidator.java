@@ -115,7 +115,14 @@ final class ADLSConfigValidator {
                             || normalized.startsWith("fs.azure.enable.delegation.token")
                             || normalized.startsWith("fs.azure.identity.")
                             || normalized.startsWith("fs.azure.shellkeyprovider.")
-                            || normalized.startsWith("fs.s3")) {
+                            || normalized.startsWith("abfs.external.authorization.class")
+                            || normalized.startsWith("fs.azure.abfs.endpoint")
+                            || normalized.startsWith("fs.azure.custom.token.provider.class")
+                            || normalized.startsWith("fs.azure.encryption.context.provider.type")
+                            || normalized.startsWith(
+                                    "fs.azure.encryption.encoded.client-provided-key")
+                            || normalized.startsWith("fs.azure.metrics.account.key")
+                            || normalized.startsWith("hadoop.security.credential.provider.path")) {
                         throw validationFailure(
                                 "'hadoop_adls_properties' cannot override connector-owned key '"
                                         + key
