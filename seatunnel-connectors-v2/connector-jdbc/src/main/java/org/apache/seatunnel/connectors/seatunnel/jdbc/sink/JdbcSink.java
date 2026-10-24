@@ -309,6 +309,11 @@ public class JdbcSink
     }
 
     private Optional<Catalog> getCatalog() {
+        // DuckLake tables are attached to the writer's DuckDB session. A separate catalog
+        // connection cannot inspect them reliably, and bulk mode requires an existing table.
+        if (jdbcSinkConfig.isDucklakeBulkWrite()) {
+            return Optional.empty();
+        }
         if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
             return Optional.empty();
         }
