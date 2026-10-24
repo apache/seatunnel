@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Iceberg: ordered publication after writer rotation
+
+For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produce multiple ordered snapshots instead of one. This fixes stale rows when a later writer's equality deletes previously shared the same data sequence number as earlier rows. Each group is atomic, but external readers may observe a prefix of the checkpoint between groups, including while a failed commit is recovered. Single-generation checkpoints and append-only rotations without equality-delete dependencies retain one snapshot. Retain snapshot history and pending files until recovery is no longer needed; checkpoint and group numbers alone are not publication identities.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

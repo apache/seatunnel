@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -112,6 +113,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1088,6 +1090,99 @@ class IcebergFormatVersionTest {
         record.setField("id", id);
         record.setField("name", name);
         return new IcebergRecord(record, kind);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2", "3"})
+    void preservesUpsertOrderingAcrossSchemaChange(String version) throws Exception {
+        IcebergSinkConfig config = deltaConfig(version, "parquet", true, false);
+        Table table = SchemaUtils.autoCreateTable(catalog, TABLE, config, idAndName());
+        RecordWriter writer = new IcebergWriterFactory(loader(table), config).createWriter(null);
+        writer.write(change(1L, "before", RowKind.INSERT), idAndName().toPhysicalRowDataType());
+        PhysicalColumn note =
+                PhysicalColumn.of("note", BasicType.STRING_TYPE, (Long) null, true, null, null);
+        TableSchema evolved =
+                TableSchema.builder().columns(idAndName().getColumns()).column(note).build();
+        writer.applySchemaChange(
+                evolved.toPhysicalRowDataType(), AlterTableAddColumnEvent.add(null, note));
+        SeaTunnelRow update = new SeaTunnelRow(new Object[] {1L, "after", "new"});
+        update.setRowKind(RowKind.UPDATE_AFTER);
+        writer.write(update, evolved.toPhysicalRowDataType());
+        List<WriteResult> results = writer.complete();
+        assertEquals(2, results.size());
+
+        publish(table, config, checkpoint(results, 201), false);
+
+        Map<Long, SeaTunnelRow> rows = readAll(table, toCatalogTable(table));
+        assertEquals(1, rows.size());
+        assertEquals("after", rows.get(1L).getField(1));
+        assertEquals("new", rows.get(1L).getField(2));
+        assertEquals(2, Iterables.size(table.snapshots()));
+        assertEquals("1", table.currentSnapshot().summary().get("seatunnel.commit-group"));
+        assertEquals("2", table.currentSnapshot().summary().get("seatunnel.commit-group-count"));
+
+        publish(table, config, checkpoint(results, 201), false);
+        publish(table, config, checkpoint(results, 201), true);
+        assertEquals(2, Iterables.size(table.snapshots()));
+        assertEquals(1, readAll(table, toCatalogTable(table)).size());
+
+        SeaTunnelRow reusedCheckpoint = new SeaTunnelRow(new Object[] {1L, "latest", "later"});
+        reusedCheckpoint.setRowKind(RowKind.UPDATE_AFTER);
+        publish(
+                table,
+                config,
+                checkpoint(
+                        write(table, config, evolved.toPhysicalRowDataType(), reusedCheckpoint),
+                        201),
+                false);
+        publish(table, config, checkpoint(results, 201), false);
+        assertEquals(3, Iterables.size(table.snapshots()));
+        assertEquals("latest", readAll(table, toCatalogTable(table)).get(1L).getField(1));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2, false", "2, true", "3, false", "3, true"})
+    void recoversAfterPublishingOnlyFirstWriterGeneration(String version, boolean ordinary)
+            throws Exception {
+        IcebergSinkConfig config = deltaConfig(version, "parquet", true, false);
+        Table table = SchemaUtils.autoCreateTable(catalog, TABLE, config, idAndName());
+        List<WriteResult> results = new ArrayList<>();
+        results.addAll(
+                write(
+                        table,
+                        config,
+                        idAndName().toPhysicalRowDataType(),
+                        change(1L, "before", RowKind.INSERT)));
+        results.addAll(
+                write(
+                        table,
+                        config,
+                        idAndName().toPhysicalRowDataType(),
+                        change(1L, "after", RowKind.UPDATE_AFTER)));
+        Table failing = Mockito.spy(table);
+        AtomicInteger publications = new AtomicInteger();
+        Mockito.doAnswer(
+                        invocation -> {
+                            if (publications.incrementAndGet() == 2) {
+                                throw new IllegalStateException(
+                                        "simulated failure before second publication");
+                            }
+                            return table.newRowDelta();
+                        })
+                .when(failing)
+                .newRowDelta();
+        assertThrows(
+                IllegalStateException.class,
+                () -> publish(failing, config, checkpoint(results, 202), false));
+        table.refresh();
+        assertEquals(1, Iterables.size(table.snapshots()));
+        assertEquals("before", readAll(table, toCatalogTable(table)).get(1L).getField(1));
+
+        publish(table, config, checkpoint(results, 202), !ordinary);
+        assertEquals(2, Iterables.size(table.snapshots()));
+        assertEquals("after", readAll(table, toCatalogTable(table)).get(1L).getField(1));
+        publish(table, config, checkpoint(results, 202), !ordinary);
+        assertEquals(2, Iterables.size(table.snapshots()));
     }
 
     private static IcebergSinkConfig deltaConfig(

@@ -60,6 +60,8 @@ public class IcebergFilesCommitter implements Serializable {
 
     public static final String SNAPSHOT_PROPERTY_CHECKPOINT_ID = "seatunnel.checkpoint-id";
     static final String SNAPSHOT_PROPERTY_COMMIT_ID = "seatunnel.commit-ids";
+    static final String SNAPSHOT_PROPERTY_COMMIT_GROUP = "seatunnel.commit-group";
+    static final String SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT = "seatunnel.commit-group-count";
     private static final String COMMIT_ID_VERSION = "v1:";
 
     private IcebergTableLoader icebergTableLoader;
@@ -78,8 +80,15 @@ public class IcebergFilesCommitter implements Serializable {
     }
 
     public void doCommit(List<WriteResult> results, long checkpointId) {
+        doCommit(results, checkpointId, 0, 1);
+    }
+
+    public void doCommit(List<WriteResult> results, long checkpointId, int group, int groupCount) {
+        if (group < 0 || group >= groupCount) {
+            throw new IllegalArgumentException("Invalid Iceberg commit group");
+        }
         TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
-        commit(tableIdentifier, results, checkpointId);
+        commit(tableIdentifier, results, checkpointId, group, groupCount);
     }
 
     public boolean isAlreadyCommitted(long checkpointId, List<WriteResult> results) {
@@ -279,7 +288,11 @@ public class IcebergFilesCommitter implements Serializable {
     }
 
     private void commit(
-            TableIdentifier tableIdentifier, List<WriteResult> results, long checkpointId) {
+            TableIdentifier tableIdentifier,
+            List<WriteResult> results,
+            long checkpointId,
+            int group,
+            int groupCount) {
         List<DataFile> dataFiles =
                 results.stream()
                         .filter(payload -> payload.getDataFiles() != null)
@@ -330,6 +343,10 @@ public class IcebergFilesCommitter implements Serializable {
             if (deleteFiles.isEmpty()) {
                 AppendFiles append = table.newAppend();
                 append.set(SNAPSHOT_PROPERTY_COMMIT_ID, ids);
+                if (groupCount > 1) {
+                    append.set(SNAPSHOT_PROPERTY_COMMIT_GROUP, String.valueOf(group));
+                    append.set(SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT, String.valueOf(groupCount));
+                }
                 if (branch != null) {
                     append.toBranch(branch);
                 }
@@ -341,6 +358,10 @@ public class IcebergFilesCommitter implements Serializable {
             } else {
                 RowDelta delta = table.newRowDelta();
                 delta.set(SNAPSHOT_PROPERTY_COMMIT_ID, ids);
+                if (groupCount > 1) {
+                    delta.set(SNAPSHOT_PROPERTY_COMMIT_GROUP, String.valueOf(group));
+                    delta.set(SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT, String.valueOf(groupCount));
+                }
                 if (branch != null) {
                     delta.toBranch(branch);
                 }

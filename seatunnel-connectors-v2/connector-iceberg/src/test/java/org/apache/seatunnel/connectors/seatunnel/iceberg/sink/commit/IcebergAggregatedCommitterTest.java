@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
+import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileContent;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +40,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class IcebergAggregatedCommitterTest {
@@ -54,6 +59,44 @@ class IcebergAggregatedCommitterTest {
         Field field = IcebergAggregatedCommitter.class.getDeclaredField("filesCommitter");
         field.setAccessible(true);
         field.set(committer, filesCommitter);
+    }
+
+    @Test
+    void testWriterGenerationsRemainOrderedAcrossUnevenWorkers() throws Exception {
+        WriteResult first = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        DeleteFile equalityDelete = mock(DeleteFile.class);
+        when(equalityDelete.recordCount()).thenReturn(1L);
+        when(equalityDelete.content()).thenReturn(FileContent.EQUALITY_DELETES);
+        WriteResult second =
+                new WriteResult(
+                        Collections.emptyList(), Collections.singletonList(equalityDelete), null);
+        WriteResult other = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        committer.commit(
+                Collections.singletonList(
+                        committer.combine(
+                                Arrays.asList(
+                                        new IcebergCommitInfo(Arrays.asList(first, second), 3L),
+                                        new IcebergCommitInfo(
+                                                Collections.singletonList(other), 3L)))));
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(filesCommitter);
+        order.verify(filesCommitter).doCommit(Arrays.asList(first, other), 3L, 0, 2);
+        order.verify(filesCommitter).doCommit(Collections.singletonList(second), 3L, 1, 2);
+        order.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void testAppendOnlyWriterGenerationsKeepSingleCommit() throws Exception {
+        WriteResult first = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        WriteResult second =
+                new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        committer.commit(
+                Collections.singletonList(
+                        committer.combine(
+                                Collections.singletonList(
+                                        new IcebergCommitInfo(Arrays.asList(first, second), 4L)))));
+
+        verify(filesCommitter).doCommit(Arrays.asList(first, second), 4L);
     }
 
     @Test
