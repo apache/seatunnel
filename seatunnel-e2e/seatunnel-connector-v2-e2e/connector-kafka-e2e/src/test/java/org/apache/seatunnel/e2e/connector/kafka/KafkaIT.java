@@ -1762,6 +1762,41 @@ public class KafkaIT extends AbstractKafkaIT {
     }
 
     @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroTombstoneToAssert(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        // The Kafka broker is shared across all engine variants in this class, so this test
+        // needs its own topic. With a fixed name every later template run would also read the
+        // records written by the earlier ones and trip the exact-100-row assertion.
+        String topic = startModeTopic(container, "avro-tombstone");
+        createKafkaTopic(topic);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        topic,
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
+
+        // A tombstone in the middle of the topic. The reader has to carry on past the
+        // record that has no value, so all 100 real records must still arrive. Leaving the
+        // offset on the tombstone would make it be replayed after every restart instead.
+        generateTestData(row -> serializer.serializeRow(row), 0, 50);
+        producer.send(
+                        new ProducerRecord<>(
+                                topic, "tombstone-key".getBytes(StandardCharsets.UTF_8), null))
+                .get();
+        generateTestData(row -> serializer.serializeRow(row), 50, 100);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/kafka_avro_tombstone_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testFakeSourceToKafkaProtobufFormat(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
 

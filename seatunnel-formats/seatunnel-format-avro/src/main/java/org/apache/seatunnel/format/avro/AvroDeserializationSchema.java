@@ -61,6 +61,10 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        if (message == null || message.length == 0) {
+            // skip tombstone messages
+            return null;
+        }
         if (stripSchemaRegistryHeader && hasSchemaRegistryHeader(message)) {
             try {
                 return deserializePayload(message, 5, message.length - 5);
