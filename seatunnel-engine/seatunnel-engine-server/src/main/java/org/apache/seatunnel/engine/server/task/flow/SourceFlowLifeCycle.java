@@ -102,7 +102,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private Address enumeratorTaskAddress;
 
-    private SourceReader<T, SplitT> reader;
+    // Volatile: cancel() reads it from the engine cancel thread while the task thread may still be
+    // creating the reader in init().
+    private volatile SourceReader<T, SplitT> reader;
 
     private transient Serializer<SplitT> splitSerializer;
 
@@ -183,6 +185,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         context.getEventListener().onEvent(new ReaderOpenEvent());
         reader.open();
         register();
+    }
+
+    @Override
+    public void cancel() {
+        if (reader != null) {
+            reader.cancel();
+        }
     }
 
     /**
@@ -450,6 +459,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         } else {
             reader.addSplits(splits);
         }
+    }
+
+    /**
+     * Delivers a source event sent by the remote split enumerator to this reader.
+     *
+     * <p>This runs on a Hazelcast operation thread, not the reader's task thread, so the
+     * implementation must be safe against concurrent access with the {@code pollNext} loop. The
+     * event is dispatched to {@link SourceReader#handleSourceEvent(SourceEvent)}, which connectors
+     * such as the CDC sources use to receive enumerator acknowledgements.
+     *
+     * @param sourceEvent the event sent by the enumerator
+     */
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        reader.handleSourceEvent(sourceEvent);
     }
 
     /**

@@ -57,7 +57,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_format_type           | string  | yes      | -                                    |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| delimiter/field_delimiter  | string  | no       | \001                                 |
 | row_delimiter              | string  | no       | \n                                   |
 | parse_partition_from_path  | boolean | no       | true                                 |
 | date_format                | string  | no       | yyyy-MM-dd                           |
@@ -67,6 +67,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                     | config  | no       | -                                    |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| excel_use_header_line      | boolean | no       | false                                |
 | poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
@@ -94,7 +95,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | retention_max_age          | string  | no       | -                                    |
 | retention_check_interval   | string  | no       | 1H                                   |
 | common-options             |         | no       | -                                    |
-| tables_configs             | list    | no       | used to define a multiple table task |
+| tables_configs             | list    | no       | -                                    |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
 | enable_file_split          | boolean | no       | false                                | 
@@ -212,7 +213,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -314,7 +315,7 @@ default `HH:mm:ss`
 
 ### skip_header_row_number [long]
 
-Skip the first few lines, but only for the txt and csv.
+Skip the first few lines for text, CSV, and Excel.
 
 For example, set like following:
 
@@ -356,6 +357,12 @@ supported as the following file types:
 The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
 
 You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### excel_use_header_line [boolean]
+
+Only used when `file_format_type` is `excel`. The default is `false`, so Excel columns are read by position even when `skip_header_row_number` is set.
+
+Set `excel_use_header_line = true` to use the first row as the header and map schema fields by name. This skips the first row; when both options are set, `excel_use_header_line` takes precedence over `skip_header_row_number`. Fields missing from the header produce null values and a warning.
 
 ### poi_excel_max_file_size [long]
 
