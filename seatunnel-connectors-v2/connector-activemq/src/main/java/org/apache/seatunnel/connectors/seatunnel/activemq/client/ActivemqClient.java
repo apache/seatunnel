@@ -34,28 +34,28 @@ import javax.jms.TextMessage;
 
 import java.nio.charset.StandardCharsets;
 
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CHECK_FOR_DUPLICATE;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLIENT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONNECT_RESPONSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.URI;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SYNC_SEND;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CHECK_FOR_DUPLICATE;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLIENT_ID;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLOSE_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONNECT_RESPONSE_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DELIVERY_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DISPATCH_ASYNC;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.MAX_THREAD_POOL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRIORITY;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRODUCER_WINDOW_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.QUEUE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.SEND_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.TIME_TO_LIVE;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.URI;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_ASYNC_SEND;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_COMPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 
 @Slf4j
 public class ActivemqClient {
@@ -129,9 +129,7 @@ public class ActivemqClient {
             factory.setCheckForDuplicates(config.get(CHECK_FOR_DUPLICATE));
         }
 
-        if (config.get(CLOSE_TIMEOUT) != null) {
-            factory.setCloseTimeout(config.get(CLOSE_TIMEOUT));
-        }
+        config.getOptional(CLOSE_TIMEOUT).ifPresent(factory::setCloseTimeout);
 
         if (config.get(CONSUMER_EXPIRY_CHECK_ENABLED) != null) {
             factory.setConsumerExpiryCheckEnabled(config.get(CONSUMER_EXPIRY_CHECK_ENABLED));

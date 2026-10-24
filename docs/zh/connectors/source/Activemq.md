@@ -52,6 +52,16 @@ limitations under the License.
 | format | enum | 否 | JSON |
 | field_delimiter | string | 否 | , |
 | max_in_flight_messages | int | 否 | 1000 |
+| message_selector | string | 否 | - |
+| receive_timeout | int | 否 | 200 |
+| client_id | string | 否 | - |
+| close_timeout | int | 否 | 5000 |
+| connect_response_timeout | int | 否 | 10000 |
+| always_session_async | boolean | 否 | - |
+| check_for_duplicate | boolean | 否 | - |
+| dispatch_async | boolean | 否 | - |
+| warn_about_unstarted_connection_timeout | int | 否 | - |
+| consumer_expiry_check_enabled | boolean | 否 | - |
 | schema | config | 是 | - |
 
 ### uri [string]
@@ -62,7 +72,7 @@ limitations under the License.
 
 ### queue_name [string]
 
-一个普通队列名称，不支持通配符、复合队列、目标前缀或 `?consumer.*` 参数。本次不支持主题、持久主题订阅和选择器。应提前创建队列并配置账号权限；连接器不控制代理的自动创建策略。
+一个普通队列名称，不支持通配符、复合队列、目标前缀或 `?consumer.*` 参数。本次不支持主题和持久主题订阅。应提前创建队列并配置账号权限；连接器不控制代理的自动创建策略。
 
 ### username / password [string]
 
@@ -75,6 +85,46 @@ limitations under the License.
 ### max_in_flight_messages [int]
 
 每个读取器允许保留的已输出但尚未确认的消息数，必须大于零。达到上限后暂停接收，完成检查点后恢复。客户端队列预取数设置为相同值，预取消息可能额外占用内存。这是数量限制而不是字节限制，应按工作节点内存和生产者消息大小配置。持续吞吐依赖定期成功完成的检查点。
+
+### message_selector [string]
+
+可选的 JMS 选择器表达式，用于代理端过滤。仅将匹配选择器的消息投递给消费者。选择器语法遵循 JMS 1.1 规范，例如 `JMSType = 'car'` 或 `priority > 5`。省略时投递队列上的所有消息。
+
+### receive_timeout [int]
+
+`consumer.receive()` 在每批首次轮询时的超时时间（毫秒）。值越小检查点响应越快，但队列空闲时 CPU 占用越高。此超时在 reader 的 checkpoint 锁内执行；接近 checkpoint 间隔的值可能延迟 barrier 处理和 checkpoint 完成。最大允许值为 30000。默认为 200。
+
+### client_id [string]
+
+设置连接的 JMS 客户端 ID。某些代理认证和审计策略要求设置非空 clientID；持久订阅也要求设置（不适用于队列源）。source 会在配置值后追加 reader 的 subtask 索引（例如 `my-client` 在第一个 reader 变为 `my-client-0`，第二个变为 `my-client-1`），使并行 reader 不会冲突。不设置时每个 reader 使用代理生成的连接 ID。
+
+### close_timeout [int]
+
+连接关闭被认为完成前的超时时间（毫秒）。通常 `Connection.close()` 会等待代理确认。此参数可防止代理不可用时客户端挂起。默认为 5000。
+
+### connect_response_timeout [int]
+
+连接建立时等待代理响应的超时时间（毫秒）。默认为 10000。
+
+### always_session_async [boolean]
+
+为 true 时，每个会话使用独立线程分发消息。当存在多个会话或会话不在 `AUTO_ACKNOWLEDGE` 或 `DUPS_OK_ACKNOWLEDGE` 模式时始终使用独立线程。未设置时使用 ActiveMQ 客户端默认值（true）。
+
+### check_for_duplicate [boolean]
+
+为 true 时，消费者检查重复消息并处理以防止重复消费。未设置时使用 ActiveMQ 客户端默认值（true）。
+
+### dispatch_async [boolean]
+
+代理是否异步向消费者分发消息。未设置时使用 ActiveMQ 客户端默认值（true）。
+
+### warn_about_unstarted_connection_timeout [int]
+
+从连接创建到在连接未通过 `Connection.start()` 启动且收到消息时生成警告的超时时间（毫秒）。设为负值可禁用警告。未设置时使用 ActiveMQ 客户端默认值（500）。
+
+### consumer_expiry_check_enabled [boolean]
+
+控制每个 `MessageConsumer` 在分发消息前是否检查消息过期。未设置时使用 ActiveMQ 客户端默认值（true）。
 
 ### schema [config]
 
