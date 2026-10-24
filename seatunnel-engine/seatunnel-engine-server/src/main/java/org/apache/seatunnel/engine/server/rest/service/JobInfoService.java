@@ -501,9 +501,8 @@ public class JobInfoService extends BaseService {
         return configTuples.stream()
                 .map(
                         tuple -> {
-                            String urlParams = mapToUrlParams(tuple._1);
                             Map<String, String> requestParams = new HashMap<>();
-                            RestUtil.buildRequestParams(requestParams, urlParams);
+                            RestUtil.buildRequestParams(requestParams, tuple._1);
                             if (requestParams.containsKey(RestConstant.DRY_RUN)
                                     && requestParams.get(RestConstant.DRY_RUN) != null) {
                                 throw new IllegalArgumentException(

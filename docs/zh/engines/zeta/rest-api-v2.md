@@ -1122,6 +1122,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 
+`params` 可以省略。其中的值必须是字符串、数字或布尔值，值为 `null` 的项会被跳过并使用默认值；这些值按 JSON 中给出的原样使用，不会进行 URL 解码，因此无需对 `&`、`=`、`%` 或 `+` 进行编码。
+
 
 
 #### 请求体
