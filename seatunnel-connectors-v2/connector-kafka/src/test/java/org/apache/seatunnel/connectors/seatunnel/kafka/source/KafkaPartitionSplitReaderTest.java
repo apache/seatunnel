@@ -18,12 +18,23 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -62,6 +73,36 @@ public class KafkaPartitionSplitReaderTest {
                 "true", properties.getProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
     }
 
+    @Test
+    void shouldFinishSplitWhenConsumerPositionReachesStoppingOffsetAfterControlRecord()
+            throws Exception {
+        KafkaSourceConfig sourceConfig = Mockito.mock(KafkaSourceConfig.class);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        KafkaConsumer<byte[], byte[]> consumer = Mockito.mock(KafkaConsumer.class);
+        TopicPartition partition = new TopicPartition("transactional-topic", 0);
+
+        Mockito.when(sourceConfig.getProperties()).thenReturn(new Properties());
+        Mockito.when(sourceConfig.getConsumerGroup()).thenReturn("test-group");
+        Mockito.when(sourceConfig.getBootstrap()).thenReturn("localhost:1");
+        Mockito.when(sourceConfig.getPollTimeout()).thenReturn(1L);
+        Mockito.when(context.getIndexOfSubtask()).thenReturn(0);
+        Mockito.when(consumer.assignment()).thenReturn(Collections.singleton(partition));
+        Mockito.when(consumer.position(partition)).thenReturn(0L, 101L);
+        Mockito.when(consumer.poll(Mockito.any(Duration.class)))
+                .thenReturn(ConsumerRecords.empty());
+
+        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(sourceConfig, context);
+        setConsumer(reader, consumer);
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(
+                                new KafkaSourceSplit(null, partition, 0L, 101L))));
+
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
+
+        Assertions.assertTrue(records.finishedSplits().contains(partition.toString()));
+    }
+
     /** Creates the minimum Kafka source config used by the tests. */
     private ReadonlyConfig createConfig(boolean commitOnCheckpoint) {
         Map<String, Object> configMap = new HashMap<>();
@@ -82,5 +123,13 @@ public class KafkaPartitionSplitReaderTest {
         Map<String, Object> schema = new HashMap<>();
         schema.put("fields", schemaFields);
         return schema;
+    }
+
+    private void setConsumer(
+            KafkaPartitionSplitReader reader, KafkaConsumer<byte[], byte[]> consumer)
+            throws Exception {
+        Field consumerField = KafkaPartitionSplitReader.class.getDeclaredField("consumer");
+        consumerField.setAccessible(true);
+        consumerField.set(reader, consumer);
     }
 }
