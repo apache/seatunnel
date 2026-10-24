@@ -17,14 +17,17 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerSignalStore;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -48,6 +51,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -103,6 +107,20 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    void testFactoryPassesShortageListenerToStandaloneManager() {
+        AutoscalerSignalStore listener =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+        ResourceManager manager =
+                new ResourceManagerFactory()
+                        .createResourceManager(nodeEngine, new EngineConfig(), listener);
+
+        Assertions.assertSame(
+                listener,
+                ReflectionUtils.getField(manager, "resourceShortageListener").orElse(null));
+        manager.close();
+    }
+
+    @Test
     void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
         ApplicationSpecification specification = applicationSpecification(DeployType.KUBERNETES);
         ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
@@ -110,12 +128,17 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         when(driver.requestWorker(specification.getWorkerSpecification()))
                 .thenReturn(CompletableFuture.completedFuture(worker));
         when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
+        AutoscalerSignalStore listener =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
         ResourceManager manager =
                 new ResourceManagerFactory(
                                 DeployType.KUBERNETES, "test-application", specification, driver)
-                        .createResourceManager(nodeEngine, new EngineConfig());
+                        .createResourceManager(nodeEngine, new EngineConfig(), listener);
         try {
             Assertions.assertEquals(ApplicationResourceManager.class, manager.getClass());
+            Assertions.assertSame(
+                    listener,
+                    ReflectionUtils.getField(manager, "resourceShortageListener").orElse(null));
             verifyNoInteractions(driver);
             manager.init();
             ((ApplicationResourceManager<?>) manager).awaitWorkerRegistration();
@@ -444,6 +467,34 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
             hasDifferentWorker |= addresses.size() > 1;
         }
         Assertions.assertTrue(hasDifferentWorker, "should have different worker for each slot");
+    }
+
+    @Test
+    public void testShortageEvidenceDistinguishesTagMismatchFromCapacityShortage()
+            throws ExecutionException, InterruptedException {
+        AutoscalerSignalStore signals =
+                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+
+        FakeResourceManager tagMismatchResourceManager =
+                new FakeResourceManager(nodeEngine, signals);
+        Map<String, String> tagFilter = Collections.singletonMap("env", "prod");
+        Assertions.assertThrows(
+                NoEnoughResourceException.class,
+                () ->
+                        tagMismatchResourceManager
+                                .applyResources(
+                                        jobId,
+                                        Collections.singletonList(new ResourceProfile()),
+                                        tagFilter)
+                                .get());
+        Assertions.assertEquals(0, signals.shortageSnapshot(0L).getShortageCount());
+
+        FakeResourceManagerForRequestSlotRetryTest capacityResourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1, signals);
+        capacityResourceManager
+                .applyResources(jobId, Collections.singletonList(new ResourceProfile()), null)
+                .get();
+        Assertions.assertEquals(1, signals.shortageSnapshot(0L).getShortageCount());
     }
 
     @Test

@@ -82,7 +82,23 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
             String applicationId,
             ApplicationSpecification specification,
             ResourceManagerDriver<WorkerType> driver) {
-        super(nodeEngine, engineConfig);
+        this(
+                nodeEngine,
+                engineConfig,
+                applicationId,
+                specification,
+                driver,
+                ResourceShortageListener.NOOP);
+    }
+
+    protected ApplicationResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            String applicationId,
+            ApplicationSpecification specification,
+            ResourceManagerDriver<WorkerType> driver,
+            ResourceShortageListener resourceShortageListener) {
+        super(nodeEngine, engineConfig, resourceShortageListener);
         this.applicationId = Objects.requireNonNull(applicationId, "applicationId");
         this.specification = Objects.requireNonNull(specification, "specification");
         this.driver = Objects.requireNonNull(driver, "driver");

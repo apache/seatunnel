@@ -34,6 +34,7 @@ import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
@@ -53,6 +54,15 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerSignalStore;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
+import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
+import org.apache.seatunnel.engine.server.autoscale.DefaultAutoscalerSignalCollector;
+import org.apache.seatunnel.engine.server.autoscale.DefaultRecommendationPublisher;
+import org.apache.seatunnel.engine.server.autoscale.HierarchicalAutoscalingPolicy;
+import org.apache.seatunnel.engine.server.autoscale.InMemoryAutoscalerStateStore;
+import org.apache.seatunnel.engine.server.autoscale.SystemAutoscalerTimeSource;
+import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -232,9 +242,32 @@ public class CoordinatorService {
 
     private final ScheduledExecutorService pipelineCleanupScheduler;
 
+    /**
+     * Periodic evaluation scheduler owned by the active master, or {@code null} when stopped.
+     *
+     * <p>The scheduler is created only after autoscaler enablement is confirmed and is shut down
+     * during coordinator cleanup before the active-master state is discarded.
+     */
+    private ScheduledExecutorService autoscalerScheduler;
+
+    /** Stores the latest advisory recommendation and bounded recommendation history. */
+    private final InMemoryAutoscalerStateStore autoscalerStateStore;
+
+    /** Capacity and worker samples for the current active-master incarnation. */
+    private volatile AutoscalerSignalStore autoscalerSignalStore;
+
+    /** The autoscaler instance for the current master incarnation, or {@code null} when stopped. */
+    private volatile DefaultAutoScaler autoScaler;
+
+    /** Whether the autoscaler evaluation loop is currently running for this coordinator. */
+    private volatile boolean autoscalerRunning;
+
     private final EngineConfig engineConfig;
 
     private final ResourceManagerFactory resourceManagerFactory;
+
+    /** Immutable, server-local autoscaler settings used by the coordinator and evaluator. */
+    private final AutoscalerConfig autoscalerRuntimeConfig;
 
     private ConnectorPackageService connectorPackageService;
 
@@ -270,6 +303,12 @@ public class CoordinatorService {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
+        this.autoscalerRuntimeConfig = engineConfig.getAutoscalerConfig();
+        this.autoscalerSignalStore = new AutoscalerSignalStore(autoscalerRuntimeConfig);
+        this.autoscalerStateStore =
+                new InMemoryAutoscalerStateStore(
+                        autoscalerRuntimeConfig.getHistorySize(),
+                        autoscalerRuntimeConfig.getEvaluationHistorySize());
         this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
@@ -1262,6 +1301,17 @@ public class CoordinatorService {
     private synchronized void checkNewActiveMaster() {
         try {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
+                if (autoscalerSignalStore.isClosed()) {
+                    // A late heartbeat can lazily create a resource manager after demotion.
+                    // Discard it before replacing the store so its shortage listener cannot
+                    // remain bound to the closed master incarnation.
+                    ResourceManager staleManager = resourceManager;
+                    resourceManager = null;
+                    if (staleManager != null) {
+                        staleManager.close();
+                    }
+                    autoscalerSignalStore = new AutoscalerSignalStore(autoscalerRuntimeConfig);
+                }
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
@@ -1271,6 +1321,7 @@ public class CoordinatorService {
                 pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
                 startPendingJobScheduleThread();
+                startAutoscalerSafely();
                 seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
@@ -1309,6 +1360,8 @@ public class CoordinatorService {
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
         pendingJobQueue.release();
+        stopAutoscaler();
+        autoscalerSignalStore.close();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         // Interrupt and discard every JobMaster currently sitting in pendingJobQueue. This is
@@ -1374,13 +1427,171 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            resourceManagerFactory.createResourceManager(nodeEngine, engineConfig);
+                            resourceManagerFactory.createResourceManager(
+                                    nodeEngine, engineConfig, autoscalerSignalStore);
                     manager.init();
                     resourceManager = manager;
                 }
             }
         }
         return resourceManager;
+    }
+
+    /**
+     * Returns the current server-local advisory autoscaler view.
+     *
+     * <p>The view is read-only and reflects the current master epoch, recommendation generation,
+     * running state, and bounded history. It does not trigger an evaluation or any rescaling
+     * action.
+     *
+     * @return the current autoscaler view
+     */
+    public AutoscalerView getAutoscalerView() {
+        DefaultAutoScaler current = autoScaler;
+        long currentMasterEpoch = current == null ? 0L : current.getMasterEpoch();
+        long nextGeneration = current == null ? 0L : current.getNextGeneration();
+        return autoscalerStateStore.view(
+                autoscalerRuntimeConfig.isEnabled(),
+                autoscalerRunning,
+                currentMasterEpoch,
+                nextGeneration,
+                autoscalerRuntimeConfig.getScaleOutStabilizationSeconds(),
+                autoscalerRuntimeConfig.getScaleInStabilizationSeconds());
+    }
+
+    /** Records a worker sample in the active master's autoscaler signal store. */
+    public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {
+        if (isActive) {
+            autoscalerSignalStore.record(sample, receiveTimeMillis);
+        }
+    }
+
+    /**
+     * Starts the advisory autoscaler for the active master when it is enabled.
+     *
+     * <p>Starting is idempotent while the loop is already running. Each new master incarnation
+     * receives a fresh epoch, clears the previous local state, and creates a single daemon
+     * evaluation scheduler.
+     */
+    private synchronized void startAutoscaler() {
+        if (!autoscalerRuntimeConfig.isEnabled() || autoscalerRunning) {
+            return;
+        }
+        autoscalerStateStore.clear();
+        long masterEpoch =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getFlakeIdGenerator(Constant.SEATUNNEL_AUTOSCALER_EPOCH_GENERATOR_NAME)
+                        .newId();
+        DefaultAutoScaler newAutoScaler =
+                new DefaultAutoScaler(
+                        masterEpoch,
+                        autoscalerRuntimeConfig,
+                        new DefaultAutoscalerSignalCollector(
+                                getResourceManager(),
+                                autoscalerSignalStore,
+                                autoscalerRuntimeConfig,
+                                engineConfig.getSlotServiceConfig(),
+                                this::getPendingJobCount,
+                                this::getLongestPendingDurationMillis,
+                                System::currentTimeMillis),
+                        new HierarchicalAutoscalingPolicy(autoscalerRuntimeConfig),
+                        DefaultAutoScaler.stateTracker(autoscalerRuntimeConfig),
+                        autoscalerStateStore,
+                        new DefaultRecommendationPublisher(autoscalerStateStore),
+                        new SystemAutoscalerTimeSource());
+        newAutoScaler.reset(masterEpoch);
+        autoScaler = newAutoScaler;
+        autoscalerScheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("seatunnel-autoscaler-%d")
+                                .setDaemon(true)
+                                .build());
+        autoscalerRunning = true;
+        autoscalerScheduler.scheduleAtFixedRate(
+                this::evaluateAutoscalerSafely,
+                0,
+                autoscalerRuntimeConfig.getEvaluationIntervalSeconds(),
+                TimeUnit.SECONDS);
+    }
+
+    /**
+     * Starts the autoscaler without allowing a service startup failure to roll back active-master
+     * activation.
+     */
+    private void startAutoscalerSafely() {
+        try {
+            startAutoscaler();
+        } catch (Exception e) {
+            logger.warning(
+                    "Failed to start autoscaler; continue active-master activation with autoscaling disabled.",
+                    e);
+            try {
+                stopAutoscaler();
+            } catch (Exception cleanupException) {
+                logger.warning(
+                        "Failed to clean up partially started autoscaler.", cleanupException);
+            }
+        }
+    }
+
+    /**
+     * Executes one autoscaler evaluation if this coordinator is still active.
+     *
+     * <p>All failures are contained and logged so an exception cannot terminate the periodic
+     * scheduler and silently stop future advisory evaluations.
+     */
+    private void evaluateAutoscalerSafely() {
+        if (!isActive || !autoscalerRunning) {
+            return;
+        }
+        try {
+            DefaultAutoScaler current = autoScaler;
+            if (current != null) {
+                current.evaluateOnce();
+            }
+        } catch (Throwable t) {
+            logger.warning("Autoscaler evaluation failed", t);
+        }
+    }
+
+    /**
+     * Stops the current advisory autoscaler and fences its in-flight evaluation state.
+     *
+     * <p>The running flag and scaler reference are cleared before closing the scaler and shutting
+     * down the scheduler, so subsequent scheduled callbacks cannot publish recommendations for a
+     * demoted master.
+     */
+    private synchronized void stopAutoscaler() {
+        autoscalerRunning = false;
+        DefaultAutoScaler current = autoScaler;
+        autoScaler = null;
+        if (current != null) {
+            current.close();
+        }
+        ScheduledExecutorService scheduler = autoscalerScheduler;
+        autoscalerScheduler = null;
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+        }
+    }
+
+    /**
+     * Calculates the wait duration of the longest-waiting pending job.
+     *
+     * @return the longest pending duration in milliseconds, or {@code 0} when no valid enqueue
+     *     timestamp is present
+     */
+    private long getLongestPendingDurationMillis() {
+        long oldestEnqueueTimestamp =
+                pendingJobQueue.getJobIdMap().values().stream()
+                        .mapToLong(PendingJobInfo::getEnqueueTimestamp)
+                        .min()
+                        .orElse(0L);
+        return oldestEnqueueTimestamp <= 0L
+                ? 0L
+                : Math.max(0L, System.currentTimeMillis() - oldestEnqueueTimestamp);
     }
 
     /**
@@ -2164,6 +2375,7 @@ public class CoordinatorService {
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
+        autoscalerSignalStore.removeWorker(event.getMember().getAddress());
         if (isCoordinatorActive()) {
             this.getResourceManager().memberRemoved(event);
         }

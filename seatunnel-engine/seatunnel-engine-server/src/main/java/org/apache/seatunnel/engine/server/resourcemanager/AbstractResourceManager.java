@@ -69,6 +69,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final ResourceShortageListener resourceShortageListener;
+
     // Track master-side slot request cost without changing allocation behavior.
     private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
     private final AtomicLong requestSlotOperationNoSlotCount = new AtomicLong();
@@ -77,9 +79,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private final AtomicLong requestSlotOperationMaxInvocationLatencyMs = new AtomicLong();
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        this(nodeEngine, engineConfig, ResourceShortageListener.NOOP);
+    }
+
+    public AbstractResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            ResourceShortageListener resourceShortageListener) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
+        this.resourceShortageListener = resourceShortageListener;
         this.mode = engineConfig.getMode();
 
         switch (engineConfig.getSlotServiceConfig().getAllocateStrategy()) {
@@ -194,7 +204,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(
-                        jobId, resourceProfile, matchedWorker, this, slotAllocationStrategy)
+                        jobId,
+                        resourceProfile,
+                        matchedWorker,
+                        this,
+                        slotAllocationStrategy,
+                        resourceShortageListener)
                 .request(tagFilter);
     }
 

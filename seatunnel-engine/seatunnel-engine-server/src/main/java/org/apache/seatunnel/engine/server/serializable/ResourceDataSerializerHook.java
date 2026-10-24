@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewO
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetPendingJobsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetWorkerResourcesOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReportAutoscalerMetricsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerProfileOperation;
@@ -64,6 +65,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
     public static final int JOB_CLEANUP_RECORD_TYPE = 12;
 
     public static final int GET_WORKER_RESOURCES_TYPE = 13;
+
+    public static final int REPORT_AUTOSCALER_METRICS_TYPE = 14;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -111,6 +114,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
                     return new JobCleanupRecord();
                 case GET_WORKER_RESOURCES_TYPE:
                     return new GetWorkerResourcesOperation();
+                case REPORT_AUTOSCALER_METRICS_TYPE:
+                    return new ReportAutoscalerMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

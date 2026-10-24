@@ -55,8 +55,17 @@ public class ResourceManagerFactory {
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        return createResourceManager(nodeEngine, engineConfig, ResourceShortageListener.NOOP);
+    }
+
+    /** Creates an uninitialized manager with a capacity-shortage observer. */
+    public ResourceManager createResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            ResourceShortageListener resourceShortageListener) {
         if (DeployType.STANDALONE.equals(deployType)) {
-            return new StandaloneResourceManager(nodeEngine, engineConfig);
+            return new StandaloneResourceManager(
+                    nodeEngine, engineConfig, resourceShortageListener);
         }
         if (DeployType.KUBERNETES.equals(deployType)) {
             if (applicationId == null || specification == null || driver == null) {
@@ -64,7 +73,12 @@ public class ResourceManagerFactory {
                         "Application deployment requires an application ID, specification and driver");
             }
             return new ApplicationResourceManager<>(
-                    nodeEngine, engineConfig, applicationId, specification, driver);
+                    nodeEngine,
+                    engineConfig,
+                    applicationId,
+                    specification,
+                    driver,
+                    resourceShortageListener);
         }
         throw new UnsupportedDeployTypeException(deployType);
     }
