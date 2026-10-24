@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -36,7 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +53,55 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 
 @Slf4j
 public class CsvReadStrategyTest {
+
+    @Test
+    public void testConfiguredDefaultsFromLocalCsvFile() throws Exception {
+        URL resource = CsvReadStrategyTest.class.getResource("/csv/default-values.csv");
+        String path = Paths.get(resource.toURI()).toString();
+        Config config =
+                ConfigFactory.parseString(
+                        "csv_use_header_line = true\n"
+                                + "null_format = \"NULL\"\n"
+                                + "schema { columns = ["
+                                + "{ name = \"id\", type = \"int\", nullable = false, defaultValue = 7 },"
+                                + "{ name = \"name\", type = \"string\", nullable = false, defaultValue = \"unknown\" },"
+                                + "{ name = \"optional\", type = \"string\", nullable = true },"
+                                + "{ name = \"date\", type = \"date\", defaultValue = \"2020-01-01\" },"
+                                + "{ name = \"timestamp\", type = \"timestamp\", defaultValue = \"2020-01-01 12:34:56\" }"
+                                + "] }");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        new ReadonlyConfigParser().parse(ReadonlyConfig.fromConfig(config)),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
+            csvReadStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            csvReadStrategy.getFileNamesByPath(path);
+            csvReadStrategy.setPluginConfig(config);
+            csvReadStrategy.setCatalogTable(catalogTable);
+            TestCollector collector = new TestCollector();
+            csvReadStrategy.read(path, "", collector);
+
+            Assertions.assertEquals(2, collector.getRows().size());
+            Assertions.assertEquals(7, collector.getRows().get(0).getField(0));
+            Assertions.assertEquals("unknown", collector.getRows().get(0).getField(1));
+            Assertions.assertEquals("keep", collector.getRows().get(0).getField(2));
+            Assertions.assertEquals(8, collector.getRows().get(1).getField(0));
+            Assertions.assertEquals("unknown", collector.getRows().get(1).getField(1));
+            Assertions.assertNull(collector.getRows().get(1).getField(2));
+            Assertions.assertEquals(
+                    LocalDate.of(2020, 1, 1), collector.getRows().get(0).getField(3));
+            Assertions.assertEquals(
+                    LocalDateTime.of(2024, 2, 3, 4, 5, 6), collector.getRows().get(0).getField(4));
+            Assertions.assertEquals(
+                    LocalDate.of(2024, 2, 3), collector.getRows().get(1).getField(3));
+            Assertions.assertEquals(
+                    LocalDateTime.of(2020, 1, 1, 12, 34, 56),
+                    collector.getRows().get(1).getField(4));
+        }
+    }
 
     @Test
     public void testReadCsv() throws Exception {
