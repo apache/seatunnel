@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils;
 import org.apache.hadoop.fs.cosn.CosNUtils;
+import org.apache.hadoop.fs.s3a.AWSCredentialProviderList;
+import org.apache.hadoop.fs.s3a.S3AUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,7 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 
 import com.aliyun.oss.common.auth.Credentials;
 import com.aliyun.oss.common.auth.CredentialsProvider;
-import com.amazonaws.auth.AWSCredentialsProvider;
+import com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 
@@ -141,19 +143,21 @@ public class EnvironmentCredentialConfigurationTest {
                                             .getConfiguration()
                                             .buildConfiguration(config);
 
-                            AWSCredentialsProvider provider =
-                                    (AWSCredentialsProvider)
-                                            Class.forName(hadoopConf.get(S3_PROVIDER_KEY))
-                                                    .getDeclaredConstructor()
-                                                    .newInstance();
-                            AWSSessionCredentials credentials =
-                                    Assertions.assertInstanceOf(
-                                            AWSSessionCredentials.class, provider.getCredentials());
+                            try (AWSCredentialProviderList providers =
+                                    S3AUtils.createAWSCredentialProviderSet(
+                                            URI.create("s3a://seatunnel-checkpoint"), hadoopConf)) {
+                                AWSSessionCredentials credentials =
+                                        Assertions.assertInstanceOf(
+                                                AWSSessionCredentials.class,
+                                                providers.getCredentials());
 
-                            Assertions.assertEquals(S3_ACCESS_KEY, credentials.getAWSAccessKeyId());
-                            Assertions.assertEquals(S3_SECRET_KEY, credentials.getAWSSecretKey());
-                            Assertions.assertEquals(
-                                    S3_SESSION_TOKEN, credentials.getSessionToken());
+                                Assertions.assertEquals(
+                                        S3_ACCESS_KEY, credentials.getAWSAccessKeyId());
+                                Assertions.assertEquals(
+                                        S3_SECRET_KEY, credentials.getAWSSecretKey());
+                                Assertions.assertEquals(
+                                        S3_SESSION_TOKEN, credentials.getSessionToken());
+                            }
                         });
     }
 
@@ -177,9 +181,7 @@ public class EnvironmentCredentialConfigurationTest {
                                     AliyunOSSUtils.getCredentialsProvider(
                                             URI.create("oss://seatunnel-checkpoint"), hadoopConf);
                             Assertions.assertInstanceOf(
-                                    com.aliyun.oss.common.auth
-                                            .EnvironmentVariableCredentialsProvider.class,
-                                    provider);
+                                    EnvironmentVariableCredentialsProvider.class, provider);
                             Credentials credentials = provider.getCredentials();
 
                             Assertions.assertEquals(OSS_ACCESS_KEY, credentials.getAccessKeyId());
