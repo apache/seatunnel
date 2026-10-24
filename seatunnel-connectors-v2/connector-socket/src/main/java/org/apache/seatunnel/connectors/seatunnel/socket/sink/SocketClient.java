@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 @Slf4j
@@ -36,6 +37,8 @@ public class SocketClient {
     private final int port;
     private int retries;
     private final int maxNumRetries;
+    private final int connectTimeoutMs;
+    private final int readTimeoutMs;
     private transient Socket client;
     private transient OutputStream outputStream;
     private final SerializationSchema serializationSchema;
@@ -48,10 +51,16 @@ public class SocketClient {
         this.serializationSchema = serializationSchema;
         retries = config.getMaxNumRetries();
         maxNumRetries = config.getMaxNumRetries();
+        connectTimeoutMs = config.getConnectTimeoutMs();
+        readTimeoutMs = config.getReadTimeoutMs();
     }
 
     private void createConnection() throws IOException {
-        client = new Socket(hostName, port);
+        client = new Socket();
+        // Connect with a bounded timeout so an unreachable sink fails the task instead of
+        // blocking the writer thread forever.
+        client.connect(new InetSocketAddress(hostName, port), connectTimeoutMs);
+        client.setSoTimeout(readTimeoutMs);
         client.setKeepAlive(true);
         client.setTcpNoDelay(true);
 
