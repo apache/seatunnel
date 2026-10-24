@@ -200,26 +200,6 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
         }
     }
 
-    @Test
-    public void testConnectorJarPublicationDuringRestore() throws Exception {
-        checkConnectorPublication = true;
-        publicationChecks = 0;
-        publicationRequests.set(0);
-        publicationFailure.set(null);
-        try {
-            testRestoreFromSavepoint();
-            Assertions.assertTrue(publicationChecks > 0, "Expected a connector publication check");
-            Assertions.assertNull(
-                    publicationFailure.get(),
-                    "REST failed during connector publication: " + publicationFailure.get());
-            log.info(
-                    "Validated {} REST requests during connector publication",
-                    publicationRequests.get());
-        } finally {
-            checkConnectorPublication = false;
-        }
-    }
-
     @Override
     protected Container.ExecResult restoreJob(
             GenericContainer<?> container,
@@ -505,6 +485,10 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
     @Test
     public void testRestoreFromSavepoint()
             throws IOException, InterruptedException, java.util.concurrent.ExecutionException {
+        checkConnectorPublication = true;
+        publicationChecks = 0;
+        publicationRequests.set(0);
+        publicationFailure.set(null);
         FileUtils.createNewDir(SINK_OUTPUT_DIR);
         try {
             long jobId = JobIdGenerator.newJobId();
@@ -549,7 +533,15 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
             awaitJobStatus(jobId, "CANCELED");
             Container.ExecResult restoreResult = restoreFuture.get();
             Assertions.assertEquals(0, restoreResult.getExitCode(), restoreResult.getStderr());
+            Assertions.assertTrue(publicationChecks > 0, "Expected a connector publication check");
+            Assertions.assertNull(
+                    publicationFailure.get(),
+                    "REST failed during connector publication: " + publicationFailure.get());
+            log.info(
+                    "Validated {} REST requests during connector publication",
+                    publicationRequests.get());
         } finally {
+            checkConnectorPublication = false;
             FileUtils.deleteFile(SINK_OUTPUT_DIR);
         }
     }
