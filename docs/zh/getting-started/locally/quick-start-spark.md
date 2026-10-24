@@ -27,7 +27,9 @@ sidebar_position: 4
 
 ## 步骤 3: 添加作业配置文件来定义作业
 
-编辑`config/v2.streaming.conf.template`，它决定了当SeaTunnel启动后数据输入、处理和输出的方式及逻辑。
+Spark 3.5 请编辑 `config/v2.batch.config.template`，并设置 `job.mode = "BATCH"`。
+Spark 3.5.8 的微批流处理尚未验证，因此流处理模板不是已验证的 Spark 3.5 示例。
+现有 Spark 2.4/3.3 部署可以继续使用下文所示的 `config/v2.streaming.conf.template`。
 下面是配置文件的示例，它与上面提到的示例应用程序相同。
 
 ```hocon
@@ -89,7 +91,7 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark 3.x.x
+Spark 3.3.x
 
 ```shell
 cd "apache-seatunnel-${version}"
@@ -97,6 +99,25 @@ cd "apache-seatunnel-${version}"
 --master local[4] \
 --deploy-mode client \
 --config ./config/v2.streaming.conf.template
+```
+
+Spark 3.4.x
+
+现有 Spark 3.4 部署应继续使用 `seatunnel-spark-3-starter.jar` 和上文所示的
+`start-seatunnel-spark-3-connector-v2` 启动脚本。本次变更不新增独立的 Spark 3.4
+启动器，也不新增 Spark 3.4 兼容性验证。
+
+Spark 3.5.x
+
+请先运行批处理作业。Spark 3.5.8 的专项微批流处理验证尚未完成，因此 Spark 3.5
+的快速开始不使用流处理模板。
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-3.5-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/v2.batch.config.template
 ```
 
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
