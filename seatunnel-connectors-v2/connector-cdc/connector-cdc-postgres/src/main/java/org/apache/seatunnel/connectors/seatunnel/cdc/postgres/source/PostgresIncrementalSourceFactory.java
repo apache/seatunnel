@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresPublishedColumns;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -47,6 +48,9 @@ import java.util.Optional;
 @AutoService(Factory.class)
 @Slf4j
 public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
+
+    private static final String PGOUTPUT = "pgoutput";
+
     @Override
     public String factoryIdentifier() {
         return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
@@ -120,6 +124,15 @@ public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourc
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
+            }
+            // pgoutput streams only published columns; snapshot-only jobs never stream
+            if (PGOUTPUT.equalsIgnoreCase(
+                            config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME)
+                                    .trim())
+                    && config.get(PostgresSourceOptions.STARTUP_MODE)
+                            != StartupMode.SNAPSHOT_ONLY) {
+                catalogTables =
+                        PostgresPublishedColumns.retainPublishedColumns(config, catalogTables);
             }
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
