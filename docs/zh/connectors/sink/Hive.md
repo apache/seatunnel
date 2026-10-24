@@ -24,10 +24,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 - [x] 文件格式
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
 - [x] 压缩编解码器
     - [x] LZO
 
@@ -614,7 +612,7 @@ sink {
 
 ### Hive Sink 支持哪些文件格式？
 
-Hive Sink 支持 `ORC`、`PARQUET`、`TEXT`、`JSON` 和 `SEQUENCE` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
+Hive Sink 支持 `ORC`、`PARQUET` 和 `TEXT` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
 
 ### Hive Sink 是否支持分区表？
 
