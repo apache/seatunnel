@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
@@ -51,6 +52,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
@@ -92,8 +94,7 @@ public final class KubernetesResourceManagerDriver
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
     private final IdGenerator idGenerator;
-    private final java.util.concurrent.atomic.AtomicInteger ordinal =
-            new java.util.concurrent.atomic.AtomicInteger();
+    private final AtomicInteger ordinal = new AtomicInteger();
     /**
      * Admission and observation gate. Once false, requestWorker rejects new workers and the watch
      * stops publishing failures or terminations.
@@ -270,8 +271,7 @@ public final class KubernetesResourceManagerDriver
                         throw new IllegalStateException(
                                 "Worker identity belongs to another application");
                     }
-                } else if (!org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
-                        .unsubmitted(job)) {
+                } else if (!HaApplicationState.unsubmitted(job)) {
                     throw new IllegalStateException(
                             "Application worker is absent; worker replacement is outside dual-master HA");
                 } else {

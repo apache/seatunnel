@@ -87,8 +87,9 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 | `application.startup-timeout-millis` | long | no | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
 
 :::note
-Pod JVM heap uses 75% of the memory limit, leaving the remainder for off-heap allocations and JVM
-overhead.
+Master and Worker JVM heaps use 75% of the memory limit, leaving the remainder for off-heap
+allocations and JVM overhead. The HA observer uses a 96Mi heap within its separate 256Mi memory
+limit.
 :::
 
 :::note

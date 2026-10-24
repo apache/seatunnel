@@ -34,6 +34,7 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
@@ -41,6 +42,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesC
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.AfterEach;
@@ -594,9 +596,28 @@ class KubernetesApplicationTest {
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         client.cancel();
         assertEquals(ApplicationStatus.CANCELED, client.getStatus());
-        verify(api).deleteOrphanPods("app");
-        verify(api, never()).deleteApplication("app");
+        verify(api, never()).deleteOrphanPods("app");
+        verify(api).deleteApplication("app");
         verify(api, never()).deleteApplication(anyString(), anyString());
+    }
+
+    @Test
+    void observedHaMissingOwnerStillUsesUidScopedOrphanCleanup() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob owner = job(new V1JobStatus());
+        owner.getInternalResource()
+                .getMetadata()
+                .setAnnotations(
+                        Map.of(
+                                HaApplicationState.ENABLED, "true",
+                                HaApplicationState.STATUS, "RUNNING"));
+        KubernetesApplicationClient handle = new KubernetesApplicationClient(api, "app");
+        when(api.getJob("app")).thenReturn(owner);
+        assertEquals(ApplicationStatus.RUNNING, handle.getStatus());
+        when(api.getJob("app")).thenThrow(new KubernetesClientException(404, "gone"));
+        handle.cancel();
+        verify(api).deleteOrphanPods("app");
+        verify(api, never()).deleteApplication(anyString());
     }
 
     @Test
@@ -707,22 +728,15 @@ class KubernetesApplicationTest {
                 .setAnnotations(
                         new HashMap<>(
                                 Map.of(
-                                        org.apache.seatunnel.resource.kubernetes.kubeclient
-                                                        .HaApplicationState.ENABLED,
-                                                "true",
-                                        org.apache.seatunnel.resource.kubernetes.kubeclient
-                                                        .HaApplicationState.STATUS,
-                                                "CANCELED")));
+                                        HaApplicationState.ENABLED, "true",
+                                        HaApplicationState.STATUS, "CANCELED")));
         when(api.getJob("app")).thenReturn(owner);
         KubernetesApplicationClient handle = new KubernetesApplicationClient(api, "app");
         assertEquals(ApplicationStatus.CANCELED, handle.getStatus());
         owner.getInternalResource()
                 .getMetadata()
                 .getAnnotations()
-                .put(
-                        org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState
-                                .STATUS,
-                        "SUCCEEDED");
+                .put(HaApplicationState.STATUS, "SUCCEEDED");
         assertEquals(
                 ApplicationStatus.SUCCEEDED,
                 new KubernetesApplicationClient(api, "app").getStatus());
@@ -739,17 +753,14 @@ class KubernetesApplicationTest {
                 .getMetadata()
                 .setAnnotations(
                         Map.of(
-                                org.apache.seatunnel.resource.kubernetes.kubeclient
-                                        .HaApplicationState.ENABLED,
+                                HaApplicationState.ENABLED,
                                 "true",
-                                org.apache.seatunnel.resource.kubernetes.kubeclient
-                                        .HaApplicationState.STATUS,
+                                HaApplicationState.STATUS,
                                 "RUNNING"));
         when(api.getJob("app")).thenReturn(owner);
         when(api.getService("app"))
                 .thenReturn(
-                        new org.apache.seatunnel.resource.kubernetes.kubeclient.resources
-                                .KubernetesService(
+                        new KubernetesService(
                                 new io.kubernetes.client.openapi.models.V1Service()
                                         .metadata(new V1ObjectMeta().name("app"))
                                         .spec(
@@ -807,24 +818,16 @@ class KubernetesApplicationTest {
         KubernetesHaClient api = mock(KubernetesHaClient.class);
         KubernetesJob owner = job(new V1JobStatus().active(1));
         Map<String, String> state = new HashMap<>();
-        state.put(
-                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.ENABLED,
-                "true");
-        state.put(
-                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
-                "DEPLOYING");
+        state.put(HaApplicationState.ENABLED, "true");
+        state.put(HaApplicationState.STATUS, "DEPLOYING");
         owner.getInternalResource().getMetadata().setAnnotations(state);
         when(api.getJob("app")).thenReturn(owner);
         when(api.listPods(anyString())).thenReturn(List.of(pod("worker", "Running")));
         KubernetesApplicationClient client = new KubernetesApplicationClient(api, "app");
         assertEquals(ApplicationStatus.DEPLOYING, client.getStatus());
-        state.put(
-                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
-                "RUNNING");
+        state.put(HaApplicationState.STATUS, "RUNNING");
         assertEquals(ApplicationStatus.RUNNING, client.getStatus());
-        state.put(
-                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.STATUS,
-                "unexpected");
+        state.put(HaApplicationState.STATUS, "unexpected");
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         verify(api, never()).listPods(anyString());
     }

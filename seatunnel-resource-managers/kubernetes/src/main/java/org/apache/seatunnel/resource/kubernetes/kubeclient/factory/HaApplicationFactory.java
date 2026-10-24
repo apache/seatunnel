@@ -33,6 +33,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesS
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesStatefulSet;
 
 import io.kubernetes.client.custom.IntOrString;
+import io.kubernetes.client.custom.Quantity;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1EnvVarSource;
@@ -48,6 +49,7 @@ import io.kubernetes.client.openapi.models.V1StatefulSetSpec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -56,6 +58,9 @@ import java.util.stream.IntStream;
 public final class HaApplicationFactory extends AbstractWorkloadFactory {
     public static final String OWNER_ROLE = "owner";
     public static final String OWNER_UID_ENV = "SEATUNNEL_APPLICATION_UID";
+
+    private static final int OWNER_MEMORY_MB = 256;
+    private static final int OWNER_HEAP_MB = 96;
 
     private HaApplicationFactory(KubernetesApplicationConfig parameters) {
         super(parameters);
@@ -114,20 +119,15 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
                         .findFirst()
                         .get()
                         .getValue();
-        V1Container ownerContainer =
-                container(128, 1)
-                        .resources(
-                                container(128, 1)
-                                        .getResources()
-                                        .putRequestsItem(
-                                                KubernetesConstants.CPU_RESOURCE,
-                                                io.kubernetes.client.custom.Quantity.fromString(
-                                                        "100m")));
+        V1Container ownerContainer = container(OWNER_MEMORY_MB, 1);
+        ownerContainer
+                .getResources()
+                .putRequestsItem(KubernetesConstants.CPU_RESOURCE, Quantity.fromString("100m"));
         ownerContainer.setCommand(
                 command(
-                        128,
+                        OWNER_MEMORY_MB,
                         null,
-                        java.util.Collections.emptyList(),
+                        Collections.emptyList(),
                         SeatunnelKubernetesHaApplication.class.getName(),
                         id,
                         OWNER_ROLE,
@@ -135,6 +135,16 @@ public final class HaApplicationFactory extends AbstractWorkloadFactory {
                         Long.toString(parameters.getSpecification().getJobId()),
                         Long.toString(parameters.getSpecification().getStartupTimeoutMillis()),
                         HaApplicationState.digest(encoded)));
+        // The observer needs native/JVM headroom for the API client while retaining its small heap.
+        ownerContainer
+                .getCommand()
+                .replaceAll(
+                        argument ->
+                                argument.startsWith(KubernetesConstants.JVM_MAX_HEAP_PREFIX)
+                                        ? KubernetesConstants.JVM_MAX_HEAP_PREFIX
+                                                + OWNER_HEAP_MB
+                                                + "m"
+                                        : argument);
         ownerContainer
                 .getCommand()
                 .removeIf(

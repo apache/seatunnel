@@ -54,22 +54,38 @@ public final class ApplicationJobRunner {
 
     /** Application ownership policy; coordinator detachment is distinct from terminal cleanup. */
     public interface Lifecycle {
+        /** Waits for provider readiness before deciding whether to submit the native job. */
         default void awaitReady() throws Exception {}
 
+        /**
+         * Returns true to submit once, or false to attach to the immutable existing native job ID.
+         */
         default boolean submit() throws Exception {
             return true;
         }
 
+        /**
+         * Returns whether this runner still owns the active coordinator; false detaches without
+         * cleanup.
+         */
         default boolean isCurrent() {
             return true;
         }
 
+        /** Persists that native execution reached RUNNING, before any later status absence. */
         default void running() throws Exception {}
 
+        /**
+         * On an unknown native result, returns whether persisted RUNNING history disables the
+         * startup timeout.
+         */
         default boolean hasStarted() throws Exception {
             return false;
         }
 
+        /**
+         * Records a terminal native outcome only while this lifecycle still owns the application.
+         */
         default void finished(ApplicationStatus status) throws Exception {}
     }
 

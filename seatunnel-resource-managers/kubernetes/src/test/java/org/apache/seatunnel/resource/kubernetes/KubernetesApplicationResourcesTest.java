@@ -45,6 +45,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -63,10 +64,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1898,6 +1901,21 @@ class KubernetesApplicationResourcesTest {
                         .getRequests()
                         .get("cpu")
                         .toSuffixedString());
+        V1Container observerContainer = observer.getSpec().getContainers().get(0);
+        assertEquals(
+                "256Mi",
+                observerContainer.getResources().getRequests().get("memory").toSuffixedString());
+        assertEquals(
+                "256Mi",
+                observerContainer.getResources().getLimits().get("memory").toSuffixedString());
+        assertEquals(
+                Collections.singletonList("-Xmx96m"),
+                observerContainer.getCommand().stream()
+                        .filter(
+                                argument ->
+                                        argument.startsWith(
+                                                KubernetesConstants.JVM_MAX_HEAP_PREFIX))
+                        .collect(Collectors.toList()));
         owner.getInternalResource().getMetadata().setUid("uid-1");
         V1Pod worker =
                 workerPod(

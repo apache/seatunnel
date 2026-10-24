@@ -113,6 +113,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -332,40 +333,35 @@ public class JobMaster {
         } catch (Exception e) {
             initException = e;
         }
+        checkInitializationActive();
         if (restart) {
-            synchronized (getCoordinatorService()) {
-                // Retirement must not initialize futures or cancel tasks retained by a new master.
-                checkRecoveryOwnership();
-                if (initException instanceof InterruptedException) {
-                    throw initException;
-                }
-                if (initException != null || !needRestore) {
-                    neverNeedRestore();
-                    // Cancellation needs coordinators, but must never read or restore source state.
-                    this.checkpointManager = createCheckpointManager(false, false);
-                    this.initStateFuture();
-                    getCoordinatorService().registerRestoringJobAbort(this);
-                    physicalPlan.abortRestoringJob(
-                            initException instanceof java.util.concurrent.CancellationException
-                                            || initException == null
-                                    ? null
-                                    : initException);
-                    if (initException != null) {
-                        throw initException;
-                    }
-                    throw new java.util.concurrent.CancellationException(
-                            "Master takeover canceled");
-                }
-                this.initStateFuture();
+            // These operations touch distributed state and must not hold the global coordinator
+            // monitor. The captured executor rejects publication after retirement.
+            if (initException instanceof InterruptedException) {
+                throw initException;
             }
-        } else {
-            synchronized (getCoordinatorService()) {
+            if (initException != null || !needRestore) {
+                neverNeedRestore();
+                this.checkpointManager = createCheckpointManager(false, false);
                 checkInitializationActive();
                 this.initStateFuture();
+                checkInitializationActive();
+                getCoordinatorService().registerRestoringJobAbort(this);
+                checkInitializationActive();
+                physicalPlan.abortRestoringJob(
+                        initException instanceof CancellationException || initException == null
+                                ? null
+                                : initException);
                 if (initException != null) {
                     throw initException;
                 }
+                throw new CancellationException("Master takeover canceled");
             }
+        }
+        this.initStateFuture();
+        checkInitializationActive();
+        if (initException != null) {
+            throw initException;
         }
     }
 
@@ -380,7 +376,7 @@ public class JobMaster {
     public void checkRecoveryActive() throws InterruptedException {
         checkRecoveryOwnership();
         if (!needRestore) {
-            throw new java.util.concurrent.CancellationException("Master takeover canceled");
+            throw new CancellationException("Master takeover canceled");
         }
     }
 

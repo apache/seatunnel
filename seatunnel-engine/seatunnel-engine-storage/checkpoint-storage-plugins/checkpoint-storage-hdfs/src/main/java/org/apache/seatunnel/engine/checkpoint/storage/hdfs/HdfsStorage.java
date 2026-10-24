@@ -40,7 +40,12 @@ import org.apache.hadoop.io.IOUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -189,95 +194,100 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     @Override
     public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-        String path = getStorageParentDirectory() + jobId;
-        List<String> fileNames = getFileNames(path);
-        if (fileNames.isEmpty()) {
-            log.info("No checkpoint found for job, job id is: " + jobId);
-            return null;
-        }
-
-        String latestFileName =
-                getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
-        if (latestFileName == null) {
-            log.info(
-                    "No checkpoint found for this job, the job id is: "
-                            + jobId
-                            + ", pipeline id is: "
-                            + pipelineId);
-            return null;
-        }
-        return readPipelineState(latestFileName, jobId);
-    }
-
-    @Override
-    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
         CheckpointStorageException disappeared = null;
+        long highestListedVersion = -1;
         long highestListedCheckpoint = -1;
         for (int attempt = 0; attempt < 3; attempt++) {
-            List<PipelineState> states = new ArrayList<>();
-            boolean retry = false;
             List<String> files;
             try {
                 files = getFileNames(getStorageParentDirectory() + jobId);
             } catch (CheckpointStorageException failure) {
-                // Only an initial LIST can be restarted without losing observed checkpoint state.
                 if (attempt == 0 && isTemporaryConnectionFailure(failure.getCause())) {
                     throw new CheckpointStorageUnavailableException(failure.getMessage(), failure);
                 }
                 throw failure;
             }
+            String newest = null;
+            long newestVersion = -1;
+            long newestId = -1;
             for (String file : files) {
                 if (pipelineId.equals(getPipelineIdByFileName(file))) {
-                    highestListedCheckpoint =
-                            Math.max(
-                                    highestListedCheckpoint,
-                                    Long.parseLong(getCheckpointIdByFileName(file)));
-                }
-            }
-            for (String file : files) {
-                if (!pipelineId.equals(getPipelineIdByFileName(file))) {
-                    continue;
-                }
-                try {
-                    states.add(readPipelineState(file, jobId));
-                } catch (CheckpointStorageException failure) {
-                    if (!(failure.getCause() instanceof java.io.FileNotFoundException)) {
-                        throw failure;
+                    long checkpointId = Long.parseLong(getCheckpointIdByFileName(file));
+                    long fileVersion =
+                            Long.parseLong(file.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
+                    if (fileVersion > newestVersion
+                            || fileVersion == newestVersion && checkpointId > newestId) {
+                        newestVersion = fileVersion;
+                        newestId = checkpointId;
+                        newest = file;
                     }
-                    disappeared = failure;
-                    retry = true;
-                    break;
-                } catch (RuntimeException invalidState) {
-                    throw new CheckpointStorageException(
-                            "Failed to decode checkpoint during recovery", invalidState);
                 }
             }
-            if (!retry) {
-                if (states.isEmpty() && disappeared != null) {
+            if (newest == null) {
+                if (disappeared != null) {
                     throw disappeared;
                 }
-                if (disappeared != null
-                        && states.stream()
-                                        .mapToLong(PipelineState::getCheckpointId)
-                                        .max()
-                                        .orElse(-1)
-                                < highestListedCheckpoint) {
-                    continue;
+                return null;
+            }
+            if (newestVersion < highestListedVersion
+                    || newestVersion == highestListedVersion
+                            && newestId < highestListedCheckpoint) {
+                continue;
+            }
+            highestListedVersion = newestVersion;
+            highestListedCheckpoint = newestId;
+            try {
+                PipelineState state = readPipelineState(newest, jobId);
+                if (!jobId.equals(state.getJobId())
+                        || !pipelineId.equals(String.valueOf(state.getPipelineId()))
+                        || state.getCheckpointId() != newestId) {
+                    throw new CheckpointStorageException(
+                            "Checkpoint identity does not match the selected file");
                 }
-                return states;
+                return state;
+            } catch (CheckpointStorageException failure) {
+                if (!(failure.getCause() instanceof FileNotFoundException)) {
+                    throw failure;
+                }
+                disappeared = failure;
+            } catch (RuntimeException failure) {
+                throw new CheckpointStorageException(
+                        "Failed to decode latest checkpoint during recovery", failure);
             }
         }
-        // Retention can remove an object between LIST and GET. Re-read a complete snapshot,
-        // never return a partial scan or turn previously observed state into a fresh start.
-        throw disappeared;
+        throw new CheckpointStorageException("Checkpoint changed during recovery", disappeared);
+    }
+
+    @Override
+    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
+            throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        if (fileNames.isEmpty()) {
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
+            return new ArrayList<>();
+        }
+
+        List<PipelineState> pipelineStates = new ArrayList<>();
+        fileNames.forEach(
+                file -> {
+                    String filePipelineId = getPipelineIdByFileName(file);
+                    if (pipelineId.equals(filePipelineId)) {
+                        try {
+                            pipelineStates.add(readPipelineState(file, jobId));
+                        } catch (Exception e) {
+                            log.error("Failed to read checkpoint data from file " + file, e);
+                        }
+                    }
+                });
+        return pipelineStates;
     }
 
     private boolean isTemporaryConnectionFailure(Throwable failure) {
-        return failure instanceof java.net.SocketTimeoutException
-                || failure instanceof java.net.ConnectException
-                || failure instanceof java.net.NoRouteToHostException
-                || failure instanceof java.net.SocketException;
+        return failure instanceof SocketTimeoutException
+                || failure instanceof ConnectException
+                || failure instanceof NoRouteToHostException
+                || failure instanceof SocketException;
     }
 
     @Override

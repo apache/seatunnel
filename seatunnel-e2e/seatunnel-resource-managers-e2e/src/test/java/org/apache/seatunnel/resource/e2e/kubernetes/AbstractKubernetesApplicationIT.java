@@ -1067,6 +1067,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             }
             Files.copy(suiteFile("Dockerfile").toPath(), context.resolve("Dockerfile"));
             docker().buildImageCmd(context.toFile())
+                    .withBuildArg("JAVA_VERSION", String.valueOf(Runtime.version().feature()))
                     .withTags(Collections.singleton(image))
                     .start()
                     .awaitImageId();

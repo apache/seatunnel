@@ -157,8 +157,8 @@ public class CheckpointManager {
 
         Map<Integer, PipelineState> recoveryStates = new HashMap<>();
         if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
-            // Read and validate every pipeline before constructing coordinators or changing
-            // counters.
+            // Read recovery state for every pipeline before constructing coordinators or changing
+            // counters. Master takeover validates each selected payload during these reads.
             long deadline =
                     System.nanoTime()
                             + TimeUnit.MILLISECONDS.toNanos(
@@ -191,39 +191,34 @@ public class CheckpointManager {
                 ExceptionUtil.sneakyThrow(failure);
             }
         }
-        if (jobMaster != null) {
-            // Order effectful construction against coordinator retirement and explicit
-            // cancellation.
-            synchronized (jobMaster.getCoordinatorService()) {
-                try {
-                    if (masterFailoverRestore) {
-                        checkRecoveryActive();
-                    } else {
-                        jobMaster.checkInitializationActive();
-                    }
-                } catch (InterruptedException retired) {
-                    ExceptionUtil.sneakyThrow(retired);
-                }
-                this.coordinatorMap =
-                        createCoordinators(
-                                checkpointPlanMap,
-                                recoveryStates,
-                                checkpointCounterStore,
-                                executorService,
-                                runningJobStateIMap,
-                                isRestoreJob,
-                                restoreMode);
+        checkInitializationActive(masterFailoverRestore);
+        // Counter and coordinator construction performs distributed I/O. Never hold the global
+        // coordinator monitor while it runs; retirement is checked again before publication.
+        Map<Integer, CheckpointCoordinator> initialized =
+                createCoordinators(
+                        checkpointPlanMap,
+                        recoveryStates,
+                        checkpointCounterStore,
+                        executorService,
+                        runningJobStateIMap,
+                        isRestoreJob,
+                        restoreMode);
+        checkInitializationActive(masterFailoverRestore);
+        this.coordinatorMap = initialized;
+    }
+
+    private void checkInitializationActive(boolean recovery) {
+        if (jobMaster == null) {
+            return;
+        }
+        try {
+            if (recovery) {
+                checkRecoveryActive();
+            } else {
+                jobMaster.checkInitializationActive();
             }
-        } else {
-            this.coordinatorMap =
-                    createCoordinators(
-                            checkpointPlanMap,
-                            recoveryStates,
-                            checkpointCounterStore,
-                            executorService,
-                            runningJobStateIMap,
-                            isRestoreJob,
-                            restoreMode);
+        } catch (InterruptedException retired) {
+            ExceptionUtil.sneakyThrow(retired);
         }
     }
 
@@ -323,33 +318,18 @@ public class CheckpointManager {
     }
 
     /**
-     * Validates every retained entry before selecting a checkpoint. Only a successful empty lookup
-     * permits the caller to fall back from the current job to the original restore source; storage
-     * failures and corrupt/foreign entries must never be interpreted as an empty history.
+     * Reads only the newest candidate during takeover, with type selection for explicit restore.
      */
     private PipelineState latestRecoveryState(long sourceJobId, int pipelineId, RestoreMode mode)
             throws Exception {
-        List<PipelineState> states =
-                checkpointStorage.getCheckpointsByJobIdAndPipelineId(
-                        String.valueOf(sourceJobId), String.valueOf(pipelineId));
-        for (PipelineState state : states) {
-            if (!String.valueOf(sourceJobId).equals(state.getJobId())
-                    || pipelineId != state.getPipelineId()) {
-                throw new IllegalStateException(
-                        "Checkpoint identity does not match the recovering pipeline");
-            }
-            deserializeCheckpoint(state);
+        PipelineState state =
+                getLatestCheckpointStateByType(
+                        String.valueOf(sourceJobId), String.valueOf(pipelineId), mode);
+        if (state != null) {
+            validateRecoveryCheckpoint(
+                    state, String.valueOf(sourceJobId), String.valueOf(pipelineId));
         }
-        return states.stream()
-                .filter(
-                        state ->
-                                mode == null
-                                        || !mode.isRestore()
-                                        || CheckpointRestoreUtils.matchesRestoreCheckpointType(
-                                                deserializeCheckpoint(state).getCheckpointType(),
-                                                mode))
-                .max(Comparator.comparingLong(PipelineState::getCheckpointId))
-                .orElse(null);
+        return state;
     }
 
     private PipelineState getLatestCheckpointStateByType(
@@ -368,6 +348,16 @@ public class CheckpointManager {
                                         restoreMode))
                 .max(Comparator.comparingLong(PipelineState::getCheckpointId))
                 .orElse(null);
+    }
+
+    private CompletedCheckpoint validateRecoveryCheckpoint(
+            PipelineState state, String sourceJobId, String pipelineId) {
+        if (!sourceJobId.equals(state.getJobId())
+                || !pipelineId.equals(String.valueOf(state.getPipelineId()))) {
+            throw new IllegalStateException(
+                    "Checkpoint identity does not match the recovering pipeline");
+        }
+        return deserializeCheckpoint(state);
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {

@@ -34,6 +34,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvFromReferenc
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvironmentVariable;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
@@ -45,11 +46,13 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SpecificationEnvDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.ApplicationJobFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -150,15 +153,11 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     static List<KubernetesResource<?>> assembleApplication(
             String id, String mainClass, KubernetesApplicationConfig parameters) {
         if (parameters.isHaEnabled()) {
-            if (!org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli
-                    .class
-                    .getName()
-                    .equals(mainClass)) {
+            if (!SeatunnelKubernetesApplicationCli.class.getName().equals(mainClass)) {
                 throw new IllegalArgumentException(
                         "HA requires the standard Application entrypoint");
             }
-            return org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory
-                    .build(id, parameters);
+            return HaApplicationFactory.build(id, parameters);
         }
         V1Pod masterPod = ApplicationJobFactory.createMasterPod(id, mainClass, parameters);
         List<KubernetesStepDecorator> decorators =
@@ -421,10 +420,8 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                                 "Kubernetes application %s has no live master: %s",
                                 id, job.getFailureReason()));
             }
-            if (org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
-                    job)) {
-                org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService
-                        service = KubernetesHaClient.require(api).getService(id);
+            if (HaApplicationState.enabled(job)) {
+                KubernetesService service = KubernetesHaClient.require(api).getService(id);
                 String ip = service.getInternalResource().getSpec().getClusterIP();
                 if (ip != null && !"None".equals(ip)) {
                     return ip;
@@ -456,9 +453,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
         String host = awaitMaster(applicationId, timeout);
         KubernetesJob owner = api.getJob(applicationId);
-        boolean ha =
-                org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState.enabled(
-                        owner);
+        boolean ha = HaApplicationState.enabled(owner);
         int port =
                 ha
                         ? KubernetesHaClient.require(api)

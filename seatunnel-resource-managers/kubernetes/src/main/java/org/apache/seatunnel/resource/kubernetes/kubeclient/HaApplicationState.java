@@ -24,8 +24,10 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
@@ -44,7 +46,7 @@ public final class HaApplicationState {
 
     public static Map<String, String> annotations(KubernetesJob job) {
         Map<String, String> annotations = job.getInternalResource().getMetadata().getAnnotations();
-        return annotations == null ? java.util.Collections.emptyMap() : annotations;
+        return annotations == null ? Collections.emptyMap() : annotations;
     }
 
     public static boolean enabled(KubernetesJob job) {
@@ -194,7 +196,7 @@ public final class HaApplicationState {
                         || refreshed.getInternalResource().getMetadata().getDeletionTimestamp()
                                 != null
                         || !HaApplicationState.enabled(refreshed)
-                        || !java.util.Objects.equals(
+                        || !Objects.equals(
                                 HaApplicationState.annotations(owner)
                                         .get(HaApplicationState.JOB_ID),
                                 HaApplicationState.annotations(refreshed)

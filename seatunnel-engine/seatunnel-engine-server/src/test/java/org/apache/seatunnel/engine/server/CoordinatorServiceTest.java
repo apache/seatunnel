@@ -65,11 +65,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
@@ -92,6 +94,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -101,6 +104,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
@@ -206,15 +210,11 @@ public class CoordinatorServiceTest {
                         });
 
         // 2) Re-inject stale terminal metadata using the locations we collected earlier.
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
-                instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobInfo> runningJobInfoIMap = instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Object, Object> runningJobStateIMap =
                 instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
-        runningJobInfoIMap.put(
-                jobId,
-                new org.apache.seatunnel.engine.core.job.JobInfo(
-                        System.currentTimeMillis(), jobData));
+        runningJobInfoIMap.put(jobId, new JobInfo(System.currentTimeMillis(), jobData));
         runningJobStateIMap.put(jobId, JobStatus.CANCELED);
 
         for (PipelineLocation pipelineLocation : pipelineLocations) {
@@ -240,7 +240,7 @@ public class CoordinatorServiceTest {
                         });
 
         // 4) Metadata should be cleaned up on the new master.
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
+        IMap<Long, JobInfo> runningJobInfoOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Object, Object> runningJobStateOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
@@ -769,7 +769,7 @@ public class CoordinatorServiceTest {
         try {
             Assertions.assertNull(coordinatorService.getJobMaster(88101L));
             coordinatorService.cancelJob(88101L).join();
-            org.mockito.InOrder order = Mockito.inOrder(restoring);
+            InOrder order = Mockito.inOrder(restoring);
             order.verify(restoring).neverNeedRestore();
             order.verify(restoring).cancelJob();
         } finally {
@@ -859,8 +859,7 @@ public class CoordinatorServiceTest {
         ExecutorService replacement = Executors.newSingleThreadExecutor();
         // Capture queued work without running it until ownership changes.
         ExecutorService captured = Mockito.mock(ExecutorService.class);
-        java.util.concurrent.atomic.AtomicReference<Runnable> work =
-                new java.util.concurrent.atomic.AtomicReference<>();
+        AtomicReference<Runnable> work = new AtomicReference<>();
         Mockito.doAnswer(
                         invocation -> {
                             work.set(invocation.getArgument(0));
@@ -894,9 +893,8 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinator = newMockActiveCoordinatorService(server);
         NodeEngineImpl nodeEngine =
                 (NodeEngineImpl) ReflectionUtils.getField(coordinator, "nodeEngine").get();
-        com.hazelcast.internal.serialization.InternalSerializationService serialization =
-                Mockito.mock(
-                        com.hazelcast.internal.serialization.InternalSerializationService.class);
+        InternalSerializationService serialization =
+                Mockito.mock(InternalSerializationService.class);
         Mockito.when(nodeEngine.getSerializationService()).thenReturn(serialization);
         CountDownLatch validating = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
@@ -927,8 +925,7 @@ public class CoordinatorServiceTest {
             }
             release.countDown();
             Assertions.assertThrows(
-                    java.util.concurrent.ExecutionException.class,
-                    () -> submission.get(5, TimeUnit.SECONDS));
+                    ExecutionException.class, () -> submission.get(5, TimeUnit.SECONDS));
             // The mock map also backs pending cleanup/state in this fixture. No cleanup reads,
             // state removal, or metadata writes may run after validation loses its owner.
             Mockito.verifyNoInteractions(metadata);
@@ -1581,6 +1578,55 @@ public class CoordinatorServiceTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    void testSubmissionReplacesLeftoverMetadataInsteadOfReportingSuccess(boolean hasRunningState)
+            throws Exception {
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        TestUtils.getClusterName("leftover_submission_" + hasRunningState));
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinator = server.getCoordinatorService();
+            stopCoordinatorSchedulers(coordinator);
+            PeekBlockingQueue<PendingJobInfo> pending =
+                    Mockito.spy(new PeekBlockingQueue<>(PendingJobInfo::getJobId));
+            Mockito.doThrow(new InterruptedException("scheduler disabled for submission fixture"))
+                    .when(pending)
+                    .peekBlocking(Mockito.any());
+            ReflectionUtils.setField(coordinator, "pendingJobQueue", pending);
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag dag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf", "leftover_metadata", jobId);
+            JobImmutableInformation info =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            dag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            Data data = instance.getSerializationService().toData(info);
+            IMap<Long, JobInfo> metadata = instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            metadata.put(jobId, new JobInfo(1L, data));
+            if (hasRunningState) {
+                instance.getMap(Constant.IMAP_RUNNING_JOB_STATE).put(jobId, JobStatus.RUNNING);
+            }
+            coordinator.submitJob(jobId, data, false).get(30, TimeUnit.SECONDS);
+            Assertions.assertTrue(
+                    coordinator.getPendingJobQueue().contains(jobId),
+                    "submission must actually initialize and enqueue");
+            Assertions.assertNotEquals(1L, metadata.get(jobId).getInitializationTimestamp());
+            Assertions.assertEquals(
+                    JobStatus.PENDING, instance.getMap(Constant.IMAP_RUNNING_JOB_STATE).get(jobId));
+        } finally {
+            instance.shutdown();
+        }
+    }
+
     @Test
     @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
     void testInterruptedPendingJobInsertionFailsSubmission() throws Exception {
@@ -1620,11 +1666,14 @@ public class CoordinatorServiceTest {
                     pendingJobQueue.putStarted.await(20, TimeUnit.SECONDS),
                     "submission did not reach pending queue insertion");
 
-            pendingJobQueue.putThread.interrupt();
+            long clearStarted = System.nanoTime();
+            coordinatorService.clearCoordinatorService();
+            Assertions.assertTrue(
+                    System.nanoTime() - clearStarted < TimeUnit.SECONDS.toNanos(10),
+                    "submission cleanup must not force the coordinator shutdown timeout");
             await().atMost(20, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(submitFuture.isCompletedExceptionally()));
-            coordinatorService.clearCoordinatorService();
             Assertions.assertThrows(CompletionException.class, submitFuture::join);
             Assertions.assertFalse(pendingJobQueue.contains(jobId));
             Assertions.assertNotEquals(
@@ -2032,10 +2081,10 @@ public class CoordinatorServiceTest {
         try {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-            await().atMost(30, TimeUnit.SECONDS)
-                    .ignoreExceptions()
-                    .until(() -> server.getCoordinatorService().isCoordinatorActive());
             CoordinatorService coordinatorService = server.getCoordinatorService();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
 
             Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
             long initializationTimestamp = 100L;
@@ -2091,6 +2140,64 @@ public class CoordinatorServiceTest {
             Assertions.assertEquals(
                     initializationTimestamp, jobStateTimestamps[JobStatus.INITIALIZING.ordinal()]);
         } finally {
+            instance.shutdown();
+        }
+    }
+
+    @Test
+    void testClearInterruptsBlockedRestoreWithoutHoldingCoordinatorMonitor() throws Exception {
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(
+                        TestUtils.getClusterName("CoordinatorServiceTest_blocked_restore_clear"),
+                        1);
+        ExecutorService retirement = Executors.newSingleThreadExecutor();
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinator = server.getCoordinatorService();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(coordinator.isCoordinatorActive()));
+            stopCoordinatorSchedulers(coordinator);
+            InterruptiblePendingJobQueue pending = new InterruptiblePendingJobQueue();
+            ReflectionUtils.setField(coordinator, "pendingJobQueue", pending);
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag dag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf", "blocked_restore_clear", jobId);
+            JobImmutableInformation information =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            dag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            JobInfo info =
+                    new JobInfo(100L, instance.getSerializationService().toData(information));
+            IMap<Object, Object> states = instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            states.put(jobId, JobStatus.RUNNING);
+            ExecutorService initialization =
+                    (ExecutorService)
+                            ReflectionUtils.getField(coordinator, "executorService").get();
+            Future<?> restore =
+                    initialization.submit(
+                            () -> {
+                                InvocationTargetException failure =
+                                        Assertions.assertThrows(
+                                                InvocationTargetException.class,
+                                                () ->
+                                                        invokeRestoreJobFromMasterActiveSwitch(
+                                                                coordinator, jobId, info));
+                                Assertions.assertInstanceOf(
+                                        InterruptedException.class, failure.getCause().getCause());
+                            });
+            Assertions.assertTrue(pending.putStarted.await(20, TimeUnit.SECONDS));
+            retirement.submit(coordinator::clearCoordinatorService).get(10, TimeUnit.SECONDS);
+            restore.get(10, TimeUnit.SECONDS);
+            Assertions.assertFalse(pending.contains(jobId));
+            Assertions.assertNotEquals(JobStatus.PENDING, states.get(jobId));
+        } finally {
+            retirement.shutdownNow();
             instance.shutdown();
         }
     }
@@ -2374,7 +2481,6 @@ public class CoordinatorServiceTest {
     private static class InterruptiblePendingJobQueue extends PeekBlockingQueue<PendingJobInfo> {
         private final CountDownLatch putStarted = new CountDownLatch(1);
         private final CountDownLatch releasePut = new CountDownLatch(1);
-        private volatile Thread putThread;
 
         private InterruptiblePendingJobQueue() {
             super(PendingJobInfo::getJobId);
@@ -2382,7 +2488,6 @@ public class CoordinatorServiceTest {
 
         @Override
         public void put(PendingJobInfo element) throws InterruptedException {
-            putThread = Thread.currentThread();
             putStarted.countDown();
             try {
                 releasePut.await();

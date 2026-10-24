@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesS
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -254,8 +257,9 @@ class DefaultKubernetesClientTest {
         assertTrue(postedBody.get().contains("\"uid\":\"owner-uid\""));
     }
 
-    @Test
-    void deletesOnlyTheOwnerJobAndLabeledPods() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void deletesOnlyTheOwnerJobAndLabeledPods(boolean missingOwner) throws Exception {
         List<String> requests = new ArrayList<>();
         List<String> queries = new ArrayList<>();
         List<String> decodedQueries = new ArrayList<>();
@@ -278,7 +282,14 @@ class DefaultKubernetesClientTest {
                                                     return new Response.Builder()
                                                             .request(chain.request())
                                                             .protocol(Protocol.HTTP_1_1)
-                                                            .code(200)
+                                                            .code(
+                                                                    missingOwner
+                                                                                    && chain.request()
+                                                                                            .method()
+                                                                                            .equals(
+                                                                                                    "GET")
+                                                                            ? 404
+                                                                            : 200)
                                                             .message("OK")
                                                             .body(
                                                                     ResponseBody.create(
@@ -289,7 +300,14 @@ class DefaultKubernetesClientTest {
                                                 })
                                         .build());
         try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
-            api.deleteApplication("app");
+            if (missingOwner) {
+                new KubernetesApplicationClient(api, "app").cancel();
+                assertEquals("GET /apis/batch/v1/namespaces/test/jobs/app", requests.remove(0));
+                queries.remove(0);
+                decodedQueries.remove(0);
+            } else {
+                api.deleteApplication("app");
+            }
         }
         assertEquals(3, requests.size());
         assertTrue(

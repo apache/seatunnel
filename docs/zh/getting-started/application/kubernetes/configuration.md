@@ -86,7 +86,8 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `application.startup-timeout-millis` | long | no | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
 
 :::note
-每个 Pod 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
+Master 和 Worker 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
+HA observer 的独立内存上限为 256Mi，JVM 堆为 96Mi。
 :::
 
 :::note

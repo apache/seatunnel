@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
@@ -45,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -320,7 +322,7 @@ public final class SeatunnelApplicationConfig {
     public static void configureHa(
             SeaTunnelConfig config,
             String clusterName,
-            java.util.List<String> masterAddresses,
+            List<String> masterAddresses,
             boolean worker,
             int slots,
             int backups) {
@@ -342,9 +344,7 @@ public final class SeatunnelApplicationConfig {
                 .values()
                 .forEach(map -> map.setAsyncBackupCount(0).setBackupCount(backups));
         // Controllers may still be replacing/registering workers; use native pending scheduling.
-        config.getEngineConfig()
-                .setScheduleStrategy(
-                        org.apache.seatunnel.engine.common.config.server.ScheduleStrategy.WAIT);
+        config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
         JoinConfig join = config.getHazelcastConfig().getNetworkConfig().getJoin();
         join.getTcpIpConfig().setRequiredMember(null).setMembers(masterAddresses);
     }

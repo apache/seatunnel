@@ -31,21 +31,169 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 @DisabledOnOs(OS.WINDOWS)
 public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
+
+    @Test
+    public void testRetirementCanProceedDuringBlockedCounterInitialization() throws Exception {
+        JobMaster owner = Mockito.mock(JobMaster.class);
+        CoordinatorService coordinator = server.getCoordinatorService();
+        Mockito.when(owner.getCoordinatorService()).thenReturn(coordinator);
+        AtomicBoolean retired = new AtomicBoolean();
+        Mockito.doAnswer(
+                        call -> {
+                            if (retired.get()) throw new InterruptedException("retired");
+                            return null;
+                        })
+                .when(owner)
+                .checkInitializationActive();
+        SeaTunnelEngineContext context =
+                Mockito.mock(SeaTunnelEngineContext.class, Mockito.RETURNS_DEEP_STUBS);
+        CounterStateStore<String> counters = Mockito.mock(CounterStateStore.class);
+        Mockito.when(context.getStateStores().checkpointCounterStore()).thenReturn(counters);
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Mockito.when(
+                        counters.initializeIfAbsent(
+                                ArgumentMatchers.anyString(), ArgumentMatchers.anyLong()))
+                .thenAnswer(
+                        call -> {
+                            entered.countDown();
+                            Assertions.assertTrue(release.await(10, TimeUnit.SECONDS));
+                            return true;
+                        });
+        ExecutorService tasks = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> initialized =
+                    tasks.submit(
+                            () -> {
+                                Map<Integer, CheckpointPlan> plans = new HashMap<>();
+                                plans.put(1, CheckpointPlan.builder().pipelineId(1).build());
+                                Assertions.assertThrows(
+                                        InterruptedException.class,
+                                        () ->
+                                                new CheckpointManager(
+                                                        77105002L,
+                                                        false,
+                                                        RestoreMode.NONE,
+                                                        null,
+                                                        false,
+                                                        nodeEngine,
+                                                        owner,
+                                                        plans,
+                                                        new CheckpointConfig(),
+                                                        Mockito.mock(CheckpointStorage.class),
+                                                        instance.getExecutorService("test"),
+                                                        nodeEngine
+                                                                .getHazelcastInstance()
+                                                                .getMap(IMAP_RUNNING_JOB_STATE),
+                                                        context,
+                                                        null));
+                            });
+            Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            tasks.submit(
+                            () -> {
+                                synchronized (coordinator) {
+                                    retired.set(true);
+                                }
+                            })
+                    .get(5, TimeUnit.SECONDS);
+            release.countDown();
+            initialized.get(10, TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            tasks.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testCheckpointConstructionDoesNotHoldCoordinatorMonitor() throws Exception {
+        JobMaster owner = Mockito.mock(JobMaster.class);
+        Mockito.when(owner.getCoordinatorService()).thenReturn(server.getCoordinatorService());
+        SeaTunnelEngineContext context =
+                Mockito.mock(SeaTunnelEngineContext.class, Mockito.RETURNS_DEEP_STUBS);
+        CounterStateStore<String> counters = Mockito.mock(CounterStateStore.class);
+        Mockito.when(context.getStateStores().checkpointCounterStore()).thenReturn(counters);
+        Mockito.when(
+                        counters.initializeIfAbsent(
+                                ArgumentMatchers.anyString(), ArgumentMatchers.anyLong()))
+                .thenAnswer(
+                        call -> {
+                            Assertions.assertFalse(
+                                    Thread.holdsLock(server.getCoordinatorService()),
+                                    "Distributed counter initialization must not hold coordinator monitor");
+                            return true;
+                        });
+        Map<Integer, CheckpointPlan> plans = new HashMap<>();
+        plans.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        new CheckpointManager(
+                77105001L,
+                false,
+                RestoreMode.NONE,
+                null,
+                false,
+                nodeEngine,
+                owner,
+                plans,
+                new CheckpointConfig(),
+                Mockito.mock(CheckpointStorage.class),
+                instance.getExecutorService("test"),
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                context,
+                null);
+        Mockito.verify(counters)
+                .initializeIfAbsent(ArgumentMatchers.anyString(), ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    public void testTakeoverDoesNotReadOlderCorruptPayloads() throws Exception {
+        long jobId = 77103000L;
+        CheckpointStorage storage = Mockito.spy(createCheckpointStorage());
+        storage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(String.valueOf(jobId))
+                        .pipelineId(1)
+                        .checkpointId(7L)
+                        .states(new byte[] {1, 2, 3})
+                        .build());
+        storeCompletedCheckpoint(storage, jobId, 12L);
+        CheckpointManager recovered =
+                createCheckpointManager(
+                        jobId, true, RestoreMode.NONE, null, storage, new CheckpointConfig(), true);
+        Assertions.assertEquals(
+                13L, recovered.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+        Mockito.verify(storage, Mockito.never())
+                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
+    }
 
     @Test
     public void testRecoveryPrefersCurrentJobCheckpointOverOriginalSavepoint() throws Exception {
@@ -95,9 +243,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testRecoveryReadFailureDoesNotFallBackToOriginalSource() throws Exception {
         long jobId = 77103005L;
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(
-                        storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1"))
                 .thenThrow(new CheckpointStorageException("retained checkpoint read denied"));
         Assertions.assertThrows(
                 Exception.class,
@@ -110,23 +257,22 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 storage,
                                 new CheckpointConfig(),
                                 true));
-        org.mockito.Mockito.verify(storage, org.mockito.Mockito.never())
+        Mockito.verify(storage, Mockito.never())
                 .getCheckpointsByJobIdAndPipelineId("77103006", "1");
-        org.mockito.Mockito.verify(storage)
-                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
+        Mockito.verify(storage).getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1");
     }
 
     @Test
     public void testTakeoverRetriesTemporaryListingFailureAndPreservesCounter() throws Exception {
         long jobId = 77103101L;
-        CheckpointStorage storage = org.mockito.Mockito.spy(createCheckpointStorage());
+        CheckpointStorage storage = Mockito.spy(createCheckpointStorage());
         storeCompletedCheckpoint(storage, jobId, 12L);
-        org.mockito.Mockito.doThrow(
+        Mockito.doThrow(
                         new CheckpointStorageUnavailableException(
-                                "listing unavailable", new java.net.SocketTimeoutException()))
+                                "listing unavailable", new SocketTimeoutException()))
                 .doCallRealMethod()
                 .when(storage)
-                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
+                .getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1");
         CounterStateStore<String> counters =
                 server.getEngineContext().getStateStores().checkpointCounterStore();
         counters.set(StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1), 19L);
@@ -135,20 +281,17 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         jobId, true, RestoreMode.NONE, null, storage, new CheckpointConfig(), true);
         Assertions.assertEquals(
                 19L, recovered.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
-        org.mockito.Mockito.verify(storage, org.mockito.Mockito.times(2))
-                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
+        Mockito.verify(storage, Mockito.times(2))
+                .getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1");
     }
 
     @Test
     public void testColdRestoreRetirementAfterReadDoesNotCreateCoordinators() throws Exception {
         long jobId = 77103106L;
-        org.apache.seatunnel.engine.server.master.JobMaster owner =
-                org.mockito.Mockito.mock(org.apache.seatunnel.engine.server.master.JobMaster.class);
-        org.mockito.Mockito.when(owner.getCoordinatorService())
-                .thenReturn(server.getCoordinatorService());
-        java.util.concurrent.atomic.AtomicBoolean retired =
-                new java.util.concurrent.atomic.AtomicBoolean();
-        org.mockito.Mockito.doAnswer(
+        JobMaster owner = Mockito.mock(JobMaster.class);
+        Mockito.when(owner.getCoordinatorService()).thenReturn(server.getCoordinatorService());
+        AtomicBoolean retired = new AtomicBoolean();
+        Mockito.doAnswer(
                         invocation -> {
                             if (retired.get()) {
                                 throw new InterruptedException("retired during storage read");
@@ -157,12 +300,12 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         })
                 .when(owner)
                 .checkInitializationActive();
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(storage.getCheckpointsByJobIdAndPipelineId("77103107", "1"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getCheckpointsByJobIdAndPipelineId("77103107", "1"))
                 .thenAnswer(
                         invocation -> {
                             retired.set(true);
-                            return java.util.Collections.emptyList();
+                            return Collections.emptyList();
                         });
         Map<Integer, CheckpointPlan> plans = new HashMap<>();
         plans.put(1, CheckpointPlan.builder().pipelineId(1).build());
@@ -200,12 +343,11 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testTakeoverStorageTimeoutDoesNotCreateStateOrFallBack() throws Exception {
         long jobId = 77103102L;
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(
-                        storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1"))
                 .thenThrow(
                         new CheckpointStorageUnavailableException(
-                                "listing unavailable", new java.net.ConnectException()));
+                                "listing unavailable", new ConnectException()));
         CheckpointConfig config = new CheckpointConfig();
         config.setCheckpointTimeout(20);
         Assertions.assertThrows(
@@ -229,18 +371,18 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         .getHazelcastInstance()
                         .getMap(IMAP_RUNNING_JOB_STATE)
                         .get("checkpoint_state_" + jobId + "_1"));
-        org.mockito.Mockito.verify(storage, org.mockito.Mockito.never())
+        Mockito.verify(storage, Mockito.never())
                 .getCheckpointsByJobIdAndPipelineId("77103999", "1");
     }
 
     @Test
     public void testColdRestoreDoesNotRetryUnavailableStorage() throws Exception {
         long jobId = 77103103L;
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(storage.getCheckpointsByJobIdAndPipelineId("77103999", "1"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getCheckpointsByJobIdAndPipelineId("77103999", "1"))
                 .thenThrow(
                         new CheckpointStorageUnavailableException(
-                                "listing unavailable", new java.net.SocketTimeoutException()));
+                                "listing unavailable", new SocketTimeoutException()));
         Assertions.assertThrows(
                 CheckpointStorageUnavailableException.class,
                 () ->
@@ -252,20 +394,18 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                                 storage,
                                 new CheckpointConfig(),
                                 false));
-        org.mockito.Mockito.verify(storage).getCheckpointsByJobIdAndPipelineId("77103999", "1");
+        Mockito.verify(storage).getCheckpointsByJobIdAndPipelineId("77103999", "1");
     }
 
     @Test
     public void testTakeoverReadsAllPipelinesBeforeChangingAnyCounters() throws Exception {
         long jobId = 77103104L;
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(
-                        storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1"))
-                .thenReturn(java.util.Collections.emptyList());
-        org.mockito.Mockito.when(
-                        storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "2"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1"))
+                .thenReturn(null);
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "2"))
                 .thenThrow(new CheckpointStorageException("corrupt checkpoint"));
-        Map<Integer, CheckpointPlan> plans = new java.util.LinkedHashMap<>();
+        Map<Integer, CheckpointPlan> plans = new LinkedHashMap<>();
         plans.put(1, CheckpointPlan.builder().pipelineId(1).build());
         plans.put(2, CheckpointPlan.builder().pipelineId(2).build());
         Assertions.assertThrows(
@@ -300,21 +440,19 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                             .getMap(IMAP_RUNNING_JOB_STATE)
                             .get("checkpoint_state_" + jobId + "_" + pipelineId));
         }
-        org.mockito.Mockito.verify(storage)
-                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "2");
+        Mockito.verify(storage).getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "2");
     }
 
     @Test
     public void testTakeoverInterruptAbandonsReadWithoutChangingState() throws Exception {
         long jobId = 77103105L;
-        CheckpointStorage storage = org.mockito.Mockito.mock(CheckpointStorage.class);
-        org.mockito.Mockito.when(
-                        storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1"))
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1"))
                 .thenAnswer(
                         call -> {
                             Thread.currentThread().interrupt();
                             throw new CheckpointStorageUnavailableException(
-                                    "listing unavailable", new java.net.SocketTimeoutException());
+                                    "listing unavailable", new SocketTimeoutException());
                         });
         try {
             Assertions.assertThrows(
@@ -332,8 +470,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         } finally {
             Thread.interrupted();
         }
-        org.mockito.Mockito.verify(storage)
-                .getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
+        Mockito.verify(storage).getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1");
         Assertions.assertNull(
                 server.getEngineContext()
                         .getStateStores()
@@ -359,6 +496,96 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         Assertions.assertNull(checkpointCounterStore.get(counterKey));
         checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
+    }
+
+    @Test
+    public void testTypedRestoreSelectsHighestMatchingIdEvenWhenLatestFileHasLowerId()
+            throws Exception {
+        long jobId = 77103110L;
+        long source = 77103111L;
+        CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+        PipelineState[] states = new PipelineState[2];
+        for (int i = 0; i < states.length; i++) {
+            long id = i == 0 ? 12L : 7L;
+            CompletedCheckpoint checkpoint =
+                    new CompletedCheckpoint(
+                            source,
+                            1,
+                            id,
+                            1L,
+                            CheckpointType.SAVEPOINT_TYPE,
+                            2L,
+                            new HashMap<>(),
+                            new HashMap<>());
+            states[i] =
+                    PipelineState.builder()
+                            .jobId(String.valueOf(source))
+                            .pipelineId(1)
+                            .checkpointId(id)
+                            .states(new ProtoStuffSerializer().serialize(checkpoint))
+                            .build();
+        }
+        Mockito.when(storage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(source), "1"))
+                .thenReturn(states[1]);
+        Mockito.when(storage.getCheckpointsByJobIdAndPipelineId(String.valueOf(source), "1"))
+                .thenReturn(Arrays.asList(states));
+        CheckpointManager restored =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        source,
+                        storage,
+                        new CheckpointConfig(),
+                        false);
+        Assertions.assertEquals(
+                13L, restored.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+        Mockito.verify(storage).getCheckpointsByJobIdAndPipelineId(String.valueOf(source), "1");
+    }
+
+    @Test
+    public void testTypedRestoreStillSelectsOlderMatchingSavepoint() throws Exception {
+        long jobId = 77103108L;
+        CheckpointStorage storage = createCheckpointStorage();
+        storeCompletedCheckpoint(storage, jobId, 7L, CheckpointType.SAVEPOINT_TYPE);
+        storeCompletedCheckpoint(storage, jobId, 12L, CheckpointType.COMPLETED_POINT_TYPE);
+        CheckpointManager restored =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        jobId,
+                        storage,
+                        new CheckpointConfig(),
+                        false);
+        Assertions.assertEquals(
+                8L, restored.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testTypedRestoreRetainsLegacyBulkValidation() throws Exception {
+        long jobId = 77103109L;
+        CheckpointStorage storage = Mockito.spy(createCheckpointStorage());
+        storeCompletedCheckpoint(storage, jobId, 7L, CheckpointType.SAVEPOINT_TYPE);
+        storage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(String.valueOf(jobId))
+                        .pipelineId(1)
+                        .checkpointId(12L)
+                        .states(new byte[] {1, 2, 3})
+                        .build());
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () ->
+                        createCheckpointManager(
+                                jobId,
+                                true,
+                                RestoreMode.SAVEPOINT,
+                                jobId,
+                                storage,
+                                new CheckpointConfig(),
+                                false));
+        Mockito.verify(storage).getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1");
     }
 
     @Test

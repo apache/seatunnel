@@ -124,7 +124,7 @@ Zeta owns election, replicated IMap state, slot registration, checkpoints and ex
 There is no Kubernetes leader election or separate job execution loop.
 
 A retryable owner Job observes persisted lifecycle metadata and finalizes resources. It does not
-submit jobs or connect to Zeta. The owner requests 100m CPU and 128Mi memory; masters and workers
+submit jobs or connect to Zeta. The owner requests 100m CPU and 256Mi memory, with a 96Mi JVM heap to leave headroom for the API client and JVM; masters and workers
 use their configured resources. The owner receives only namespace, job ID, timeout, specification digest and its owner UID; it has no job secrets, runtime mounts, checkpoint PVC or engine probes. Masters mount
 the shared checkpoint PVC when configured. Workers have neither that mount nor Kubernetes API
 credentials. Both masters and the owner use the application ServiceAccount.
@@ -155,8 +155,8 @@ coordinator owns job execution. Each coordinator activation gets a new provider 
 it stops its watches without deleting the fixed workers. The owner Job only observes persisted
 status and retries cleanup. It neither elects a leader nor submits or restores a job.
 
-The native takeover reconstructs the same job ID and validates all retained checkpoint entries
-before scheduling. An old initialization cannot publish into a successor activation. Worker reports
+The native takeover reconstructs the same job ID and reads and validates the current job’s newest checkpoint
+before scheduling. Older retained payloads are not scanned during takeover. Retired initializations are rejected at local admission checks before and after blocking work; already-issued remote writes are not fenced. Worker reports
 are checked against their deployment execution ID. Neither mechanism fences external sink writers
 across a network partition.
 
@@ -200,12 +200,16 @@ that permits their chosen placement, typically ReadWriteMany. A single-node Read
 not establish multi-node storage availability. Storage outages remain subject to native checkpoint
 and job retry limits. The provider never deletes a referenced PVC or remote data.
 
-Checkpoint recovery uses the existing `CheckpointStorage.getCheckpointsByJobIdAndPipelineId` API.
-Bundled local-file and HDFS implementations fail on inaccessible or corrupt recovery state rather
-than treating it as an empty checkpoint list. Custom plugins must preserve that distinction.
+Takeover reads the current job through the existing `CheckpointStorage.getLatestCheckpointByJobIdAndPipelineId` API.
+Explicit typed restore keeps the existing bulk/type-selection path, including fallback to the original
+configured source when the current job has no checkpoint.
+For latest-checkpoint lookup, bundled local-file/HDFS plugins distinguish a successful empty listing
+from failure to read or decode the selected newest file. Explicit typed restore retains the existing
+tolerant bulk behavior. Custom plugins must distinguish an empty listing from a failed read.
 During master takeover, an initial checkpoint-list connection failure can be retried within the job's
-`checkpoint.timeout` budget. Missing, corrupt or unauthorized state and failures after files were
-observed still fail closed. Configure connection and request timeouts on the storage backend: the
+`checkpoint.timeout` budget. A selected file that disappears, is corrupt or unauthorized, or fails
+after being observed fails closed after bounded retention retries; a successful empty listing may
+use the configured-source fallback. Configure connection and request timeouts on the storage backend: the
 retry budget does not interrupt an in-flight plugin call. Custom plugins can opt into safe retries
 with `CheckpointStorageUnavailableException` only before observing any checkpoint state.
 There is no new mandatory checkpoint-storage method. The HA provider capability is validated
@@ -222,8 +226,10 @@ persisted native result. Created mounted configuration and Secrets remain until 
 cleanup retries can start. Referenced user resources and durable data remain untouched.
 
 Application `cancel` deletes the owner Job and its dependents immediately; it does not take a native
-savepoint. HA cancellation uses a UID precondition. Single-master cancellation still cleans orphan Pods when the Job is already absent; the standard
-client snapshots Job-owned Pods and checks their UID before deletion. The same canceled handle
+savepoint. An observed HA owner uses UID-scoped cancellation. For a fresh handle whose owner is
+already missing, or a single-master application, the legacy cleanup deletes labeled workers
+immediately and preserves the master Pod's termination grace period. Only a handle that previously
+observed HA uses UID-checked orphan cleanup after owner deletion. The same canceled handle
 returns `CANCELED`; a fresh handle returns `UNKNOWN` after deletion or TTL expiry.
 
 ### HA permissions
@@ -283,3 +289,5 @@ The fixture requires privileged Docker with cgroup v2. The node fault freezes al
 fixture node; surviving compute is removed before that node is thawed for teardown. These tests do
 not exercise live network-partition healing or strict partition protection. All nodes run on one
 Docker host, so this is not validation across independent physical hosts or storage systems.
+
+The six optional node/storage tests require `-Dseatunnel.kubernetes.e2e.multinode=true`; they are skipped in the standard suite. They do not expand the supported failure contract.

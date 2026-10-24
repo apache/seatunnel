@@ -28,6 +28,8 @@ import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
+
 /** Starts one fixed-slot application worker without Kubernetes API access. */
 @Slf4j
 public final class SeatunnelKubernetesApplicationWorker {
@@ -51,7 +53,7 @@ public final class SeatunnelKubernetesApplicationWorker {
             SeatunnelApplicationConfig.configureHa(
                     config,
                     args[0],
-                    java.util.Arrays.asList(args[1].split(",")),
+                    Arrays.asList(args[1].split(",")),
                     true,
                     Integer.parseInt(args[2]),
                     Integer.parseInt(args[4]));

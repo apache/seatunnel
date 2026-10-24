@@ -23,12 +23,14 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.util.function.Supplier;
+
 /** Creates the standalone or application resource manager owned by one Engine coordinator. */
 public class ResourceManagerFactory {
     private final DeployType deployType;
     private final String applicationId;
     private final ApplicationSpecification specification;
-    private final java.util.function.Supplier<ResourceManagerDriver<?>> drivers;
+    private final Supplier<ResourceManagerDriver<?>> drivers;
 
     /** Creates a factory for the default standalone deployment. */
     public ResourceManagerFactory() {
@@ -56,7 +58,7 @@ public class ResourceManagerFactory {
     private ResourceManagerFactory(
             String applicationId,
             ApplicationSpecification specification,
-            java.util.function.Supplier<ResourceManagerDriver<?>> drivers) {
+            Supplier<ResourceManagerDriver<?>> drivers) {
         this.deployType = DeployType.KUBERNETES;
         this.applicationId = applicationId;
         this.specification = specification;
@@ -67,7 +69,7 @@ public class ResourceManagerFactory {
     public static ResourceManagerFactory forApplication(
             String id,
             ApplicationSpecification specification,
-            java.util.function.Supplier<ResourceManagerDriver<?>> drivers) {
+            Supplier<ResourceManagerDriver<?>> drivers) {
         return new ResourceManagerFactory(id, specification, drivers);
     }
 

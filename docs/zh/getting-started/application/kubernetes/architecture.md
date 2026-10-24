@@ -116,7 +116,7 @@ StatefulSet 维护两个 Master。活动 Master 复用 `ApplicationJobRunner`、
 `ApplicationResourceManager` 和 Kubernetes driver 创建固定 Worker Pod。切换后连接原有 Worker，
 不自动补建；Worker 丢失使 application 失败。选主、IMap 复制、slot、checkpoint 和执行恢复由 Zeta 负责。
 
-可重试 owner Job 仅观测持久状态并清理资源，不提交作业或连接引擎。owner 请求 100m CPU、128Mi 内存，
+可重试 owner Job 仅观测持久状态并清理资源，不提交作业或连接引擎。owner 请求 100m CPU、256Mi 内存，JVM 堆固定为 96Mi，为 API 客户端和 JVM 开销保留空间。owner
 仅接收 namespace、job ID、超时、spec digest 和 owner UID，没有作业 Secret、运行时挂载、checkpoint PVC 或引擎探针。Master 按需挂载 checkpoint PVC；Worker 不挂载该 PVC 和 API token。
 Master 与 owner 使用 application ServiceAccount。稳定 ClusterIP 供原生客户端连接，
 headless discovery Service 提供 Master 固定地址。原生客户端需能访问 ClusterIP，关闭 smart routing。
@@ -138,8 +138,10 @@ Worker 均升级，不代表混合版本 HA 安全性。
 两个 Master 必须使用相同持久 checkpoint 后端、namespace 和凭据。远程后端不要求 PVC；文件后端的
 多节点部署需支持实际挂载方式，通常为 ReadWriteMany。单节点 ReadWriteOnce 测试不证明多节点存储可用性。
 存储中断仍受原生 checkpoint 和作业重试限制。引用 PVC 和远程数据不删除。
-恢复复用 `CheckpointStorage.getCheckpointsByJobIdAndPipelineId`，没有新增必需 SPI 方法。
-内置 local-file/HDFS 区分无 checkpoint 与不可访问或损坏状态；自定义插件也必须保留此语义。
+接管通过 `CheckpointStorage.getLatestCheckpointByJobIdAndPipelineId` 读取当前作业，没有新增必需 SPI 方法。
+显式按类型恢复保留原有批量查询和类型选择路径，当前作业没有检查点时回退到原配置来源也使用该路径。
+最新检查点读取中，内置 local-file/HDFS 区分成功的空列表与所选最新文件读取或解码失败。
+显式按类型恢复保留原有批量查询的容错行为；自定义插件也必须区分空列表与读取失败。
 HA 在创建资源前检查 `KubernetesHaClient` 能力，并拒绝非标准 Master 入口。
 
 ### 终态和清理
@@ -149,9 +151,10 @@ StatefulSet、自有 Worker Pod 和 Service；失败后无需引擎连接即可�
 而原生作业失败；application 状态使用持久原生结果。自建挂载配置和 Secret 保留至 owner Job TTL，
 保证重试能启动。用户引用资源及持久数据保留。
 
-Application `cancel` 立即删除 owner 及依赖资源，不创建 savepoint。HA 使用 UID 前置条件；单 Master
-仍清理 Job 已不存在时的孤立 Pod；标准客户端检查 Pod 快照的 UID。原 handle 返回 `CANCELED`，删除或 TTL 后新 handle
-返回 `UNKNOWN`。
+Application `cancel` 删除 owner 及依赖资源，不创建 savepoint。已观察到 HA owner 时使用 UID 前置条件。
+新 handle 的 owner 已缺失或应用为单主模式时，保留原有清理行为：立即删除带应用标签的 Worker，
+Master Pod 保留终止宽限期。仅先前观察到 HA 的 handle 才在 owner 消失后使用 UID 检查清理孤立 Pod。
+原 handle 返回 `CANCELED`，删除或 TTL 后新 handle 返回 `UNKNOWN`。
 
 ### HA 权限
 
@@ -161,7 +164,8 @@ StatefulSet `get,delete` 和 Service `list,delete`。Worker 不挂载 token。
 使用专用 namespace，限制修改 owner annotations 和引用配置；不需要删除 PVC 或远程数据的权限。
 
 Master 接管期间，首次列举检查点时的临时连接失败可在作业 `checkpoint.timeout` 预算内重试。
-缺失、损坏、无权限的状态以及观察到文件后的读取失败仍直接报错。存储后端必须配置连接和请求超时；
+已选中文件消失、损坏、无权限或观察到文件后的读取失败，在有界保留竞态重试后仍会报错；
+成功的空列表可回退到配置的检查点来源。存储后端必须配置连接和请求超时；
 重试预算不会中断正在执行的插件调用。自定义插件仅可在尚未观察到任何检查点状态时使用
 `CheckpointStorageUnavailableException` 声明该次扫描可安全重试，无需实现新的强制存储接口方法。
 
@@ -200,8 +204,7 @@ Owner -> 只观察 Job 元数据 -> 按 UID 清理终态资源
 ```
 
 每次协调器激活都会创建新的 Driver；旧协调器停止监听，但不删除固定 Worker。Owner 不选主、
-不提交作业，也不执行恢复。原生接管复用原作业 ID，并验证所有保留的检查点。旧初始化不能向新激活
-发布状态，Worker 报告须匹配部署执行 ID。这些检查不对网络分区后的外部 Sink 写入提供隔离。
+不提交作业，也不执行恢复。原生接管复用原作业 ID，并只读取、验证当前作业的最新检查点，不扫描较旧的保留数据。已退任的初始化会在阻塞操作前后的本地准入检查中被拒绝，但这些检查不能隔离已经发出的远程写入。Worker 报告须匹配部署执行 ID。这些检查不对网络分区后的外部 Sink 写入提供隔离。
 
 标准 Kubernetes E2E 验证依次替换 Standby、Active、Owner，检查 Pod/原生成员 UUID、存活 Standby
 晋升、应用/作业/Service 身份、固定 Worker 和新的已完成检查点。一个原生客户端跨故障保持连接，
@@ -220,3 +223,5 @@ PVC 挂载到 Worker，也不修改生产连接器。成功、Sink 失败、Work
   -Djava.util.concurrent.ForkJoinPool.common.parallelism=3 \
   '-Dit.test=KubernetesApplication*IT'
 ```
+
+六项可选节点/存储诊断需设置 `-Dseatunnel.kubernetes.e2e.multinode=true`，标准测试跳过这些项目；它们不扩大支持的故障恢复承诺。

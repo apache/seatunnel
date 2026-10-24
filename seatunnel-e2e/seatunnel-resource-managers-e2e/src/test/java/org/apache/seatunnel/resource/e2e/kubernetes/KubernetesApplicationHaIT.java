@@ -1754,10 +1754,35 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     private static void awaitHaClean(KubernetesApplicationClient application) throws Exception {
         // Dependent workload controllers and their Pods can disappear in different GC cycles.
         AppsV1Api apps = new AppsV1Api(apiClient);
+        java.util.Set<String> oomOwners = new java.util.HashSet<>();
         Awaitility.await()
                 .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
+                            // Keep observed failures even after the Job's Pods are
+                            // garbage-collected.
+                            for (V1Pod owner : rolePods(application, "owner")) {
+                                if (owner.getStatus() == null
+                                        || owner.getStatus().getContainerStatuses() == null) {
+                                    continue;
+                                }
+                                owner.getStatus()
+                                        .getContainerStatuses()
+                                        .forEach(
+                                                status -> {
+                                                    if (status.getState() != null
+                                                            && status.getState().getTerminated()
+                                                                    != null
+                                                            && "OOMKilled"
+                                                                    .equals(
+                                                                            status.getState()
+                                                                                    .getTerminated()
+                                                                                    .getReason())) {
+                                                        oomOwners.add(
+                                                                owner.getMetadata().getName());
+                                                    }
+                                                });
+                            }
                             assertAllResourcesRemoved(application);
                             assertTrue(
                                     missing(
@@ -1789,6 +1814,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                             namespace,
                                                             null)));
                         });
+        assertTrue(oomOwners.isEmpty(), "HA observers OOM-killed during cleanup: " + oomOwners);
         LOG.info("HA cleanup verified application={}", application.getClusterId());
     }
 

@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -37,6 +38,7 @@ import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -47,8 +49,10 @@ import io.kubernetes.client.openapi.models.V1StatefulSet;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Namespace-scoped SDK connection shared by submission, status and resource management.
@@ -183,11 +187,8 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
                             .getContainers()
                             .get(0)
                             .addEnvItem(
-                                    new io.kubernetes.client.openapi.models.V1EnvVar()
-                                            .name(
-                                                    org.apache.seatunnel.resource.kubernetes
-                                                            .kubeclient.factory.HaApplicationFactory
-                                                            .OWNER_UID_ENV)
+                                    new V1EnvVar()
+                                            .name(HaApplicationFactory.OWNER_UID_ENV)
                                             .value(owner.getUid()));
                     apps.createNamespacedStatefulSet(namespace, pool, null, null, null, null);
                 } else {
@@ -317,26 +318,19 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
     }
 
     @Override
-    public void updateHaState(KubernetesJob observed, java.util.Map<String, String> annotations) {
+    public void updateHaState(KubernetesJob observed, Map<String, String> annotations) {
         V1ObjectMeta metadata = observed.getInternalResource().getMetadata();
-        java.util.List<java.util.Map<String, Object>> patch =
-                java.util.Arrays.asList(
-                        java.util.Map.of(
-                                "op", "test", "path", "/metadata/uid", "value", observed.getUid()),
-                        java.util.Map.of(
+        List<Map<String, Object>> patch =
+                Arrays.asList(
+                        Map.of("op", "test", "path", "/metadata/uid", "value", observed.getUid()),
+                        Map.of(
                                 "op",
                                 "test",
                                 "path",
                                 "/metadata/resourceVersion",
                                 "value",
                                 metadata.getResourceVersion()),
-                        java.util.Map.of(
-                                "op",
-                                "add",
-                                "path",
-                                "/metadata/annotations",
-                                "value",
-                                annotations));
+                        Map.of("op", "add", "path", "/metadata/annotations", "value", annotations));
         try {
             batch.patchNamespacedJob(
                     observed.getName(),
@@ -426,7 +420,7 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
         if (!owner.getUid().equals(getJob(owner.getName()).getUid())) {
             throw new IllegalStateException("Application UID changed during finalization");
         }
-        for (String role : java.util.Collections.singletonList("master")) {
+        for (String role : Collections.singletonList("master")) {
             try {
                 V1StatefulSet pool =
                         apps.readNamespacedStatefulSet(

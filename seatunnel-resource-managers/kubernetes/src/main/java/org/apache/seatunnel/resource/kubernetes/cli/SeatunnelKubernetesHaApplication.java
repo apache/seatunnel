@@ -39,8 +39,11 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Dual native masters share the normal Application runner and resource manager. */
 public final class SeatunnelKubernetesHaApplication {
@@ -71,11 +74,11 @@ public final class SeatunnelKubernetesHaApplication {
     }
 
     private static KubernetesHaClient api(KubernetesApplicationConfig parameters)
-            throws java.io.IOException {
+            throws IOException {
         return api(parameters.getNamespace());
     }
 
-    private static KubernetesHaClient api(String namespace) throws java.io.IOException {
+    private static KubernetesHaClient api(String namespace) throws IOException {
         return KubernetesHaClient.require(
                 KubernetesClientFactory.create(
                         Collections.singletonMap(KubernetesOptions.NAMESPACE.key(), namespace),
@@ -120,8 +123,8 @@ public final class SeatunnelKubernetesHaApplication {
                                                 id,
                                                 SeatunnelApplicationConfig.clusterName(id),
                                                 expectedUid);
-                                    } catch (java.io.IOException e) {
-                                        throw new java.io.UncheckedIOException(e);
+                                    } catch (IOException e) {
+                                        throw new UncheckedIOException(e);
                                     }
                                 }));
         SeaTunnelServer server =
@@ -170,7 +173,7 @@ public final class SeatunnelKubernetesHaApplication {
                                             return;
                                         }
                                         if (System.nanoTime() > deadline) {
-                                            throw new java.util.concurrent.TimeoutException(
+                                            throw new TimeoutException(
                                                     "Second native master did not join");
                                         }
                                         TimeUnit.MILLISECONDS.sleep(100);

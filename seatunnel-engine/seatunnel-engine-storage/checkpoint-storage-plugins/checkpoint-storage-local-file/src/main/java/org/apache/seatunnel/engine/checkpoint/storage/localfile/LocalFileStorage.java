@@ -34,13 +34,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -115,63 +118,41 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-        java.nio.file.Path directory = java.nio.file.Paths.get(getStorageParentDirectory(), jobId);
-        java.nio.file.NoSuchFileException disappeared = null;
-        long highestListedCheckpoint = -1;
-        for (int attempt = 0; attempt < 3; attempt++) {
-            List<PipelineState> states = new ArrayList<>();
-            try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
-                    java.nio.file.Files.newDirectoryStream(directory)) {
-                List<java.nio.file.Path> matching = new ArrayList<>();
-                for (java.nio.file.Path file : files) {
-                    String name = file.getFileName().toString();
-                    if (name.endsWith("." + FILE_FORMAT)
-                            && pipelineId.equals(getPipelineIdByFileName(name))) {
-                        matching.add(file);
-                        highestListedCheckpoint =
-                                Math.max(
-                                        highestListedCheckpoint,
-                                        Long.parseLong(getCheckpointIdByFileName(name)));
-                    }
-                }
-                for (java.nio.file.Path file : matching) {
-                    states.add(readRecoveryCheckpoint(file));
-                }
-                if (states.isEmpty() && disappeared != null) {
-                    throw new CheckpointStorageException(
-                            "Checkpoint disappeared during recovery", disappeared);
-                }
-                if (disappeared != null
-                        && states.stream()
-                                        .mapToLong(PipelineState::getCheckpointId)
-                                        .max()
-                                        .orElse(-1)
-                                < highestListedCheckpoint) {
-                    continue;
-                }
-                return states;
-            } catch (java.nio.file.NoSuchFileException e) {
-                if (directory.toString().equals(e.getFile())) {
-                    if (disappeared == null) {
-                        return new ArrayList<>();
-                    }
-                    throw new CheckpointStorageException(
-                            "Checkpoint directory disappeared during recovery", e);
-                }
-                disappeared = e;
-                if (e.getFile() == null) {
-                    throw new CheckpointStorageException(
-                            "Checkpoint disappeared during recovery", e);
-                }
-            } catch (IOException | RuntimeException e) {
-                throw new CheckpointStorageException("Failed to read checkpoints for recovery", e);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
             }
         }
-        throw new CheckpointStorageException("Checkpoint changed during recovery", disappeared);
+        if (fileList.isEmpty()) {
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
+            return new ArrayList<>();
+        }
+
+        List<PipelineState> pipelineStates = new ArrayList<>();
+        fileList.forEach(
+                file -> {
+                    String filePipelineId = getPipelineIdByFileName(file.getName());
+                    if (pipelineId.equals(filePipelineId)) {
+                        try {
+                            byte[] data = FileUtils.readFileToByteArray(file);
+                            pipelineStates.add(deserializeCheckPointData(data));
+                        } catch (IOException e) {
+                            log.error(
+                                    "Failed to read checkpoint data from file "
+                                            + file.getAbsolutePath(),
+                                    e);
+                        }
+                    }
+                });
+        return pipelineStates;
     }
 
-    PipelineState readRecoveryCheckpoint(java.nio.file.Path file) throws IOException {
-        return deserializeCheckPointData(java.nio.file.Files.readAllBytes(file));
+    PipelineState readRecoveryCheckpoint(Path file) throws IOException {
+        return deserializeCheckPointData(Files.readAllBytes(file));
     }
 
     @Override
@@ -252,49 +233,63 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-
-        String parentPath = getStorageParentDirectory() + jobId;
-        Collection<File> fileList = new ArrayList<>();
-        try {
-            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
-        } catch (Exception e) {
-            if (!(e.getCause() instanceof NoSuchFileException)) {
-                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
-            }
-        }
-        if (fileList.isEmpty()) {
-            log.info("No checkpoint found for job, job id is: " + jobId);
-            return null;
-        }
-        List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
-
-        String latestFileName =
-                getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
-
-        AtomicReference<PipelineState> latestFile = new AtomicReference<>(null);
-        fileList.forEach(
-                file -> {
-                    String fileName = file.getName();
-                    if (fileName.equals(latestFileName)) {
-                        try {
-                            byte[] data = FileUtils.readFileToByteArray(file);
-                            latestFile.set(deserializeCheckPointData(data));
-                        } catch (IOException e) {
-                            log.error(
-                                    "read checkpoint data from file " + file.getAbsolutePath(), e);
+        Path directory = Paths.get(getStorageParentDirectory(), jobId);
+        NoSuchFileException disappeared = null;
+        long highestListedVersion = -1;
+        long highestListedCheckpoint = -1;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(directory)) {
+                Path newest = null;
+                long newestVersion = -1;
+                long newestId = -1;
+                for (Path file : files) {
+                    String name = file.getFileName().toString();
+                    if (name.endsWith("." + FILE_FORMAT)
+                            && pipelineId.equals(getPipelineIdByFileName(name))) {
+                        long checkpointId = Long.parseLong(getCheckpointIdByFileName(name));
+                        long fileVersion =
+                                Long.parseLong(name.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
+                        if (fileVersion > newestVersion
+                                || fileVersion == newestVersion && checkpointId > newestId) {
+                            newestVersion = fileVersion;
+                            newestId = checkpointId;
+                            newest = file;
                         }
                     }
-                });
-
-        if (latestFile.get() == null) {
-            log.info(
-                    "No checkpoint found for this job, the job id is: "
-                            + jobId
-                            + ", pipeline id is: "
-                            + pipelineId);
-            return null;
+                }
+                if (newest == null) {
+                    if (disappeared != null) {
+                        throw new CheckpointStorageException(
+                                "Checkpoint disappeared during recovery", disappeared);
+                    }
+                    return null;
+                }
+                if (newestVersion < highestListedVersion
+                        || newestVersion == highestListedVersion
+                                && newestId < highestListedCheckpoint) {
+                    continue;
+                }
+                highestListedVersion = newestVersion;
+                highestListedCheckpoint = newestId;
+                PipelineState state = readRecoveryCheckpoint(newest);
+                if (!jobId.equals(state.getJobId())
+                        || !pipelineId.equals(String.valueOf(state.getPipelineId()))
+                        || state.getCheckpointId() != newestId) {
+                    throw new CheckpointStorageException(
+                            "Checkpoint identity does not match the selected file");
+                }
+                return state;
+            } catch (NoSuchFileException failure) {
+                if (directory.toString().equals(failure.getFile()) && disappeared == null) {
+                    return null;
+                }
+                disappeared = failure;
+            } catch (IOException | RuntimeException failure) {
+                throw new CheckpointStorageException(
+                        "Failed to read latest checkpoint for recovery", failure);
+            }
         }
-        return latestFile.get();
+        throw new CheckpointStorageException("Checkpoint changed during recovery", disappeared);
     }
 
     @Override

@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: newest-checkpoint read failures
+
+The local-file and HDFS storage plugins read only the selected newest payload for latest-checkpoint lookups, including native master takeover. Selection preserves filename timestamp ordering; checkpoint ID breaks equal timestamps. Older corrupt retained files no longer block that read. A listed newest checkpoint that cannot be read or decoded raises an error instead of being treated as absent; a retention race retries listing up to three times without falling back to an earlier file version. Restore operators must repair storage access or the newest checkpoint before retrying. Bulk APIs retain their existing tolerance, explicit typed restore retains its highest-matching-checkpoint-ID selection, and custom storage plugins require no new methods.
+
+Single-master missing-owner cancellation retains graceful master shutdown, and ordinary job submission retains its existing metadata overwrite behavior. No migration is needed for those paths. Kubernetes Application HA is opt-in and supports exactly two masters, one backup and fixed workers; partition protection and connector fencing are excluded.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
