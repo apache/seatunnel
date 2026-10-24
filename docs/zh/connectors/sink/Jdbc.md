@@ -593,6 +593,8 @@ INSERT /*+ APPEND_VALUES */ INTO ...
 
 该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。Oracle Sink 实际写入时仍会在内部使用手动提交。
 
+短于 8192 个 UTF-16 码元的 Oracle CLOB、NCLOB 使用 `setCharacterStream` / `setNCharacterStream` 绑定。空字符串使用 `createClob()` / `createNClob()` 再 `setClob` / `setNClob` 绑定空定位器，因为长度为 0 的字符流会被写成 NULL。空 BLOB 同样使用 `createBlob()`。更长的值使用 `Connection.createClob()` 或 `createNClob()` 加上 `Clob.setString`，因为 ojdbc8 19.18 会把落在 8192 码元块边界上的增补字符写成 U+FFFD。临时 LOB 在批次执行后释放。
+
 ### create_index [boolean]
 
 自动建表时是否创建索引（包含主键和其他索引）。迁移大表时可关闭该选项以提升写入速度，但迁移完成后需要手动创建索引来保证查询性能。
