@@ -117,6 +117,15 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
         checkpointCounterStore.set(key, newId);
     }
 
+    /**
+     * Advances recovery without overwriting a successor's checkpoint allocations.
+     *
+     * <p>The store must perform the maximum atomically and must not recreate a removed counter.
+     */
+    public void advanceToAtLeast(long minimum) {
+        checkNotNull(checkpointCounterStore.advanceToAtLeast(key, minimum));
+    }
+
     private RetryUtils.RetryMaterial operationRetryMaterial() {
         return new RetryUtils.RetryMaterial(
                 Constant.OPERATION_RETRY_TIME,

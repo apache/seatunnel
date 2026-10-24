@@ -66,6 +66,21 @@ public interface CounterStateStore<K> {
     Long addAndGet(K key, long delta);
 
     /**
+     * Atomically raises an existing counter to at least the requested minimum.
+     *
+     * <p>Native takeover and Application recovery use this optional operation to preserve
+     * allocations made by a successor while an old initializer is still completing. Implementations
+     * must return null without creating an absent counter. A separate get/set pair is not a valid
+     * implementation.
+     *
+     * @return updated value, or null if absent
+     * @throws UnsupportedOperationException if atomic advancement is not supported
+     */
+    default Long advanceToAtLeast(K key, long minimum) {
+        throw new UnsupportedOperationException("Atomic counter advancement is not supported");
+    }
+
+    /**
      * Overwrites the counter with a specific value.
      *
      * @param key key to store

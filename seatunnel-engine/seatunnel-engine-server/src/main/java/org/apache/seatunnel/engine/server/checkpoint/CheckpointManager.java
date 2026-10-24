@@ -46,6 +46,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -202,7 +203,8 @@ public class CheckpointManager {
                         executorService,
                         runningJobStateIMap,
                         isRestoreJob,
-                        restoreMode);
+                        restoreMode,
+                        masterFailoverRestore);
         checkInitializationActive(masterFailoverRestore);
         this.coordinatorMap = initialized;
     }
@@ -229,7 +231,14 @@ public class CheckpointManager {
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
             boolean isRestoreJob,
-            RestoreMode restoreMode) {
+            RestoreMode restoreMode,
+            boolean masterFailoverRestore) {
+        // Native takeover shares the sequence with a successor in standalone mode as well.
+        boolean guardedInitialization =
+                masterFailoverRestore
+                        || (jobMaster != null
+                                && jobMaster.getResourceManager()
+                                        instanceof ApplicationResourceManager);
         return MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
                 .map(
                         plan -> {
@@ -237,17 +246,31 @@ public class CheckpointManager {
                                     new StateStoreCheckpointIDCounter(
                                             jobId, plan.getPipelineId(), checkpointCounterStore);
                             try {
+                                if (guardedInitialization) {
+                                    checkInitializationActive(masterFailoverRestore);
+                                }
                                 idCounter.start();
+                                if (guardedInitialization) {
+                                    checkInitializationActive(masterFailoverRestore);
+                                }
                                 PipelineState pipelineState =
                                         recoveryStates.get(plan.getPipelineId());
                                 if (pipelineState != null) {
                                     long checkpointId = pipelineState.getCheckpointId();
-                                    idCounter.setCount(Math.max(idCounter.get(), checkpointId + 1));
+                                    if (guardedInitialization) {
+                                        idCounter.advanceToAtLeast(checkpointId + 1);
+                                    } else {
+                                        idCounter.setCount(
+                                                Math.max(idCounter.get(), checkpointId + 1));
+                                    }
                                     log.info(
                                             "pipeline({}) restore with {} on checkpointId({})",
                                             plan.getPipelineId(),
                                             restoreMode,
                                             checkpointId);
+                                }
+                                if (guardedInitialization) {
+                                    checkInitializationActive(masterFailoverRestore);
                                 }
                                 return new CheckpointCoordinator(
                                         this,
@@ -259,7 +282,7 @@ public class CheckpointManager {
                                         pipelineState,
                                         executorService,
                                         runningJobStateIMap,
-                                        isRestoreJob,
+                                        isRestoreJob && !masterFailoverRestore,
                                         checkpointMonitorService);
                             } catch (Exception e) {
                                 ExceptionUtil.sneakyThrow(e);

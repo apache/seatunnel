@@ -55,6 +55,12 @@ public class HazelcastCounterStateStore<K> implements CounterStateStore<K> {
     }
 
     @Override
+    public Long advanceToAtLeast(K key, long minimum) {
+        return iMap.compute(
+                key, (ignored, current) -> current == null ? null : Math.max(current, minimum));
+    }
+
+    @Override
     public void set(K key, long value) {
         iMap.put(key, value);
     }
