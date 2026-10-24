@@ -18,12 +18,24 @@
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.isEscapedQuote;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
 
 public class PlaceholderUtils {
+
+    public static final String PLACEHOLDER_STARTER = "${";
 
     public static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
@@ -64,5 +76,239 @@ public class PlaceholderUtils {
             }
         }
         return input;
+    }
+
+    /**
+     * Processes placeholders in the given input string and replaces them with resolved values.
+     *
+     * <p>A placeholder is defined as {@code ${key}} or {@code ${key:default}}. The resolution
+     * priority is: user-provided value > system property > default value > original placeholder.
+     *
+     * <p>This method also collects placeholder default values into {@code defaultConfigMap} for
+     * consistency validation:
+     *
+     * <ul>
+     *   <li>The same placeholder key must not have conflicting default values across the
+     *       configuration.
+     *   <li>The same placeholder key must not be used with a default value in one place and without
+     *       a default value in another.
+     * </ul>
+     *
+     * <p>If the input does not contain any placeholder or no replacement is performed, the original
+     * string is returned as-is.
+     *
+     * @param input the input string potentially containing placeholders, may be null
+     * @param isSystemPlaceholder a predicate to determine whether a placeholder key is a system
+     *     placeholder (e.g., {@code TablePlaceholder::isSystemPlaceholder}), must not be null
+     * @param userConfigMap the user-provided configuration map (typically from {@code -i}
+     *     command-line arguments), must not be null
+     * @param defaultConfigMap a mutable map to collect and validate placeholder default values
+     *     across the entire configuration, must not be null
+     * @return the string with placeholders resolved, or the original string if no replacement
+     *     occurred
+     * @throws IllegalArgumentException if the same placeholder key has conflicting default values,
+     *     or if the same key is used inconsistently (with and without default value)
+     */
+    public static String processPlaceholders(
+            String input,
+            Predicate<String> isSystemPlaceholder,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
+
+        Objects.requireNonNull(isSystemPlaceholder, "isSystemPlaceholder predicate cannot be null");
+        Objects.requireNonNull(userConfigMap, "userConfigMap cannot be null");
+        Objects.requireNonNull(defaultConfigMap, "defaultConfigMap cannot be null");
+
+        if (StringUtils.isBlank(input) || !input.contains(PLACEHOLDER_STARTER)) {
+            return input;
+        }
+
+        StringBuilder result = new StringBuilder();
+        int cursor = 0;
+
+        while (cursor < input.length()) {
+            int start = input.indexOf(PLACEHOLDER_STARTER, cursor);
+            if (start == -1) {
+                result.append(input.substring(cursor));
+                break;
+            }
+
+            result.append(input, cursor, start);
+
+            int keyStart = start + 2;
+
+            int closePos = findPlaceholderClosePos(input, keyStart);
+            if (closePos == -1) {
+                throw new ConfigException.BadValue(
+                        ConfigOriginFactory.newSimple(),
+                        "",
+                        String.format(
+                                "Unterminated placeholder starting at index %d: '%s'. "
+                                        + "Please check for unbalanced quotes or missing closing brace.",
+                                start,
+                                input.substring(start, Math.min(start + 30, input.length()))),
+                        null);
+            }
+
+            int colonPos = input.indexOf(':', keyStart);
+            if (colonPos == -1 || colonPos > closePos) {
+                colonPos = -1;
+            }
+
+            String key;
+            String defaultValue;
+            if (colonPos > 0) {
+                key = input.substring(keyStart, colonPos).trim();
+                defaultValue = input.substring(colonPos + 1, closePos).trim();
+                // check if defaultValue is static literal
+                checkNotResolvedDefaultValue(key, defaultValue);
+            } else {
+                defaultValue = null;
+                key = input.substring(keyStart, closePos).trim();
+            }
+
+            boolean hasDefault = (defaultValue != null);
+
+            if (defaultConfigMap.containsKey(key)) {
+                String existingDefault = defaultConfigMap.get(key);
+                boolean prevHasDefault = (existingDefault != null);
+
+                if (prevHasDefault != hasDefault) {
+                    throw new ConfigException.BadValue(
+                            ConfigOriginFactory.newSimple(),
+                            key,
+                            String.format(
+                                    "Inconsistent placeholder usage for key '%s'. "
+                                            + "It is used with a default value in one place and without a default value in another. "
+                                            + "Please ensure consistent usage across the configuration."
+                                            + "This check runs even when -i provides a value, because the configuration "
+                                            + "itself is inconsistent.",
+                                    key),
+                            null);
+                }
+
+                if (hasDefault) {
+                    if (!existingDefault.equals(defaultValue)) {
+                        Object existingObj = ConfigValueUtils.parseValue(existingDefault);
+                        Object currObj = ConfigValueUtils.parseValue(defaultValue);
+
+                        if (!existingObj.equals(currObj)) {
+                            throw new ConfigException.BadValue(
+                                    ConfigOriginFactory.newSimple(),
+                                    key,
+                                    String.format(
+                                            "Duplicate placeholder key '%s' with conflicting default values. "
+                                                    + "Existing: '%s', New: '%s'. The values differ after parsing; "
+                                                    + "please ensure the exact same default value is used.",
+                                            key, existingDefault, defaultValue),
+                                    null);
+                        }
+                    }
+                }
+            } else {
+                defaultConfigMap.put(key, defaultValue);
+            }
+
+            String resolvedValue = null;
+            // Priority: input > system > default
+            if (!isSystemPlaceholder.test(key)) {
+                resolvedValue = StringUtils.unwrap(userConfigMap.get(key), "\"");
+            }
+
+            String replacement =
+                    Stream.of(resolvedValue, System.getProperty(key))
+                            .filter(v -> v != null && !v.isEmpty())
+                            .findFirst()
+                            .orElseGet(
+                                    () ->
+                                            defaultValue != null
+                                                    ? defaultValue
+                                                    : input.substring(start, closePos + 1));
+
+            result.append(replacement);
+            cursor = closePos + 1;
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Finds the index of the '}' that closes the placeholder whose opening "${" precedes {@code
+     * start}.
+     *
+     * <p>Brace depth starts at 1 to account for the placeholder's opening '{'. The scan ignores '}'
+     * inside quotes and counts nested '{' / '}'. Square brackets are not tracked: a placeholder is
+     * always closed by '}'.
+     *
+     * @param input the input string to scan
+     * @param start the index of the first character after "${"
+     * @return the index of the closing '}', or {@code -1} if not found
+     */
+    private static int findPlaceholderClosePos(String input, int start) {
+        int braceDepth = 1;
+        boolean insideQuotes = false;
+
+        for (int i = start; i < input.length(); i++) {
+            char c = input.charAt(i);
+
+            if (c == '"') {
+                if (isEscapedQuote(input, i)) {
+                    continue;
+                }
+                insideQuotes = !insideQuotes;
+                continue;
+            }
+
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}') {
+                    braceDepth--;
+                    if (braceDepth == 0) {
+                        return i;
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    public static boolean hasOnlyOnePlaceholder(String input) {
+        String trimmedInput = input.trim();
+        if (!trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
+            return false;
+        }
+        int closePos = findPlaceholderClosePos(trimmedInput, 2);
+        return closePos == trimmedInput.length() - 1;
+    }
+
+    public static void checkNotResolvedDefaultValue(String key, String defaultValue) {
+        if (defaultValue != null) {
+
+            if (ConfigValueUtils.isStructured(defaultValue)) {
+                ConfigValue parsedDefaultConfigValue = parseStructured(defaultValue);
+                try {
+                    parsedDefaultConfigValue.unwrapped();
+                } catch (Exception e) {
+                    if (e instanceof ConfigException.NotResolved) {
+                        throwBadValueException(key, defaultValue);
+                    }
+                }
+            } else if (!(defaultValue.startsWith("\"") && defaultValue.endsWith("\""))
+                    && defaultValue.contains(PLACEHOLDER_STARTER)) {
+                throwBadValueException(key, defaultValue);
+            }
+        }
+    }
+
+    private static void throwBadValueException(String key, String defaultValue) {
+        throw new ConfigException.BadValue(
+                ConfigOriginFactory.newSimple(),
+                key,
+                String.format(
+                        "Structured default value for '%s' contains a placeholder: '%s'. "
+                                + "Default values must be static literals; pass the whole value via -i.",
+                        key, defaultValue),
+                null);
     }
 }
