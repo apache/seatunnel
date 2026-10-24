@@ -1255,6 +1255,13 @@ fractional value reaches an integral target only through `COALESCE` or `IFNULL`,
 type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
 `NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
+NOTE:
+Casting to `DECIMAL(p,s)` rounds to scale `s` half away from zero, whatever the source type:
+`CAST(1.21 AS DECIMAL(10,1))` gives `1.2`, `CAST(1.25 AS DECIMAL(10,1))` gives `1.3` and
+`CAST(-1.25 AS DECIMAL(10,1))` gives `-1.3`. A `FLOAT` or `DOUBLE` source is converted from its
+exact binary value before rounding. `COALESCE` and `IFNULL` round the same way when the inferred
+type of their result is a `DECIMAL` with fewer decimal places than the value.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

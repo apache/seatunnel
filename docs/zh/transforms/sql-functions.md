@@ -1253,6 +1253,11 @@ CAST(FLAG AS BOOLEAN)
 小数值只能通过 COALESCE 或 IFNULL 到达整型目标（这两者的目标类型是推断出来的，而不是显式写出的），
 此时会向零截断：当 `int_col` 为 NULL 时，`COALESCE(int_col, double_col)` 对 `5.7` 得到 `5`。
 
+注意：转换为 `DECIMAL(p,s)` 时，无论来源类型是什么，都按四舍五入（远离零方向）保留 `s` 位小数：
+`CAST(1.21 AS DECIMAL(10,1))` 得到 `1.2`，`CAST(1.25 AS DECIMAL(10,1))` 得到 `1.3`，
+`CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.3`。FLOAT 或 DOUBLE 来源会先按其精确的二进制值转换，再进行舍入。
+当 `COALESCE` 和 `IFNULL` 推断出的结果类型是小数位数少于该值的 `DECIMAL` 时，也按同样的方式舍入。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

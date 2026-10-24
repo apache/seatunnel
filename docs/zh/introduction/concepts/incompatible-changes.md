@@ -4,6 +4,14 @@
 
 ## dev
 
+### SQL Transform：`CAST ... AS DECIMAL` 按四舍五入（远离零方向）舍入
+
+- **行为变更：`CAST(value AS DECIMAL(p,s))` 对 DECIMAL 或 STRING 来源按四舍五入（远离零方向）舍入**
+  - **影响组件**：`Sql` Transform（Zeta SQL 引擎）
+  - **描述**：此前 DECIMAL 或 STRING 来源按 `CEILING` 舍入到目标精度，被舍弃的位会让正数向上取、负数向零取：`CAST(1.21 AS DECIMAL(10,1))` 得到 `1.3`，`CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.2`。而 FLOAT 或 DOUBLE 来源已经按四舍五入（远离零方向）处理，得到 `1.2` 和 `-1.3`，同一个值会因来源类型不同而得到不同的 DECIMAL。现在所有来源类型都按四舍五入（远离零方向）舍入，与 MySQL、PostgreSQL、H2 中的 `CAST` 一致。`COALESCE` 或 `IFNULL` 将结果转换为由第一个参数推断出的 DECIMAL 类型时，也按同样的方式舍入：当 `dec2_col` 为 `DECIMAL(20,2)` 且为 NULL 时，`COALESCE(dec2_col, dec4_col)` 对 `1.2345` 此前得到 `1.24`，现在得到 `1.23`。`CASE` 也使用同一转换，但其结果类型取各分支中最大的小数位数，因此只有当某个值的小数位数多于其声明类型时才会舍弃位数。
+  - **影响**：将 DECIMAL 或 STRING 列转换为更小小数位数的作业（无论是通过 `CAST` 显式转换，还是通过 `COALESCE` 或 `IFNULL` 隐式转换）可能得到不同的值：被舍弃部分小于一半的正数现在向下舍入，被舍弃部分大于等于一半的负数现在向远离零的方向舍入。不舍弃位数的转换不受影响。
+  - **迁移指南**：无需修改配置。请检查将 DECIMAL 或 STRING 列转换为更小小数位数的作业，包括结果为 DECIMAL 的 `COALESCE` 和 `IFNULL` 表达式；升级前后写出的值在最后一位上可能不同。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
