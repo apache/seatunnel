@@ -134,7 +134,7 @@ SeaTunnel’s Transform V2 SPI supports both:
 - map (1 input row -> 1 output row)
 - flatMap (1 input row -> N output rows)
 
-However, there is no documented built-in “explode array into many rows” transform today. If your JSON contains an array field like `items: [...]` and you want to turn each item into a separate output row, you typically have these options:
+To turn an array field like `items: [...]` into one output row per element, use the `Sql` transform with `LATERAL VIEW EXPLODE` (or `OUTER EXPLODE` to keep rows with empty arrays); see [SQL Functions](sql-functions.md). Other options:
 
 - Pre-process upstream (e.g., Flink/Spark SQL, or upstream producers) to output one JSON object per target row.
 - Write a custom Transform V2 plugin that implements a flatMap transform.

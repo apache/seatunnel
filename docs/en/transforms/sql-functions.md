@@ -443,6 +443,22 @@ ACOS(D)
 
 The MAX function returns the maximum value of the expression.
 
+For the `Sql` transform with `engine = ZETA` (the default) or `INTERNAL`, integral
+arrays (including BIGINT), DECIMAL arrays and mixtures of those values are
+compared without conversion to floating point. This applies on Zeta, Flink and
+Spark execution engines; the SQL engine option is separate from the execution
+engine. The result retains the selected
+element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
+empty or all-null array returns null. Equal values retain the first element.
+FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
+other values, and positive zero is greater than negative zero.
+Arrays containing only Byte, Short, Integer and Long values use exact integral
+comparison. If BigDecimal is also present, those integral values are compared as
+exact decimals. If any Float, Double or other Number subtype (including
+BigInteger) is present, the whole array retains the existing double-based
+comparison and can lose precision for large or close values. This does not change
+array construction, declared element types or input coercion.
+
 Example:
 
 ARRAY_MAX(I)
@@ -452,6 +468,10 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 The MIN function returns the minimum value of the expression.
+
+The `Sql` transform with `engine = ZETA` or `INTERNAL` uses the same precision,
+null handling and ordering rules as
+`ARRAY_MAX`, selecting the minimum element instead.
 
 Example:
 
@@ -1221,6 +1241,19 @@ Converts a value to a BOOLEAN data type according to the following rules:
 1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
+
+NOTE:
+Casting to `INT` | `INTEGER` throws a `TransformException` when the source value is outside the
+target's range, for example `CAST(3000000000 AS INT)`. `TINYINT` and `SMALLINT` behave the same way
+for a string source, such as `CAST('300' AS TINYINT)`. Use `TRY_CAST` to get `NULL` instead of an
+error.
+
+A narrowing or floating-point source is rejected earlier, while the statement is prepared rather
+than while a row is read: `CAST(double_col AS INT)` and `CAST(bigint_col AS TINYINT)` both fail with
+`Unsupported CAST FROM ... AS type: ...`, and `TRY_CAST` does not turn those into `NULL`. A
+fractional value reaches an integral target only through `COALESCE` or `IFNULL`, where the target
+type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
+`NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
 ### TRY_CAST
 
