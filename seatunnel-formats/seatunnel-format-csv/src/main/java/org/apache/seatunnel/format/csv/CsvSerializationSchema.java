@@ -61,6 +61,12 @@ public class CsvSerializationSchema implements SerializationSchema {
     private final Charset charset;
     private final String nullValue;
     private final CsvStringQuoteMode quoteMode;
+    /**
+     * Immutable quoting format built once for {@link CsvStringQuoteMode#ALL} and {@link
+     * CsvStringQuoteMode#MINIMAL}; {@code null} for {@link CsvStringQuoteMode#NONE}, which is built
+     * lazily per record to preserve the existing fail-on-serialize semantics of NONE.
+     */
+    private final CSVFormat quoteFormat;
     /** When true, TIMESTAMP_TZ is serialized as wall-clock (no offset) for DB sinks like Doris. */
     private final boolean wallClockTimestampTz;
 
@@ -84,18 +90,77 @@ public class CsvSerializationSchema implements SerializationSchema {
             boolean wallClockTimestampTz,
             ZoneId wallClockTimestampTzZoneId) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.separators = separators;
+        // Defensive copy so that mutating the caller's (or builder's) array afterwards cannot
+        // desync the field delimiter used for joining from the one used for quoting below.
+        this.separators = separators.clone();
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
         this.charset = charset;
         this.nullValue = nullValue;
         this.quoteMode = quoteMode;
+        this.quoteFormat = buildQuoteFormat();
         this.wallClockTimestampTz = wallClockTimestampTz;
         this.wallClockTimestampTzZoneId =
                 wallClockTimestampTzZoneId == null
                         ? ZoneId.systemDefault()
                         : wallClockTimestampTzZoneId;
+    }
+
+    /**
+     * Validates the field delimiter and builds the immutable quoting format once at construction
+     * time, so that a mis-configured delimiter fails fast when the sink is initialized instead of
+     * throwing a raw exception on the first serialized string field of every row.
+     *
+     * <p>For {@link CsvStringQuoteMode#NONE} this returns {@code null} and the format is built
+     * lazily in {@link #addQuotesUsingCSVFormat(String)}: eagerly building it would move NONE's
+     * fail on a missing escape character from serialization to initialization and break string-free
+     * NONE sinks, which never reach the quoting path.
+     *
+     * @return the cached quoting format, or {@code null} for {@code NONE}
+     */
+    private CSVFormat buildQuoteFormat() {
+        String delimiter = separators[0];
+        if (delimiter == null || delimiter.isEmpty()) {
+            throw new SeaTunnelCsvFormatException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "The csv option [field_delimiter] must be a non-empty string, but was [%s]",
+                            delimiter));
+        }
+        if (quoteMode == CsvStringQuoteMode.NONE) {
+            return null;
+        }
+        QuoteMode commonsQuoteMode;
+        switch (quoteMode) {
+            case ALL:
+                commonsQuoteMode = QuoteMode.ALL;
+                break;
+            case MINIMAL:
+                commonsQuoteMode = QuoteMode.MINIMAL;
+                break;
+            default:
+                throw new SeaTunnelCsvFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "SeaTunnel format csv not supported for parsing this type [%s]",
+                                quoteMode));
+        }
+        try {
+            return CSVFormat.DEFAULT
+                    .builder()
+                    .setRecordSeparator("")
+                    .setDelimiter(delimiter.charAt(0))
+                    .setQuoteMode(commonsQuoteMode)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            throw new SeaTunnelCsvFormatException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "The csv option [field_delimiter] value [%s] is invalid for quote mode [%s]: %s",
+                            delimiter, quoteMode, e.getMessage()),
+                    e);
+        }
     }
 
     public static Builder builder() {
@@ -128,7 +193,7 @@ public class CsvSerializationSchema implements SerializationSchema {
         }
 
         public Builder separators(String[] separators) {
-            this.separators = separators;
+            this.separators = separators.clone();
             return this;
         }
 
@@ -295,26 +360,31 @@ public class CsvSerializationSchema implements SerializationSchema {
         }
     }
 
+    /**
+     * Quotes the given top-level string field value according to the configured quote mode.
+     *
+     * <p>Top-level fields are joined with the configured separator and are split back by {@code
+     * CsvReadStrategy}, which parses the file with a {@code CSVParser} whose delimiter is the full
+     * {@code field_delimiter} string. Nested ROW/ARRAY/MAP levels are split by {@code
+     * DefaultCsvLineProcessor}, which uses only the first character of the separator. The printer
+     * therefore uses the first character of the configured separator as its delimiter: for the
+     * common single-character case this matches both readers exactly, and for a multi-character
+     * separator it quotes a superset of the values that contain the full separator, so it can only
+     * over-quote (never under-quote) and values still read back as a single field.
+     */
     private String addQuotesUsingCSVFormat(String fieldValue) {
-        CSVFormat.Builder builder = CSVFormat.DEFAULT.builder().setRecordSeparator("");
-        switch (quoteMode) {
-            case ALL:
-                builder.setQuoteMode(QuoteMode.ALL);
-                break;
-            case MINIMAL:
-                builder.setQuoteMode(QuoteMode.MINIMAL);
-                break;
-            case NONE:
-                builder.setQuoteMode(QuoteMode.NONE);
-                break;
-            default:
-                throw new SeaTunnelCsvFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel format csv not supported for parsing this type [%s]",
-                                quoteMode));
+        CSVFormat format = quoteFormat;
+        if (format == null) {
+            // NONE: built lazily so its fail-on-serialize semantics for a missing escape
+            // character are preserved and string-free NONE sinks keep working.
+            format =
+                    CSVFormat.DEFAULT
+                            .builder()
+                            .setRecordSeparator("")
+                            .setDelimiter(separators[0].charAt(0))
+                            .setQuoteMode(QuoteMode.NONE)
+                            .build();
         }
-        CSVFormat format = builder.build();
         StringWriter stringWriter = new StringWriter();
         try (CSVPrinter printer = new CSVPrinter(stringWriter, format)) {
             printer.printRecord(fieldValue);
