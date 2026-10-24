@@ -71,14 +71,65 @@ class SocketSourceReaderTest {
     }
 
     private static SocketSourceReader createReader(int port) {
+        return createReader(port, new HashMap<>());
+    }
+
+    private static SocketSourceReader createReader(int port, Map<String, Object> extraOptions) {
         Map<String, Object> options = new HashMap<>();
         options.put(SocketCommonOptions.HOST.key(), "127.0.0.1");
         options.put(SocketCommonOptions.PORT.key(), port);
+        options.putAll(extraOptions);
         SourceReader.Context context = mock(SourceReader.Context.class);
         when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
         return new SocketSourceReader(
                 new SocketConfig(ReadonlyConfig.fromMap(options)),
                 new SingleSplitReaderContext(context));
+    }
+
+    @Test
+    void shouldApplyConfiguredConnectAndReadTimeouts() {
+        Map<String, Object> defaults = new HashMap<>();
+        defaults.put(SocketCommonOptions.HOST.key(), "127.0.0.1");
+        defaults.put(SocketCommonOptions.PORT.key(), 1);
+        SocketConfig defaultConfig = new SocketConfig(ReadonlyConfig.fromMap(defaults));
+        // connect must stay bounded by default; reads stay unbounded to preserve streaming
+        Assertions.assertEquals(
+                SocketCommonOptions.DEFAULT_CONNECT_TIMEOUT_MS,
+                defaultConfig.getConnectTimeoutMs());
+        Assertions.assertEquals(
+                SocketCommonOptions.DEFAULT_READ_TIMEOUT_MS, defaultConfig.getReadTimeoutMs());
+
+        Map<String, Object> overrides = new HashMap<>(defaults);
+        overrides.put(SocketCommonOptions.CONNECT_TIMEOUT_MS.key(), 1234);
+        overrides.put(SocketCommonOptions.READ_TIMEOUT_MS.key(), 4321);
+        SocketConfig overridden = new SocketConfig(ReadonlyConfig.fromMap(overrides));
+        Assertions.assertEquals(1234, overridden.getConnectTimeoutMs());
+        Assertions.assertEquals(4321, overridden.getReadTimeoutMs());
+    }
+
+    @Test
+    void shouldFailFastWhenConnectTimeoutExpires() {
+        // TEST-NET-1 (RFC 5737) is unroutable: with a bounded connect timeout open() must give up
+        // instead of blocking forever, which is what connect(address, 0) used to do.
+        Map<String, Object> extra = new HashMap<>();
+        extra.put(SocketCommonOptions.CONNECT_TIMEOUT_MS.key(), 300);
+        Map<String, Object> options = new HashMap<>();
+        options.put(SocketCommonOptions.HOST.key(), "192.0.2.1");
+        options.put(SocketCommonOptions.PORT.key(), 12345);
+        options.putAll(extra);
+        SourceReader.Context context = mock(SourceReader.Context.class);
+        when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        SocketSourceReader reader =
+                new SocketSourceReader(
+                        new SocketConfig(ReadonlyConfig.fromMap(options)),
+                        new SingleSplitReaderContext(context));
+
+        long start = System.nanoTime();
+        Assertions.assertThrows(Exception.class, reader::open);
+        long elapsedMillis = (System.nanoTime() - start) / 1_000_000L;
+        Assertions.assertTrue(
+                elapsedMillis < 20_000,
+                "open() must honour connect_timeout_ms, took " + elapsedMillis + "ms");
     }
 
     private static void writeLine(BufferedWriter writer, String value) throws IOException {

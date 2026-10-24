@@ -33,6 +33,8 @@ import ChangeLog from '../changelog/connector-socket.md';
 | host           | String  | 是      | -       | socket 服务器主机                                                                                              |
 | port           | Integer | 是      | -       | socket 服务器端口                                                                                              |
 | max_retries    | Integer | 否       | 3       | 发送失败后的最大重试次数。必须 `>= 0`，设置为 `0` 表示第一次写失败就立即抛出异常。                              |
+| connect_timeout_ms | Integer | 否 | 10000 | 连接超时（毫秒）。`0` 表示无限等待，这也是本连接器此前的固定行为。 |
+| read_timeout_ms | Integer | 否 | 0 | 读取的 `SO_TIMEOUT`（毫秒）。默认 `0` 表示不设读超时。 |
 | common-options |         | 否       | -       | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md) |
 
 :::tip

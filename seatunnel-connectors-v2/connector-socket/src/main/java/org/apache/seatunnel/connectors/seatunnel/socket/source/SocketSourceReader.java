@@ -53,8 +53,13 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 "connect socket server, host:[{}], port:[{}] ",
                 this.parameter.getHost(),
                 this.parameter.getPort());
+        // A connect timeout of 0 means "wait forever": an unreachable or filtered host would
+        // otherwise block the reader thread indefinitely with no way to observe a failure.
         socket.connect(
-                new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()), 0);
+                new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()),
+                this.parameter.getConnectTimeoutMs());
+        // 0 keeps the historical blocking-read behaviour, which long-lived socket sources rely on.
+        socket.setSoTimeout(this.parameter.getReadTimeoutMs());
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
