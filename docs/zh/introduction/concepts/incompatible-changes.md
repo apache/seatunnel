@@ -4,6 +4,14 @@
 
 ## dev
 
+### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
+
+当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。
+
+现在这类值会报告解析错误，指出字段名和预期的容器类型；配置 `ignore-parse-errors = true` 时只把该容器值置为 `null`，同一行的其余值仍然保留。嵌套在数组或 Map 中的类似值同样如此：只有出错的那个嵌套值变为 `null`，其兄弟值和外层容器仍然保留；与声明类型匹配的空数组、空对象，以及 `null` 与缺失值，以及元素和键的转换行为保持不变。如需迁移，请为 `ARRAY` 字段提供真正的 JSON 数组、为 `MAP` 字段提供真正的 JSON 对象，或开启 `ignore-parse-errors = true`，使格式不合法的容器值变成 `null`而不是让作业失败。
+
+同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
@@ -31,6 +39,11 @@
     如果没有检查 null，现在可能抛出 `NullPointerException`。
   - **迁移指南**：分别处理 null 映射元素和空映射。读写数组时使用声明的 SeaTunnel 元素类型；
     如果自定义代码需要通用的工作数组，请复制到新的 `Object[]`。无需修改配置或 checkpoint 格式。
+
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
@@ -47,6 +60,16 @@
     3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### Application Mode 内部 API 变更
+
+- `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
+  Application Mode 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+- `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
+  提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+- `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理
+  逻辑需下移到 `closeResourceManager()`，由 `close()` 保证只调用一次；此前重写 `close()` 的子类将无法
+  编译，需要迁移。
 
 ### 用户变量(`-i` 参数)
 
@@ -75,6 +98,35 @@
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
 
+### Zeta SQL Transform：数值来源转换为 INT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `INT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：将数值转换为 `INT` | `INTEGER` 时会经由 `Number.intValue()`，它只保留低 32 位，
+    因此 `CAST(bigint_col AS INT)` 对 `3000000000` 返回 `-1294967296`，略小于 `Integer.MIN_VALUE`
+    的值会变成 `2147483647`，符号发生翻转。而字符串来源已经经由 `Integer.parseInt` 报告溢出，
+    所以同一个表达式究竟是失败还是损坏数据，仅取决于来源列的类型。现在数值路径也会报告该情况。
+    `TINYINT`、`SMALLINT` 与 `BYTE` 不受影响，因为它们使用 `Byte.parseByte` 与 `Short.parseShort`
+    转换，本来就会拒绝超出范围的值。规划阶段的接受范围保持不变：每个目标类型允许的来源类型与此前完全一致。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、扩宽转换和同类型转换均不受影响。本次变更不涉及 `FLOAT` 与 `DOUBLE`，它们对无法表示的值
+    仍返回 `Infinity`。
+  - **同样影响 `COALESCE` 与 `IFNULL`**：它们会走到同一个转换边界，且其结果类型是按第一个非空参数推断的，
+    而不是按最宽的类型推断。因此 `COALESCE(int_col, bigint_col)` 的目标类型是 `INT`，取自 `BIGINT`
+    参数的超范围值此前同样会被静默截断，现在也会失败。`CASE` 表达式不受影响，因为它的类型按最宽的分支推断，
+    不会发生收窄。
+  - **覆盖宽类型与非有限数值来源**：范围检查按数值族分别进行，而不是先统一加宽再检查，因为
+    `Number.longValue()` 本身对部分类型是有损的。超过 64 位的 `DECIMAL`（可通过
+    `COALESCE(int_col, decimal_col)` 到达）、`BigInteger`，以及来自 `DOUBLE` 的 `NaN` 或无穷，
+    现在都会被拒绝，而不是以截断后的值通过。
+  - **小数来源的行为不变**：通过 `COALESCE` 或 `IFNULL` 到达时，例如 `5.7` 仍然向零截断，而不是被拒绝，
+    这是该转换一直以来的行为，本次只改变范围相关的行为。而显式写成 `CAST` 到整型目标的浮点来源，在语句准备
+    阶段就会被拒绝，本次变更前后都是如此。注意截断这条路径与字符串来源仍然不同，`Integer.parseInt("5.7")`
+    会失败；是否统一两者是另一个决定。
+  - **未改变的目标类型**：`BIGINT` | `LONG` 保持原有转换方式，本次变更不对其做范围检查；该问题单独记录在 #12612。
+  - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
+    扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
@@ -84,6 +136,41 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
+
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
 
 ### Redis 认证
 
@@ -124,6 +211,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
 
+### DataValidator 数组长度
+
+`LENGTH` 规则现在计算数组元素个数，而非数组的 Java 标识字符串长度。
+因此，包含数组的行可能得到与此前不同的验证结果。请检查曾为适应旧行为而调整的数组长度限制，
+并在重放数据前核对此前被跳过或路由到错误表的数据。
+字符串、集合、二进制值和空值的处理保持不变，无需迁移配置或状态格式。
+
 ### Zeta REST 分页参数校验
 
 - **行为变更：分页接口开始校验 `page` 与 `rows`**
@@ -137,6 +231,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响范围**：`connector-cdc-mysql`
   - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
   - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
+### MySQL-CDC：可空唯一键列中的 NULL 按 NULL 输出
+
+- **行为变更：对于没有主键的表，MySQL-CDC 对可空唯一键列输出 NULL，而不是类型默认值**
+  - **影响组件**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **描述**：对于没有主键的表，MySQL DDL 解析器（Debezium 1.9.8）会把第一个唯一键提升为主键，并把其中的列标记为 NOT NULL，尽管数据库允许这些列为 NULL。这些列中的 NULL 值在快照阶段和 binlog 阶段会被输出为类型默认值（例如 `0`、`''` 或纪元时间），在 binlog 中出现 `ALTER TABLE ... ADD UNIQUE KEY` 或 `CREATE UNIQUE INDEX` 等 DDL 之后也是如此。现在这些列保持声明时的可空性，NULL 按 NULL 输出。真正的主键列不受影响。这一变更依赖于可空列不再被用作快照分片列（见“CDC：可空列不再用作快照分片列”）：否则在 `exactly_once = true` 时，分片列中的 NULL 会导致分片范围检查失败。
+  - **影响**：Sink 现在会在原来收到类型默认值的位置收到 NULL。如果 Sink 列声明为 `NOT NULL`，或 Sink 的 `primary_keys` 包含这样的列，这些行可能会被拒绝。
+  - **迁移指南**：将受影响的 Sink 列改为可空，并且不要使用可空列作为 Sink 主键。如果作业从一个已经保存了此类表结构的 checkpoint 恢复（该表在 binlog 中出现过 DDL 之后保存），该表会保持旧行为，直到作业不使用该 checkpoint 重新启动。
 
 ### JDBC Connector
 
@@ -418,6 +520,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 引擎行为变更
 
+- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
+  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
+  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
+
 - **行为变更：REST 日志内容接口默认最多返回 64 MB**
   - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
     以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
@@ -433,5 +540,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **迁移指南**：在 `seatunnel.engine.http` 下设置
     `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
 ### 依赖升级
