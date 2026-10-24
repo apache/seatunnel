@@ -106,8 +106,33 @@ public class SystemFunction {
         return castAs(args);
     }
 
-    private static final BigInteger INT_MIN_BIG = BigInteger.valueOf(Integer.MIN_VALUE);
-    private static final BigInteger INT_MAX_BIG = BigInteger.valueOf(Integer.MAX_VALUE);
+    /**
+     * The bounds of an integral SQL target, carried in both forms the range check needs: as
+     * primitives for the common truncation path, and as {@link BigInteger} for a {@code DECIMAL} or
+     * {@link BigInteger} source. Enum constants so neither form is allocated per row.
+     */
+    private enum IntegralBounds {
+        INT(Integer.MIN_VALUE, Integer.MAX_VALUE),
+        LONG(Long.MIN_VALUE, Long.MAX_VALUE);
+
+        /**
+         * 2^63 as a double. Long.MAX_VALUE is 2^63-1, which no double can represent, so this is the
+         * smallest double magnitude that a narrowing cast to long saturates on.
+         */
+        private static final double SATURATION_MAGNITUDE = 9.223372036854775808E18;
+
+        private final long min;
+        private final long max;
+        private final BigInteger minBig;
+        private final BigInteger maxBig;
+
+        IntegralBounds(long min, long max) {
+            this.min = min;
+            this.max = max;
+            this.minBig = BigInteger.valueOf(min);
+            this.maxBig = BigInteger.valueOf(max);
+        }
+    }
 
     /**
      * Narrows a numeric value to {@code int}, throwing when it cannot be represented. See <a
@@ -127,40 +152,84 @@ public class SystemFunction {
      * @throws TransformException if the value cannot be represented as an int
      */
     private static int numberToInt(Number value, String targetType) {
+        return (int) narrowToIntegral(value, targetType, IntegralBounds.INT);
+    }
+
+    /**
+     * Narrows a numeric value to {@code long}, throwing when it cannot be represented. See <a
+     * href="https://github.com/apache/seatunnel/issues/12612">#12612</a>.
+     *
+     * <p>The same shape as {@link #numberToInt}, against the long bounds and through the same
+     * helper rather than a long-specific copy of it. {@link Number#longValue()} keeps only the
+     * low-order 64 bits of a wide {@link BigDecimal} or {@link BigInteger}, maps {@code NaN} to
+     * zero, and saturates an out-of-range {@code double} at {@link Long#MAX_VALUE}, so each of
+     * those arrived as a wrong number rather than as a failure.
+     *
+     * <p>No explicit {@code CAST} reaches this with a value that cannot be represented: {@code
+     * CastFunction.LONG_CAST_TYPES} admits only TINYINT, SMALLINT, INT, BIGINT and STRING, the four
+     * integral families widen to long exactly, and a STRING goes through {@link Long#parseLong},
+     * which reports its own overflow. The reachable route is {@code COALESCE} and {@code IFNULL},
+     * whose result type is inferred from the first non-null argument, so a {@code DECIMAL} or
+     * {@code DOUBLE} argument is narrowed here against a BIGINT target.
+     *
+     * @param value the numeric value being converted, never null at the call site
+     * @param targetType the SQL type name, used in the error message
+     * @return the value as a long
+     * @throws TransformException if the value cannot be represented as a long
+     */
+    private static long numberToLong(Number value, String targetType) {
+        return narrowToIntegral(value, targetType, IntegralBounds.LONG);
+    }
+
+    /**
+     * Truncates a numeric value towards zero and range-checks the result against the target's
+     * bounds, reporting the original value in any failure.
+     */
+    private static long narrowToIntegral(Number value, String targetType, IntegralBounds bounds) {
         if (value instanceof BigDecimal) {
-            return intFromExact(((BigDecimal) value).toBigInteger(), value, targetType);
+            return fromExact(((BigDecimal) value).toBigInteger(), value, targetType, bounds);
         }
         if (value instanceof BigInteger) {
-            return intFromExact((BigInteger) value, value, targetType);
+            return fromExact((BigInteger) value, value, targetType, bounds);
         }
         if (value instanceof Double || value instanceof Float) {
             double d = value.doubleValue();
             if (Double.isNaN(d) || Double.isInfinite(d)) {
-                throw outOfIntRange(value, targetType);
+                throw outOfRange(value, targetType, bounds);
             }
-            // Truncate before range-checking, not after: narrowing a double to long rounds
-            // towards zero, so a fractional value whose truncation fits, such as 2147483647.5,
-            // must still convert. Comparing the raw double against the bounds would reject it.
-            long truncated = (long) d;
-            if (truncated < Integer.MIN_VALUE || truncated > Integer.MAX_VALUE) {
-                throw outOfIntRange(value, targetType);
+            // A narrowing cast to long saturates rather than overflowing, so a magnitude at or
+            // beyond 2^63 would arrive as Long.MAX_VALUE and pass a long range check: that is how
+            // 1e30 previously converted to Long.MAX_VALUE. Rejected here, before the cast.
+            // -2^63 is exactly Long.MIN_VALUE, so it is representable and is not rejected.
+            if (d >= IntegralBounds.SATURATION_MAGNITUDE
+                    || d < -IntegralBounds.SATURATION_MAGNITUDE) {
+                throw outOfRange(value, targetType, bounds);
             }
-            return (int) truncated;
+            // Truncate before range-checking, not after: narrowing rounds towards zero, so a
+            // fractional value whose truncation fits, such as 2147483647.5 for INT, must still
+            // convert. Comparing the raw double against the bounds would reject it.
+            return checkRange((long) d, value, targetType, bounds);
         }
         // Byte, Short, Integer and Long widen to long exactly.
-        long widened = value.longValue();
-        if (widened < Integer.MIN_VALUE || widened > Integer.MAX_VALUE) {
-            throw outOfIntRange(value, targetType);
-        }
-        return (int) widened;
+        return checkRange(value.longValue(), value, targetType, bounds);
     }
 
     /** Range-checks an already-integral value, reporting the original in any failure. */
-    private static int intFromExact(BigInteger truncated, Number original, String targetType) {
-        if (truncated.compareTo(INT_MIN_BIG) < 0 || truncated.compareTo(INT_MAX_BIG) > 0) {
-            throw outOfIntRange(original, targetType);
+    private static long fromExact(
+            BigInteger truncated, Number original, String targetType, IntegralBounds bounds) {
+        if (truncated.compareTo(bounds.minBig) < 0 || truncated.compareTo(bounds.maxBig) > 0) {
+            throw outOfRange(original, targetType, bounds);
         }
-        return truncated.intValue();
+        return truncated.longValue();
+    }
+
+    /** Range-checks a value already truncated to a long, reporting the original in any failure. */
+    private static long checkRange(
+            long truncated, Number original, String targetType, IntegralBounds bounds) {
+        if (truncated < bounds.min || truncated > bounds.max) {
+            throw outOfRange(original, targetType, bounds);
+        }
+        return truncated;
     }
 
     /**
@@ -171,12 +240,13 @@ public class SystemFunction {
      * target type was inferred. The surrounding expression is supplied by the engine's error
      * wrapper.
      */
-    private static TransformException outOfIntRange(Number value, String targetType) {
+    private static TransformException outOfRange(
+            Number value, String targetType, IntegralBounds bounds) {
         return new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Value %s cannot be converted to %s: out of range [%d, %d]",
-                        value, targetType, Integer.MIN_VALUE, Integer.MAX_VALUE));
+                        value, targetType, bounds.min, bounds.max));
     }
 
     public static Object castAs(List<Object> args) {
@@ -211,7 +281,7 @@ public class SystemFunction {
                 } else if (v1 instanceof OffsetDateTime) {
                     return ((OffsetDateTime) v1).toInstant().toEpochMilli();
                 } else if (v1 instanceof Number) {
-                    return ((Number) v1).longValue();
+                    return numberToLong((Number) v1, v2);
                 } else {
                     throw new TransformException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
