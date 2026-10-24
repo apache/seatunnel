@@ -273,6 +273,15 @@ public class PlaceholderUtils {
         return -1;
     }
 
+    public static boolean hasOnlyOnePlaceholder(String input) {
+        String trimmedInput = input.trim();
+        if (!trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
+            return false;
+        }
+        int closePos = findPlaceholderClosePos(trimmedInput, 2);
+        return closePos == trimmedInput.length() - 1;
+    }
+
     public static void checkNotResolvedDefaultValue(String key, String defaultValue) {
         if (defaultValue != null) {
 
