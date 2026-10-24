@@ -35,6 +35,30 @@ sh bin/install-plugin.sh
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
 
+## CockroachDB
+
+使用 `driver = "org.postgresql.Driver"`、PostgreSQL JDBC URL，并显式配置 `dialect = "CockroachDB"`。作业启动前必须创建目标表；本方言不提供用于自动建表或 schema save mode 的 Catalog。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+请为驱动配置集群的受信任根证书。生产环境不要禁用 TLS。
+
+生成的 upsert 使用 CockroachDB 原生 `INSERT ... ON CONFLICT (keys) DO UPDATE`，保留 `primary_keys` 指定的冲突目标，也支持匹配的非主键唯一约束。不使用简写 `UPSERT`，因为它始终选择数据库实际主键，可能改变非主键唯一键配置的语义。更新仅修改输入中的非键列，未输入的列保留已有值；仅包含键的记录使用 `DO NOTHING`。重复写入相同的非空键值不会新增记录；可为空的唯一键包含 `NULL` 时不会产生冲突，可能新增记录。配置的键必须匹配目标表的主键或唯一约束。
+
+首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在刷新缓冲数据或执行 DDL 前被拒绝。仅支持 `data_save_mode = APPEND_DATA`；`schema_save_mode` 可以保持默认值或设为 `IGNORE`，但这两种配置都不会创建或检查目标表。其他 save mode 会被拒绝，而不会被静默忽略。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
+
 ## 选择写入模式
 
 JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余参数。
@@ -261,7 +285,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
-| YashanDB  |            |          |
+| YashanDB  | CockroachDB |          |
 
 ### database [string]
 

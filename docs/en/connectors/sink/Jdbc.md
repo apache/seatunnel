@@ -35,6 +35,30 @@ Place the JDBC driver in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node, then 
 
 See the [driver reference](#driver-reference) for common driver class names and download locations.
 
+## CockroachDB
+
+Use `driver = "org.postgresql.Driver"`, a PostgreSQL JDBC URL, and explicit `dialect = "CockroachDB"`. Create the target table before starting the job; this dialect does not provide a catalog for automatic table creation or schema save modes.
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+Configure the driver's trusted root certificate for your cluster. Do not disable TLS in production.
+
+Generated upserts use CockroachDB's native `INSERT ... ON CONFLICT (keys) DO UPDATE`, retaining the configured `primary_keys` conflict target. This also works with a matching secondary unique constraint. The shorter `UPSERT` statement is intentionally not used: it always selects the physical primary key and could change the meaning of a configured secondary key. Updates modify only incoming non-key columns; omitted columns keep their existing values. Key-only rows use `DO NOTHING`. Replaying matching non-null key values does not insert another row; nullable unique keys containing `NULL` do not produce a conflict and can insert additional rows. The configured keys must match a primary or unique constraint on the target table.
+
+The first scope is row inserts, upserts, updates, and deletes against existing tables. There is no CockroachDB catalog, automatic DDL/schema evolution, XA exactly-once support, or new transaction-retry policy. Schema-change events are rejected before flushing buffered rows or executing DDL. Only `data_save_mode = APPEND_DATA` is supported; `schema_save_mode` may be left at its default or set to `IGNORE`, but neither mode creates or checks the target table. Other save modes are rejected instead of silently ignored. `table_options` is rejected rather than accepting PostgreSQL-only settings. Existing PostgreSQL jobs and URL matching are unchanged.
+
 ## Choose a write mode
 
 JDBC Sink has two mutually exclusive write modes. Choose one before configuring the remaining options.
@@ -262,7 +286,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
 | DSQL      |              |          |
-| YashanDB  |              |          |
+| YashanDB  | CockroachDB  |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
