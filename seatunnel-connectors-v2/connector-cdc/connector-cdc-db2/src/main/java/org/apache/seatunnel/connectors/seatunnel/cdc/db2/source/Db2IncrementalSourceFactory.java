@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -33,13 +34,18 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils.TableDiscoveryUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
 @Slf4j
@@ -112,12 +118,11 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
             } catch (Exception e) {
                 log.warn("Failed to load JDBC driver {}", DRIVER_CLASS_NAME, e);
             }
+            ReadonlyConfig options = normalizeDb2Options(context.getOptions());
             List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(
-                            context.getOptions(), context.getClassLoader());
+                    CatalogTableUtil.getCatalogTables(options, context.getClassLoader());
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions()
-                            .getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG);
+                    options.getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(
@@ -125,7 +130,52 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
                                 tableConfigs.get(),
                                 text -> TablePath.of(text, true));
             }
-            return new Db2IncrementalSource(context.getOptions(), catalogTables);
+            return new Db2IncrementalSource(options, catalogTables);
         };
+    }
+
+    /**
+     * Keeps catalog lookup, per-table overrides and capture filters in the same identifier space.
+     * Table patterns are regular expressions and must not be case-folded here.
+     */
+    static ReadonlyConfig normalizeDb2Options(ReadonlyConfig options) {
+        Map<String, Object> normalized = new LinkedHashMap<>(options.getConfData());
+        options.getOptional(ConnectorCommonOptions.TABLE_NAMES)
+                .ifPresent(
+                        names ->
+                                normalized.put(
+                                        ConnectorCommonOptions.TABLE_NAMES.key(),
+                                        names.stream()
+                                                .map(
+                                                        TableDiscoveryUtils
+                                                                ::normalizeConfiguredTableName)
+                                                .collect(Collectors.toList())));
+        options.getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .ifPresent(
+                        tables ->
+                                normalized.put(
+                                        Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG.key(),
+                                        tables.stream()
+                                                .map(
+                                                        Db2IncrementalSourceFactory
+                                                                ::normalizeTableConfig)
+                                                .collect(Collectors.toList())));
+        return ReadonlyConfig.fromMap(normalized);
+    }
+
+    /**
+     * Preserves Apache's custom primary keys and split-column override while folding table names.
+     */
+    private static Map<String, Object> normalizeTableConfig(JdbcSourceTableConfig config) {
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put(
+                "table", TableDiscoveryUtils.normalizeConfiguredTableName(config.getTable()));
+        if (config.getPrimaryKeys() != null) {
+            normalized.put("primaryKeys", new ArrayList<>(config.getPrimaryKeys()));
+        }
+        if (config.getSnapshotSplitColumn() != null) {
+            normalized.put("snapshotSplitColumn", config.getSnapshotSplitColumn());
+        }
+        return normalized;
     }
 }

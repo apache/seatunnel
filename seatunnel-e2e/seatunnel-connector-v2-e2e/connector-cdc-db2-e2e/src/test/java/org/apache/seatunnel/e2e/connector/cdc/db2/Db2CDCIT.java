@@ -43,13 +43,15 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -77,6 +79,12 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = SCHEMA + ".CUSTOMERS_SINK";
     private static final String CAPTURE_TABLE = "DB2INST1_CUSTOMERS";
     private static final String CHANGE_TABLE = CDC_SCHEMA + "." + CAPTURE_TABLE;
+    private static final String PRODUCT_TABLE = SCHEMA + ".PRODUCTS";
+    private static final String PRODUCT_CAPTURE = "DB2INST1_PRODUCTS";
+    private static final String PRODUCT_CHANGES = CDC_SCHEMA + "." + PRODUCT_CAPTURE;
+    private static final String RESTORE_SINK = SCHEMA + ".SAVEPOINT_SINK";
+    private static final String MULTI_TABLE_CONF = "/db2cdc_to_db2_with_savepoint.conf";
+    private static final String ADD_TABLE_CONF = "/db2cdc_to_db2_add_table_after_savepoint.conf";
     private static final String SELECT_CUSTOMERS =
             "SELECT ID, NAME, DESCRIPTION FROM %s ORDER BY ID";
     private static final String SEATUNNEL_SERVER_JVM_OPTION =
@@ -136,14 +144,72 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testDb2CdcToDb2(TestContainer container) {
+        runSnapshotAndStream(container, "/db2cdc_to_db2.conf");
+    }
+
+    /** Exercises the factory normalization through real catalog discovery and capture filtering. */
+    @TestTemplate
+    public void testLowerCaseTableNames(TestContainer container) {
+        runSnapshotAndStream(container, "/db2cdc_to_db2_with_lower_case_table_names.conf");
+    }
+
+    /**
+     * Restores both tracked tables, catches up stopped-job writes and resumes both change streams.
+     * The synthetic capture catalog does not exercise IBM ASN DDL-history replay.
+     */
+    @TestTemplate
+    public void testMultiTableSavepointRestore(TestContainer container) throws Exception {
+        initializeDb2Tables(true);
+        CompletableFuture<Void> initial = executeAsync(container, MULTI_TABLE_CONF, null);
+        awaitRestoreTables(initial, true);
+        applyPhase(0, true);
+        awaitRestoreTables(initial, true);
+        String jobId = stopAtSavepoint(container, MULTI_TABLE_CONF, initial);
+
+        applyPhase(1, true);
+        CompletableFuture<Void> restored = executeAsync(container, MULTI_TABLE_CONF, jobId);
+        awaitRestoreTables(restored, true);
+        applyPhase(2, true);
+        awaitRestoreTables(restored, true);
+    }
+
+    /**
+     * Adds and registers the second source table only after the original single-table job stops.
+     */
+    @TestTemplate
+    public void testAddTableDuringSavepointRestore(TestContainer container) throws Exception {
+        initializeDb2Tables(false);
+        CompletableFuture<Void> initial = executeAsync(container, ADD_TABLE_CONF, null);
+        awaitRestoreTables(initial, false);
+        applyPhase(0, false);
+        awaitRestoreTables(initial, false);
+        String jobId = stopAtSavepoint(container, ADD_TABLE_CONF, initial);
+
+        applyPhase(1, false);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            createProductTables(connection, statement);
+        }
+        CompletableFuture<Void> restored = executeAsync(container, MULTI_TABLE_CONF, jobId);
+        awaitRestoreTables(restored, true);
+        applyPhase(2, false);
+        try (Connection connection = getJdbcConnection()) {
+            connection.setAutoCommit(false);
+            applyTableChanges(connection, PRODUCT_TABLE, PRODUCT_CHANGES, 11, 13, 11);
+            updateCaptureSynchpoint(connection, "PRODUCTS", 12);
+            connection.commit();
+        }
+        awaitRestoreTables(restored, true);
+    }
+
+    private void runSnapshotAndStream(TestContainer container, String configuration) {
         initializeDb2Tables();
 
         CompletableFuture<Void> jobFuture =
                 CompletableFuture.runAsync(
                         () -> {
                             try {
-                                Container.ExecResult result =
-                                        container.executeJob("/db2cdc_to_db2.conf");
+                                Container.ExecResult result = container.executeJob(configuration);
                                 Assertions.assertEquals(
                                         0, result.getExitCode(), result.getStderr());
                             } catch (Exception e) {
@@ -173,11 +239,18 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeDb2Tables() {
+        initializeDb2Tables(false);
+    }
+
+    private void initializeDb2Tables(boolean includeProducts) {
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
             createSchemaIfNotExists(statement, SCHEMA);
             createSchemaIfNotExists(statement, CDC_SCHEMA);
             dropTableIfExists(statement, CHANGE_TABLE);
+            dropTableIfExists(statement, PRODUCT_CHANGES);
+            dropTableIfExists(statement, PRODUCT_TABLE);
+            dropTableIfExists(statement, RESTORE_SINK);
             dropTableIfExists(statement, CDC_SCHEMA + ".IBMSNAP_REGISTER");
             dropTableIfExists(statement, SINK_TABLE);
             dropTableIfExists(statement, SOURCE_TABLE);
@@ -218,6 +291,13 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
             insertCustomer(connection, SOURCE_TABLE, 1, "Alice", "snapshot row 1");
             insertCustomer(connection, SOURCE_TABLE, 2, "Bob", "snapshot row 2");
             insertCaptureRegistration(connection);
+            statement.execute(
+                    "CREATE TABLE "
+                            + RESTORE_SINK
+                            + " (ID INTEGER NOT NULL, NAME VARCHAR(64) NOT NULL, DESCRIPTION VARCHAR(128), PRIMARY KEY (ID))");
+            if (includeProducts) {
+                createProductTables(connection, statement);
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to initialize DB2 CDC E2E tables", e);
         }
@@ -259,6 +339,11 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void insertCaptureRegistration(Connection connection) throws SQLException {
+        insertCaptureRegistration(connection, "CUSTOMERS", CAPTURE_TABLE);
+    }
+
+    private void insertCaptureRegistration(Connection connection, String table, String capture)
+            throws SQLException {
         try (PreparedStatement statement =
                 connection.prepareStatement(
                         "INSERT INTO "
@@ -268,30 +353,36 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
                                 + "CD_NEW_SYNCHPOINT, CD_OLD_SYNCHPOINT, SYNCHPOINT) "
                                 + "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             statement.setString(1, SCHEMA);
-            statement.setString(2, "CUSTOMERS");
+            statement.setString(2, table);
             statement.setString(3, CDC_SCHEMA);
-            statement.setString(4, CAPTURE_TABLE);
+            statement.setString(4, capture);
             statement.setBytes(5, lsn(0));
-            // A single active capture instance must not have a stop LSN. Debezium treats a
-            // non-null CD_OLD_SYNCHPOINT as the stop point of a retired capture table.
-            statement.setNull(6, Types.BINARY);
+            // A real active registration can have a non-null OLD point. Treating it as a
+            // stop LSN would filter every subsequent change and fail the source/sink checks.
+            statement.setBytes(6, lsn(0));
             statement.setBytes(7, lsn(0));
             statement.executeUpdate();
         }
     }
 
     private void updateCaptureSynchpoint(Connection connection, int commitLsn) throws SQLException {
+        updateCaptureSynchpoint(connection, "CUSTOMERS", commitLsn);
+    }
+
+    private void updateCaptureSynchpoint(Connection connection, String table, int commitLsn)
+            throws SQLException {
         try (PreparedStatement statement =
                 connection.prepareStatement(
                         "UPDATE "
                                 + CDC_SCHEMA
-                                + ".IBMSNAP_REGISTER SET SYNCHPOINT = ? "
+                                + ".IBMSNAP_REGISTER SET SYNCHPOINT = ?, CD_NEW_SYNCHPOINT = ? "
                                 + "WHERE SOURCE_OWNER = ? AND SOURCE_TABLE = ?")) {
             // Debezium polls the max LSN from IBMSNAP_REGISTER, so advancing SYNCHPOINT makes the
             // synthetic capture rows visible to the transaction-log reader.
             statement.setBytes(1, lsn(commitLsn));
-            statement.setString(2, SCHEMA);
-            statement.setString(3, "CUSTOMERS");
+            statement.setBytes(2, lsn(commitLsn));
+            statement.setString(3, SCHEMA);
+            statement.setString(4, table);
             statement.executeUpdate();
         }
     }
@@ -329,10 +420,22 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
             String name,
             String description)
             throws SQLException {
+        insertChangeEvent(connection, CHANGE_TABLE, commitLsn, operation, id, name, description);
+    }
+
+    private void insertChangeEvent(
+            Connection connection,
+            String changeTable,
+            int commitLsn,
+            String operation,
+            int id,
+            String name,
+            String description)
+            throws SQLException {
         try (PreparedStatement statement =
                 connection.prepareStatement(
                         "INSERT INTO "
-                                + CHANGE_TABLE
+                                + changeTable
                                 + " (IBMSNAP_COMMITSEQ, IBMSNAP_INTENTSEQ, IBMSNAP_OPERATION, "
                                 + "ID, NAME, DESCRIPTION) "
                                 + "VALUES (?, ?, ?, ?, ?, ?)")) {
@@ -344,6 +447,143 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
             statement.setString(6, description);
             statement.executeUpdate();
         }
+    }
+
+    private void createProductTables(Connection connection, Statement statement)
+            throws SQLException {
+        statement.execute(
+                "CREATE TABLE "
+                        + PRODUCT_TABLE
+                        + " (ID INTEGER NOT NULL, NAME VARCHAR(64) NOT NULL, DESCRIPTION VARCHAR(128), PRIMARY KEY (ID))");
+        statement.execute(
+                "CREATE TABLE "
+                        + PRODUCT_CHANGES
+                        + " (IBMSNAP_COMMITSEQ CHAR(16) FOR BIT DATA NOT NULL, IBMSNAP_INTENTSEQ CHAR(16) FOR BIT DATA NOT NULL, "
+                        + "IBMSNAP_OPERATION CHAR(1) NOT NULL, ID INTEGER, NAME VARCHAR(64), DESCRIPTION VARCHAR(128))");
+        insertCustomer(connection, PRODUCT_TABLE, 11, "Keyboard", "snapshot product 1");
+        insertCustomer(connection, PRODUCT_TABLE, 12, "Mouse", "snapshot product 2");
+        insertCaptureRegistration(connection, "PRODUCTS", PRODUCT_CAPTURE);
+    }
+
+    /**
+     * Commits deterministic insert/delete pairs at distinct LSNs for each table and recovery phase.
+     */
+    private void applyPhase(int phase, boolean includeProducts) {
+        try (Connection connection = getJdbcConnection()) {
+            connection.setAutoCommit(false);
+            int firstLsn = phase * 4 + 1;
+            applyTableChanges(
+                    connection, SOURCE_TABLE, CHANGE_TABLE, firstLsn, phase + 3, phase + 1);
+            updateCaptureSynchpoint(connection, "CUSTOMERS", firstLsn + 1);
+            if (includeProducts) {
+                applyTableChanges(
+                        connection,
+                        PRODUCT_TABLE,
+                        PRODUCT_CHANGES,
+                        firstLsn + 2,
+                        phase + 13,
+                        phase + 11);
+                updateCaptureSynchpoint(connection, "PRODUCTS", firstLsn + 3);
+            }
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to write DB2 recovery phase " + phase, e);
+        }
+    }
+
+    private void applyTableChanges(
+            Connection connection,
+            String table,
+            String changeTable,
+            int firstLsn,
+            int insertedId,
+            int deletedId)
+            throws SQLException {
+        String name = "row-" + insertedId;
+        String description = "stream-" + firstLsn;
+        insertCustomer(connection, table, insertedId, name, description);
+        insertChangeEvent(connection, changeTable, firstLsn, "I", insertedId, name, description);
+        try (PreparedStatement query =
+                connection.prepareStatement(
+                        "SELECT NAME, DESCRIPTION FROM " + table + " WHERE ID = ?")) {
+            query.setInt(1, deletedId);
+            try (ResultSet row = query.executeQuery()) {
+                Assertions.assertTrue(
+                        row.next(), "Delete fixture must exist: " + table + "/" + deletedId);
+                insertChangeEvent(
+                        connection,
+                        changeTable,
+                        firstLsn + 1,
+                        "D",
+                        deletedId,
+                        row.getString(1),
+                        row.getString(2));
+            }
+        }
+        deleteCustomer(connection, table, deletedId);
+    }
+
+    private CompletableFuture<Void> executeAsync(
+            TestContainer container, String configuration, String restoreJobId) {
+        return CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        Container.ExecResult result =
+                                restoreJobId == null
+                                        ? container.executeJob(configuration)
+                                        : container.restoreJob(configuration, restoreJobId);
+                        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to run DB2 CDC recovery job", e);
+                    }
+                });
+    }
+
+    private void awaitRestoreTables(CompletableFuture<Void> job, boolean includeProducts) {
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            assertJobNotFailed(job);
+                            String source =
+                                    includeProducts
+                                            ? "(SELECT ID, NAME, DESCRIPTION FROM "
+                                                    + SOURCE_TABLE
+                                                    + " UNION ALL SELECT ID, NAME, DESCRIPTION FROM "
+                                                    + PRODUCT_TABLE
+                                                    + ") AS SOURCES"
+                                            : SOURCE_TABLE;
+                            Assertions.assertIterableEquals(
+                                    querySql(SELECT_CUSTOMERS, source),
+                                    querySql(SELECT_CUSTOMERS, RESTORE_SINK));
+                        });
+    }
+
+    /**
+     * The Apache test runner supplies --name using the configuration basename, overriding
+     * env.job.name.
+     */
+    private String stopAtSavepoint(
+            TestContainer container, String configuration, CompletableFuture<Void> initial)
+            throws Exception {
+        String jobName = configuration.substring(configuration.lastIndexOf('/') + 1);
+        Matcher matcher =
+                Pattern.compile(
+                                "Init JobMaster for Job "
+                                        + Pattern.quote(jobName)
+                                        + " \\(([0-9]+)\\)")
+                        .matcher(container.getServerLogs());
+        String jobId = null;
+        int matches = 0;
+        while (matcher.find()) {
+            jobId = matcher.group(1);
+            matches++;
+        }
+        Assertions.assertEquals(1, matches, "Expected one initial DB2 CDC job for " + jobName);
+        Container.ExecResult result = container.savepointJob(jobId);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        await().atMost(30, TimeUnit.SECONDS).until(initial::isDone);
+        assertJobNotFailed(initial);
+        return jobId;
     }
 
     private Connection getJdbcConnection() throws SQLException {

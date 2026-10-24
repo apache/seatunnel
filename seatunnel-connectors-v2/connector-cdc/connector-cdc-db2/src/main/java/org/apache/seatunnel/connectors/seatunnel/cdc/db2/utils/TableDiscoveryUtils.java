@@ -29,6 +29,7 @@ import io.debezium.relational.TableId;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -89,6 +90,7 @@ public class TableDiscoveryUtils {
      * so startup validation needs to drop that catalog part before comparing with capture tables.
      */
     static TableId toConfiguredDb2TableId(String configuredTable) {
+        configuredTable = normalizeConfiguredTableName(configuredTable);
         int firstDot = configuredTable.indexOf('.');
         int secondDot = configuredTable.indexOf('.', firstDot + 1);
         if (firstDot < 0 || secondDot < 0 || secondDot == configuredTable.length() - 1) {
@@ -100,6 +102,16 @@ public class TableDiscoveryUtils {
                 "",
                 configuredTable.substring(firstDot + 1, secondDot),
                 configuredTable.substring(secondDot + 1));
+    }
+
+    /**
+     * Folds unquoted configuration names before both catalog lookup and Debezium filtering.
+     * Captured metadata and the existing quoted-name path retain their case-sensitive spelling.
+     */
+    public static String normalizeConfiguredTableName(String configuredTable) {
+        return configuredTable.contains("\"")
+                ? configuredTable
+                : configuredTable.toUpperCase(Locale.ROOT);
     }
 
     /**
