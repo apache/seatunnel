@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 
 public class SQLDateTimeFunctionsTest {
@@ -140,6 +141,99 @@ public class SQLDateTimeFunctionsTest {
                         LocalDateTime.of(2024, 6, 15, 14, 30, 45));
 
         Assertions.assertEquals("2024-06-15", outRow.getField(0));
+    }
+
+    /**
+     * The pattern reaches DateTimeFormatter straight from the user's SQL, so any text bearing
+     * letter in it used to be rendered in the default locale of whichever worker ran the transform.
+     * DAYNAME and MONTHNAME never had that problem, because DateTimeFunction pins Locale.ENGLISH
+     * for them, so the two disagreed on the same row. These locales are chosen for that: Turkish
+     * and Japanese both translate month and weekday names.
+     *
+     * <p>The function names here are deliberately upper case. Lower case names would not reach
+     * these functions at all under a Turkish default locale, because the engine's keyword lookup
+     * upper cases them without a locale and turns the dotless i into a dotted one. That is a
+     * separate defect; keeping the names upper case isolates this test to the formatter locale.
+     */
+    @Test
+    public void testFormatDateTimeTextIsEnglishUnderAnyDefaultLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+            LocalDateTime dt = LocalDateTime.of(2024, 6, 15, 14, 30, 45);
+
+            for (Locale locale :
+                    new Locale[] {
+                        Locale.ENGLISH,
+                        Locale.forLanguageTag("tr-TR"),
+                        Locale.forLanguageTag("ja-JP")
+                    }) {
+                Locale.setDefault(locale);
+                String tag = locale.toLanguageTag();
+
+                SeaTunnelRow outRow =
+                        runSql(
+                                "select FORMATDATETIME(dt, 'dd MMM yyyy') as a,"
+                                        + " FORMATDATETIME(dt, 'EEEE') as b,"
+                                        + " FORMATDATETIME(dt, 'MMMM') as c,"
+                                        + " DAYNAME(dt) as d,"
+                                        + " MONTHNAME(dt) as e,"
+                                        + " FORMATDATETIME(dt, 'yyyy-MM-dd') as f from dual",
+                                rowType,
+                                dt);
+
+                Assertions.assertEquals("15 Jun 2024", outRow.getField(0), tag);
+                Assertions.assertEquals("Saturday", outRow.getField(1), tag);
+                Assertions.assertEquals("June", outRow.getField(2), tag);
+                // the whole point: the two ways of naming a day must not disagree
+                Assertions.assertEquals(outRow.getField(3), outRow.getField(1), tag);
+                Assertions.assertEquals(outRow.getField(4), outRow.getField(2), tag);
+                // control: a numeric only pattern was never locale dependent
+                Assertions.assertEquals("2024-06-15", outRow.getField(5), tag);
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
+
+    /** FROM_UNIXTIME builds its formatter the same way, so it needs the same guarantee. */
+    @Test
+    public void testFromUnixTimeTextIsEnglishUnderAnyDefaultLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"ts"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+
+            for (Locale locale :
+                    new Locale[] {
+                        Locale.ENGLISH,
+                        Locale.forLanguageTag("tr-TR"),
+                        Locale.forLanguageTag("ja-JP")
+                    }) {
+                Locale.setDefault(locale);
+                String tag = locale.toLanguageTag();
+
+                // 1672545600 = 2023-01-01 10:00:00 at UTC+6, a Sunday
+                SeaTunnelRow outRow =
+                        runSql(
+                                "select FROM_UNIXTIME(ts, 'dd MMM yyyy', 'UTC+6') as a,"
+                                        + " FROM_UNIXTIME(ts, 'EEEE', 'UTC+6') as b,"
+                                        + " FROM_UNIXTIME(ts, 'yyyy-MM-dd', 'UTC+6') as c"
+                                        + " from dual",
+                                rowType,
+                                1672545600L);
+
+                Assertions.assertEquals("01 Jan 2023", outRow.getField(0), tag);
+                Assertions.assertEquals("Sunday", outRow.getField(1), tag);
+                Assertions.assertEquals("2023-01-01", outRow.getField(2), tag);
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     @Test

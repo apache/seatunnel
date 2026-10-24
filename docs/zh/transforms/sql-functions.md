@@ -913,6 +913,8 @@ EXTRACT(DOW FROM eventTime)
 
 将日期、时间或时间戳格式化为字符串。最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
 
+月份、星期、纪元、季度和上午/下午的名称始终以英文输出，因此结果不依赖于运行该转换的工作节点的默认语言环境。所以 `FORMATDATETIME(dt, 'EEEE')` 与 `DAYNAME(dt)` 一致，`FORMATDATETIME(dt, 'MMMM')` 与 `MONTHNAME(dt)` 一致。
+
 
 
 示例:
@@ -1112,6 +1114,8 @@ YEAR(CREATED)
 最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 `java.time.format.DateTimeFormatter`。
 
 `timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 。
+
+与 `FORMATDATETIME` 一样，月份、星期、纪元、季度和上午/下午的名称始终以英文输出，因此结果不依赖于工作节点的默认语言环境。
 
 示例:
 
