@@ -421,6 +421,14 @@ public class ServerConfigOptions {
                         .stringType()
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
+        public static final Option<String> PUBLIC_URL =
+                Options.key("public-url")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription(
+                                "The public base URL of the HTTP server, used when the server is behind a reverse proxy or Ingress. "
+                                        + "When set, this URL is used to generate absolute log links in the Web UI instead of the member pod IP. "
+                                        + "Example: https://seatunnel.example.com");
 
         public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
                 Options.key("upload-max-file-size-mb")
