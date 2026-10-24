@@ -76,6 +76,23 @@ class CompatibleKafkaConnectDeserializationSchemaTest {
         Assertions.assertEquals("a", row.getField(1));
     }
 
+    /**
+     * A zero length value is a decode error rather than a deletion marker, so the guard must not
+     * pass it over. Asserted against the contract rather than against a specific exception type,
+     * which comes from the Kafka converter.
+     */
+    @Test
+    void deserializeDoesNotTreatAnEmptyValueAsATombstone() {
+        RecordingCollector collector = new RecordingCollector();
+
+        Assertions.assertThrows(
+                Exception.class,
+                () -> schema().deserialize(record(new byte[0]), collector),
+                "a zero length value must stay a decode error, not be read as a tombstone");
+        Assertions.assertTrue(
+                collector.rows.isEmpty(), "a rejected record must not have produced a row");
+    }
+
     private static CompatibleKafkaConnectDeserializationSchema schema() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
