@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +126,87 @@ class TestSpark35StarterJarContentIT {
         assertUsage(
                 "start-seatunnel-spark-3.5-connector-v2.cmd",
                 "start-seatunnel-spark-3.5-connector-v2.cmd");
+    }
+
+    @Test
+    void unixLauncherPreservesQuotedArgumentsFromPackagedJvm() throws Exception {
+        Assumptions.assumeFalse(
+                System.getProperty("os.name").startsWith("Windows"),
+                "Requires the Unix bash launcher");
+        Path home =
+                Files.createDirectories(
+                        tempDir.resolve("distribution with 'single and \"double quotes"));
+        Path bin = Files.createDirectories(home.resolve("bin"));
+        Path config = Files.createDirectories(home.resolve("config"));
+        Path logging = Files.createDirectories(home.resolve("starter/logging"));
+        String launcherName = "start-seatunnel-spark-3.5-connector-v2.sh";
+        Path launcher = bin.resolve(launcherName);
+        Files.copy(Paths.get("src/main/bin", launcherName), launcher);
+        Path starter = home.resolve("starter/seatunnel-spark-3.5-starter.jar");
+        Files.copy(findStarterJar(), starter);
+        try (Stream<Path> jars = Files.list(Paths.get("target/logging-e2e"))) {
+            for (Path jar :
+                    (Iterable<Path>)
+                            jars.filter(path -> path.toString().endsWith(".jar"))::iterator) {
+                Files.copy(jar, logging.resolve(jar.getFileName()));
+            }
+        }
+        Path job = config.resolve("job with 'single and \"double quotes.conf");
+        Files.write(
+                job,
+                "env { job.mode = BATCH }\nsource { FakeSource {} }\nsink { Console {} }\n"
+                        .getBytes(StandardCharsets.UTF_8));
+        Path sparkBin =
+                Files.createDirectories(
+                        tempDir.resolve("spark with 'single and \"double quotes/bin"));
+        Path capture = tempDir.resolve("spark-argv.bin");
+        Path submit = sparkBin.resolve("spark-submit");
+        // Capture argv after the real JVM; this does not execute a Spark job.
+        Files.write(
+                submit,
+                "#!/bin/bash\nprintf '%s\\0' \"$@\" > \"$SEATUNNEL_ARGV_CAPTURE\"\n"
+                        .getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(submit.toFile().setExecutable(true));
+        Path temporary = Files.createDirectory(tempDir.resolve("launcher temporary"));
+        String name = "job with 'single and \"double quotes * $HOME `id` $(id)";
+        ProcessBuilder builder =
+                new ProcessBuilder(
+                        "bash",
+                        launcher.toString(),
+                        "--master",
+                        "local[1]",
+                        "--deploy-mode",
+                        "client",
+                        "--name",
+                        name,
+                        "--config",
+                        job.toString());
+        builder.environment().put("SPARK_HOME", sparkBin.getParent().toString());
+        builder.environment().put("SEATUNNEL_ARGV_CAPTURE", capture.toString());
+        builder.environment().put("TMPDIR", temporary.toString());
+        builder.environment().put("JAVA_OPTS", "-Xmx128m");
+        builder.environment().remove("SEATUNNEL_HOME");
+        builder.environment()
+                .put(
+                        "PATH",
+                        Paths.get(System.getProperty("java.home"), "bin")
+                                + File.pathSeparator
+                                + System.getenv("PATH"));
+        ProcessResult result = runProcess(builder);
+        Assertions.assertEquals(0, result.exitCode, result.diagnostic());
+        List<String> arguments =
+                Arrays.asList(
+                        new String(Files.readAllBytes(capture), StandardCharsets.UTF_8)
+                                .split("\0", -1));
+        Assertions.assertTrue(arguments.contains("--config"), result.diagnostic());
+        Assertions.assertEquals(job.toString(), arguments.get(arguments.indexOf("--config") + 1));
+        Assertions.assertTrue(arguments.contains("--name"), result.diagnostic());
+        Assertions.assertEquals(name, arguments.get(arguments.indexOf("--name") + 1));
+        Assertions.assertTrue(
+                arguments.contains(starter.toRealPath().toString()), arguments.toString());
+        try (Stream<Path> files = Files.list(temporary)) {
+            Assertions.assertFalse(files.findAny().isPresent(), "Launcher left temporary output");
+        }
     }
 
     @Test

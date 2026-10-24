@@ -21,11 +21,17 @@ and `start-seatunnel-spark-3-connector-v2` launcher. This change does not add a 
 Spark 3.4 starter or extend its compatibility coverage.
 
 The Spark 3.5 starter reuses the translation layer compiled against Spark 3.3.
-Row-encoder and batch-write tests exercise selected paths on Spark 3.5.8, but do not
+Row-encoder, batch-write and bounded micro-batch sink tests exercise selected paths on Spark 3.5.8, but do not
 prove compatibility of every Catalyst or DataSource V2 path. Other binary
 incompatibilities may surface only when those paths execute on the target runtime.
-Validate your connectors and deployment mode before upgrading; dedicated Spark 3.5
-micro-batch streaming coverage is still pending.
+Validate your connectors and deployment mode before upgrading.
+
+The public Spark 3.5 starter uses the batch `read()` and `write().save()` pipeline;
+use a batch job configuration with this launcher. The micro-batch test runs a finite
+Spark file stream through the row encoder and SeaTunnel streaming sink adapter. It
+does not validate the SeaTunnel streaming source, checkpoint restore, or streaming
+jobs submitted through the public starter. Spark 3.5 connector-container tests are
+scheduled-only (`testInPR=false`); normal PR CI does not run that runtime matrix.
 
 The Spark 3.5 Windows `.cmd` launcher still passes a command string to `spark-submit.cmd`;
 it does not use the Unix launcher's argument-file protocol. Arbitrary arguments
@@ -39,6 +45,10 @@ configuration paths containing spaces, `!`, and `&`. The path tests stop at a
 configuration parse error, before Spark submission; they do not establish exact
 argument preservation by `spark-submit.cmd`. Native Windows CI must pass on the
 revision being validated before treating these launcher cases as verified.
+
+The Unix packaged test runs the real starter JVM and checks argument preservation
+for paths containing spaces and both quote characters. It captures the arguments
+at `spark-submit`; it does not submit a Spark job.
 
 ## When To Choose Spark
 
