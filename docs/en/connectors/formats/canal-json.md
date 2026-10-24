@@ -77,6 +77,9 @@ Note: please refer to [Canal documentation](https://github.com/alibaba/canal/wik
 
 The MySQL products table has 4 columns (id, name, description and weight).
 The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.15 to 5.18.
+
+The `old` array holds the before image of the update: its entries are positional, so `old[i]` is the before image of `data[i]`. A column that is missing from `old[i]` was not changed, and is filled from the same row in `data[i]`; in the example above `old[0]` only contains `weight`, so the before image takes `id`, `name` and `description` from the current row and `weight` from `old[0]`. A column explicitly set to JSON `null` in `old[i]` counts as changed, and that `null` value is kept.
+
 Assuming the messages have been synchronized to Kafka topic products_binlog, then we can use the following SeaTunnel to consume this topic and interpret the change events.
 
 ```bash
