@@ -25,11 +25,13 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -228,6 +230,161 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
                                         + " WHERE table_name = 'sink_column_orders'"
                                         + " AND column_name = 'note'")
                         .isEmpty());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This case requires Zeta job cancellation and schema evolution")
+    public void testExistingTablePublicationOnSecondRun(TestContainer container) throws Exception {
+        assertExistingPublicationOnSecondRun(
+                container, "table_pub", "FOR TABLE public.table_pub_orders");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This case requires Zeta job cancellation and schema evolution")
+    public void testAllTablesPublicationOnSecondRun(TestContainer container) throws Exception {
+        assertExistingPublicationOnSecondRun(container, "all_pub", "FOR ALL TABLES");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This case requires Zeta job cancellation and schema evolution")
+    public void testSchemaPublicationOnSecondRun(TestContainer container) throws Exception {
+        assertExistingPublicationOnSecondRun(
+                container, "schema_pub", "FOR TABLES IN SCHEMA public");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This case verifies Zeta source initialization failure")
+    public void testInsertOnlyPublicationWithoutPrimaryKeyFailsFast(TestContainer container)
+            throws Exception {
+        String name = "insert_only";
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE TABLE public.insert_only_orders (id INT PRIMARY KEY, price NUMERIC(10, 2))");
+        executeSql(COLUMN_LIST_CONTAINER, "INSERT INTO public.insert_only_orders VALUES (1, 1.00)");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE PUBLICATION seatunnel_insert_only FOR TABLE public.insert_only_orders"
+                        + " (price) WITH (publish = 'insert')");
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> job =
+                startPublicationJob(container, name, jobId, 0);
+        try {
+            Container.ExecResult result = job.get(120, TimeUnit.SECONDS);
+            Assertions.assertNotEquals(0, result.getExitCode());
+            String output = result.getStdout() + result.getStderr() + container.getServerLogs();
+            Assertions.assertTrue(
+                    output.contains("does not publish required primary key columns [id]"));
+            Assertions.assertTrue(output.contains("seatunnel_insert_only"));
+            Assertions.assertTrue(output.contains("public.insert_only_orders"));
+            Assertions.assertTrue(output.contains("Include all required primary key columns"));
+            Assertions.assertTrue(
+                    query(
+                                    COLUMN_LIST_CONTAINER,
+                                    "SELECT table_name FROM information_schema.tables"
+                                            + " WHERE table_schema = 'public' AND table_name = 'sink_insert_only_orders'")
+                            .isEmpty());
+        } finally {
+            if (!job.isDone()) {
+                container.cancelJob(jobId);
+                job.get(120, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    private void assertExistingPublicationOnSecondRun(
+            TestContainer container, String name, String publicationTables) throws Exception {
+        String source = "public." + name + "_orders";
+        String sink = "public.sink_" + name + "_orders";
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE TABLE "
+                        + source
+                        + " (id INT PRIMARY KEY, price NUMERIC(10, 2),"
+                        + " total NUMERIC(10, 2) GENERATED ALWAYS AS (price * 2) STORED)");
+        executeSql(COLUMN_LIST_CONTAINER, "ALTER TABLE " + source + " REPLICA IDENTITY FULL");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "INSERT INTO " + source + " (id, price) VALUES (1, 1.00), (2, 2.00)");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE PUBLICATION seatunnel_" + name + " " + publicationTables);
+
+        // Both starts see the same pre-created publication; use a fresh slot/sink to check
+        // snapshots.
+        for (int run = 0; run < 2; run++) {
+            String jobId = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> job =
+                    startPublicationJob(container, name, jobId, run);
+            try {
+                awaitPublicationRows(job, source, sink);
+                Assertions.assertTrue(
+                        query(
+                                        COLUMN_LIST_CONTAINER,
+                                        "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public'"
+                                                + " AND table_name = 'sink_"
+                                                + name
+                                                + "_orders' AND column_name = 'total'")
+                                .isEmpty());
+                executeSql(
+                        COLUMN_LIST_CONTAINER,
+                        "UPDATE " + source + " SET price = " + (7 + run) + ".00 WHERE id = 1");
+                executeSql(
+                        COLUMN_LIST_CONTAINER,
+                        "INSERT INTO " + source + " (id, price) VALUES (" + (3 + run) + ", 3.00)");
+                awaitPublicationRows(job, source, sink);
+            } finally {
+                Container.ExecResult cancelled = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());
+                job.get(120, TimeUnit.SECONDS);
+            }
+            executeSql(COLUMN_LIST_CONTAINER, "DROP TABLE " + sink);
+        }
+    }
+
+    private CompletableFuture<Container.ExecResult> startPublicationJob(
+            TestContainer container, String name, String jobId, int run) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/postgrescdc_to_postgres_with_existing_publication.conf",
+                                jobId,
+                                "publication_name=seatunnel_" + name,
+                                "source_table=" + name + "_orders",
+                                "sink_table=sink_" + name + "_orders",
+                                "slot_name=seatunnel_" + name + "_" + run);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private void awaitPublicationRows(
+            CompletableFuture<Container.ExecResult> job, String source, String sink) {
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    job.isDone(),
+                                    "Publication job stopped before snapshot/stream completed");
+                            Assertions.assertIterableEquals(
+                                    query(COLUMN_LIST_CONTAINER, "SELECT id, price FROM " + source),
+                                    query(COLUMN_LIST_CONTAINER, "SELECT id, price FROM " + sink));
+                        });
     }
 
     private Connection getJdbcConnection(PostgreSQLContainer<?> postgres) throws SQLException {

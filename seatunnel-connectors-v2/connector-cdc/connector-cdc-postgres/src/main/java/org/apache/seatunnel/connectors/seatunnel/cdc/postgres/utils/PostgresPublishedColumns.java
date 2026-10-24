@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
@@ -49,7 +50,7 @@ import java.util.stream.Collectors;
 /**
  * pgoutput only streams the columns a publication publishes: generated columns are never published
  * before PostgreSQL 18, virtual generated columns are never published, and publication column lists
- * can leave out any column. Columns that are not streamed must not be part of the CDC schema,
+ * can omit non-identity columns. Columns that are not streamed must not be part of the CDC schema,
  * otherwise snapshot rows carry a value while streamed rows carry NULL.
  */
 @Slf4j
@@ -75,6 +76,9 @@ public final class PostgresPublishedColumns {
                                 debeziumProperties
                                         .getOrDefault(PUBLICATION_AUTOCREATE_MODE_KEY, "")
                                         .trim());
+        Map<String, Set<String>> publishedByTable;
+        Map<String, Map<String, String>> generatedByTable;
+        boolean publishesStoredColumns;
         try (Connection connection =
                 DriverManager.getConnection(
                         config.get(JdbcCommonOptions.URL),
@@ -87,28 +91,12 @@ public final class PostgresPublishedColumns {
             }
             String publishGeneratedColumns =
                     publishGeneratedColumns(connection, serverVersion, publication);
-            Map<String, Set<String>> publishedByTable =
+            publishedByTable =
                     useColumnLists && publishGeneratedColumns != null && serverVersion >= 150000
                             ? publishedColumnsByTable(connection, publication)
                             : Collections.emptyMap();
-            Map<String, Map<String, String>> generatedByTable = generatedColumnsByTable(connection);
-            boolean publishesStoredColumns = "s".equals(publishGeneratedColumns);
-
-            List<CatalogTable> result = new ArrayList<>(tables.size());
-            for (CatalogTable table : tables) {
-                String key =
-                        tableKey(
-                                table.getTableId().getSchemaName(),
-                                table.getTableId().getTableName());
-                Set<String> excluded =
-                        excludedColumns(
-                                columnNames(table),
-                                publishedByTable.get(key),
-                                generatedByTable.getOrDefault(key, Collections.emptyMap()),
-                                publishesStoredColumns);
-                result.add(retainColumns(table, excluded, publication));
-            }
-            return result;
+            generatedByTable = generatedColumnsByTable(connection);
+            publishesStoredColumns = "s".equals(publishGeneratedColumns);
         } catch (Exception e) {
             log.error(
                     "Failed to read columns published by '{}'; keeping all table columns. "
@@ -120,6 +108,21 @@ public final class PostgresPublishedColumns {
                     e instanceof SQLException ? ((SQLException) e).getSQLState() : null);
             return tables;
         }
+
+        // Schema validation must not fall back to keeping known unpublished primary keys.
+        List<CatalogTable> result = new ArrayList<>(tables.size());
+        for (CatalogTable table : tables) {
+            String key =
+                    tableKey(table.getTableId().getSchemaName(), table.getTableId().getTableName());
+            Set<String> excluded =
+                    excludedColumns(
+                            columnNames(table),
+                            publishedByTable.get(key),
+                            generatedByTable.getOrDefault(key, Collections.emptyMap()),
+                            publishesStoredColumns);
+            result.add(retainColumns(table, excluded, publication));
+        }
+        return result;
     }
 
     static String publicationName(Map<String, String> debeziumProperties) {
@@ -130,8 +133,8 @@ public final class PostgresPublishedColumns {
     /**
      * Returns the columns pgoutput will not stream for a table.
      *
-     * @param publishedColumns columns listed by pg_publication_tables, or {@code null} when the
-     *     publication does not cover the table yet or its column lists do not apply
+     * @param publishedColumns columns in an explicit publication column list, or {@code null} when
+     *     there is no explicit list or it does not apply
      * @param generatedColumns generated columns of the table and their {@code attgenerated} kind
      */
     static Set<String> excludedColumns(
@@ -163,7 +166,17 @@ public final class PostgresPublishedColumns {
         PrimaryKey primaryKey = schema.getPrimaryKey();
         Set<String> removed = new LinkedHashSet<>(excluded);
         if (primaryKey != null) {
-            removed.removeAll(primaryKey.getColumnNames());
+            Set<String> unpublishedKeys = new LinkedHashSet<>(primaryKey.getColumnNames());
+            unpublishedKeys.retainAll(excluded);
+            if (!unpublishedKeys.isEmpty()) {
+                throw new SeaTunnelException(
+                        String.format(
+                                "Publication '%s' does not publish required primary key columns %s"
+                                        + " for table %s. Include all required primary key columns in"
+                                        + " the publication column list before starting Postgres-CDC,"
+                                        + " including for INSERT-only publications.",
+                                publication, unpublishedKeys, table.getTablePath()));
+            }
         }
         if (removed.isEmpty()) {
             return table;
@@ -245,11 +258,24 @@ public final class PostgresPublishedColumns {
         Map<String, Set<String>> published = new HashMap<>();
         try (PreparedStatement statement =
                 connection.prepareStatement(
-                        "SELECT schemaname, tablename, attnames FROM pg_publication_tables"
-                                + " WHERE pubname = ?")) {
+                        "SELECT pt.schemaname, pt.tablename, pt.attnames, pr.prattrs IS NOT NULL"
+                                + " FROM pg_publication_tables pt"
+                                + " JOIN pg_publication p ON p.pubname = pt.pubname"
+                                + " JOIN pg_namespace n ON n.nspname = pt.schemaname"
+                                + " JOIN pg_class c ON c.relnamespace = n.oid"
+                                + " AND c.relname = pt.tablename"
+                                + " LEFT JOIN pg_publication_rel pr ON pr.prpubid = p.oid"
+                                + " AND pr.prrelid = c.oid"
+                                + " WHERE pt.pubname = ?")) {
             statement.setString(1, publication);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
+                    // PG15 synthesizes attnames even without a column list. All-tables and
+                    // schema publications also have no explicit list and use generated-column
+                    // rules.
+                    if (!rs.getBoolean(4)) {
+                        continue;
+                    }
                     Array attnames = rs.getArray(3);
                     if (attnames != null) {
                         published.put(

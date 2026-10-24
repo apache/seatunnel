@@ -376,7 +376,9 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 
 ### 如何处理生成列？
 
-使用 `pgoutput` 时，只会捕获发布（publication）中发布的列。PostgreSQL 18 之前不发布生成列，虚拟生成列始终不会发布，发布的列列表也可以排除任意列。这些列会从表结构中排除，因此既不会在快照阶段读取，也不会在自动创建的目标表中创建。在 PostgreSQL 18 中，如果发布使用 `publish_generated_columns = stored` 创建，则会捕获存储生成列。
+使用 `pgoutput` 时，只会捕获发布（publication）中发布的列。PostgreSQL 18 之前不发布生成列，虚拟生成列始终不会发布。显式发布列列表可以省略部分列，但发布 UPDATE 或 DELETE 操作时必须包含副本标识（replica identity）列。未发布的非主键列会从表结构中排除，因此既不会在快照阶段读取，也不会在自动创建的目标表中创建。没有显式列列表的发布（包括 `FOR ALL TABLES` 和 `FOR TABLES IN SCHEMA`）仍遵循生成列规则。在 PostgreSQL 18 中，如果发布使用 `publish_generated_columns = stored` 创建，则会捕获存储生成列。
+
+SeaTunnel 要求发布 CDC 表结构中的所有主键列，包括通过 `table-names-config.primaryKeys` 配置的主键。如果必需的主键未发布，作业会在启动时失败，并提示发布名、表名和缺少的主键列，而不是在流式同步中输出 NULL 主键。此要求也适用于仅发布 INSERT 的发布，即使 PostgreSQL 允许其省略副本标识列。启动或恢复作业前，请将所有必需主键列加入发布列列表。
 
 如果 SeaTunnel 在作业启动时无法读取发布元数据，会记录错误及失败类型，并保留表结构中的所有列。此时未发布的列可能在流式同步时被写为 NULL，或触发表结构变更错误导致作业停止。依赖捕获数据前，请检查发布元数据的访问权限和 JDBC 连通性。
 
