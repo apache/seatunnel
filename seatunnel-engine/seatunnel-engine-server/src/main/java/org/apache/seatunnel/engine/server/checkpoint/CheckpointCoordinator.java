@@ -70,6 +70,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -1014,8 +1015,23 @@ public class CheckpointCoordinator {
                                             executorService)
                                     .thenApplyAsync(this::triggerCheckpoint, executorService);
 
+                    // completableFutureArray only resolves once every per-task barrier RPC has
+                    // been *sent* (triggerCheckpoint returns as soon as all
+                    // sendOperationToMemberNode calls have been issued); it does not wait for any
+                    // RPC to actually be acknowledged. Historically the per-task
+                    // InvocationFutures returned by triggerCheckpoint were never observed beyond
+                    // this point: allOf(completableFutureArray) wrapped the single
+                    // array-producing future as one varargs element (the type system accepts this
+                    // because InvocationFuture extends the JDK CompletableFuture), so it resolved
+                    // the instant the array existed and never inspected any inner RPC outcome. A
+                    // barrier RPC that later failed permanently (target member left, or a
+                    // non-retryable Hazelcast operation failure) was therefore a dead letter,
+                    // silently relying on the checkpoint.timeout backstop scheduled below to
+                    // eventually notice the stall and report a generic CHECKPOINT_EXPIRED.
+                    // Capture the real per-task array here so it can be observed below.
+                    InvocationFuture<?>[] barrierFutures;
                     try {
-                        CompletableFuture.allOf(completableFutureArray).get();
+                        barrierFutures = completableFutureArray.get();
                     } catch (InterruptedException e) {
                         handleCoordinatorError(
                                 "triggering checkpoint barrier has been interrupted",
@@ -1028,6 +1044,52 @@ public class CheckpointCoordinator {
                                 e,
                                 CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                         return;
+                    }
+                    // Hazelcast InvocationFuture maintains its own completion state. Register
+                    // native callbacks instead of passing these futures to the JDK allOf,
+                    // which cannot observe that state and also waits for every RPC to finish.
+                    // Each failed RPC must be reported even if another RPC never completes.
+                    for (InvocationFuture<?> barrierFuture : barrierFutures) {
+                        barrierFuture.whenCompleteAsync(
+                                (ignored, throwable) -> {
+                                    if (throwable == null) {
+                                        return;
+                                    }
+                                    // The final ACK precedes persistence and map removal. A late
+                                    // failed response must not invalidate that successful ACK.
+                                    if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId())
+                                                    != pendingCheckpoint
+                                            || pendingCheckpoint.isFullyAcknowledged()) {
+                                        return;
+                                    }
+                                    handleCoordinatorError(
+                                            "checkpoint barrier dispatch failed",
+                                            throwable,
+                                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                                },
+                                callback -> {
+                                    try {
+                                        executorService.execute(callback);
+                                    } catch (RejectedExecutionException rejected) {
+                                        // Reuse the timeout scheduler rather than blocking a
+                                        // Hazelcast response thread with coordinator cleanup.
+                                        try {
+                                            scheduler.execute(callback);
+                                        } catch (RejectedExecutionException schedulerClosed) {
+                                            // Cleanup clears the pending map before replacing the
+                                            // scheduler. Only an obsolete/terminal callback may
+                                            // be discarded during that lifecycle transition.
+                                            if (pendingCheckpoints.get(
+                                                                    pendingCheckpoint
+                                                                            .getCheckpointId())
+                                                            == pendingCheckpoint
+                                                    && !pendingCheckpoint.isFullyAcknowledged()
+                                                    && !checkpointCoordinatorFuture.isDone()) {
+                                                throw schedulerClosed;
+                                            }
+                                        }
+                                    }
+                                });
                     }
                     if (coordinatorConfig.isCheckpointEnable()) {
                         LOG.debug(
