@@ -299,6 +299,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
+| SingleStore | -           | -        |
 | YashanDB  |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
@@ -356,6 +357,8 @@ The following values are starting points. Confirm the driver artifact, license, 
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
 | Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
+| SingleStore       | com.singlestore.jdbc.Driver                         | jdbc:singlestore://localhost:3306/test                                | https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client                                                   |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 | YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
 
 ## Common patterns
@@ -409,6 +412,23 @@ sink {
 }
 ```
 
+#### Case 5 SingleStore Source
+
+SingleStore (formerly MemSQL) is a MySQL-compatible high-performance real-time analytical database. Use the SingleStore JDBC driver and URL. You can optionally set `dialect = "SingleStore"` when the URL is not `jdbc:singlestore:`.
+
+```
+source {
+  Jdbc {
+    url = "jdbc:singlestore://localhost:3306/test?user=root&password=myPassword"
+    driver = "com.singlestore.jdbc.Driver"
+    user = "root"
+    password = "myPassword"
+    table_path = "test.my_table"
+  }
+}
+```
+
+### parallel by partition_column
 ### Custom query partitioned by a column
 
 ```hocon

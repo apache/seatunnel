@@ -295,6 +295,7 @@ numeric_special_value_as_null = true
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
+| SingleStore | -       | -      |
 | YashanDB  |          |          |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
@@ -346,6 +347,8 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 | kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
 | oceanbase         | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | hive              | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar                                 |
+| SingleStore       | com.singlestore.jdbc.Driver                         | jdbc:singlestore://localhost:3306/test                                 | https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client                                                   |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 | xugu              | com.xugu.cloudjdbc.Driver                           | jdbc:xugu://localhost:5138                                             | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
 | InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 | opengauss         | org.opengauss.Driver                                | jdbc:opengauss://localhost:5432/postgres                               | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
@@ -523,6 +526,21 @@ sink {
 }
 ```
 
+#### 情况 5 SingleStore 源
+
+SingleStore（原 MemSQL）是兼容 MySQL 的高性能实时分析数据库。使用 SingleStore JDBC 驱动和 URL。当 URL 不是 `jdbc:singlestore:` 时，可设置 `dialect = "SingleStore"`。
+
+```
+source {
+  Jdbc {
+    url = "jdbc:singlestore://localhost:3306/test?user=root&password=myPassword"
+    driver = "com.singlestore.jdbc.Driver"
+    user = "root"
+    password = "myPassword"
+    table_path = "test.my_table"
+  }
+}
+```
 ## 故障排查
 
 ### 找不到 JDBC 驱动类
