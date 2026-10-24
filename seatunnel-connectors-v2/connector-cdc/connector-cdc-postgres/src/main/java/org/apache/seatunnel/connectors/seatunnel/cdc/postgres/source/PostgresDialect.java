@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -42,12 +43,20 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.TableDiscove
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
+import io.debezium.connector.postgresql.PostgresObjectUtils;
+import io.debezium.connector.postgresql.PostgresTaskContext;
+import io.debezium.connector.postgresql.PostgresTopicSelector;
+import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.connection.ServerInfo;
+import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
+import io.debezium.schema.TopicSelector;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -56,8 +65,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.DROP_SLOT_ON_STOP;
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.PLUGIN_NAME;
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.SLOT_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils.newPostgresValueConverterBuilder;
 
+@Slf4j
 public class PostgresDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
@@ -86,6 +99,81 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     @Override
     public String getName() {
         return DatabaseIdentifier.POSTGRESQL;
+    }
+
+    /**
+     * Creates the configured streaming slot before any snapshot split records its low watermark.
+     */
+    @Override
+    public void openEnumerator(JdbcSourceConfig sourceConfig) {
+        if (!requiresStreamingSlotForSnapshot(sourceConfig)) {
+            return;
+        }
+
+        PostgresConnectorConfig connectorConfig =
+                (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig();
+        PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                PostgresConnectorConfig.LogicalDecoder.parse(
+                        connectorConfig.getConfig().getString(PLUGIN_NAME));
+        try (PostgresConnection connection =
+                (PostgresConnection) openJdbcConnection(sourceConfig)) {
+            String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
+            SlotState slotState =
+                    connection.getReplicationSlotState(
+                            slotName, logicalDecoder.getPostgresPluginName());
+            if (slotState != null) {
+                return;
+            }
+
+            PostgresConnectorConfig bootstrapConfig =
+                    new PostgresConnectorConfig(
+                            connectorConfig
+                                    .getConfig()
+                                    .edit()
+                                    .with(DROP_SLOT_ON_STOP, false)
+                                    .build());
+            TopicSelector<TableId> topicSelector = PostgresTopicSelector.create(bootstrapConfig);
+            TypeRegistry typeRegistry = connection.getTypeRegistry();
+            io.debezium.connector.postgresql.PostgresSchema schema =
+                    PostgresObjectUtils.newSchema(
+                            connection,
+                            bootstrapConfig,
+                            typeRegistry,
+                            topicSelector,
+                            newPostgresValueConverterBuilder(
+                                            bootstrapConfig,
+                                            "postgres-enumerator-slot-bootstrap",
+                                            sourceConfig.getServerTimeZone())
+                                    .build(typeRegistry));
+            PostgresTaskContext taskContext =
+                    PostgresObjectUtils.newTaskContext(bootstrapConfig, schema, topicSelector);
+            ReplicationConnection replicationConnection =
+                    PostgresObjectUtils.createReplicationConnection(
+                            taskContext, connection, false, bootstrapConfig);
+            try {
+                replicationConnection.createReplicationSlot().orElse(null);
+            } catch (SQLException e) {
+                if (!"42710".equals(e.getSQLState())) {
+                    throw e;
+                }
+                log.debug("PostgreSQL streaming slot was created concurrently: {}", slotName);
+            } finally {
+                replicationConnection.close();
+            }
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to prepare the PostgreSQL streaming replication slot", e);
+        }
+    }
+
+    /**
+     * Returns whether an exactly-once initial snapshot needs a persistent streaming slot.
+     *
+     * <p>Snapshot-only and non-exactly-once modes keep their existing slot lifecycle.
+     */
+    private boolean requiresStreamingSlotForSnapshot(JdbcSourceConfig sourceConfig) {
+        return sourceConfig.isExactlyOnce()
+                && sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL;
     }
 
     @Override

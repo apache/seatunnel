@@ -36,7 +36,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 /** Tests the PG-base-backed PostgreSQL source config factory behavior that must stay compatible. */
@@ -178,6 +180,37 @@ public class PostgresSourceConfigFactoryTest {
                 "custom_slot", factory.create(0).getDbzConfiguration().getString("slot.name"));
     }
 
+    @Test
+    public void shouldRejectInvalidConfiguredSlotName() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("hostname", "127.0.0.1");
+        options.put("username", "user");
+        options.put("password", "pwd");
+        options.put("database-names", Collections.singletonList("inventory"));
+        options.put("slot.name", "invalid-slot");
+        PostgresSourceConfigFactory factory =
+                new PostgresSourceConfigFactory()
+                        .fromReadonlyConfig(ReadonlyConfig.fromMap(options));
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> factory.create(0));
+
+        Assertions.assertTrue(exception.getMessage().contains("slot.name 'invalid-slot'"));
+    }
+
+    @Test
+    public void shouldRejectInvalidSlotNameFromDebeziumProperties() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("slot.name", "invalid-slot");
+        factory.debeziumProperties(dbzProperties);
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> factory.create(0));
+
+        Assertions.assertTrue(exception.getMessage().contains("slot.name 'invalid-slot'"));
+    }
+
     /**
      * Pins the RELATION-message schema-evolution wiring: {@code include.schema.changes} must
      * reflect the actual {@code schema-changes.enabled} option instead of being hardcoded, since
@@ -231,5 +264,70 @@ public class PostgresSourceConfigFactoryTest {
         factory.startupOptions(new StartupConfig(StartupMode.INITIAL, null, null, null));
         factory.stopOptions(new StopConfig(StopMode.NEVER, null, null, null));
         return factory;
+    }
+
+    /** Verifies that parallel readers cannot consume the same temporary replication slot. */
+    @Test
+    public void shouldCreateIsolatedBackfillSlotName() {
+        PostgresSourceConfigFactory configFactory =
+                (PostgresSourceConfigFactory)
+                        new PostgresSourceConfigFactory()
+                                .hostname("localhost")
+                                .username("user")
+                                .password("password")
+                                .databaseList("database");
+
+        PostgresSourceConfig sourceConfig = configFactory.create(7);
+        String configuredSlotName = sourceConfig.getDbzConfiguration().getString("slot.name");
+        String backfillSlotName = sourceConfig.getSlotNameForBackfillTask();
+        Assertions.assertNotEquals(configuredSlotName, backfillSlotName);
+        Assertions.assertTrue(backfillSlotName.contains("_st_backfill_"));
+        Assertions.assertTrue(backfillSlotName.endsWith("_7"));
+        Assertions.assertEquals(backfillSlotName, sourceConfig.getSlotNameForBackfillTask());
+    }
+
+    /** Verifies that the reader suffix survives PostgreSQL identifier truncation. */
+    @Test
+    public void shouldKeepBackfillSlotNameWithinPostgresIdentifierLimit() {
+        String configuredSlotName =
+                "seatunnel_snapshot_backfill_slot_name_that_is_longer_than_postgres_limit";
+
+        String backfillSlotName =
+                PostgresSourceConfig.createBackfillSlotName(configuredSlotName, 12);
+
+        Assertions.assertEquals(63, backfillSlotName.length());
+        Assertions.assertTrue(backfillSlotName.contains("_st_backfill_"));
+        Assertions.assertTrue(backfillSlotName.endsWith("_12"));
+    }
+
+    /** Verifies that a maximum-length configured slot cannot collide with its backfill slot. */
+    @Test
+    public void shouldAvoidCollisionWithConfiguredSlotName() {
+        String configuredSlotName =
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_st_backfill_0";
+
+        String backfillSlotName =
+                PostgresSourceConfig.createBackfillSlotName(configuredSlotName, 0);
+
+        Assertions.assertNotEquals(configuredSlotName, backfillSlotName);
+        Assertions.assertEquals(63, backfillSlotName.length());
+        Assertions.assertTrue(backfillSlotName.endsWith("_0"));
+    }
+
+    /**
+     * Verifies that truncation cannot collapse distinct configured slots onto one backfill slot.
+     */
+    @Test
+    public void shouldKeepTruncatedConfiguredSlotsIsolated() {
+        String commonPrefix = String.join("", Collections.nCopies(62, "a"));
+
+        String firstBackfillSlot =
+                PostgresSourceConfig.createBackfillSlotName(commonPrefix + "x", 0);
+        String secondBackfillSlot =
+                PostgresSourceConfig.createBackfillSlotName(commonPrefix + "y", 0);
+
+        Assertions.assertNotEquals(firstBackfillSlot, secondBackfillSlot);
+        Assertions.assertEquals(63, firstBackfillSlot.length());
+        Assertions.assertEquals(63, secondBackfillSlot.length());
     }
 }
