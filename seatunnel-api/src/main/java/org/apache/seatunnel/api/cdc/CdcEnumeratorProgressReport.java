@@ -65,6 +65,13 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
     /** Whether active split details were truncated to {@link #MAX_ACTIVE_SPLITS}. */
     private final boolean activeSplitsTruncated;
 
+    /**
+     * Creates a report with truncation inferred from the supplied split details.
+     *
+     * <p>Present count values must be non-negative. Assigned must equal completed plus running only
+     * when all three counts are {@link CdcProgressAccuracy#EXACT}; mixed-accuracy counts need not
+     * satisfy that equality.
+     */
     public CdcEnumeratorProgressReport(
             String connectorType,
             CdcSnapshotAssignmentStatus snapshotAssignmentStatus,
@@ -86,6 +93,13 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
                 activeSplits != null && activeSplits.size() > MAX_ACTIVE_SPLITS);
     }
 
+    /**
+     * Creates a report retaining the caller's truncation indication.
+     *
+     * <p>Present count values must be non-negative. Assigned must equal completed plus running only
+     * when all three counts are {@link CdcProgressAccuracy#EXACT}; mixed-accuracy counts need not
+     * satisfy that equality.
+     */
     public CdcEnumeratorProgressReport(
             String connectorType,
             CdcSnapshotAssignmentStatus snapshotAssignmentStatus,
