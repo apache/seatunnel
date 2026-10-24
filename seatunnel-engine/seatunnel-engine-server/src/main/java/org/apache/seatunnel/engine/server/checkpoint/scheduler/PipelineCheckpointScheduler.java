@@ -65,7 +65,8 @@ public final class PipelineCheckpointScheduler {
      */
     public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
         PipelineCheckpointTask task =
-                new PipelineCheckpointTask(MDCTracer.tracing(command), outstanding::remove);
+                new PipelineCheckpointTask(
+                        MDCTracer.tracing(command), jobId, pipelineId, outstanding::remove);
         if (parent.isClosed()) {
             task.cancel(false);
             return task;

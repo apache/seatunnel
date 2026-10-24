@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.checkpoint.scheduler;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
@@ -34,9 +36,12 @@ import java.util.function.Consumer;
  * the shared dispatch pool. Cancellation therefore has to work in both phases, which is why the
  * body checks {@link #cancelled} again at run time rather than relying on the timer future alone.
  */
+@Slf4j
 final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
 
     private final Runnable body;
+    private final long jobId;
+    private final int pipelineId;
     private final Consumer<PipelineCheckpointTask> onSettled;
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
     private final CompletableFuture<Void> completion = new CompletableFuture<>();
@@ -48,8 +53,11 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
      */
     private volatile ScheduledFuture<?> timerFuture;
 
-    PipelineCheckpointTask(Runnable body, Consumer<PipelineCheckpointTask> onSettled) {
+    PipelineCheckpointTask(
+            Runnable body, long jobId, int pipelineId, Consumer<PipelineCheckpointTask> onSettled) {
         this.body = body;
+        this.jobId = jobId;
+        this.pipelineId = pipelineId;
         this.onSettled = onSettled;
     }
 
@@ -96,8 +104,10 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
             body.run();
             completion.complete(null);
         } catch (Throwable t) {
+            // The failure is already carried by this task's future. Rethrowing it would only end
+            // this dispatch thread and send the error to stderr instead of the engine log.
+            log.error("Checkpoint task failed for job {} pipeline {}", jobId, pipelineId, t);
             completion.completeExceptionally(t);
-            throw t;
         } finally {
             onSettled.accept(this);
         }

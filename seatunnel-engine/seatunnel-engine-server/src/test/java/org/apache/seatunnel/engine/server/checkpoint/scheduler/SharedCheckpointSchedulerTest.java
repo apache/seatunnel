@@ -27,10 +27,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 class SharedCheckpointSchedulerTest {
 
@@ -98,7 +100,7 @@ class SharedCheckpointSchedulerTest {
     void testCancelAfterTimerFiredStillStopsTheBody() {
         AtomicBoolean ran = new AtomicBoolean(false);
         PipelineCheckpointTask task =
-                new PipelineCheckpointTask(() -> ran.set(true), settled -> {});
+                new PipelineCheckpointTask(() -> ran.set(true), 1L, 0, settled -> {});
 
         Assertions.assertTrue(task.cancel(false));
         task.run();
@@ -269,6 +271,45 @@ class SharedCheckpointSchedulerTest {
         } finally {
             release.countDown();
         }
+    }
+
+    /**
+     * A failing body is reported through the task's future and must not kill the dispatch thread
+     * that ran it.
+     *
+     * <p>The worker leaves RUNNABLE either by going back to the dispatch queue or by dying from a
+     * rethrown error, so waiting for it to leave RUNNABLE and then checking which state it reached
+     * needs no fixed sleep.
+     */
+    @Test
+    void testFailingBodyCompletesExceptionallyAndKeepsItsDispatchThread() {
+        PipelineCheckpointScheduler lease = scheduler.lease(1L, 0);
+        AtomicReference<Thread> worker = new AtomicReference<>();
+        IllegalStateException failure = new IllegalStateException("checkpoint body failed");
+
+        ScheduledFuture<?> future =
+                lease.schedule(
+                        () -> {
+                            worker.set(Thread.currentThread());
+                            throw failure;
+                        },
+                        0,
+                        TimeUnit.MILLISECONDS);
+
+        ExecutionException thrown =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () -> future.get(AWAIT_SECONDS, TimeUnit.SECONDS));
+        Assertions.assertSame(failure, thrown.getCause());
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(AWAIT_SECONDS))
+                .until(() -> worker.get().getState() != Thread.State.RUNNABLE);
+        Assertions.assertNotEquals(
+                Thread.State.TERMINATED,
+                worker.get().getState(),
+                "a failing checkpoint body must not kill its dispatch thread");
+        Assertions.assertEquals(0, lease.outstandingCount());
     }
 
     private static Runnable blockUntilReleased(CountDownLatch started, CountDownLatch release) {
