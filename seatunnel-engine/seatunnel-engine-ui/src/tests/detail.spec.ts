@@ -23,7 +23,12 @@ import { NMessageProvider } from 'naive-ui'
 import i18n from '@/locales'
 import detail from '@/views/jobs/detail'
 import { getJobInfo } from '@/service/job'
+import { getJobCheckpointOverview } from '@/service/checkpoint'
 import type { Job } from '@/service/job/types'
+
+vi.mock('@/service/checkpoint', () => ({
+  getJobCheckpointOverview: vi.fn()
+}))
 
 vi.mock('@/service/job', () => ({
   getJobInfo: vi.fn(),
@@ -64,6 +69,7 @@ vi.mock('@/service/realtime-metrics', async () => {
 describe('detail', () => {
   const app = createApp({})
   beforeEach(() => {
+    vi.mocked(getJobCheckpointOverview).mockResolvedValue({ jobId: '123456789', pipelines: [] })
     const pinia = createPinia()
     app.use(pinia)
     setActivePinia(createPinia())
@@ -138,5 +144,48 @@ describe('detail', () => {
     expect(wrapper.text()).toContain('Oracle-CDC-Test')
 
     expect(wrapper.text()).not.toContain('NaN')
+    wrapper.unmount()
+  })
+
+  test('renders checkpoint counts and the latest event from the checkpoint service', async () => {
+    vi.mocked(getJobInfo).mockResolvedValue({
+      jobId: '123456789',
+      jobName: 'runtime-summary',
+      jobStatus: 'FINISHED',
+      createTime: '2026-05-21 10:00:00',
+      errorMsg: '  connector failed  ',
+      jobDag: { jobId: '123456789', vertexInfoMap: [], pipelineEdges: {} },
+      metrics: {},
+      pluginJarsUrls: []
+    } as unknown as Job)
+    vi.mocked(getJobCheckpointOverview).mockResolvedValue({
+      jobId: '123456789',
+      pipelines: [
+        {
+          pipelineId: 1,
+          counts: { triggered: 4, completed: 3, failed: 1, inProgress: 0, restored: 0 },
+          latestCompleted: { checkpointId: 7, status: 'COMPLETED', durationMillis: 1234 },
+          latestFailed: {},
+          latestSavepoint: {},
+          inProgress: [],
+          history: []
+        }
+      ]
+    })
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(
+      {
+        setup: () => () => h(NMessageProvider, null, { default: () => h(detail) })
+      },
+      { global: { plugins: [i18n, pinia] } }
+    )
+    await flushPromises()
+
+    expect(wrapper.findAll('.runtime-context-item')[1].text()).toContain('3/4')
+    expect(wrapper.findAll('.runtime-context-item')[1].text()).toContain('#7 COMPLETED 1.23 s')
+    expect(wrapper.find('.runtime-error-snippet').text()).toBe('connector failed')
+    expect(wrapper.find('.runtime-large-summary').exists()).toBe(false)
+    wrapper.unmount()
   })
 })
