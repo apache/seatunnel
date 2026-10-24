@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -60,5 +62,31 @@ public class MysqlJdbcRowConverterTest {
         ArgumentCaptor<Timestamp> timestamp = ArgumentCaptor.forClass(Timestamp.class);
         verify(statement).setTimestamp(org.mockito.ArgumentMatchers.eq(1), timestamp.capture());
         assertEquals(expected.getNano(), timestamp.getValue().getNanos());
+    }
+
+    @Test
+    public void testWideDecimalValueIsReadAndWrittenWithoutNarrowing() throws Exception {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("amount")
+                                        .dataType(new DecimalType(65, 0))
+                                        .build())
+                        .build();
+        BigDecimal expected =
+                new BigDecimal("12345678901234567890123456789012345678901234567890123456789012345");
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getBigDecimal(1)).thenReturn(expected);
+
+        SeaTunnelRow result = new MysqlJdbcRowConverter().toInternal(resultSet, tableSchema);
+        assertEquals(expected, result.getField(0));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        new MysqlJdbcRowConverter()
+                .toExternal(tableSchema, new SeaTunnelRow(new Object[] {expected}), statement);
+
+        verify(statement).setBigDecimal(1, expected);
     }
 }

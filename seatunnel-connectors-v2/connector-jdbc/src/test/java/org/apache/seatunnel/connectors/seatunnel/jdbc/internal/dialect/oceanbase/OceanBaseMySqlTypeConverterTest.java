@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbas
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 
 import org.junit.jupiter.api.Assertions;
@@ -89,5 +90,63 @@ public class OceanBaseMySqlTypeConverterTest {
                 OceanBaseMySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(
                 OceanBaseMySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testConvertDecimalPreservesDeclaredPrecisionAndScale() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(50,30)")
+                        .dataType("decimal")
+                        .precision(50L)
+                        .scale(30)
+                        .build();
+        Column column = OceanBaseMySqlTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(50, 30), column.getDataType());
+        Assertions.assertEquals(50, column.getColumnLength());
+        Assertions.assertEquals(30, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(65,0) unsigned")
+                        .dataType("decimal unsigned")
+                        .precision(65L)
+                        .scale(0)
+                        .build();
+        column = OceanBaseMySqlTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(65, 0), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
+    }
+
+    @Test
+    public void testConvertDecimalClampsPrecisionAndScale() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(70,10)")
+                        .dataType("decimal")
+                        .precision(70L)
+                        .scale(10)
+                        .build();
+        Column column = OceanBaseMySqlTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(65, 5), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(5, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(50,40)")
+                        .dataType("decimal")
+                        .precision(50L)
+                        .scale(40)
+                        .build();
+        column = OceanBaseMySqlTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(50, 30), column.getDataType());
+        Assertions.assertEquals(50, column.getColumnLength());
+        Assertions.assertEquals(30, column.getScale());
     }
 }
