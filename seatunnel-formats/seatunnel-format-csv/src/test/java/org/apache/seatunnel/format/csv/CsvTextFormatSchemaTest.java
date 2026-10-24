@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.csv;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -200,6 +202,48 @@ public class CsvTextFormatSchemaTest {
                 () -> {
                     csvSerializationSchemaWithNoneQuotes.serialize(seaTunnelRow);
                 });
+    }
+
+    /** A deserialized row must carry the plain table path of the configured catalog table. */
+    @Test
+    public void testDeserializeStampsPlainTablePathAsTableId() throws IOException {
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "csv_catalog", "csv_database", "csv_schema", "csv_table", seaTunnelRowType);
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .setCatalogTable(catalogTable)
+                        .build();
+
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+
+        Assertions.assertEquals(catalogTable.getTablePath().toString(), seaTunnelRow.getTableId());
+        Assertions.assertEquals("csv_database.csv_schema.csv_table", seaTunnelRow.getTableId());
+        // Stamping the tableId must not disturb the deserialized data fields.
+        Assertions.assertEquals("mess,age", seaTunnelRow.getField(0));
+        Assertions.assertEquals(Boolean.TRUE, seaTunnelRow.getField(2));
+        Assertions.assertEquals(Integer.valueOf("3"), seaTunnelRow.getField(5));
+        Assertions.assertEquals(LocalDate.of(2022, 9, 24), seaTunnelRow.getField(11));
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(16))).get("Kris"), 21);
+    }
+
+    /** Without a catalog table the deserialized row keeps the default empty tableId. */
+    @Test
+    public void testDeserializeWithoutCatalogTableKeepsDefaultTableId() throws IOException {
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .build();
+
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+
+        Assertions.assertEquals("", seaTunnelRow.getTableId());
+        Assertions.assertEquals("mess,age", seaTunnelRow.getField(0));
     }
 
     @Test

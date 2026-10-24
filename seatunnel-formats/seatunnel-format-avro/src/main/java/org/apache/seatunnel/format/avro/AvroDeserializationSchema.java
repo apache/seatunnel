@@ -84,7 +84,7 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
         Optional<TablePath> tablePath =
                 Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
         if (tablePath.isPresent()) {
-            seaTunnelRow.setTableId(tablePath.toString());
+            seaTunnelRow.setTableId(tablePath.get().toString());
         }
         return seaTunnelRow;
     }

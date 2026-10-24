@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.text;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -160,6 +162,50 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(seaTunnelRow.getField(2), " ");
         Assertions.assertEquals(seaTunnelRow.getField(3), "tyrantlucifer");
         Assertions.assertEquals(data, content);
+    }
+
+    /** A deserialized row must carry the plain table path of the configured catalog table. */
+    @Test
+    public void testDeserializeStampsPlainTablePathAsTableId() throws IOException {
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "text_catalog",
+                        "text_database",
+                        "text_schema",
+                        "text_table",
+                        seaTunnelRowType);
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter("\u0001")
+                        .setCatalogTable(catalogTable)
+                        .build();
+
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+
+        Assertions.assertEquals(catalogTable.getTablePath().toString(), seaTunnelRow.getTableId());
+        Assertions.assertEquals("text_database.text_schema.text_table", seaTunnelRow.getTableId());
+        // Stamping the tableId must not disturb the deserialized data fields.
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);
+        Assertions.assertArrayEquals(
+                (byte[]) seaTunnelRow.getField(13), "tyrantlucifer".getBytes());
+        Assertions.assertEquals(" ", seaTunnelRow.getField(2));
+        Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(3));
+    }
+
+    /** Without a catalog table the deserialized row keeps the default empty tableId. */
+    @Test
+    public void testDeserializeWithoutCatalogTableKeepsDefaultTableId() throws IOException {
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+
+        Assertions.assertEquals("", seaTunnelRow.getTableId());
+        Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(3));
     }
 
     @Test

@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.format.protobuf;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -151,5 +154,51 @@ class ProtobufConverterTest {
                 protobufToRowConverter.converter(descriptor, dynamicMessage, rowType);
 
         Assertions.assertEquals(originalRow, convertedRow);
+    }
+
+    /**
+     * A plain (non schema registry aware) deserialization must still stamp the row with the table
+     * path of the catalog table it was built from, so downstream writers keep the source table
+     * identity.
+     */
+    @Test
+    public void testDeserializeStampsPlainTablePathAsTableId()
+            throws Descriptors.DescriptorValidationException, IOException {
+        String protoContent =
+                "syntax = \"proto3\";\n" + "\n" + "message Item {\n" + "  int32 id = 1;\n" + "}";
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "proto_catalog", "proto_database", "proto_schema", "proto_table", rowType);
+        Map<String, String> options = new HashMap<>();
+        options.put("protobuf_schema", protoContent);
+        options.put("protobuf_message_name", "Item");
+        catalogTable.getOptions().putAll(options);
+
+        Descriptors.Descriptor descriptor =
+                new ProtobufToRowConverter(protoContent, "Item").getDescriptor();
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {7});
+        byte[] payload =
+                new RowToProtobufConverter(rowType, descriptor).convertRowToGenericRecord(row);
+
+        ProtobufDeserializationSchema schema = new ProtobufDeserializationSchema(catalogTable);
+
+        SeaTunnelRow deserialized = schema.deserialize(payload);
+        Assertions.assertEquals(
+                "proto_database.proto_schema.proto_table", deserialized.getTableId());
+        Assertions.assertEquals(catalogTable.getTablePath().toString(), deserialized.getTableId());
+        Assertions.assertEquals(7, deserialized.getField(0));
+
+        SeaTunnelRow deserializedFromStream = schema.deserialize(new ByteArrayInputStream(payload));
+        Assertions.assertEquals(
+                "proto_database.proto_schema.proto_table", deserializedFromStream.getTableId());
+        Assertions.assertEquals(
+                catalogTable.getTablePath().toString(), deserializedFromStream.getTableId());
+        Assertions.assertEquals(7, deserializedFromStream.getField(0));
     }
 }
