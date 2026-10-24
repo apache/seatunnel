@@ -592,6 +592,12 @@ or state format migration is required.
 
 ### Engine Behavior Changes
 
+- **[BREAKING] Unsupported sink schema changes now fail explicitly**
+  - **Affected component**: Zeta and Flink sink schema-change dispatch, including multi-table sinks, Iceberg with `iceberg.table.schema-evolution-enabled=false` (the default), and Lance live schema changes.
+  - **Description**: Writers that only inherit the deprecated no-op `SinkWriter.applySchemaChange()` no longer silently discard `SchemaChangeEvent` events. They now throw `UnsupportedOperationException`. Explicit legacy overrides remain supported. Iceberg also rejects live schema changes when schema evolution is disabled, and Lance rejects live schema changes while retaining checkpoint runtime-schema restoration.
+  - **Impact**: Existing jobs that previously continued after ignoring a schema change now fail when that event reaches an unsupported sink. Multi-table jobs follow their existing table-failure policy. Jobs without schema-change events are unaffected. Iceberg checkpoint runtime-schema restoration remains supported even when live schema evolution is disabled. Checkpoint/savepoint formats are unchanged.
+  - **Migration Guide**: Before upgrading CDC jobs, verify that every sink supports the schema changes emitted by its source. For Iceberg jobs that need live schema evolution, set `iceberg.table.schema-evolution-enabled=true` and check that the requested changes are supported. For unsupported sinks, use a schema-evolution-capable sink or coordinate source DDL with a stopped job, update the destination and job schema, and validate the restart. Custom writers should implement `SupportSchemaEvolutionSinkWriter` with real schema-change handling. There is no option to restore silent ignoring.
+
 - **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
   - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
   - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.

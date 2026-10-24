@@ -17,9 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
@@ -40,10 +45,13 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class IcebergSinkWriterTest {
@@ -115,6 +123,66 @@ class IcebergSinkWriterTest {
         List<IcebergSinkState> states = writer.snapshotState(99L);
         assertEquals(1, states.size());
         assertEquals(99L, states.get(0).getCheckpointId());
+    }
+
+    /**
+     * Iceberg must fail fast instead of silently accepting schema changes when the table schema
+     * evolution option is disabled.
+     */
+    @Test
+    void testApplySchemaChangeFailsWhenSchemaEvolutionDisabled() {
+        when(config.isTableSchemaEvolutionEnabled()).thenReturn(false);
+        IcebergSinkWriter writer =
+                new IcebergSinkWriter(tableLoader, config, minimalSchema(), null);
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "name", BasicType.STRING_TYPE, (Long) null, true, null, null));
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class, () -> writer.applySchemaChange(event));
+
+        assertTrue(
+                exception.getMessage().contains("iceberg.table.schema-evolution-enabled is false"));
+        verifyNoInteractions(tableLoader);
+    }
+
+    @Test
+    void testRestoreRuntimeSchemaWhenSchemaEvolutionDisabled() throws IOException {
+        when(config.isTableSchemaEvolutionEnabled()).thenReturn(false);
+        IcebergSinkWriter writer =
+                new IcebergSinkWriter(tableLoader, config, minimalSchema(), null);
+        RecordWriter recordWriter = mock(RecordWriter.class);
+        ReflectionUtils.setField(writer, IcebergSinkWriter.class, "writer", recordWriter);
+        TableSchema restoredSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "name",
+                                        BasicType.STRING_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        restoredSchema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+
+        writer.applySchemaChange(new RestoreTableSchemaEvent(restoredTable));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"restored"});
+        writer.write(row);
+
+        verify(recordWriter).write(row, restoredSchema.toPhysicalRowDataType());
+        // A restore must update the row layout without replaying physical DDL.
+        verifyNoMoreInteractions(recordWriter);
+        verifyNoInteractions(tableLoader);
     }
 
     /**

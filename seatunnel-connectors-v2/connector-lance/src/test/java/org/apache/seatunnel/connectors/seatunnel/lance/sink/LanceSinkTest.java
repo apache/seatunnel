@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.lance.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -41,6 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisabledOnOs(OS.WINDOWS)
 public class LanceSinkTest {
@@ -209,8 +214,33 @@ public class LanceSinkTest {
                         new ArrayList<>(),
                         "test table");
 
-        sinkWriter.applySchemaChange(new RestoreTableSchemaEvent(restoredTable));
+        SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(
+                sinkWriter, new RestoreTableSchemaEvent(restoredTable));
         sinkWriter.write(new SeaTunnelRow(new Object[] {"restored", true, 1, 2, 3, 4L, 5.0f, 6.0}));
         sinkWriter.prepareCommit();
+    }
+
+    @Test
+    public void rejectLiveSchemaChangesInsteadOfSilentlyIgnoringThem() {
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, TABLE_NAME),
+                        PhysicalColumn.of(
+                                "new_column",
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                true,
+                                null,
+                                null));
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () ->
+                                SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(
+                                        sinkWriter, event));
+
+        assertTrue(exception.getMessage().contains("Lance sink does not support schema evolution"));
+        assertTrue(exception.getMessage().contains(DATABASE_NAME + "." + TABLE_NAME));
     }
 }

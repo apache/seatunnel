@@ -119,18 +119,24 @@ public class IcebergSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        // Waiting cdc connector support schema change event
-        if (config.isTableSchemaEvolutionEnabled() || event instanceof RestoreTableSchemaEvent) {
-            log.info("changed rowType before: {}", fieldsInfo(rowType));
-            this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
-            if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
-                this.tableSchema = event.getChangeAfter().getTableSchema();
-            }
-            log.info("changed rowType after: {}", fieldsInfo(rowType));
-            tryCreateRecordWriter();
-            if (!(event instanceof RestoreTableSchemaEvent)) {
-                writer.applySchemaChange(this.rowType, event);
-            }
+        // Checkpoint recovery refreshes runtime schema even when live DDL is disabled.
+        if (!config.isTableSchemaEvolutionEnabled()
+                && !(event instanceof RestoreTableSchemaEvent)) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "Iceberg sink received schema change event for table %s, but "
+                                    + "iceberg.table.schema-evolution-enabled is false.",
+                            event.tablePath()));
+        }
+        log.info("changed rowType before: {}", fieldsInfo(rowType));
+        this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+            this.tableSchema = event.getChangeAfter().getTableSchema();
+        }
+        log.info("changed rowType after: {}", fieldsInfo(rowType));
+        tryCreateRecordWriter();
+        if (!(event instanceof RestoreTableSchemaEvent)) {
+            writer.applySchemaChange(this.rowType, event);
         }
     }
 

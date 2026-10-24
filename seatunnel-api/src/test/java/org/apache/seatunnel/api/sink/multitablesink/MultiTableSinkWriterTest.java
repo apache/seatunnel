@@ -33,8 +33,12 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -126,6 +130,52 @@ public class MultiTableSinkWriterTest {
         IOException closeException =
                 Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+    }
+
+    @Test
+    public void testContinueOtherTablesIsolatesUnsupportedSchemaChange() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter unsupportedWriter = new RecordingSinkWriter(false);
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier unsupportedIdentifier = SinkIdentifier.of("test.unsupported", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
+        sinkWriters.put(unsupportedIdentifier, unsupportedWriter);
+        sinkWriters.put(healthyIdentifier, healthyWriter);
+        sinkWritersContext.put(unsupportedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH);
+
+        try {
+            coordinator.applySchemaChange(
+                    AlterTableAddColumnEvent.add(
+                            TableIdentifier.of("catalog", "test", "unsupported"),
+                            PhysicalColumn.of(
+                                    "added",
+                                    BasicType.STRING_TYPE,
+                                    (Long) null,
+                                    true,
+                                    null,
+                                    null)));
+            coordinator.write(buildRow("test.unsupported", 0));
+            coordinator.write(buildRow("test.healthy", 1));
+
+            MultiTableCommitInfo commitInfo = coordinator.prepareCommit(1L).get();
+            Assertions.assertEquals(
+                    Collections.singleton(healthyIdentifier), commitInfo.getCommitInfo().keySet());
+            Assertions.assertEquals(0, unsupportedWriter.getWriteCount());
+            Assertions.assertEquals(1, healthyWriter.getWriteCount());
+        } finally {
+            IOException failure = Assertions.assertThrows(IOException.class, coordinator::close);
+            Assertions.assertTrue(failure.getMessage().contains("test.unsupported"));
+            Assertions.assertTrue(failure.getMessage().contains("phase=checkpoint"));
+        }
     }
 
     @Test

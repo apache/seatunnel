@@ -885,12 +885,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
-        if (writer instanceof SupportSchemaEvolutionSinkWriter) {
-            ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
-        } else {
-            // todo remove deprecated method
-            writer.applySchemaChange(event);
-        }
+        SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(writer, event);
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {
