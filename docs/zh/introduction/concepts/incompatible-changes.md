@@ -4,6 +4,14 @@
 
 ## dev
 
+### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
+
+当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。
+
+现在这类值会报告解析错误，指出字段名和预期的容器类型；配置 `ignore-parse-errors = true` 时只把该容器值置为 `null`，同一行的其余值仍然保留。嵌套在数组或 Map 中的类似值同样如此：只有出错的那个嵌套值变为 `null`，其兄弟值和外层容器仍然保留；与声明类型匹配的空数组、空对象，以及 `null` 与缺失值，以及元素和键的转换行为保持不变。如需迁移，请为 `ARRAY` 字段提供真正的 JSON 数组、为 `MAP` 字段提供真正的 JSON 对象，或开启 `ignore-parse-errors = true`，使格式不合法的容器值变成 `null`而不是让作业失败。
+
+同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
