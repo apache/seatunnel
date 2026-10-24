@@ -28,6 +28,30 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
 
+## 读取已挂载的 DuckLake catalog
+
+通过 DuckDB JDBC 读取 DuckLake 时，每个连接都必须挂载目标湖。使用支持 `session_init_sql_file` 的 DuckDB JDBC 驱动（已用 1.3.1 验证），在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中放入：
+
+```sql
+/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
+LOAD ducklake;
+LOAD sqlite_scanner;
+ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+```
+
+JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。初始化文件应使用 `ATTACH IF NOT EXISTS`，因为一个 Worker 可能对同一 DuckDB 数据库建立多个连接，重复执行普通 `ATTACH` 会失败。每个 Worker 都需要能读取初始化文件和扩展。
+
+若作业只访问已挂载的 DuckLake 表，也可使用 `url = "jdbc:duckdb:;session_init_sql_file=/etc/duckdb/lake-init.sql"`，让每个 JDBC 连接使用独立的 DuckDB 内存实例（已用 JDBC 1.3.1 验证 Source/Sink 和重新连接）。湖数据仍持久化在元数据数据库和数据路径中。若使用文件形式的 `work.db`，应让它仅由一个 Worker JVM 使用；不要让多个 Worker 进程以读写模式打开同一文件，也不要为此将文件放到共享卷。原因见 [DuckDB 并发说明](https://duckdb.org/docs/stable/connect/concurrency.html)。
+
+若已有 DuckLake 的元数据存于 PostgreSQL，可将初始化文件中的 SQLite 语句替换为 `LOAD postgres` 和如下挂载语句：
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=lake_catalog host=pg.example.com port=5432'
+    AS lake (METADATA_SCHEMA 'lake_meta');
+```
+
+`lake_catalog` 是 PostgreSQL 数据库名，`lake_meta` 是存放 DuckLake 元数据的 PostgreSQL schema；`lake.main.events` 仍表示 DuckLake catalog、湖内 schema 和表。挂载前先创建 PostgreSQL 数据库及元数据 schema。**首次创建**湖时还需指定 `DATA_PATH 's3://bucket/prefix/'`；DuckLake 会将该路径写入元数据，之后重新连接已有湖可以省略 `DATA_PATH`（已用 DuckDB JDBC 1.3.1 验证）。PostgreSQL 认证和对象存储凭据仍须在每个 Worker 上可用；元数据不会提供这些凭据。凭据配置方式见 [DuckLake 连接参数](https://ducklake.select/docs/stable/duckdb/usage/connecting)，不要将密钥写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
+
 ## 主要功能
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -294,6 +318,19 @@ sink {
   Console {}
 }
 ```
+
+### DuckLake 快照一致性
+
+JDBC Source 的分片分别发起读取，连接器不会自动为整个作业固定 DuckLake 快照。如果批量抽取需要一致的湖表状态，应先确定一个仍保留的快照 ID，再让所有 Worker 的 Source 初始化脚本使用相同的 `SNAPSHOT_VERSION`：
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=ducklake_catalog host=metadata-host user=reader'
+AS lake (METADATA_SCHEMA 'lake_meta', SNAPSHOT_VERSION 2);
+```
+
+把 `2` 替换为 `SELECT * FROM lake.snapshots()` 返回的有效快照 ID，并在作业及其重试结束前保留该快照。固定快照的 catalog 用于历史读取，写入 Sink 应使用单独的初始化脚本。参见 [DuckLake 时间旅行](https://ducklake.select/docs/stable/duckdb/usage/time_travel)。
+
+`table_pattern` 或正则形式的 `table_path` 只搜索当前 DuckDB catalog。读取挂载 catalog 时，请通过三段式 `table_path` 或 `table_names` 显式列出表，例如 `lake.main.events`。Catalog 名称匹配不区分大小写；`main` 和 `default` 是当前 catalog 的保留别名，挂载湖时请使用其他别名。
 
 ## Changelog
 
