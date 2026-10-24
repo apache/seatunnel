@@ -53,6 +53,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-lineage</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-config-sql</artifactId>
             <version>${project.version}</version>
         </dependency>
