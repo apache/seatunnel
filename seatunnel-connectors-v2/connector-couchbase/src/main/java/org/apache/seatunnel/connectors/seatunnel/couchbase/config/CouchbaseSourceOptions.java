@@ -30,5 +30,10 @@ public class CouchbaseSourceOptions extends CouchbaseConfig {
             Options.key("query.timeout")
                     .intType()
                     .defaultValue(300)
-                    .withDescription("Maximum duration in seconds of the collection read query.");
+                    .withDescription(
+                            "Timeout in seconds for the whole collection query, including server-side"
+                                    + " result streaming, not just the first row. Increase this budget"
+                                    + " for large collections or slow downstream consumers. A timeout"
+                                    + " fails the read; recovery restarts from the beginning, not a"
+                                    + " checkpointed offset.");
 }

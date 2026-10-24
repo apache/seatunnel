@@ -36,7 +36,7 @@ The source requires `parallelism = 1`. It uses a single query and consumes rows 
 | collection | String | Yes | - | Collection to read. |
 | schema | Config | Yes | - | Explicit output schema; fields refer to document fields with matching names. |
 | ready.timeout | Int | No | 30 | Bucket readiness timeout, in seconds. Must be positive. |
-| query.timeout | Int | No | 300 | Collection query timeout, in seconds. Must be positive. |
+| query.timeout | Int | No | 300 | Timeout for the whole collection query, including server-side result streaming, in seconds. Not just time to the first row. Must be positive; increase for large collections or slow downstream consumers. |
 | common-options | Config | No | - | See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Prerequisites
@@ -58,6 +58,10 @@ Numeric values are preserved from the SQL++ response without an additional float
 The query is read-only and uses `REQUEST_PLUS` so that indexes catch up with mutations preceding the query. This is not a transactionally consistent snapshot: concurrent updates may affect the results. Quiesce writes if the job requires a stable export.
 
 The source checkpoints no document offset. On failure or restoration, it starts a new collection query from the beginning. Rows already emitted may be replayed, and concurrent collection changes can alter the new result. Use an idempotent downstream write strategy when replay is possible. This source does not provide exactly-once delivery, CDC, or incremental reads.
+
+`query.timeout` applies to the whole server-side query, including streaming the results, not only starting the query or receiving the first row. Although the SDK cancels its client-side request timer once streaming begins, Couchbase Server still enforces the query timeout and can fail the stream with error 1080. Downstream backpressure can therefore cause a long export to time out. This is not a separate deadline on processing rows already received from the server.
+
+The default remains 300 seconds (5 minutes). For large collections or slow downstream consumers, set `query.timeout` above the expected full export duration, allowing headroom for index catch-up, server load and downstream backpressure. For example, `query.timeout = 3600` provides a one-hour query budget; size it for your workload rather than treating this example as sufficient for every collection. A timeout fails the read without reporting successful completion. Recovery reruns the full query, not from the last emitted row; an unchanged timeout may cause repeated failures without progress. Row order is not guaranteed, even if the collection is unchanged.
 
 Cancellation stops an in-flight query, and reader closure releases the SDK connection. If cancellation occurs during the synchronous initial bucket-readiness check, that check can still run until `ready.timeout` (30 seconds by default). When the reader observes cancellation after readiness, opening fails and releases the connection. Query, authentication and conversion failures fail the job; they do not report a successfully completed collection.
 
