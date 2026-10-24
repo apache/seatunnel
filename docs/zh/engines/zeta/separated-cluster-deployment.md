@@ -113,27 +113,27 @@ seatunnel:
 
 ### 4.2 Slot配置（该参数在Master节点无效）
 
-Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为动态，即不限制个数。
+Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为静态，即slot数量固定（未设置 `slot-num` 时默认为CPU核心数的2倍）。
 我们建议slot的个数设置为节点CPU核心数的2倍, 这也是当 `dynamic-slot` 设置为 false 且未设置 `slot-num` 时的默认值。
 
-动态slot个数（默认）配置如下：
-
-```yaml
-seatunnel:
-    engine:
-        slot-service:
-            dynamic-slot: true
-        # 其他配置
-```
-
-静态slot个数配置如下：
+静态 Slot 数量配置方式如下（默认模式；下方 `slot-num` 为示例值）：
 
 ```yaml
 seatunnel:
     engine:
         slot-service:
             dynamic-slot: false
-            slot-num: 20
+            slot-num: 20  # 可选；未设置时默认为 CPU 核心数的 2 倍
+        # 其他配置
+```
+
+动态slot个数配置如下：
+
+```yaml
+seatunnel:
+    engine:
+        slot-service:
+            dynamic-slot: true
 ```
 
 :::tip
@@ -166,7 +166,7 @@ seatunnel:
         backup-count: 1
         print-execution-info-interval: 10
         slot-service:
-            dynamic-slot: true
+            dynamic-slot: false
         checkpoint:
             interval: 300000
             timeout: 10000
@@ -377,7 +377,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+当`dynamic-slot: true`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
 
 ### 4.8 Coordinator Service
 

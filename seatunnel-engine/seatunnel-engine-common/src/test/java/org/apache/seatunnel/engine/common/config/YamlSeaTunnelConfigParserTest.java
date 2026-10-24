@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -191,6 +192,71 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(1, checkpointConfig.getMonitorHistorySize());
         checkpointConfig.setMonitorHistorySize(max);
         Assertions.assertEquals(max, checkpointConfig.getMonitorHistorySize());
+    }
+
+    @Test
+    public void testSlotServiceDefaultsToStaticWhenSlotServiceBlockAbsent() throws IOException {
+        // Guards the dynamic-slot default flip (dynamic -> static): the option default, the
+        // SlotServiceConfig field initializer, and a parsed yaml without a slot-service block
+        // must all resolve to static slots, so a revert of the default is caught here.
+        Assertions.assertFalse(
+                ServerConfigOptions.WorkerServerConfigOptions.DYNAMIC_SLOT.defaultValue());
+        Assertions.assertFalse(new SlotServiceConfig().isDynamicSlot());
+
+        YamlSeaTunnelConfigLocator yamlConfigLocator =
+                new YamlSeaTunnelConfigLocator() {
+                    @Override
+                    protected boolean locateInWorkDir() {
+                        return loadFromWorkingDirectory(
+                                "no-slot-service-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+
+                    @Override
+                    protected boolean locateOnClasspath() {
+                        return loadConfigurationFromClasspath(
+                                "no-slot-service-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+                };
+        if (!yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
+            throw new RuntimeException("can't find yaml in resources");
+        }
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+
+        Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+        // the default slot number should be 2 * availableProcessors
+        Assertions.assertEquals(
+                Runtime.getRuntime().availableProcessors() * 2,
+                config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+    }
+
+    @Test
+    public void testSlotServiceFallsBackToStaticWhenDynamicSlotKeyAbsent() throws IOException {
+        // Guards the flipped default from the other direction than the no-slot-service yaml:
+        // a slot-service block that omits only the dynamic-slot key must resolve to the
+        // static default, while the remaining keys in the block (slot-num) are still honored.
+        YamlSeaTunnelConfigLocator yamlConfigLocator =
+                new YamlSeaTunnelConfigLocator() {
+                    @Override
+                    protected boolean locateInWorkDir() {
+                        return loadFromWorkingDirectory(
+                                "no-dynamic-slot-key-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+
+                    @Override
+                    protected boolean locateOnClasspath() {
+                        return loadConfigurationFromClasspath(
+                                "no-dynamic-slot-key-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+                };
+        if (!yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
+            throw new RuntimeException("can't find yaml in resources");
+        }
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+
+        Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+        Assertions.assertEquals(7, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
     }
 
     @Test
