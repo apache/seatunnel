@@ -111,6 +111,53 @@ class SeaTunnelSdkTest(unittest.TestCase):
         self.assertEqual("http://localhost:8080/logs/733584788375666689", url)
         self.assertEqual({"format": "json"}, kwargs["params"])
 
+    def test_job_exists_uses_explicit_found_marker(self):
+        response = httpx.Response(
+            200,
+            json={"jobId": "12345", "found": False},
+            request=httpx.Request("GET", "http://localhost:8080/job-info/12345"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        self.assertFalse(sdk.jobs.job_exists(12345))
+        self.assertEqual({"jobId": "12345", "found": False}, sdk.jobs.get_job_details(12345))
+
+    def test_job_exists_falls_back_to_job_status_for_older_servers(self):
+        response = httpx.Response(
+            200,
+            json={"jobId": "12345", "jobStatus": "RUNNING"},
+            request=httpx.Request("GET", "http://localhost:8080/job-info/12345"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        self.assertTrue(sdk.jobs.job_exists(12345))
+
+    def test_job_exists_rejects_old_status_less_response(self):
+        response = httpx.Response(
+            200,
+            json={"jobId": "12345"},
+            request=httpx.Request("GET", "http://localhost:8080/job-info/12345"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        self.assertFalse(sdk.jobs.job_exists(12345))
+
+    def test_job_exists_rejects_non_json_response(self):
+        response = httpx.Response(
+            200,
+            text="<html>gateway error</html>",
+            headers={"Content-Type": "text/html"},
+            request=httpx.Request("GET", "http://localhost:8080/job-info/12345"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        with self.assertRaises(TypeError):
+            sdk.jobs.job_exists(12345)
+
     def test_http_status_error_uses_response_message_and_preserves_cause(self):
         response = httpx.Response(
             400,
