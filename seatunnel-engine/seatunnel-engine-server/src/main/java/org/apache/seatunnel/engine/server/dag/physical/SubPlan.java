@@ -717,7 +717,9 @@ public class SubPlan {
                                 task.makeTaskGroupDeploy();
                             }
                         });
-                updatePipelineState(PipelineStatus.RUNNING);
+                if (areAllVerticesRunningOrFinished(coordinatorVertexList, physicalVertexList)) {
+                    updatePipelineState(PipelineStatus.RUNNING);
+                }
                 break;
             case RUNNING:
                 break;
@@ -763,5 +765,16 @@ public class SubPlan {
     public void makePipelineFailing(Throwable e) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
         updatePipelineState(PipelineStatus.FAILING);
+    }
+
+    static boolean areAllVerticesRunningOrFinished(
+            List<PhysicalVertex> coordinators, List<PhysicalVertex> tasks) {
+        return coordinators.stream().allMatch(SubPlan::isRunningOrFinished)
+                && tasks.stream().allMatch(SubPlan::isRunningOrFinished);
+    }
+
+    private static boolean isRunningOrFinished(PhysicalVertex vertex) {
+        return ExecutionState.RUNNING.equals(vertex.getExecutionState())
+                || ExecutionState.FINISHED.equals(vertex.getExecutionState());
     }
 }
