@@ -159,6 +159,22 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 > 提示：确保 `upper_bound - lower_bound` 能被 `partition_num` 整除，否则查询结果会重叠。
 
+### where [string]
+
+:::caution 保留配置项
+
+单表模式（根级 `sql`）：设置 `where` 对生成的切分查询没有任何效果——请把过滤条件直接写在
+`sql` 中，例如 `select * from test where age > 0`。该路径的切分解析器对 `where` 关键字区分大小写。
+
+`tables_configs` 多表模式：在某个表配置中设置 `where` 会在构建阶段直接抛出
+`OptionValidationException`（`InfluxDBSourceFactory` 校验拒绝）；该模式下的切分解析器对
+`where` 关键字不区分大小写。
+
+该配置项保留在选项列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）
+出于向后兼容仍然引用它；运行时的切分查询生成器并不会读取它。
+
+:::
+
 ### epoch [string]
 
 InfluxDB 返回的时间精度。可选值：`H`、`m`、`s`、`MS`、`u`、`n`，默认值为 `n`。
@@ -316,6 +332,57 @@ source {
 
 sink {
     Console {}
+}
+```
+
+### 有界读取与并行分片
+
+InfluxDB source 的读取范围由 `sql` 的结果决定。如果希望把它接到流式 sink 上且不丢数据，
+可以设置有限的 `partition_num`，让 SeaTunnel 通过 checkpoint 记录每个分片的读取进度。
+
+```hocon
+env {
+    parallelism = 2
+    job.mode = "BATCH"
+    checkpoint.interval = 10000
+}
+
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
+        database = "test"
+        lower_bound = 0
+        upper_bound = 99
+        partition_num = 4
+        split_column = "c_int"
+        query_timeout_sec = 10
+        connect_timeout_ms = 20000
+        schema {
+            fields {
+                label = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
+                time = BIGINT
+            }
+        }
+    }
+}
+
+sink {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        database = "test"
+        measurement = "sink"
+        key_time = "time"
+        key_tags = ["label"]
+        batch_size = 1024
+    }
 }
 ```
 

@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 写入数据。支持批处理和流处理模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
+通过 JDBC 写入数据。支持批处理和流处理模式，支持并发写入。由于 Vertica 没有提供 JDBC XA 数据源，不支持精确一次语义（XA 事务保证）。
 
 ## 使用依赖
 
