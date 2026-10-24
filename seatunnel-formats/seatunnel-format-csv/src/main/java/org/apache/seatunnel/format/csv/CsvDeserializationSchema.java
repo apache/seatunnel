@@ -41,6 +41,7 @@ import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -70,7 +71,7 @@ public class CsvDeserializationSchema implements Serializable {
     private final String nullFormat;
     private final CsvLineProcessor processor;
     private final CatalogTable catalogTable;
-    private final Map<String, Column> columnsByName;
+    private final Object[] defaultValues;
 
     @SuppressWarnings("MagicNumber")
     public static final DateTimeFormatter TIME_FORMAT =
@@ -79,7 +80,8 @@ public class CsvDeserializationSchema implements Serializable {
                     .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
                     .toFormatter();
 
-    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    // Formatters are derived from file data and are not serializable.
+    public transient Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     private CsvDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -94,12 +96,26 @@ public class CsvDeserializationSchema implements Serializable {
         this.nullFormat = nullFormat;
         this.processor = processor;
         this.catalogTable = catalogTable;
-        this.columnsByName = new HashMap<>();
+        Map<String, Column> columnsByName = new HashMap<>();
         if (catalogTable != null) {
             for (Column column : catalogTable.getTableSchema().getColumns()) {
                 columnsByName.put(column.getName(), column);
             }
         }
+        this.defaultValues = new Object[seaTunnelRowType.getTotalFields()];
+        for (int i = 0; i < defaultValues.length; i++) {
+            String fieldName = seaTunnelRowType.getFieldName(i);
+            defaultValues[i] =
+                    resolveDefaultValue(
+                            columnsByName.get(fieldName),
+                            seaTunnelRowType.getFieldType(i),
+                            fieldName);
+        }
+    }
+
+    private void readObject(ObjectInputStream input) throws IOException, ClassNotFoundException {
+        input.defaultReadObject();
+        fieldFormatterMap = new HashMap<>();
     }
 
     public static Builder builder() {
@@ -219,12 +235,15 @@ public class CsvDeserializationSchema implements Serializable {
     }
 
     private Object getDefaultValue(int fieldIndex) {
-        String fieldName = seaTunnelRowType.getFieldNames()[fieldIndex];
-        Column column = columnsByName.get(fieldName);
+        return copyDefaultValue(defaultValues[fieldIndex]);
+    }
+
+    /** Resolves defaults once, independently of the format learned from file data. */
+    private Object resolveDefaultValue(
+            Column column, SeaTunnelDataType<?> fieldType, String fieldName) {
         if (column == null || column.getDefaultValue() == null) {
             return null;
         }
-        SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(fieldIndex);
         try {
             return convertDefaultValue(column.getDefaultValue(), fieldType, fieldName);
         } catch (RuntimeException ignored) {
@@ -234,6 +253,36 @@ public class CsvDeserializationSchema implements Serializable {
                             "Invalid defaultValue for CSV column [%s] of type [%s]",
                             fieldName, fieldType));
         }
+    }
+
+    private Object copyDefaultValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            return ((byte[]) value).clone();
+        }
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            Object copy = Array.newInstance(value.getClass().getComponentType(), length);
+            for (int i = 0; i < length; i++) {
+                Array.set(copy, i, copyDefaultValue(Array.get(value, i)));
+            }
+            return copy;
+        }
+        if (value instanceof Map) {
+            Map<Object, Object> copy = new LinkedHashMap<>();
+            ((Map<?, ?>) value)
+                    .forEach(
+                            (key, mapValue) ->
+                                    copy.put(copyDefaultValue(key), copyDefaultValue(mapValue)));
+            return copy;
+        }
+        if (value instanceof SeaTunnelRow) {
+            Object[] fields = ((SeaTunnelRow) value).getFields();
+            return new SeaTunnelRow((Object[]) copyDefaultValue(fields));
+        }
+        return value;
     }
 
     private Object convertDefaultValue(
@@ -250,6 +299,26 @@ public class CsvDeserializationSchema implements Serializable {
                     throw new IllegalArgumentException("Boolean default must be true or false");
                 }
                 return Boolean.parseBoolean(value.toString());
+            case DATE:
+                if (value instanceof LocalDate) {
+                    return value;
+                }
+                break;
+            case TIME:
+                if (value instanceof LocalTime) {
+                    return value;
+                }
+                break;
+            case TIMESTAMP:
+                if (value instanceof LocalDateTime) {
+                    return value;
+                }
+                break;
+            case TIMESTAMP_TZ:
+                if (value instanceof OffsetDateTime) {
+                    return value;
+                }
+                break;
             case BYTES:
                 if (value instanceof byte[]) {
                     return ((byte[]) value).clone();
@@ -327,7 +396,7 @@ public class CsvDeserializationSchema implements Serializable {
             default:
                 break;
         }
-        Object converted = convert(value.toString(), fieldType, 0, fieldName);
+        Object converted = convert(value.toString(), fieldType, 0, fieldName, true);
         if (converted == null) {
             throw new IllegalArgumentException(
                     "Default value cannot be converted to CSV field type");
@@ -358,6 +427,15 @@ public class CsvDeserializationSchema implements Serializable {
 
     private Object convert(
             String field, SeaTunnelDataType<?> fieldType, int level, String fieldName) {
+        return convert(field, fieldType, level, fieldName, false);
+    }
+
+    private Object convert(
+            String field,
+            SeaTunnelDataType<?> fieldType,
+            int level,
+            String fieldName,
+            boolean isDefaultValue) {
         if (StringUtils.isBlank(field)) {
             return null;
         }
@@ -367,7 +445,8 @@ public class CsvDeserializationSchema implements Serializable {
                 String[] elements = field.split(separators[level + 1]);
                 ArrayList<Object> objectArrayList = new ArrayList<>();
                 for (String element : elements) {
-                    objectArrayList.add(convert(element, elementType, level + 1, fieldName));
+                    objectArrayList.add(
+                            convert(element, elementType, level + 1, fieldName, isDefaultValue));
                 }
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -411,11 +490,18 @@ public class CsvDeserializationSchema implements Serializable {
                 for (String kv : kvs) {
                     String[] splits = kv.split(separators[level + 2]);
                     if (splits.length < 2) {
-                        objectMap.put(convert(splits[0], keyType, level + 1, fieldName), null);
+                        objectMap.put(
+                                convert(splits[0], keyType, level + 1, fieldName, isDefaultValue),
+                                null);
                     } else {
                         objectMap.put(
-                                convert(splits[0], keyType, level + 1, fieldName),
-                                convert(splits[1], valueType, level + 1, fieldName));
+                                convert(splits[0], keyType, level + 1, fieldName, isDefaultValue),
+                                convert(
+                                        splits[1],
+                                        valueType,
+                                        level + 1,
+                                        fieldName,
+                                        isDefaultValue));
                     }
                 }
                 return objectMap;
@@ -442,11 +528,13 @@ public class CsvDeserializationSchema implements Serializable {
             case BYTES:
                 return field.getBytes(StandardCharsets.UTF_8);
             case DATE:
-                return parseDate(field, fieldName);
+                return isDefaultValue ? DateUtils.parse(field) : parseDate(field, fieldName);
             case TIME:
                 return parseTime(field);
             case TIMESTAMP:
-                return parseTimestamp(field, fieldName);
+                return isDefaultValue
+                        ? DateTimeUtils.parse(field)
+                        : parseTimestamp(field, fieldName);
             case TIMESTAMP_TZ:
                 return parseTimestampTz(field, fieldName);
             case ROW:
@@ -460,7 +548,8 @@ public class CsvDeserializationSchema implements Serializable {
                                     splitsMap.get(i),
                                     ((SeaTunnelRowType) fieldType).getFieldType(i),
                                     level + 1,
-                                    fieldName + "." + eleFieldNames[i]);
+                                    fieldName + "." + eleFieldNames[i],
+                                    isDefaultValue);
                 }
                 return new SeaTunnelRow(objects);
             default:

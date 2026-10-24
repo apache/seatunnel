@@ -476,6 +476,7 @@ abc.*
 
 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。
 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。
+CSV 默认值在创建读取器时进行校验。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。
 
 例如：`\N`
 

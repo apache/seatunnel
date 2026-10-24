@@ -41,6 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,7 +65,9 @@ public class CsvReadStrategyTest {
                                 + "schema { columns = ["
                                 + "{ name = \"id\", type = \"int\", nullable = false, defaultValue = 7 },"
                                 + "{ name = \"name\", type = \"string\", nullable = false, defaultValue = \"unknown\" },"
-                                + "{ name = \"optional\", type = \"string\", nullable = true }"
+                                + "{ name = \"optional\", type = \"string\", nullable = true },"
+                                + "{ name = \"date\", type = \"date\", defaultValue = \"2020-01-01\" },"
+                                + "{ name = \"timestamp\", type = \"timestamp\", defaultValue = \"2020-01-01 12:34:56\" }"
                                 + "] }");
         CatalogTable catalogTable =
                 CatalogTable.of(
@@ -87,6 +91,15 @@ public class CsvReadStrategyTest {
             Assertions.assertEquals(8, collector.getRows().get(1).getField(0));
             Assertions.assertEquals("unknown", collector.getRows().get(1).getField(1));
             Assertions.assertNull(collector.getRows().get(1).getField(2));
+            Assertions.assertEquals(
+                    LocalDate.of(2020, 1, 1), collector.getRows().get(0).getField(3));
+            Assertions.assertEquals(
+                    LocalDateTime.of(2024, 2, 3, 4, 5, 6), collector.getRows().get(0).getField(4));
+            Assertions.assertEquals(
+                    LocalDate.of(2024, 2, 3), collector.getRows().get(1).getField(3));
+            Assertions.assertEquals(
+                    LocalDateTime.of(2020, 1, 1, 12, 34, 56),
+                    collector.getRows().get(1).getField(4));
         }
     }
 
