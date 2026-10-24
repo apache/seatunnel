@@ -23,15 +23,16 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.iceberg.FileContent;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 /** Iceberg aggregated committer */
-@Slf4j
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
@@ -55,7 +56,15 @@ public class IcebergAggregatedCommitter
     public List<IcebergAggregatedCommitInfo> commit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            commitFiles(commitInfo.getCommitInfos(), commitInfo.getCheckpointId());
+            Map<Long, List<IcebergCommitInfo>> checkpoints = new LinkedHashMap<>();
+            for (IcebergCommitInfo writer : commitInfo.getCommitInfos()) {
+                checkpoints
+                        .computeIfAbsent(writer.getCheckpointId(), ignored -> new ArrayList<>())
+                        .add(writer);
+            }
+            for (Map.Entry<Long, List<IcebergCommitInfo>> checkpoint : checkpoints.entrySet()) {
+                commitFiles(checkpoint.getValue(), checkpoint.getKey());
+            }
         }
         return Collections.emptyList();
     }
@@ -63,18 +72,9 @@ public class IcebergAggregatedCommitter
     @Override
     public List<IcebergAggregatedCommitInfo> restoreCommit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            long checkpointId = commitInfo.getCheckpointId();
-            List<WriteResult> allResults = flattenResults(commitInfo.getCommitInfos());
-            if (filesCommitter.isAlreadyCommitted(checkpointId, allResults)) {
-                log.info(
-                        "Checkpoint {} already committed to Iceberg table, skipping restore commit",
-                        checkpointId);
-                continue;
-            }
-            commitFiles(commitInfo.getCommitInfos(), checkpointId);
-        }
-        return Collections.emptyList();
+        // Flink also replays recovered committables through ordinary commit(). Both paths must
+        // use the same publication check, rather than relying on engine-specific restore routing.
+        return commit(aggregatedCommitInfo);
     }
 
     @Override
@@ -91,16 +91,52 @@ public class IcebergAggregatedCommitter
     }
 
     private void commitFiles(List<IcebergCommitInfo> commitInfos, long checkpointId) {
-        List<WriteResult> allResults = flattenResults(commitInfos);
-        if (!allResults.isEmpty()) {
-            filesCommitter.doCommit(allResults, checkpointId);
+        List<List<WriteResult>> groups = orderedGroups(commitInfos);
+        for (int group = 0; group < groups.size(); group++) {
+            if (groups.size() == 1) {
+                filesCommitter.doCommit(groups.get(group), checkpointId);
+            } else {
+                filesCommitter.doCommit(groups.get(group), checkpointId, group, groups.size());
+            }
         }
     }
 
-    private List<WriteResult> flattenResults(List<IcebergCommitInfo> commitInfos) {
-        return commitInfos.stream()
-                .filter(info -> info.getResults() != null && !info.getResults().isEmpty())
-                .flatMap(info -> info.getResults().stream())
-                .collect(Collectors.toList());
+    private List<List<WriteResult>> orderedGroups(List<IcebergCommitInfo> commitInfos) {
+        int rounds = 0;
+        for (IcebergCommitInfo writer : commitInfos) {
+            if (writer.getResults() != null) {
+                rounds = Math.max(rounds, writer.getResults().size());
+            }
+        }
+        List<List<WriteResult>> groups = new ArrayList<>();
+        List<WriteResult> pending = new ArrayList<>();
+        for (int round = 0; round < rounds; round++) {
+            List<WriteResult> results = new ArrayList<>();
+            for (IcebergCommitInfo writer : commitInfos) {
+                if (writer.getResults() != null && round < writer.getResults().size()) {
+                    results.add(writer.getResults().get(round));
+                }
+            }
+            // A reset writer cannot position-delete an earlier generation's rows. Its equality
+            // deletes require an older data sequence number, hence a separate snapshot.
+            boolean equalityDeletes =
+                    results.stream()
+                            .filter(result -> result.getDeleteFiles() != null)
+                            .flatMap(result -> result.getDeleteFiles().stream())
+                            .anyMatch(
+                                    file ->
+                                            file.recordCount() > 0
+                                                    && file.content()
+                                                            == FileContent.EQUALITY_DELETES);
+            if (equalityDeletes && !pending.isEmpty()) {
+                groups.add(pending);
+                pending = new ArrayList<>();
+            }
+            pending.addAll(results);
+        }
+        if (!pending.isEmpty()) {
+            groups.add(pending);
+        }
+        return groups;
     }
 }

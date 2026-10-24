@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Iceberg: ordered publication after writer rotation
+
+For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produce multiple ordered snapshots instead of one. This fixes stale rows when a later writer's equality deletes previously shared the same data sequence number as earlier rows. Each group is atomic, but external readers may observe a prefix of the checkpoint between groups, including while a failed commit is recovered. Single-generation checkpoints and append-only rotations without equality-delete dependencies retain one snapshot. Retain snapshot history and pending files until recovery is no longer needed; checkpoint and group numbers alone are not publication identities.
+
 ### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
 
 When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
