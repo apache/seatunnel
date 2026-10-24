@@ -29,6 +29,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
 
@@ -94,6 +95,9 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(
                 32L * 1024 * 1024,
                 config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeBytes());
+        Assertions.assertEquals(
+                Arrays.asList("JOB_NAME", "SOURCE_URL"),
+                config.getEngineConfig().getHttpConfig().getHoconEnvironmentVariableAllowlist());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
