@@ -20,7 +20,6 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
@@ -30,7 +29,6 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class ConfigValueUtils {
@@ -88,12 +86,7 @@ public class ConfigValueUtils {
     public static ConfigValue parseStructured(String value) {
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
-            ConfigValue parsedValue = parsed.root().get("v");
-            if (parsedValue instanceof List) {
-                ConfigList parsedList = (ConfigList) parsedValue;
-                return processAmbiguousFormatInBrackets(value, parsedList);
-            }
-            return parsedValue;
+            return parsed.root().get("v");
         } catch (ConfigException e) {
             throw new ConfigException.BadValue(
                     ConfigOriginFactory.newSimple(),
@@ -105,28 +98,6 @@ public class ConfigValueUtils {
                             value),
                     e);
         }
-    }
-
-    /**
-     * check ambiguous format in [] For example: config file : option=[${name}] or
-     * option="${name:[0-9]}" or option="${name:["0-9"]}" -i name=[0-9] -> k:string "[0-9]" -i
-     * name=["0-9"]-> k: a list contains single element "0-9",`"` is not a part of the element
-     *
-     * @param inputValue user input value from cli or default value from config file
-     * @param parsedList HOCON parsed list with text inside brackets
-     * @return processed ConfigValue
-     */
-    private static ConfigValue processAmbiguousFormatInBrackets(
-            String inputValue, ConfigList parsedList) {
-        String content = inputValue.substring(1, inputValue.length() - 1);
-        if ((parsedList).size() == 1) {
-            if (content.startsWith("\"") && content.endsWith("\"")) {
-                return parsedList;
-            } else {
-                return ConfigValueFactory.fromAnyRef(inputValue);
-            }
-        }
-        return parsedList;
     }
 
     /**
