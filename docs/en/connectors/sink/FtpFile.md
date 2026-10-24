@@ -410,27 +410,13 @@ FtpFile {
 
 ```
 
-### Writing via SFTP
+### Writing to an SFTP Server
 
-The `FtpFile` sink supports `sftp://` URIs alongside `ftp://`. Authentication and host-key trust are configured the same way as for the source — SSH key or password plus a `known_hosts` file (the connector does not auto-trust unknown hosts).
-
-```hocon
-sink {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "parquet"
-    ftp_properties = {
-      "fs.sftp.user."      = "seatunnel"
-      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"       = "sftp.example.example.com"
-      "fs.sftp.port"       = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
+The `FtpFile` sink only speaks the plain FTP protocol: it always builds an `ftp://`
+connection from the `host`/`port` options, and `fs.defaultFS` / `ftp_properties`
+are not supported options of this sink. To write to an SFTP server (SSH File
+Transfer Protocol), use the [SftpFile](SftpFile.md) sink instead, which supports
+password and SSH private key (`keyfile`) authentication.
 
 
 ## Changelog
