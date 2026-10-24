@@ -6,6 +6,7 @@ import ChangeLog from '../changelog/connector-cdc-mysql.md';
 
 ## 支持这些引擎
 
+> Spark<br/>
 > SeaTunnel Zeta<br/>
 > Flink <br/>
 
@@ -32,7 +33,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 ### 安装Jdbc驱动
 
-#### 对于Flink引擎
+#### 对于Spark/Flink引擎
 
 > 1. 你需要确保 [jdbc 驱动 jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 已经放在目录 `${SEATUNNEL_HOME}/plugins/`.
 
@@ -675,6 +676,15 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 ### 如何处理时区和字符集问题？
 
 将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
+
+### MySQL CDC 能在 Spark 引擎上运行吗？
+
+可以。无论 `BATCH` 还是 `STREAMING` 作业，Spark 引擎都在一个 Spark task 中运行该数据源，这个 task 同时包含分片枚举器和所有 reader，`parallelism` 决定其中 reader 的数量。
+Spark 不会为该数据源做 checkpoint，因此：
+
+- 作业无法从 checkpoint 恢复，重启的作业会按 `startup.mode` 重新开始。
+- 只在 checkpoint 或批次写满时才写出的 sink 可能会暂时攒住数据，例如使用默认 `batch_size` 的 JDBC sink。需要数据及时写出时，请调小 `batch_size`。
+- 不支持通过 Spark 微批流式读取（`readStream`）该数据源。
 
 ## 另请参阅
 
