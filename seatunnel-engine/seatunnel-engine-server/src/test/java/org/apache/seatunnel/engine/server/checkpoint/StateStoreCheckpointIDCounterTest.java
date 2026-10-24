@@ -70,6 +70,7 @@ class StateStoreCheckpointIDCounterTest {
 
         assertThrows(NullPointerException.class, counter::get);
         assertThrows(NullPointerException.class, counter::getAndIncrement);
+        assertThrows(NullPointerException.class, () -> counter.advanceToAtLeast(10L));
     }
 
     @Test
@@ -82,6 +83,32 @@ class StateStoreCheckpointIDCounterTest {
         counter.shutdown(PipelineStatus.FINISHED).join();
 
         assertNull(store.get(key));
+    }
+
+    @Test
+    void applicationRecoveryShouldPreserveSuccessorAllocations() throws Exception {
+        HazelcastCounterStateStore<String> store = newStore("checkpoint-id-counter-recovery");
+        StateStoreCheckpointIDCounter stale = new StateStoreCheckpointIDCounter(4L, 1, store);
+        StateStoreCheckpointIDCounter successor = new StateStoreCheckpointIDCounter(4L, 1, store);
+        stale.start();
+        successor.advanceToAtLeast(24L);
+        stale.advanceToAtLeast(13L);
+
+        assertEquals(24L, successor.getAndIncrement());
+        assertEquals(25L, stale.get());
+        successor.shutdown(PipelineStatus.FINISHED).join();
+        assertThrows(NullPointerException.class, () -> stale.advanceToAtLeast(13L));
+    }
+
+    @Test
+    void setCountShouldRetainLegacyOverwriteBehavior() throws Exception {
+        HazelcastCounterStateStore<String> store = newStore("checkpoint-id-counter-overwrite");
+        StateStoreCheckpointIDCounter counter = new StateStoreCheckpointIDCounter(5L, 1, store);
+        counter.start();
+        counter.setCount(24L);
+        counter.setCount(13L);
+
+        assertEquals(13L, counter.get());
     }
 
     private HazelcastCounterStateStore<String> newStore(String mapName) {

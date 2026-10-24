@@ -73,3 +73,7 @@ Job 会一直处于 `Active`，`status --wait` 会持续轮询；可以用 `--wa
 - 不在日志中暴露 Connector 凭据，优先使用 Connector、文件系统或集群支持的凭据机制。
 - 将 `kubernetes.kubeconfig` 写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认配置。不要通过 `-i` 传递，因为提交主机上的其他用户可能看到命令行参数。
 - 使用 NetworkPolicy 时仅放行需要的 Hazelcast 与外部数据系统流量。
+
+## 启用 HA
+
+本页描述默认单 Master 部署。要启用原生 Master 切换和固定 Worker，请遵循 [Application HA](architecture.md) 的额外 RBAC 与持久存储要求。HA 优先以原生终态 annotation 判定 application 状态；自建挂载配置保留至 owner Job TTL，以支持清理重试。

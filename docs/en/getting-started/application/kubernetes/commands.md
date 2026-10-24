@@ -52,12 +52,7 @@ reached, while the default `0` keeps waiting indefinitely; `--wait-interval` set
 
 ## cancel
 
-`cancel` deletes the owner Job of the application. Owned Pods, Services, Secrets and ConfigMaps are
-garbage-collected through the owner reference; referenced objects created outside SeaTunnel are
-never modified or deleted. After cancellation the application reports `CANCELED`, and a finished
-Job is retained until `kubernetes.finished-job-retention-seconds` expires. A canceled master exits
-with code 1, because a Kubernetes Job cannot express `CANCELED`, so the Job object ends in the
-`Failed` state while `status` reports `CANCELED`.
+For single-master and HA applications, `cancel` deletes the owner Job and owned resources. HA uses a UID precondition; single-master mode still cleans orphan Pods after Job deletion. The same handle reports `CANCELED`; a fresh handle sees `UNKNOWN` after deletion. Referenced user resources are preserved. Cancellation through the native engine instead of the application command can leave a terminal Job until its retention TTL.
 
 ## Inspecting in Kubernetes
 
@@ -76,3 +71,7 @@ not replace Pod events and logs when a start-up problem has to be explained.
 :::
 
 See [Configuration](configuration.md) for the deployment options these commands accept.
+
+## Ordinary HA applications
+
+With [HA enabled](architecture.md#opt-in-application-ha), submission also creates a dual-master StatefulSet and fixed worker Pods. Status prefers the durable native outcome over the observer Job exit condition. `cancel` deletes the owner Job and owned resources immediately through garbage collection; it does not retain a canceled Job. A fresh status request after deletion returns `UNKNOWN`. Native job cancellation observed by the owner instead records `CANCELED` until the owner Job TTL. Inspect compute with `kubectl get statefulsets,pods,services -l seatunnel.apache.org/application-id=APPLICATION_ID`.

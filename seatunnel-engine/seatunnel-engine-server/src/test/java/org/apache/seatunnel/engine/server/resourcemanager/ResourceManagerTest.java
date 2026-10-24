@@ -591,4 +591,28 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         .preCheckWorkerResource(new ResourceProfile());
         Assertions.assertEquals(result.isPresent(), dynamicSlot);
     }
+
+    @Test
+    void eachApplicationCoordinatorGetsAFreshDriver() {
+        java.util.concurrent.atomic.AtomicInteger creations =
+                new java.util.concurrent.atomic.AtomicInteger();
+        org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification specification =
+                mock(org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification.class);
+        ResourceManagerFactory factory =
+                ResourceManagerFactory.forApplication(
+                        "app",
+                        specification,
+                        () -> {
+                            creations.incrementAndGet();
+                            return mock(ResourceManagerDriver.class);
+                        });
+        ResourceManager first =
+                factory.createResourceManager(mock(NodeEngine.class), new EngineConfig());
+        ResourceManager second =
+                factory.createResourceManager(mock(NodeEngine.class), new EngineConfig());
+        Assertions.assertTrue(first instanceof ApplicationResourceManager);
+        Assertions.assertTrue(second instanceof ApplicationResourceManager);
+        Assertions.assertNotSame(first, second);
+        Assertions.assertEquals(2, creations.get());
+    }
 }

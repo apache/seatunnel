@@ -41,6 +41,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -70,12 +71,107 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
+
+    @Test
+    void testStatusInitializationPreservesEveryTerminalStatusAndCompletesFuture() throws Exception {
+        long jobId = 77105200L;
+        IMap<Object, Object> states = instance.getMap(IMAP_RUNNING_JOB_STATE);
+        for (CheckpointCoordinatorStatus status : CheckpointCoordinatorStatus.values()) {
+            if (!status.isEndState()) {
+                continue;
+            }
+            states.put("checkpoint_state_" + jobId + "_1", status);
+            CheckpointCoordinator coordinator =
+                    createStatusInitializationCoordinator(jobId, states);
+            Assertions.assertEquals(status, states.get("checkpoint_state_" + jobId + "_1"));
+            Assertions.assertEquals(
+                    status,
+                    coordinator
+                            .waitCheckpointCoordinatorComplete()
+                            .get(5, TimeUnit.SECONDS)
+                            .getCheckpointCoordinatorStatus());
+            jobId++;
+        }
+    }
+
+    @Test
+    void testStatusInitializationPreservesAbsentAndActiveState() {
+        long jobId = 77105210L;
+        String key = "checkpoint_state_" + jobId + "_1";
+        IMap<Object, Object> states = instance.getMap(IMAP_RUNNING_JOB_STATE);
+        states.remove(key);
+        CheckpointCoordinator absent = createStatusInitializationCoordinator(jobId, states);
+        Assertions.assertNull(states.get(key));
+        Assertions.assertFalse(absent.waitCheckpointCoordinatorComplete().isDone());
+
+        states.put(key, CheckpointCoordinatorStatus.RUNNING);
+        CheckpointCoordinator active = createStatusInitializationCoordinator(jobId, states);
+        Assertions.assertEquals(CheckpointCoordinatorStatus.RUNNING, states.get(key));
+        Assertions.assertFalse(active.waitCheckpointCoordinatorComplete().isDone());
+    }
+
+    @Test
+    void testStatusInitializationRetriesBeforeCompletingFuture() throws Exception {
+        long jobId = 77105211L;
+        String key = "checkpoint_state_" + jobId + "_1";
+        IMap<Object, Object> backing = instance.getMap(IMAP_RUNNING_JOB_STATE);
+        backing.put(key, CheckpointCoordinatorStatus.FINISHED);
+        IMap<Object, Object> delayed = Mockito.spy(backing);
+        List<Object> observed = new ArrayList<>();
+        AtomicBoolean first = new AtomicBoolean(true);
+        Mockito.doAnswer(
+                        call -> {
+                            BiFunction<Object, Object, Object> initialize = call.getArgument(1);
+                            return backing.computeIfPresent(
+                                    key,
+                                    (stateKey, current) -> {
+                                        observed.add(current);
+                                        Object next = initialize.apply(stateKey, current);
+                                        if (first.compareAndSet(true, false)) {
+                                            backing.put(key, CheckpointCoordinatorStatus.CANCELED);
+                                        }
+                                        return next;
+                                    });
+                        })
+                .when(delayed)
+                .computeIfPresent(ArgumentMatchers.eq(key), ArgumentMatchers.any());
+
+        CheckpointCoordinator coordinator = createStatusInitializationCoordinator(jobId, delayed);
+        Assertions.assertEquals(
+                Arrays.asList(
+                        CheckpointCoordinatorStatus.FINISHED, CheckpointCoordinatorStatus.CANCELED),
+                observed);
+        Assertions.assertEquals(CheckpointCoordinatorStatus.CANCELED, backing.get(key));
+        Assertions.assertEquals(
+                CheckpointCoordinatorStatus.CANCELED,
+                coordinator
+                        .waitCheckpointCoordinatorComplete()
+                        .get(5, TimeUnit.SECONDS)
+                        .getCheckpointCoordinatorStatus());
+    }
+
+    private CheckpointCoordinator createStatusInitializationCoordinator(
+            long jobId, IMap<Object, Object> states) {
+        return new CheckpointCoordinator(
+                Mockito.mock(CheckpointManager.class),
+                Mockito.mock(CheckpointStorage.class),
+                new CheckpointConfig(),
+                jobId,
+                CheckpointPlan.builder().pipelineId(1).build(),
+                Mockito.mock(CheckpointIDCounter.class),
+                null,
+                instance.getExecutorService("test"),
+                states,
+                false,
+                null);
+    }
 
     @Test
     void testACKNotExistPendingCheckpoint() {
@@ -223,6 +319,8 @@ public class CheckpointCoordinatorTest
         ExecutorService executorService = Executors.newCachedThreadPool();
         JobMaster mockJobMaster = Mockito.mock(JobMaster.class);
         Mockito.when(mockJobMaster.getJobId()).thenReturn(1L);
+        Mockito.when(mockJobMaster.getCoordinatorService())
+                .thenReturn(server.getCoordinatorService());
         Mockito.when(mockJobMaster.isNeedRestore()).thenReturn(false);
         Mockito.when(mockJobMaster.queryTaskGroupAddress(Mockito.any(TaskGroupLocation.class)))
                 .thenReturn(nodeEngine.getThisAddress());

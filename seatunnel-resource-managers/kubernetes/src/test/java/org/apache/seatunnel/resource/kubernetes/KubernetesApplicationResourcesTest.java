@@ -45,6 +45,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -63,10 +64,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1274,6 +1277,31 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    void haRejectsUnsupportedClientAndMainClassBeforeCreatingResources() throws Exception {
+        Map<String, String> values = options();
+        values.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        values.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        KubernetesClient api = mock(KubernetesClient.class);
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, values)) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> descriptor.deployApplication(specification()));
+            org.mockito.Mockito.verify(api, org.mockito.Mockito.never())
+                    .createJob(org.mockito.ArgumentMatchers.any());
+        }
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(values)));
+        assertEquals(1, parameters.getHaBackupCount());
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", "custom.Main", parameters));
+    }
+
+    @Test
     void rejectsInvalidHazelcastConfigurationFiles() {
         Map<String, String> invalidSuffix = options();
         invalidSuffix.put(KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), "hazelcast.properties");
@@ -1797,7 +1825,8 @@ class KubernetesApplicationResourcesTest {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.getJob(job.getName())).thenReturn(job);
         try (KubernetesResourceManagerDriver driver =
-                new KubernetesResourceManagerDriver(api, parameters, job.getName(), clusterName)) {
+                new KubernetesResourceManagerDriver(
+                        api, parameters, job.getName(), clusterName, job.getUid())) {
             driver.initialize(
                     mock(ResourceEventHandler.class),
                     mock(ScheduledExecutorService.class),
@@ -1813,5 +1842,210 @@ class KubernetesApplicationResourcesTest {
         options.put(KubernetesOptions.KUBE_CONFIG.key(), "/submitter-kubeconfig");
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
         return options;
+    }
+
+    @Test
+    void haUsesDualMastersStableServiceAndRoleSpecificPods() throws Exception {
+        Map<String, String> values = options();
+        values.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        values.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        values.put(KubernetesOptions.HA_BACKUP_COUNT.key(), "1");
+        values.put(KubernetesOptions.CHECKPOINT_PVC.key(), "shared-checkpoints");
+        values.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "/custom/seatunnel.yaml");
+        values.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "/custom/log4j.properties");
+        values.put("kubernetes.env.TEST_VALUE", "retained");
+        values.put("kubernetes.secret.data.synthetic", "fixture-only");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(values)));
+        List<KubernetesResource<?>> resources =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "ha-app",
+                        org.apache.seatunnel.resource.kubernetes.cli
+                                .SeatunnelKubernetesApplicationCli.class
+                                .getName(),
+                        parameters);
+        KubernetesJob owner = (KubernetesJob) resources.get(0);
+        assertEquals(6, owner.getInternalResource().getSpec().getBackoffLimit());
+        assertTrue(owner.getInternalResource().getSpec().getSuspend());
+        V1Pod observer =
+                new V1Pod()
+                        .metadata(owner.getInternalResource().getSpec().getTemplate().getMetadata())
+                        .spec(owner.getInternalResource().getSpec().getTemplate().getSpec());
+        assertEquals(
+                "owner", observer.getMetadata().getLabels().get(KubernetesConstants.ROLE_LABEL));
+        assertNull(observer.getSpec().getContainers().get(0).getStartupProbe());
+        assertTrue(
+                observer.getSpec().getContainers().get(0).getCommand().stream()
+                        .noneMatch(arg -> arg.contains("/custom/")));
+        assertTrue(observer.getSpec().getAutomountServiceAccountToken());
+        assertNull(observer.getSpec().getVolumes());
+        assertNull(observer.getSpec().getContainers().get(0).getEnvFrom());
+        assertTrue(
+                observer.getSpec().getContainers().get(0).getEnv().stream()
+                        .noneMatch(
+                                env ->
+                                        KubernetesConstants.SPECIFICATION_ENV.equals(env.getName())
+                                                || "TEST_VALUE".equals(env.getName())));
+        assertTrue(
+                observer.getSpec().getVolumes() == null
+                        || observer.getSpec().getVolumes().stream()
+                                .noneMatch(v -> v.getPersistentVolumeClaim() != null));
+        assertNull(observer.getSpec().getContainers().get(0).getLivenessProbe());
+        assertEquals(
+                "100m",
+                observer.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getResources()
+                        .getRequests()
+                        .get("cpu")
+                        .toSuffixedString());
+        V1Container observerContainer = observer.getSpec().getContainers().get(0);
+        assertEquals(
+                "256Mi",
+                observerContainer.getResources().getRequests().get("memory").toSuffixedString());
+        assertEquals(
+                "256Mi",
+                observerContainer.getResources().getLimits().get("memory").toSuffixedString());
+        assertEquals(
+                Collections.singletonList("-Xmx96m"),
+                observerContainer.getCommand().stream()
+                        .filter(
+                                argument ->
+                                        argument.startsWith(
+                                                KubernetesConstants.JVM_MAX_HEAP_PREFIX))
+                        .collect(Collectors.toList()));
+        owner.getInternalResource().getMetadata().setUid("uid-1");
+        V1Pod worker =
+                workerPod(
+                                owner,
+                                "ha-app-worker-0",
+                                parameters,
+                                specification().getWorkerSpecification(),
+                                "ha-cluster",
+                                "master:5801")
+                        .getInternalResource();
+        assertFalse(worker.getSpec().getAutomountServiceAccountToken());
+        assertTrue(
+                worker.getSpec().getVolumes() == null
+                        || worker.getSpec().getVolumes().stream()
+                                .noneMatch(v -> v.getPersistentVolumeClaim() != null));
+        assertNull(worker.getSpec().getContainers().get(0).getStartupProbe());
+        assertTrue(worker.getSpec().getContainers().get(0).getCommand().contains("--ha"));
+        int pools = 0;
+        for (KubernetesResource<?> resource : resources) {
+            if (resource
+                    instanceof
+                    org.apache.seatunnel.resource.kubernetes.kubeclient.resources
+                            .KubernetesStatefulSet) {
+                io.kubernetes.client.openapi.models.V1StatefulSet pool =
+                        ((org.apache.seatunnel.resource.kubernetes.kubeclient.resources
+                                                .KubernetesStatefulSet)
+                                        resource)
+                                .getInternalResource();
+                pools++;
+                assertEquals(
+                        "ha-app",
+                        pool.getMetadata().getLabels().get(KubernetesConstants.APPLICATION_LABEL));
+                assertEquals("ha-app-discovery", pool.getSpec().getServiceName());
+                assertEquals("Always", pool.getSpec().getTemplate().getSpec().getRestartPolicy());
+                assertTrue(
+                        pool.getSpec().getTemplate().getSpec().getAutomountServiceAccountToken());
+                assertTrue(
+                        pool.getSpec().getTemplate().getSpec().getVolumes().stream()
+                                .anyMatch(
+                                        volume ->
+                                                volume.getPersistentVolumeClaim() != null
+                                                        && "shared-checkpoints"
+                                                                .equals(
+                                                                        volume.getPersistentVolumeClaim()
+                                                                                .getClaimName())));
+                assertTrue(
+                        pool.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv()
+                                .stream()
+                                .anyMatch(
+                                        env ->
+                                                "TEST_VALUE".equals(env.getName())
+                                                        && "retained".equals(env.getValue())));
+                assertEquals(
+                        pool.getMetadata().getLabels(),
+                        pool.getSpec().getSelector().getMatchLabels());
+                assertEquals(2, pool.getSpec().getReplicas());
+            }
+        }
+        assertEquals(1, pools);
+        List<KubernetesService> services =
+                resources.stream()
+                        .filter(resource -> resource instanceof KubernetesService)
+                        .map(resource -> (KubernetesService) resource)
+                        .collect(java.util.stream.Collectors.toList());
+        assertEquals(2, services.size());
+        KubernetesService external =
+                services.stream()
+                        .filter(service -> service.getName().equals("ha-app"))
+                        .findFirst()
+                        .get();
+        assertNull(external.getInternalResource().getSpec().getClusterIP());
+        assertEquals(
+                "ha-app",
+                external.getInternalResource()
+                        .getSpec()
+                        .getSelector()
+                        .get(KubernetesConstants.APPLICATION_LABEL));
+        assertEquals(
+                java.util.Arrays.asList(
+                        "ha-app-master-0.ha-app-discovery.default.svc:5801",
+                        "ha-app-master-1.ha-app-discovery.default.svc:5801"),
+                org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory
+                        .masterAddresses("ha-app", parameters));
+        StringWriter written = new StringWriter();
+        parameters.write(written);
+        KubernetesApplicationConfig decoded =
+                KubernetesApplicationConfig.read(
+                        java.util.Base64.getEncoder()
+                                .encodeToString(
+                                        written.toString()
+                                                .getBytes(
+                                                        java.nio.charset.StandardCharsets.UTF_8)));
+        assertTrue(decoded.isHaEnabled());
+        assertEquals(2, decoded.getMasterReplicas());
+        assertEquals(1, decoded.getHaBackupCount());
+    }
+
+    @Test
+    void rejectsInvalidHaBeforeAnyResourceMutation() throws Exception {
+        for (String[] combination :
+                new String[][] {
+                    {"true", "1", "1"},
+                    {"true", "2", "0"},
+                    {"true", "2", "2"},
+                    {"false", "2", "1"},
+                    {"true", "8", "7"},
+                    {"true", "3", "1"}
+                }) {
+            Map<String, String> values = options();
+            values.put(KubernetesOptions.HA_ENABLED.key(), combination[0]);
+            values.put(KubernetesOptions.MASTER_REPLICAS.key(), combination[1]);
+            values.put(KubernetesOptions.HA_BACKUP_COUNT.key(), combination[2]);
+            KubernetesClient api = mock(KubernetesClient.class);
+            try (KubernetesApplicationClusterDescriptor descriptor =
+                    new KubernetesApplicationClusterDescriptor(api, values)) {
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> descriptor.deployApplication(specification()));
+                org.mockito.Mockito.verifyNoInteractions(api);
+            }
+        }
+        Map<String, String> values = options();
+        values.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        values.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        values.put(KubernetesOptions.HA_BACKUP_COUNT.key(), "1");
+        // Native remote checkpoint storage does not require a PVC.
+        KubernetesApplicationConfig remote =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(values)));
+        assertTrue(remote.isHaEnabled());
+        assertNull(remote.getCheckpointPvc());
     }
 }

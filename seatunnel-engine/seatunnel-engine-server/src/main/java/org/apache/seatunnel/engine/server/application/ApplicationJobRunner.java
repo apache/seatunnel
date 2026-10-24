@@ -30,11 +30,13 @@ import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -48,11 +50,72 @@ public final class ApplicationJobRunner {
 
     private final SeaTunnelServer server;
     private final ApplicationSpecification specification;
+    private final Lifecycle lifecycle;
+
+    /** Application ownership policy; coordinator detachment is distinct from terminal cleanup. */
+    public interface Lifecycle {
+        /** Waits for provider readiness before deciding whether to submit the native job. */
+        default void awaitReady() throws Exception {}
+
+        /**
+         * Returns true to submit once, or false to attach to the immutable existing native job ID.
+         */
+        default boolean submit() throws Exception {
+            return true;
+        }
+
+        /**
+         * Returns whether this runner still owns the active coordinator; false detaches without
+         * cleanup.
+         */
+        default boolean isCurrent() {
+            return true;
+        }
+
+        /** Persists that native execution reached RUNNING, before any later status absence. */
+        default void running() throws Exception {}
+
+        /**
+         * On an unknown native result, returns whether persisted RUNNING history disables the
+         * startup timeout.
+         */
+        default boolean hasStarted() throws Exception {
+            return false;
+        }
+
+        /**
+         * Records a terminal native outcome only while this lifecycle still owns the application.
+         */
+        default void finished(ApplicationStatus status) throws Exception {}
+    }
+
+    /** Ownership metadata is unavailable; detach without changing the native job outcome. */
+    public static final class LifecycleException extends Exception {
+        public LifecycleException(Exception cause) {
+            super(cause);
+        }
+    }
+
+    private static <T> T policy(Callable<T> action) throws LifecycleException {
+        try {
+            return action.call();
+        } catch (Exception failure) {
+            throw new LifecycleException(failure);
+        }
+    }
+
+    private static final Lifecycle LOCAL = new Lifecycle() {};
 
     /** Uses an existing master and its localized, resolved application specification. */
     public ApplicationJobRunner(SeaTunnelServer server, ApplicationSpecification specification) {
+        this(server, specification, LOCAL);
+    }
+
+    public ApplicationJobRunner(
+            SeaTunnelServer server, ApplicationSpecification specification, Lifecycle lifecycle) {
         this.server = server;
         this.specification = specification;
+        this.lifecycle = lifecycle;
     }
 
     /**
@@ -67,14 +130,18 @@ public final class ApplicationJobRunner {
         // The application's own startup budget covers a slow but healthy coordinator activation:
         // the cluster-mode retry window of getCoordinatorService() is meant for callers that can
         // retry, and this runner executes exactly one job without such a caller.
+        if (!lifecycle.isCurrent()) {
+            return;
+        }
+        CoordinatorService coordinator =
+                server.awaitCoordinatorService(specification.getStartupTimeoutMillis());
         ApplicationResourceManager<?> resources =
-                (ApplicationResourceManager<?>)
-                        server.awaitCoordinatorService(specification.getStartupTimeoutMillis())
-                                .getResourceManager();
+                (ApplicationResourceManager<?>) coordinator.getResourceManager();
         CompletableFuture<Void> cancellation = new CompletableFuture<>();
         CompletableFuture<JobResult> execution = null;
         JobResult result = null;
         Throwable failure = null;
+        boolean runningRecorded = false;
         try {
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(specification.getName());
@@ -88,35 +155,85 @@ public final class ApplicationJobRunner {
                                                     .setSyntax(ConfigSyntax.CONF))
                                     .resolve());
             resources.awaitWorkerRegistration();
+            policy(
+                    () -> {
+                        lifecycle.awaitReady();
+                        return null;
+                    });
+            if (!lifecycle.isCurrent()) {
+                return;
+            }
             execution =
-                    new ApplicationJobExecutionEnvironment(
-                                    jobConfig,
-                                    job,
-                                    server,
-                                    specification.getJobId(),
-                                    specification.getRestoreJobId())
-                            .execute(cancellation);
-            result =
-                    (JobResult)
-                            CompletableFuture.anyOf(execution, resources.getFailureFuture()).get();
+                    policy(lifecycle::submit)
+                            ? new ApplicationJobExecutionEnvironment(
+                                            jobConfig,
+                                            job,
+                                            server,
+                                            specification.getJobId(),
+                                            specification.getRestoreJobId())
+                                    .execute(cancellation)
+                            : coordinator.waitForJobComplete(specification.getJobId());
+            long deadline =
+                    System.nanoTime()
+                            + TimeUnit.MILLISECONDS.toNanos(
+                                    specification.getStartupTimeoutMillis());
+            while (lifecycle.isCurrent()) {
+                if (!execution.isDone() && resources.getFailureFuture().isDone()) {
+                    resources.getFailureFuture().get();
+                }
+                try {
+                    result = execution.get(100, TimeUnit.MILLISECONDS);
+                    if (result.getStatus() != JobStatus.UNKNOWABLE) {
+                        break;
+                    }
+                    if (resources.getFailureFuture().isDone()) {
+                        resources.getFailureFuture().get();
+                    }
+                    // Absence while a coordinator is taking over is not a terminal failure.
+                    if (!policy(lifecycle::hasStarted) && System.nanoTime() > deadline) {
+                        throw new IllegalStateException(
+                                "Native application submission is unresolved; refusing resubmission");
+                    }
+                    TimeUnit.MILLISECONDS.sleep(100);
+                    execution = coordinator.waitForJobComplete(specification.getJobId());
+                } catch (TimeoutException waiting) {
+                    if (!runningRecorded
+                            && lifecycle != LOCAL
+                            && coordinator.getJobStatus(specification.getJobId())
+                                    == JobStatus.RUNNING) {
+                        policy(
+                                () -> {
+                                    lifecycle.running();
+                                    return null;
+                                });
+                        runningRecorded = true;
+                    }
+                }
+            }
         } catch (Throwable e) {
             failure = e;
         } finally {
             boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
             try {
-                if (execution != null && !execution.isDone()) {
-                    cancellation.complete(null);
-                    try {
-                        execution.get(10, TimeUnit.SECONDS);
-                    } catch (Exception cleanup) {
-                        if (failure == null) {
-                            failure = cleanup;
-                        } else {
-                            failure.addSuppressed(cleanup);
+                if (failure instanceof LifecycleException) {
+                    throw (LifecycleException) failure;
+                }
+                if (lifecycle.isCurrent()) {
+                    if (execution != null && !execution.isDone()) {
+                        cancellation.complete(null);
+                        try {
+                            execution.get(10, TimeUnit.SECONDS);
+                        } catch (Exception cleanup) {
+                            if (failure == null) {
+                                failure = cleanup;
+                            } else {
+                                failure.addSuppressed(cleanup);
+                            }
                         }
                     }
+                    lifecycle.finished(determineStatus(result, ExceptionUtils.unwrap(failure)));
+                    completed(resources, result, failure);
                 }
-                completed(resources, result, failure);
             } finally {
                 if (interrupted) {
                     Thread.currentThread().interrupt();
@@ -256,11 +373,18 @@ public final class ApplicationJobRunner {
     }
 
     /** Maps native job termination to the external application's terminal state. */
-    private ApplicationStatus applicationStatus(JobStatus status) {
+    public static ApplicationStatus terminalStatus(JobStatus status) {
         if (status == JobStatus.FINISHED || status == JobStatus.SAVEPOINT_DONE) {
             return ApplicationStatus.SUCCEEDED;
         }
+        if (status == JobStatus.CANCELED) {
+            return ApplicationStatus.CANCELED;
+        }
+        return status == JobStatus.FAILED ? ApplicationStatus.FAILED : null;
+    }
 
-        return status == JobStatus.CANCELED ? ApplicationStatus.CANCELED : ApplicationStatus.FAILED;
+    private ApplicationStatus applicationStatus(JobStatus status) {
+        ApplicationStatus terminal = terminalStatus(status);
+        return terminal == null ? ApplicationStatus.FAILED : terminal;
     }
 }

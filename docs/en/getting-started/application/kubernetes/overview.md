@@ -5,7 +5,7 @@ title: Kubernetes Overview
 
 # Kubernetes Application Mode
 
-Kubernetes Application Mode creates an independent Kubernetes application for one SeaTunnel job. A `batch/v1` Job hosts the only Zeta master. The master requests a fixed number of worker Pods. Every process uses the same SeaTunnel image, and worker and application resources are cleaned up when the job terminates.
+Kubernetes Application Mode creates an independent Kubernetes application for one SeaTunnel job. By default, a `batch/v1` Job hosts one Zeta master. [Opt-in HA](architecture.md#opt-in-application-ha) uses a retryable owner Job and a dual-master StatefulSet. The master requests a fixed number of worker Pods. Every process uses the same SeaTunnel image, and worker and application resources are cleaned up when the job terminates.
 
 Use it when Kubernetes manages compute resources and jobs require isolated resources, dependencies, and failure boundaries. Execution uses the native Zeta Engine without Flink or Spark.
 
@@ -21,7 +21,7 @@ Use it when Kubernetes manages compute resources and jobs require isolated resou
 | Checkpoint | PVC or supported remote storage | Preserve recoverable state outside the application |
 
 :::caution
-Losing the master or any worker fails the current Job. Workers are not replaced and no standby
+In the default single-master mode, losing the master or any worker fails the current Job. Workers are not replaced and no standby
 master is started. A new application can restore from a durable checkpoint.
 :::
 
@@ -30,24 +30,24 @@ master is started. A new application can restore from a durable checkpoint.
 | Area | Supported in this release |
 | --- | --- |
 | Submission | `submit`, `status`, `cancel`; submission returns as soon as the Job is started, `--wait` opts into waiting |
-| Topology | One master and a fixed number of workers, each with its own CPU, memory and slots; one native job per application |
+| Topology | One master by default, or two masters with opt-in HA, and a fixed number of workers, each with its own CPU, memory and slots; one native job per application |
 | Job configuration | Submitted `-c` file or a file mounted from a Secret/ConfigMap; `${VAR}` placeholders resolved inside the Pod |
 | Secrets and ConfigMaps | Reference existing objects, which SeaTunnel never creates or deletes, or let it create owned ones; every mounted key declares its full path and uses `subPath` |
 | Environment | Per-variable `kubernetes.env.*` and whole-object `envFrom`, sourced from literals, Secrets or ConfigMaps |
 | Runtime files | Engine, Hazelcast, JVM-options and Log4j2 file selection, each of which can be disabled |
 | Scheduling | Namespace, ServiceAccount, image pull Secrets, labels, annotations, node selectors and tolerations |
 | Storage and recovery | Checkpoint PVC mount and recovery of an earlier job through `application.restore-job-id` |
-| Lifecycle | Worker loss or master exit fails the application; `cancel` removes every owned resource and keeps referenced ones; finished Jobs are retained for `kubernetes.finished-job-retention-seconds` |
+| Lifecycle | In single-master mode worker loss or master exit fails the application; HA replaces lost masters and recovers natively; worker loss fails the application; `cancel` removes every owned resource and keeps referenced ones; finished Jobs are retained for `kubernetes.finished-job-retention-seconds` |
 
 :::note
-Not in this release: HA master failover, worker replacement or autoscaling, arbitrary Pod templates,
+Opt-in HA supports native master failover with fixed workers. Not supported: autoscaling, arbitrary Pod templates,
 affinity/PriorityClass, Kerberos and REST/HTTPS. A failed application can be resumed from its last
 durable checkpoint with `application.restore-job-id`.
 :::
 
 ## Prerequisites
 
-- Kubernetes 1.24 or later with `batch/v1` Jobs, suspended Jobs, and Job TTL support.
+- Kubernetes 1.24 or later (1.27 or later for the [HA owner UID label](https://kubernetes.io/docs/reference/labels-annotations-taints/#batchkubernetesiocontroller-uid)) with `batch/v1` Jobs, suspended Jobs, and Job TTL support.
 - `kubectl` and a submitter kubeconfig, or a suitable in-cluster identity.
 - An existing namespace, ServiceAccount, and minimal RBAC.
 - An existing ConfigMap with the SeaTunnel runtime configuration, or the

@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
@@ -45,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -314,6 +316,37 @@ public final class SeatunnelApplicationConfig {
         slotConfig.setDynamicSlot(false);
         slotConfig.setSlotNum(slots);
         config.getEngineConfig().setSlotServiceConfig(slotConfig);
+    }
+
+    /** Prepares native fixed-pool application HA without changing the single-master defaults. */
+    public static void configureHa(
+            SeaTunnelConfig config,
+            String clusterName,
+            List<String> masterAddresses,
+            boolean worker,
+            int slots,
+            int backups) {
+        if (masterAddresses == null
+                || masterAddresses.size() != 2
+                || backups != 1
+                || masterAddresses.stream()
+                        .anyMatch(address -> address == null || address.trim().isEmpty())) {
+            throw new IllegalArgumentException(
+                    "Application HA requires exactly two master addresses and one synchronous backup");
+        }
+        configure(config, clusterName, worker ? masterAddresses.get(0) : null, slots);
+        config.getEngineConfig().setBackupCount(backups);
+        // Native state lives in IMaps. The engine integer alone does not configure their replicas;
+        // explicit runtime patterns must not silently override the HA application's backup count.
+        config.getHazelcastConfig().getMapConfig("default");
+        config.getHazelcastConfig()
+                .getMapConfigs()
+                .values()
+                .forEach(map -> map.setAsyncBackupCount(0).setBackupCount(backups));
+        // Controllers may still be replacing/registering workers; use native pending scheduling.
+        config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+        JoinConfig join = config.getHazelcastConfig().getNetworkConfig().getJoin();
+        join.getTcpIpConfig().setRequiredMember(null).setMembers(masterAddresses);
     }
 
     /**

@@ -23,12 +23,14 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.util.function.Supplier;
+
 /** Creates the standalone or application resource manager owned by one Engine coordinator. */
 public class ResourceManagerFactory {
     private final DeployType deployType;
     private final String applicationId;
     private final ApplicationSpecification specification;
-    private final ResourceManagerDriver<?> driver;
+    private final Supplier<ResourceManagerDriver<?>> drivers;
 
     /** Creates a factory for the default standalone deployment. */
     public ResourceManagerFactory() {
@@ -50,7 +52,25 @@ public class ResourceManagerFactory {
         this.deployType = deployType;
         this.applicationId = applicationId;
         this.specification = specification;
-        this.driver = driver;
+        this.drivers = () -> driver;
+    }
+
+    private ResourceManagerFactory(
+            String applicationId,
+            ApplicationSpecification specification,
+            Supplier<ResourceManagerDriver<?>> drivers) {
+        this.deployType = DeployType.KUBERNETES;
+        this.applicationId = applicationId;
+        this.specification = specification;
+        this.drivers = drivers;
+    }
+
+    /** Creates a fresh driver for each coordinator activation. */
+    public static ResourceManagerFactory forApplication(
+            String id,
+            ApplicationSpecification specification,
+            Supplier<ResourceManagerDriver<?>> drivers) {
+        return new ResourceManagerFactory(id, specification, drivers);
     }
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */
@@ -59,6 +79,7 @@ public class ResourceManagerFactory {
             return new StandaloneResourceManager(nodeEngine, engineConfig);
         }
         if (DeployType.KUBERNETES.equals(deployType)) {
+            ResourceManagerDriver<?> driver = drivers.get();
             if (applicationId == null || specification == null || driver == null) {
                 throw new IllegalStateException(
                         "Application deployment requires an application ID, specification and driver");

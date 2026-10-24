@@ -533,24 +533,33 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
 
             synchronized (this) {
-                if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
+                TaskGroupContext activeContext =
+                        executionContexts.get(taskGroup.getTaskGroupLocation());
+                if (activeContext != null) {
                     // Task is actively running (present in executionContexts, not
                     // finishedExecutionContexts). This happens during master failover: the new
                     // master restores state and tries to re-deploy tasks that never stopped on
                     // the worker. Return success so the master reconnects without interrupting
                     // the running task. The worker will notify the master of the terminal state
                     // via NotifyTaskStatusOperation when the task eventually completes.
-                    logger.warning(
-                            String.format(
-                                    "TaskGroupLocation %s already exists and is active, "
-                                            + "skipping redeploy for master failover recovery",
-                                    taskGroup.getTaskGroupLocation()));
                     // Release classloaders acquired during deserialization
                     for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
                         classLoaderService.releaseClassLoader(
                                 taskImmutableInfo.getJobId(), entry.getValue());
                     }
                     acquiredClassLoaderJars.clear();
+                    if (activeContext.getExecutionId() != taskImmutableInfo.getExecutionId()) {
+                        return TaskDeployState.failed(
+                                new IllegalStateException(
+                                        "Previous task execution is still active at "
+                                                + taskGroup.getTaskGroupLocation()));
+                    }
+                    logger.warning(
+                            String.format(
+                                    "TaskGroupLocation %s already exists with executionId %s, "
+                                            + "skipping redeploy for master failover recovery",
+                                    taskGroup.getTaskGroupLocation(),
+                                    activeContext.getExecutionId()));
                     return TaskDeployState.success();
                 }
                 AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
@@ -665,7 +674,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
-                            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
+                            notifyTaskStatusToMaster(
+                                    taskGroup.getTaskGroupLocation(),
+                                    r.withExecutionId(executionId));
                         }),
                 MDCTracer.tracing(executorService));
         boolean contextPublished = false;

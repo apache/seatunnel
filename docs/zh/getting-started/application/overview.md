@@ -34,12 +34,12 @@ job ID 恢复此前的作业。
 ## 不适用场景
 
 - 大量小作业希望占用一个长期集群（用独立或集群部署）；
-- 作业运行期间需要动态扩缩 Worker 或自动补拉 Worker；应用模式使用固定 Worker，失败即结束；
+- 作业运行期间需要动态扩缩 Worker；application 使用固定期望数量，Kubernetes HA 仅补建故障 Master，不补建 Worker；
 - 发行版中没有对应资源平台的提供商。
 
 ## 分布形态
 
-- 一个应用程序运行一个 Zeta Master 和固定数量的 Worker，作业运行期间不增减成员；
+- 一个 application 默认运行一个 Zeta Master 和固定 Worker；Kubernetes 可选[多 Master HA](kubernetes/architecture.md)，维护两个 Master 并补建故障 Master；
 - Worker 在作业启动前把 slot 注册到 Master；
 - Master 将作业结果映射为平台终态，并在退出前释放全部 Worker；
 - checkpoint 存放在引擎侧的持久化存储中，可跨应用程序生命周期，由新的应用程序按作业 ID 恢复。
@@ -57,7 +57,7 @@ job ID 恢复此前的作业。
 | 术语 | 定义 |
 | --- | --- |
 | Application | 一个作业加上专属的 Master 和固定 Worker，用平台原生 ID 标识 |
-| Master | 唯一运行作业、协调 Worker 并发布结果的 Zeta 成员 |
+| Master | 协调作业的 Zeta 成员；Kubernetes HA 可运行多个 Master，由原生机制选出活动协调者 |
 | Worker | 固定数量的 Zeta 成员，注册 slot 并执行任务 |
 | 资源管理器 | Engine 中通过平台 driver 管理 Worker 生命周期的组件 |
 | 资源管理器 driver | 平台 provider 的实现：启动、观测、释放 Worker 进程 |
