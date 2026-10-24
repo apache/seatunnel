@@ -28,10 +28,14 @@ public class SocketConfig implements Serializable {
     private String host;
     private int port;
     private int maxNumRetries;
+    private int connectTimeoutMs;
+    private int readTimeoutMs;
 
     public SocketConfig(ReadonlyConfig config) {
         this.host = config.get(SocketCommonOptions.HOST);
         this.port = config.get(SocketCommonOptions.PORT);
         this.maxNumRetries = config.get(SocketSinkOptions.MAX_RETRIES);
+        this.connectTimeoutMs = config.get(SocketCommonOptions.CONNECT_TIMEOUT_MS);
+        this.readTimeoutMs = config.get(SocketCommonOptions.READ_TIMEOUT_MS);
     }
 }
