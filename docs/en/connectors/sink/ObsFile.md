@@ -86,12 +86,16 @@ It only supports hadoop version **2.9.X+**.
 | single_file_mode                 | boolean | no       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix.          |
 | create_empty_file_when_no_data   | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
 | compress_codec                   | string  | no       | none                                       | The compress codec of files. Excel does not support any compression format. [Tips](#compress_codec)                                                                             |
+| tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Needs an OBS dir.                                                              |
+| filename_extension               | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`.                                                          |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv.                                                                                                                               |
+| csv_string_quote_mode            | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
+| enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv. `false`: don't write header, `true`: write header.                                                                                  |
 | common-options                   | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. [Tips](#common_options)                            |
 | max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel, the maximum number of data items that can be cached in the memory. Only used when file_format_type is excel.                                          |
 | sheet_name                       | string  | no       | Sheet0                      | Writer the sheet of the workbook. Only used when file_format_type is excel.                                                                                                     |
 | sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
 | merge_update_event               | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
-| schema_evolution_enabled         | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### Tips
 
@@ -300,38 +304,6 @@ Please note that excel type does not support any compression format
        file_format_type = "csv"
    }
 
-```
-
-
-### schema_evolution_enabled [boolean]
-
-When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
-
-**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
-
-**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
-
-**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
-
-**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
-
-Example usage in a CDC pipeline:
-
-```hocon
-ObsFile {
-    path = "/tmp/cdc/${table_name}"
-    bucket = "obs://obs-bucket-name"
-    access_key = "xxxxxxxxxxx"
-    access_secret = "xxxxxxxxxxx"
-    endpoint = "obs.xxxxx.myhuaweicloud.com"
-    file_format_type = "parquet"
-    schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
-}
 ```
 
 

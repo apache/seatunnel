@@ -129,7 +129,7 @@ source {
     startup.mode = "initial"
     server-id = "5400-5404"
     # Enable exactly-once: coordinate 2PC with Doris sink
-    exactly-once = true
+    exactly_once = true
   }
 }
 
@@ -175,7 +175,7 @@ source {
     table-names = ["inventory.products", "inventory.customers"]
     startup.mode = "initial"
     server-id = "5410-5414"
-    exactly-once = true
+    exactly_once = true
   }
 }
 
