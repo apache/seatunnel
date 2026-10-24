@@ -15,7 +15,7 @@
 ### JDBC MySQL 兼容模式 DECIMAL 精度映射
 
 - **行为变更：MySQL JDBC 和 OceanBase MySQL 兼容模式的 DECIMAL 元数据现在保留声明的精度和小数位数**
-  - **影响组件**：`connector-jdbc` 的 MySQL、OceanBase MySQL 兼容模式类型转换，以及自动生成的 MySQL/OceanBase sink DDL
+  - **影响组件**：`connector-jdbc` 的 MySQL、OceanBase MySQL 兼容模式类型转换，`connector-cdc-mysql` 的 source schema，以及自动生成的 MySQL/OceanBase sink DDL
   - **说明**：精度大于 38 的 MySQL `DECIMAL(p, s)` 列，以及 OceanBase MySQL 兼容模式中的对应列，此前会被转换为 `DECIMAL(38, 18)`，现在会在数据库限制范围内保留 `p` 和 `s`，最大精度为 65，最大小数位数为 30。超过上限时会进行截断；精度超过 65 时会按需减少小数位，以保留整数位。`UNSIGNED` 不会增加一位数字：
     `DECIMAL(p, s) UNSIGNED` 映射为相同的 SeaTunnel decimal 精度和小数位数，因为 MySQL 的 precision
     表示总位数，`UNSIGNED` 只改变符号范围。
