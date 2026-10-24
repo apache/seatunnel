@@ -296,10 +296,9 @@ port -- `8080` in the packaged `config/seatunnel.yaml`. Point
 
 ```
 Job 852362670771666945 mysql-to-doris — RUNNING
-  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
-            It is failing and being restored repeatedly, so the job looks alive while
-            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
-            since the last restore)
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
 ```
 
 What it reports: the parsed error code and root cause of a failed job, a
@@ -343,7 +342,9 @@ wrong hint costs more than a missing one:
   restores as history. A loop is only claimed when the pipeline is between
   attempts, or has been running for less than 10 minutes since its last
   restore — so a loop whose attempts each survive longer than that is reported
-  as history rather than as a live fault.
+  as history rather than as a live fault. One exception: a pipeline that has
+  used its whole restore budget is reported even after a single restore, which
+  you will see on a job with `job.retry.times = 1`.
 - the row-count rules wait until the job has been RUNNING for two minutes, and
   for a `job.mode = STREAMING` job an idle source is reported as a note rather
   than a warning -- a quiet topic and a misconfigured one read the same here.
@@ -356,9 +357,14 @@ wrong hint costs more than a missing one:
   the packaged `checkpoint.timeout` of 60s. On default settings a hung
   checkpoint expires first and is reported as a failure instead, so this rule
   matters on clusters that have raised that timeout.
-- durations are measured against the engine's own clock -- the job rules use
-  `diagnostics.generatedAt`, the checkpoint rules use `updatedAt` -- so a
-  client clock that disagrees with the cluster cannot invent a stuck job.
+- durations are measured against the engine's own clock: `diagnostics.generatedAt`
+  from the `/job-info` response, which the master stamps when it builds the
+  reply, is used for both the job rules and the checkpoint rules, so a client
+  clock that disagrees with the cluster cannot invent a stuck job. The
+  checkpoint overview's own `updatedAt` is deliberately not used -- the engine
+  writes it only when a checkpoint event is recorded, so for a checkpoint hung
+  on its last subtask it stops advancing and would hide the very stall the
+  rule looks for.
 
 ### CLI Arguments
 

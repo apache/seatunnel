@@ -389,6 +389,7 @@ public class JobMaster {
                         jobImmutableInformation.isRestoreJob() || restart,
                         jobImmutableInformation.getRestoreMode(),
                         jobImmutableInformation.getRestoreSourceJobId(),
+                        restart,
                         nodeEngine,
                         this,
                         checkpointPlanMap,
