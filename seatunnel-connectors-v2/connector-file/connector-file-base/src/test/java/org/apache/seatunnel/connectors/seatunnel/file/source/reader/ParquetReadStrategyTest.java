@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -69,8 +70,11 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +84,7 @@ import java.util.TimeZone;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 @Slf4j
 public class ParquetReadStrategyTest {
@@ -373,6 +378,49 @@ public class ParquetReadStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
+    public void testParquetReadTimestampMicrosAndMillis() throws Exception {
+        // false = Avro reader, true = an Avro-illegal column name forces the native fallback
+        for (boolean nativePath : new boolean[] {false, true}) {
+            TimestampUnitsParquetWriter.generateTestData(nativePath);
+            try {
+                ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+                parquetReadStrategy.init(
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+                SeaTunnelRowType rowType =
+                        parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                                TimestampUnitsParquetWriter.DATA_FILE_PATH);
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        rowType.getFieldType(rowType.indexOf("ts_micros")));
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        rowType.getFieldType(rowType.indexOf("ts_millis")));
+
+                TestCollector testCollector = new TestCollector();
+                parquetReadStrategy.read(
+                        TimestampUnitsParquetWriter.DATA_FILE_PATH, "", testCollector);
+                List<SeaTunnelRow> rows = testCollector.getRows();
+                Assertions.assertEquals(TimestampUnitsParquetWriter.INSTANTS.length, rows.size());
+                for (int i = 0; i < rows.size(); i++) {
+                    Instant instant = TimestampUnitsParquetWriter.INSTANTS[i];
+                    LocalDateTime micros = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                    LocalDateTime millis =
+                            LocalDateTime.ofInstant(
+                                    instant.truncatedTo(ChronoUnit.MILLIS), ZoneId.systemDefault());
+                    String where = (nativePath ? "native" : "avro") + " row " + i;
+                    Assertions.assertEquals(
+                            micros, rows.get(i).getField(rowType.indexOf("ts_micros")), where);
+                    Assertions.assertEquals(
+                            millis, rows.get(i).getField(rowType.indexOf("ts_millis")), where);
+                }
+            } finally {
+                TimestampUnitsParquetWriter.deleteFile();
+            }
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
     public void testParquetWithUserConfigRowType() throws Exception {
         AutoGenerateParquetData.generateTestData();
         String path = AutoGenerateParquetData.DATA_FILE_PATH;
@@ -435,6 +483,66 @@ public class ParquetReadStrategyTest {
         Assertions.assertEquals("binary_as_string", row.getField(12));
 
         AutoGenerateParquetData.deleteFile();
+    }
+
+    /**
+     * INT64 TIMESTAMP(MICROS) and TIMESTAMP(MILLIS) columns, as other writers such as Spark
+     * produce.
+     */
+    public static class TimestampUnitsParquetWriter {
+
+        public static final String DATA_FILE_PATH = "/tmp/data_timestamp_units.parquet";
+
+        public static final Instant[] INSTANTS = {
+            Instant.parse("2026-04-27T20:50:29.006733Z"),
+            Instant.parse("1969-12-31T23:59:59.999999Z"),
+            Instant.parse("1900-06-15T12:30:45.123456Z"),
+            Instant.parse("1970-01-01T00:00:00Z")
+        };
+
+        public static void generateTestData(boolean withAvroIncompatibleColumn) throws IOException {
+            deleteFile();
+            Types.GroupBuilder<MessageType> builder =
+                    Types.buildMessage()
+                            .optional(INT64)
+                            .as(
+                                    LogicalTypeAnnotation.timestampType(
+                                            true, LogicalTypeAnnotation.TimeUnit.MICROS))
+                            .named("ts_micros")
+                            .optional(INT64)
+                            .as(
+                                    LogicalTypeAnnotation.timestampType(
+                                            true, LogicalTypeAnnotation.TimeUnit.MILLIS))
+                            .named("ts_millis");
+            if (withAvroIncompatibleColumn) {
+                builder.optional(INT32).named("job_blue-collar");
+            }
+            MessageType schema = builder.named("Timestamps");
+            Configuration conf = new Configuration();
+            GroupWriteSupport.setSchema(schema, conf);
+            try (ParquetWriter<Group> writer =
+                    ExampleParquetWriter.builder(new Path(DATA_FILE_PATH)).withConf(conf).build()) {
+                for (Instant instant : INSTANTS) {
+                    Group record = new SimpleGroup(schema);
+                    // floor to the unit, as writers do; ChronoUnit.between truncates toward zero
+                    record.add(
+                            "ts_micros",
+                            instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1_000);
+                    record.add(
+                            "ts_millis",
+                            instant.getEpochSecond() * 1_000L + instant.getNano() / 1_000_000);
+                    if (withAvroIncompatibleColumn) {
+                        record.add("job_blue-collar", 1);
+                    }
+                    writer.write(record);
+                }
+            }
+        }
+
+        private static void deleteFile() {
+            new File(DATA_FILE_PATH).delete();
+            new File("/tmp/.data_timestamp_units.parquet.crc").delete();
+        }
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {

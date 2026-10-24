@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sink: Parquet keeps TIMESTAMP microseconds
+
+- **Behavior change: the Parquet writer of the file sinks stores TIMESTAMP as INT64 `TIMESTAMP(MICROS, isAdjustedToUTC=true)` instead of `TIMESTAMP_MILLIS`**
+  - **Description**: TIMESTAMP values were cut to milliseconds, so a `DATETIME(6)` value `2026-04-27 20:50:29.006733` was written as `20:50:29.006`. With `parquet_avro_write_timestamp_as_int96 = true` the INT96 value was cut to milliseconds as well. The INT64 column is now written in microseconds (Avro `timestamp-micros`) and INT96 keeps all nanoseconds. The Parquet reader of the file sources reads `TIMESTAMP_MICROS` columns as TIMESTAMP and keeps the full INT96 nanoseconds.
+  - **Impact**: New files have a `timestamp[us]` column where earlier files had `timestamp[ms]`. The SeaTunnel Parquet reader resolves the type per file, so it reads a directory with both. Readers that take one schema for a whole directory from its first file, such as `pyarrow.dataset` with default options, fail on such a directory (`would lose data`). A `TIMESTAMP_MICROS` column written by another tool, previously read as BIGINT, is now read as TIMESTAMP.
+  - **Migration Guide**: Write to a new directory after upgrading, or give such readers an explicit microsecond schema.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
