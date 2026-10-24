@@ -57,6 +57,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     // search_path.
                     + "        WHEN t.typtype = 'e' THEN format_type(a.atttypid, NULL)\n"
                     + "        WHEN a.atttypmod = -1 THEN t.typname\n"
+                    + "        WHEN t.typname = 'vector' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'varchar' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'numeric' OR t.typname = 'decimal' THEN t.typname || '(' || ((a.atttypmod - 4) >> 16) || ', ' || ((a.atttypmod - 4) & 65535) || ')'\n"
