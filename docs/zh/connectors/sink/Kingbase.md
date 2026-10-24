@@ -80,7 +80,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
-> 如果未设置 partition_column，它将以单并发运行，如果设置了 partition_column，它将根据任务的并发性并行执行。
+> 1. 如果未设置 partition_column，它将以单并发运行，如果设置了 partition_column，它将根据任务的并发性并行执行。
+> 2. 当 Kingbase 以 MySQL 兼容模式启动时，可直接复用现有的 Kingbase 连接器配置。系统在构建 KingbaseDialect 和 KingbaseCatalog 时，会自动连接数据库并动态获取其兼容模式（compatibleMode）。
 
 ## 任务示例
 
