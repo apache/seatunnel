@@ -23,14 +23,17 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportCdcProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
@@ -113,6 +116,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int SOURCE_ENUMERATOR_EVENT_TYPE = 29;
 
+    public static final int REPORT_CDC_PROGRESS_OPERATION = 30;
+
+    public static final int COLLECT_CDC_ENUMERATOR_PROGRESS_OPERATION = 31;
+
+    public static final int CDC_PROGRESS_REPORT_BATCH = 32;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -191,6 +200,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanLogOperation();
                 case REPORT_METRICS_OPERATION:
                     return new ReportMetricsOperation();
+                case REPORT_CDC_PROGRESS_OPERATION:
+                    return new ReportCdcProgressOperation();
+                case COLLECT_CDC_ENUMERATOR_PROGRESS_OPERATION:
+                    return new CollectCdcEnumeratorProgressOperation();
+                case CDC_PROGRESS_REPORT_BATCH:
+                    return new CdcProgressReportBatch();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
