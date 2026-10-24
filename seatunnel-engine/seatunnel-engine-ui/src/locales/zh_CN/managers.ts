@@ -43,5 +43,28 @@ export default {
   resources: 'Worker 资源',
   monitoring: '系统监控',
   resource_missing: '该 Worker 暂无资源快照。',
-  monitor_missing: '该 Worker 暂无系统监控采样。'
+  monitor_missing: '该 Worker 暂无系统监控采样。',
+  tagEditor: {
+    title: 'Worker Tags',
+    content: 'Tags',
+    placeholder: '每行一个 tag，例如：zone=prod',
+    update: '更新 Tags',
+    clear: '清空 Tags',
+    success: '节点 Tags 已更新。',
+    failed: '更新节点 Tags 失败。',
+    outcomeUnknown: '无法确认 Tags 是否已更新，请刷新后再重试。',
+    invalid: '每行 tag 必须使用 key=value 格式。',
+    contentRequired: '请至少填写一个 Tag，或使用清空 Tags。',
+    duplicate: 'Tag 键不能重复。',
+    local: '当前节点',
+    remote: '远端节点',
+    remoteHint: '请打开目标节点自己的 Web UI 更新该 Worker。',
+    select: '选择',
+    noWorkerSelected: '未选择 Worker',
+    workerRequired: '请先选择一个 Worker。',
+    confirm: '确认',
+    cancelConfirm: '关闭',
+    updateConfirmMessage: '确认更新该 Worker 的 Tags？',
+    clearConfirmMessage: '确认清空该 Worker 的全部 Tags？'
+  }
 }

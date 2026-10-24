@@ -592,6 +592,24 @@ or state format migration is required.
 
 ### Engine Behavior Changes
 
+- **Behavior change: `restoreMode` submissions are refused while the source job is still active**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 `POST /submit-job`, `POST /submit-job/upload` and
+    `POST /submit-jobs` when the request carries `restoreMode=CHECKPOINT|SAVEPOINT` with `restoreSourceJobId`.
+  - **Description**: The explicit restore contract used to accept any `restoreSourceJobId`, including a job that
+    was still `RUNNING`, `DOING_SAVEPOINT`, `CANCELING` or otherwise not finished, and the new job would restore
+    from a checkpoint that the source kept advancing past. The submit path now resolves the source job status on
+    the master and returns HTTP `400` with `restoreSourceJobId=<id> is still <STATUS>; stop or cancel the source
+    job before restoring from its checkpoint state` unless the source job has reached an end state (`FINISHED`,
+    `FAILED`, `CANCELED` or `SAVEPOINT_DONE`). A non-numeric `restoreSourceJobId` is now also a `400` with a clear
+    message. A job id unknown to the cluster is not rejected by the guard and still fails with the existing
+    `No checkpoint found ...` error. The legacy `isStartWithSavePoint=true` with `jobId` path is unchanged.
+  - **Impact**: Scripts or clients that submitted a restore against a job that was still running now receive
+    `400` instead of a new job. Restores from finished, failed, cancelled or savepoint-stopped jobs behave as
+    before.
+  - **Migration Guide**: Stop the source job first, for example `POST /stop-job` with
+    `isStopWithSavePoint: true` for a savepoint restore or a plain stop for a checkpoint restore, wait for its
+    status to reach an end state, and then submit the restore. (#11613)
+
 - **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
   - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
   - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.
