@@ -355,6 +355,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -674,7 +675,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
@@ -786,7 +787,11 @@ This API has been deprecated, please use /job-info/:jobId instead
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishTime": "",
   "errorMsg": null,
@@ -798,7 +803,7 @@ This API has been deprecated, please use /job-info/:jobId instead
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
@@ -845,6 +850,7 @@ starting beyond the end of the result set also returns `400`, while a page start
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",

@@ -95,13 +95,16 @@ If you need more transform options, see [Transforms Catalog](../transforms) and 
 
 ## Running From A Source Checkout
 
-If you are running examples from the repository source tree, the example module is:
+If you are running examples from the repository source tree, the example modules are:
 
-- `seatunnel-examples/seatunnel-flink-connector-v2-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-13-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-15-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-20-example`
 
-The example entry point is:
+The example entry points are:
 
-- `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample`
+- `org.apache.seatunnel.example.flink.SeaTunnelBatchJobExample`
+- `org.apache.seatunnel.example.flink.SeaTunnelStreamingJobExample`
 
 ## Next Steps
 
