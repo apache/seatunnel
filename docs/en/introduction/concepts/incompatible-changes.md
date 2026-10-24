@@ -9,6 +9,14 @@ You need to check this document before you upgrade to related version.
 
 For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produce multiple ordered snapshots instead of one. This fixes stale rows when a later writer's equality deletes previously shared the same data sequence number as earlier rows. Each group is atomic, but external readers may observe a prefix of the checkpoint between groups, including while a failed commit is recovered. Single-generation checkpoints and append-only rotations without equality-delete dependencies retain one snapshot. Retain snapshot history and pending files until recovery is no longer needed; checkpoint and group numbers alone are not publication identities.
 
+### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
+
+When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
+
+Such a value now causes a parse error that identifies the field and the expected container type; with `ignore-parse-errors = true` only that container value is set to `null`, and every other value of the row is kept. The same holds for a wrong container type nested inside an array or a map: only the offending nested value becomes `null` while its siblings and the enclosing container are retained, and empty arrays and objects of the declared container type, `null` and missing values, and the conversion of elements and keys are unchanged. To migrate, provide an actual JSON array for an `ARRAY` field and an actual JSON object for a `MAP` field, or set `ignore-parse-errors = true` so that malformed container values become `null` instead of failing the job.
+
+The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
@@ -22,6 +30,10 @@ For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produ
   - **Description**: For a table without a primary key, the snapshot split column was taken from a unique key even when that column was nullable. Rows with NULL in it matched no snapshot chunk and were silently skipped. A nullable column is now skipped, whether it comes from a unique key, from `snapshotSplitColumn` or from a primary key configured in `table-names-config.primaryKeys`; if no non-nullable key column remains, the table is read as a single split. Nullability is read from the database metadata.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
+
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
 
 ### Runtime Requirements
 
