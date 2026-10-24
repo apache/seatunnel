@@ -334,6 +334,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 连接器变更
 
+- **破坏性变更：多表文件 Sink 按物理目标共享单个 Writer**
+  - **影响范围**：`seatunnel-api`（`MultiTableSink`）及 `seatunnel-connectors-v2/connector-file/connector-file-base`（经由 `BaseMultipleTableFileSink` 的全部 File/HDFS/S3/OSS/GCS Sink）
+  - **变更说明**：当多个源表解析到同一文件目标（路径、文件系统端点、文件格式、tmp 路径、文件名表达式相同，且物理行布局等价）时，每个 replica 只创建一个 `SinkWriter`，而不再按源表创建。物理目标标识现包含路径、文件系统坐标、格式、tmp 路径、文件名表达式及文件系统选项哈希，桶、端点或凭证不同的别名不会共享 Writer。共享同一目标的 Sink 若物理行布局（字段名与字段类型）不一致，作业将在提交时以 `IllegalStateException` 快速失败。
+  - **影响**：此前按源表隔离写出的存量多表作业，升级后将共享 Writer 并产生合并后的文件布局；此前因目标意外碰撞而“碰巧成功”的作业，升级后会在行布局不一致时快速失败。
+  - **迁移指南**：需要隔离写出时，为每张表配置独立目标（不同 path 或 tmp path）；确认共享目标时，对齐各表的物理行布局。旧版本 checkpoint 的按别名状态会在恢复时合并为共享 Writer 状态，无需手动迁移状态。
 - **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
   - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
   - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
