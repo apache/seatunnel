@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionOperator;
 import org.apache.seatunnel.api.configuration.util.ConditionRule;
-import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -234,20 +233,20 @@ public class OptionRulesService extends BaseService {
                             requiredOption.getClass().getName()));
         }
         if (requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
-            Expression expression =
-                    ((RequiredOption.ConditionalRequiredOptions) requiredOption).getExpression();
+            Condition<?> condition =
+                    ((RequiredOption.ConditionalRequiredOptions) requiredOption).getCondition();
             return new OptionRuleResponse.RequiredOptionMetadata(
-                    ruleType, options, expression.toString(), toExpressionNode(expression));
+                    ruleType, options, condition.toString(), toExpressionNode(condition));
         }
         return new OptionRuleResponse.RequiredOptionMetadata(ruleType, options, null, null);
     }
 
     private OptionRuleResponse.ConditionRuleMetadata toConditionRuleMetadata(
             ConditionRule conditionRule) {
-        Expression expression = conditionRule.getExpression();
+        Condition<?> condition = conditionRule.getCondition();
         return new OptionRuleResponse.ConditionRuleMetadata(
-                expression.toString(),
-                toExpressionNode(expression),
+                condition.toString(),
+                toExpressionNode(condition),
                 toOptionRuleMetadata(conditionRule.getOptionRule()));
     }
 
@@ -259,17 +258,22 @@ public class OptionRulesService extends BaseService {
                 .orElse(null);
     }
 
-    private OptionRuleResponse.ExpressionNode toExpressionNode(Expression expression) {
-        if (expression == null) {
+    private OptionRuleResponse.ExpressionNode toExpressionNode(Condition<?> condition) {
+        if (condition == null) {
             return null;
         }
         return new OptionRuleResponse.ExpressionNode(
-                toConditionNode(expression.getCondition()),
-                toLogicalOperator(expression.and()),
-                toExpressionNode(expression.getNext()));
+                toConditionNode(condition, false),
+                toLogicalOperator(condition.and()),
+                toExpressionNode(condition.getNext()));
     }
 
     private OptionRuleResponse.ConditionNode toConditionNode(Condition<?> condition) {
+        return toConditionNode(condition, true);
+    }
+
+    private OptionRuleResponse.ConditionNode toConditionNode(
+            Condition<?> condition, boolean includeNext) {
         if (condition == null) {
             return null;
         }
@@ -293,8 +297,8 @@ public class OptionRulesService extends BaseService {
                 compareOptionMeta,
                 conditionOperator,
                 conditionOperatorCategory,
-                toLogicalOperator(condition.and()),
-                toConditionNode(condition.getNext()));
+                includeNext ? toLogicalOperator(condition.and()) : null,
+                includeNext ? toConditionNode(condition.getNext()) : null);
     }
 
     private OptionRuleResponse.ValueConstraintMetadata toValueConstraintMetadata(

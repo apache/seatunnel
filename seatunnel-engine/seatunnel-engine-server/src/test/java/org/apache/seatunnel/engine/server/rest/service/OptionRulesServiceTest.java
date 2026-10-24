@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -401,6 +404,44 @@ class OptionRulesServiceTest {
         assertEquals("extension", tree.getCompareOperator());
         assertEquals("EXTENSION", tree.getConditionOperator());
         assertEquals("EXTENSION", tree.getConditionOperatorCategory());
+    }
+
+    /**
+     * A mixed AND/OR chain is exported as one flat chain: the operator and the next link stay on
+     * the expression-tree level, and the node's own condition does not repeat them.
+     */
+    @Test
+    void shouldExportMixedConditionChainAsOneFlatExpressionTree() throws Exception {
+        Option<String> a = Options.key("a").stringType().noDefaultValue();
+        Option<String> b = Options.key("b").stringType().noDefaultValue();
+        Option<String> c = Options.key("c").stringType().noDefaultValue();
+        Condition<?> chain =
+                Condition.of(a, "1").and(Condition.of(b, "2")).or(Condition.of(c, "3"));
+
+        Method toExpressionNode =
+                OptionRulesService.class.getDeclaredMethod("toExpressionNode", Condition.class);
+        toExpressionNode.setAccessible(true);
+        OptionRuleResponse.ExpressionNode tree =
+                (OptionRuleResponse.ExpressionNode) toExpressionNode.invoke(service, chain);
+
+        // (A && B) || C renders as A -AND-> B -OR-> C
+        assertEquals("a", tree.getCondition().getOption().getKey());
+        assertNull(tree.getCondition().getOperator());
+        assertNull(tree.getCondition().getNext());
+        assertEquals(OptionRuleResponse.LogicalOperator.AND, tree.getOperator());
+
+        OptionRuleResponse.ExpressionNode second = tree.getNext();
+        assertNotNull(second);
+        assertEquals("b", second.getCondition().getOption().getKey());
+        assertNull(second.getCondition().getOperator());
+        assertNull(second.getCondition().getNext());
+        assertEquals(OptionRuleResponse.LogicalOperator.OR, second.getOperator());
+
+        OptionRuleResponse.ExpressionNode third = second.getNext();
+        assertNotNull(third);
+        assertEquals("c", third.getCondition().getOption().getKey());
+        assertNull(third.getOperator());
+        assertNull(third.getNext());
     }
 
     private enum AuthMode {
