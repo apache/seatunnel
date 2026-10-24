@@ -31,9 +31,9 @@ import com.google.protobuf.DynamicMessage;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class ProtobufToRowConverter implements Serializable {
     private static final long serialVersionUID = 8177020083886379563L;
@@ -41,6 +41,12 @@ public class ProtobufToRowConverter implements Serializable {
     private Descriptors.Descriptor descriptor = null;
     private String protoContent;
     private String messageName;
+
+    /**
+     * Field resolution plans, reused for every record. Transient, because the plans hold protobuf
+     * descriptors, which are not serializable: a deserialized converter rebuilds them lazily.
+     */
+    private transient volatile ProtobufFieldResolver fieldResolver;
 
     public ProtobufToRowConverter(String protoContent, String messageName) {
         this.protoContent = protoContent;
@@ -72,29 +78,37 @@ public class ProtobufToRowConverter implements Serializable {
             SeaTunnelRowType rowType) {
         String[] fieldNames = rowType.getFieldNames();
         Object[] values = new Object[fieldNames.length];
+        ProtobufFieldResolver fieldResolver = getFieldResolver();
         for (int i = 0; i < fieldNames.length; i++) {
-            Descriptors.FieldDescriptor fieldByName = descriptor.findFieldByName(fieldNames[i]);
-            if (fieldByName == null && descriptor.findNestedTypeByName(fieldNames[i]) == null) {
+            Descriptors.FieldDescriptor fieldDescriptor =
+                    fieldResolver.findField(descriptor, fieldNames[i]);
+            if (fieldDescriptor == null) {
                 values[i] = null;
             } else {
                 values[i] =
                         convertField(
-                                descriptor,
-                                dynamicMessage,
+                                fieldDescriptor,
                                 rowType.getFieldType(i),
-                                fieldByName == null ? null : dynamicMessage.getField(fieldByName),
-                                fieldNames[i]);
+                                dynamicMessage.getField(fieldDescriptor));
             }
         }
         return new SeaTunnelRow(values);
     }
 
+    /** Returns the field resolution plans reused across records. */
+    ProtobufFieldResolver getFieldResolver() {
+        ProtobufFieldResolver resolver = fieldResolver;
+        if (resolver == null) {
+            resolver = ProtobufFieldResolver.create();
+            fieldResolver = resolver;
+        }
+        return resolver;
+    }
+
     private Object convertField(
-            Descriptors.Descriptor descriptor,
-            DynamicMessage dynamicMessage,
+            Descriptors.FieldDescriptor fieldDescriptor,
             SeaTunnelDataType<?> dataType,
-            Object val,
-            String fieldName) {
+            Object val) {
         switch (dataType.getSqlType()) {
             case STRING:
                 return val.toString();
@@ -120,36 +134,16 @@ public class ProtobufToRowConverter implements Serializable {
                 }
                 return val;
             case MAP:
-                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
-                Map<Object, Object> res =
-                        ((List<DynamicMessage>) val)
-                                .stream()
-                                        .collect(
-                                                Collectors.toMap(
-                                                        dm ->
-                                                                convertField(
-                                                                        descriptor,
-                                                                        dm,
-                                                                        mapType.getKeyType(),
-                                                                        getFieldValue(dm, "key"),
-                                                                        null),
-                                                        dm ->
-                                                                convertField(
-                                                                        descriptor,
-                                                                        dm,
-                                                                        mapType.getValueType(),
-                                                                        getFieldValue(dm, "value"),
-                                                                        null)));
-
-                return res;
+                return convertMap(
+                        fieldDescriptor, (MapType<?, ?>) dataType, (List<DynamicMessage>) val);
             case ROW:
-                Descriptors.Descriptor nestedTypeByName =
-                        descriptor.findNestedTypeByName(fieldName);
-                DynamicMessage s =
-                        (DynamicMessage)
-                                dynamicMessage.getField(
-                                        descriptor.findFieldByName(fieldName.toLowerCase()));
-                return converter(nestedTypeByName, s, (SeaTunnelRowType) dataType);
+                // The message type of a ROW column is the message type of the protobuf field the
+                // column maps to. The name of that message type has nothing to do with the schema
+                // field name, and the type may be nested or declared at the top level of the file.
+                return converter(
+                        fieldDescriptor.getMessageType(),
+                        (DynamicMessage) val,
+                        (SeaTunnelRowType) dataType);
             case ARRAY:
                 SeaTunnelDataType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
                 List<Object> list = (List<Object>) val;
@@ -163,12 +157,28 @@ public class ProtobufToRowConverter implements Serializable {
         }
     }
 
-    private Object getFieldValue(DynamicMessage dm, String fieldName) {
-        return dm.getAllFields().entrySet().stream()
-                .filter(entry -> entry.getKey().getName().equals(fieldName))
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(null);
+    /** Resolves map keys and values against the map entry descriptor. */
+    private Map<Object, Object> convertMap(
+            Descriptors.FieldDescriptor fieldDescriptor,
+            MapType<?, ?> mapType,
+            List<DynamicMessage> mapEntries) {
+        Descriptors.Descriptor mapEntryDescriptor = fieldDescriptor.getMessageType();
+        Descriptors.FieldDescriptor keyFieldDescriptor = mapEntryDescriptor.findFieldByName("key");
+        Descriptors.FieldDescriptor valueFieldDescriptor =
+                mapEntryDescriptor.findFieldByName("value");
+        Map<Object, Object> result = new HashMap<>();
+        for (DynamicMessage mapEntry : mapEntries) {
+            result.put(
+                    convertField(
+                            keyFieldDescriptor,
+                            mapType.getKeyType(),
+                            mapEntry.getField(keyFieldDescriptor)),
+                    convertField(
+                            valueFieldDescriptor,
+                            mapType.getValueType(),
+                            mapEntry.getField(valueFieldDescriptor)));
+        }
+        return result;
     }
 
     protected Object convertArray(List<Object> val, SeaTunnelDataType<?> dataType) {
@@ -178,7 +188,7 @@ public class ProtobufToRowConverter implements Serializable {
         int length = val.size();
         Object instance = Array.newInstance(dataType.getTypeClass(), length);
         for (int i = 0; i < val.size(); i++) {
-            Array.set(instance, i, convertField(null, null, dataType, val.get(i), null));
+            Array.set(instance, i, convertField(null, dataType, val.get(i)));
         }
         return instance;
     }

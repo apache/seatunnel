@@ -506,6 +506,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 格式变更
 
+- **行为变更：Protobuf 格式的 Schema 字段名改为大小写不敏感解析**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-protobuf`（`ProtobufToRowConverter`、`RowToProtobufConverter`）--影响所有以 `format = protobuf` 读写行的连接器。
+  - **变更说明**：现在每个 Schema 字段都按“拥有该字段的消息的描述符”解析：先按完全相同的名称匹配，只有没有精确匹配时才使用与语言环境无关的大小写不敏感匹配。以前读取路径只按完全相同名称匹配，因此与 proto 字段名仅大小写不同的 Schema 列（例如 `string c_string = 6;` 对应列名 `C_STRING`）会静默读取为 `null`；写入路径则把 Schema 字段名整体转成小写，导致声明了混合大小写名称的 proto 字段无法写入。嵌套 `ROW` 的子字段改为按该列所映射的 proto 字段的消息类型解析，而不再按列名猜测消息类型，因此 `ROW` 内的 `MAP` 以及映射到文件顶层消息的 `ROW` 也可以正常解析。
+  - **影响**：以前因仅大小写不同而读取为 `null` 的 Schema 列，现在会读到 proto 字段的值；如果声明的 Schema 类型与 proto 字段类型不一致，读取会以类型转换错误失败，而不再返回 `null`。完全不匹配（连大小写不敏感也不匹配）的列仍然读取为 `null`。写入侧，找不到任何对应 proto 字段的 Schema 字段以前抛出原始 `NullPointerException`，现在以类型化的 `PROTOBUF-03`（`Field not found in the protobuf descriptor`）失败；与混合大小写 proto 字段名完全相同的 Schema 字段名现在可以正常写入。`ARRAY<ROW>` 与 `ARRAY<MAP>` 仍然不受支持。
+  - **迁移指南**：如果某个仅大小写不同的 Schema 列现在能解析到 proto 字段，请让该列的声明类型与 proto 字段类型一致；如果该列必须保持为空，请修改列名使其不再匹配任何 proto 字段。以前因未知 Schema 字段抛出 `NullPointerException` 的作业，现在会以 `PROTOBUF-03` 失败，需要为 Schema 声明 proto 文件中确实存在的字段。(#12657)
+
 - **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
