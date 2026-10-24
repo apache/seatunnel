@@ -4,6 +4,13 @@
 
 ## dev
 
+### JDBC：Ingres 方言选择和标识符处理
+
+- **受影响作业**：使用 `jdbc:ingres:` 且未显式指定方言的 Jdbc Source 和 Sink，现在选择 `Ingres`，不再选择 `Generic`。
+- **行为变化**：生成的标识符使用双引号引用。两段路径解释为 `owner.table`，不再是 `database.table`。owner/表名保留大小写，`field_ide` 仅应用于列名。数据库由 JDBC URL 选择。upsert 使用现有的查询/插入/更新回退，字符串分片键使用单分片。
+- **迁移方式**：填写与实际存储大小写一致的 `owner.table`，设置 `field_ide` 时核对列名。不要依赖服务端对未引用名称的大小写折叠。如需在迁移期间保留旧方言行为，请显式设置 `dialect = "Generic"`。
+- **验证边界**：集成测试范围仅为 Source 读取，真实服务器验证仍待完成。共享方言同时改变 Sink SQL 生成，但 Ingres Sink 执行和基于占位符的目标路由尚未验证。
+
 ### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
 
 当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。

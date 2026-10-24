@@ -24,6 +24,7 @@ public class DatabaseIdentifier {
     public static final String GBASE_8A = "Gbase8a";
     public static final String HIVE = "HIVE";
     public static final String INFORMIX = "Informix";
+    public static final String INGRES = "Ingres";
     public static final String KINGBASE = "KingBase";
     public static final String MYSQL = "MySQL";
     public static final String STARROCKS = "StarRocks";

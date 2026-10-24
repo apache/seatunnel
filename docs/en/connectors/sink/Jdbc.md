@@ -263,6 +263,16 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | DSQL      |              |          |
 | YashanDB  |              |          |
+| Ingres    |              |          |
+
+#### Ingres
+
+Ingres support targets source reads; real-server validation is pending. Sink jobs also select this shared dialect for `jdbc:ingres:`, but sink execution and `${schema_name}` target routing have not been validated. This does not establish Ingres sink support.
+
+Use `owner.table` with the exact stored case; `field_ide` changes columns only. For generated sink SQL, `database` is not included in the table identifier: the JDBC URL selects the database and `table = "owner.table"` supplies the owner. `database` remains required when `generate_sink_sql = true`.
+
+Existing jobs can set `dialect = "Generic"` to retain the previous dialect behavior while migrating. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#dev).
+
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
