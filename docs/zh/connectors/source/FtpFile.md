@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] 文件格式类型
   - [x] 文本
   - [x] CSV
+  - [x] Parquet
+  - [x] ORC
   - [x] JSON
   - [x] Excel
   - [x] XML
@@ -877,30 +879,11 @@ sink {
 }
 ```
 
-### 通过 SFTP 读取（SSH 文件传输）
+### SFTP（SSH 文件传输）
 
-`FtpFile` 通过统一的 Hadoop FileSystem URI 同时支持 FTP 和 SFTP；将 URI 协议改为 `sftp://` 即切换到 SSH 通道。SFTP 需要 SSH 密钥（或密码）认证，且 host key 必须被运行中的 JVM 信任（通过 `~/.ssh/known_hosts` 或通过 `ftp_properties` 显式指定的 `known_hosts` 文件）。
+`FtpFile` 连接器只能读取 FTP 服务器（明文 FTP，主动或被动模式），无法连接 SFTP 服务器：底层 `SeaTunnelFTPFileSystem` 基于 commons-net FTP 客户端实现，URI 固定为根据 `host` 和 `port` 选项拼出的 `ftp://<host>:<port>`，本连接器不会读取 `fs.defaultFS` 或 `ftp_properties` 之类的配置。
 
-```hocon
-source {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "csv"
-    delimiter = ","
-    ftp_properties = {
-      "fs.sftp.user." = "seatunnel"
-      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"   = "sftp.example.example.com"
-      "fs.sftp.port"   = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
-
-如果 SFTP 服务器使用的是自签 host key，请提前把它加进 `known_hosts`——否则第一次读取会抛出 `SftpException` 并提示 host 校验未通过。连接器本身不缓存或刷新 `known_hosts`，更新文件后重启作业即可生效。
+如需通过 SSH 文件传输协议（SFTP）读取文件，请使用独立的 [SftpFile](SftpFile.md) 连接器。
 
 ## 变更日志
 

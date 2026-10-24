@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
+> 默认情况下 `semantics` 为 `NON`，不保证消息恰好一次发送到 Kafka。如需 exactly-once 语义，请将 `semantics` 设置为 `EXACTLY_ONCE` 并开启 checkpoint。
 
 ## 描述
 
@@ -48,6 +48,8 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 | Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
 
 ## 接收器选项
+
+> 注意：`partition` 和 `partition_key_fields` 互斥，同时配置会校验失败，只能配置其中一个。
 
 |          名称          |   类型   | 是否需要 | 默认值  | 描述                                                                                                                                                                                                                                                                 |
 |----------------------|--------|------|------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -453,7 +455,7 @@ sink {
 }
 ```
 
-注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时使用——这不是"小心配置即可"的问题：两者同时配置时，sink 序列化器初始化会抛出 `KafkaConnectorException(OPERATION_NOT_SUPPORTED)`，作业无法启动。NATIVE 输入的 headers 已编码在 `value` 字节数组内，无需也无法通过该选项转发。
 
 ## 常见问题
 
@@ -501,25 +503,29 @@ sink {
 
 ### 如何配置 SASL/Kerberos 认证？
 
+Broker 认证相关参数需要通过 `kafka.config` 传递（连接器不会识别顶层的 `kafka.*` 扁平配置）：
+
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
 
 ### Kafka Sink 支持哪些消息格式？
 
-支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
+支持：`json`、`text`、`canal_json`、`debezium_json`、`compatible_debezium_json`、`ogg_json`、`maxwell_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
 
 ## 变更日志
 

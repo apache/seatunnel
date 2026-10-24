@@ -17,8 +17,9 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
 | model                  | string | yes      |             |
-| api_key                | string | yes      |             |
+| api_key                | string | no       |             |
 | api_path               | string | no       |             |
+| process_batch_size     | int    | no       | 100         |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
 | custom_request_headers | map    | no       |             |
@@ -30,6 +31,12 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
+
+> tips: `api_key` is required for OPENAI, DOUBAO and MICROSOFT. DEEPSEEK, KIMIAI and ZHIPU also read `api_key`. `CUSTOM` does not use `api_key`.
+
+### process_batch_size
+
+每次处理的数据行批量大小。旧配置名 `inference_batch_size` 仍可作为回退使用。
 
 ### output_data_type
 

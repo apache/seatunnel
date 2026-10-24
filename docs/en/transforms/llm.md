@@ -19,8 +19,9 @@ more.
 | prompt                 | string | yes      |               |
 | inference_columns      | list   | no       |               |
 | model                  | string | yes      |               |
-| api_key                | string | yes      |               |
+| api_key                | string | no       |               |
 | api_path               | string | no       |               |
+| process_batch_size     | int    | no       | 100           |
 | custom_config          | map    | no       |               |
 | custom_response_parse  | string | no       |               |
 | custom_request_headers | map    | no       |               |
@@ -32,6 +33,12 @@ The model provider to use. The available options are:
 OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
+
+> tips: `api_key` is required for OPENAI, DOUBAO and MICROSOFT. DEEPSEEK, KIMIAI and ZHIPU also read `api_key`. `CUSTOM` does not use `api_key`.
+
+### process_batch_size
+
+The row batch size of each process. The legacy key `inference_batch_size` is still accepted as a fallback.
 
 ### output_data_type
 
