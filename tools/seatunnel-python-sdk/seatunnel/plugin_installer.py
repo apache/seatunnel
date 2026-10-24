@@ -75,6 +75,11 @@ def select_plugins(plugin_config_path: str, connectors: Iterable[str]) -> List[s
     blank lines and line endings are kept as they are. Running it again with the same
     connectors leaves the file unchanged.
 
+    CRLF line endings are preserved, but ``bin/install-plugin.sh`` itself only accepts LF
+    endings: it rejects a connector line ending in ``\\r`` as an invalid artifact ID. Give
+    :func:`install_plugins` a ``plugin_config`` with LF endings, as shipped in the
+    distribution.
+
     :param plugin_config_path: Path to ``config/plugin_config`` in a caller-managed copy
         (see the module docstring); never a source checkout or a shared installation.
     :param connectors: Short names (``"jdbc"``) or artifact IDs (``"connector-jdbc"``).
