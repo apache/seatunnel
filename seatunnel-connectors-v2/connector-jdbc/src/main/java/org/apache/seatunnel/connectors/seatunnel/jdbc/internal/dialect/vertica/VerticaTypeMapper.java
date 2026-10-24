@@ -58,6 +58,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
     private static final String VERTICA_BIGINT = "BIGINT";
     private static final String VERTICA_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
     private static final String VERTICA_DECIMAL = "DECIMAL";
+    private static final String VERTICA_NUMERIC = "NUMERIC";
     private static final String VERTICA_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
     private static final String VERTICA_FLOAT = "FLOAT";
     private static final String VERTICA_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
@@ -114,9 +115,12 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.LONG_TYPE;
             case VERTICA_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
+            case VERTICA_NUMERIC:
             case VERTICA_DECIMAL:
+                // The Vertica JDBC driver reports every exact numeric alias (DECIMAL, NUMERIC,
+                // NUMBER, MONEY) as "NUMERIC", so both labels share one mapping.
                 if (precision > 38) {
-                    LOG.warn("{} will probably cause value overflow.", VERTICA_DECIMAL);
+                    LOG.warn("{} will probably cause value overflow.", type);
                     return new DecimalType(38, 18);
                 }
                 return new DecimalType(precision, scale);
