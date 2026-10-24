@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
+
+- **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
+  - **Description**: `ArrowToSeatunnelRowReader`, which the Doris and StarRocks sources read with, sends a MAP column to `MapConverter` and a ROW column to `StructConverter`. Neither checked the Arrow validity bit in the path that converts element types, so a null MAP cell was returned as an empty map and a null ROW cell ended the read with `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null`. Both now return `null`, the same as `ListConverter`, `LargeListConverter` and `FixedSizeListConverter`, which have guarded this since the Arrow reader was added.
+  - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
+  - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
+
 ### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
 
 When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
