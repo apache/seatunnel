@@ -67,6 +67,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | row_delimiter              | string  | no       | \n                          | Row delimiter for text files, default `\n`. |
 | parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
 | skip_header_row_number     | long    | no       | 0                           | Number of header lines to skip, only for txt and csv. |
+| null_format                | string  | no       | -                           | Only used when file_format_type is text. Defines which string is read as `null`, e.g. `\N`. |
 | date_format                | string  | no       | yyyy-MM-dd                  | Date format for string-to-date conversion, supports `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`. |
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         | Datetime format for string-to-datetime conversion, supports `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`. |
 | time_format                | string  | no       | HH:mm:ss                    | Time format for string-to-time conversion, supports `HH:mm:ss` `HH:mm:ss.SSS`. |
