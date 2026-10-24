@@ -11,6 +11,14 @@
   - **影响**：对批作业，这消除了已完成作业指标多计的问题。对流作业，故障转移恢复后上报的总量会从新一次执行的数值重新开始，而不是延续故障前的累计值；外部聚合这些计数器的看板或告警不应将这种清零解读为数据丢失。该清零是尽力而为的：恢复期间恰好在途的 worker 上报，最多可能在毫秒级窗口内携带一次旧数值。
   - **迁移指南**：正确性上无需任何操作。如果需要跨故障转移的生命周期总量，请在运行中的作业之外自行累计，例如从作业历史中已完成作业存储的指标获取。
 
+### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
+
+当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。
+
+现在这类值会报告解析错误，指出字段名和预期的容器类型；配置 `ignore-parse-errors = true` 时只把该容器值置为 `null`，同一行的其余值仍然保留。嵌套在数组或 Map 中的类似值同样如此：只有出错的那个嵌套值变为 `null`，其兄弟值和外层容器仍然保留；与声明类型匹配的空数组、空对象，以及 `null` 与缺失值，以及元素和键的转换行为保持不变。如需迁移，请为 `ARRAY` 字段提供真正的 JSON 数组、为 `MAP` 字段提供真正的 JSON 对象，或开启 `ignore-parse-errors = true`，使格式不合法的容器值变成 `null`而不是让作业失败。
+
+同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
@@ -24,6 +32,10 @@
   - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
 
 ### 运行环境要求
 
@@ -117,6 +129,25 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
 
 ### SQL ARRAY_MAX 和 ARRAY_MIN 精度
 
