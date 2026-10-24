@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.autoscale;
+package org.apache.seatunnel.engine.common.config.server;
 
 import java.io.Serializable;
 
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 /**
- * Internal configuration for the advisory autoscaler.
+ * Internal configuration for the advisory autoscaler, held by {@link
+ * org.apache.seatunnel.engine.common.config.EngineConfig}.
  *
  * <p>This class intentionally contains no YAML or public option parsing. Public configuration
  * adapters may map their values to this model in a later integration layer.

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceShortageListener;
 
 import com.hazelcast.cluster.Address;

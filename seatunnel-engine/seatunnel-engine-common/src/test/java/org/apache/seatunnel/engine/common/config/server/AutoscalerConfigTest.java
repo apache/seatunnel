@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.autoscale;
+package org.apache.seatunnel.engine.common.config.server;
+
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -23,8 +25,8 @@ import org.junit.jupiter.api.Test;
 class AutoscalerConfigTest {
 
     @Test
-    void defaultsToDisabledAndSafeRuntimeValues() {
-        AutoscalerConfig config = AutoscalerConfig.defaults();
+    void engineConfigDefaultsToDisabledAndSafeRuntimeValues() {
+        AutoscalerConfig config = new EngineConfig().getAutoscalerConfig();
 
         Assertions.assertFalse(config.isEnabled());
         Assertions.assertTrue(config.getEvaluationIntervalSeconds() > 0);

@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -114,8 +113,6 @@ public class SeaTunnelServer
     @Getter private final SeaTunnelConfig seaTunnelConfig;
     @Getter private final ResourceManagerFactory resourceManagerFactory;
 
-    private final AutoscalerConfig autoscalerRuntimeConfig;
-
     private volatile boolean isRunning = true;
 
     @Getter private EventService eventService;
@@ -126,29 +123,15 @@ public class SeaTunnelServer
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, new ResourceManagerFactory(), AutoscalerConfig.defaults());
+        this(seaTunnelConfig, new ResourceManagerFactory());
     }
 
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
-        this(seaTunnelConfig, resourceManagerFactory, AutoscalerConfig.defaults());
-    }
-
-    public SeaTunnelServer(
-            @NonNull SeaTunnelConfig seaTunnelConfig,
-            @NonNull AutoscalerConfig autoscalerRuntimeConfig) {
-        this(seaTunnelConfig, new ResourceManagerFactory(), autoscalerRuntimeConfig);
-    }
-
-    public SeaTunnelServer(
-            @NonNull SeaTunnelConfig seaTunnelConfig,
-            @NonNull ResourceManagerFactory resourceManagerFactory,
-            @NonNull AutoscalerConfig autoscalerRuntimeConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.resourceManagerFactory = resourceManagerFactory;
-        this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
         LOGGER.info("SeaTunnel server start...");
     }
 
@@ -168,7 +151,7 @@ public class SeaTunnelServer
                                     nodeEngine,
                                     taskExecutionService,
                                     seaTunnelConfig.getEngineConfig().getSlotServiceConfig(),
-                                    autoscalerRuntimeConfig);
+                                    seaTunnelConfig.getEngineConfig().getAutoscalerConfig());
                     service.init();
                     slotService = service;
                 }
@@ -263,8 +246,7 @@ public class SeaTunnelServer
                         this,
                         engineContext,
                         seaTunnelConfig.getEngineConfig(),
-                        resourceManagerFactory,
-                        autoscalerRuntimeConfig);
+                        resourceManagerFactory);
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

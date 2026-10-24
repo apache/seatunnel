@@ -34,6 +34,7 @@ import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
@@ -53,7 +54,6 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerSignalStore;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
@@ -291,8 +291,7 @@ public class CoordinatorService {
                 seaTunnelServer,
                 engineContext,
                 engineConfig,
-                new ResourceManagerFactory(),
-                AutoscalerConfig.defaults());
+                new ResourceManagerFactory());
     }
 
     public CoordinatorService(
@@ -301,41 +300,10 @@ public class CoordinatorService {
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig,
             ResourceManagerFactory resourceManagerFactory) {
-        this(
-                nodeEngine,
-                seaTunnelServer,
-                engineContext,
-                engineConfig,
-                resourceManagerFactory,
-                AutoscalerConfig.defaults());
-    }
-
-    public CoordinatorService(
-            @NonNull NodeEngineImpl nodeEngine,
-            @NonNull SeaTunnelServer seaTunnelServer,
-            @NonNull SeaTunnelEngineContext engineContext,
-            EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
-        this(
-                nodeEngine,
-                seaTunnelServer,
-                engineContext,
-                engineConfig,
-                new ResourceManagerFactory(),
-                autoscalerRuntimeConfig);
-    }
-
-    public CoordinatorService(
-            @NonNull NodeEngineImpl nodeEngine,
-            @NonNull SeaTunnelServer seaTunnelServer,
-            @NonNull SeaTunnelEngineContext engineContext,
-            EngineConfig engineConfig,
-            ResourceManagerFactory resourceManagerFactory,
-            AutoscalerConfig autoscalerRuntimeConfig) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
-        this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
+        this.autoscalerRuntimeConfig = engineConfig.getAutoscalerConfig();
         this.autoscalerSignalStore = new AutoscalerSignalStore(autoscalerRuntimeConfig);
         this.autoscalerStateStore =
                 new InMemoryAutoscalerStateStore(

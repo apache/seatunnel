@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -36,7 +37,6 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerSignalStore;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
@@ -962,6 +962,7 @@ public class CoordinatorServiceTest {
             EngineConfig engineConfig,
             ResourceManagerFactory resourceManagerFactory,
             AutoscalerConfig autoscalerRuntimeConfig) {
+        engineConfig.setAutoscalerConfig(autoscalerRuntimeConfig);
         NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
         ILogger logger = Mockito.mock(ILogger.class);
         HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
@@ -986,8 +987,7 @@ public class CoordinatorServiceTest {
                         server,
                         server.getEngineContext(),
                         engineConfig,
-                        resourceManagerFactory,
-                        autoscalerRuntimeConfig);
+                        resourceManagerFactory);
         stopCoordinatorSchedulers(coordinatorService);
         return coordinatorService;
     }

@@ -12,6 +12,8 @@
  */
 package org.apache.seatunnel.engine.server.autoscale;
 
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
+
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
