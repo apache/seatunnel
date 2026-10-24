@@ -107,6 +107,7 @@ Related docs:
 - [Multi-Table](./features/multi-table.md)
 - [Catalog Table](./api-design/catalog-table.md)
 - [Schema Evolution Configuration](../introduction/configuration/schema-evolution.md)
+- [CDC Schema Evolution Contract](./cdc-schema-evolution-contract.md)
 
 ## Execution Phases
 
