@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.Or
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.DatabaseMetaData;
 import java.util.Map;
 
 /**
@@ -35,6 +36,12 @@ public class OceanBaseOracleDialect extends OracleDialect {
 
     /** OceanBase JDBC driver switch that enables server-side prepared statement streaming. */
     private static final String USE_SERVER_PREPARED_STATEMENTS = "useServerPrepStmts";
+
+    /** Composite splitting is not validated for OceanBase Oracle mode. */
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        return false;
+    }
 
     /**
      * OceanBase Oracle mode can buffer a large sampled result set in memory, so split planning must
