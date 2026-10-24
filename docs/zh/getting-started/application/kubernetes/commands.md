@@ -40,17 +40,16 @@ Application ID: example-9f2c41a0b7d3
 Status: RUNNING
 ```
 
-加 `--wait` 会持续轮询直到终态；`FAILED`、`CANCELED` 和 `UNKNOWN` 会让命令以非零码退出，可直接
-作为调度器或 CI 的完成判定。`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
+加 `--wait` 会持续轮询直到终态或 `UNKNOWN`；`FAILED` 会让命令以非零码退出，可直接作为调度器
+或 CI 的完成判定；`CANCELED` 和 `UNKNOWN` 会正常打印，不会让命令失败。`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
 默认 `0` 表示一直等待。`--wait-interval` 设置轮询间隔（默认 500 ms）。
 
 ## cancel
 
 `cancel` 删除 application 的 owner Job，自有 Pod、Service、Secret 和 ConfigMap 通过 owner
-reference 一并回收；SeaTunnel 之外创建的引用对象不会被修改或删除。取消后 application 状态为
-`CANCELED`，已完成的 Job 保留到 `kubernetes.finished-job-retention-seconds` 到期。
-被取消的 Master 以退出码 1 结束（Kubernetes Job 无法表达 `CANCELED`），因此 Job 对象最终是
-`Failed` 状态，而 `status` 报告 `CANCELED`。
+reference 一并回收；SeaTunnel 之外创建的引用对象不会被修改或删除。删除请求被接受后命令输出
+`Cancellation requested`。由于 owner Job 已被删除，之后再执行 `status` 会返回 `UNKNOWN`；
+可以用 `kubectl` 确认 Pod 已经消失。如果删除前 API 调用失败，请在 API 恢复后重试 `cancel`。
 
 ## 用 kubectl 排查
 

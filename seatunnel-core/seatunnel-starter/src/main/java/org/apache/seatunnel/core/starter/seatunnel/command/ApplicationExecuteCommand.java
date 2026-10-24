@@ -98,7 +98,7 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
             ApplicationStatus status = getStatus(descriptor, applicationId);
             System.out.println("Status: " + status);
-            if (status.isFailure()) {
+            if (applicationCommandArgs.isWait() && status.isFailure()) {
                 throw new CommandExecuteException(
                         "Application finished with an unsuccessful status");
             }

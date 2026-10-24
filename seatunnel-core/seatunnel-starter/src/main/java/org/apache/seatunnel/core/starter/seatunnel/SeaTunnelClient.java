@@ -36,7 +36,8 @@ public class SeaTunnelClient {
                         new ClientCommandArgs(),
                         EngineType.SEATUNNEL.getStarterShellName(),
                         true,
-                        ClientCommandArgs::validateCommandOptions);
+                        ClientCommandArgs::validateCommandOptions,
+                        0);
         try {
             SeaTunnel.run(clientCommandArgs.buildCommand());
         } catch (Error e) {

@@ -27,7 +27,7 @@ bin/seatunnel-application.sh -h
 ```text
 Usage: seatunnel-application.sh [options] submit | status | cancel
   Options:
-    -a, --application-config Optional HOCON deployment file, e.g.
+    -a, --application-config HOCON deployment file (required for submit), e.g.
                              application.config (not the job file)
     -c, --config             SeaTunnel job configuration file (required for
                              submit unless the provider supplies it, for
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | all | Operation, the first positional argument |
 | `-t`, `--target` | all | Resource platform that runs the application |
 | `-c`, `--config` | submit | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf` |
-| `-a`, `--application-config` | all | Optional deployment file with common and platform options |
+| `-a`, `--application-config` | all | Deployment file with common and platform options; required for submit |
 | `-Dkey=value` | all | Override one non-sensitive `application.*` or `kubernetes.*` deployment option, for example `-Dapplication.worker-count=4`; repeatable. Job `${...}` variables are resolved inside the Pod, not on the submitting host |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
 | `--wait` | submit, status | Poll until a terminal status |
@@ -106,13 +106,14 @@ often the status is polled. The platform-independent states are:
 | `CANCELED` | The platform reported a cancellation |
 | `UNKNOWN` | A known application has a platform state that cannot yet be mapped |
 
-`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `FAILED`, `CANCELED` and
-`UNKNOWN` make `status` exit non-zero, which turns the command into a completion gate for
-schedulers and CI:
+`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `--wait` also stops at
+`UNKNOWN`, because the platform can no longer report the application. Only `FAILED` makes `status`
+exit non-zero, which turns the command into a failure gate for schedulers and CI; `CANCELED` and
+`UNKNOWN` are reported normally:
 
 ```bash
 if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+  echo "application $APP_ID failed"
 fi
 ```
 

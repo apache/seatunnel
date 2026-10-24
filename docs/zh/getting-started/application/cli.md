@@ -27,7 +27,7 @@ bin/seatunnel-application.sh -h
 ```text
 Usage: seatunnel-application.sh [options] submit | status | cancel
   Options:
-    -a, --application-config Optional HOCON deployment file, e.g.
+    -a, --application-config HOCON deployment file (required for submit), e.g.
                              application.config (not the job file)
     -c, --config             SeaTunnel job configuration file (required for
                              submit unless the provider supplies it, for
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | 全部 | 操作类型，位于第一个位置参数 |
 | `-t`、`--target` | 全部 | 运行 application 的资源平台 |
 | `-c`、`--config` | submit | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
-| `-a`、`--application-config` | 全部 | 可选部署文件，包含公共选项和平台选项 |
+| `-a`、`--application-config` | 全部 | 包含公共选项和平台选项的部署文件；`submit` 必填 |
 | `-Dkey=value` | 全部 | 覆盖单个非敏感的 `application.*` / `kubernetes.*` 部署选项（例如 `-Dapplication.worker-count=4`），可重复；作业 `${...}` 变量在 Pod 内解析，不在提交机替换 |
 | `--id` | status、cancel | `submit` 打印的平台 application ID |
 | `--wait` | submit、status | 轮询直到终态 |
@@ -104,12 +104,13 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 | `CANCELED` | 平台报告已取消 |
 | `UNKNOWN` | 已知 application 的平台状态暂时无法映射 |
 
-`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止。`FAILED`、`CANCELED` 和
-`UNKNOWN` 会让 `status` 以非零码退出，因此可以直接作为调度器或 CI 的完成判定：
+`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止；平台无法再报告 application
+时（`UNKNOWN`）也会停止。只有 `FAILED` 会让 `status` 以非零码退出，因此可以直接作为调度器或
+CI 的失败判定；`CANCELED` 和 `UNKNOWN` 会正常打印：
 
 ```bash
 if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+  echo "application $APP_ID failed"
 fi
 ```
 
