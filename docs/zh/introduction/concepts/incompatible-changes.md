@@ -4,6 +4,13 @@
 
 ## dev
 
+### Kafka sink：`NON` 语义下发送失败会让任务失败
+
+- **行为变更：默认的 `semantics = NON` 下，数据发送失败时 Kafka sink 会让任务失败，而不是丢弃该数据**
+  - **描述**：此前数据发送时没有注册回调，checkpoint 只调用 producer 的 flush，因此异步发送失败的数据会丢失，checkpoint 仍会越过它完成。例如 `auto.create.topics.enable=false` 时 topic 不存在、数据大于 `max.request.size`、权限校验失败或 `delivery.timeout.ms` 超时。现在任务会以 `KAFKA-09`（`PRODUCE_DATA_FAILED`）失败，并从上一个已完成的 checkpoint 恢复。
+  - **影响**：此前一边运行一边丢数据的作业现在会失败。永久性原因（例如数据始终过大、缺少 ACL）会让作业持续失败，直到问题解决。恢复后，上一个已完成 checkpoint 之后的数据可能会重复发送。
+  - **迁移指南**：关闭 topic 自动创建时，请在启动作业前创建所有目标 topic；为 sink 使用的账号授予写权限；按最大的数据设置 `max.request.size` 和 Broker 的 `message.max.bytes`。下游消费者需要能处理重复数据。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**

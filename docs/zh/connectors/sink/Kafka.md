@@ -499,6 +499,8 @@ sink {
 
 两种错误都会中止当前事务，受影响的数据会从上一个已完成的 checkpoint 重新发送，不会丢失。
 
+默认的 `NON` 语义在发送失败时同样会停止，而不是丢弃数据。例如 `auto.create.topics.enable=false` 时 topic 不存在、数据大于 `max.request.size`、权限校验失败或 `delivery.timeout.ms` 超时。此时任务以 `KAFKA-09`（`PRODUCE_DATA_FAILED`）失败，并从上一个已完成的 checkpoint 恢复，问题解决后该数据会被重新发送。上一个 checkpoint 之后的数据可能会重复发送。
+
 ### 如何配置 SASL/Kerberos 认证？
 
 ```hocon

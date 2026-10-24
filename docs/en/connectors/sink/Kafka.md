@@ -504,6 +504,12 @@ errors can be reported in that situation:
 Both errors abort the current transaction, so the affected records are re-sent from the last
 completed checkpoint rather than lost.
 
+The default `NON` semantics also stops on a failed send instead of dropping the record. Examples are a
+missing topic when `auto.create.topics.enable=false`, a record larger than `max.request.size`, an
+authorization failure, or `delivery.timeout.ms` expiring. The task fails with `KAFKA-09`
+(`PRODUCE_DATA_FAILED`) and restores from the last completed checkpoint, so the record is re-sent once
+the cause is fixed. Records after the last checkpoint can be delivered twice.
+
 ### How do I configure SASL/Kerberos authentication?
 
 Pass broker authentication settings via `kafka.*` properties:
