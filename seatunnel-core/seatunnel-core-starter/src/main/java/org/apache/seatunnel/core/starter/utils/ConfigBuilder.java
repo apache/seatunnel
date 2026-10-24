@@ -28,7 +28,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
-import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
 import org.apache.seatunnel.common.utils.PlaceholderUtils;
@@ -48,6 +47,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.isStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
+import static org.apache.seatunnel.common.utils.PlaceholderUtils.hasOnlyOnePlaceholder;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -250,8 +254,6 @@ public class ConfigBuilder {
     }
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
-        // TODO: disallow placeholders in list: field=[${name}]
-
         Map<String, String> userConfigMap = extractUserVariables(variables);
         Config resolvedConfig = substituteUserConfig(config, userConfigMap);
 
@@ -266,16 +268,14 @@ public class ConfigBuilder {
 
     public static Config substituteUserConfig(
             Config originalConfig, Map<String, String> userConfigMap) {
-        Map<String, Object> userVariableMap =
-                userConfigMap.entrySet().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        entry ->
-                                                ConfigValueUtils.parseValue(entry.getValue())
-                                                        .unwrapped()));
         Config userConfig =
-                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(userVariableMap));
+                ConfigFactory.parseMap(
+                        userConfigMap.entrySet().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                entry ->
+                                                        parseValue(entry.getValue()).unwrapped())));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -387,11 +387,21 @@ public class ConfigBuilder {
                             if (variable instanceof String) {
                                 String variableString = (String) variable;
 
-                                return PlaceholderUtils.processPlaceholders(
-                                        variableString,
-                                        TablePlaceholder::isSystemPlaceholder,
-                                        userConfigMap,
-                                        defaultConfigMap);
+                                String replacedValue =
+                                        PlaceholderUtils.processPlaceholders(
+                                                variableString,
+                                                TablePlaceholder::isSystemPlaceholder,
+                                                userConfigMap,
+                                                defaultConfigMap);
+                                if (!replacedValue.equals(variableString)) {
+                                    if (hasOnlyOnePlaceholder(variableString)
+                                            && isStructured(replacedValue)) {
+                                        return parseStructured(replacedValue);
+                                    } else {
+                                        return replacedValue;
+                                    }
+                                }
+
                             } else if (variable instanceof Map) {
                                 processVariablesMap(
                                         (Map<String, Object>) variable,
@@ -424,7 +434,13 @@ public class ConfigBuilder {
                         userConfigMap,
                         defaultConfigMap);
 
-        parentMap.put(variableKey, replacedValue);
+        if (!replacedValue.equals(variableString)) {
+            variableValue = replacedValue;
+            if (hasOnlyOnePlaceholder(variableString) && isStructured(replacedValue)) {
+                variableValue = parseStructured(replacedValue);
+            }
+            parentMap.put(variableKey, variableValue);
+        }
     }
 
     public static String mapToString(Map<String, Object> configMap) {
