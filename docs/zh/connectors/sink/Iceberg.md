@@ -87,6 +87,7 @@ libfb303-xxx.jar
 | custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
 | multi_table_sink_replica               | int     | no   | 1                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
+| flush_row_size                         | long    | no       | -                            | Sink 写入器处理这么多行后就轮换，不再一直保持到下一次 checkpoint，用来限制大批量 upsert 和 CDC 写入时的内存。必须大于 0。请参考下面的 `flush_row_size`。                                                                                                                                                       |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
@@ -116,6 +117,27 @@ iceberg.table.auto-create-props = {
 ### iceberg.table.commit-branch [string]
 
 将提交写入指定的 Iceberg 分支。不配置时写入表的默认分支。
+
+### flush_row_size [long]
+
+默认情况下，Sink 写入器会把当前的 task writer 一直保持到下一次 checkpoint。表有主键时（配置了 `iceberg.table.primary-keys`、开启 upsert 模式或上游是 CDC 源），task writer 会记住写过的每个主键，以便同一行后续的变更可以写成 position delete，这些主键要等 task writer 完成时才释放。因此 checkpoint 间隔很长的大批量导入，或者只在结束时做 checkpoint 的批作业，可能会内存溢出。
+
+设置 `flush_row_size` 后，task writer 每处理这么多行就完成一次并新建一个。这样会提前关闭当前文件并释放记住的主键，写入器内存不再随每个 checkpoint 的行数增长。不设置时只在 checkpoint 时轮换，与之前的行为一致。
+
+轮换之后写出的 equality delete 需要作用到轮换之前写入的行，而 Iceberg 只对更早快照中提交的文件应用 equality delete。所以当一个 checkpoint 中包含轮换后写出的 equality delete 时，它会按 task writer 完成的顺序拆成多个快照依次提交，而不是一个。读端可能逐个看到这些快照，每个快照都包含该 checkpoint 变更的一个前缀。从该 checkpoint 恢复的作业只会补提交缺失的快照。纯追加写入仍然是每个 checkpoint 一个快照。同一个 checkpoint 的多个快照会在 checkpoint 完成前依次提交，所以取值过小也会让 checkpoint 变慢。
+
+取值越小内存占用越低，但文件更多更小。分区表轮换时会完成所有已打开分区的文件，而不只是当前分区。upsert 模式下每一行都会写 equality delete，所以每次轮换都会单独成为一个快照：一个 checkpoint 大约提交（该 checkpoint 内单个写入器的行数 / `flush_row_size`）个快照。CDC 写入在每次轮换后出现更新或删除时拆分 checkpoint。因此取值过小会让表元数据膨胀、查询规划变慢；请取较大的值，例如几十万到几百万行，并定期清理过期快照。
+
+```hocon
+sink {
+  Iceberg {
+    ...
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    flush_row_size = 1000000
+  }
+}
+```
 
 ### custom_sql [string]
 

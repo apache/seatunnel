@@ -12,6 +12,14 @@
 
 同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
 
+### Iceberg Sink：writer 轮换后带有 equality delete 的 checkpoint 拆成多个快照提交
+
+- **行为变更：Iceberg Sink 可能把一个 checkpoint 按顺序提交为多个快照**
+  - **影响组件**：`seatunnel-connectors-v2/connector-iceberg`
+  - **描述**：此前 Sink 把一个 checkpoint 的所有文件放在一个快照中提交。当 task writer 在 checkpoint 中途完成时（开启 `iceberg.table.schema-evolution-enabled` 后发生 schema 变更，以及现在新增的 `flush_row_size` 选项），之后写出的 equality delete 会和它要删除的行落在同一个快照里。Iceberg 不会把 equality delete 应用到相同序列号的数据文件上，因此对同一 checkpoint 中先前写入的行做 upsert、更新或删除时，旧行会留在表中。现在这样的 checkpoint 会按 task writer 完成的顺序拆成多个快照提交。每个快照带有 `seatunnel.checkpoint-id`，以及 `seatunnel.commit-group` 和 `seatunnel.commit-group-count`。
+  - **影响**：只影响在 checkpoint 内轮换了 task writer 的 upsert 和 CDC 写入；纯追加写入和没有轮换的 checkpoint 仍然只产生一个快照。读端可能逐个看到这样一个 checkpoint 的多个快照，每个 checkpoint 的快照数随轮换次数增加。
+  - **迁移指南**：无需修改配置。从旧版本提交的 checkpoint 恢复的作业处理方式不变：带有 checkpoint id 但没有 `seatunnel.commit-group` 的快照视为整个 checkpoint。如果作业在提交一个被拆成多个快照的 checkpoint 时中断，请用当前或更新的版本恢复。旧版本只要找到该 checkpoint 的任意一个快照，就会跳过整个 checkpoint，剩下的快照将不会再提交。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
