@@ -164,7 +164,7 @@ public class ZetaSQLType {
             return getTimeKeyExprType((TimeKeyExpression) expression);
         }
         if (expression instanceof ExtractExpression) {
-            return BasicType.INT_TYPE;
+            return getExtractType((ExtractExpression) expression);
         }
         if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
@@ -317,6 +317,19 @@ public class ZetaSQLType {
             types.add(getExpressionType(caseExpression.getElseExpression()));
         }
         return getMaxType(types);
+    }
+
+    /**
+     * Returns the runtime type of an EXTRACT expression.
+     *
+     * <p>EPOCH values can exceed 32-bit integer range, so they must stay BIGINT-compatible even
+     * though the other EXTRACT fields still fit in INT.
+     */
+    private SeaTunnelDataType<?> getExtractType(ExtractExpression expression) {
+        if ("EPOCH".equalsIgnoreCase(expression.getName())) {
+            return BasicType.LONG_TYPE;
+        }
+        return BasicType.INT_TYPE;
     }
 
     private SeaTunnelDataType<?> getFunctionType(Function function) {

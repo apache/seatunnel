@@ -193,6 +193,11 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     }
 
     /** User not grant read privilege read data test cases for the Paimon table */
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL},
+            disabledReason =
+                    "The SeaTunnel engine variant does not terminate after the expected unauthorized source failure and times out the CI job.")
     @TestTemplate
     public void privilegeEnabledPaimonSourceUnAuthorized(TestContainer container) throws Exception {
         String warehouse = "/tmp/seatunnel_mnt/paimon";
