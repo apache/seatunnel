@@ -99,9 +99,13 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook, Only used when file_format is excel.                                                                         |
 | xml_row_tag                | String  | No       | -                             | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                |
 | xml_use_attr_format        | Boolean | No       | -                             | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                           |
+| csv_use_header_line | boolean | no | false | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180. |
 | compress_codec             | String  | No       | None                          | The compress codec of files                                                                                                                    |
+| archive_compress_codec     | String  | No       | none                          | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
 | encoding                   | String  | No       | UTF-8                         | The encoding of the file to read                                                                                                               |
 | null_format                | String  | No       | -                             | Only used when file_format_type is text. Define which strings can be represented as null, e.g. `\N`.                                           |
+| binary_chunk_size | int | no | 1024 | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Larger values may improve performance for large files but use more memory. |
+| binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. |
 | filename_extension         | String  | No       | -                             | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                        |
 | excel_engine               | String  | No       | POI                           | Only used when file_format is excel. Supported engines are `POI` and `EasyExcel`.                                                              |
 | poi_excel_max_file_size    | Long    | No       | 52428800                      | Only used when file_format is excel and excel_engine is POI. The maximum Excel file size in bytes (default 50 MB).                             |
@@ -123,6 +127,9 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | retention_max_age          | String  | No       | -                             | Optional retention age for backup files, only valid when `post_sync_action=backup`.                                                            |
 | retention_check_interval   | String  | No       | 1H                            | Retention scan interval, only effective when `post_sync_action=backup` and `retention_max_age` is configured.                                  |
 | recursive_file_scan        | Boolean | No       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                        |
+| file_filter_modified_start | string | no | - | File modification time filter. The connector will filter files based on the last modification start time (inclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. The connector will filter files based on the last modification end time (exclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
+| sort_files_by_modification_time | boolean | no | false | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.               |
 
 ## How to Create a SMB Data Synchronization Job

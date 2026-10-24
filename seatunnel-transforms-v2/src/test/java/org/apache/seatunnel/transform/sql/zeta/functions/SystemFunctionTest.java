@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -558,5 +559,154 @@ public class SystemFunctionTest {
         Assertions.assertThrows(
                 org.apache.seatunnel.transform.exception.TransformException.class,
                 () -> SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsIntRejectsOutOfRangeNumericInput() {
+        // The defect this covers: Number.intValue() keeps only the low-order 32 bits, so these
+        // used to come back wrapped, and with a flipped sign at the low end.
+        for (long out :
+                new long[] {
+                    Integer.MIN_VALUE - 1L, Integer.MAX_VALUE + 1L, 3000000000L, Long.MAX_VALUE
+                }) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INT")),
+                    "INT should reject " + out);
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INTEGER")),
+                    "INTEGER should reject " + out);
+        }
+
+        // The exact boundaries and an ordinary value still convert.
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MIN_VALUE, "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MAX_VALUE, "INT")));
+        Assertions.assertEquals(0, SystemFunction.castAs(Arrays.asList(0L, "INT")));
+    }
+
+    @Test
+    public void testCastAsTinyintAndSmallintAlreadyRejectOutOfRangeNumericInput() {
+        // Direct coverage for the numeric path into TINYINT and SMALLINT, which the planner does
+        // not route a narrowing source to today. These targets convert with Byte.parseByte and
+        // Short.parseShort, which already reject an out-of-range value, which is why the INT fix
+        // is not extended to them: doing so would have to go through Number.longValue() and would
+        // start accepting fractional input that is rejected today.
+        for (Object out : new Object[] {300L, -300L, 70000, Long.MAX_VALUE}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "TINYINT")),
+                    "TINYINT should reject " + out);
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "BYTE")),
+                    "BYTE should reject " + out);
+        }
+        for (Object out : new Object[] {70000L, -70000L, 2147483647}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "SMALLINT")),
+                    "SMALLINT should reject " + out);
+        }
+
+        // In-range numeric input is unaffected, and so is fractional input, which these targets
+        // reject today and must keep rejecting.
+        Assertions.assertEquals((byte) 5, SystemFunction.castAs(Arrays.asList(5L, "TINYINT")));
+        Assertions.assertEquals(
+                (short) 5000, SystemFunction.castAs(Arrays.asList(5000L, "SMALLINT")));
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "TINYINT")),
+                "TINYINT must keep rejecting a fractional source");
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "SMALLINT")),
+                "SMALLINT must keep rejecting a fractional source");
+    }
+
+    @Test
+    public void testCastAsIntRejectsWideAndNonFiniteNumericSources() {
+        // Number.longValue() is lossy for these, so a range check done after widening would have
+        // inspected an already-corrupted value: BigDecimal and BigInteger keep only the low-order
+        // 64 bits, and NaN maps to zero. Each family is therefore checked before narrowing.
+        // Reachable through COALESCE/IFNULL, which infer their type from the first non-null
+        // argument and do not constrain the remaining ones.
+        Object[] rejected = {
+            new BigDecimal("18446744073709551621"), // 2^64 + 5, low 64 bits are 5
+            new BigDecimal("18446744073709551616"), // 2^64, low 64 bits are 0
+            new BigDecimal("-18446744073709551621"),
+            new BigInteger("18446744073709551621"),
+            new BigInteger("-18446744073709551621"),
+            Double.NaN,
+            Double.POSITIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+            Float.NaN,
+            1.0e20d,
+            -1.0e20d
+        };
+        for (Object v : rejected) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
+                    "INT should reject " + v);
+        }
+
+        // In range for each family, and the exact boundaries.
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigDecimal("5"), "INT")));
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigInteger("5"), "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(
+                        Arrays.asList(new BigDecimal(String.valueOf(Integer.MAX_VALUE)), "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(
+                        Arrays.asList(new BigDecimal(String.valueOf(Integer.MIN_VALUE)), "INT")));
+
+        // A fractional source is still truncated rather than rejected, which is what this
+        // conversion has always done. Only the range behaviour changed.
+        Assertions.assertEquals(5, SystemFunction.castAs(Arrays.asList(5.7d, "INT")));
+        Assertions.assertEquals(5, SystemFunction.castAs(Arrays.asList(5.7f, "INT")));
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigDecimal("5.7"), "INT")));
+        Assertions.assertEquals(-5, SystemFunction.castAs(Arrays.asList(-5.7d, "INT")));
+    }
+
+    @Test
+    public void testCastAsIntTruncatesBeforeRangeCheckingAFractionalSource() {
+        // The range check has to run on the truncated value, not the raw one. A naive comparison
+        // against the bounds would reject these, which convert successfully today: their
+        // truncation is exactly the boundary and therefore in range.
+        Assertions.assertEquals(
+                Integer.MAX_VALUE, SystemFunction.castAs(Arrays.asList(2147483647.5d, "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE, SystemFunction.castAs(Arrays.asList(-2147483648.5d, "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(Arrays.asList(new BigDecimal("2147483647.5"), "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(Arrays.asList(new BigDecimal("-2147483648.5"), "INT")));
+
+        // One step beyond the boundary is genuinely out of range and must still fail, including
+        // the cases that previously saturated or wrapped instead.
+        for (Object v :
+                new Object[] {
+                    2147483648.0d,
+                    -2147483649.0d,
+                    new BigDecimal("2147483648"),
+                    new BigDecimal("-2147483649")
+                }) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
+                    "INT should reject " + v);
+        }
     }
 }
