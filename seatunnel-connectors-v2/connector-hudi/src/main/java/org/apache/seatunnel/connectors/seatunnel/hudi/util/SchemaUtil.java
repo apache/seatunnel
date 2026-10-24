@@ -44,7 +44,7 @@ public class SchemaUtil {
             case NULL:
                 return BasicType.STRING_TYPE;
             case ARRAY:
-                return convertListType(field, schema.getElementType());
+                return convertListType(field, schema);
             case MAP:
                 return convertMapType(field, schema);
             case BYTES:
@@ -109,9 +109,9 @@ public class SchemaUtil {
     }
 
     private static MapType convertMapType(String field, Schema schema) {
+        // Avro map keys are always strings
         return new MapType(
-                convertSeaTunnelType(field, schema.getElementType()),
-                convertSeaTunnelType(field, schema.getValueType()));
+                BasicType.STRING_TYPE, convertSeaTunnelType(field, schema.getValueType()));
     }
 
     private static SeaTunnelRowType convertStructType(Schema schema) {
@@ -127,6 +127,7 @@ public class SchemaUtil {
     }
 
     private static ArrayType convertListType(String field, Schema schema) {
+        // schema is the array schema; unwrap the element type here
         switch (schema.getElementType().getType()) {
             case BOOLEAN:
                 return ArrayType.BOOLEAN_ARRAY_TYPE;

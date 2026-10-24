@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -177,6 +179,30 @@ class FragmentConverterTest {
         } finally {
             deleteRecursively(tempDir);
         }
+    }
+
+    @Test
+    void shouldRejectMapColumnsWhenBuildingSchema() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "attributes"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE,
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+
+        LanceConnectorException exception =
+                Assertions.assertThrows(
+                        LanceConnectorException.class,
+                        () ->
+                                SchemaUtils.convertSchema(
+                                        new SeaTunnelRow(new Object[] {1, null}), rowType));
+
+        Assertions.assertEquals(
+                "ErrorCode:[LANCE-05], ErrorDescription:[Lance does not support Map columns] - "
+                        + "Field 'attributes' has type MAP. Serialize the Map to a string or "
+                        + "flatten it into columns before writing to Lance.",
+                exception.getMessage());
     }
 
     private static void createEmptyDataset(
