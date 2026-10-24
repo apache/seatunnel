@@ -66,8 +66,10 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
@@ -293,6 +295,102 @@ public class CoordinatorServiceTest {
             }
         }
         return true;
+    }
+
+    /**
+     * A completed active-job restore must release the marker-retention guard so a later graceful
+     * removal can clear its marker immediately instead of retaining it until the TTL expires.
+     */
+    @Test
+    void testGracefulMarkerClearsAfterActiveJobMasterSwitchRestore() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testGracefulMarkerClearsAfterActiveJobMasterSwitchRestore");
+        HazelcastInstanceImpl instance1 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        HazelcastInstanceImpl instance2 = null;
+        try {
+            SeaTunnelServer server1 =
+                    instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(server1.isMasterNode());
+                                Assertions.assertTrue(
+                                        server1.getCoordinatorService().isCoordinatorActive());
+                            });
+
+            instance2 = createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+            SeaTunnelServer server2 =
+                    instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            HazelcastInstanceImpl finalInstance1 = instance1;
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalInstance1.getCluster().getMembers().size()));
+
+            long jobId =
+                    instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf",
+                            "graceful-marker-after-master-switch-restore",
+                            jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance1.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            Data jobData = instance1.getSerializationService().toData(jobImmutableInformation);
+            server1.getCoordinatorService()
+                    .submitJob(jobId, jobData, jobImmutableInformation.isStartWithSavePoint())
+                    .join();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING,
+                                            server1.getCoordinatorService().getJobStatus(jobId)));
+
+            instance1.shutdown();
+            instance1 = null;
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(server2.isMasterNode());
+                                Assertions.assertTrue(
+                                        server2.getCoordinatorService().isCoordinatorActive());
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server2.getCoordinatorService().getJobStatus(jobId));
+                            });
+
+            Address laterDepartingAddress = new Address("127.0.0.1", 65535);
+            long markedAt = System.currentTimeMillis();
+            IMap<Address, Long> markerMap = instance2.getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
+            markerMap.put(laterDepartingAddress, markedAt);
+            Member member = Mockito.mock(Member.class);
+            Mockito.when(member.getAddress()).thenReturn(laterDepartingAddress);
+            MembershipServiceEvent event = Mockito.mock(MembershipServiceEvent.class);
+            Mockito.when(event.getMember()).thenReturn(member);
+
+            server2.getCoordinatorService().failedTaskOnMemberRemoved(event);
+
+            Assertions.assertFalse(
+                    markerMap.containsKey(laterDepartingAddress),
+                    "a later graceful-removal marker must clear immediately after restore");
+        } finally {
+            if (instance1 != null) {
+                instance1.shutdown();
+            }
+            if (instance2 != null) {
+                instance2.shutdown();
+            }
+        }
     }
 
     @Test
