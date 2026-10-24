@@ -89,6 +89,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
 | branch                       | String  | No       | -                            | The branch name of Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
+| multi_table_sink_replica     | int     | No       | 1                            | The replica number of multi table sink writer. Use this when one upstream job writes to multiple Paimon tables and each table needs more than one sink writer.                                       |
 
 ### table_options [Map]
 
@@ -140,7 +141,7 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 > **Note**
 >
 > When you use a streaming mode to read a Paimon table, different `changelog-producer` modes will
-> produce [different results](../source/Paimon.md#changelog). Pick `input` for the most faithful
+> produce [different results](../source/Paimon.md#read-paimon-table-changelog). Pick `input` for the most faithful
 > pass-through of upstream CDC events, or `lookup` / `full-compaction` if the upstream does not emit
 > full changelog records.
 
@@ -741,7 +742,7 @@ sink {
 
 ### Does Paimon sink support automatic table creation and schema evolution?
 
-Yes. When `paimon.auto-create-table = true` or `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
+Yes. When `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
 
 ### How does Paimon sink achieve exactly-once writes?
 

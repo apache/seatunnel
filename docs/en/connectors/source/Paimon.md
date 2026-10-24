@@ -259,7 +259,21 @@ source {
 }
 ```
 
-## Changelog
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
+}
+```
+
+## Read Paimon Table Changelog
 If you want to read the changelog of the Paimon table, first set the `changelog-producer` for the Paimon source table and then use the SeaTunnel stream task to read it.
 
 ### Note
@@ -291,20 +305,6 @@ sink {
 }
 ```
 
-### paimon enable privilege example
-
-```hocon
-source {
- Paimon {
-     warehouse = "/tmp/paimon"
-     database = "default"
-     table = "st_test"
-     user = "paimon"
-     password = "******"
-   }
-}
-```
-
 ## FAQ
 
 ### Which read modes does the Paimon source support?
@@ -313,7 +313,7 @@ The SeaTunnel Paimon source supports both batch snapshot queries and streaming c
 
 ### How do I configure storage and catalog backends for Paimon?
 
-Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `paimon.catalog.type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `catalog_type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
 
 ### Does Paimon source support column projection?
 

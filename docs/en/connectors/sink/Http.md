@@ -38,7 +38,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 |            Name             |  Type  | Required | Default |                                                 Description                                                 |
 |-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
-| url                         | String | Yes      | -       | Http request url                                                                                            |
+| url                         | String | Yes      | -       | HTTP request URL. Must not be empty or whitespace-only.                                                      |
 | headers                     | Map    | No       | -       | Http headers                                                                                                |
 | params                      | Map    | No       | -       | Accepted by the option rule. For the current sink writer, put query parameters directly in `url`; rows are posted to the final URL as the request body. |
 | retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
