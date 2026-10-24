@@ -18,6 +18,7 @@
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -168,10 +169,10 @@ public class ConfigValueUtilsTest {
 
     @Test
     void testSingleValueInBrackets() {
-        String value = "[a-z]";
+        String value = "\"[a-z]\"";
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertInstanceOf(String.class, result);
-        Assertions.assertEquals(value, result);
+        Assertions.assertEquals(StringUtils.unwrap(value, "\""), result);
     }
 
     @Test
