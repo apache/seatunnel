@@ -506,27 +506,29 @@ completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass broker authentication settings via `kafka.*` properties:
+The connector only forwards Kafka client properties that are placed inside the `kafka.config` block; top-level keys such as `kafka.security.protocol` are not recognized and are silently ignored. Put the broker authentication settings inside `kafka.config`:
 
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
 
 ### What message formats does Kafka Sink support?
 
-Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `compatible_debezium_json`, `ogg_json`, `maxwell_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
 
 ## Changelog
 
