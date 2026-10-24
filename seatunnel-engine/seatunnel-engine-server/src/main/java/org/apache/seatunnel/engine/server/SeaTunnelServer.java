@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -88,37 +90,52 @@ public class SeaTunnelServer
 
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
 
+    /** Pause between two checks whether the coordinator service became active. */
+    private static final long COORDINATOR_ACTIVATION_POLL_MILLIS = 200L;
+
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     @Getter private SeaTunnelEngineContext engineContext;
-    private NodeEngineImpl nodeEngine;
-    private final LiveOperationRegistry liveOperationRegistry;
+    @Getter private NodeEngineImpl nodeEngine;
+    @Getter private final LiveOperationRegistry liveOperationRegistry;
 
     private volatile SlotService slotService;
-    private TaskExecutionService taskExecutionService;
-    private ClassLoaderService classLoaderService;
+    @Getter private TaskExecutionService taskExecutionService;
+    @Getter private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
-    private volatile RealtimeMetricsService realtimeMetricsService;
+    @Getter private volatile RealtimeMetricsService realtimeMetricsService;
     @Getter private final CdcProgressService cdcProgressService;
     private volatile JettyService jettyService;
-    private TaskLogManagerService taskLogManagerService;
+    @Getter private TaskLogManagerService taskLogManagerService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
-    private final SeaTunnelConfig seaTunnelConfig;
+    @Getter private final SeaTunnelConfig seaTunnelConfig;
+    @Getter private final ResourceManagerFactory resourceManagerFactory;
 
     private volatile boolean isRunning = true;
 
     @Getter private EventService eventService;
 
+    /**
+     * Constructs an uninitialized server.
+     *
+     * @param seaTunnelConfig Engine and cluster configuration retained for initialization
+     */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
+        this(seaTunnelConfig, new ResourceManagerFactory());
+    }
+
+    public SeaTunnelServer(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.cdcProgressService = new CdcProgressService();
         this.seaTunnelConfig = seaTunnelConfig;
-        LOGGER.info("SeaTunnel server start...");
+        this.resourceManagerFactory = resourceManagerFactory;
     }
 
     /** Lazy load for Slot Service */
@@ -203,11 +220,35 @@ public class SeaTunnelServer
     private void startMaster() {
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
-        checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
+        int monitorHistorySize =
+                seaTunnelConfig.getEngineConfig().getCheckpointConfig().getMonitorHistorySize();
+        if (monitorHistorySize
+                > ServerConfigOptions.MasterServerConfigOptions
+                        .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD) {
+            // Legal but worth saying out loud: every checkpoint event rewrites
+            // the whole checkpoint overview entry in the IMap, so a large
+            // window is paid on every trigger and acknowledgement rather than
+            // once. Logged here, at the only place the value is read, so the
+            // line appears in the master log next to the rest of startup.
+            log.warn(
+                    "seatunnel.engine.checkpoint.monitor-history-size is set to {}, above the "
+                            + "recommended {}. The checkpoint overview is rewritten in full on "
+                            + "every checkpoint event, so a window this large costs master CPU, "
+                            + "network and backup traffic proportional to history size x running "
+                            + "pipelines. Lower it unless you need that much history.",
+                    monitorHistorySize,
+                    ServerConfigOptions.MasterServerConfigOptions
+                            .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD);
+        }
+        checkpointMonitorService = new CheckpointMonitorService(engineContext, monitorHistorySize);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(
-                        nodeEngine, this, engineContext, seaTunnelConfig.getEngineConfig());
+                        nodeEngine,
+                        this,
+                        engineContext,
+                        seaTunnelConfig.getEngineConfig(),
+                        resourceManagerFactory);
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,
@@ -283,10 +324,6 @@ public class SeaTunnelServer
         return message;
     }
 
-    public LiveOperationRegistry getLiveOperationRegistry() {
-        return liveOperationRegistry;
-    }
-
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
@@ -322,8 +359,35 @@ public class SeaTunnelServer
         }
     }
 
-    public RealtimeMetricsService getRealtimeMetricsService() {
-        return realtimeMetricsService;
+    /**
+     * Waits until this member's coordinator service has finished initialization.
+     *
+     * <p>{@link #getCoordinatorService()} only tolerates a short activation window because its
+     * cluster-mode callers retry on a higher level. Callers that cannot retry, such as the
+     * application master that runs exactly one job, wait with their own startup budget instead.
+     *
+     * @param timeoutMillis budget for the coordinator service to become active
+     * @return the active coordinator service
+     * @throws SeaTunnelEngineRetryableException if the budget expires before activation
+     * @throws SeaTunnelEngineException if this member stopped being the master
+     * @throws InterruptedException if the wait is interrupted
+     */
+    public CoordinatorService awaitCoordinatorService(long timeoutMillis)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (true) {
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException("This is not a master node now.");
+            }
+            if (isCoordinatorActive()) {
+                return coordinatorService;
+            }
+            if (System.nanoTime() >= deadline) {
+                throw new SeaTunnelEngineRetryableException(
+                        "Can not get coordinator service from an active master node.");
+            }
+            Thread.sleep(COORDINATOR_ACTIVATION_POLL_MILLIS);
+        }
     }
 
     synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {
@@ -340,14 +404,6 @@ public class SeaTunnelServer
             realtimeMetricsService.shutdown();
             realtimeMetricsService = null;
         }
-    }
-
-    public TaskExecutionService getTaskExecutionService() {
-        return taskExecutionService;
-    }
-
-    public ClassLoaderService getClassLoaderService() {
-        return classLoaderService;
     }
 
     /**
@@ -420,10 +476,6 @@ public class SeaTunnelServer
         return coordinatorService.isCoordinatorActive();
     }
 
-    public SeaTunnelConfig getSeaTunnelConfig() {
-        return seaTunnelConfig;
-    }
-
     /** Returns this member's bound HTTP port, or the configured port before Jetty is available. */
     public int getHttpPort() {
         JettyService service = jettyService;
@@ -432,16 +484,8 @@ public class SeaTunnelServer
                 : service.getHttpPort();
     }
 
-    public NodeEngineImpl getNodeEngine() {
-        return nodeEngine;
-    }
-
     public ConnectorPackageService getConnectorPackageService() {
         return getCoordinatorService().getConnectorPackageService();
-    }
-
-    public TaskLogManagerService getTaskLogManagerService() {
-        return taskLogManagerService;
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {

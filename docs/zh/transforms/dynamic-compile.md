@@ -42,7 +42,7 @@ SOURCE_CODE,ABSOLUTE_PATH
 
 ### absolute_path [string]
 
-服务器上Java或Groovy文件的绝对路径
+服务器上Java、Groovy或Scala源码文件的绝对路径
 
 ### source_code [string]
 源代码

@@ -55,6 +55,7 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | 否       | -       |
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | 否       | -       |
 | rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | 否       | -       |
+| rules.catalog_table_rule.column_rule.sink_type                                                 | string                                          | 否       | -       |
 | rules.table-names                                                                              | ConfigList                                      | 否       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | 否       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | 否       | -       |
@@ -113,6 +114,10 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 ### catalog_table_rule [ConfigMap]
 
 用于断言实际 Catalog 表元数据是否与用户定义的表元数据一致。
+
+`column_rule` 会把实际产出的字段与声明的字段逐一比较。`sink_type` 是可选项：声明之后，产出字段的 sink
+类型必须与之一致，适用于会声明 sink 类型的转换，例如
+[DefineSinkType](../../transforms/define-sink-type.md)；不声明时不校验该字段的 sink 类型。
 
 ### table-names [ConfigList]
 
