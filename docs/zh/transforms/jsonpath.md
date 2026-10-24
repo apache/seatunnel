@@ -200,7 +200,7 @@ transform {
 
 |             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |         c1_map_array         |
 |------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|------------------------------|
-| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] | [{"key1": "value1", "key2": "value2"}] |
+| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] | [{"c_string_1": "c_string_1", "c_string_2": "c_string_2", "c_string_3": "c_string_3"}, {"c_string_1": "c_string_1", "c_string_2": "c_string_2", "c_string_3": "c_string_3"}] |
 
 ## 读取 SeatunnelRow 示例
 
