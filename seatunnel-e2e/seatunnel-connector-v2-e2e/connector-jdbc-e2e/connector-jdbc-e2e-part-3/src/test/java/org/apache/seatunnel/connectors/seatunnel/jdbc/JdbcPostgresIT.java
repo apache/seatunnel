@@ -24,15 +24,19 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -57,6 +61,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -966,5 +971,107 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.dropTable(tablePathPgSink, true);
         Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
         postgresCatalog.close();
+    }
+
+    /**
+     * Verifies with a real PostgreSQL server that the PostgreSQL converter binds an interval value
+     * given as a number of microseconds, which is how Debezium represents an interval, with exactly
+     * the same number of microseconds on the server. The assertion compares the microseconds
+     * decomposed by the server itself, so it covers sub second values, negative values, zero and
+     * values that used to overflow or to be rejected by older PostgreSQL versions.
+     */
+    @Test
+    public void testIntervalMicrosecondBindingRoundTrip() throws SQLException {
+        String tableName = "public.pg_e2e_interval_binding_probe";
+        long[] microsecondsValues = {
+            1L,
+            1_500_000L,
+            -1L,
+            -1_500_000L,
+            0L,
+            1_000_000L,
+            90_061_000_000L,
+            9_223_372_036_854_776L,
+            9_223_372_036_854_777L,
+            Long.MAX_VALUE,
+            Long.MIN_VALUE
+        };
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("interval_col")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .sourceType("interval")
+                                        .build())
+                        .build();
+
+        executeSQL("DROP TABLE IF EXISTS " + tableName);
+        executeSQL("CREATE TABLE " + tableName + " (id INT, interval_col INTERVAL)");
+        try {
+            PostgresJdbcRowConverter converter = new PostgresJdbcRowConverter();
+            try (Connection connection = getJdbcConnection();
+                    PreparedStatement statement =
+                            connection.prepareStatement(
+                                    "INSERT INTO "
+                                            + tableName
+                                            + " (id, interval_col) VALUES (?, ?)")) {
+                for (int i = 0; i < microsecondsValues.length; i++) {
+                    converter.toExternal(
+                            tableSchema,
+                            null,
+                            new SeaTunnelRow(
+                                    new Object[] {i, String.valueOf(microsecondsValues[i])}),
+                            statement);
+                    statement.executeUpdate();
+                }
+            }
+
+            // The microseconds are recomputed from the interval components, because
+            // EXTRACT(EPOCH) * 1000000 is a double on PostgreSQL 13 and cannot represent
+            // large or odd values exactly.
+            String microsecondsExpression =
+                    " EXTRACT(DAY FROM interval_col)::bigint * 86400000000"
+                            + " + EXTRACT(HOUR FROM interval_col)::bigint * 3600000000"
+                            + " + EXTRACT(MINUTE FROM interval_col)::bigint * 60000000"
+                            + " + round(EXTRACT(SECOND FROM interval_col)::numeric * 1000000)";
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT id,"
+                                            + microsecondsExpression
+                                            + " FROM "
+                                            + tableName
+                                            + " ORDER BY id")) {
+                int rowIndex = 0;
+                while (resultSet.next()) {
+                    long expected = microsecondsValues[rowIndex];
+                    BigDecimal actual = resultSet.getBigDecimal(2);
+                    Assertions.assertNotNull(
+                            actual, "interval " + expected + " was stored as null");
+                    Assertions.assertEquals(
+                            0,
+                            new BigDecimal(expected).compareTo(actual),
+                            "interval of "
+                                    + expected
+                                    + " microseconds was stored as "
+                                    + actual
+                                    + " microseconds");
+                    rowIndex++;
+                }
+                Assertions.assertEquals(
+                        microsecondsValues.length,
+                        rowIndex,
+                        "every interval value must be read back");
+            }
+        } finally {
+            executeSQL("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 }

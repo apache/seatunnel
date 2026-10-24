@@ -745,6 +745,8 @@ sink {
 }
 ```
 
+When writing to a PostgreSQL `interval` column, the JDBC sink treats decimal integer strings as microsecond counts: `"1500000"` represents 1.5 seconds. The conversion preserves negative values, zero and microsecond precision across the signed 64-bit range. Existing interval text, such as `1 day 02:03:04.5`, is passed through unchanged; null values are written as SQL NULL.
+
 ### Create a missing target table
 
 To facilitate the creation of tables when they do not already exist, set the `schema_save_mode`  to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
