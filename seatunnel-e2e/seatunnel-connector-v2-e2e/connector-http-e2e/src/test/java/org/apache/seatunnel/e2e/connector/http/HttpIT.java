@@ -316,6 +316,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult11 = container.executeJob("/persistiq_json_to_assert.conf");
         Assertions.assertEquals(0, execResult11.getExitCode());
 
+        // http shopify
+        Container.ExecResult execResult24 = container.executeJob("/shopify_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult24.getExitCode());
+
         // http httpMultiLine
         Container.ExecResult execResult12 =
                 container.executeJob("/http_multilinejson_to_assert.conf");
@@ -361,6 +365,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http airtable source
         Container.ExecResult execResult22 = container.executeJob("/airtable_json_to_assert.conf");
         Assertions.assertEquals(0, execResult22.getExitCode());
+
+        // http posthog source
+        Container.ExecResult execResult23 = container.executeJob("/posthog_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult23.getExitCode());
     }
 
     /**
