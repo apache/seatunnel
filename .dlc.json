@@ -19,10 +19,16 @@
       "pattern": "^https://json.org/"
     },
     {
+      "pattern": "^https://docs.starrocks.io"
+    },
+    {
       "pattern": "^/docs/category"
     },
     {
       "pattern": "^https://opencollective.com"
+    },
+    {
+      "pattern": "^https://deepwiki.com"
     },
     {
       "pattern": "^https://twitter.com/ASFSeaTunnel"

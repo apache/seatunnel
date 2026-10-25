@@ -13,8 +13,8 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | 名称                             | 类型     | 是否必填 | 默认值    | 描述                                                               |
 |--------------------------------|--------|------|--------|------------------------------------------------------------------|
 | model_provider                 | enum   | 是    | -      | embedding模型的提供商。可选项包括 `AMAZON`、`QIANFAN`、`OPENAI` 等。             |
-| api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。                                           |
-| secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
+| api_key                        | string | 否    | -      | 用于验证embedding服务的API密钥。`AMAZON`、`OPENAI`、`DOUBAO`、`QIANFAN`、`ZHIPU` 需要配置；`CUSTOM` 不使用。注意 `ZHIPU` 运行时会读取该参数，但选项规则仅校验 `dimension`。|
+| secret_key                     | string | 否    | -      | 用于额外验证的密钥。仅 `AMAZON` 和 `QIANFAN` 需要此密钥。                          |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
@@ -23,9 +23,9 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
 | oauth_path                     | string | 否    | -      | oauth 服务的 API 。                                                  |
 | custom_config                  | map    | 否    |        | 模型的自定义配置。                                                        |
-| custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
-| custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                 |
-| custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+| custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。仅从 `custom_config` 块内读取，写在顶层无效。 |
+| custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。仅从 `custom_config` 块内读取，写在顶层无效。                 |
+| custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。仅从 `custom_config` 块内读取，写在顶层无效。 |
 | model_retry_max_attempts       | int    | 否    | 1      | 单个远程模型请求的最大尝试次数。默认值 `1` 表示保持原有不自动重试行为。                         |
 | model_retry_backoff_ms         | long   | 否    | 1000   | 远程模型请求重试前的初始退避时间，单位毫秒。                                          |
 | model_retry_max_backoff_ms     | long   | 否    | 10000  | 远程模型请求重试前的最大退避时间，单位毫秒。                                          |
@@ -75,7 +75,11 @@ provider 侧副作用。该配置不会改变下游 Sink 的幂等语义。
 运行时会记录 provider、model、batch size、attempt number、error category、retryable flag、elapsed time 等安全诊断上下文。
 日志不会记录 API key、secret key、完整源文本 chunk、二进制 payload 或完整 provider response body。
 
-Bedrock 现在也走统一的 common runtime 路径，因此 retry、timeout、响应解析和返回数量校验在各个 provider 之间保持一致。
+Bedrock 也走统一的 common runtime 路径，因此 retry、响应解析和返回数量校验在各个 provider 之间保持一致。
+
+对于 `AMAZON`，`model_retry_max_attempts` 统计 SeaTunnel 层的尝试次数。AWS SDK 在每次尝试内部仍可能执行 HTTP 重试，
+SDK 的重试策略保持不变。配置的重试和退避选项现在会传递到 Bedrock 运行时，而不再被 Transform 忽略。
+默认仍只执行一次 SeaTunnel 尝试。`model_request_timeout_ms` 目前不应用于 Bedrock SDK 调用；本次修改保留现有的 SDK 超时行为。
 
 运行时也提供了一个 cache 边界。当接入 cache 实现时，key 由 provider、model、输出配置、modality、format、规范化后的 metadata，
 以及规范化输入内容的 SHA-256 摘要组成。默认的生产 wiring 仍然使用 `ModelInvocationCache.NOOP`，因此在接入层显式启用缓存之前，

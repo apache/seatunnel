@@ -17,8 +17,17 @@
 
 package org.apache.seatunnel.e2e.connector.neo4j;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -26,7 +35,9 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.io.TempDir;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
@@ -48,9 +59,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -71,8 +89,6 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     private static final int BOLT_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "Test@12343";
-    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + BOLT_PORT);
-
     private GenericContainer<?> container;
     private Driver neo4jDriver;
     private Session neo4jSession;
@@ -92,10 +108,6 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
         Awaitility.given()
@@ -108,7 +120,10 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     private void initConnection() {
         neo4jDriver =
                 GraphDatabase.driver(
-                        CONTAINER_URI,
+                        URI.create(
+                                String.format(
+                                        "bolt://%s:%s",
+                                        container.getHost(), container.getMappedPort(BOLT_PORT))),
                         AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
         neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));
     }
@@ -187,6 +202,147 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
             cnt++;
         }
         assertEquals(FAKE_ROW_NUM, cnt);
+    }
+
+    @TestTemplate
+    public void testMultiTableSource(TestContainer container)
+            throws IOException, InterruptedException {
+        neo4jSession.run("MATCH (n) WHERE n:MultiPerson OR n:MultiCompany DELETE n");
+        neo4jSession.run("CREATE (:MultiPerson {name:'Alice'})");
+        neo4jSession.run("CREATE (:MultiCompany {name:'Acme'})");
+
+        Container.ExecResult execResult =
+                container.executeJob("/neo4j/neo4j_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testDryRunDoesNotExecuteConfiguredCypher() throws Exception {
+        neo4jSession.run("MATCH (n:DryRunSentinel) DELETE n").consume();
+        neo4jSession.run("CREATE (:DryRunSentinel {name:'unchanged'})").consume();
+        Map<String, Object> options = dryRunOptions();
+        options.put("query", "MATCH (n:DryRunSentinel) DELETE n");
+        validateDryRun(options);
+        Assertions.assertEquals(
+                "unchanged",
+                neo4jSession
+                        .run("MATCH (n:DryRunSentinel) RETURN n.name AS name")
+                        .single()
+                        .get("name")
+                        .asString());
+        options.put("query", "THIS IS DELIBERATELY INVALID CYPHER");
+        validateDryRun(options);
+    }
+
+    @Test
+    public void testDryRunMultiTableSchemaWithoutQueryExecution() throws Exception {
+        Map<String, Object> options = dryRunOptions();
+        options.remove("query");
+        options.remove("schema");
+        Map<String, Object> first = new HashMap<>();
+        first.put("query", "CREATE (:DryRunMustNotExist)");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "first");
+        schema.put("fields", Collections.singletonMap("name", "string"));
+        first.put("schema", schema);
+        Map<String, Object> second = new HashMap<>();
+        second.put("query", "INVALID CYPHER");
+        Map<String, Object> secondSchema = new HashMap<>(schema);
+        secondSchema.put("table", "second");
+        second.put("schema", secondSchema);
+        options.put("tables_configs", Arrays.asList(first, second));
+        validateDryRun(options);
+        Assertions.assertEquals(
+                0,
+                neo4jSession
+                        .run("MATCH (n:DryRunMustNotExist) RETURN count(n) AS count")
+                        .single()
+                        .get("count")
+                        .asInt());
+    }
+
+    @Test
+    public void testDryRunRejectsWrongPasswordWithoutEchoingIt() {
+        Map<String, Object> options = dryRunOptions();
+        options.put("password", "dry-run-private-password");
+        Exception error = Assertions.assertThrows(IOException.class, () -> validateDryRun(options));
+        Assertions.assertFalse(error.toString().contains("dry-run-private-password"));
+        Assertions.assertNull(error.getCause());
+    }
+
+    @Test
+    public void testDryRunDoesNotClaimDatabaseValidation() throws Exception {
+        Map<String, Object> options = dryRunOptions();
+        options.put("database", "missing-preflight-database");
+        // Driver connectivity does not select a database or prove query permissions.
+        validateDryRun(options);
+    }
+
+    private Map<String, Object> dryRunOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(
+                "uri",
+                String.format(
+                        "bolt://%s:%s", container.getHost(), container.getMappedPort(BOLT_PORT)));
+        options.put("database", "neo4j");
+        options.put("username", CONTAINER_NEO4J_USERNAME);
+        options.put("password", CONTAINER_NEO4J_PASSWORD);
+        options.put("query", "RETURN 'unused' AS name");
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("name", "string")));
+        return options;
+    }
+
+    @Test
+    public void testDryRunCommand(@TempDir Path directory) throws Exception {
+        Map<String, Object> options = dryRunOptions();
+        options.put("query", "CREATE (:DryRunCommandMustNotExist)");
+        checkDryRunCommand(options, directory);
+        Assertions.assertEquals(
+                0,
+                neo4jSession
+                        .run("MATCH (n:DryRunCommandMustNotExist) RETURN count(n) AS count")
+                        .single()
+                        .get("count")
+                        .asInt());
+    }
+
+    private void checkDryRunCommand(Map<String, Object> options, Path directory) throws Exception {
+        options.put("plugin_name", "Neo4j");
+        options.put("plugin_output", "preflight");
+        Map<String, Object> sink = new HashMap<>();
+        sink.put("plugin_name", "Console");
+        sink.put("plugin_input", "preflight");
+        Map<String, Object> job = new HashMap<>();
+        job.put("source", Collections.singletonList(options));
+        job.put("sink", Collections.singletonList(sink));
+        Path file = directory.resolve("dry-run.json");
+        Files.write(
+                file,
+                ConfigFactory.parseMap(job)
+                        .root()
+                        .render(ConfigRenderOptions.concise())
+                        .getBytes(StandardCharsets.UTF_8));
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", file.toString(), "--dry-run", "connect"},
+                        new ClientCommandArgs(),
+                        "seatunnel.sh",
+                        true);
+        new SeaTunnelConfValidateCommand(args).execute();
+    }
+
+    private void validateDryRun(Map<String, Object> options) throws Exception {
+        ClassLoader loader = getClass().getClassLoader();
+        TableSourceFactory factory =
+                FactoryUtil.discoverFactory(loader, TableSourceFactory.class, "Neo4j");
+        Assertions.assertTrue(factory instanceof SupportSourceDryRunValidation);
+        SupportSourceDryRunValidation validator = (SupportSourceDryRunValidation) factory;
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(ReadonlyConfig.fromMap(options), loader);
+        validator.validateConnectionForDryRun(context, validator.inferSchemaForDryRun(context));
     }
 
     @AfterAll

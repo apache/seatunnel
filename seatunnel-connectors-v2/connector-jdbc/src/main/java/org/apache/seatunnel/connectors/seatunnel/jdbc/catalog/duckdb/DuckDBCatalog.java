@@ -124,7 +124,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             connectionMap.put(url, connection);
             return connection;
         } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
+            throw new CatalogException("Failed connecting to the configured JDBC URL via JDBC.", e);
         }
     }
 
@@ -159,7 +159,9 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL_TEMPLATE,
+                escapeSqlLiteral(tablePath.getSchemaName()),
+                escapeSqlLiteral(tablePath.getTableName()));
     }
 
     @Override
@@ -228,7 +230,13 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return String.format(
                 "SELECT table_schema, table_name FROM information_schema.tables "
                         + "WHERE table_schema = '%s' AND table_name = '%s'",
-                tablePath.getSchemaName(), tablePath.getTableName());
+                escapeSqlLiteral(tablePath.getSchemaName()),
+                escapeSqlLiteral(tablePath.getTableName()));
+    }
+
+    private String escapeSqlLiteral(String value) {
+        // Preserve the existing String.format behavior for a missing schema.
+        return value == null ? null : value.replace("'", "''");
     }
 
     @Override
