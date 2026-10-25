@@ -32,7 +32,9 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.CryptoFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.JsonFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
@@ -128,6 +130,14 @@ public class ZetaSQLFunction {
     public static final String TRANSLATE = "TRANSLATE";
     public static final String SPLIT = "SPLIT";
     public static final String MURMUR64 = "MURMUR64";
+    public static final String MD5 = "MD5";
+
+    // -------------------------crypto functions----------------------------
+    public static final String AES_ENCRYPT = "AES_ENCRYPT";
+    public static final String AES_DECRYPT = "AES_DECRYPT";
+
+    // -------------------------json functions----------------------------
+    public static final String GET_JSON_OBJECT = "GET_JSON_OBJECT";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -277,6 +287,21 @@ public class ZetaSQLFunction {
             SignedExpression signedExpression = (SignedExpression) expression;
             if (signedExpression.getSign() == '-') {
                 Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value == null) {
+                    return null;
+                }
+                if (value instanceof Byte) {
+                    return (byte) -((Byte) value);
+                }
+                if (value instanceof Short) {
+                    return (short) -((Short) value);
+                }
+                if (value instanceof Float) {
+                    return -((Float) value);
+                }
+                if (value instanceof BigDecimal) {
+                    return ((BigDecimal) value).negate();
+                }
                 if (value instanceof Integer) {
                     return -((Integer) value);
                 }
@@ -289,8 +314,8 @@ public class ZetaSQLFunction {
                 if (value instanceof Number) {
                     return -((Number) value).doubleValue();
                 }
-            } else {
-                return computeForValue(signedExpression, inputFields);
+            } else if (signedExpression.getSign() == '+') {
+                return computeForValue(signedExpression.getExpression(), inputFields);
             }
         }
         if (expression instanceof DoubleValue) {
@@ -532,6 +557,14 @@ public class ZetaSQLFunction {
                 return StringFunction.split(args);
             case MURMUR64:
                 return StringFunction.murmur64(args);
+            case MD5:
+                return StringFunction.md5(args);
+            case AES_ENCRYPT:
+                return CryptoFunction.aesEncrypt(args);
+            case AES_DECRYPT:
+                return CryptoFunction.aesDecrypt(args);
+            case GET_JSON_OBJECT:
+                return JsonFunction.getJsonObject(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:
@@ -761,8 +794,8 @@ public class ZetaSQLFunction {
             }
         }
         if (resultType.getSqlType() == SqlType.DECIMAL) {
-            BigDecimal leftBigDecimal = toBigDecimal(leftValue);
-            BigDecimal rightBigDecimal = toBigDecimal(rightValue);
+            BigDecimal leftBigDecimal = NumericFunction.toBigDecimal(leftValue);
+            BigDecimal rightBigDecimal = NumericFunction.toBigDecimal(rightValue);
             if (binaryExpression instanceof Addition) {
                 return leftBigDecimal.add(rightBigDecimal);
             }
@@ -838,32 +871,6 @@ public class ZetaSQLFunction {
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", binaryExpression));
-    }
-
-    /**
-     * Converts a numeric operand of a DECIMAL expression to {@link BigDecimal} without routing it
-     * through {@code double}.
-     *
-     * <p>{@code BigDecimal.valueOf(value.doubleValue())} would collapse the operand to a {@code
-     * double} first, discarding everything beyond ~17 significant digits before the arithmetic even
-     * starts, which defeats the purpose of the DECIMAL type.
-     *
-     * @param value operand of a binary DECIMAL expression
-     * @return the operand as an exact BigDecimal
-     */
-    private static BigDecimal toBigDecimal(Number value) {
-        if (value instanceof BigDecimal) {
-            return (BigDecimal) value;
-        }
-        if (value instanceof Byte
-                || value instanceof Short
-                || value instanceof Integer
-                || value instanceof Long) {
-            return BigDecimal.valueOf(value.longValue());
-        }
-        // Float/Double have no exact decimal form; valueOf uses the canonical shortest
-        // representation, which is the closest thing to the value the user wrote.
-        return BigDecimal.valueOf(value.doubleValue());
     }
 
     public List<SeaTunnelRow> lateralView(

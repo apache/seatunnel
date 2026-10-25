@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
@@ -323,19 +324,23 @@ public class MaxComputeCatalog implements Catalog {
     /**
      * Creates an ODPS client for the given project. When {@code schemaName} is non-blank, sets it
      * as the current schema so that subsequent ODPS API calls resolve tables within that MaxCompute
-     * Schema namespace.
+     * Schema namespace. REST client timeout/retry options are applied via {@link
+     * MaxcomputeUtil#applyRestClientOptions} so that metadata and DDL calls honor
+     * connect_timeout_ms / read_timeout_ms / retry_times.
      */
     private Odps getOdps(String project) {
         return getOdps(project, null);
     }
 
-    private Odps getOdps(String project, String schemaName) {
+    @VisibleForTesting
+    Odps getOdps(String project, String schemaName) {
         Odps odps = new Odps(account);
         odps.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.ENDPOINT));
         odps.setDefaultProject(project);
         if (StringUtils.isNotEmpty(schemaName)) {
             odps.setCurrentSchema(schemaName);
         }
+        MaxcomputeUtil.applyRestClientOptions(odps, readonlyConfig);
         return odps;
     }
 

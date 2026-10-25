@@ -13,139 +13,162 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# !/usr/bin/python
+"""Summarize all workflow jobs without inferring durations for unfinished work."""
+
 import json
 import math
+import re
 import sys
-from datetime import datetime
-import os
-import requests
-from tabulate import tabulate
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import urljoin, urlsplit
+from urllib.request import Request, urlopen
 
 
-def fetch_jobs_from_api(api_url, token=None):
+def _next_page(link_header):
+    for link, relation in re.findall(r'<([^>]+)>\s*;\s*rel="([^"]+)"', link_header or ""):
+        if "next" in relation.split():
+            return link
+    return None
+
+
+def fetch_jobs_from_api(api_url, token=None, max_pages=100):
+    """Follow bounded, same-origin pagination so matrix jobs are never silently lost."""
+    if max_pages <= 0:
+        raise ValueError("max_pages must be positive")
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    initial = urlsplit(api_url)
+    origin = (initial.scheme.lower(), initial.netloc.lower())
+    visited = set()
+    jobs_by_id = {}
+    total_count = 0
+    next_url = api_url
     try:
-        headers = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        return parse_jobs_from_data(response.json())
-    except requests.exceptions.RequestException as e:
-        raise ConnectionError(f"API request failed: {str(e)}")
+        for _ in range(max_pages):
+            current = urlsplit(next_url)
+            if (current.scheme.lower(), current.netloc.lower()) != origin:
+                raise ValueError("Refusing a pagination link outside the original API origin")
+            if next_url in visited:
+                raise ValueError("Repeated workflow-job pagination link")
+            visited.add(next_url)
+            # Bound each page fetch so an API outage cannot stall a timing report indefinitely.
+            with urlopen(Request(next_url, headers=headers), timeout=30) as response:
+                data = json.load(response)
+                for job in data["jobs"]:
+                    jobs_by_id[job["id"]] = job
+                total_count = max(total_count, data.get("total_count", 0))
+                link = _next_page(response.headers.get("Link"))
+            if not link:
+                break
+            next_url = urljoin(next_url, link)
+        else:
+            raise ValueError("Workflow-job pagination exceeded the configured page limit")
+    except URLError as error:
+        raise ConnectionError(f"API request failed: {error}") from error
+    if len(jobs_by_id) < total_count:
+        raise ValueError(f"Incomplete workflow-job response: {len(jobs_by_id)} of {total_count} jobs")
+    return parse_jobs_from_data({"jobs": list(jobs_by_id.values())})
+
+
+def _parse_timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp
+    except ValueError:
+        return None
+
+
+def _duration_seconds(start, end):
+    if start is None or end is None or end < start:
+        return None
+    return round((end - start).total_seconds(), 2)
 
 
 def _parse_single_job(job):
+    start = _parse_timestamp(job.get("started_at"))
+    duration = _duration_seconds(start, _parse_timestamp(job.get("completed_at")))
     job_info = {
-        'job_id': job.get('id'),
-        'name': job.get('name'),
-        'status': job.get('status'),
-        'conclusion': job.get('conclusion'),
+        "job_id": job.get("id"),
+        "name": job.get("name"),
+        "status": job.get("status"),
+        "conclusion": job.get("conclusion"),
+        "started_at": start.strftime("%Y-%m-%d %H:%M:%S") if start else None,
+        "total_duration_seconds": duration,
+        "total_duration_minutes": round(duration / 60, 2) if duration is not None else None,
+        "steps": [],
     }
-
-    # Calculate the total time consumed
-    try:
-        start_time = datetime.fromisoformat(job['started_at'].replace('Z', '+00:00'))
-        end_time = datetime.fromisoformat(job['completed_at'].replace('Z', '+00:00'))
-        duration_seconds = (end_time - start_time).total_seconds()
-        job_info['started_at'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        job_info['total_duration_seconds'] = round(duration_seconds, 2)
-        job_info['total_duration_minutes'] = round(duration_seconds / 60, 2)
-    except (KeyError, ValueError) as e:
-        job_info['total_duration_seconds'] = None
-        job_info['total_duration_minutes'] = None
-        print(f"Warning: Failed to parse the time of task {job.get('id')} - {str(e)}")
-
-    # Parsing step information
-    job_info['steps'] = []
-    for step in job.get('steps', []):
-        try:
-            step_start = datetime.fromisoformat(step['started_at'].replace('Z', '+00:00'))
-            step_end = datetime.fromisoformat(step['completed_at'].replace('Z', '+00:00'))
-            step_duration = (step_end - step_start).total_seconds()
-
-            job_info['steps'].append({
-                'name': step.get('name'),
-                'number': step.get('number'),
-                'status': step.get('status'),
-                'conclusion': step.get('conclusion'),
-                'duration_seconds': round(step_duration, 2)
-            })
-        except (KeyError, ValueError) as e:
-            print(f"Warning: Failed to parse time for step {step.get('name')} - {str(e)}")
-
+    for step in job.get("steps", []):
+        job_info["steps"].append({
+            "name": step.get("name"),
+            "number": step.get("number"),
+            "status": step.get("status"),
+            "conclusion": step.get("conclusion"),
+            "duration_seconds": _duration_seconds(
+                _parse_timestamp(step.get("started_at")),
+                _parse_timestamp(step.get("completed_at")),
+            ),
+        })
     return job_info
 
 
 def _parse_jobs_batch(data):
-    if 'jobs' not in data:
-        raise KeyError("The data does not contain the 'jobs' field.")
-    jobs = data['jobs']
-    jobs.sort(
-        key=lambda x: datetime.fromisoformat(x["started_at"].replace("Z", "+00:00"))
-    )
-    return [_parse_single_job(job) for job in jobs]
+    def start_order(job):
+        start = _parse_timestamp(job.get("started_at"))
+        return (start is None, start.timestamp() if start else 0)
+
+    return [_parse_single_job(job) for job in sorted(data["jobs"], key=start_order)]
 
 
 def parse_jobs_from_file(file_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not exist: {file_path}")
-
-    with open(file_path, 'r', encoding='utf-8') as f:
-        try:
-            data = json.load(f)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"JSON parsing error: {str(e)}")
-
-    return _parse_jobs_batch(data)
+    with Path(file_path).open("r", encoding="utf-8") as source:
+        return _parse_jobs_batch(json.load(source))
 
 
 def parse_jobs_from_data(data):
     return _parse_jobs_batch(data)
 
 
+def _format_table(rows, headers):
+    """Render the existing Markdown columns using only the Python standard library."""
+    lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
+    lines.extend("| " + " | ".join("" if value is None else str(value) for value in row) + " |" for row in rows)
+    return "\n".join(lines)
+
+
 def print_job_summary(parsed_jobs):
-    success_jobs = [job for job in parsed_jobs if job['conclusion'] == 'success']
-    # Sort by total elapsed time (seconds) in descending order,
-    # handling potential None values (treat None as 0 and place them at the end).
-    success_jobs_sorted = sorted(
-        success_jobs,
-        key=lambda x: x['total_duration_seconds'] or 0,
-        reverse=True
+    success_jobs = sorted(
+        (job for job in parsed_jobs if job["conclusion"] == "success"),
+        key=lambda job: job["total_duration_seconds"] or 0,
+        reverse=True,
     )
-
-    print(
-        f"A total of {len(parsed_jobs)} tasks were parsed, among which {len(success_jobs_sorted)} tasks were successful (success)\n")
-
-    job_table_data = []
+    incomplete = sum(job["total_duration_seconds"] is None for job in parsed_jobs)
+    print(f"A total of {len(parsed_jobs)} tasks were parsed, among which {len(success_jobs)} tasks were successful (success)")
+    print(f"Jobs without completed timing: {incomplete}\n")
     headers = ["Sequence Number", "Job Name", "Job ID", "CONCLUSION", "STARTED_AT",
                "Total Duration (Seconds)", "Total Duration (Minutes)", "Expected"]
-
-    for i, job in enumerate(success_jobs_sorted, 1):
-        remainder = job['total_duration_minutes'] % 20 if job['total_duration_minutes'] is not None else 0
-        expectedCost = (math.ceil(job['total_duration_minutes'] / 20) + 1) * 20 if remainder >= 10 else \
-                (math.ceil(job['total_duration_minutes'] / 20)) * 20 if job['total_duration_minutes'] is not None else None
-        job_table_data.append([
-            i, job['name'], job['job_id'], job['conclusion'], job['started_at'],
-            job['total_duration_seconds'], job['total_duration_minutes'], expectedCost
-        ])
-
+    rows = []
+    for index, job in enumerate(success_jobs, 1):
+        minutes = job["total_duration_minutes"]
+        expected = None
+        if minutes is not None:
+            expected = (math.ceil(minutes / 20) + (1 if minutes % 20 >= 10 else 0)) * 20
+        rows.append([index, job["name"], job["job_id"], job["conclusion"], job["started_at"],
+                     job["total_duration_seconds"], minutes, expected])
     print("Overview of the Task:")
-    print(tabulate(job_table_data, headers=headers, tablefmt="pipe"))
-    print()
-
-    for i, job in enumerate(success_jobs_sorted, 1):
-        print(f"\nTask {i}: The 3 steps with the longest duration for {job['name']}:")
-        if job['steps']:
-            sorted_steps = sorted(job['steps'], key=lambda x: x['duration_seconds'], reverse=True)
-            top_steps = sorted_steps[:3]
-            step_table_data = [
-                [s['name'], s['number'], s['status'], s['conclusion'], s['duration_seconds']]
-                for s in top_steps
-            ]
-            print(tabulate(step_table_data,
-                           headers=["Step name", "No", "Status", "Conclusion", "Total Duration (seconds)"],
-                           tablefmt="pipe"))
+    print(_format_table(rows, headers))
+    for index, job in enumerate(success_jobs, 1):
+        print(f"\nTask {index}: The 3 steps with the longest duration for {job['name']}:")
+        steps = sorted(job["steps"], key=lambda step: (
+            step["duration_seconds"] is None, -(step["duration_seconds"] or 0)))[:3]
+        if steps:
+            rows = [[step["name"], step["number"], step["status"], step["conclusion"],
+                     step["duration_seconds"]] for step in steps]
+            print(_format_table(rows, ["Step name", "No", "Status", "Conclusion", "Total Duration (seconds)"]))
         else:
             print("There is no step information for this task.")
         print("\n" + "-" * 80)
@@ -154,18 +177,12 @@ def print_job_summary(parsed_jobs):
 if __name__ == "__main__":
     if len(sys.argv) not in (3, 4):
         print("Usage: python ci_duration_analysis.py <owner> <run_id> [token]")
-        print("Usage: <owner> is a required parameter, example: hawk9821")
-        print("Usage: <run_id> is a required parameter, example: 18013073919")
-        print("Usage: [token] is a non-mandatory parameter. Token acquisition method: GitHub -> Setting -> Developer Settings -> Personal access tokens -> Tokens (classic)")
         sys.exit(1)
-    owner = sys.argv[1]
-    run_id = sys.argv[2]
-    api_url = f'https://api.github.com/repos/{owner}/seatunnel/actions/runs/{run_id}/jobs?page=1&per_page=100'
+    owner, run_id = sys.argv[1:3]
+    api_url = f"https://api.github.com/repos/{owner}/seatunnel/actions/runs/{run_id}/jobs?page=1&per_page=100"
     token = sys.argv[3] if len(sys.argv) == 4 else None
-
     try:
-        jobs_data = fetch_jobs_from_api(api_url, token)
-        print_job_summary(jobs_data)
-
-    except Exception as e:
-        print(f"Processing failed: {str(e)}")
+        print_job_summary(fetch_jobs_from_api(api_url, token))
+    except Exception as error:
+        print(f"Processing failed: {error}", file=sys.stderr)
+        sys.exit(1)

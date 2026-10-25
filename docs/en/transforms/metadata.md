@@ -33,6 +33,31 @@ The Metadata transform plugin is used to extract metadata information from data 
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
+## Connector-Declared Metadata Fields
+
+Connectors can expose source-specific metadata through `CatalogTable.MetadataSchema` without registering every key in the global metadata registry. The `Metadata` transform accepts a logical key when **either**:
+
+1. It is a globally supported metadata key (see the tables in this document), or
+2. It is explicitly declared by the input table's `MetadataSchema`
+
+For connector-declared keys, the output physical column keeps the declared data type, nullability, length, default value, and comment. Runtime values are read from `SeaTunnelRow.options`.
+
+This does **not** allow arbitrary row-option keys. A key present only in `SeaTunnelRow.options`, but absent from both the global registry and `MetadataSchema`, is rejected. Matching is case-sensitive. The transform does not read physical columns that happen to use the same name.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "source_rows"
+    plugin_output = "rows_with_source_metadata"
+    metadata_fields {
+      KafkaOffset = kafka_offset
+    }
+  }
+}
+```
+
+The upstream source or transform must declare `KafkaOffset` in `CatalogTable.metadataSchema` and write the corresponding value into `SeaTunnelRow.options`. The `Metadata` transform does not invent connector-specific metadata by itself.
+
 ## Knowledge Sync Metadata Fields
 
 Knowledge Sync pipelines can use the following logical metadata keys to carry document and chunk identity. These keys become physical fields only after they are explicitly projected by the `Metadata` transform.
@@ -54,20 +79,62 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 
 ### Important Notes
 
-1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
+1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the tables above (e.g., `Database`, `Table`, `RowKind`) or the exact names declared in the input `MetadataSchema`.
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
 5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
-6. **Markdown RAG compatibility**: Existing Markdown RAG output currently exposes physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`. This transform does not migrate those physical fields into logical Knowledge Sync metadata, and this change does not rename them.
-7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. Non-sensitive query parameters that are part of the stable resource identity may be retained.
+6. **Markdown RAG compatibility**: With `markdown_rag_metadata_enabled=true`, Markdown declares and emits logical `SourceUri`, `DocumentId`, `DocumentHash`, and `ChunkHash` in addition to its existing physical `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash` columns. The physical names, order, values, formulas, and routing behavior are unchanged.
+7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. The generic Markdown bridge removes the complete query and fragment from hierarchical remote URIs; a source whose identity depends on a query must provide a stable, non-sensitive path.
 8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
+9. **Projection collisions**: An output name cannot duplicate an existing physical field. Because enabled Markdown already contains physical `source_uri` and `document_id`, project the logical values to aliases such as `ks_source_uri` and `ks_document_id`.
+
+### Markdown Source Bridge
+
+The Markdown source is a Knowledge Sync metadata producer when `file_format_type=markdown` and `markdown_rag_metadata_enabled=true`.
+
+| Logical Key | Markdown Value |
+|:---:|:---|
+| SourceUri | Local paths keep existing normalization. Hierarchical remote URIs keep lowercased scheme and host, explicit port, and path, while user info, query, and fragment are removed. |
+| DocumentId | `doc_` plus lowercase SHA-256 of the UTF-8 logical `SourceUri`. |
+| DocumentHash | Lowercase SHA-256 of the exact source bytes read before UTF-8 decoding and Markdown parsing. |
+| ChunkHash | Lowercase SHA-256 of the immediate emitted row's UTF-8 `text`, treating null as an empty string. It equals physical `content_hash` at the Markdown source boundary. |
+
+The logical identity is separate from the compatibility identity. For a signed or credential-bearing remote URL, logical `SourceUri` and `DocumentId` can differ from physical `source_uri` and `document_id`; the physical values and split-routing formula remain unchanged.
+
+Use aliases for the two colliding identity fields:
+
+```hocon
+source {
+  LocalFile {
+    plugin_output = "markdown_rows"
+    path = "/data/knowledge"
+    file_format_type = "markdown"
+    markdown_rag_metadata_enabled = true
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "markdown_rows"
+    plugin_output = "markdown_rows_with_logical_metadata"
+    metadata_fields = {
+      SourceUri = "ks_source_uri"
+      DocumentId = "ks_document_id"
+      DocumentHash = "document_hash"
+      ChunkHash = "chunk_hash"
+    }
+  }
+}
+```
+
+`ChunkHash` is valid for the immediate Markdown row only. If a downstream transform changes `text` or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before sending rows to a lifecycle sink. This bridge is producer integration only; it does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 ## Options
 
 |      name       | type | required | default value | description       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
-| metadata_fields | map  |    no     |   empty map   | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name` |
+| metadata_fields | map  |    yes    |       -       | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name`. Must contain at least one entry. |
 
 ### metadata_fields [map]
 
@@ -95,7 +162,7 @@ metadata_fields {
 ```
 
 **Notes:**
-- The left side must be a supported metadata Key (see table above), and is strictly case-sensitive
+- The left side must be a globally supported metadata Key (see the tables above) or a key declared in the input table `MetadataSchema`, and is strictly case-sensitive
 - The right side is a custom output field name, which cannot duplicate existing field names
 - You can select only the metadata fields you need, not all of them must be configured
 

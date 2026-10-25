@@ -24,22 +24,26 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
-public class KafkaSourceFactory implements TableSourceFactory {
+public class KafkaSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
 
     @Override
     public String factoryIdentifier() {
@@ -62,6 +66,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.SCHEMA,
                         KafkaSourceOptions.FORMAT,
                         KafkaSourceOptions.AVRO_SCHEMA,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE,
                         KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA,
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
@@ -113,6 +118,22 @@ public class KafkaSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return KafkaSource.class;
+    }
+
+    /** Reuses runtime schema construction without creating a source or contacting Kafka. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        return new KafkaSourceConfig(context.getOptions())
+                .getMapMetadata().values().stream()
+                        .map(ConsumerMetadata::getCatalogTable)
+                        .collect(Collectors.toList());
+    }
+
+    /** Checks topic metadata only; does not consume records or access consumer offsets. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        KafkaSourceDryRunValidator.validate(new KafkaSourceConfig(context.getOptions()));
     }
 
     private static class KafkaPartitionDiscoveryValidator implements ConditionExtension<Boolean> {

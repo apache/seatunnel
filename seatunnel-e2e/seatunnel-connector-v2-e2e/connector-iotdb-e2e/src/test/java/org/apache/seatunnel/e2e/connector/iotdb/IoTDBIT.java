@@ -110,6 +110,18 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         assertDatasetEquals(testDataset, sinkDataset);
     }
 
+    @TestTemplate
+    public void testMultiTableSource(TestContainer container) throws Exception {
+        session.executeNonQueryStatement(
+                "INSERT INTO root.multi.weather(timestamp, temperature) VALUES(1, 12.5)");
+        session.executeNonQueryStatement(
+                "INSERT INTO root.multi.weather(timestamp, temperature) VALUES(2, 12.5)");
+        session.executeNonQueryStatement(
+                "INSERT INTO root.multi.status(timestamp, enabled) VALUES(3, true)");
+        Container.ExecResult result = container.executeJob("/iotdb/iotdb_multi_table_source.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
     private Session createSession() {
         return new Session.Builder()
                 .host(iotdbServer.getHost())

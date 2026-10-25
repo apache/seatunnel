@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
@@ -13,42 +14,90 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# !/usr/bin/python
 import json
 import sys
+import zlib
 
-# E2E suites that have their own dedicated workflow job in .github/workflows/backend.yml.
-# The trailing comment records which job runs each module, so the sub-task <-> module
-# mapping is visible at a glance. Keeping these out of the round-robin integration-test
-# shards avoids running the same suite twice under the 20-job concurrency limit.
-EXCLUDED_E2E_MODULES = {
-    # --- individual connector suites -> their dedicated connector-*-it job ---
-    "connector-redis-e2e",            # connector-redis-it
-    "connector-file-local-e2e",       # connector-file-local-it
-    "connector-file-sftp-e2e",        # connector-file-sftp-it
-    "connector-amazonsqs-e2e",        # connector-amazonSqs-it
-    "connector-kafka-e2e",            # connector-kafka-it
-    "connector-rocketmq-e2e",         # connector-rocketmq-it
-    "connector-doris-e2e",            # connector-doris-it
-    "connector-paimon-e2e",           # connector-paimon-it
-    "connector-cdc-oracle-e2e",       # connector-oracle-cdc-it
-    "connector-kudu-e2e",             # connector-kudu-it
-    "connector-sensorsdata-e2e",      # connector-sensorsdata-it
-    "connector-http-e2e",             # connector-http-it
-    "connector-hbase-e2e",            # connector-hbase-it
-    "connector-mongodb-e2e",          # connector-mongodb-it
-    "connector-cdc-mysql-e2e",        # connector-mysql-cdc-it
-    "connector-elasticsearch-e2e",    # connector-elasticsearch-it
-    "connector-clickhouse-e2e",       # connector-clickhouse-it
-    # --- three iceberg suites -> one consolidated connector-iceberg-it job ---
-    "connector-iceberg-e2e",          # connector-iceberg-it
-    "connector-iceberg-hadoop3-e2e",  # connector-iceberg-it
-    "connector-iceberg-s3-e2e",       # connector-iceberg-it
-    # --- engine / edge-agent e2e bases and suites ---
-    "connector-seatunnel-e2e-base",   # engine-v2-it
-    "connector-console-seatunnel-e2e",# engine-v2-it
-    "seatunnel-edge-agent-e2e",       # edge-agent-it
-}
+
+# Selected from the module durations in GitHub Actions run 31611542978, where
+# the resulting seven shards were estimated at 79.1-89.6 minutes. The stable
+# hash keeps existing modules in the same shard when modules are added or removed,
+# without maintaining per-module durations or assignments.
+#
+# Re-tune only when the module set or durations change enough to unbalance the
+# shards. Export the latest per-module durations as {module: seconds}, evaluate
+# candidate seeds by assigning each module with the crc32 expression below, and
+# choose the seed that minimizes (maximum shard duration, shard-duration spread).
+# Update test_historical_seed_assignments_are_preserved with the seed so an
+# accidental reshuffle cannot silently change the CI matrix.
+_FULL_CONNECTOR_IT_SHARD_SEED = "37709"
+
+# Connector modules handled by jobs outside the shared connector shards. Add a
+# module here only after its dedicated job handles API, engine, and direct changes
+# to that module.
+ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
+    "connector-jdbc-e2e",
+    "connector-kafka-e2e",
+    "connector-rocketmq-e2e",
+    "connector-kudu-e2e",
+    "connector-amazonsqs-e2e",
+    "connector-google-pubsub-e2e",
+    "connector-doris-e2e",
+    "connector-paimon-e2e",
+    "connector-cdc-oracle-e2e",
+    "connector-file-local-e2e",
+    "connector-file-sftp-e2e",
+    "connector-redis-e2e",
+    "connector-elasticsearch-e2e",
+    "connector-cdc-mysql-e2e",
+    "connector-iceberg-e2e",
+    "connector-hbase-e2e",
+    "connector-sensorsdata-e2e",
+    "connector-http-e2e",
+    "connector-mongodb-e2e",
+    "connector-clickhouse-e2e",
+)
+
+# These suites have dedicated jobs in backend.yml, but they are not listed by
+# seatunnel-connector-v2-e2e's project.modules input.
+ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
+    "connector-seatunnel-e2e-base",
+    "connector-console-seatunnel-e2e",
+    "seatunnel-edge-agent-e2e",
+    "seatunnel-resource-managers-e2e",
+)
+
+ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+    + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
+)
+
+# The JDBC aggregate is excluded from full shards because its dedicated part
+# jobs own full runs, but direct JDBC changes still use the updated leaf shards.
+_CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+) - {"connector-jdbc-e2e"}
+
+
+# Paths that no other change filter in backend.yml covers, mapped to the module whose
+# tests exercise them. These tests only run in the unit-test job.
+STANDALONE_MODULE_PATHS = (
+    ("seatunnel-trace/", "seatunnel-trace-analyzer"),
+    ("seatunnel-e2e/seatunnel-core-e2e/", "seatunnel-starter-e2e"),
+)
+
+
+def build_standalone_modules(files):
+    modules = []
+    for file in json.loads(files):
+        for path_prefix, module in STANDALONE_MODULE_PATHS:
+            if file.startswith(path_prefix) and module not in modules:
+                modules.append(module)
+    return modules
+
+
+def get_standalone_modules(files):
+    print("".join("," + module for module in build_standalone_modules(files)))
 
 
 def get_cv2_modules(files):
@@ -95,6 +144,12 @@ def replace_comma_to_commacolon(modules_str):
     modules_str = modules_str.replace(",", ",:")
     modules_str = ":" + modules_str
     print(modules_str)
+
+
+def modules_to_json(modules):
+    return json.dumps(
+        [module.lstrip(":") for module in modules.split(",") if module]
+    )
 
 
 def get_sub_modules(file):
@@ -174,43 +229,109 @@ def get_deleted_modules(files):
     print(output_module)
 
 
+def _filter_shared_it_modules(modules, extra_exclusions=()):
+    excluded_modules = _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB | set(
+        extra_exclusions
+    )
+    return [
+        module
+        for module in dict.fromkeys(modules)
+        if module and module not in excluded_modules
+    ]
+
+
+def filter_dedicated_shard_modules(modules, dedicated_modules, fail_on_missing):
+    """Remove modules owned by dedicated jobs and optionally detect workflow drift."""
+    module_set = set(modules)
+    if fail_on_missing:
+        missing_modules = [
+            module for module in dedicated_modules if module not in module_set
+        ]
+        if missing_modules:
+            raise ValueError(
+                "Missing dedicated shard modules from all-connectors input: "
+                + ",".join(missing_modules)
+            )
+
+    dedicated_modules_set = set(dedicated_modules)
+    return [module for module in modules if module not in dedicated_modules_set]
+
+
+def split_full_connector_it_modules(modules, total_num):
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+
+    shards = [[] for _ in range(total_num)]
+    for module in sorted(set(modules)):
+        shard_key = f"{_FULL_CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
+        shard = zlib.crc32(shard_key) % total_num
+        shards[shard].append(module)
+    return shards
+
+
 def build_sub_it_modules(modules, total_num, current_num):
-    """
-    Build one all-connectors shard while excluding suites with dedicated jobs.
+    """Build one stable full connector shard after applying ownership exclusions."""
+    total_num = int(total_num)
+    current_num = int(current_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    if not 0 <= current_num < total_num:
+        raise ValueError(
+            f"shard index {current_num} out of range [0, {total_num})"
+        )
 
-    Heavy suites that already have their own workflow shard must stay out of the
-    round-robin shards, otherwise CI runs them twice and wastes runner time.
-    """
-    modules_arr = list(dict.fromkeys(modules.split(",")))
-    # The whole connector-jdbc-e2e module is split across the dedicated
-    # jdbc-connectors-it-part-* jobs, so drop it here as well.
-    excluded = EXCLUDED_E2E_MODULES | {"connector-jdbc-e2e"}
-    modules_arr = [m for m in modules_arr if m not in excluded]
-    output = ""
-    for i, module in enumerate(modules_arr):
-        if len(module) > 0 and i % int(total_num) == int(current_num):
-            output = output + ",:" + module
-
-    return output[1:len(output)]
+    modules_arr = [module for module in dict.fromkeys(modules.split(",")) if module]
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES, True
+    )
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES, False
+    )
+    shards = split_full_connector_it_modules(modules_arr, total_num)
+    return ",".join(":" + module for module in shards[current_num])
 
 
 def get_sub_it_modules(modules, total_num, current_num):
     print(build_sub_it_modules(modules, total_num, current_num))
 
 
-def get_sub_update_it_modules(modules, total_num, current_num):
+def build_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
-    # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
-    modules = modules[1:]
-    # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
-    module_list = list(dict.fromkeys(modules.split(",:")))
-    # The engine-k8s e2e suite has its own engine-k8s-it job.
-    excluded = EXCLUDED_E2E_MODULES | {"seatunnel-engine-k8s-e2e"}
-    module_list = [m for m in module_list if m not in excluded]
+    module_names = json.loads(modules)
+    module_list = _filter_shared_it_modules(
+        module_names,
+        {
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-engine-k8s-e2e",
+            "seatunnel-edge-agent-e2e",
+            "seatunnel-resource-managers-e2e",
+        },
+    )
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
-    print(",".join(final_modules))
+    return final_modules
+
+
+def get_sub_update_it_modules(modules, total_num, current_num):
+    print(",".join(build_sub_update_it_modules(modules, total_num, current_num)))
+
+
+def build_sub_update_it_shards(modules, total_num):
+    """Return the 1-based updated-modules shards that have at least one module."""
+    total_num = int(total_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    return [
+        f"part-{current_num + 1}"
+        for current_num in range(total_num)
+        if build_sub_update_it_modules(modules, total_num, current_num)
+    ]
+
+
+def get_sub_update_it_shards(modules, total_num):
+    print(json.dumps(build_sub_update_it_shards(modules, total_num)))
 
 
 def main(argv):
@@ -220,6 +341,8 @@ def main(argv):
         get_cv2_e2e_modules(argv[2])
     elif argv[1] == "engine":
         get_engine_modules(argv[2])
+    elif argv[1] == "standalone":
+        get_standalone_modules(argv[2])
     elif argv[1] == "engine-e2e":
         get_engine_e2e_modules(argv[2])
     elif argv[1] == "tree":
@@ -230,6 +353,8 @@ def main(argv):
         get_final_ut_modules(argv[2])
     elif argv[1] == "replace":
         replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "json":
+        print(modules_to_json(argv[2]))
     elif argv[1] == "sub":
         get_sub_modules(argv[2])
     elif argv[1] == "delete":
@@ -240,6 +365,8 @@ def main(argv):
         get_sub_it_modules(argv[2], argv[3], argv[4])
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
+    elif argv[1] == "sub_update_it_shards":
+        get_sub_update_it_shards(argv[2], argv[3])
 
 
 if __name__ == "__main__":
