@@ -97,7 +97,8 @@ public class UpdateTagsService extends BaseService {
      * Extracts tags from the structured request format.
      *
      * @param params parsed request parameters.
-     * @return tag map from the structured request.
+     * @return tag map from the structured request, with string values only.
+     * @throws IllegalArgumentException if tags is not an object or contains a non-string value.
      */
     @SuppressWarnings("unchecked")
     static Map<String, Object> extractStructuredTagParams(Map<String, Object> params) {
@@ -105,7 +106,13 @@ public class UpdateTagsService extends BaseService {
         if (!(tags instanceof Map)) {
             throw new IllegalArgumentException("The tags field must be an object.");
         }
-        return (Map<String, Object>) tags;
+        Map<String, Object> tagParams = (Map<String, Object>) tags;
+        for (Object value : tagParams.values()) {
+            if (!(value instanceof String)) {
+                throw new IllegalArgumentException("Tag values must be strings.");
+            }
+        }
+        return tagParams;
     }
 
     /**

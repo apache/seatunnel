@@ -1140,6 +1140,17 @@ public class RestApiIT {
                 .statusCode(200)
                 .body("workers", equalTo("1"));
 
+        given().body(tagRequest(localUuid, "{\"zone\": {\"nested\": \"prod\"}}"))
+                .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(400)
+                .body("status", equalTo("fail"))
+                .body("message", equalTo("Tag values must be strings."));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("1"));
+
         given().body(tagRequest(localUuid, "{\"zone\": \"prod\"}"))
                 .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
                 .then()

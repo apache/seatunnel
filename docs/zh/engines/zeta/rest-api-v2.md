@@ -1333,7 +1333,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 更新节点tags
 ##### 请求体
-`/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。tag 值必须是字符串；服务端会把每个值按字符串存储，不支持嵌套对象作为值。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
+`/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。建议使用字符串值；为保持兼容，服务端会把非字符串值转换为字符串（null 转为空字符串），不会拒绝。嵌套对象会转换为 Java map 的字符串表示形式，不会作为对象保存。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
 
 ```json
 {
@@ -1402,7 +1402,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 | 字段     | 必填 | 类型   | 说明                                                                                                          |
 |--------|----|------|-------------------------------------------------------------------------------------------------------------|
 | `uuid` | 是  | 字符串  | 必须响应本次请求的节点的成员 UUID。可从 `/system-monitoring-information` 获取，其返回的每个集群成员都带有 `uuid` 和 `localMember` 字段。 |
-| `tags` | 是  | 对象   | tag 名到 tag 值的映射，会整体替换该节点当前的 tags。空对象表示清空全部 tags。                                                        |
+| `tags` | 是  | 对象   | tag 名到字符串值的映射，会整体替换该节点当前的 tags。空对象表示清空全部 tags；非字符串值会被拒绝。                                      |
 
 ```json
 {
@@ -1442,6 +1442,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 | 请求体不是 JSON 对象                       | `Invalid JSON format in request body.`                              |
 | 缺少 `uuid`，或 `uuid` 与响应请求的节点不一致      | `Target member uuid must match the REST node serving this request.` |
 | 缺少 `tags`，或 `tags` 不是 JSON 对象       | `The tags field must be an object.`                                 |
+| `tags` 中存在非字符串值                     | `Tag values must be strings.`                                        |
 
 ```json
 {

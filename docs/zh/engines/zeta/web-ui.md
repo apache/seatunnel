@@ -78,8 +78,10 @@ Jobs 页面提供 “Submit Job” 面板，可以直接在 Web UI 中提交新�
 - **Overview**：展示作业 DAG、source 和 sink 吞吐指标、flush signal 指标，以及开启可观测性后的 vertex 或 edge 实时指标。
 - **Exception**：当作业失败或上报异常时，展示异常文本。
 - **Configuration**：展示引擎暴露的运行时作业配置。
-- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作。来源作业达到结束状态（`FINISHED`、`FAILED`、`CANCELED` 或 `SAVEPOINT_DONE`）之前，这些操作保持禁用；提交恢复请求时引擎还会再次检查状态。启用后的操作会打开提交面板，并自动带入来源作业 ID 和恢复模式。若 checkpoint 状态已被清理，引擎会返回 `No checkpoint found`，提交面板会显示该错误。
+- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作。来源作业达到结束状态（`FINISHED`、`FAILED`、`CANCELED` 或 `SAVEPOINT_DONE`）之前，这些操作保持禁用；提交恢复请求时引擎还会再次检查状态。启用后的操作会打开提交面板，并自动带入来源作业 ID 和恢复模式。
 - **Log**：展示引擎日志 API 返回的作业日志文件。
+
+如果提交恢复请求时引擎仍认为来源作业处于运行中，会返回 HTTP `400` 和 `restoreSourceJobId=<id> is still <STATUS>; stop or cancel the source job before restoring from its checkpoint state`，提交面板会显示该信息。如果来源作业已经结束，但 checkpoint 状态已被清理，提交面板则会显示引擎返回的 `No checkpoint found` 错误。
 
 #### 实时可观测性（Realtime Observability）
 

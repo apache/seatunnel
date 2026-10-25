@@ -36,10 +36,14 @@ class UpdateTagsServiceTest {
         Map<String, Object> request = new HashMap<>();
         request.put("uuid", "legacy-member-tag");
         request.put("tags", nestedTag);
+        request.put("number", 42);
+        request.put("empty", null);
 
         Map<String, String> tags = UpdateTagsService.toStringTags(request);
         assertEquals("legacy-member-tag", tags.get("uuid"));
         assertEquals(nestedTag.toString(), tags.get("tags"));
+        assertEquals("42", tags.get("number"));
+        assertEquals("", tags.get("empty"));
     }
 
     @Test
@@ -64,6 +68,22 @@ class UpdateTagsServiceTest {
                         IllegalArgumentException.class,
                         () -> UpdateTagsService.extractStructuredTagParams(request));
         assertTrue(error.getMessage().contains("tags field"));
+    }
+
+    @Test
+    void shouldRejectNonStringStructuredTagValues() {
+        Map<String, Object> tags = new HashMap<>();
+        Map<String, Object> request = new HashMap<>();
+        request.put("tags", tags);
+
+        for (Object value : new Object[] {42, null, new HashMap<String, Object>()}) {
+            tags.put("zone", value);
+            IllegalArgumentException error =
+                    assertThrows(
+                            IllegalArgumentException.class,
+                            () -> UpdateTagsService.extractStructuredTagParams(request));
+            assertEquals("Tag values must be strings.", error.getMessage());
+        }
     }
 
     @Test

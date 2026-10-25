@@ -80,8 +80,10 @@ The Job Detail page contains five main tabs:
 - **Overview**: shows the job DAG, source and sink throughput metrics, flush-signal metrics, and realtime vertex or edge metrics when observability is enabled.
 - **Exception**: shows the job error message when the job has failed or reported an exception.
 - **Configuration**: shows the runtime job configuration exposed by the engine.
-- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state. These actions remain disabled until the source job reaches an end state (`FINISHED`, `FAILED`, `CANCELED`, or `SAVEPOINT_DONE`); the engine checks the status again when the restore is submitted. An enabled action opens the submit panel with the source job ID and restore mode prefilled. If checkpoint state has already been cleaned up, the engine returns `No checkpoint found` and the submit panel shows that error.
+- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state. These actions remain disabled until the source job reaches an end state (`FINISHED`, `FAILED`, `CANCELED`, or `SAVEPOINT_DONE`); the engine checks the status again when the restore is submitted. An enabled action opens the submit panel with the source job ID and restore mode prefilled.
 - **Log**: shows job log files returned by the engine log API.
+
+If the engine still sees the source job as active when a restore is submitted, it returns HTTP `400` with `restoreSourceJobId=<id> is still <STATUS>; stop or cancel the source job before restoring from its checkpoint state`. The submit panel shows this message. If the source job has ended but its checkpoint state was cleaned up, the submit panel instead shows the engine's `No checkpoint found` error.
 
 #### Realtime Observability
 

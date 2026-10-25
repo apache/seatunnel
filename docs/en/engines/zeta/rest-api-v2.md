@@ -1358,7 +1358,7 @@ For more information about customize encryption, please refer to the documentati
 
 #### update node tags
 ##### Body
-`/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. Tag values must be strings; the server stores every value as a string, so nested objects are not a supported value type. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
+`/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. String values are recommended; for compatibility, the server converts non-string values to strings (and null to an empty string) rather than rejecting them. Nested objects are converted using Java's map representation, not retained as objects. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
 
 ```json
 {
@@ -1427,7 +1427,7 @@ This is the endpoint the Web UI Workers page uses. It is additive: `/update-tags
 | Field  | Required | Type   | Description                                                                                                                                                                 |
 |--------|----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `uuid` | yes      | string | Member UUID of the node that must serve this request. Read it from `/system-monitoring-information`, whose entries carry `uuid` and `localMember` for every cluster member. |
-| `tags` | yes      | object | Tag name to tag value map that replaces the node's current tags. An empty object clears all tags.                                                                           |
+| `tags` | yes      | object | Tag name to string value map that replaces the node's current tags. An empty object clears all tags. Non-string values are rejected.                                        |
 
 ```json
 {
@@ -1467,6 +1467,7 @@ Each error is returned with HTTP status `400` and the following body.
 | The request body is not a JSON object                              | `Invalid JSON format in request body.`                          |
 | `uuid` is missing or does not match the node serving the request   | `Target member uuid must match the REST node serving this request.` |
 | `tags` is missing or is not a JSON object                          | `The tags field must be an object.`                             |
+| Any value inside `tags` is not a string                             | `Tag values must be strings.`                                    |
 
 ```json
 {
