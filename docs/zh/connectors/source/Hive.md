@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 描述
 
-从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层文件（配置后也可读取 S3/OSS 上的文件）。支持的文件格式为 text、parquet 和 ORC。
+从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
 
 :::tip 提示
 
@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 - [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
-- [x] 文件格式
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
     - [x] 文本
     - [x] Parquet
     - [x] ORC
@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
 | read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
 | read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
-| compress_codec        | string | 否   | none    | text / CSV / JSON 输出的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
 | common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### table_name [string]

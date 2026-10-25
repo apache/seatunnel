@@ -57,6 +57,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
 | custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
+| multi_table_sink_replica    | int     | 否    | 1                            | 多表写入作业中每张表使用的写入器副本数，最小为 1                                                                                           |
 
 ### save_mode_create_template
 
