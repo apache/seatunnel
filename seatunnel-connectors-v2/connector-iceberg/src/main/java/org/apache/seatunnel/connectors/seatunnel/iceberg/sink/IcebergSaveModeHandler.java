@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 
+/** Applies the configured Iceberg drop-data strategy while retaining schema save-mode behavior. */
 @Slf4j
 public class IcebergSaveModeHandler extends DefaultSaveModeHandler {
 
@@ -49,6 +50,7 @@ public class IcebergSaveModeHandler extends DefaultSaveModeHandler {
         this.commitBranch = commitBranch;
     }
 
+    /** Clears table data at sink initialization using the explicitly configured strategy. */
     @Override
     protected void keepSchemaDropData() {
         if (!tableExists()) {

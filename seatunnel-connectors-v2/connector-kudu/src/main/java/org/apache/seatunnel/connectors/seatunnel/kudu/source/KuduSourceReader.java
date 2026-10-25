@@ -84,14 +84,20 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
                 TablePath tablePath = split.getTablePath();
                 SeaTunnelRowType seaTunnelRowType = tables.get(tablePath);
                 KuduScanner kuduScanner = kuduInputFormat.scanner(split.getToken());
-                while (kuduScanner.hasMoreRows()) {
-                    RowResultIterator rowResults = kuduScanner.nextRows();
-                    while (rowResults.hasNext()) {
-                        RowResult rowResult = rowResults.next();
-                        SeaTunnelRow seaTunnelRow =
-                                kuduInputFormat.toInternal(rowResult, seaTunnelRowType);
-                        seaTunnelRow.setTableId(tablePath.toString());
-                        output.collect(seaTunnelRow);
+                try {
+                    while (kuduScanner.hasMoreRows()) {
+                        RowResultIterator rowResults = kuduScanner.nextRows();
+                        while (rowResults.hasNext()) {
+                            RowResult rowResult = rowResults.next();
+                            SeaTunnelRow seaTunnelRow =
+                                    kuduInputFormat.toInternal(rowResult, seaTunnelRowType);
+                            seaTunnelRow.setTableId(tablePath.toString());
+                            output.collect(seaTunnelRow);
+                        }
+                    }
+                } finally {
+                    if (!kuduScanner.isClosed()) {
+                        kuduScanner.close();
                     }
                 }
             } else if (noMoreSplit && splits.isEmpty()) {

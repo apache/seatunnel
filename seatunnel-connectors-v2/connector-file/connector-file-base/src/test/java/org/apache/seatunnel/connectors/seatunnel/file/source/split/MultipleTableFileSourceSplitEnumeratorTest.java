@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFi
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -116,6 +117,71 @@ class MultipleTableFileSourceSplitEnumeratorTest {
         }
 
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void assignSplitByDocumentRouteForEnabledTable() throws Exception {
+        int parallelism = 4;
+        List<String> filePaths =
+                Arrays.asList(
+                        "file:/tmp/knowledge/table/doc-a.md",
+                        "file:/tmp/knowledge/table/doc-b.md",
+                        "file:/tmp/knowledge/table/doc-c.md");
+
+        BaseFileSourceConfig baseFileSourceConfig = Mockito.mock(BaseFileSourceConfig.class);
+        Mockito.when(baseFileSourceConfig.getFilePathsForSplitEnumerator()).thenReturn(filePaths);
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "test", "hive_table1"),
+                        null,
+                        Maps.newHashMap(),
+                        Lists.newArrayList(),
+                        null);
+        String tableId = catalogTable.getTableId().toTablePath().toString();
+        Mockito.when(baseFileSourceConfig.getCatalogTable()).thenReturn(catalogTable);
+
+        BaseMultipleTableFileSourceConfig baseMultipleTableFileSourceConfig =
+                Mockito.mock(BaseMultipleTableFileSourceConfig.class);
+        Mockito.when(baseMultipleTableFileSourceConfig.getFileSourceConfigs())
+                .thenReturn(Collections.singletonList(baseFileSourceConfig));
+
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(parallelism);
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                new MultipleTableFileSourceSplitEnumerator(
+                        context,
+                        baseMultipleTableFileSourceConfig,
+                        new DefaultFileSplitStrategy(),
+                        Collections.singleton(tableId));
+
+        enumerator.open();
+        enumerator.run();
+
+        ArgumentCaptor<Integer> subtaskId = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<List> split = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(context, Mockito.times(parallelism))
+                .assignSplit(subtaskId.capture(), split.capture());
+
+        Map<Integer, List<FileSourceSplit>> assignedSplits = new HashMap<>();
+        for (int i = 0; i < subtaskId.getAllValues().size(); i++) {
+            assignedSplits.put(subtaskId.getAllValues().get(i), split.getAllValues().get(i));
+        }
+
+        for (String filePath : filePaths) {
+            String documentId = FileSourceDocumentRouting.buildDocumentId(filePath);
+            int expectedOwner = FileSourceDocumentRouting.routeBucket(documentId, parallelism);
+            Assertions.assertTrue(
+                    assignedSplits.get(expectedOwner).stream()
+                            .anyMatch(
+                                    fileSourceSplit ->
+                                            fileSourceSplit.getFilePath().equals(filePath)
+                                                    && fileSourceSplit
+                                                            .getTableId()
+                                                            .equals(tableId)),
+                    "File should be assigned to the reader that owns its document route bucket.");
+        }
     }
 
     @Test

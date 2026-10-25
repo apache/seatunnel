@@ -51,7 +51,7 @@ semantics (using XA transaction guarantee).
 
 |                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
@@ -60,7 +60,7 @@ semantics (using XA transaction guarantee).
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
+| DATE                                                                                 | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
@@ -73,8 +73,8 @@ semantics (using XA transaction guarantee).
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                       |
+| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                           |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
@@ -85,7 +85,7 @@ semantics (using XA transaction guarantee).
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.client.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                               |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures                                                                                                                                                                                          |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
-| auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
+| auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default. Oracle sink uses manual commit internally even when this is `true`, so failed batches stay atomic and preserve the original data error.                                                     |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
 | common-options                            |         | No       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                    |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                      |
@@ -197,7 +197,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -206,6 +206,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### Timer Flush + Batch Combined
+
+For streaming jobs that should not wait for the buffer to fill before flushing, set both `batch_size` and `batch_interval_ms`. The flush is **write-triggered**: each incoming write checks the buffered row count and elapsed time and flushes synchronously when either threshold is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a strict wall-clock latency bound.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+Use `${schema_name}` and `${table_name}` placeholders in `table` to route each row to the matching target table based on metadata carried by the upstream row. Set `multi_table_sink_replica` to control how many writer replicas the sink uses for multi-table writes.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

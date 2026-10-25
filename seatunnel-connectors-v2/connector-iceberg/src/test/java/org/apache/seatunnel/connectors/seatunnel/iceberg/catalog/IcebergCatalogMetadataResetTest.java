@@ -51,6 +51,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
+/** Verifies destructive metadata reset preserves table structure and selected branch identity. */
 class IcebergCatalogMetadataResetTest {
 
     private static final TablePath TABLE_PATH = TablePath.of("database.table");

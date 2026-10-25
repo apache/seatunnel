@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonCon
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergDropDataStrategy;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
@@ -58,6 +59,7 @@ import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -271,6 +273,12 @@ public class IcebergCatalog implements Catalog {
         truncateTable(tablePath, ignoreIfNotExists, IcebergDropDataStrategy.DELETE_COMMIT, null);
     }
 
+    /**
+     * Clears data using the selected strategy. DELETE_COMMIT targets the requested branch;
+     * HARD_METADATA_RESET is an explicit table-wide destructive operation that removes every ref
+     * and snapshot, then recreates a configured non-main branch. Physical orphan files require
+     * separate cleanup and are not deleted here.
+     */
     public void truncateTable(
             TablePath tablePath,
             boolean ignoreIfNotExists,
@@ -295,65 +303,6 @@ public class IcebergCatalog implements Catalog {
         truncateTableByDeleteCommit(icebergTableIdentifier, tablePath, commitBranch);
     }
 
-    private void truncateTableByDeleteCommit(
-            TableIdentifier icebergTableIdentifier, TablePath tablePath, String commitBranch) {
-        Table table = catalog.loadTable(icebergTableIdentifier);
-        DeleteFiles delete = table.newDelete();
-        if (StringUtils.isNotBlank(commitBranch)) {
-            delete.toBranch(commitBranch);
-        }
-        delete.deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue())
-                .commit();
-        log.info(
-                "Truncated Iceberg table {} using DELETE_COMMIT on branch {}.",
-                tablePath,
-                StringUtils.defaultIfBlank(commitBranch, SnapshotRef.MAIN_BRANCH));
-    }
-
-    private void truncateTableByMetadataReset(
-            TableIdentifier icebergTableIdentifier, TablePath tablePath, String commitBranch) {
-        Table table = catalog.loadTable(icebergTableIdentifier);
-        if (!(table instanceof HasTableOperations)) {
-            throw new CatalogException(
-                    String.format(
-                            "Iceberg table %s does not expose TableOperations, cannot reset metadata safely",
-                            tablePath));
-        }
-
-        TableOperations operations = ((HasTableOperations) table).operations();
-        TableMetadata base = operations.current();
-        if (base.snapshots().isEmpty() && base.refs().isEmpty()) {
-            recreateCommitBranchIfNeeded(icebergTableIdentifier, commitBranch);
-            log.info("Iceberg table {} is already empty, skip metadata reset.", tablePath);
-            return;
-        }
-
-        List<Long> snapshotIds =
-                base.snapshots().stream().map(Snapshot::snapshotId).collect(Collectors.toList());
-        TableMetadata.Builder metadataBuilder = TableMetadata.buildFrom(base);
-        base.refs().keySet().forEach(metadataBuilder::removeRef);
-        if (!snapshotIds.isEmpty()) {
-            metadataBuilder.removeSnapshots(snapshotIds);
-        }
-        TableMetadata resetMetadata = metadataBuilder.build();
-
-        operations.commit(base, resetMetadata);
-        recreateCommitBranchIfNeeded(icebergTableIdentifier, commitBranch);
-        log.info(
-                "Truncated Iceberg table {} using HARD_METADATA_RESET. All snapshot refs were removed; orphan cleanup must run separately.",
-                tablePath);
-    }
-
-    private void recreateCommitBranchIfNeeded(
-            TableIdentifier icebergTableIdentifier, String commitBranch) {
-        if (StringUtils.isBlank(commitBranch) || SnapshotRef.MAIN_BRANCH.equals(commitBranch)) {
-            return;
-        }
-        Table resetTable = catalog.loadTable(icebergTableIdentifier);
-        ManageSnapshots manageSnapshots = resetTable.manageSnapshots();
-        manageSnapshots.createBranch(commitBranch).commit();
-    }
-
     public CatalogTable toCatalogTable(Table icebergTable, TablePath tablePath) {
         Schema schema = icebergTable.schema();
         List<Types.NestedField> columns = schema.columns();
@@ -375,11 +324,18 @@ public class IcebergCatalog implements Catalog {
                             String name = nestedField.name();
                             SeaTunnelDataType<?> seaTunnelType =
                                     SchemaUtils.toSeaTunnelType(name, nestedField.type());
+                            // timestamp_ns / timestamptz_ns keep their precision as scale 9 so
+                            // that sinks, including this one, can create nanosecond columns
+                            Integer scale =
+                                    nestedField.type().typeId() == Type.TypeID.TIMESTAMP_NANO
+                                            ? IcebergTypeMapper.NANOSECOND_SCALE
+                                            : null;
                             PhysicalColumn physicalColumn =
                                     PhysicalColumn.of(
                                             name,
                                             seaTunnelType,
                                             (Long) null,
+                                            scale,
                                             nestedField.isOptional(),
                                             null,
                                             nestedField.doc());
@@ -447,5 +403,64 @@ public class IcebergCatalog implements Catalog {
         } else {
             throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
+    }
+
+    private void truncateTableByDeleteCommit(
+            TableIdentifier icebergTableIdentifier, TablePath tablePath, String commitBranch) {
+        Table table = catalog.loadTable(icebergTableIdentifier);
+        DeleteFiles delete = table.newDelete();
+        if (StringUtils.isNotBlank(commitBranch)) {
+            delete.toBranch(commitBranch);
+        }
+        delete.deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue())
+                .commit();
+        log.info(
+                "Truncated Iceberg table {} using DELETE_COMMIT on branch {}.",
+                tablePath,
+                StringUtils.defaultIfBlank(commitBranch, SnapshotRef.MAIN_BRANCH));
+    }
+
+    private void truncateTableByMetadataReset(
+            TableIdentifier icebergTableIdentifier, TablePath tablePath, String commitBranch) {
+        Table table = catalog.loadTable(icebergTableIdentifier);
+        if (!(table instanceof HasTableOperations)) {
+            throw new CatalogException(
+                    String.format(
+                            "Iceberg table %s does not expose TableOperations, cannot reset metadata safely",
+                            tablePath));
+        }
+
+        TableOperations operations = ((HasTableOperations) table).operations();
+        TableMetadata base = operations.current();
+        if (base.snapshots().isEmpty() && base.refs().isEmpty()) {
+            recreateCommitBranchIfNeeded(icebergTableIdentifier, commitBranch);
+            log.info("Iceberg table {} is already empty, skip metadata reset.", tablePath);
+            return;
+        }
+
+        List<Long> snapshotIds =
+                base.snapshots().stream().map(Snapshot::snapshotId).collect(Collectors.toList());
+        TableMetadata.Builder metadataBuilder = TableMetadata.buildFrom(base);
+        base.refs().keySet().forEach(metadataBuilder::removeRef);
+        if (!snapshotIds.isEmpty()) {
+            metadataBuilder.removeSnapshots(snapshotIds);
+        }
+        TableMetadata resetMetadata = metadataBuilder.build();
+
+        operations.commit(base, resetMetadata);
+        recreateCommitBranchIfNeeded(icebergTableIdentifier, commitBranch);
+        log.info(
+                "Truncated Iceberg table {} using HARD_METADATA_RESET. All snapshot refs were removed; orphan cleanup must run separately.",
+                tablePath);
+    }
+
+    private void recreateCommitBranchIfNeeded(
+            TableIdentifier icebergTableIdentifier, String commitBranch) {
+        if (StringUtils.isBlank(commitBranch) || SnapshotRef.MAIN_BRANCH.equals(commitBranch)) {
+            return;
+        }
+        Table resetTable = catalog.loadTable(icebergTableIdentifier);
+        ManageSnapshots manageSnapshots = resetTable.manageSnapshots();
+        manageSnapshots.createBranch(commitBranch).commit();
     }
 }

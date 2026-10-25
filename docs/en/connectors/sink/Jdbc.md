@@ -131,6 +131,19 @@ Expected rows:
 
 If the job fails before writing, check [Troubleshooting](#troubleshooting) first.
 
+:::note
+
+When connecting to MariaDB, use MariaDB Connector/J with the matching URL and driver:
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configuration selects the MySQL dialect, which can reject a MariaDB server version as an unsupported MySQL version.
+
+:::
+
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -160,6 +173,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| schema                                    | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
@@ -175,8 +189,11 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | max_commit_attempts                       | Int     | No       | 3                            |
 | transaction_timeout_sec                   | Int     | No       | -1                           |
 | auto_commit                               | Boolean | No       | true                         |
-| field_ide                                 | String  | No       | -                            |
+| field_ide                                 | Enum    | No       | -                            |
 | properties                                | Map     | No       | -                            |
+| decimal_type_narrowing                    | Boolean | No       | true                         |
+| int_type_narrowing                        | Boolean | No       | true                         |
+| handle_blob_as_string                     | Boolean | No       | false                        |
 | common-options                            |         | No       | -                            |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
@@ -270,6 +287,10 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
 
+### schema [string]
+
+The target schema for databases that support schemas (PostgreSQL, Oracle, SQL Server, Redshift, Kingbase, OpenGauss, Dameng, Xugu, ...). When set, it takes priority over the schema part embedded in `table` (`schema.table`) and is used both for the generated SQL and for the catalog operations driven by `schema_save_mode` / `data_save_mode`.
+
 ### tablePrefix [string]
 
 Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
@@ -323,6 +344,16 @@ please refer to appendix for other data sources
 
 The number of retries for transaction commit failures
 
+In exactly-once XA mode, this retry budget is consumed within a single aggregated-commit or
+restore invocation. During restore, SeaTunnel replays the still-prepared suffix starting from the
+first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are
+treated as already resolved only after the still-prepared suffix commits successfully. If none of
+the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already
+resolved and does not replay it. SeaTunnel waits one second between synchronous retry rounds so
+transient resource-manager outages can consume the retry budget over time instead of burning every
+attempt immediately. If a gap appears after the first recovered checkpoint XID,
+recovery still fails closed instead of inferring a successful commit.
+
 ### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
@@ -332,7 +363,11 @@ exactly-once semantics
 
 Automatic transaction commit is enabled by default
 
-### field_ide [String]
+For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_commit = true`.
+This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
+When checkpointing is disabled, the transaction is committed after every successful `batch_size` / `batch_interval_ms` triggered flush, so flushed rows are not held in one unbounded transaction until the writer closes. When checkpointing is enabled, the commit boundary remains the checkpoint.
+
+### field_ide [Enum]
 
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
@@ -341,6 +376,18 @@ conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 ### properties
 
 Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
+### decimal_type_narrowing [boolean]
+
+Only used by the Oracle catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, Oracle `NUMBER` columns whose precision and scale fit into an integer type are mapped to `INT` or `BIGINT` instead of `DECIMAL`. Keep the same value as the one used on the source side so that the auto-created table types match.
+
+### int_type_narrowing [boolean]
+
+Only used by the MySQL catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, MySQL `TINYINT(1)` columns are mapped to `BOOLEAN`; when `false`, they are kept as `TINYINT`.
+
+### handle_blob_as_string [boolean]
+
+Only used by the Oracle catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, Oracle `BLOB` columns are treated as `STRING` columns, matching the `handle_blob_as_string` option of the JDBC source.
 
 ### common options
 
@@ -382,6 +429,7 @@ Current support:
 | TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
 | OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
 | PostgreSQL | Yes | `tablespace`, `fillfactor` |
+| Dameng | Yes | `tablespace`, `fillfactor` |
 | Oracle | Yes | `tablespace`, `pctfree` |
 | OceanBase (Oracle mode) | Yes | `tablespace`, `pctfree` (via `compatible_mode=oracle` → Oracle dialect / DDL path) |
 | Kingbase | Yes | `tablespace`, `fillfactor` |
@@ -395,10 +443,11 @@ Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rul
 - **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
 - **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission.
 - **PostgreSQL**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH` parameters are not supported). OpenGauss and HighGo inherit the same validation and DDL path via Postgres catalog/dialect.
+- **Dameng**: `fillfactor` and `tablespace` are emitted as a Dameng `STORAGE (...)` clause (`FILLFACTOR <n>`, `ON "<tablespace>"`). `fillfactor` must be an integer in `[0, 100]`; `tablespace` uses the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary nested `STORAGE` parameters such as `INITIAL` / `NEXT` are not supported). The tablespace must already exist on the target.
 - **Oracle / OceanBase (Oracle mode)**: `pctfree` is emitted as `PCTFREE <n>` and must be an integer in `[0, 99]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (nested `STORAGE (...)` and LOB/partition clauses are not supported). The tablespace must already exist on the target.
 - **Kingbase**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]` (PostgreSQL-compatible); `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH (...)` parameters are not supported). The tablespace must already exist on the target.
 
-SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), and Kingbase, it also validates blank values and the `fillfactor` numeric range. For Oracle / OceanBase (Oracle mode), it also validates blank values and the `pctfree` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
+SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), Dameng, and Kingbase, it also validates blank values and the `fillfactor` numeric range. For Oracle / OceanBase (Oracle mode), it also validates blank values and the `pctfree` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
 
 Example (MySQL auto-create with engine and charset):
 
@@ -446,6 +495,30 @@ sink {
   }
 }
 ```
+
+Example (Dameng auto-create with tablespace and fillfactor):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:dm://localhost:5236"
+    driver = "dm.jdbc.driver.DmDriver"
+    username = "SYSDBA"
+    password = "SYSDBA"
+    database = "DAMENG"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "MAIN"
+      "fillfactor" = "80"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `STORAGE (FILLFACTOR 80, ON "MAIN")`.
 
 Example (Oracle auto-create with tablespace and pctfree):
 
@@ -521,7 +594,7 @@ When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to g
 INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
-This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`. Oracle sink still uses manual commit internally when writing data.
 
 ### create_index [boolean]
 
@@ -564,7 +637,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | DM                | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                            | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
 | Phoenix           | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF  | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                                          |
 | SQL Server        | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                     | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
-| Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
+| Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.client.OracleXADataSource           | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
 | sqlite            | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                 | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
 | GBase8a           | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                    | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
 | StarRocks         | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
@@ -578,7 +651,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | Kingbase          | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                            | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
 | OceanBase         | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                     | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | xugu              | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                          | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
-| InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                     | /                                                  | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                     | /                                                  | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar                         |
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
@@ -797,6 +870,51 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+The `${table_name}` placeholder in `table` is filled from the upstream record's table metadata so each source table
+(`full_types`, `full_types_2`) is written to its own sink table (`sink_full_types`, `sink_full_types_2`). Pair this with
+`generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can emit the right INSERT/UPSERT for each
+upstream table.
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -844,6 +962,10 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
+(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
+`is_exactly_once` at its default of `false`.
 
 ## Troubleshooting
 

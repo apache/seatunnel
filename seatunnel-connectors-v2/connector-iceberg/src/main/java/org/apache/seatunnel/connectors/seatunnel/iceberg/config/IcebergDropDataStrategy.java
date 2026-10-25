@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
+/** Selects legacy delete commits or an explicit destructive metadata reset for DROP_DATA. */
 public enum IcebergDropDataStrategy {
     DELETE_COMMIT,
     HARD_METADATA_RESET

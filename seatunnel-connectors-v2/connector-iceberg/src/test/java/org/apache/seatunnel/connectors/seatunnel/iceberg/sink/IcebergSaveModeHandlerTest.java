@@ -39,6 +39,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies save-mode dispatch retains the legacy default and honors the explicit reset strategy.
+ */
 class IcebergSaveModeHandlerTest {
 
     private static final TablePath TABLE_PATH = TablePath.of("database.table");
