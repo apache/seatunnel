@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -64,7 +65,8 @@ public class PulsarSourceFactory implements TableSourceFactory {
                         PulsarSourceOptions.POLL_INTERVAL,
                         PulsarSourceOptions.POLL_BATCH_SIZE,
                         PulsarSourceOptions.FORMAT,
-                        PulsarSourceOptions.SCHEMA)
+                        PulsarSourceOptions.SCHEMA,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE)
                 .exclusive(
                         PulsarSourceOptions.TOPIC,
                         PulsarSourceOptions.TOPIC_PATTERN,

@@ -329,6 +329,23 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/csv/header/csv_with_header2.csv",
                         container);
 
+                Path csvWithPreamble = Files.createTempFile("csv-preamble-", ".csv");
+                try {
+                    Files.write(
+                            csvWithPreamble,
+                            ("\uFEFF\"unclosed quote in report preamble\n"
+                                            + "export generated today\n"
+                                            + "name,id,age\n"
+                                            + "\"Alice\nSmith\",1,10\n"
+                                            + "Bob,2,20\n")
+                                    .getBytes(StandardCharsets.UTF_8));
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(csvWithPreamble, 0644),
+                            "/seatunnel/read/csv/preamble/data.csv");
+                } finally {
+                    Files.deleteIfExists(csvWithPreamble);
+                }
+
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_null_format.txt",
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
@@ -337,7 +354,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer(
                         "sh",
                         "-c",
-                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n## Child\\nBody\\n' > /seatunnel/read/markdown/e2e.md");
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);
@@ -366,6 +383,14 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileCsvWithPreamble(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/csv_with_preamble_to_assert.conf");
+        helper.execute("/csv/csv_with_header_to_assert.conf");
     }
 
     @TestTemplate
