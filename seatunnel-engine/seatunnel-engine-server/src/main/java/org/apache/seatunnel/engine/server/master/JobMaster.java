@@ -36,7 +36,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.Constant;
@@ -1338,11 +1337,43 @@ public class JobMaster {
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 
-            try {
-                seaTunnelServer.removeMetrics(pipelineLocation);
-            } catch (Exception e) {
-                LOGGER.severe("failed to remove metrics", e);
-            }
+            removePipelineMetrics(pipelineLocation);
+        }
+    }
+
+    /**
+     * Clears runtime metrics from a failed pipeline attempt before it is restored.
+     *
+     * <p>Task locations are stable across retries, so keeping the old snapshots would make the
+     * replacement attempt continue counting from the failed attempt's values.
+     *
+     * <p>The failed attempt's task-group contexts are cleaned first: a context that survives the
+     * wipe can re-populate the metrics store afterwards, defeating the reset. The reset is best
+     * effort: a worker report that was collected before its context was cleaned can still land
+     * right after the wipe, so at most such a millisecond-scale window can carry stale values.
+     *
+     * @param pipelineLocation pipeline that is about to be restored
+     */
+    public void clearPipelineMetricsForRestore(PipelineLocation pipelineLocation) {
+        try {
+            cleanTaskGroupContext(pipelineLocation);
+        } catch (Exception e) {
+            LOGGER.warning(
+                    "Failed to clean task-group contexts before restoring " + pipelineLocation, e);
+        }
+        removePipelineMetrics(pipelineLocation);
+    }
+
+    /**
+     * Removes the pipeline's metrics from the metrics store. Best effort: a failure is logged and
+     * never propagated, so neither the terminal cleanup nor a pipeline restore is blocked.
+     */
+    private void removePipelineMetrics(PipelineLocation pipelineLocation) {
+        try {
+            seaTunnelServer.removeMetrics(pipelineLocation);
+        } catch (Exception e) {
+            LOGGER.severe(
+                    String.format("failed to remove metrics for pipeline %s", pipelineLocation), e);
         }
     }
 
@@ -1363,13 +1394,17 @@ public class JobMaster {
                                             slotProfile.getWorker())
                                     .get();
                         }
-                    } catch (HazelcastInstanceNotActiveException e) {
+                    } catch (Exception e) {
+                        // Best effort per task group: one unreachable worker must not stop the
+                        // remaining contexts from being cleaned, or those contexts would
+                        // re-publish the failed attempt's metrics after the store was cleared.
+                        if (e instanceof InterruptedException) {
+                            Thread.currentThread().interrupt();
+                        }
                         LOGGER.warning(
                                 String.format(
                                         "%s clean TaskGroupContext with exception: %s.",
                                         taskGroupLocation, ExceptionUtils.getMessage(e)));
-                    } catch (Exception e) {
-                        throw new SeaTunnelException(e.getMessage());
                     }
                 });
     }
