@@ -106,8 +106,8 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
         } catch (Throwable t) {
             // The failure is already carried by this task's future. Rethrowing it would only end
             // this dispatch thread and send the error to stderr instead of the engine log.
-            log.error("Checkpoint task failed for job {} pipeline {}", jobId, pipelineId, t);
             completion.completeExceptionally(t);
+            log.error("Checkpoint task failed for job {} pipeline {}", jobId, pipelineId, t);
         } finally {
             onSettled.accept(this);
         }
