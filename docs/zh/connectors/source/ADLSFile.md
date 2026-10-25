@@ -103,9 +103,12 @@ DNS 后缀。
 Microsoft Entra authority。不要从不可信任的作业输入中接受此配置。
 
 `hadoop_adls_properties` 可用于 ABFS 参数调整。不允许 `fs.defaultFS`，以及以下前缀开头的键：
-`fs.abfs`、`fs.s3`、`fs.azure.account.auth.type`、`fs.azure.account.key`、
+`fs.abfs`、`fs.azure.account.auth.type`、`fs.azure.account.key`、
 `fs.azure.account.oauth`、`fs.azure.sas.`、`fs.azure.delegation.`、
-`fs.azure.enable.delegation.token`、`fs.azure.identity.`、`fs.azure.shellkeyprovider.`。
+`fs.azure.enable.delegation.token`、`fs.azure.identity.`、`fs.azure.shellkeyprovider.`、`abfs.external.authorization.`,
+`fs.azure.abfs.endpoint`、`fs.azure.custom.token.provider.`, `fs.azure.encryption.context.provider.type`、
+`fs.azure.encryption.encoded.client-provided-key`、
+`fs.azure.metrics.account.key`、 `hadoop.security.credential.provider.path`。
 匹配时不区分大小写；这些路由、凭据和提供程序设置由连接器管理。
 
 校验采用键名完全匹配或前缀匹配的拒绝列表。该列表并不完整：其他 Hadoop 配置仍可能加载类，或选择

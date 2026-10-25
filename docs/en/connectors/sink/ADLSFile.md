@@ -114,9 +114,12 @@ origin. Only trusted operators should set this option, using the Microsoft Entra
 their Azure cloud. Do not accept it from untrusted job input.
 
 `hadoop_adls_properties` is for ABFS tuning. It rejects `fs.defaultFS` and keys beginning with
-`fs.abfs`, `fs.s3`, `fs.azure.account.auth.type`, `fs.azure.account.key`,
+`fs.abfs`, `fs.azure.account.auth.type`, `fs.azure.account.key`,
 `fs.azure.account.oauth`, `fs.azure.sas.`, `fs.azure.delegation.`,
-`fs.azure.enable.delegation.token`, `fs.azure.identity.`, or `fs.azure.shellkeyprovider.`
+`fs.azure.enable.delegation.token`, `fs.azure.identity.`, `fs.azure.shellkeyprovider.`, `abfs.external.authorization.`, 
+`fs.azure.abfs.endpoint`, `fs.azure.custom.token.provider.`, `fs.azure.encryption.context.provider.type`, 
+`fs.azure.encryption.encoded.client-provided-key`,
+`fs.azure.metrics.account.key`, or `hadoop.security.credential.provider.path` 
 (case-insensitive). These routing, credential, and provider settings are connector-owned.
 
 Validation uses an exact-key/prefix denylist. The denylist is not exhaustive: other Hadoop
