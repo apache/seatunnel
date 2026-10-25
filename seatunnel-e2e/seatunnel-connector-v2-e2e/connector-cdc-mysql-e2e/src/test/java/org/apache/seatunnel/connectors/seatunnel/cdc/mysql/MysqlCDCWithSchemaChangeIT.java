@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -139,6 +140,21 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     private static final String INCREMENTAL_READ_MARKER =
             "Start incremental read task for incremental split";
+
+    /**
+     * Source table of the SET / ENUM DDL case. It carries SET / ENUM columns before the job starts,
+     * so the snapshot path exercises them, and is altered again while the job runs.
+     */
+    private static final String SET_ENUM_SOURCE_TABLE = "products_with_set_enum";
+    /** Sink table the SET / ENUM DDL case evolves. */
+    private static final String SET_ENUM_SINK_TABLE = "mysql_cdc_e2e_sink_table_with_set_enum";
+    /** Job config for the SET / ENUM DDL case. */
+    private static final String SET_ENUM_SCHEMA_CHANGE_JOB_CONFIG =
+            "/mysqlcdc_to_mysql_with_set_enum_schema_change.conf";
+    /** SQL template that resets the SET / ENUM source and sink tables to their initial shape. */
+    private static final String SET_ENUM_SCHEMA_CHANGE_INIT_TEMPLATE = "set_enum_schema_change";
+    /** SQL template that adds and modifies SET / ENUM columns while the job is running. */
+    private static final String SET_ENUM_SCHEMA_CHANGE_ALTER_TEMPLATE = "add_set_enum_columns";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -454,6 +470,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 result.getExitCode(),
                 "strict schema change behavior should fail when a schema change event is observed");
         Assertions.assertTrue(
+                result.getStderr().contains("Schema change behavior is STRICT")
+                        || result.getStdout().contains("Schema change behavior is STRICT"),
+                "strict failure should report the schema change behavior contract");
+        Assertions.assertTrue(
                 columnExists(MYSQL_DATABASE, SOURCE_TABLE, "add_column1"),
                 "the source schema change must be applied before verifying the strict failure");
         Assertions.assertFalse(
@@ -475,16 +495,73 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 jobId));
 
         awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        waitForIncrementalRead(container, MYSQL_DATABASE + "." + SOURCE_TABLE);
         shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
 
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
         assertSourceTableComment(
                 MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+        // Rows inserted after the final comment DDL must arrive before checking the unchanged sink.
+        Assertions.assertFalse(
+                query(
+                                "select id from "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE_IGNORE
+                                        + " where id = 114")
+                        .isEmpty());
+        assertSourceTableComment(MYSQL_DATABASE, SINK_TABLE_IGNORE, "");
 
         cancelJob(container, jobId);
     }
 
-    /** Asserts the sink row with the given id exists and its {@code name} matches expectedName. */
+    /**
+     * Covers the DDL a same-dialect MySQL sink builds for {@code SET} / {@code ENUM} columns.
+     *
+     * <p>When the source dialect matches the sink dialect, schema-change statements are built from
+     * the column's source type expression rather than from the reconverted type, so an expression
+     * that lost the option list ({@code SET(5)} instead of {@code SET('a','b','c')}) is only
+     * rejected once MySQL executes it. This case therefore alters the source table while the job is
+     * running and compares the resulting column definitions on both sides.
+     */
+    @Order(7)
+    @TestTemplate
+    public void testMysqlCdcWithSetAndEnumColumnSchemaChange(TestContainer container)
+            throws IOException, InterruptedException {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        shopDatabase.setTemplateName(SET_ENUM_SCHEMA_CHANGE_INIT_TEMPLATE).createAndInitialize();
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(SET_ENUM_SCHEMA_CHANGE_JOB_CONFIG, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // SET / ENUM columns that exist before the job starts must replicate as STRING values
+        assertTableStructureAndData(MYSQL_DATABASE, SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE);
+
+        // add SET / ENUM columns and widen an existing SET column while the job is running
+        waitForIncrementalRead(container, MYSQL_DATABASE + "." + SET_ENUM_SOURCE_TABLE);
+        shopDatabase.setTemplateName(SET_ENUM_SCHEMA_CHANGE_ALTER_TEMPLATE).createAndInitialize();
+        assertTableStructureAndData(
+                MYSQL_DATABASE,
+                SET_ENUM_SOURCE_TABLE,
+                MYSQL_DATABASE,
+                SET_ENUM_SINK_TABLE,
+                SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS);
+
+        // explicit per-column assertion, so a regression reports SET(5) instead of a DESCRIBE diff
+        assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_set");
+        assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum");
+        assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_set_added");
+        assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum_added");
+    }
+
+    // Asserts the sink row with the given id exists and its name matches expectedName.
     private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
         Optional<List<Object>> row =
                 sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();
@@ -887,7 +964,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
-        } catch (java.util.concurrent.TimeoutException e) {
+        } catch (TimeoutException e) {
             throw new RuntimeException(
                     "Timed out waiting for schema change policy job to finish", e);
         }
@@ -968,5 +1045,39 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Asserts that the source and the sink define the column identically. Reading {@code
+     * information_schema.COLUMNS.COLUMN_TYPE} keeps the failure message focused on the
+     * reconstructed type expression, which is what the sink writes into the statements it executes.
+     */
+    private void assertColumnTypeEquals(String sourceTable, String sinkTable, String columnName) {
+        Assertions.assertEquals(
+                queryColumnType(MYSQL_DATABASE, sourceTable, columnName),
+                queryColumnType(MYSQL_DATABASE, sinkTable, columnName),
+                "Column definition of " + columnName + " differs between source and sink");
+    }
+
+    /** Reads the full type expression of one column from {@code information_schema}. */
+    private String queryColumnType(String database, String table, String columnName) {
+        List<List<Object>> rows =
+                query(
+                        String.format(
+                                "SELECT COLUMN_TYPE FROM information_schema.COLUMNS"
+                                        + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+                                        + " AND COLUMN_NAME = '%s'",
+                                database, table, columnName));
+        Assertions.assertEquals(
+                1,
+                rows.size(),
+                "Cannot read "
+                        + database
+                        + "."
+                        + table
+                        + "."
+                        + columnName
+                        + " from information_schema");
+        return String.valueOf(rows.get(0).get(0));
     }
 }

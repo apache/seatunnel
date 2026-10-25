@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
@@ -173,7 +174,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         try {
             SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, jobId);
             SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, jobId);
-            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
+            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior, event)) {
                 log.info(
                         "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
                         event.getEventType(),
@@ -392,7 +393,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         TableIdentifier tableId = event.tableIdentifier();
         long eventTime = event.getCreatedTime();
 
-        if (lastProcessedEventTime != null && eventTime <= lastProcessedEventTime) {
+        // Restore events only refresh runtime schema state and are safe to apply repeatedly. They
+        // can also share the same millisecond timestamp when multiple tables are restored in one
+        // batch, so applying the normal timestamp deduplication would silently skip later tables.
+        if (!(event instanceof RestoreTableSchemaEvent)
+                && lastProcessedEventTime != null
+                && eventTime <= lastProcessedEventTime) {
             log.warn(
                     "Skipping outdated schema change event (epoch {} <= last processed {})",
                     eventTime,

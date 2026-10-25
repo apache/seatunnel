@@ -90,6 +90,19 @@ public class MultiTableSink
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
+        // replicaNum is the writer count per subtask and becomes the queue count and the
+        // thread-pool size in MultiTableSinkWriter. Below 1 there is no writer to route a row
+        // to, and Executors.newFixedThreadPool rejects the size with a message-less
+        // IllegalArgumentException that names neither this option nor its value. Fail here
+        // instead, with both.
+        if (replicaNum < 1) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Option '%s' must be at least 1, but was %d. Each replica is one "
+                                    + "sink writer per subtask, so a value below 1 leaves the "
+                                    + "multi-table sink with no writers.",
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum));
+        }
         this.failurePolicy =
                 context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
         this.tableRetryTimes = context.getOptions().get(EnvCommonOptions.JOB_RETRY_TIMES);
@@ -428,12 +441,18 @@ public class MultiTableSink
     private Map<String, List<SchemaChangeType>> getSupportedSchemaChangeTypesByTable() {
         Map<String, List<SchemaChangeType>> supportedTypesByTable = new HashMap<>();
         sinks.forEach(
-                (tablePath, sink) ->
-                        supportedTypesByTable.put(
-                                tablePath.toString(),
-                                sink instanceof SupportSchemaEvolutionSink
-                                        ? ((SupportSchemaEvolutionSink) sink).supports()
-                                        : Collections.emptyList()));
+                (tablePath, sink) -> {
+                    List<SchemaChangeType> supportedTypes = null;
+                    if (sink instanceof SupportSchemaEvolutionSink) {
+                        supportedTypes = ((SupportSchemaEvolutionSink) sink).supports();
+                        if (supportedTypes == null) {
+                            supportedTypes = Collections.emptyList();
+                        }
+                    }
+                    // Null preserves only unadvertised legacy writers; an empty modern list is
+                    // strict.
+                    supportedTypesByTable.put(tablePath.toString(), supportedTypes);
+                });
         return supportedTypesByTable;
     }
 

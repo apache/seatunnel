@@ -17,14 +17,18 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeQPSMeter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -44,6 +48,12 @@ import org.mockito.Mockito;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Protects source policy ordering and row-layout consistency before schema events propagate.
+ *
+ * <p>Ignored metadata must not reach downstream writers, and strict or unsafe row-layout events
+ * fail at the source gate.
+ */
 public class SeaTunnelSourceCollectorSchemaChangePolicyTest {
 
     @Test
@@ -64,6 +74,15 @@ public class SeaTunnelSourceCollectorSchemaChangePolicyTest {
                 createCollector(SchemaChangeBehavior.IGNORE, output);
 
         collector.collect(createCommentEvent());
+        collector.collect(
+                new AlterTableColumnsEvent(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        Collections.singletonList(
+                                AlterColumnCommentEvent.of(
+                                        TableIdentifier.of("catalog", "database", "table"),
+                                        "f1",
+                                        "old",
+                                        "new"))));
 
         Assertions.assertEquals(0, output.receivedCount.get());
     }
@@ -80,7 +99,7 @@ public class SeaTunnelSourceCollectorSchemaChangePolicyTest {
                         collector.collect(
                                 AlterTableAddColumnEvent.add(
                                         TableIdentifier.of("catalog", "database", "table"),
-                                        org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                        PhysicalColumn.of(
                                                 "new_col",
                                                 BasicType.STRING_TYPE,
                                                 64L,
@@ -134,8 +153,7 @@ public class SeaTunnelSourceCollectorSchemaChangePolicyTest {
         }
 
         @Override
-        public <C extends org.apache.seatunnel.api.common.metrics.Counter> C counter(
-                String name, C counter) {
+        public <C extends Counter> C counter(String name, C counter) {
             return counter;
         }
 

@@ -94,7 +94,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.setCurrentSchema(tablePath.getSchemaName());
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
-        List<AlterTableEvent> parsedEvents = new ArrayList<>(getAndClearAlterTableEvents());
+        List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
         parsedEvents = normalizeTableIdentifiers(parsedEvents, tablePath);
         parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
@@ -334,6 +334,15 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
     }
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);
+
+    /**
+     * Returns and clears parsed table events through the released downstream extension hook.
+     *
+     * <p>Dispatch remains through this method so existing overrides keep receiving DDL callbacks.
+     */
+    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
+        return new ArrayList<>(getAndClearAlterTableEvents());
+    }
 
     /**
      * Returns and clears parsed column events.

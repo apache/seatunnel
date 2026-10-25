@@ -99,9 +99,11 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     private List<SchemaChangeType> resolveSinkSupportedTypes() {
         if (sink instanceof SupportSchemaEvolutionSink) {
-            return ((SupportSchemaEvolutionSink) sink).supports();
+            List<SchemaChangeType> supportedTypes = ((SupportSchemaEvolutionSink) sink).supports();
+            return supportedTypes == null ? Collections.emptyList() : supportedTypes;
         }
-        return Collections.emptyList();
+        // Null distinguishes an unadvertised legacy sink from an explicit empty capability list.
+        return null;
     }
 
     @Override

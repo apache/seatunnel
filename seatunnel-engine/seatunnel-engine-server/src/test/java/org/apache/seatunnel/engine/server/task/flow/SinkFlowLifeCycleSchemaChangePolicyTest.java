@@ -32,10 +32,10 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -52,6 +52,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Protects advertised sink capabilities and the legacy schema-writer compatibility window.
+ *
+ * <p>Unadvertised legacy callbacks remain usable while explicit modern capability lists reject
+ * unsupported row-layout changes.
+ */
 public class SinkFlowLifeCycleSchemaChangePolicyTest {
 
     @Test
@@ -98,7 +104,7 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
     }
 
     @Test
-    void testCommentEventIsDroppedForSinkWithoutSchemaEvolutionSupport() throws Exception {
+    void testUnadvertisedSinkRetainsItsExistingSchemaWriterCallback() throws Exception {
         RecordingSchemaEvolutionWriter writer = new RecordingSchemaEvolutionWriter();
         SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
                 createSinkFlow(new PlainSink(writer));
@@ -107,7 +113,7 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
 
         sinkFlow.received(new Record<>(createCommentEvent()));
 
-        Assertions.assertEquals(0, writer.appliedCount.get());
+        Assertions.assertEquals(1, writer.appliedCount.get());
     }
 
     /**
@@ -145,21 +151,21 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
     }
 
     @Test
-    void testSinkWithoutSchemaEvolutionSupportFailsBeforeWriterApply() throws Exception {
-        RecordingSchemaEvolutionWriter writer = new RecordingSchemaEvolutionWriter();
-        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
-                createSinkFlow(new PlainSink(writer));
-        sinkFlow.init();
-        sinkFlow.restoreState(Collections.emptyList());
-
-        RuntimeException error =
-                Assertions.assertThrows(
-                        RuntimeException.class,
-                        () -> sinkFlow.received(new Record<>(createAddColumnEvent())));
-
-        Assertions.assertTrue(error.getMessage().contains("does not advertise schema evolution"));
-        Assertions.assertTrue(hasCause(error, NonRetryableException.class));
-        Assertions.assertEquals(0, writer.appliedCount.get());
+    void testUnadvertisedLegacyCallbackAndNoOpRemainCompatible() throws Exception {
+        LegacySchemaChangeWriter legacy = new LegacySchemaChangeWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> legacyFlow =
+                createSinkFlow(new PlainSink(legacy));
+        legacyFlow.init();
+        legacyFlow.restoreState(Collections.emptyList());
+        legacyFlow.received(new Record<>(createAddColumnEvent()));
+        Assertions.assertEquals(1, legacy.appliedCount.get());
+        NoOpSchemaChangeWriter noOp = new NoOpSchemaChangeWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> noOpFlow =
+                createSinkFlow(new PlainSink(noOp));
+        noOpFlow.init();
+        noOpFlow.restoreState(Collections.emptyList());
+        noOpFlow.received(new Record<>(createAddColumnEvent()));
+        Assertions.assertEquals(0, noOp.writtenCount.get());
     }
 
     private static boolean hasCause(Throwable error, Class<?> causeType) {
@@ -286,8 +292,7 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
         public void abortPrepare() {}
 
         @Override
-        public void applySchemaChange(
-                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+        public void applySchemaChange(SchemaChangeEvent event) {
             appliedCount.incrementAndGet();
         }
 
@@ -311,8 +316,7 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
         public void abortPrepare() {}
 
         @Override
-        public void applySchemaChange(
-                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+        public void applySchemaChange(SchemaChangeEvent event) {
             appliedCount.incrementAndGet();
         }
 

@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.api.table.schema;
 
-/** Policy values for handling schema change events emitted by CDC sources. */
+/**
+ * Policy values for handling schema change events emitted by CDC sources.
+ *
+ * <p>EVOLVE retains the existing DDL path; STRICT rejects live changes and IGNORE discards only
+ * metadata that cannot change row layout.
+ */
 public enum SchemaChangeBehavior {
     /**
      * Fails the job as soon as a schema change event is observed, before downstream schema

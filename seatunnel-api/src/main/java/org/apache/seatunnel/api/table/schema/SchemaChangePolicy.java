@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
@@ -29,7 +30,12 @@ import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 
 import java.util.List;
 
-/** Utility methods for enforcing source schema change behavior before downstream coordination. */
+/**
+ * Utility methods for enforcing source schema change behavior before downstream coordination.
+ *
+ * <p>Restoration metadata bypasses live DDL policies, while explicit sink capabilities remain
+ * validated for new changes.
+ */
 public final class SchemaChangePolicy {
 
     private SchemaChangePolicy() {}
@@ -59,7 +65,8 @@ public final class SchemaChangePolicy {
      */
     public static void validateStrict(
             SchemaChangeBehavior behavior, SchemaChangeEvent event, String jobId) {
-        if (behavior == SchemaChangeBehavior.STRICT) {
+        if (behavior == SchemaChangeBehavior.STRICT
+                && !(event instanceof RestoreTableSchemaEvent)) {
             throw policyException(
                     event,
                     jobId,
@@ -78,7 +85,9 @@ public final class SchemaChangePolicy {
      */
     public static void validateIgnore(
             SchemaChangeBehavior behavior, SchemaChangeEvent event, String jobId) {
-        if (behavior == SchemaChangeBehavior.IGNORE && !isSafeToIgnore(event)) {
+        if (behavior == SchemaChangeBehavior.IGNORE
+                && !(event instanceof RestoreTableSchemaEvent)
+                && !isSafeToIgnore(event)) {
             throw policyException(
                     event,
                     jobId,
@@ -96,6 +105,20 @@ public final class SchemaChangePolicy {
      */
     public static boolean shouldIgnore(SchemaChangeBehavior behavior) {
         return behavior == SchemaChangeBehavior.IGNORE;
+    }
+
+    /**
+     * Returns whether a live schema change should be discarded by the selected policy.
+     *
+     * <p>Restoration events replay an already accepted schema after recovery. They must reach the
+     * downstream writers even in IGNORE mode; discarding them would restore an obsolete row layout.
+     *
+     * @param behavior resolved source behavior
+     * @param event schema change or restoration event
+     * @return true only for live schema changes selected for ignoring
+     */
+    public static boolean shouldIgnore(SchemaChangeBehavior behavior, SchemaChangeEvent event) {
+        return shouldIgnore(behavior) && !(event instanceof RestoreTableSchemaEvent);
     }
 
     /**
@@ -128,6 +151,10 @@ public final class SchemaChangePolicy {
      */
     public static boolean isSupported(
             SchemaChangeEvent event, List<SchemaChangeType> supportedTypes) {
+        // Restore replays persisted metadata rather than introducing a new DDL capability.
+        if (event instanceof RestoreTableSchemaEvent) {
+            return true;
+        }
         if (supportedTypes == null || supportedTypes.isEmpty()) {
             return false;
         }
@@ -176,32 +203,6 @@ public final class SchemaChangePolicy {
     }
 
     /**
-     * Fails when a sink does not advertise schema evolution support.
-     *
-     * <p>This rejection is a deterministic policy failure, so it is raised as a {@link
-     * SchemaChangePolicyException} and must not trigger checkpoint-based retries.
-     *
-     * @param supportsSchemaEvolution whether the sink advertises schema evolution support
-     * @param event schema change event to validate
-     * @param sinkName sink plugin name used in the error message
-     * @param jobId job identifier used in the raised exception
-     */
-    public static void validateSinkSupportsSchemaEvolution(
-            boolean supportsSchemaEvolution,
-            SchemaChangeEvent event,
-            String sinkName,
-            String jobId) {
-        if (!supportsSchemaEvolution) {
-            throw policyException(
-                    event,
-                    jobId,
-                    String.format(
-                            "Sink %s does not advertise schema evolution support for event %s.",
-                            sinkName, event.getEventType()));
-        }
-    }
-
-    /**
      * Returns whether an event only changes metadata and can be dropped without changing the
      * runtime row encoding.
      *
@@ -209,6 +210,10 @@ public final class SchemaChangePolicy {
      * @return true when dropping the event cannot change row decoding
      */
     public static boolean isSafeToIgnore(SchemaChangeEvent event) {
+        if (event instanceof AlterTableColumnsEvent) {
+            return ((AlterTableColumnsEvent) event)
+                    .getEvents().stream().allMatch(SchemaChangePolicy::isSafeToIgnore);
+        }
         switch (event.getEventType()) {
             case SCHEMA_CHANGE_ALTER_TABLE_COMMENT:
             case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:

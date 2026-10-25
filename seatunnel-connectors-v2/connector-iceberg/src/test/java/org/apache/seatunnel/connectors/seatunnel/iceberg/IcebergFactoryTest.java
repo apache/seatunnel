@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.IcebergSourceFac
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -99,6 +101,31 @@ class IcebergFactoryTest {
                 absolutelyRequiredOptions(SINK_RULE).contains(IcebergSinkOptions.CATALOG_PROPS));
     }
 
+    @Test
+    void sinkUpsertConditionallyRequiresPrimaryKeys() {
+        boolean hasConditional =
+                SINK_RULE.getRequiredOptions().stream()
+                        .filter(o -> o instanceof RequiredOption.ConditionalRequiredOptions)
+                        .anyMatch(
+                                o ->
+                                        o.getOptions()
+                                                .contains(IcebergSinkOptions.TABLE_PRIMARY_KEYS));
+        Assertions.assertTrue(hasConditional);
+    }
+
+    @Test
+    void sourceScanIntervalHasValueConstraint() {
+        boolean hasConstraint =
+                SOURCE_RULE.getValueConstraints().stream()
+                        .anyMatch(
+                                c ->
+                                        c.getOption()
+                                                .equals(
+                                                        IcebergSourceOptions
+                                                                .KEY_INCREMENT_SCAN_INTERVAL));
+        Assertions.assertTrue(hasConstraint);
+    }
+
     // accepted configs
 
     @Test
@@ -132,6 +159,30 @@ class IcebergFactoryTest {
         Assertions.assertDoesNotThrow(() -> validateSink(config));
     }
 
+    @Test
+    void sinkUpsertWithPrimaryKeysValid() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("iceberg.catalog.config", catalogProps());
+        config.put("iceberg.table.upsert-mode-enabled", true);
+        config.put("iceberg.table.primary-keys", "id");
+        Assertions.assertDoesNotThrow(() -> validateSink(config));
+    }
+
+    @Test
+    void sinkNoUpsertWithoutPrimaryKeysValid() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("iceberg.catalog.config", catalogProps());
+        config.put("iceberg.table.upsert-mode-enabled", false);
+        Assertions.assertDoesNotThrow(() -> validateSink(config));
+    }
+
+    @Test
+    void sourcePositiveScanIntervalValid() {
+        Map<String, Object> config = sourceConfigWithTable();
+        config.put("increment.scan-interval", 2000L);
+        Assertions.assertDoesNotThrow(() -> validateSource(config));
+    }
+
     // rejected configs
 
     @Test
@@ -161,6 +212,31 @@ class IcebergFactoryTest {
         Map<String, Object> config = new HashMap<>();
         config.put("table", "t1");
         Assertions.assertThrows(OptionValidationException.class, () -> validateSink(config));
+    }
+
+    @Test
+    void sinkUpsertWithoutPrimaryKeysRejected() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("iceberg.catalog.config", catalogProps());
+        config.put("iceberg.table.upsert-mode-enabled", true);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(config));
+    }
+
+    @Test
+    void sinkUpsertWithBlankPrimaryKeysRejected() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("iceberg.catalog.config", catalogProps());
+        config.put("iceberg.table.upsert-mode-enabled", true);
+        config.put("iceberg.table.primary-keys", "  ");
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(config));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, -1L})
+    void sourceNonPositiveScanIntervalRejected(long interval) {
+        Map<String, Object> config = sourceConfigWithTable();
+        config.put("increment.scan-interval", interval);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(config));
     }
 
     // helpers

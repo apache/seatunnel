@@ -17,5 +17,10 @@
 
 package org.apache.seatunnel.common.exception;
 
-/** Marker for deterministic failures that cannot succeed by replaying the same input. */
+/**
+ * Marker for deterministic failures that cannot succeed by replaying the same input.
+ *
+ * <p>Cause chains retain the original exception and diagnostic context; this marker only controls
+ * whether recovery may retry it.
+ */
 public interface NonRetryableException {}

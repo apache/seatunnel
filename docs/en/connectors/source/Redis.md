@@ -8,6 +8,23 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 Used to read data from Redis.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` checks that Redis is reachable and accepts the configured credentials.
+The client is created through the same connection setup as normal job execution, so `user` and
+`auth` are verified exactly as at runtime: `AUTH user auth` when `user` is set, `AUTH auth` when only
+`auth` is set. In `SINGLE` mode it then sends `SELECT db_num` and `PING`. In `CLUSTER` mode it
+initializes the cluster slot cache from `nodes` (`CLUSTER SLOTS`) and reads `INFO` from one node.
+The runtime connect and socket timeouts (2 seconds) apply, and every client is closed on success and
+on failure. No key is read, scanned, written or expired, no key space is created and no ACL entry is
+modified. Normal job execution is unchanged.
+
+Output schemas come from the configured `schema` or `tables_configs`, through the same path as normal
+execution; no Redis value is inspected. Successful validation does **not** prove that matching keys
+exist, that stored values match `data_type` or `format`, or that the credentials may read those keys.
+In `CLUSTER` mode, validation passes as long as one node answers, so partially unreachable clusters
+are not detected.
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -44,6 +61,8 @@ downloaded from Maven Central.
 | db_num         | int    | no                      | 0             | Redis database index |
 | mode           | string | no                      | single        | Redis mode: `single` or `cluster` |
 | nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
+| keys           | string | yes when tables_configs is absent | -   | Redis key pattern to scan. Supports fuzzy matching; users need to ensure the matched keys have the same type. Mutually exclusive with `tables_configs`. |
+| data_type      | string | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
@@ -232,11 +251,19 @@ redis data types, support `key` `string` `hash` `list` `set` `zset`
 
 ### user [string]
 
-redis authentication user, you need it when you connect to an encrypted cluster
+Redis ACL username (Redis 6 or later), supported in both `SINGLE` and `CLUSTER` mode.
+When nonblank, the connector authenticates with `AUTH user auth`; it does not create or modify ACL users.
+Create the user and grant the required command and key permissions before starting the job, including
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
+If `user` is omitted, empty, or whitespace-only, a nonblank `auth` uses password-only authentication
+as the default user; otherwise no authentication command is sent.
 
 ### auth [string]
 
-redis authentication password, you need it when you connect to an encrypted cluster
+Redis authentication password. With a nonblank `user`, the password is passed unchanged, including
+whitespace. An omitted or empty password is sent as an empty string and works only if that ACL user
+accepts it (for example, a user configured with `nopass`).
 
 ### db_num [int]
 

@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoor
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -153,27 +155,29 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                 "FlinkSinkWriter applying SchemaChangeEvent for table: {}",
                 schemaChangeEvent.tableIdentifier());
 
-        if ((supportedSchemaChangeTypes == null
-                        || !SchemaChangePolicy.isSupported(
-                                schemaChangeEvent, supportedSchemaChangeTypes))
-                && SchemaChangePolicy.isSafeToIgnore(schemaChangeEvent)) {
-            log.warn(
-                    "Drop unsupported comment-only schema change event {} for table {}.",
-                    schemaChangeEvent.getEventType(),
-                    schemaChangeEvent.tableIdentifier());
-            return;
-        }
-        if (supportedSchemaChangeTypes != null) {
-            SchemaChangePolicy.validateSupported(
-                    schemaChangeEvent, supportedSchemaChangeTypes, schemaChangeEvent.getJobId());
-        }
-
         Long subtaskIdObj = (Long) options.get("schema_subtask_id");
         int subtaskId = subtaskIdObj != null ? subtaskIdObj.intValue() : -1;
         long epoch = schemaChangeEvent.getCreatedTime();
         boolean success = false;
 
         try {
+            if (supportedSchemaChangeTypes != null
+                    && !SchemaChangePolicy.isSupported(
+                            schemaChangeEvent, supportedSchemaChangeTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(schemaChangeEvent)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {}.",
+                        schemaChangeEvent.getEventType(),
+                        schemaChangeEvent.tableIdentifier());
+                success = true;
+                return;
+            }
+            if (supportedSchemaChangeTypes != null) {
+                SchemaChangePolicy.validateSupported(
+                        schemaChangeEvent,
+                        supportedSchemaChangeTypes,
+                        schemaChangeEvent.getJobId());
+            }
             if (sinkWriter instanceof SupportSchemaEvolutionSinkWriter) {
                 ((SupportSchemaEvolutionSinkWriter) sinkWriter)
                         .applySchemaChange(schemaChangeEvent);
@@ -198,6 +202,9 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                     "FlinkSinkWriter successfully handled SchemaChangeEvent for table: {}",
                     schemaChangeEvent.tableIdentifier());
             success = true;
+        } catch (SchemaChangePolicyException e) {
+            // A deterministic capability rejection must not restart and replay the same DDL.
+            throw new SuppressRestartsException(e);
         } catch (Exception e) {
             log.error(
                     "Failed to apply schema change for table: {}",

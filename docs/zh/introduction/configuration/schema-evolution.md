@@ -1,6 +1,8 @@
 # 模式演进
 模式演进是指数据表的Schema可以改变，数据同步任务可以自动适应新的表结构的变化而无需其他操作。
 
+Schema restoration events replay metadata that was already accepted before recovery. They continue downstream under `STRICT`, `EVOLVE`, and `IGNORE`, including when the source advertises no live schema-change capabilities; the behavior policy applies to new DDL events. Comment-only column-event batches are ignored only when every child is metadata-only; mixed layout changes remain fatal. Sinks without an advertised capability trait retain their deprecated callback/no-op compatibility window for one release, while an explicitly empty capability list still rejects layout changes.
+
 ## 已支持的引擎
 
 - Zeta
@@ -32,6 +34,7 @@ Spark 不支持 schema evolution，也不会执行 `schema-changes.behavior` 策
 [Doris](../../connectors/sink/Doris.md)
 [Paimon](../../connectors/sink/Paimon.md#模式演变)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
+[BigQuery](../../connectors/sink/BigQuery.md#schema-演进)（仅支持 `ADD COLUMN`）
 [Redis](../../connectors/sink/Redis.md#模式演变)
 
 注意: 
@@ -326,7 +329,7 @@ sink {
     password = ""
     database = "shop"
     table = "${table_name}"
-    url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
     max_retries = 3
     enable_upsert_delete = true
     schema_save_mode="RECREATE_SCHEMA"

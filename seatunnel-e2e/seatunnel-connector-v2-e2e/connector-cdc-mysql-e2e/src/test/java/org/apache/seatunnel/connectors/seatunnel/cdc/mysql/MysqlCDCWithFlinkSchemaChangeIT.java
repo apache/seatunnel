@@ -55,6 +55,7 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -228,11 +229,22 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 "/mysqlcdc_to_mysql_with_flink_schema_change_ignore.conf"));
 
         awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        awaitIncrementalStreamingReady(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
         shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
 
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
         assertSourceTableComment(
                 MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+        // Rows inserted after the final comment DDL must arrive before checking the unchanged sink.
+        Assertions.assertFalse(
+                query(
+                                "select id from "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE_IGNORE
+                                        + " where id = 114")
+                        .isEmpty());
+        assertSourceTableComment(MYSQL_DATABASE, SINK_TABLE_IGNORE, "");
     }
 
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
@@ -241,6 +253,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
+        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -325,6 +339,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
+        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -434,9 +450,48 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
-        } catch (java.util.concurrent.TimeoutException e) {
+        } catch (TimeoutException e) {
             throw new RuntimeException(
                     "Timed out waiting for schema change policy job to finish", e);
+        }
+    }
+
+    /**
+     * Waits until the incremental binlog reader is active before issuing schema changes.
+     *
+     * <p>Snapshot rows can reach the sink before the binlog reader connects. If DDL is issued in
+     * that gap, Debezium can initialize from the post-DDL table schema and then replay pre-DDL row
+     * events with fewer columns.
+     */
+    private void awaitIncrementalStreamingReady(
+            String database, String sourceTable, String sinkTable) {
+        String source = quoteIdentifier(database) + "." + quoteIdentifier(sourceTable);
+        executeUpdate(
+                "insert into "
+                        + source
+                        + " (id, name, description, weight)"
+                        + " values (100, 'streaming-ready', 'streaming-ready', 0)");
+
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, "id = 100"));
+
+        executeUpdate("delete from " + source + " where id = 100");
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, "id = 100"));
+    }
+
+    private void executeUpdate(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

@@ -140,7 +140,7 @@ public class DB2Catalog extends AbstractJdbcCatalog {
                         .precision(length)
                         .scale(scale)
                         .nullable(nullable)
-                        .defaultValue(resultSet.getObject("DEFAULT_VALUE"))
+                        .defaultValue(resultSet.getString("DEFAULT_VALUE"))
                         .comment(resultSet.getString("COMMENT"))
                         .build();
         return DB2TypeConverter.INSTANCE.convert(typeDefine);

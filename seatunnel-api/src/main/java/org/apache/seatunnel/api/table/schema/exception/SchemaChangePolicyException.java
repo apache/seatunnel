@@ -20,7 +20,12 @@ package org.apache.seatunnel.api.table.schema.exception;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.common.exception.NonRetryableException;
 
-/** Deterministic schema-change policy rejection that must not be retried from a checkpoint. */
+/**
+ * Deterministic schema-change policy rejection that must not be retried from a checkpoint.
+ *
+ * <p>Workers preserve this classification in task state so the master can fail without replaying
+ * the same rejected DDL.
+ */
 public class SchemaChangePolicyException extends SchemaEvolutionException
         implements NonRetryableException {
 

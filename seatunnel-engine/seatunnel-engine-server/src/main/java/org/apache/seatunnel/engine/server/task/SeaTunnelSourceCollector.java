@@ -367,7 +367,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         try {
             SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, event.getJobId());
             SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, event.getJobId());
-            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
+            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior, event)) {
                 log.info(
                         "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
                         event.getEventType(),

@@ -29,6 +29,8 @@ import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.NullValue;
+import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
@@ -41,6 +43,13 @@ public class CommonFunction {
 
     public static SeaTunnelDataType resolveExpressionType(
             Expression expression, SeaTunnelRowType rowType) {
+        // Signs and parentheses preserve the inner expression's data type.
+        if (expression instanceof SignedExpression) {
+            return resolveExpressionType(((SignedExpression) expression).getExpression(), rowType);
+        }
+        if (expression instanceof Parenthesis) {
+            return resolveExpressionType(((Parenthesis) expression).getExpression(), rowType);
+        }
         if (expression instanceof NullValue) {
             return null;
         }

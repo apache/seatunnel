@@ -33,7 +33,12 @@ final class SchemaChangeDispatchTarget {
     private final SinkIdentifier sinkIdentifier;
     /** Target writer that will execute the schema-change mutation. */
     private final SinkWriter<SeaTunnelRow, ?, ?> writer;
-    /** Capabilities advertised by the sub-sink, or null when unavailable to legacy callers. */
+    /**
+     * Capabilities advertised by the sub-sink, or null when unavailable to legacy callers.
+     *
+     * <p>An empty list represents explicitly advertised lack of support and remains distinct from
+     * the legacy null sentinel.
+     */
     private final List<SchemaChangeType> supportedSchemaChangeTypes;
     /** Explains whether this target came from source match or shared physical sink match. */
     private final String reason;

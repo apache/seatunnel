@@ -1,6 +1,8 @@
 # Schema evolution
 Schema Evolution means that the schema of a data table can be changed and the data synchronization task can automatically adapt to the changes of the new table structure without any other operations.
 
+Schema restoration events replay metadata that was already accepted before recovery. They continue downstream under `STRICT`, `EVOLVE`, and `IGNORE`, including when the source advertises no live schema-change capabilities; the behavior policy applies to new DDL events. Comment-only column-event batches are ignored only when every child is metadata-only; mixed layout changes remain fatal. Sinks without an advertised capability trait retain their deprecated callback/no-op compatibility window for one release, while an explicitly empty capability list still rejects layout changes.
+
 ## Supported engines
 
 - Zeta
@@ -32,6 +34,7 @@ Spark does not support schema evolution or enforce `schema-changes.behavior`. Do
 [Doris](../../connectors/sink/Doris.md)
 [Paimon](../../connectors/sink/Paimon.md#schema-evolution)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#schema-evolution)
+[BigQuery](../../connectors/sink/BigQuery.md#schema-evolution) (`ADD COLUMN` only)
 [Redis](../../connectors/sink/Redis.md#schema-evolution)
 
 Note:  

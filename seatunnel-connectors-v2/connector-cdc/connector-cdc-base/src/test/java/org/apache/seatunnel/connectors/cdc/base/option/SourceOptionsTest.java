@@ -26,6 +26,12 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Protects CDC schema-change option defaults and rejection of invalid behavior values.
+ *
+ * <p>Omitted options retain EVOLVE behavior and explicit unsupported values must fail during
+ * configuration validation.
+ */
 class SourceOptionsTest {
 
     @Test
