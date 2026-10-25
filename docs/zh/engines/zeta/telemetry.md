@@ -22,7 +22,18 @@ seatunnel:
 
 ## 指标
 
-Prometheus 的指标文本可通过 `http://{instanceHost}:8080/metrics` 获取（Jetty HTTP 服务器，需在 `seatunnel.yaml` 中设置 `http.enable-http: true` 开启）。
+> [!NOTE]
+> 指标接口通过 Hazelcast REST API 提供，而发行包中 `config/hazelcast.yaml` 默认**关闭**了 REST API。
+> 抓取指标前，需要在每个节点的 `hazelcast.yaml` 中启用它：
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
+Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
 OpenMetrics 的指标文本可通过 `http://{instanceHost}:8080/openmetrics` 获取。
 
