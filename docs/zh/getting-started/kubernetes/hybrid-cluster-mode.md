@@ -244,8 +244,6 @@ spec:
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
-            - name: HAZELCAST_CLUSTER_NAME
-              value: seatunnel-cluster
           ports:
             - containerPort: 8080
               name: rest-api
