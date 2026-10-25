@@ -34,7 +34,12 @@ public class RabbitmqSourceState extends RabbitmqSplitEnumeratorState {
         super(Collections.emptyMap());
     }
 
-    /** Restores fields from the current superclass that are absent from legacy streams. */
+    /**
+     * Replaces a legacy instance whose serialized stream has no current superclass state.
+     *
+     * <p>Serializable constructors do not initialize those absent fields. A new replacement
+     * guarantees an empty assignment map and keeps the legacy marker used for restore logging.
+     */
     private Object readResolve() {
         return new RabbitmqSourceState();
     }
