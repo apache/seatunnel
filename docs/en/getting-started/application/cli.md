@@ -71,7 +71,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | Operation | What it does | Result |
 | --- | --- | --- |
 | `submit` | Localizes the job, creates the application on the platform and starts it | Prints the application ID and the native job ID |
-| `status` | Reads the platform state and maps it to an `ApplicationStatus` | Prints the application ID and status; exits non-zero when the application failed |
+| `status` | Reads the platform state and maps it to an `ApplicationStatus` | Prints the application ID and status; a successful plain query exits `0`; with `--wait`, follows the [waiting exit codes](#status-and-waiting) |
 | `cancel` | Removes the application and the resources it owns | Prints the application ID and the cancellation result |
 
 ## Submit returns immediately

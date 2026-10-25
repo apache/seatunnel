@@ -71,7 +71,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | 操作 | 做什么 | 结果 |
 | --- | --- | --- |
 | `submit` | 完成作业本地化，在平台上创建 application 并启动 | 打印 application ID 与原生作业 ID |
-| `status` | 读取平台状态并映射为 `ApplicationStatus` | 打印 application ID 与状态；application 失败时以非零码退出 |
+| `status` | 读取平台状态并映射为 `ApplicationStatus` | 打印 application ID 与状态；普通查询成功时返回 `0`；带 `--wait` 时遵循[等待退出码规则](#状态与等待) |
 | `cancel` | 删除 application 及其自有资源 | 打印 application ID 与取消结果 |
 
 ## submit 立即返回

@@ -40,8 +40,12 @@ Application ID: example-9f2c41a0b7d3
 Status: RUNNING
 ```
 
-加 `--wait` 会持续轮询直到终态或 `UNKNOWN`；`FAILED` 会让命令以非零码退出，可直接作为调度器
-或 CI 的完成判定；`CANCELED` 和 `UNKNOWN` 会正常打印，不会让命令失败。`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
+不带 `--wait` 的 `status` 打印状态快照，查询成功时返回 `0`，包括 `FAILED` 和 `UNKNOWN`；
+查询异常以非零码退出。加 `--wait` 会持续轮询直到终态或 `UNKNOWN`。
+`status --wait` 和 `submit --wait` 在 `FAILED` 时退出码为 `1`，在 `UNKNOWN` 时为 `2`
+（表示无法确定成功或失败），在 `SUCCEEDED` 或 `CANCELED` 时为 `0`。
+共享退出码规则见[状态与等待](../cli.md#状态与等待)。
+`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
 默认 `0` 表示一直等待。`--wait-interval` 设置轮询间隔（默认 500 ms）。
 
 ## cancel
