@@ -35,12 +35,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
@@ -98,7 +100,8 @@ class KafkaSourceReaderGateTest {
 
         Assertions.assertEquals(1, gateState.getPreparedSplits().size());
         KafkaSourceSplit restoredSplit =
-                deserializeSplit(gateState.getPreparedSplits().get(0).getSerializedSplit());
+                KafkaSourceReader.deserializeSplit(
+                        gateState.getPreparedSplits().get(0).getSerializedSplit());
         Assertions.assertEquals(20L, restoredSplit.getStartOffset());
     }
 
@@ -116,23 +119,22 @@ class KafkaSourceReaderGateTest {
         Assertions.assertTrue(gateState.isNoMoreSplits());
         Assertions.assertEquals(1, gateState.getPreparedSplits().size());
         KafkaSourceSplit restoredSplit =
-                deserializeSplit(gateState.getPreparedSplits().get(0).getSerializedSplit());
+                KafkaSourceReader.deserializeSplit(
+                        gateState.getPreparedSplits().get(0).getSerializedSplit());
         Assertions.assertEquals(30L, restoredSplit.getStartOffset());
     }
 
     /**
      * Verifies the production allowlist in {@code KafkaSourceReader.deserializeSplit}/{@code
-     * KafkaGateObjectInputStream.resolveClass}. {@code KafkaSourceReader.deserializeSplit} is
-     * package-private precisely so these tests can call it directly: do not replace the call with
-     * the local {@link #deserializeSplit(byte[])} helper, which uses a plain {@link
-     * ObjectInputStream} for gate staging semantics and never reaches the allowlist. This is the
-     * one round-trip through the actual production deserialization path that a future refactor
-     * could silently widen.
+     * KafkaGateObjectInputStream.resolveClass}.
+     *
+     * <p>Every staging round-trip also calls this production decoder, so widening or bypassing its
+     * allowlist cannot be hidden by a plain test-side deserialization helper.
      */
     @Test
     void productionDeserializeSplitShouldRoundTripKafkaSourceSplit() throws Exception {
         KafkaSourceSplit split = split(42L);
-        KafkaSourceSplit restored = KafkaSourceReader.deserializeSplit(serializeSplit(split));
+        KafkaSourceSplit restored = KafkaSourceReader.deserializeSplit(serializePayload(split));
 
         Assertions.assertEquals(split.getTablePath(), restored.getTablePath());
         Assertions.assertEquals(split.getTopicPartition(), restored.getTopicPartition());
@@ -167,7 +169,7 @@ class KafkaSourceReaderGateTest {
     @Test
     void productionDeserializeSplitShouldRejectSamePackageSubclassOutsideAllowlist()
             throws Exception {
-        byte[] lookalikePayload = serializeSplit(new KafkaSourceSplitState(split(42L)));
+        byte[] lookalikePayload = serializePayload(new KafkaSourceSplitState(split(42L)));
 
         IOException thrown =
                 Assertions.assertThrows(
@@ -176,6 +178,43 @@ class KafkaSourceReaderGateTest {
 
         Assertions.assertEquals(
                 "Rejected Kafka source gate split class: " + KafkaSourceSplitState.class.getName(),
+                thrown.getMessage());
+    }
+
+    @Test
+    void productionDeserializeSplitShouldRejectArraysOutsideAllowlist() throws Exception {
+        // Empty arrays prove rejection of the descriptor itself, without visiting any elements.
+        // Even arrays of allowlisted component classes are outside this narrow Kafka state graph.
+        for (Object array :
+                new Object[] {
+                    new HashMap<?, ?>[0], new HashMap<?, ?>[0][0], new String[0], new String[0][0]
+                }) {
+            byte[] payload = serializePayload(array);
+            IOException thrown =
+                    Assertions.assertThrows(
+                            IOException.class, () -> KafkaSourceReader.deserializeSplit(payload));
+
+            Assertions.assertEquals(
+                    "Rejected Kafka source gate split class: " + array.getClass().getName(),
+                    thrown.getMessage());
+        }
+    }
+
+    @Test
+    void productionDeserializeSplitShouldRejectProxyClassesBeforeTheirHandler() throws Exception {
+        Object proxy =
+                Proxy.newProxyInstance(
+                        KafkaSourceReaderGateTest.class.getClassLoader(),
+                        new Class<?>[] {Serializable.class},
+                        new SerializableProxyHandler());
+        byte[] payload = serializePayload(proxy);
+
+        IOException thrown =
+                Assertions.assertThrows(
+                        IOException.class, () -> KafkaSourceReader.deserializeSplit(payload));
+
+        Assertions.assertEquals(
+                "Kafka source gate split state must not contain proxy classes",
                 thrown.getMessage());
     }
 
@@ -208,26 +247,19 @@ class KafkaSourceReaderGateTest {
 
     private static SourceGateState.PreparedSplit preparedSplit(KafkaSourceSplit split)
             throws Exception {
-        byte[] serializedSplit = serializeSplit(split);
+        byte[] serializedSplit = serializePayload(split);
         return new SourceGateState.PreparedSplit(
                 split.splitId(),
                 serializedSplit,
                 MessageDigest.getInstance("SHA-256").digest(serializedSplit));
     }
 
-    private static byte[] serializeSplit(KafkaSourceSplit split) throws Exception {
+    private static byte[] serializePayload(Object value) throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(output)) {
-            objectOutputStream.writeObject(split);
+            objectOutputStream.writeObject(value);
         }
         return output.toByteArray();
-    }
-
-    private static KafkaSourceSplit deserializeSplit(byte[] serializedSplit) throws Exception {
-        try (ObjectInputStream objectInputStream =
-                new ObjectInputStream(new ByteArrayInputStream(serializedSplit))) {
-            return ((KafkaSourceSplit) objectInputStream.readObject()).copy();
-        }
     }
 
     @SuppressWarnings("unchecked")
@@ -248,5 +280,17 @@ class KafkaSourceReaderGateTest {
             }
         }
         throw new NoSuchFieldException(fieldName);
+    }
+
+    /**
+     * Supplies a serializable proxy payload without introducing any deserialization side effects.
+     */
+    private static final class SerializableProxyHandler implements InvocationHandler, Serializable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) {
+            return null;
+        }
     }
 }

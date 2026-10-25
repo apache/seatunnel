@@ -439,6 +439,8 @@ public class KafkaSourceReader
         }
 
         private static boolean isAllowedClass(String className) {
+            // Keep byte[] as the only allowlisted array. Reject every other array descriptor,
+            // including nested arrays, instead of widening the graph through component recursion.
             return className.equals("[B")
                     || className.equals("java.lang.String")
                     || className.equals("java.lang.Long")
@@ -447,6 +449,16 @@ public class KafkaSourceReader
                     || className.equals(TopicPartition.class.getName())
                     || className.equals(
                             org.apache.seatunnel.api.table.catalog.TablePath.class.getName());
+        }
+
+        /**
+         * Rejects proxy descriptors before resolving their interfaces or reading their handler.
+         *
+         * <p>ObjectInputStream resolves proxies separately from the ordinary class allowlist.
+         */
+        @Override
+        protected Class<?> resolveProxyClass(String[] interfaces) throws IOException {
+            throw new IOException("Kafka source gate split state must not contain proxy classes");
         }
     }
 }
