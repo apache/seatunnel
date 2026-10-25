@@ -21,10 +21,15 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DsqlJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo.HighGoDialectFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo.HighGoJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss.OpenGaussJdbcRowConverter;
 
@@ -33,11 +38,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.postgresql.util.PGobject;
+import org.postgresql.util.PSQLException;
+import org.postgresql.util.PSQLState;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -106,39 +119,88 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
     }
 
-    private void assertPostgresTypedObject(String sourceType, String value) throws SQLException {
-        TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
-        TableSchema databaseTableSchema =
-                createTableSchema("value", BasicType.STRING_TYPE, sourceType);
-        PreparedStatement statement = mock(PreparedStatement.class);
-
-        converter.toExternal(
-                tableSchema,
-                databaseTableSchema,
-                new SeaTunnelRow(new Object[] {1, value}),
-                statement);
-
-        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-        verify(statement).setObject(eq(2), captor.capture());
-        Object valueObject = captor.getValue();
-        Assertions.assertTrue(valueObject instanceof PGobject);
-        PGobject object = (PGobject) valueObject;
-        Assertions.assertEquals(sourceType, object.getType());
-        Assertions.assertEquals(value, object.getValue());
-    }
-
-    private void assertStringBinding(PostgresJdbcRowConverter rowConverter) throws SQLException {
-        TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
-        TableSchema databaseTableSchema = createTableSchema("value", BasicType.STRING_TYPE, "json");
-        PreparedStatement statement = mock(PreparedStatement.class);
-
-        rowConverter.toExternal(
-                tableSchema,
-                databaseTableSchema,
-                new SeaTunnelRow(new Object[] {1, "{\"key\":\"value\"}"}),
-                statement);
-
-        verify(statement).setString(2, "{\"key\":\"value\"}");
+    /**
+     * Guards the runtime loader entry and serializable vendor converters across compatibility
+     * modes.
+     */
+    @Test
+    public void testVendorRuntimeFactoriesPreserveBindingAndNumericSemantics() throws Exception {
+        for (String url :
+                new String[] {"jdbc:highgo://localhost/test", "jdbc:opengauss://localhost/test"}) {
+            for (String mode : new String[] {"postgres", "postgresLow"}) {
+                for (boolean numericAsNull : new boolean[] {false, true}) {
+                    if (url.startsWith("jdbc:highgo:")) {
+                        JdbcDialect legacyFactoryDialect =
+                                new HighGoDialectFactory().create(mode, "lowercase");
+                        Assertions.assertEquals(
+                                "postgresLow".equals(mode),
+                                !legacyFactoryDialect
+                                        .getUpsertStatement(
+                                                "public",
+                                                "target",
+                                                new String[] {"id", "value"},
+                                                new String[] {"id"})
+                                        .isPresent());
+                        assertStringBinding(
+                                (PostgresJdbcRowConverter) legacyFactoryDialect.getRowConverter());
+                    }
+                    JdbcConnectionConfig config =
+                            JdbcConnectionConfig.builder()
+                                    .numericSpecialValueAsNull(numericAsNull)
+                                    .build();
+                    JdbcDialect dialect =
+                            JdbcDialectLoader.load(url, mode, null, "lowercase", config);
+                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                    try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+                        output.writeObject(dialect);
+                    }
+                    try (ObjectInputStream input =
+                            new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+                        dialect = (JdbcDialect) input.readObject();
+                    }
+                    Assertions.assertEquals("lowercase", ((PostgresDialect) dialect).fieldIde);
+                    Assertions.assertEquals(
+                            "postgresLow".equals(mode),
+                            !dialect.getUpsertStatement(
+                                            "public",
+                                            "target",
+                                            new String[] {"id", "value"},
+                                            new String[] {"id"})
+                                    .isPresent());
+                    if (!"postgresLow".equals(mode)) {
+                        Assertions.assertTrue(
+                                dialect.getUpsertStatement(
+                                                "public",
+                                                "target",
+                                                new String[] {"id", "value"},
+                                                new String[] {"id"})
+                                        .get()
+                                        .contains("ON CONFLICT"));
+                    }
+                    assertStringBinding((PostgresJdbcRowConverter) dialect.getRowConverter());
+                    ResultSet rs = mock(ResultSet.class);
+                    TableSchema schema =
+                            createTableSchema("decimal_col", new DecimalType(10, 2), null);
+                    setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+                    when(rs.getBigDecimal(2))
+                            .thenThrow(
+                                    new PSQLException(
+                                            "Bad value for type BigDecimal : NaN",
+                                            PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+                    when(rs.getString(2)).thenReturn("NaN");
+                    if (numericAsNull) {
+                        SeaTunnelRow row = dialect.getRowConverter().toInternal(rs, schema);
+                        Assertions.assertEquals(1, row.getField(0));
+                        Assertions.assertNull(row.getField(1));
+                    } else {
+                        JdbcDialect strictDialect = dialect;
+                        Assertions.assertThrows(
+                                SQLException.class,
+                                () -> strictDialect.getRowConverter().toInternal(rs, schema));
+                    }
+                }
+            }
+        }
     }
 
     @Test
@@ -211,6 +273,24 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertNotNull(row);
         Assertions.assertEquals(1, row.getField(0));
         Assertions.assertNull(row.getField(1), "timestamp_tz_col should be null");
+    }
+
+    @Test
+    public void testTimeReadAndWritePreserveMicroseconds() throws SQLException {
+        LocalTime expected = LocalTime.parse("12:34:56.123456");
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema =
+                createTableSchema("time_col", LocalTimeType.LOCAL_TIME_TYPE, "time(6)");
+        setupMockResultSet(rs, "INT4", "TIME", 1, expected);
+        when(rs.getObject(2, LocalTime.class)).thenReturn(expected);
+
+        SeaTunnelRow result = converter.toInternal(rs, tableSchema);
+        Assertions.assertEquals(expected, result.getField(1));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        converter.toExternal(
+                tableSchema, null, new SeaTunnelRow(new Object[] {1, expected}), statement);
+        verify(statement).setObject(2, expected);
     }
 
     @Test
@@ -300,6 +380,68 @@ public class PostgresJdbcRowConverterTest {
     }
 
     @Test
+    public void testToInternalWithNormalDecimalValue() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2)).thenReturn(new BigDecimal("123.45"));
+
+        SeaTunnelRow row = new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(new BigDecimal("123.45"), row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNumericSpecialValueAsNull() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : NaN",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+        when(rs.getString(2)).thenReturn("NaN");
+
+        SeaTunnelRow row = new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNumericSpecialValueWithoutNarrowing() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : NaN",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+
+        Assertions.assertThrows(
+                SQLException.class,
+                () -> new PostgresJdbcRowConverter().toInternal(rs, tableSchema));
+    }
+
+    @Test
+    public void testNumericSpecialValueIsLoggedOncePerColumn() {
+        PostgresJdbcRowConverter converter = new PostgresJdbcRowConverter(true);
+
+        // The first occurrence per column is logged, the following ones are not
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        // Another column is logged again on its first occurrence
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(3));
+    }
+
+    @Test
     public void testToInternalWithNullGeographyType() throws SQLException {
         ResultSet rs = mock(ResultSet.class);
         TableSchema tableSchema =
@@ -347,5 +489,45 @@ public class PostgresJdbcRowConverterTest {
     @Test
     public void testToExternalWithPostgresUuidTargetType() throws SQLException {
         assertPostgresTypedObject("uuid", "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    private void assertPostgresTypedObject(String sourceType, String value) throws SQLException {
+        TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
+        TableSchema databaseTableSchema =
+                createTableSchema("value", BasicType.STRING_TYPE, sourceType);
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(
+                tableSchema,
+                databaseTableSchema,
+                new SeaTunnelRow(new Object[] {1, value}),
+                statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        Object valueObject = captor.getValue();
+        Assertions.assertTrue(valueObject instanceof PGobject);
+        PGobject object = (PGobject) valueObject;
+        Assertions.assertEquals(sourceType, object.getType());
+        Assertions.assertEquals(value, object.getValue());
+    }
+
+    private void assertStringBinding(PostgresJdbcRowConverter rowConverter) throws SQLException {
+        for (String sourceType : new String[] {"json", "jsonb", "uuid"}) {
+            String value =
+                    "uuid".equals(sourceType)
+                            ? "123e4567-e89b-12d3-a456-426614174000"
+                            : "{\"key\":\"value\"}";
+            TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
+            TableSchema databaseTableSchema =
+                    createTableSchema("value", BasicType.STRING_TYPE, sourceType);
+            PreparedStatement statement = mock(PreparedStatement.class);
+            rowConverter.toExternal(
+                    tableSchema,
+                    databaseTableSchema,
+                    new SeaTunnelRow(new Object[] {1, value}),
+                    statement);
+            verify(statement).setString(2, value);
+        }
     }
 }

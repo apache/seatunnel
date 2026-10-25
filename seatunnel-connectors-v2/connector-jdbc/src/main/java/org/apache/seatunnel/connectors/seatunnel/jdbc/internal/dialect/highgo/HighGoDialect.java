@@ -20,14 +20,26 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
+/**
+ * Retains PostgreSQL SQL generation while using HighGo-compatible value binding.
+ *
+ * <p>This preserves the driver boundary when dialects are selected for runtime execution.
+ */
 public class HighGoDialect extends PostgresDialect {
 
+    private final boolean numericSpecialValueAsNull;
+
     public HighGoDialect(String fieldIde) {
-        super(fieldIde);
+        this(fieldIde, false);
+    }
+
+    public HighGoDialect(String fieldIde, boolean numericSpecialValueAsNull) {
+        super(fieldIde, numericSpecialValueAsNull);
+        this.numericSpecialValueAsNull = numericSpecialValueAsNull;
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new HighGoJdbcRowConverter();
+        return new HighGoJdbcRowConverter(numericSpecialValueAsNull);
     }
 }

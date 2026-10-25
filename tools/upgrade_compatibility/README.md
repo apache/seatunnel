@@ -54,15 +54,21 @@ Build the current distribution first:
 Then run the default scenario:
 
 ```shell
-OLD_SEATUNNEL_VERSION=2.3.13 SCENARIO=generic-fake-localfile \
+OLD_SEATUNNEL_VERSION=3.0.0 SCENARIO=generic-fake-localfile \
   bash tools/upgrade_compatibility/run_upgrade_compatibility.sh
 ```
 
 To run the MySQL CDC scenario:
 
 ```shell
-OLD_SEATUNNEL_VERSION=2.3.13 SCENARIO=mysql-cdc-multitable-localfile \
+OLD_SEATUNNEL_VERSION=3.0.0 SCENARIO=mysql-cdc-multitable-localfile \
   bash tools/upgrade_compatibility/run_upgrade_compatibility.sh
+```
+
+Run the focused runner tests with:
+
+```shell
+bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh
 ```
 
 ## Adding Scenarios

@@ -6,25 +6,13 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 描述
 
-从 Hive 读取数据。
-
-使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
-- `element_id`：元素的唯一标识符
-- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
-- `heading_level`：标题级别（1-6，非标题元素为 null）
-- `text`：元素的文本内容
-- `page_number`：页码（默认：1）
-- `position_index`：文档中的位置索引
-- `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
-
-注意：Markdown 格式仅支持读取，不支持写入。
+从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
 
 :::tip 提示
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -38,35 +26,32 @@ import ChangeLog from '../changelog/connector-hive.md';
 - [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
-- [x] 文件格式
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
-    - [x] markdown
 
 ## 选项
 
-|         名称          |  类型  | 必需 | 默认值  |
-|-----------------------|--------|------|---------|
-| table_name            | string | 否   | 单表模式必填 |
-| table_list            | array  | 否   | 已废弃，请使用 `tables_configs` |
-| tables_configs        | array  | 否   | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
-| use_regex             | boolean| 否   | false   |
-| metastore_uri         | string | 否   | 单表模式必填 |
-| krb5_path             | string | 否   | /etc/krb5.conf |
-| kerberos_principal    | string | 否   | -       |
-| kerberos_keytab_path  | string | 否   | -       |
-| hdfs_site_path        | string | 否   | -       |
-| hive_site_path        | string | 否   | -       |
-| hive.hadoop.conf      | Map    | 否   | -       |
-| hive.hadoop.conf-path | string | 否   | -       |
-| remote_user           | string | 否   | -       |
-| read_partitions       | list   | 否   | -       |
-| read_columns          | list   | 否   | -       |
-| compress_codec        | string | 否   | none    |
-| common-options        |        | 否   | -       |
+|         名称          |  类型  | 必需 | 默认值  | 描述 |
+|-----------------------|--------|------|---------|------|
+| table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
+| table_list            | array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `tables_configs`。仅为向后兼容保留，未来版本将移除。 |
+| tables_configs        | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
+| use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
+| metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
+| krb5_path             | string | 否   | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 文件路径。 |
+| kerberos_principal    | string | 否   | -       | 访问 Hive Metastore / HDFS 的 Kerberos principal。 |
+| kerberos_keytab_path  | string | 否   | -       | 与 `kerberos_principal` 配套的 keytab 文件路径。 |
+| hdfs_site_path        | string | 否   | -       | `hdfs-site.xml` 的本地路径，用于加载 HDFS HA 配置。新作业不建议使用，请改用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
+| hive_site_path        | string | 否   | -       | `hive-site.xml` 的本地路径。 |
+| hive.hadoop.conf      | Map    | 否   | -       | 内联的 Hadoop 配置项（等价于 `core-site.xml` / `hdfs-site.xml` / `hive-site.xml` 中的条目）。 |
+| hive.hadoop.conf-path | string | 否   | -       | 包含 `core-site.xml`、`hdfs-site.xml` 和 `hive-site.xml` 的目录。 |
+| remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
+| read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
+| read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
+| compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### table_name [string]
 
@@ -142,8 +127,6 @@ Kerberos 认证的 keytab 文件路径
 文件的压缩编解码器，支持的详细信息如下所示：
 
 - txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
 - orc/parquet:  
   自动识别压缩类型，无需额外设置。
 

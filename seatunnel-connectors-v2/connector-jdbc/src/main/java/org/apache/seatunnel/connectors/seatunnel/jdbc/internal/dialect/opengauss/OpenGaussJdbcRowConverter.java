@@ -22,7 +22,20 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+/**
+ * Preserves string binding for PostgreSQL-compatible drivers without native pgjdbc objects.
+ *
+ * <p>This preserves the driver boundary when dialects are selected for runtime execution.
+ */
 public class OpenGaussJdbcRowConverter extends PostgresJdbcRowConverter {
+
+    public OpenGaussJdbcRowConverter() {
+        this(false);
+    }
+
+    public OpenGaussJdbcRowConverter(boolean numericSpecialValueAsNull) {
+        super(numericSpecialValueAsNull);
+    }
 
     @Override
     protected void setJsonOrUuid(
