@@ -53,6 +53,7 @@ public class MultipleTableFileSourceSplitEnumerator
     private final List<BaseFileSourceConfig> fileSourceConfigs;
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
+    // Guarded by lock; set only in run() after reader registration and kept true for late returns.
     private boolean running;
     private final FileSplitStrategy fileSplitStrategy;
     private final Set<String> documentRoutingTableIds;
@@ -181,6 +182,7 @@ public class MultipleTableFileSourceSplitEnumerator
         }
     }
 
+    // Caller must hold lock while reading registered readers and updating split assignments.
     private void assignPendingSplitsToRegisteredReaders() {
         for (int reader : context.registeredReaders()) {
             assignSplit(reader);
