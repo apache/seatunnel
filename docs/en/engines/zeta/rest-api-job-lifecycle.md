@@ -185,6 +185,12 @@ Key metric fields:
 | `SourceReceivedQPS` | Current read throughput (rows/sec) |
 | `SinkWriteQPS` | Current write throughput (rows/sec) |
 
+Counters are reported by the current attempt of each pipeline. When a pipeline is restored after a
+failover (or retried after a failure), the new attempt starts counting from zero instead of
+accumulating the values left behind by the failed attempt, for both batch and streaming jobs. A
+worker report that was in flight during the restore can still carry a stale value for at most a
+millisecond-scale window.
+
 ---
 
 ## 4. Querying Job Logs

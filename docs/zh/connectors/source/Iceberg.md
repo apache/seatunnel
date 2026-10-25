@@ -283,11 +283,11 @@ source {
 
 ### `start_snapshot_id` 和 `use_snapshot_id` 的区别是什么？
 
-`start_snapshot_id` 从指定快照（不含）开始增量读取；`use_snapshot_id` 仅读取指定快照，忽略之后的快照。流式 CDC 场景用 `start_snapshot_id`，一次性历史读取用 `use_snapshot_id`。
+批模式中，`start_snapshot_id` 选择增量追加扫描，不包含指定的起始快照；配置 `end_snapshot_id` 时包含该结束快照。流模式中，需同时设置 `stream_scan_strategy = "FROM_SNAPSHOT_ID"` 和 `start_snapshot_id`，并包含所选的起始快照。一次性读取指定历史快照时，使用 `use_snapshot_id`，不要同时配置 `start_snapshot_id` 或 `end_snapshot_id`。
 
 ### `start_snapshot_timestamp` 应该在什么场景下使用？
 
-当只知道时间而不知道快照 id 时使用 `start_snapshot_timestamp`，它会找到与指定毫秒时间戳最接近的快照并从那里开始增量。如需可重现的批处理任务，更推荐显式的 `start_snapshot_id`。
+流模式中，需同时设置 `stream_scan_strategy = "FROM_SNAPSHOT_TIMESTAMP"` 和 `start_snapshot_timestamp`（自 Unix 纪元以来的毫秒数）。扫描从时间戳等于或晚于该值的第一个快照开始，并包含该快照，而非选择时间最接近的快照。若要按快照 ID 选择起点，使用 `FROM_SNAPSHOT_ID` 配合 `start_snapshot_id`。批模式按历史时间点读取时，使用 `use_snapshot_timestamp` 或 `use_snapshot_id`。
 
 ### Iceberg 源如何配置 Kerberos 认证？
 

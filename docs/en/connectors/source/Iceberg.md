@@ -270,11 +270,11 @@ Use the `table_list` option and provide one entry per table. Do not set `table` 
 
 ### What is the difference between `start_snapshot_id` and `use_snapshot_id`?
 
-`start_snapshot_id` starts incremental reading from a particular snapshot (exclusive). `use_snapshot_id` reads exactly the given snapshot, ignoring newer snapshots. Use `start_snapshot_id` for streaming change-data capture and `use_snapshot_id` for one-time historical reads.
+In batch mode, `start_snapshot_id` selects an incremental append scan that excludes the specified snapshot; `end_snapshot_id`, when set, is inclusive. In streaming mode, set `stream_scan_strategy = "FROM_SNAPSHOT_ID"` together with `start_snapshot_id`; the selected starting snapshot is included. For a one-time point-in-time batch read, use `use_snapshot_id` without `start_snapshot_id` or `end_snapshot_id`.
 
 ### When should I use `start_snapshot_timestamp` versus `start_snapshot_id`?
 
-`start_snapshot_timestamp` resolves the snapshot closest to the given millisecond timestamp and starts incremental reading from it. It is friendlier when you only know the time, not the snapshot id. For reproducible batch runs prefer the explicit `start_snapshot_id` form.
+In streaming mode, set `stream_scan_strategy = "FROM_SNAPSHOT_TIMESTAMP"` together with `start_snapshot_timestamp` (milliseconds since the Unix epoch). The scan starts inclusively at the first snapshot at or after that timestamp; it does not choose the closest snapshot. To select a starting snapshot by ID instead, use `FROM_SNAPSHOT_ID` with `start_snapshot_id`. For a point-in-time batch read, use `use_snapshot_timestamp` or `use_snapshot_id`.
 
 ### How does Kerberos authentication work for Iceberg sources?
 
