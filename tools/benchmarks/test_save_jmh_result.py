@@ -57,6 +57,32 @@ class SaveJmhResultTest(unittest.TestCase):
         self.assertEqual(0.05, metric["relative_score_error"])
         self.assertEqual("higher", metric["direction"])
 
+    def test_uses_iteration_means_of_sample_time_histograms(self):
+        metrics = save_jmh_result.jmh_metrics(
+            [
+                {
+                    "benchmark": "org.apache.seatunnel.Checkpoint.triggerDelay",
+                    "mode": "sample",
+                    "forks": 2,
+                    "params": {},
+                    "primaryMetric": {
+                        "score": 20.0,
+                        "scoreError": 2.0,
+                        "scoreUnit": "us/op",
+                        "rawDataHistogram": [
+                            [[[10.0, 3], [30.0, 1]], [[20.0, 2]]],
+                            [[[25.0, 4]], []],
+                        ],
+                    },
+                }
+            ]
+        )
+
+        metric = metrics[0]
+        self.assertEqual([15.0, 20.0, 25.0], metric["samples"])
+        self.assertEqual(5.0, metric["sample_standard_deviation"])
+        self.assertEqual("lower", metric["direction"])
+
     def test_aggregates_pipeline_medians_correctness_and_clamping(self):
         with tempfile.TemporaryDirectory() as directory:
             pipeline_dir = pathlib.Path(directory)

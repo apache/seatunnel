@@ -50,6 +50,12 @@
                 <exclude>release.properties</exclude>
                 <exclude>**/pom.xml.releaseBackup</exclude>
                 <exclude>*.gpg</exclude>
+
+                <!-- frontend build ignore: node is installed and npm dependencies are
+                     resolved inside seatunnel-engine/seatunnel-engine-ui by the
+                     frontend-maven-plugin, they are not part of the source release -->
+                <exclude>**/node_modules/**</exclude>
+                <exclude>**/node/**</exclude>
                 <!--github ignore-->
                 <exclude>**/.github/**</exclude>
                 <exclude>**/.dlc.json</exclude>

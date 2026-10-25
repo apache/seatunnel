@@ -25,7 +25,8 @@ public enum FileConfiguration {
     HDFS("hdfs", new HdfsConfiguration()),
     S3("s3", new S3Configuration()),
     OSS("oss", new OssConfiguration()),
-    COS("cos", new CosConfiguration());
+    COS("cos", new CosConfiguration()),
+    GCS("gcs", new GcsConfiguration());
 
     /** file system type */
     private final String name;

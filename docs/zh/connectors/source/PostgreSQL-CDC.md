@@ -22,6 +22,13 @@ import ChangeLog from '../changelog/connector-cdc-postgres.md';
 
 PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增量数据。本文档介绍如何配置 PostgreSQL CDC 连接器。
 
+部分 PostgreSQL 兼容数据库（例如 HighGo）在 `information_schema.tables` 中会对同一张物理表返回多行重复记录。
+连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
+
+当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
+`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
+`ADD COLUMN` 语句。
+
 ## 支持的数据源信息
 
 | 数据源      |                     支持的版本                      |        驱动        |                  Url                  |                                  Maven                                   |
@@ -92,6 +99,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | username                                  | String   | 是   | -        | 连接到数据库服务器时使用的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | 是   | -        | 连接到数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | 否   | -        | 需要监控的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| schema-name                               | List     | 否   | -        | 需要监控的数据库 Schema 名称，例如：`["inventory"]`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | table-names                               | List     | 二选一 | -        | 需要监控的表。请使用完整的 `database.schema.table` 格式，例如：`postgres_cdc.inventory.orders`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | 二选一 | -        | 需要监控的表名正则表达式。正则需要匹配完整表名，例如：`postgres_cdc\\.inventory\\..*`。`table-names` 和 `table-pattern` 互斥。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-names-config                        | List     | 否   | -        | 表级配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。无物理主键表可通过 `primaryKeys` 指定唯一键。`snapshotSplitColumn` 必须是唯一键，否则 SeaTunnel 会忽略该配置并自动选择拆分列。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -101,8 +109,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | 否   | UTC      | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| connect.timeout.ms                        | Duration | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否   | 3        | 连接器应重试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否   | 20       | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | chunk-key.even-distribution.factor.upper-bound | Double   | 否   | 100      | 块键分布因子的上限。此因子用于确定表数据是否均匀分布。如果计算出的分布因子小于或等于此上限（即 (MAX(id) - MIN(id) + 1) / 行数），则将优化表块以实现均匀分布。否则，如果分布因子更大，则将认为该表分布不均匀，并且如果估计的分片数量超过 `sample-sharding.threshold` 指定的值，则将使用基于采样的分片策略。默认值为 100.0。 |
@@ -228,7 +236,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -257,7 +265,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -287,7 +295,7 @@ sink {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 source {
@@ -295,7 +303,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -372,6 +380,20 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 `committed-offset` 时，复制槽必须已存在，因为 SeaTunnel 会使用其 `confirmed_flush_lsn`
 作为启动偏移量。未使用的复制槽会持续占用磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC
 任务永久下线时，应在 PostgreSQL 侧手动删除不再使用的复制槽。
+
+### 为什么任务报错 "replication slot ... has been invalidated"？
+
+PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复制槽落后超过 `max_slot_wal_keep_size`、
+空闲时间超过 `idle_replication_slot_timeout`（PostgreSQL 18），或在备库上与恢复冲突。此时 `pg_replication_slots` 中的
+`wal_status` 为 `lost`、`conflicting` 为 `true`（PostgreSQL 16 及以上版本），或显示 `invalidation_reason`（PostgreSQL 17 及以上版本）。复制槽已确认位置之后的变更已无法读取，
+因此需要从复制槽读取变更的任务会以错误 `POSTGRES-04` 失败；`snapshot-only` 任务不使用复制槽，不受影响。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
+删除该复制槽，并在不从 checkpoint 或 savepoint 恢复的情况下重新启动任务；如需重新做快照，请使用 `startup.mode = initial`。
+
+### 从保存点恢复时如何处理事务边界？
+
+恢复时会区分保存的事务提交记录与已处理的数据行，因为事务提交和下一事务的第一条数据行
+可能具有相同的 LSN。任务停止期间提交的数据仍可被重放。不包含操作类型的旧保存点仍可读取；
+为避免丢失数据，恢复时可能重放无法明确区分的边界记录。
 
 ### PostgreSQL CDC 为什么会滞后？
 
