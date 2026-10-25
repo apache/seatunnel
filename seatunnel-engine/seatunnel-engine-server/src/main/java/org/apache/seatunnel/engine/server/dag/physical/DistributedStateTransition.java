@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import com.hazelcast.core.IndeterminateOperationStateException;
 import com.hazelcast.map.IMap;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.function.BooleanSupplier;
@@ -35,6 +36,7 @@ import java.util.function.Predicate;
  * prior timestamp snapshot only when the state outcome can be confirmed. An ambiguous outcome
  * retains the extra timestamp because that is safer than exposing committed state without metadata.
  */
+@Slf4j
 final class DistributedStateTransition {
 
     /**
@@ -149,6 +151,15 @@ final class DistributedStateTransition {
                             previousState, currentState, stateEntryMissing, false);
                 }
                 if (terminalState.test(currentState)) {
+                    // An initially terminal entry is a consistency violation, whereas a terminal
+                    // value discovered after losing compare-and-set is an expected race winner.
+                    if (attempt == 0 && !stateEntryMissing) {
+                        log.error(
+                                "State entry {} is trying to leave terminal state {} for {}",
+                                stateKey,
+                                currentState,
+                                targetState);
+                    }
                     return Result.notTransitioned(
                             previousState, currentState, stateEntryMissing, false);
                 }

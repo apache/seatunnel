@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -46,23 +47,41 @@ public class DataValidatorTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the field rules to check, optionally combined with an error
+        // handling policy.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                FIELD_RULES,
+                                Conditions.notEmpty(FIELD_RULES)
+                                        .and(
+                                                Conditions.extension(
+                                                        FIELD_RULES, new FieldRulesValidator())))
+                        .build();
         return OptionRule.builder()
-                .required(
+                .optional(
                         FIELD_RULES,
-                        Conditions.notEmpty(FIELD_RULES)
-                                .and(Conditions.extension(FIELD_RULES, new FieldRulesValidator())))
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                        TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION,
+                        TransformCommonOptions.ERROR_TABLE_OPTION)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .optional(TransformCommonOptions.RULE_MATCH_MODE)
-                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
-                .optional(TransformCommonOptions.ERROR_TABLE_OPTION)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
-                new DataValidatorTransform(context.getOptions(), context.getCatalogTables().get(0));
+                new DataValidatorMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 
     static class FieldRulesValidator implements ConditionExtension<List<Map<String, Object>>> {

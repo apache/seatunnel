@@ -19,6 +19,12 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -69,6 +75,43 @@ class DistributedStateTransitionTest {
         InOrder persistenceOrder = inOrder(timestampMap, stateMap);
         persistenceOrder.verify(timestampMap).set(eq(STATE_KEY), any(Long[].class));
         persistenceOrder.verify(stateMap).putIfAbsent(STATE_KEY, ExecutionState.FAILED);
+    }
+
+    @Test
+    void testExistingTerminalStateViolationRemainsAnError() {
+        IMap<Object, Object> stateMap = mock(IMap.class);
+        IMap<Object, Long[]> timestampMap = mock(IMap.class);
+        when(stateMap.get(STATE_KEY)).thenReturn(ExecutionState.CANCELED);
+        Logger logger = (Logger) LogManager.getLogger(DistributedStateTransition.class);
+        Appender appender = mock(Appender.class);
+        when(appender.getName()).thenReturn("terminal-state-consistency-regression");
+        when(appender.isStarted()).thenReturn(true);
+        AtomicReference<LogEvent> recorded = new AtomicReference<>();
+        doAnswer(
+                        invocation -> {
+                            // Log4j may reuse its mutable event after append returns.
+                            recorded.set(((LogEvent) invocation.getArgument(0)).toImmutable());
+                            return null;
+                        })
+                .when(appender)
+                .append(any(LogEvent.class));
+        logger.addAppender(appender);
+        try {
+            DistributedStateTransition.Result<ExecutionState> result =
+                    transition(stateMap, timestampMap, true);
+
+            Assertions.assertFalse(result.isTransitioned());
+            Assertions.assertEquals(ExecutionState.CANCELED, result.getCurrentState());
+            Assertions.assertNotNull(recorded.get());
+            Assertions.assertEquals(Level.ERROR, recorded.get().getLevel());
+            Assertions.assertEquals(
+                    "State entry state-key is trying to leave terminal state CANCELED for FAILED",
+                    recorded.get().getMessage().getFormattedMessage());
+            verify(stateMap, never()).replace(any(), any(), any());
+            verify(timestampMap, never()).set(any(), any());
+        } finally {
+            logger.removeAppender(appender);
+        }
     }
 
     @Test
