@@ -321,16 +321,54 @@ map:
         fs.oss.endpoint: OSS endpoint
 ```
 
+如果要通过环境变量提供 OSS 凭据，请删除 `fs.oss.accessKeyId` 和
+`fs.oss.accessKeySecret`，并增加：
+
+```yaml
+        fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+该 Provider 读取 `OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，临时凭据还可使用
+`OSS_SESSION_TOKEN`。
+
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
 其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
+如果您使用 GCS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # 可选，未配置时使用 Application Default Credentials（例如 GKE Workload Identity）
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+注意：IMap 的 WAL 写入器每次更新都会重写当前对象（与 S3、OSS 相同），而 GCS 对同一对象名的写入频率限制约为每秒一次，因此 GCS 作为 IMap 持久化存储更适合 IMap 更新频率较低或中等的场景。
+
+注意：使用 GCS 时，确保 lib 目录下有这几个jar。
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
@@ -361,14 +399,16 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-同时可执行的最大作业数量
+CoordinatorService 线程池的最大线程数（即线程池的 `maximumPoolSize`），默认值为 `Integer.MAX_VALUE`。
 
 Example
 
 ```yaml
-coordinator-service:
-  core-thread-num: 30
-  max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.9 作业指标分区数量（此参数在 Worker 节点上无效）

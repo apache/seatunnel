@@ -102,7 +102,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private Address enumeratorTaskAddress;
 
-    private SourceReader<T, SplitT> reader;
+    // Volatile: cancel() reads it from the engine cancel thread while the task thread may still be
+    // creating the reader in init().
+    private volatile SourceReader<T, SplitT> reader;
 
     private transient Serializer<SplitT> splitSerializer;
 
@@ -122,10 +124,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
     /**
-     * Hands the checkpoint lock from the reader thread to a barrier injector. The reader holds the
-     * lock for the whole of {@code pollNext} and immediately re-enters the next poll, so without
-     * this explicit handoff a barrier thread parked on the unfair monitor can lose the race for
-     * many consecutive polls; under backpressure each poll can last seconds.
+     * Hands the checkpoint lock from the reader thread to barrier and timer-flush injectors. The
+     * reader holds the lock for the whole of {@code pollNext} and immediately re-enters the next
+     * poll, so without this explicit handoff a barrier thread parked on the unfair monitor can lose
+     * the race for many consecutive polls; under backpressure each poll can last seconds.
      */
     private final SourceCheckpointLockHandoff checkpointLockHandoff =
             new SourceCheckpointLockHandoff();
@@ -194,6 +196,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         register();
     }
 
+    @Override
+    public void cancel() {
+        if (reader != null) {
+            reader.cancel();
+        }
+    }
+
     /**
      * Timer callback invoked by the {@code timerFlushWorker} thread pool.
      *
@@ -205,11 +214,21 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (prepareClose) {
             return;
         }
+        // Timer ticks contend on the same monitor as barriers. Register before contending so a
+        // busy reader cannot repeatedly reacquire the monitor ahead of the shared timer worker.
+        checkpointLockHandoff.injectorArriving();
         try {
-            collector.sendFlushSignal(
-                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            synchronized (collector.getCheckpointLock()) {
+                // A closing barrier may have acquired the monitor while this tick was waiting.
+                if (!prepareClose) {
+                    collector.sendFlushSignal(
+                            currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+                }
+            }
         } catch (Exception e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
+        } finally {
+            checkpointLockHandoff.injectorFinished();
         }
     }
 
@@ -256,9 +275,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      *
      * <p><b>Checkpoint lock interaction:</b> The reader holds the checkpoint lock during {@code
      * pollNext}. After a non-empty poll, and before polling again, the reader waits on {@link
-     * SourceCheckpointLockHandoff} while a barrier injector ({@link #triggerBarrier(Barrier)}) has
-     * announced itself, so the injector acquires the lock within one poll instead of racing the
-     * reader's immediate re-entry on an unfair monitor. The wait is accounted as source idle time.
+     * SourceCheckpointLockHandoff} while a barrier injector ({@link #triggerBarrier(Barrier)}) or
+     * timer-flush tick has announced itself, so the reader cannot repeatedly overtake that
+     * contender at poll boundaries. The poll already in progress and downstream delivery must still
+     * finish; this is not a wall-clock bound. The wait is accounted as source idle time.
      *
      * @throws Exception if polling or schema-change triggering fails
      */
@@ -294,8 +314,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                  * and has released it here. A checkpoint or savepoint thread waiting in
                  * SourceFlowLifeCycle#triggerBarrier(Barrier) contends for the same unfair
                  * monitor and would usually lose to the reader's immediate re-entry, so the
-                 * reader explicitly yields until every announced injector has finished. The
-                 * former Thread.sleep(0L) only yielded the CPU and did not prevent that race.
+                 * reader explicitly yields until every announced barrier or timer-flush
+                 * injector has finished. The former Thread.sleep(0L) only yielded the CPU and
+                 * did not prevent that race.
                  */
                 long handoffWaitNs = checkpointLockHandoff.awaitInjectors();
                 if (metricsEnabled) {
@@ -464,6 +485,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         } else {
             reader.addSplits(splits);
         }
+    }
+
+    /**
+     * Delivers a source event sent by the remote split enumerator to this reader.
+     *
+     * <p>This runs on a Hazelcast operation thread, not the reader's task thread, so the
+     * implementation must be safe against concurrent access with the {@code pollNext} loop. The
+     * event is dispatched to {@link SourceReader#handleSourceEvent(SourceEvent)}, which connectors
+     * such as the CDC sources use to receive enumerator acknowledgements.
+     *
+     * @param sourceEvent the event sent by the enumerator
+     */
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        reader.handleSourceEvent(sourceEvent);
     }
 
     /**

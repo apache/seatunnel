@@ -20,34 +20,37 @@ package org.apache.seatunnel.engine.server.task.flow;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Cooperative handoff of the source checkpoint lock from the reader thread to barrier injectors.
+ * Cooperative handoff of the source checkpoint lock to barrier and timer-flush injectors.
  *
- * <p>The reader thread holds the checkpoint lock for the whole duration of {@code
+ * <p>A source reader can hold the checkpoint lock for the whole duration of {@code
  * SourceReader#pollNext} and, under backpressure, every record it emits inside that call can block
  * on the bounded intermediate queue; one poll can therefore hold the lock for many seconds. A
- * barrier injector ({@link SourceFlowLifeCycle#triggerBarrier}) needs the same monitor. Java
- * monitors are not fair: when the reader releases the lock and immediately re-enters the next poll,
- * it wins the race against the parked injector almost every time, so a barrier can wait an
- * unbounded number of poll cycles. {@code Thread.sleep(0)} between polls does not change that.
+ * barrier injector ({@link SourceFlowLifeCycle#triggerBarrier}) and the timer-flush callback need
+ * the same monitor. Java monitors are not fair: when the reader releases the lock and immediately
+ * re-enters the next poll, it wins the race against the parked injector almost every time, so a
+ * barrier can wait an unbounded number of poll cycles. {@code Thread.sleep(0)} between polls does
+ * not change that.
  *
  * <p>This class turns the unfair race into an explicit handoff without touching the public {@code
  * Collector#getCheckpointLock()} contract: an injector registers itself before contending for the
  * lock and deregisters after releasing it, and the reader thread, at a point where it holds no
- * lock, waits until no injector is registered before starting its next poll. The barrier latency is
- * thereby bounded by a single poll instead of by luck.
+ * lock, waits until no injector is registered before starting its next poll. An announcement can
+ * race with a reader that already passed the check, but the reader cannot repeatedly overtake the
+ * injector across subsequent poll boundaries. Both barriers and timer-flush ticks register here.
  *
- * <p>Deadlock safety: the reader only waits while it holds no lock, and an injector never waits for
- * the reader, so an injector that is blocked (for example on the intermediate queue while
- * forwarding the barrier) still makes progress independently of the waiting reader. Injector
- * registration must always be released in a {@code finally} block so a failed injection cannot park
- * the reader forever.
+ * <p>The reader waits only while holding no checkpoint monitor. Injectors never wait on this
+ * handoff primitive, but can still wait for the poll already in progress, other injectors, and
+ * downstream delivery. A source that never returns from a poll or a downstream that never drains
+ * still prevents progress; there is no wall-clock checkpoint-latency guarantee. Registration must
+ * always be released in a {@code finally} block, including when injection fails.
  */
 final class SourceCheckpointLockHandoff {
 
     /**
-     * Sleep slice used by the reader while an injector is registered. Injection normally finishes
-     * within a few milliseconds once it owns the lock, so a short slice keeps the added reader
-     * latency negligible while avoiding a busy spin.
+     * Sleep slice while an injector is registered, avoiding a busy spin without adding another
+     * monitor or a notification protocol to the existing checkpoint monitor. Reader resumption
+     * follows OS timer granularity, not a precise millisecond deadline; downstream backpressure can
+     * keep the injector registered for much longer than one slice.
      */
     static final long WAIT_SLICE_MS = 1L;
 
@@ -90,6 +93,11 @@ final class SourceCheckpointLockHandoff {
      * @throws InterruptedException if the reader thread is interrupted, e.g. by task cancellation
      */
     long awaitInjectors() throws InterruptedException {
+        // Preserve the interruption check of the Thread.sleep(0) replaced at the call site,
+        // including when no contender is pending and the reader takes the fast path.
+        if (Thread.interrupted()) {
+            throw new InterruptedException("Source checkpoint handoff interrupted");
+        }
         if (!hasPendingInjector()) {
             return 0L;
         }
