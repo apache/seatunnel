@@ -75,7 +75,7 @@ public class ApplicationCommandArgs extends CommandArgs {
     @Parameter(
             names = {"-a", "--application-config"},
             description =
-                    "HOCON deployment file (required for submit), e.g. application.config (not the job file)")
+                    "Optional HOCON deployment file, e.g. application.config (not the job file)")
     private String applicationConfig;
 
     @Parameter(names = "--id", description = "Platform application ID (required for status/cancel)")
@@ -132,9 +132,6 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
         if (id != null) {
             throw new ParameterException("submit does not accept --id");
-        }
-        if (applicationConfig == null) {
-            throw new ParameterException("submit requires --application-config");
         }
     }
 

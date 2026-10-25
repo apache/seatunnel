@@ -6,13 +6,13 @@ title: 命令行
 # Application 命令行
 
 `bin/seatunnel-application.sh` 是 Application Mode 的唯一入口，只提供三个操作。三者都面向同一个
-外部资源平台并读取同一份部署文件，因此 `status`、`cancel` 看到的正是 `submit` 创建的
+外部资源平台并使用一致的部署选项，因此 `status`、`cancel` 看到的正是 `submit` 创建的
 application。
 
 ## 命令格式
 
 ```bash
-bin/seatunnel-application.sh submit -t <target> -a application.config [-c job.conf]
+bin/seatunnel-application.sh submit -t <target> [-a application.config] [-Dkey=value ...] [-c job.conf]
 bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
   [--wait-timeout <ms>] [--wait-interval <ms>]
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
@@ -27,7 +27,7 @@ bin/seatunnel-application.sh -h
 ```text
 Usage: seatunnel-application.sh [options] submit | status | cancel
   Options:
-    -a, --application-config HOCON deployment file (required for submit), e.g.
+    -a, --application-config Optional HOCON deployment file, e.g.
                              application.config (not the job file)
     -c, --config             SeaTunnel job configuration file (required for
                              submit unless the provider supplies it, for
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | 全部 | 操作类型，位于第一个位置参数 |
 | `-t`、`--target` | 全部 | 运行 application 的资源平台 |
 | `-c`、`--config` | submit | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
-| `-a`、`--application-config` | 全部 | 包含公共选项和平台选项的部署文件；`submit` 必填 |
+| `-a`、`--application-config` | 全部 | 包含公共选项和平台选项的可选部署文件；也可通过 `-D` 提供选项 |
 | `-Dkey=value` | 全部 | 覆盖单个非敏感的 `application.*` / `kubernetes.*` 部署选项（例如 `-Dapplication.worker-count=4`），可重复；作业 `${...}` 变量在 Pod 内解析，不在提交机替换 |
 | `--id` | status、cancel | `submit` 打印的平台 application ID |
 | `--wait` | submit、status | 轮询直到终态 |
@@ -87,6 +87,9 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 `kubernetes.job-config-file`）；两者都没有的提交会在创建第一个资源之前被拒绝。写成 `${VAR}`
 的值在运行中的 application 内解析，不在提交机解析，因此可以通过环境变量注入平台管理的
 凭据。
+
+通过 `-D` 提供所需部署选项时，可以省略部署文件（`-a`）。两者同时提供时，`-D` 覆盖文件值。
+平台配置校验仍然生效：省略 `-a` 不代表不完整的部署配置可以提交成功。
 
 ## 状态与等待
 

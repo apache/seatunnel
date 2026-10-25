@@ -387,12 +387,18 @@ class ApplicationExecuteCommandTest {
     }
 
     @Test
-    void submitWithoutApplicationConfigExitsThroughUsagePath() throws Exception {
+    void submitWithMissingApplicationConfigExitsThroughUsagePath() throws Exception {
         int statusCode =
                 catchSystemExit(
                         () ->
                                 CommandLineUtils.parse(
-                                        new String[] {"submit", "-t", "kubernetes"},
+                                        new String[] {
+                                            "submit",
+                                            "-t",
+                                            "kubernetes",
+                                            "-a",
+                                            temporary.resolve("missing.config").toString()
+                                        },
                                         new ApplicationCommandArgs(),
                                         "seatunnel-application.sh",
                                         false,
@@ -519,15 +525,48 @@ class ApplicationExecuteCommandTest {
         verify(descriptor, times(2)).close();
     }
 
-    @Test
-    void submitRequiresApplicationConfig() {
-        ApplicationCommandArgs missing = parse("submit", "-t", "kubernetes");
-        ParameterException failure = assertThrows(ParameterException.class, missing::buildCommand);
-        assertTrue(failure.getMessage().contains("--application-config"));
-
-        ApplicationCommandArgs overridesOnly =
-                parse("submit", "-t", "kubernetes", "-Dkubernetes.image=example");
-        assertThrows(ParameterException.class, overridesOnly::buildCommand);
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void submitsWithDeploymentOverridesOnly(boolean wait) throws Exception {
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.create(any())).thenReturn(descriptor);
+        when(descriptor.deployApplication(any())).thenReturn("application_1");
+        when(factory.parseApplicationId("application_1")).thenReturn("native-id");
+        when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.SUCCEEDED);
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            ApplicationCommandArgs args =
+                    parse(
+                            "submit",
+                            "-t",
+                            "kubernetes",
+                            "-Dapplication.name=overrides-only",
+                            "-Dapplication.worker-count=3",
+                            "-Dkubernetes.image=example:latest",
+                            "-Dkubernetes.job-config-file=/etc/seatunnel/job.conf");
+            args.setWait(wait);
+            args.buildCommand().execute();
+        }
+        ArgumentCaptor<ApplicationSpecification> specification =
+                ArgumentCaptor.forClass(ApplicationSpecification.class);
+        verify(descriptor).deployApplication(specification.capture());
+        assertEquals("overrides-only", specification.getValue().getName());
+        assertEquals(3, specification.getValue().getWorkerCount());
+        assertEquals("", specification.getValue().getJobConfig());
+        ArgumentCaptor<Map<String, String>> deploymentOptions = ArgumentCaptor.forClass(Map.class);
+        verify(factory, times(wait ? 2 : 1)).create(deploymentOptions.capture());
+        assertEquals("example:latest", deploymentOptions.getValue().get("kubernetes.image"));
+        assertEquals(
+                "/etc/seatunnel/job.conf",
+                deploymentOptions.getValue().get("kubernetes.job-config-file"));
+        verify(descriptor, times(wait ? 1 : 0)).getApplicationStatus("native-id");
+        verify(descriptor, times(wait ? 2 : 1)).close();
     }
 
     @Test
