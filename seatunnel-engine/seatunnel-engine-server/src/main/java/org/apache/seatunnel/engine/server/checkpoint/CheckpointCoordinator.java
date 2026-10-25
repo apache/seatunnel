@@ -64,6 +64,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -224,7 +225,6 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        restoreCompletedCheckpointIds();
         this.scheduler =
                 Executors.newScheduledThreadPool(
                         2,
@@ -266,6 +266,12 @@ public class CheckpointCoordinator {
         // For job restore from master node active switch
         CheckpointCoordinatorStatus checkpointCoordinatorStatus =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+        // Fresh submissions, especially checkpoint-disabled batch jobs, have no retention history
+        // to restore. Restart is still detected when the coordinator status entry is unavailable.
+        if (coordinatorConfig.isCheckpointEnable()
+                && (isStartWithSavePoint || checkpointCoordinatorStatus != null)) {
+            restoreCompletedCheckpointIds();
+        }
 
         // This is not a new job
         if (isStartWithSavePoint) {
@@ -1386,14 +1392,31 @@ public class CheckpointCoordinator {
         }
     }
 
-    /** Restores persisted checkpoint IDs so retention survives coordinator recreation. */
+    /**
+     * Restores persisted checkpoint IDs so retention survives coordinator recreation.
+     *
+     * <p>Ascending IDs are appended at the deque tail so retention removes the oldest checkpoint
+     * first via {@code removeFirst()} when the configured limit is exceeded.
+     */
     private void restoreCompletedCheckpointIds() {
         try {
-            checkpointStorage
-                    .getCheckpointsByJobIdAndPipelineId(
-                            String.valueOf(jobId), String.valueOf(pipelineId))
-                    .stream()
-                    .map(PipelineState::getCheckpointId)
+            Optional<List<Long>> checkpointIds =
+                    checkpointStorage.getCheckpointIdsByJobIdAndPipelineId(
+                            String.valueOf(jobId), String.valueOf(pipelineId));
+            if (!checkpointIds.isPresent()) {
+                // Older storage plugins keep their prior retention behavior until they implement
+                // metadata-only enumeration. Never materialize checkpoint payloads as a fallback.
+                LOG.warn(
+                        "Checkpoint storage {} does not support metadata-only ID enumeration; "
+                                + "pre-recovery checkpoints are excluded from retention bookkeeping "
+                                + "for job {}, pipeline {}",
+                        checkpointStorage.getClass().getName(),
+                        jobId,
+                        pipelineId);
+                return;
+            }
+            checkpointIds.get().stream()
+                    .distinct()
                     .sorted()
                     .map(String::valueOf)
                     .forEach(completedCheckpointIds::addLast);

@@ -262,3 +262,26 @@ seatunnel:
           disable.cache: false
           fs.defaultFS: file:/// 
 ```
+
+### Retention after recovery
+
+When a checkpoint coordinator is recreated for recovery, retention bookkeeping
+includes that job and pipeline's persisted checkpoints. After another checkpoint
+completes, the oldest checkpoint IDs are removed until the retained count is at
+most `checkpoint.storage.max-retained`. Fresh submissions and checkpoint-disabled
+batch jobs do not enumerate checkpoint storage during coordinator construction.
+
+The built-in LocalFile and HDFS storage implementations enumerate checkpoint IDs
+from filesystem metadata without loading checkpoint payloads. This also applies
+to object stores accessed through the HDFS storage plugin. Corrupt payload files
+with valid checkpoint filenames remain eligible for normal retention deletion.
+
+External storage plugins remain binary compatible through the default
+`CheckpointStorage.getCheckpointIdsByJobIdAndPipelineId` method. Its empty
+optional means metadata enumeration is unsupported; the coordinator logs one
+warning during recreation and retains the plugin's prior behavior, so checkpoints
+created before recovery are excluded from its retention bookkeeping. To enable
+recovery-aware retention, implement this method using metadata only and return a
+present list (including an empty list when no checkpoint exists). Reading payloads
+as a fallback is deliberately avoided. Existing checkpoint loading and restore
+error behavior is unchanged.

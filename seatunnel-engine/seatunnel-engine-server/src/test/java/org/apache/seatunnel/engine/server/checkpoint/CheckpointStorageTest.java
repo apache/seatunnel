@@ -266,9 +266,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                             JobStatus.FINISHED));
 
             checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-            // The coordinator restores retained checkpoint ids from storage during
-            // initialization, which adds one read on top of the final getAllCheckpoints.
-            Assertions.assertEquals(2, accessCounter.get());
+            // A fresh checkpoint-disabled batch job must not enumerate retained checkpoints.
+            Assertions.assertEquals(1, accessCounter.get());
         } finally {
             // restore the server's checkpointStorage to avoid affecting other unit cases
             ReflectionUtils.setField(

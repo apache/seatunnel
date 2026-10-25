@@ -36,6 +36,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -273,8 +275,109 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 "Checkpoint should be cleaned up after cancel when retain is disabled (default)");
     }
 
+    /**
+     * Legacy plugins implement the original SPI only and must never trigger a payload-based
+     * enumeration fallback when recovering retention bookkeeping.
+     */
     @Test
-    public void testCheckpointRetentionAfterCoordinatorRecreation() throws Exception {
+    public void testLegacyStorageKeepsPriorRetentionWithoutPayloadFallback() throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage storage = createCheckpointStorage();
+        for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
+            storeCompletedCheckpoint(storage, jobId, checkpointId);
+        }
+        // This adapter intentionally inherits the new optional method from the interface.
+        CheckpointStorage legacyStorage =
+                new CheckpointStorage() {
+                    @Override
+                    public String storeCheckPoint(PipelineState state)
+                            throws CheckpointStorageException {
+                        return storage.storeCheckPoint(state);
+                    }
+
+                    @Override
+                    public void asyncStoreCheckPoint(PipelineState state)
+                            throws CheckpointStorageException {
+                        storage.asyncStoreCheckPoint(state);
+                    }
+
+                    @Override
+                    public List<PipelineState> getAllCheckpoints(String id)
+                            throws CheckpointStorageException {
+                        return storage.getAllCheckpoints(id);
+                    }
+
+                    @Override
+                    public List<PipelineState> getLatestCheckpoint(String id)
+                            throws CheckpointStorageException {
+                        return storage.getLatestCheckpoint(id);
+                    }
+
+                    @Override
+                    public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                            String id, String pipeline) throws CheckpointStorageException {
+                        return storage.getLatestCheckpointByJobIdAndPipelineId(id, pipeline);
+                    }
+
+                    @Override
+                    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                            String id, String pipeline) {
+                        throw new AssertionError(
+                                "Retention must not read full checkpoint payloads");
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String id) {
+                        storage.deleteCheckpoint(id);
+                    }
+
+                    @Override
+                    public PipelineState getCheckpoint(
+                            String id, String pipeline, String checkpoint)
+                            throws CheckpointStorageException {
+                        return storage.getCheckpoint(id, pipeline, checkpoint);
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String id, String pipeline, String checkpoint)
+                            throws CheckpointStorageException {
+                        storage.deleteCheckpoint(id, pipeline, checkpoint);
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(
+                            String id, String pipeline, List<String> checkpoints)
+                            throws CheckpointStorageException {
+                        storage.deleteCheckpoint(id, pipeline, checkpoints);
+                    }
+                };
+        instance.getMap(IMAP_RUNNING_JOB_STATE)
+                .put("checkpoint_state_" + jobId + "_1", CheckpointCoordinatorStatus.RUNNING);
+        CheckpointManager manager =
+                createCheckpointManager(jobId, false, legacyStorage, new CheckpointConfig());
+        manager.getCheckpointCoordinator(1)
+                .completePendingCheckpoint(
+                        new CompletedCheckpoint(
+                                jobId,
+                                1,
+                                6L,
+                                Instant.now().toEpochMilli(),
+                                CheckpointType.CHECKPOINT_TYPE,
+                                Instant.now().toEpochMilli(),
+                                new HashMap<>(),
+                                new HashMap<>()));
+        List<Long> checkpointIds =
+                storage.getCheckpointIdsByJobIdAndPipelineId(String.valueOf(jobId), "1").get()
+                        .stream()
+                        .sorted()
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L), checkpointIds);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testCheckpointRetentionAfterCoordinatorRecreation(boolean explicitRestore)
+            throws Exception {
         long jobId = (long) (Math.random() * 1000000L);
         CheckpointStorage checkpointStorage = createCheckpointStorage();
         for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
@@ -285,8 +388,19 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         storageConfig.setMaxRetainedCheckpoints(3);
         CheckpointConfig config = new CheckpointConfig();
         config.setStorage(storageConfig);
+        if (!explicitRestore) {
+            // Active-master reconstruction is also identified by persisted coordinator state.
+            instance.getMap(IMAP_RUNNING_JOB_STATE)
+                    .put("checkpoint_state_" + jobId + "_1", CheckpointCoordinatorStatus.RUNNING);
+        }
         CheckpointManager checkpointManager =
-                createCheckpointManager(jobId, false, checkpointStorage, config);
+                createCheckpointManager(
+                        jobId,
+                        explicitRestore,
+                        explicitRestore ? RestoreMode.CHECKPOINT : RestoreMode.NONE,
+                        explicitRestore ? jobId : null,
+                        checkpointStorage,
+                        config);
 
         checkpointManager
                 .getCheckpointCoordinator(1)

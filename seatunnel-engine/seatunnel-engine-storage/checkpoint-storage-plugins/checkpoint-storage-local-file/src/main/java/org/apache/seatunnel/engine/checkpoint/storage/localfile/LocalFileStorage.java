@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -269,6 +270,32 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     }
                 });
         return pipelineStates;
+    }
+
+    /**
+     * Enumerates checkpoint names without reading payload data. Valid IDs remain visible even when
+     * their payloads are corrupt, allowing normal retention deletion to retire those files.
+     */
+    @Override
+    public Optional<List<Long>> getCheckpointIdsByJobIdAndPipelineId(
+            String jobId, String pipelineId) throws CheckpointStorageException {
+        File directory = new File(getStorageParentDirectory() + jobId);
+        if (!directory.exists()) {
+            return Optional.of(new ArrayList<>());
+        }
+        try {
+            List<Long> checkpointIds = new ArrayList<>();
+            for (File file : FileUtils.listFiles(directory, FILE_EXTENSIONS, false)) {
+                if (pipelineId.equals(getPipelineIdByFileName(file.getName()))) {
+                    checkpointIds.add(Long.parseLong(getCheckpointIdByFileName(file.getName())));
+                }
+            }
+            return Optional.of(checkpointIds);
+        } catch (Exception e) {
+            throw new CheckpointStorageException(
+                    "Failed to list checkpoint IDs for job " + jobId + ", pipeline " + pipelineId,
+                    e);
+        }
     }
 
     @Override
