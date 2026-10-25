@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -46,8 +47,10 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.service.jar.SharedConnectorJarStorageStrategy;
 import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -58,11 +61,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.extern.slf4j.Slf4j;
@@ -90,6 +95,10 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ConnectorPackageServiceTest {
+
+    /** Thread name used to verify that master failover does not retain old cleanup timers. */
+    private static final String CONNECTOR_JAR_CLEANUP_TIMER_THREAD_NAME =
+            "seatunnel-shared-connector-jar-cleanup";
 
     protected static ILogger LOGGER;
     private SeaTunnelConfig SEATUNNEL_CONFIG;
@@ -132,8 +141,10 @@ public class ConnectorPackageServiceTest {
                 .setProperty(ClusterProperty.INVOCATION_RETRY_PAUSE.getName(), "1");
     }
 
+    /** Verifies that connector package service timers follow the active master lifecycle. */
     @Test
     public void testMasterNodeActive() {
+        long cleanupTimerThreadCount = countConnectorJarCleanupTimerThreads();
         SEATUNNEL_CONFIG
                 .getHazelcastConfig()
                 .setClusterName(
@@ -154,6 +165,12 @@ public class ConnectorPackageServiceTest {
             Assertions.assertNotNull(server1.getConnectorPackageService());
             Assertions.assertThrows(
                     SeaTunnelEngineException.class, server2::getConnectorPackageService);
+            await().atMost(5000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            cleanupTimerThreadCount + 1,
+                                            countConnectorJarCleanupTimerThreads()));
 
             // shutdown instance1
             instance1.shutdown();
@@ -169,6 +186,22 @@ public class ConnectorPackageServiceTest {
                                             e);
                                 }
                             });
+            Assertions.assertThrows(
+                    SeaTunnelEngineException.class, server1::getConnectorPackageService);
+            await().atMost(5000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            cleanupTimerThreadCount + 1,
+                                            countConnectorJarCleanupTimerThreads()));
+
+            instance2.shutdown();
+            await().atMost(5000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            cleanupTimerThreadCount,
+                                            countConnectorJarCleanupTimerThreads()));
         } finally {
             if (instance2 != null && instance2.node.isRunning()) {
                 instance2.shutdown();
@@ -177,6 +210,35 @@ public class ConnectorPackageServiceTest {
                 instance1.shutdown();
             }
         }
+    }
+
+    /** Verifies that failed strategy initialization cannot retain a timer thread. */
+    @Test
+    public void testInvalidCleanupIntervalDoesNotLeakTimer() {
+        long cleanupTimerThreadCount = countConnectorJarCleanupTimerThreads();
+        ConnectorJarStorageConfig connectorJarStorageConfig = new ConnectorJarStorageConfig();
+        connectorJarStorageConfig.setCleanupTaskInterval(0);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
+        HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
+        IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters = Mockito.mock(IMap.class);
+        Mockito.when(server.getNodeEngine()).thenReturn(nodeEngine);
+        Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        Mockito.when(
+                        hazelcastInstance.<ConnectorJarIdentifier, RefCount>getMap(
+                                Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS))
+                .thenReturn(connectorJarRefCounters);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new SharedConnectorJarStorageStrategy(connectorJarStorageConfig, server));
+        await().pollDelay(100, TimeUnit.MILLISECONDS)
+                .atMost(5000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        cleanupTimerThreadCount,
+                                        countConnectorJarCleanupTimerThreads()));
     }
 
     @Test
@@ -529,6 +591,13 @@ public class ConnectorPackageServiceTest {
                             filePath.toString()));
             throw new RuntimeException();
         }
+    }
+
+    private long countConnectorJarCleanupTimerThreads() {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(Thread::isAlive)
+                .filter(thread -> CONNECTOR_JAR_CLEANUP_TIMER_THREAD_NAME.equals(thread.getName()))
+                .count();
     }
 
     @AfterAll

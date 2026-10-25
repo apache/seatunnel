@@ -236,6 +236,7 @@ public class CoordinatorService {
 
     private final ResourceManagerFactory resourceManagerFactory;
 
+    /** Active-master-only service that must be released before the next master activation. */
     private ConnectorPackageService connectorPackageService;
 
     @Getter private EventProcessor eventProcessor;
@@ -1296,8 +1297,8 @@ public class CoordinatorService {
      *
      * <p>This method interrupts locally owned {@link JobMaster} instances, optionally clears queued
      * pending jobs for wait-based scheduling, and shuts down local services such as the executor,
-     * resource manager, and event processor. It does not delete distributed job metadata that a new
-     * active master needs for takeover recovery.
+     * connector package service, resource manager, and event processor. It does not delete
+     * distributed job metadata that a new active master needs for takeover recovery.
      */
     public synchronized void clearCoordinatorService() {
         isActive = false;
@@ -1343,6 +1344,14 @@ public class CoordinatorService {
             Thread.currentThread().interrupt();
             logger.info(
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
+        }
+
+        // JobMaster.run can release connector jar references from its finally block, so keep the
+        // package service available through the bounded coordinator-executor termination wait.
+        ConnectorPackageService packageService = connectorPackageService;
+        connectorPackageService = null;
+        if (packageService != null) {
+            packageService.close();
         }
 
         ResourceManager manager = resourceManager;
