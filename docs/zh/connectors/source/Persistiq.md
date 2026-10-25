@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 | 参数名                         | 类型      | 是否必填 | 默认值 | 描述                                                                                          |
 |-----------------------------|---------|------|-------|---------------------------------------------------------------------------------------------|
 | url                         | String  | 是   | -     | Persistiq API 端点 URL，例如 `https://api.persistiq.com/v1/users`。                                            |
-| password                    | String  | 是   | -     | Persistiq API Key，在 Persistiq 账号后台创建。Persistiq 使用 API Key 而不是用户名/密码组合；连接器会把它作为 Basic 认证的密码（用户名按 Persistiq 约定留空）。 |
+| password                    | String  | 是   | -     | Persistiq API Key，在 Persistiq 账号后台创建。连接器通过 `x-api-key` HTTP 请求头发送该 API Key。 |
 | method                      | String  | 否   | GET   | HTTP 请求方法，仅支持 `GET`、`POST`。                                                                       |
 | schema                      | Config  | 否   | -     | 输出字段结构，`format = "json"` 时必须配置。详见 [Schema 特性](../../introduction/concepts/schema-feature.md)。                            |
 | schema.fields               | Config  | 否   | -     | `schema` 的字段定义。                                                                                 |
@@ -42,7 +42,7 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 | retry                       | int     | 否   | -     | HTTP 请求返回 `IOException` 时的最大重试次数。                                                                  |
 | retry_backoff_multiplier_ms | int     | 否   | 100   | 请求失败时重试退避时间的倍数（毫秒）。                                                                              |
 | retry_backoff_max_ms        | int     | 否   | 10000 | 请求失败时的最大重试退避时间（毫秒）。                                                                              |
-| enable_multi_lines          | boolean | 否   | false | `format = "text"` 时，是否允许响应体里包含用换行分隔的多个 JSON 对象。                                                       |
+| enable_multi_lines          | boolean | 否   | false | 是否先把响应拆分为多行，再使用所选 `format` 逐行解析。                                                       |
 | connect_timeout_ms          | int     | 否   | 12000 | TCP 连接超时（毫秒）。                                                                                   |
 | socket_timeout_ms           | int     | 否   | 60000 | Socket 读超时（毫秒）。                                                                                 |
 | json_filed_missed_return_null | boolean | 否 | false | `json_field` 中配置的字段在响应里缺失时，是否返回 `null`。                                                                |
@@ -277,8 +277,9 @@ source {
 
 ### 分页
 
-Persistiq API 需要分页参数时使用 `pageing`。Persistiq 大多数端点使用 offset/limit 分页，默认的
-`page_type = "PageNumber"` 通常就够了。
+仅当目标 API 端点的页码或游标语义与连接器匹配时配置 `pageing`。`PageNumber` 每次把配置的页码字段加一，
+不会把页码换算为行偏移，也不会自动配置 API 的每页大小。请显式设置 API 的每页大小参数；若依据响应行数判断
+分页结束，应将 `batch_size` 设置为相同值。
 
 | 名称 | 类型 | 是否必填 | 默认值 | 说明 |
 |------|------|----------|--------|------|
@@ -329,52 +330,11 @@ sink {
 }
 ```
 
-### 使用 `json_field` 投影分页结果
-
-当行数据直接在响应根节点下、但只需要其中部分字段时，用 `json_field` 把 JSONPath 表达式投影到输出列。
-这种方式无需声明较重的 `content_field`，在分页接口下表现也更好。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Persistiq {
-    url = "https://api.persistiq.com/v1/users"
-    password = "your-api-key"
-    format = "json"
-    pageing = {
-      total_page_size = 50
-      batch_size = 100
-      page_field = "page"
-      start_page_number = 1
-    }
-    json_field = {
-      id = "$.users[*].id"
-      name = "$.users[*].name"
-      email = "$.users[*].email"
-    }
-    schema = {
-      fields {
-        id = string
-        name = string
-        email = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {}
-}
-```
-
 ### 使用 STREAMING 模式轮询 Persistiq
 
 Persistiq 不提供流式端点，但连接器仍然支持 `STREAMING` 模式，每隔 `poll_interval_millis` 毫秒轮询一次
-API 并把结果行发往下游。Checkpoint 只跟踪已消费的偏移，不保存上游状态。
+API 并把结果行发往下游。读取器不会在 Checkpoint 中保存 API 游标或已消费行的偏移。轮询会再次发出已有对象，
+任务恢复后也会重新发起请求；下游应使用幂等写入以处理重复记录。
 
 ```hocon
 env {

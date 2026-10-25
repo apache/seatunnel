@@ -67,31 +67,26 @@ Key options include:
 | password | String | Yes | - | Database password. Use a secrets manager or environment variable in production; never commit it into the job config. |
 | query | String | Conditional | - | SELECT statement that drives the read. Required when not using `table_path` or `table_list`. |
 | table_path | String | Conditional | - | `schema.table` of the table to read. Required when not using `query`. |
-| table_list | List | No | - | Read several tables in one source. Each entry is `{ table_path = "schema.table" }`. Parallelism is split across tables when this option is set. |
-| split.size | Int | No | 8096 | Target row count per split. The connector uses this to derive a parallel scan plan when `partition_column` is provided. |
-| split.even_partition_num | Boolean | No | false | Force a balanced number of partitions; otherwise the connector lets the optimizer decide. |
-| split.sample_shard_threshold | Int | No | 1000 | Threshold (rows) for sampling when computing the partition count. |
-| split.inverse_parallelism | Int | No | 1 | Inverse of the parallelism — i.e. the number of splits per source subtask. Higher values mean smaller, more numerous splits. |
-| partition_column | String | No | - | Numeric column used for partition splits. Must be a monotonically increasing or unique column (e.g. `id`, `created_at`). |
-| partition_upper_bound | Long | No | - | Upper bound of the partition column. Set when you know the range to avoid a costly `MIN()` probe. |
-| partition_lower_bound | Long | No | - | Lower bound of the partition column. Set when you know the range to avoid a costly `MAX()` probe. |
+| table_list | List | No | - | Read several tables in one source. Each entry includes a `table_path`; generated splits are assigned to readers. |
+| split.size | Int | No | 8096 | Target row count per split. Used by the dynamic split planner. |
+| split.even-distribution.factor.lower-bound | Double | No | 0.05 | Lower bound of the distribution factor used to choose evenly calculated splits. |
+| split.even-distribution.factor.upper-bound | Double | No | 100.0 | Upper bound of the distribution factor used to choose evenly calculated splits. |
+| split.sample-sharding.threshold | Int | No | 1000 | Estimated shard-count threshold for sampling when the split-key distribution is uneven. |
+| split.inverse-sampling.rate | Int | No | 1000 | Sampling-rate denominator; `1000` means a sampling rate of `1/1000`. |
+| partition_column | String | No | - | Column used for legacy partition splits. See JDBC source documentation for supported types and split-key selection. |
+| partition_upper_bound | Long | No | - | Upper bound of the partition column. Set when you know the range to avoid a costly `MAX()` probe. |
+| partition_lower_bound | Long | No | - | Lower bound of the partition column. Set when you know the range to avoid a costly `MIN()` probe. |
 | fetch_size | Int | No | 0 | JDBC fetch size. `0` means driver default. Increase for large rows. |
 | common-options | Config | No | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Parallel Reader
 
-Cloudberry inherits the PostgreSQL parallel reading strategy from the JDBC source:
+Cloudberry uses the JDBC source split planner. The selected split key, query/table configuration,
+and `enable_concurrent_read` determine whether a table can be split. The enumerator assigns generated
+splits to readers by split ID; `table_list` does not guarantee one table per reader.
 
-- **No partition column** — the connector runs the configured `query` on a single subtask. Use this when the
-  query already aggregates or the table is small.
-- **Numeric `partition_column`** — the connector probes `MIN()`/`MAX()` (or uses `partition_lower_bound` /
-  `partition_upper_bound` if set), then issues each split as a `WHERE partition_column BETWEEN ? AND ?` clause.
-  This is the typical pattern for large fact tables.
-- **`table_list`** — the connector assigns one table per subtask when parallelism ≥ number of tables, otherwise
-  it splits each table as described above.
-
-For the full split-strategy reference and edge-case guidance (e.g. non-numeric partition columns, parallel
-`UPDATE` snapshots), see the [PostgreSQL source documentation](../source/PostgreSQL.md).
+For the available split strategies and configuration requirements, see the
+[JDBC source documentation](../source/Jdbc.md#parallel-reader).
 
 ## Notes
 
@@ -99,10 +94,10 @@ For the full split-strategy reference and edge-case guidance (e.g. non-numeric p
 - Cloudberry uses the PostgreSQL JDBC driver and PostgreSQL-compatible dialect path, so keep `driver = "org.postgresql.Driver"`.
 - Use a PostgreSQL-style URL such as `jdbc:postgresql://host:5432/database`.
 - Keep database passwords out of shared examples, logs, and screenshots.
-- Cloudberry does not yet ship CDC support. For change-data capture, use the dedicated CDC source for the
-  upstream database, or capture changes with a logical replication slot and ingest via the JDBC source.
+- The JDBC source performs bounded reads; it does not poll queries or consume logical replication slots.
+  For continuous change capture, use a CDC connector that explicitly supports the upstream database.
 - For very large parallel scans, prefer setting `partition_lower_bound` / `partition_upper_bound` over letting
-  the connector probe `MIN()` / `MAX()`. The probe query is the slowest part of job startup.
+  the connector probe `MIN()` / `MAX()`. Probe cost depends on the table and its indexes.
 
 ## Task Example
 
@@ -187,17 +182,15 @@ sink {
 }
 ```
 
-### Streaming source from a query (single-subtask)
+### Bounded extraction with a query filter
 
-For continuous ingestion (e.g. polling a `WHERE updated_at > now() - interval '5 minutes'` query),
-drop `parallelism` to 1 and rely on the database-side filter. The query needs to be idempotent and
-must include a deterministic ordering.
+The filter restricts this batch's result set. It is evaluated during one bounded read; SeaTunnel does
+not repeat the query or persist an incremental watermark for later runs.
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 30000
+  job.mode = "BATCH"
 }
 
 source {

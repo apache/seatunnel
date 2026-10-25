@@ -128,14 +128,13 @@ Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-comm
 ClickhouseFile 是一个 **bulk-load** 类型的接收器。每个 writer 的执行流程：
 
 1. 将输入行缓存到本地 Worker 的 `file_temp_path` 下的 CSV 文件中。
-2. 当缓冲区大小达到阈值或到达 checkpoint 屏障时，Worker 调用 `clickhouse_local_path` 处的 `clickhouse-local`
+2. checkpoint 或批任务结束触发提交准备时，Worker 在 `prepareCommit()` 中调用 `clickhouse_local_path` 处的 `clickhouse-local`
    将 CSV 转换为 ClickHouse 的本地存储格式。
 3. Worker 通过 `scp` 或 `rsync`（免密登录、`node_pass` 凭据或 `key_path` 指向的 SSH 私钥）把转换后的文件拷贝到目标分片节点。
-4. 分片节点通过 `Distributed` 表把文件加载进来。
+4. 聚合提交器在分片的本地表上执行 `ALTER TABLE ... ATTACH PART`，挂载已传输的数据分片。
 
 由于最终的加载动作发生在 ClickHouse 一侧、由 `clickhouse-local` 完成，连接器本身并不参与分布式事务，因此
-无法提供 Exactly-Once 语义。如果需要端到端的 Exactly-Once，请改用 JDBC 接收器，并在下游表上使用
-`ReplacingMergeTree` 引擎配合主键去重策略。
+无法提供 Exactly-Once 语义。请根据故障恢复要求，选择具有相应交付保证的接收器和目标表设计。
 
 ## 示例
 

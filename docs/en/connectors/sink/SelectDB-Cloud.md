@@ -39,13 +39,13 @@ Version Supported
 | jdbc-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse jdbc address, the format is `warehouse_ip:mysql_port`. Used for metadata queries such as schema discovery.                                                                                                                                                                                                                |
 | cluster-name       | String | Yes      | -                      | `SelectDB Cloud` cluster name as configured in the warehouse.                                                                                                                                                                                                                                                                                       |
 | username           | String | Yes      | -                      | `SelectDB Cloud` user username.                                                                                                                                                                                                                                                                                                                    |
-| password           | String | Yes      | -                      | `SelectDB Cloud` user password.                                                                                                                                                                                                                                                                                                                    |
+| password           | String | No | -                      | `SelectDB Cloud` user password.                                                                                                                                                                                                                                                                                                                    |
 | table.identifier   | String | Yes      | -                      | The name of `SelectDB Cloud` table, the format is `database.table`. The table must already exist with a compatible column set; the connector does not create tables automatically.                                                                                                                                                                |
-| selectdb.config    | Map    | Yes      | -                      | Stream-load parameters forwarded to the `Copy Into` statement. At minimum, set `file.type` (`json` or `csv`). Other common keys include `file.column_separator`, `file.line_delimiter`, `file.strip_outer_array`, and `max_filter_ratio`. Prefix every key with `selectdb.config.` in the HOCON block.                                                |
+| selectdb.config    | Map    | Yes      | -                      | Stream-load parameters forwarded to the `Copy Into` statement. At minimum, set `file.type` (`json` or `csv`). Other common keys include `file.column_separator`, `file.line_delimiter`, `file.strip_outer_array`, and `max_filter_ratio`. Put these keys inside the `selectdb.config` HOCON block.                                                |
 | sink.enable-2pc    | bool   | No       | true                   | Whether to enable two-phase commit (2pc). Default is `true` to ensure Exactly-Once semantics. SelectDB uses cache files to load data. When the amount of data is large, cached data may become invalid (the default expiration time is 1 hour). If you encounter large amounts of data write loss, set `sink.enable-2pc` to `false` and accept at-least-once. |
 | sink.enable-delete | bool   | No       | false                  | Whether to enable deletion. This option requires the `SelectDB Cloud` table to enable the batch-delete function, and only supports the Unique model.                                                                                                                                                                                                 |
 | sink.max-retries   | int    | No       | 3                      | Max retry times if writing records to the database fails.                                                                                                                                                                                                                                                                                          |
-| sink.buffer-size   | int    | No       | 10 * 1024 * 1024 (1MB) | Buffer size in bytes used to cache data before stream-load. Larger buffers reduce request overhead but use more memory per writer.                                                                                                                                                                                                                  |
+| sink.buffer-size   | int    | No       | 10 * 1024 * 1024 (10MB) | Buffer size in bytes used to cache data before stream-load. Larger buffers reduce request overhead but use more memory per writer.                                                                                                                                                                                                                  |
 | sink.buffer-count  | int    | No       | 10000                  | Buffer row count used to cache data before stream-load. Larger counts reduce request overhead but use more memory per writer.                                                                                                                                                                                                                       |
 | sink.label-prefix  | String | No       | random UUID            | Unique label prefix attached to each stream-load transaction. Useful when you want deterministic labels for replay or audit. The default UUID is unique per writer, so leave it alone unless you have a specific need.                                                                                                                              |
 | sink.flush.queue-size | int  | No       | 1                      | Queue length for the async upload thread that ships buffered data to object storage. Increase this when the network between SeaTunnel workers and SelectDB is slow.                                                                                                                                                                                |
@@ -88,12 +88,12 @@ and ingest via JDBC rather than the stream-load path.
 ## How CDC works
 
 When the upstream is a CDC source (MySQL-CDC, PostgreSQL-CDC, etc.), the SelectDB Cloud sink
-auto-generates `INSERT` / `DELETE` SQL based on the row kind. To make this work, the downstream
+adds a `__DORIS_DELETE_SIGN__` field to the loaded row: `0` for `INSERT`/`UPDATE_AFTER`, and `1`
+for `DELETE`/`UPDATE_BEFORE`. It does not generate per-row SQL statements. To apply these changes, the downstream
 table must:
 
 - Use the **Unique** model so that duplicate primary keys are deduped.
-- Have **batch delete** enabled (`ALTER TABLE ... ENABLE BATCH DELETE`) so the sink can issue
-  delete statements.
+- Have **batch delete** enabled (`ALTER TABLE ... ENABLE BATCH DELETE`) so SelectDB can apply the loaded delete markers.
 - Set `sink.enable-delete = true` in the job config.
 
 Without all three, CDC writes will either fail or silently drop deletes.
@@ -233,8 +233,8 @@ sink {
 ### CDC ingest from MySQL-CDC
 
 For CDC ingest, the downstream table must be on the Unique model with batch delete enabled.
-The connector will generate `INSERT` / `DELETE` statements based on the row kind; set
-`sink.enable-delete = true` to opt in.
+Set `sink.enable-delete = true` so the connector includes the `__DORIS_DELETE_SIGN__` field
+in loaded rows according to their row kind.
 
 ```hocon
 env {

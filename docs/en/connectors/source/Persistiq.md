@@ -42,7 +42,7 @@ Used to read data from Persistiq.
 | retry                       | int     | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int     | No       | 100           | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | int     | No       | 10000         | Maximum retry backoff in milliseconds. |
-| enable_multi_lines          | boolean | No       | false         | When `format = "text"`, allow the response body to contain multiple JSON objects separated by newlines. |
+| enable_multi_lines          | boolean | No       | false         | Whether to split the response into lines before parsing each line using the selected `format`. |
 | connect_timeout_ms          | int     | No       | 12000         | TCP connect timeout in milliseconds. |
 | socket_timeout_ms           | int     | No       | 60000         | Socket read timeout in milliseconds. |
 | json_filed_missed_return_null | boolean | No     | false         | Return `null` when a field configured in `json_field` is missing from the response. |
@@ -54,7 +54,7 @@ The Persistiq API endpoint. For example `https://api.persistiq.com/v1/users`.
 
 ### password [String]
 
-API key for login, you can get it at Persistiq website. Persistiq uses an API key instead of a traditional username/password pair; the connector attaches it as the Basic auth password (the username is left empty by Persistiq's convention).
+API key for login, you can get it at Persistiq website. The connector sends this API key in the `x-api-key` HTTP header.
 
 ### method [String]
 
@@ -278,8 +278,10 @@ source {
 
 ### Pagination
 
-`pageing` can be used when the Persistiq API needs paging parameters. Persistiq uses offset/limit paging
-on most endpoints, so the default `page_type = "PageNumber"` is usually enough.
+Configure `pageing` only when its page-number or cursor semantics match the target API endpoint.
+`PageNumber` increases the configured page field by one; it does not translate page numbers into row offsets
+or configure the API page size automatically. Supply the API's page-size parameter explicitly, and set
+`batch_size` to that same value when using response-row-count termination.
 
 | name | type | required | default value | description |
 |------|------|----------|---------------|-------------|
@@ -330,54 +332,13 @@ sink {
 }
 ```
 
-### Paginated read with `json_field`
-
-When the rows live directly under the response root but only a subset of fields is useful, use
-`json_field` to project JSONPath expressions onto output columns. This avoids declaring a heavy
-`content_field` schema and works well with paginated endpoints.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Persistiq {
-    url = "https://api.persistiq.com/v1/users"
-    password = "your-api-key"
-    format = "json"
-    pageing = {
-      total_page_size = 50
-      batch_size = 100
-      page_field = "page"
-      start_page_number = 1
-    }
-    json_field = {
-      id = "$.users[*].id"
-      name = "$.users[*].name"
-      email = "$.users[*].email"
-    }
-    schema = {
-      fields {
-        id = string
-        name = string
-        email = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {}
-}
-```
-
 ### Streaming poll against Persistiq
 
 Persistiq does not provide a streaming endpoint, but the connector can still run in `STREAMING` mode
 and poll the API on `poll_interval_millis`. Each poll runs the configured request once and emits the
-resulting rows; the checkpoint tracks offsets only by the rows consumed, not by upstream state.
+resulting rows. The reader does not persist API cursors or consumed-row offsets in checkpoints. Polling
+can emit the same API objects again, and a restarted job begins its requests again; use an idempotent
+downstream sink when repeated records are possible.
 
 ```hocon
 env {

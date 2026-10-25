@@ -31,7 +31,23 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Types;
+
 public class KingbaseTypeConverterTest {
+    @Test
+    public void testConvertUnsupportedVarcharSqlType() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("aaa")
+                        .dataType("aaa")
+                        .sqlType(Types.VARCHAR)
+                        .build();
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> KingbaseTypeConverter.INSTANCE.convert(typeDefine));
+    }
+
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =

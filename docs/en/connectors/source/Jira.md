@@ -37,7 +37,7 @@ The Jira source is a batch-only connector. It throws an error when the job runs 
 | email                       | String | Yes      | -             | Jira account email used for Basic authentication. |
 | api_token                   | String | Yes      | -             | Jira API token used for Basic authentication. |
 | method                      | String | No       | GET           | HTTP method. Supported values are `GET` and `POST`. |
-| headers                     | Map    | No       | -             | Extra HTTP request headers. Do not put the Jira `Authorization` header here unless you intentionally want to override the generated header. |
+| headers                     | Map    | No       | -             | Extra HTTP request headers. The connector replaces an `Authorization` entry with the Basic header generated from `email` and `api_token`. |
 | params                      | Map    | No       | -             | HTTP query parameters. |
 | body                        | String | No       | -             | HTTP request body, usually used with `POST`. |
 | format                      | String | No       | TEXT          | Response format. Use `json` when the response should be parsed by `schema`, `json_field`, or `content_field`. |
@@ -59,9 +59,8 @@ Create a Jira API token from your Atlassian account and set:
 - `email`: the Jira account email.
 - `api_token`: the Jira API token.
 
-The connector builds the Basic authentication header automatically. Do not also add an `Authorization`
-header in `headers` — the explicit one would override the generated Basic header and authentication would
-fail.
+The connector builds the Basic authentication header automatically from `email` and `api_token`. If
+`headers` also contains `Authorization`, the connector replaces that value with its generated Basic header.
 
 If your Jira site sits behind a proxy, place proxy-specific headers (e.g. `X-Atlassian-Token`)
 in `headers` instead of trying to override the Basic auth header.
@@ -101,13 +100,18 @@ Use `content_field` when the rows are inside a nested JSON node. Use `json_field
 | cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
 | use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
 
-The Jira REST search endpoint (`/rest/api/3/search`) supports both `startAt`/`maxResults` style paging and
-`nextPageToken`-style cursor paging. Pick whichever the target endpoint exposes — most cloud endpoints accept
-the older offset/limit paging, while newer endpoints only accept cursor paging.
+Jira Cloud enhanced search uses `/rest/api/3/search/jql` and `nextPageToken` cursor pagination.
+The removed `/rest/api/3/search` endpoint and its `startAt` pagination must not be used for Cloud.
+See the [Atlassian enhanced search reference](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/).
+For a self-hosted Jira deployment, use the endpoint and pagination contract documented for that version.
 
 ## Example
 
-### Read Jira issues via REST search
+### Read Jira Cloud issues with cursor pagination
+
+This GET example passes `jql`, `maxResults`, and subsequent `nextPageToken` values as query parameters.
+`keep_page_param_as_http_param = true` lets the reader add the cursor to the request parameters.
+The job reads each returned issue's `id` and `key`, and stops when no new cursor is returned.
 
 ```hocon
 env {
@@ -118,17 +122,26 @@ env {
 source {
   Jira {
     plugin_output = "jira"
-    url = "https://example.atlassian.net/rest/api/3/search"
+    url = "https://example.atlassian.net/rest/api/3/search/jql"
     email = "admin@example.com"
     api_token = "replace-with-token"
     method = "GET"
+    params = {
+      jql = "project = DEMO AND created >= -30d ORDER BY created ASC"
+      maxResults = "100"
+    }
+    keep_page_param_as_http_param = true
     format = "json"
+    content_field = "$.issues.*"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "nextPageToken"
+      cursor_response_field = "$.nextPageToken"
+    }
     schema = {
       fields {
-        expand = string
-        startAt = int
-        maxResults = int
-        total = string
+        id = string
+        key = string
       }
     }
   }
@@ -137,93 +150,6 @@ source {
 sink {
   Console {
     plugin_input = "jira"
-  }
-}
-```
-
-### Read a paginated Jira endpoint
-
-For endpoints that only support cursor-based paging (e.g. newer comment / sprint endpoints), switch
-`page_type` to `Cursor` and point `cursor_response_field` at the field that holds the next cursor token.
-The connector will keep paging until the cursor is missing from the response.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Jira {
-    plugin_output = "jira_paged"
-    url = "https://example.atlassian.net/rest/api/3/search"
-    email = "admin@example.com"
-    api_token = "replace-with-token"
-    method = "POST"
-    headers = {
-      "Content-Type" = "application/json"
-    }
-    body = "{\"jql\":\"project = DEMO AND created >= -30d\",\"maxResults\":100,\"fields\":[\"summary\",\"status\"]}"
-    format = "json"
-    content_field = "$.issues.*"
-    pageing = {
-      page_type = "Cursor"
-      cursor_field = "nextPageToken"
-      cursor_response_field = "$.nextPageToken"
-      batch_size = 100
-    }
-    schema = {
-      fields {
-        id = string
-        key = string
-        summary = string
-        status_name = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "jira_paged"
-  }
-}
-```
-
-### POST with JQL and `content_field`
-
-Jira's modern search endpoint accepts a JQL payload over `POST`. Use this when your query is large or
-contains characters that would need URL-encoding in `params`.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Jira {
-    plugin_output = "jira_jql"
-    url = "https://example.atlassian.net/rest/api/3/search"
-    email = "admin@example.com"
-    api_token = "replace-with-token"
-    method = "POST"
-    body = "{\"jql\":\"project = DEMO AND created >= -7d\"}"
-    format = "json"
-    content_field = "$.issues.*"
-    schema = {
-      fields {
-        id = string
-        key = string
-        summary = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "jira_jql"
   }
 }
 ```

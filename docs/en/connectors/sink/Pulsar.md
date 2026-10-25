@@ -37,6 +37,7 @@ The Pulsar sink writes SeaTunnel rows to Apache Pulsar topics. It can write to o
 | auth.params              | String | No       | -                   | Parameters for the authentication plugin. Configure it together with `auth.plugin-class`.                         |
 | format                   | String | No       | json                | Data format. The default format is json. Optional text and avro format.                                                                        |
 | field_delimiter          | String | No       | ,                   | Field delimiter used when `format = "text"`.                                                                     |
+| avro_row_nullable        | Boolean | No      | false               | Effective when `format = "avro"`. Set `true` when a ROW field (including a ROW nested in another ROW, an ARRAY or a MAP) may be `null`, so the ROW is written as a nullable Avro union instead of a bare record; the reader must enable the same option. See [Avro format](../formats/avro.md#avro_row_nullable). |
 | semantics                | Enum   | No       | AT_LEAST_ONCE       | Write consistency. Valid values: `NON`, `AT_LEAST_ONCE`, `EXACTLY_ONCE`.                                         |
 | transaction_timeout      | Int    | No       | 600                 | Pulsar transaction timeout in seconds. Used by `EXACTLY_ONCE`.                                                    |
 | pulsar.config            | Map    | No       | -                   | Extra producer properties passed to the Pulsar producer client.                                                   |
@@ -212,6 +213,70 @@ sink {
   }
 }
 ```
+
+### Write Text Messages With a Custom Delimiter
+
+Set `format = text` and configure `field_delimiter` to serialize each row into a delimited text payload. Useful when the downstream consumer expects a simple flat format.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "text_events"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = text
+    field_delimiter = "|"
+  }
+}
+```
+
+### Write Avro Messages
+
+Set `format = avro`. The connector derives the Avro schema from the upstream row type, so no sink-side `schema` option is required.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "test_avro_topic_fake_source"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = avro
+  }
+}
+```
+
+### Write With Pulsar Producer Properties
+
+Pass extra producer properties via `pulsar.config`. This is forwarded to the Pulsar producer client and can be used for tuning (timeouts, batching, compression, etc.).
+
+```hocon
+sink {
+  Pulsar {
+    topic = "topic_test"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = json
+    pulsar.config = {
+      sendTimeoutMs = 30000
+      batchingMaxMessages = 1000
+    }
+  }
+}
+```
+
+## FAQ
+
+### How does Pulsar sink achieve exactly-once vs at-least-once delivery?
+
+Configure the `semantics` option: `EXACTLY_ONCE` utilizes Pulsar transaction coordinators to commit messages alongside engine checkpoint barriers, whereas `AT_LEAST_ONCE` relies on producer acknowledgments for higher write throughput.
+
+### Can the Pulsar sink route data to multiple topics dynamically?
+
+Yes. In multi-table synchronization pipelines, omitting a fixed `topic` parameter allows SeaTunnel to dynamically route rows to corresponding Pulsar topics based on the table identifiers carried in each record.
+
+### What serialization formats are supported by Pulsar sink?
+
+The sink supports `json`, `text`, and `avro` serialization formats via the `format` option, enabling seamless integration with downstream systems and schema registries.
 
 ## Changelog
 

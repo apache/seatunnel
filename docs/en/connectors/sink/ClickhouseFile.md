@@ -19,6 +19,7 @@ should be `true`. Supports Batch and Streaming mode.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -135,17 +136,15 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 ClickhouseFile is a **bulk-load** sink. Each writer:
 
 1. Buffers incoming rows into a CSV file under `file_temp_path` on the local worker.
-2. Once the buffer hits the configured size or the checkpoint barrier arrives, the worker shells out to
+2. During `prepareCommit()`, when a checkpoint or the end of a batch job triggers commit preparation, the worker invokes
    `clickhouse-local` (located at `clickhouse_local_path`) to convert the CSV into ClickHouse's native
    storage format.
 3. The worker copies the converted file to the target shard node via `scp` or `rsync`, using either
    password-less SSH, `node_pass` credentials, or a key file at `key_path`.
-4. The shard node ingests the file through the `Distributed` table.
+4. The aggregate committer executes `ALTER TABLE ... ATTACH PART` on the shard's local table.
 
 Because the final ingest happens on the ClickHouse side via `clickhouse-local`, the connector does not
-participate in a distributed transaction and therefore cannot offer exactly-once. For end-to-end exactly-once
-on ClickHouse, use the JDBC sink with the ReplacingMergeTree engine and a primary-key dedupe strategy
-in the downstream table.
+participate in a distributed transaction and therefore cannot offer exactly-once. Choose a sink and target-table design whose documented delivery guarantees match your recovery requirements.
 
 ## Examples
 

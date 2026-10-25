@@ -37,7 +37,7 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 | email                       | String | 是       | -      | 用于 Basic 认证的 Jira 账号邮箱。 |
 | api_token                   | String | 是       | -      | 用于 Basic 认证的 Jira API Token。 |
 | method                      | String | 否       | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。 |
-| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。除非需要覆盖自动生成的 Jira 认证头，否则不要在这里配置 `Authorization`。 |
+| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。连接器会用 `email` 和 `api_token` 生成的 Basic 认证头覆盖其中的 `Authorization`。 |
 | params                      | Map    | 否       | -      | HTTP 查询参数。 |
 | body                        | String | 否       | -      | HTTP 请求体，通常和 `POST` 一起使用。 |
 | format                      | String | 否       | TEXT   | 返回内容格式。如果要用 `schema`、`json_field` 或 `content_field` 解析 JSON，请设置为 `json`。 |
@@ -59,8 +59,8 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 - `email`：Jira 账号邮箱。
 - `api_token`：Jira API Token。
 
-连接器会自动生成 Basic 认证请求头。请不要在 `headers` 中再单独添加 `Authorization`，否则会覆盖掉自动生成
-的认证头，导致认证失败。
+连接器根据 `email` 和 `api_token` 自动生成 Basic 认证请求头。如果 `headers` 中也配置了 `Authorization`，
+该值会被连接器生成的 Basic 认证头覆盖。
 
 如果 Jira 站点部署在反向代理之后，请把代理相关的请求头（如 `X-Atlassian-Token`）放到 `headers` 中，不要
 尝试覆盖 Basic 认证头。
@@ -100,13 +100,18 @@ schema = {
 | cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
 | use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
 
-Jira REST 搜索接口（`/rest/api/3/search`）既支持 `startAt` / `maxResults` 这种偏移量分页，也支持基于
-`nextPageToken` 的游标分页。请根据目标端点实际支持的形式选择 —— 大多数云端接口仍然接受旧的偏移量分页，
-而较新的接口只接受游标分页。
+Jira Cloud 增强搜索使用 `/rest/api/3/search/jql`，并通过 `nextPageToken` 进行游标分页。
+Cloud 已移除 `/rest/api/3/search` 及其 `startAt` 分页用法，不能继续使用。
+详见 [Atlassian 增强搜索文档](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/)。
+自建 Jira 应使用该部署版本文档规定的端点和分页契约。
 
 ## 示例
 
-### 通过 REST 搜索接口读取 Jira Issues
+### 使用游标分页读取 Jira Cloud Issues
+
+此 GET 示例把 `jql`、`maxResults` 和后续 `nextPageToken` 值作为查询参数发送。
+`keep_page_param_as_http_param = true` 使读取器把游标加入请求参数。
+任务读取每个 Issue 的 `id` 和 `key`，在响应中不再返回新游标时结束。
 
 ```hocon
 env {
@@ -117,17 +122,26 @@ env {
 source {
   Jira {
     plugin_output = "jira"
-    url = "https://example.atlassian.net/rest/api/3/search"
+    url = "https://example.atlassian.net/rest/api/3/search/jql"
     email = "admin@example.com"
     api_token = "replace-with-token"
     method = "GET"
+    params = {
+      jql = "project = DEMO AND created >= -30d ORDER BY created ASC"
+      maxResults = "100"
+    }
+    keep_page_param_as_http_param = true
     format = "json"
+    content_field = "$.issues.*"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "nextPageToken"
+      cursor_response_field = "$.nextPageToken"
+    }
     schema = {
       fields {
-        expand = string
-        startAt = int
-        maxResults = int
-        total = string
+        id = string
+        key = string
       }
     }
   }
@@ -136,92 +150,6 @@ source {
 sink {
   Console {
     plugin_input = "jira"
-  }
-}
-```
-
-### 读取支持游标分页的 Jira 端点
-
-对于只支持游标分页的接口（例如较新的 comment、sprint 接口），把 `page_type` 切换为 `Cursor`，并把
-`cursor_response_field` 指向响应中返回下一页游标的字段。连接器会一直翻页，直到响应里找不到游标为止。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Jira {
-    plugin_output = "jira_paged"
-    url = "https://example.atlassian.net/rest/api/3/search"
-    email = "admin@example.com"
-    api_token = "replace-with-token"
-    method = "POST"
-    headers = {
-      "Content-Type" = "application/json"
-    }
-    body = "{\"jql\":\"project = DEMO AND created >= -30d\",\"maxResults\":100,\"fields\":[\"summary\",\"status\"]}"
-    format = "json"
-    content_field = "$.issues.*"
-    pageing = {
-      page_type = "Cursor"
-      cursor_field = "nextPageToken"
-      cursor_response_field = "$.nextPageToken"
-      batch_size = 100
-    }
-    schema = {
-      fields {
-        id = string
-        key = string
-        summary = string
-        status_name = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "jira_paged"
-  }
-}
-```
-
-### 通过 JQL + `content_field` 发起 POST 请求
-
-Jira 较新的搜索接口接受 JSON 形式的 JQL，请用 `POST` 提交。当 JQL 较长或包含需要 URL 编码的字符时，这种方式
-比把它们拼到 `params` 里更可靠。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Jira {
-    plugin_output = "jira_jql"
-    url = "https://example.atlassian.net/rest/api/3/search"
-    email = "admin@example.com"
-    api_token = "replace-with-token"
-    method = "POST"
-    body = "{\"jql\":\"project = DEMO AND created >= -7d\"}"
-    format = "json"
-    content_field = "$.issues.*"
-    schema = {
-      fields {
-        id = string
-        key = string
-        summary = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "jira_jql"
   }
 }
 ```

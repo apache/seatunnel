@@ -40,13 +40,13 @@ SelectDB Cloud 接收器连接器的内部实现是在批量缓存后上传数�
 | jdbc-url           | String | 是       | -                      | `SelectDB Cloud` 仓库的 JDBC 地址，格式为 `warehouse_ip:mysql_port`，用于元数据查询（如表结构发现）。                                                                                                                                                                                                                                                |
 | cluster-name       | String | 是       | -                      | `SelectDB Cloud` 集群名称。                                                                                                                                                                                                                                                                                                                  |
 | username           | String | 是       | -                      | `SelectDB Cloud` 用户名。                                                                                                                                                                                                                                                                                                                    |
-| password           | String | 是       | -                      | `SelectDB Cloud` 用户密码。                                                                                                                                                                                                                                                                                                                  |
+| password           | String | 否 | -                      | `SelectDB Cloud` 用户密码。                                                                                                                                                                                                                                                                                                                  |
 | table.identifier   | String | 是       | -                      | `SelectDB Cloud` 表的名称，格式为 `database.table`。表必须已经存在并且列定义兼容，连接器不会自动建表。                                                                                                                                                                                                                                          |
 | selectdb.config    | Map    | 是       | -                      | 透传给 `Copy Into` 语句的 stream-load 参数，至少需要设置 `file.type`（`json` 或 `csv`）。常用的还有 `file.column_separator`、`file.line_delimiter`、`file.strip_outer_array`、`max_filter_ratio` 等。在 HOCON 中每个键都需要带 `selectdb.config.` 前缀。                                                |
 | sink.enable-2pc    | bool   | 否       | true                   | 是否启用两阶段提交（2pc），默认为 `true` 以保证 Exactly-Once 语义。SelectDB 使用缓存文件加载数据，当数据量较大时缓存可能失效（默认过期时间 1 小时）。如果遇到大量数据写入丢失，请把 `sink.enable-2pc` 配置为 `false` 并接受 At-Least-Once 语义。                                                                  |
 | sink.enable-delete | bool   | 否       | false                  | 是否启用删除功能。该选项要求 `SelectDB Cloud` 表启用批量删除功能，并且仅支持 Unique 模型。                                                                                                                                                                                                                                                  |
 | sink.max-retries   | int    | 否       | 3                      | 写入数据库失败时的最大重试次数。                                                                                                                                                                                                                                                                                                            |
-| sink.buffer-size   | int    | 否       | 10 * 1024 * 1024 (1MB) | 用于流式加载的数据缓存缓冲区大小（字节）。调大可以减少请求次数，但每个 writer 占用的内存也会增加。                                                                                                                                                                                                                                          |
+| sink.buffer-size   | int    | 否       | 10 * 1024 * 1024 (10MB) | 用于流式加载的数据缓存缓冲区大小（字节）。调大可以减少请求次数，但每个 writer 占用的内存也会增加。                                                                                                                                                                                                                                          |
 | sink.buffer-count  | int    | 否       | 10000                  | 用于流式加载的数据缓存缓冲区行数。调大可以减少请求次数，但每个 writer 占用的内存也会增加。                                                                                                                                                                                                                                              |
 | sink.label-prefix  | String | 否       | 随机 UUID              | 每个 stream-load 事务的唯一标签前缀。在需要确定性标签做回放或审计时使用，默认的 UUID 已经是每个 writer 唯一的，除非有明确需求否则不需要修改。                                                                                                                                                                                  |
 | sink.flush.queue-size | int  | 否       | 1                      | 异步上传线程把缓存数据上传到对象存储时的队列长度。当 SeaTunnel worker 与 SelectDB 之间的网络较慢时调大该值。                                                                                                                                                                                                                          |
@@ -87,11 +87,12 @@ SelectDB Cloud 接收器连接器的内部实现是在批量缓存后上传数�
 
 ## CDC 行为说明
 
-上游为 CDC 源（MySQL-CDC、PostgreSQL-CDC 等）时，SelectDB Cloud 接收器会根据行类型自动生成 `INSERT` /
-`DELETE` 语句。要让 CDC 写入正常工作，下游表必须满足：
+上游为 CDC 源（MySQL-CDC、PostgreSQL-CDC 等）时，SelectDB Cloud 接收器会在导入行中增加
+`__DORIS_DELETE_SIGN__` 字段：`INSERT` / `UPDATE_AFTER` 为 `0`，`DELETE` / `UPDATE_BEFORE` 为 `1`。
+连接器不会逐行生成 SQL。要应用这些变更，下游表必须满足：
 
 - 使用 **Unique** 模型，保证主键重复时能被去重。
-- 启用 **批量删除**（`ALTER TABLE ... ENABLE BATCH DELETE`），让连接器能下发 `DELETE`。
+- 启用 **批量删除**（`ALTER TABLE ... ENABLE BATCH DELETE`），使 SelectDB 能应用导入行中的删除标记。
 - 在作业配置中把 `sink.enable-delete` 设置为 `true`。
 
 上述条件缺一不可，否则 CDC 写入会失败或者静默丢弃删除。
@@ -230,8 +231,8 @@ sink {
 
 ### 从 MySQL-CDC 接入
 
-CDC 接入要求下游表使用 Unique 模型并启用批量删除。连接器会根据行类型生成 `INSERT` / `DELETE` 语句，
-通过 `sink.enable-delete = true` 启用。
+CDC 接入要求下游表使用 Unique 模型并启用批量删除。通过 `sink.enable-delete = true`，让连接器根据行类型
+在导入行中添加 `__DORIS_DELETE_SIGN__` 删除标记。
 
 ```hocon
 env {

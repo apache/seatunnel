@@ -66,12 +66,13 @@ PostgreSQL 略有差异。下表中的每一个选项都和 PostgreSQL/JDBC 源�
 | password | String | 是 | - | 数据库密码。生产环境请使用密钥管理或环境变量注入，不要把明文密码写入作业配置。 |
 | query | String | 条件必填 | - | 驱动读取的 SELECT 语句。在不使用 `table_path` 或 `table_list` 时必须填写。 |
 | table_path | String | 条件必填 | - | 要读取的 `schema.table`。在不使用 `query` 时必须填写。 |
-| table_list | List | 否 | - | 一次读取多张表，每一项是 `{ table_path = "schema.table" }`。设置后并行度会在表之间拆分。 |
-| split.size | Int | 否 | 8096 | 每个拆分的目标行数。仅在设置了 `partition_column` 时生效。 |
-| split.even_partition_num | Boolean | 否 | false | 是否强制让分区数平均；否则交给优化器自行决定。 |
-| split.sample_shard_threshold | Int | 否 | 1000 | 计算分区数时用于采样的行数阈值。 |
-| split.inverse_parallelism | Int | 否 | 1 | 拆分数与并行度的换算系数，数值越大拆分越细。 |
-| partition_column | String | 否 | - | 用于分区的数值列，建议为单调递增或唯一列（如 `id`、`created_at`）。 |
+| table_list | List | 否 | - | 一次读取多张表，每一项包含 `table_path`；生成的分片会分配给读取器。 |
+| split.size | Int | 否 | 8096 | 动态切分规划器使用的每个分片目标行数。 |
+| split.even-distribution.factor.lower-bound | Double | 否 | 0.05 | 用于选择均匀切分策略的数据分布因子下界。 |
+| split.even-distribution.factor.upper-bound | Double | 否 | 100.0 | 用于选择均匀切分策略的数据分布因子上界。 |
+| split.sample-sharding.threshold | Int | 否 | 1000 | 数据分布不均匀时，触发采样切分策略的预估分片数阈值。 |
+| split.inverse-sampling.rate | Int | 否 | 1000 | 采样率的分母；`1000` 表示采样率为 `1/1000`。 |
+| partition_column | String | 否 | - | 旧版分区切分使用的列；支持的类型和切分键选择规则见 JDBC 源文档。 |
 | partition_upper_bound | Long | 否 | - | 分区列的上界。已知范围时显式设置，可避免耗时的 `MAX()` 探测。 |
 | partition_lower_bound | Long | 否 | - | 分区列的下界。已知范围时显式设置，可避免耗时的 `MIN()` 探测。 |
 | fetch_size | Int | 否 | 0 | JDBC fetch size，`0` 表示由驱动决定。大字段或宽表场景下适当调大。 |
@@ -79,16 +80,10 @@ PostgreSQL 略有差异。下表中的每一个选项都和 PostgreSQL/JDBC 源�
 
 ## 并行读取
 
-Cloudberry 沿用 JDBC 源的 PostgreSQL 并行读取策略：
+Cloudberry 使用 JDBC 源的切分规划器。切分键、查询/表配置以及 `enable_concurrent_read` 决定一张表
+是否可以切分。枚举器根据分片 ID 把生成的分片分配给读取器；`table_list` 不保证每个读取器只负责一张表。
 
-- **未设置分区列** —— 连接器在单个 SubTask 上执行 `query`。适合查询本身已经聚合或数据量较小的场景。
-- **数值型 `partition_column`** —— 连接器探测 `MIN()` / `MAX()`（如果显式设置了
-  `partition_lower_bound` / `partition_upper_bound` 则直接使用），然后把每个拆分包装成
-  `WHERE partition_column BETWEEN ? AND ?` 子查询并行执行。这是大事实表的典型模式。
-- **`table_list`** —— 当并行度 ≥ 表数量时，每个 SubTask 负责一张表；否则按上述分区策略继续拆分每张表。
-
-完整的拆分策略说明和边界场景（例如非数值分区列、并行 `UPDATE` 快照）请参考
-[PostgreSQL 源连接器文档](../source/PostgreSQL.md)。
+切分策略和配置要求请参考 [JDBC 源连接器文档](../source/Jdbc.md#并行读取)。
 
 ## 注意事项
 
@@ -96,10 +91,9 @@ Cloudberry 沿用 JDBC 源的 PostgreSQL 并行读取策略：
 - Cloudberry 使用 PostgreSQL JDBC 驱动和兼容实现，请配置 `driver = "org.postgresql.Driver"`。
 - URL 使用 PostgreSQL 风格，例如 `jdbc:postgresql://host:5432/database`。
 - 不要把真实数据库密码写进共享示例、日志或截图。
-- Cloudberry 暂未提供 CDC 接入能力。如需变更数据捕获，请使用对应上游数据库的专用 CDC 源，或在数据库侧建立
-  逻辑复制槽并通过 JDBC 源消费。
+- JDBC 源执行有界读取，不会定期轮询查询或消费逻辑复制槽。持续变更捕获应使用明确支持对应上游数据库的 CDC 连接器。
 - 对超大规模的并行扫描，建议显式设置 `partition_lower_bound` / `partition_upper_bound` 而不是让连接器
-  执行 `MIN()` / `MAX()`。探测查询往往是作业启动最慢的环节。
+  执行 `MIN()` / `MAX()`。探测成本取决于表数据和索引。
 
 ## 任务示例
 
@@ -184,16 +178,14 @@ sink {
 }
 ```
 
-### 基于查询的流式拉取（单 SubTask）
+### 通过查询过滤进行有界读取
 
-持续接入（例如轮询 `WHERE updated_at > now() - interval '5 minutes'`）时，把 `parallelism` 设为 1，
-由数据库侧过滤即可。查询必须保证幂等并显式 `ORDER BY` 一个稳定的列。
+该过滤条件只限制本次批任务的结果集。任务执行一次有界读取，不会重复运行查询，也不会保存供下次任务使用的增量水位。
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 30000
+  job.mode = "BATCH"
 }
 
 source {
