@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergDropDataStrategy;
 
+import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.PartitionSpec;
@@ -30,6 +31,7 @@ import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.types.Types;
 
@@ -51,15 +53,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
-/** Verifies destructive metadata reset preserves table structure and selected branch identity. */
+/**
+ * Verifies destructive metadata reset preserves table structure and selected branch identity.
+ *
+ * <p>In-memory metadata assertions cover catalog state; physical orphan deletion remains separate.
+ */
 class IcebergCatalogMetadataResetTest {
 
     private static final TablePath TABLE_PATH = TablePath.of("database.table");
 
     @Test
     void shouldResetMetadataWhenTruncatingTable() throws Exception {
-        org.apache.iceberg.catalog.Catalog icebergNativeCatalog =
-                mock(org.apache.iceberg.catalog.Catalog.class);
+        Catalog icebergNativeCatalog = mock(Catalog.class);
         Table table = mock(Table.class, withSettings().extraInterfaces(HasTableOperations.class));
         TableOperations operations = mock(TableOperations.class);
         TableMetadata base = tableMetadataWithMainBranch();
@@ -90,8 +95,7 @@ class IcebergCatalogMetadataResetTest {
 
     @Test
     void shouldResetAllRefsAndRecreateCommitBranchWhenConfigured() throws Exception {
-        org.apache.iceberg.catalog.Catalog icebergNativeCatalog =
-                mock(org.apache.iceberg.catalog.Catalog.class);
+        Catalog icebergNativeCatalog = mock(Catalog.class);
         Table table = mock(Table.class, withSettings().extraInterfaces(HasTableOperations.class));
         Table resetTable = mock(Table.class);
         ManageSnapshots manageSnapshots = mock(ManageSnapshots.class);
@@ -122,10 +126,9 @@ class IcebergCatalogMetadataResetTest {
 
     @Test
     void shouldDeleteFromConfiguredBranchWhenUsingDeleteCommitStrategy() throws Exception {
-        org.apache.iceberg.catalog.Catalog icebergNativeCatalog =
-                mock(org.apache.iceberg.catalog.Catalog.class);
+        Catalog icebergNativeCatalog = mock(Catalog.class);
         Table table = mock(Table.class);
-        org.apache.iceberg.DeleteFiles deleteFiles = mock(org.apache.iceberg.DeleteFiles.class);
+        DeleteFiles deleteFiles = mock(DeleteFiles.class);
         TableIdentifier tableIdentifier = TableIdentifier.of("database", "table");
 
         when(icebergNativeCatalog.tableExists(tableIdentifier)).thenReturn(true);
@@ -142,8 +145,7 @@ class IcebergCatalogMetadataResetTest {
         verify(deleteFiles).commit();
     }
 
-    private static IcebergCatalog icebergCatalogWith(
-            org.apache.iceberg.catalog.Catalog nativeCatalog) throws Exception {
+    private static IcebergCatalog icebergCatalogWith(Catalog nativeCatalog) throws Exception {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("catalog_name", "catalog");
         configMap.put("iceberg.catalog.config", Collections.singletonMap("type", "hadoop"));

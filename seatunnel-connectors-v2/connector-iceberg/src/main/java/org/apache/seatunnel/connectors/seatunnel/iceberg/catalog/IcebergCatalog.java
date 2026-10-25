@@ -412,8 +412,7 @@ public class IcebergCatalog implements Catalog {
         if (StringUtils.isNotBlank(commitBranch)) {
             delete.toBranch(commitBranch);
         }
-        delete.deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue())
-                .commit();
+        delete.deleteFromRowFilter(Expressions.alwaysTrue()).commit();
         log.info(
                 "Truncated Iceberg table {} using DELETE_COMMIT on branch {}.",
                 tablePath,
