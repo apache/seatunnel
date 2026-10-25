@@ -139,7 +139,7 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
      * Table patterns are regular expressions and must not be case-folded here.
      */
     static ReadonlyConfig normalizeDb2Options(ReadonlyConfig options) {
-        Map<String, Object> normalized = new LinkedHashMap<>(options.getConfData());
+        Map<String, Object> normalized = new LinkedHashMap<>(options.getSourceMap());
         options.getOptional(ConnectorCommonOptions.TABLE_NAMES)
                 .ifPresent(
                         names ->
@@ -164,7 +164,7 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
     }
 
     /**
-     * Preserves Apache's custom primary keys and split-column override while folding table names.
+     * Preserves user-configured primary keys and split-column override while folding table names.
      */
     private static Map<String, Object> normalizeTableConfig(JdbcSourceTableConfig config) {
         Map<String, Object> normalized = new LinkedHashMap<>();

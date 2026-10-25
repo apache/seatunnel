@@ -105,13 +105,17 @@ public class TableDiscoveryUtils {
     }
 
     /**
-     * Folds unquoted configuration names before both catalog lookup and Debezium filtering.
-     * Captured metadata and the existing quoted-name path retain their case-sensitive spelling.
+     * Folds unquoted schema/table names before catalog lookup and Debezium filtering. The database
+     * is part of the SeaTunnel table identity and retains its configured spelling. Captured
+     * metadata and the existing quoted-name path retain their case-sensitive spelling.
      */
     public static String normalizeConfiguredTableName(String configuredTable) {
-        return configuredTable.contains("\"")
-                ? configuredTable
-                : configuredTable.toUpperCase(Locale.ROOT);
+        if (configuredTable.contains("\"")) {
+            return configuredTable;
+        }
+        int databaseEnd = configuredTable.indexOf('.') + 1;
+        return configuredTable.substring(0, databaseEnd)
+                + configuredTable.substring(databaseEnd).toUpperCase(Locale.ROOT);
     }
 
     /**

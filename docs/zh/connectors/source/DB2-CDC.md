@@ -197,14 +197,11 @@ source {
 
 活动 Capture 注册在 `CD_NEW_SYNCHPOINT` 推进后继续读取增量。
 `CD_OLD_SYNCHPOINT` 表示可读取的起点，不表示停止位点。
-`table-names` 和 `table-names-config.table` 中不带引号的名称会在 catalog 查询与
-Capture 过滤前转为大写；`table-pattern` 正则表达式保持原样。
+`table-names` 和 `table-names-config.table` 中不带引号的 schema 和表名会在 catalog 查询与
+Capture 过滤前转为大写；数据库名保留配置中的拼写，`table-pattern` 正则表达式保持原样。
 
 保存点恢复应保留 DB2 两段表标识中的 schema。恢复后的任务可以追平停机期间的变化，
 并发现新配置且已启用 Capture 的表。既有配置项、offset 和 checkpoint 序列化格式保持不变。
-
-DB2 容器回归测试使用 synthetic ASNCDC 控制表，不能替代真实 IBM ASN Capture 服务验证，
-也不覆盖其 DDL-history 回放。
 
 ## 变更日志
 

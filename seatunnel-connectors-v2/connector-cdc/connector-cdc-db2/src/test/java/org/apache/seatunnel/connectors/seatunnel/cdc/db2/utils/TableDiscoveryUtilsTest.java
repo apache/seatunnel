@@ -70,6 +70,12 @@ class TableDiscoveryUtilsTest {
     @Test
     void shouldFoldConfiguredUnquotedNamesAndKeepCapturedCase() {
         Assertions.assertEquals(
+                "e2e.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.normalizeConfiguredTableName("e2e.db2inst1.customers"));
+        Assertions.assertEquals(
+                "testdb.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.normalizeConfiguredTableName("testdb.DB2INST1.CUSTOMERS"));
+        Assertions.assertEquals(
                 new TableId("", "DB2INST1", "CUSTOMERS"),
                 TableDiscoveryUtils.toConfiguredDb2TableId("e2e.db2inst1.customers"));
         Assertions.assertEquals(

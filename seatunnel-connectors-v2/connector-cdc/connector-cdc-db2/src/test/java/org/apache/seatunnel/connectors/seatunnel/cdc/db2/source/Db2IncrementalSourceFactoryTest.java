@@ -56,7 +56,7 @@ class Db2IncrementalSourceFactoryTest {
     }
 
     @Test
-    void shouldNormalizeNamesWithoutLosingSplitOverrides() {
+    void shouldNormalizeSchemaAndTableWithoutChangingDatabaseOrSplitOverrides() {
         Map<String, Object> tableConfig = new HashMap<>();
         tableConfig.put("table", "e2e.db2inst1.customers");
         tableConfig.put("primaryKeys", Collections.singletonList("ID"));
@@ -64,7 +64,8 @@ class Db2IncrementalSourceFactoryTest {
         Map<String, Object> raw = new HashMap<>();
         raw.put("table-names", Collections.singletonList("e2e.db2inst1.customers"));
         raw.put("table-names-config", Collections.singletonList(tableConfig));
-        raw.put("base-url", "jdbc:db2://localhost:50000/E2E");
+        raw.put("database-names", Collections.singletonList("e2e"));
+        raw.put("base-url", "jdbc:db2://localhost:50000/e2e");
         raw.put("exactly_once", true);
         raw.put("enable_concurrent_read", false);
         ReadonlyConfig original = ReadonlyConfig.fromMap(raw);
@@ -74,13 +75,20 @@ class Db2IncrementalSourceFactoryTest {
                 normalized.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0);
 
         Assertions.assertEquals(
-                Collections.singletonList("E2E.DB2INST1.CUSTOMERS"),
+                Collections.singletonList("e2e.DB2INST1.CUSTOMERS"),
                 normalized.get(ConnectorCommonOptions.TABLE_NAMES));
-        Assertions.assertEquals("E2E.DB2INST1.CUSTOMERS", table.getTable());
+        Assertions.assertEquals("e2e.DB2INST1.CUSTOMERS", table.getTable());
+        TablePath tablePath = TablePath.of(table.getTable(), true);
+        Assertions.assertEquals("e2e", tablePath.getDatabaseName());
+        Assertions.assertEquals("DB2INST1", tablePath.getSchemaName());
+        Assertions.assertEquals("CUSTOMERS", tablePath.getTableName());
+        Assertions.assertEquals(
+                Collections.singletonList("e2e"),
+                normalized.get(Db2IncrementalSourceOptions.DATABASE_NAMES));
         Assertions.assertEquals(Collections.singletonList("ID"), table.getPrimaryKeys());
         Assertions.assertEquals("ID", table.getSnapshotSplitColumn());
         Assertions.assertEquals(
-                "jdbc:db2://localhost:50000/E2E", normalized.get(Db2IncrementalSourceOptions.URL));
+                "jdbc:db2://localhost:50000/e2e", normalized.get(Db2IncrementalSourceOptions.URL));
         Assertions.assertTrue(normalized.get(Db2IncrementalSourceOptions.EXACTLY_ONCE));
         Assertions.assertEquals(
                 Collections.singletonList("e2e.db2inst1.customers"),
@@ -118,7 +126,7 @@ class Db2IncrementalSourceFactoryTest {
         Db2SourceConfigFactory factory = new Db2SourceConfigFactory();
         factory.fromReadonlyConfig(
                 Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw)));
-        factory.hostname("localhost").port(50000).databaseList("E2E");
+        factory.hostname("localhost").port(50000).databaseList("e2e");
         Db2SourceConfig config = factory.create(0);
 
         Assertions.assertTrue(
