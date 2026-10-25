@@ -56,9 +56,12 @@ import ChangeLog from '../changelog/connector-doris.md';
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` 和 `IPV6` 以文本形式读取，例如 `192.168.0.1`、`2001:db8::1`。只有当 Doris 版本在 `information_schema.columns` 中正确报告这两种类型时才能识别（已在 Doris 4.0.6 上验证；Doris 2.1.0 会把这类列报告为 `unknown`）。
 
 ## 源选项
 
@@ -76,7 +79,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。该键名是连接器源码中实际的运行时选项 key（源代码存在已知拼写问题）；调优队列大小时请使用此精确 key。 |
+| doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 
 表清单配置:

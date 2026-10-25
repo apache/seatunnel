@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md) 
   > IoTDB 通过 SQL 查询支持列投影功能。
@@ -114,7 +114,7 @@ SeaTunnel 行结构定义，描述查询结果中每一列对应的 SeaTunnel �
 
 ### upper_bound [Long]
 
-时间范围上界（不包含），单位为毫秒时间戳。需要和 `lower_bound`、`num_partitions` 一起配置。
+用于计算 Source 分片的时间上界，单位为毫秒时间戳。此值并不是各分片 SQL 条件中的排他结束值；例如下方配置使用 `upper_bound = 10`，生成的最后一个条件以 `time < 11` 结束。需要和 `lower_bound`、`num_partitions` 一起配置。
 
 ### num_partitions [Integer]
 
@@ -123,7 +123,7 @@ SeaTunnel 行结构定义，描述查询结果中每一列对应的 SeaTunnel �
 具体行为：
 
 - 当 `num_partitions = 1` 时，整个时间范围会作为一个分区使用。
-- 当 `num_partitions < (upper_bound - lower_bound)` 时，连接器会使用 `(upper_bound - lower_bound)` 作为实际分区数。
+- 当 `(upper_bound - lower_bound) < num_partitions` 时，连接器会将实际分区数限制为 `(upper_bound - lower_bound)`。
 
 例如 `lower_bound = 1`，`upper_bound = 10`，`num_partitions = 2`，`sql = "select * from test where age > 0 and age < 10"`，连接器会改写为：
 
@@ -206,7 +206,7 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 |---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
-| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 1.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
 
 ### 示例 2：读取 IoTDB 表模型数据
 

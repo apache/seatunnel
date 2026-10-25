@@ -26,6 +26,7 @@ const sidebars = {
             "items": [
                 "introduction/about",
                 "introduction/how-it-works",
+                "introduction/rag-data-processing",
                 {
                     "type": "category",
                     "label": "Concepts",
@@ -74,6 +75,30 @@ const sidebars = {
                         "getting-started/kubernetes/configuration",
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/cli",
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/commands",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
                     ]
                 }
             ]
@@ -168,6 +193,7 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/mysql-to-hdfs",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
@@ -210,6 +236,7 @@ const sidebars = {
                 "transforms/jsonpath",
                 "transforms/llm",
                 "transforms/metadata",
+                "transforms/python",
                 "transforms/regexextract",
                 "transforms/replace",
                 "transforms/rowkind-extractor",
@@ -384,7 +411,8 @@ const sidebars = {
                 "tools/overview",
                 "tools/seatunnel-skill",
                 "tools/seatunnel-mcp",
-                "tools/x2seatunnel"
+                "tools/x2seatunnel",
+                "tools/dolphinscheduler-integration"
             ]
         },
         {
@@ -403,6 +431,7 @@ const sidebars = {
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
                 "developer/contribute-transform-v2-guide",
+                "developer/contribute-performance-guide",
                 "developer/docs-format-specification",
                 "developer/new-license"
             ]

@@ -56,9 +56,12 @@ Used to read data from Apache Doris.
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` and `IPV6` are read as their text form, for example `192.168.0.1` and `2001:db8::1`. They are recognized only when the Doris version reports them in `information_schema.columns` (verified on Doris 4.0.6; Doris 2.1.0 reports these columns as `unknown`).
 
 ## Source Options
 
@@ -76,7 +79,7 @@ Base configuration:
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization. The key name is the literal runtime option key (it is a known typo in the connector source); use this exact key when tuning the queue size. |
+| doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
 Table list configuration:

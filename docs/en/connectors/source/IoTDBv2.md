@@ -21,7 +21,7 @@ For the tree model the connector relies on the IoTDB `align by device` clause (t
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
     > IoTDB allows column projection using SQL query.
@@ -114,7 +114,7 @@ The lower bound (inclusive) of the time range used for source partition splittin
 
 ### upper_bound [Long]
 
-The upper bound (exclusive) of the time range used for source partition splitting, expressed as a millisecond timestamp. Must be used together with `lower_bound` and `num_partitions`.
+The upper time boundary used to calculate source splits, expressed as a millisecond timestamp. This value is not the exclusive end of each generated SQL predicate; for example, the configuration below uses `upper_bound = 10` and produces a final predicate ending at `time < 11`. Must be used together with `lower_bound` and `num_partitions`.
 
 ### num_partitions [Integer]
 
@@ -123,7 +123,7 @@ The number of partitions the source splits the time range into. Must be used tog
 The split behavior is:
 
 - When `num_partitions = 1`, the entire time range is used as a single partition.
-- When `num_partitions < (upper_bound - lower_bound)`, the connector uses `(upper_bound - lower_bound)` as the actual number of partitions.
+- When `(upper_bound - lower_bound) < num_partitions`, the connector caps the actual number of partitions at `(upper_bound - lower_bound)`.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, `num_partitions = 2`, and `sql = "select * from test where age > 0 and age < 10"`, the connector rewrites the SQL into:
 
@@ -206,7 +206,7 @@ The data format loaded to SeaTunnelRow is as follows:
 |---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
-| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 1.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
 
 ### Example 2: Read data from IoTDB-table
 

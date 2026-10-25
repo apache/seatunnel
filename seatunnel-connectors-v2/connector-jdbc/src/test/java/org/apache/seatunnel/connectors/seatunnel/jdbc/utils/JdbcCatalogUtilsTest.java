@@ -56,6 +56,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 public class JdbcCatalogUtilsTest {
+
     private static final CatalogTable DEFAULT_TABLE =
             CatalogTable.of(
                     TableIdentifier.of("mysql-1", "database-x", null, "table-x"),

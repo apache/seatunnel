@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, reading tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -64,12 +64,18 @@ libfb303-xxx.jar
 | DATE              | DATE                |
 | TIME              | TIME                |
 | TIMESTAMP         | TIMESTAMP           |
+| TIMESTAMPTZ       | TIMESTAMP_TZ        |
+| TIMESTAMP_NS      | TIMESTAMP, scale 9  |
+| TIMESTAMPTZ_NS    | TIMESTAMP_TZ, scale 9 |
+| UNKNOWN           | NULL                |
 | STRING            | STRING              |
 | FIXED<br/>BINARY  | BYTES               |
 | DECIMAL           | DECIMAL             |
 | STRUCT            | ROW                 |
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
+
+`TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` only exist in format version 3 tables. Nanosecond timestamps keep their nanoseconds and are reported with column scale 9. `VARIANT`, `GEOMETRY` and `GEOGRAPHY` columns are not supported yet and fail the job; leave them out with the `query` option, for example `select id, ts from table`. Rows removed by deletion vectors are not returned. Row lineage fields (`_row_id`, `_last_updated_sequence_number`) are not read.
 
 ## Source Options
 

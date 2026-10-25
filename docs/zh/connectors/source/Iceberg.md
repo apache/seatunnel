@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## 支持 Iceberg 版本
 
-- 1.6.1
+- 1.10.2，支持读取表格式版本（format version）1、2 和 3 的表
 
 ## 支持这些引擎
 
@@ -64,12 +64,18 @@ libfb303-xxx.jar
 | DATE              | DATE                |
 | TIME              | TIME                |
 | TIMESTAMP         | TIMESTAMP           |
+| TIMESTAMPTZ       | TIMESTAMP_TZ        |
+| TIMESTAMP_NS      | TIMESTAMP，scale 9  |
+| TIMESTAMPTZ_NS    | TIMESTAMP_TZ，scale 9 |
+| UNKNOWN           | NULL                |
 | STRING            | STRING              |
 | FIXED<br/>BINARY  | BYTES               |
 | DECIMAL           | DECIMAL             |
 | STRUCT            | ROW                 |
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
+
+`TIMESTAMP_NS`、`TIMESTAMPTZ_NS` 和 `UNKNOWN` 仅存在于格式版本 3 的表中。纳秒时间戳保留纳秒精度，并以列精度（scale）9 表示。暂不支持 `VARIANT`、`GEOMETRY` 和 `GEOGRAPHY` 列，读取时作业会失败；可通过 `query` 选项排除这些列，例如 `select id, ts from table`。被 deletion vector 删除的行不会被读取。不会读取行血缘（row lineage）字段（`_row_id`、`_last_updated_sequence_number`）。
 
 ## 源选项
 
@@ -217,7 +223,7 @@ source {
 
 ### Kerberos 认证
 
-以下示例展示在使用 Hadoop Catalog 并访问 HDFS 时如何配置 Iceberg Source 的 Kerberos 认证。该环境下需要同时配置这三个 Kerberos 选项。
+以下示例展示在使用 Hadoop Catalog 并访问 HDFS 时如何配置 Iceberg Source 的 Kerberos 认证。Kerberos 配置方式取决于 Hadoop/HDFS 客户端环境；请按集群要求提供这些选项。
 
 ```hocon
 source {
