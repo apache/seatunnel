@@ -64,6 +64,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Verifies copy isolation for mutable field values and preserves timestamp, vector, nested-row, and
+ * row metadata semantics across Copy transformations.
+ */
 public class CopyFieldTransformTest {
 
     private static final String SOURCE_FIELD = "source_field";

@@ -35,7 +35,10 @@ public class TestCopyIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
-    /** Keep every supported Spark type covered while exercising vectors on Flink and Zeta. */
+    /**
+     * Keeps supported Spark types covered separately while exercising vector copies on Flink and
+     * Zeta, whose translation layers support vector fields.
+     */
     @TestTemplate
     @DisabledOnContainer(
             value = {},
