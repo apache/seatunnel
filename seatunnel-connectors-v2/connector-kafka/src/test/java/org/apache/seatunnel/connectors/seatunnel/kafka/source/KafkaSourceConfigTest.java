@@ -24,13 +24,18 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -246,5 +251,111 @@ public class KafkaSourceConfigTest {
         KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
 
         Assertions.assertNotNull(sourceConfig.getMapMetadata().get(TablePath.of(null, table)));
+    }
+
+    // With the option enabled on the source, a message whose ROW value was written by an enabled
+    // sink reads back with a null ROW field.
+    @Test
+    void testAvroRowNullableDeserializesNullRowField() throws IOException {
+        KafkaSourceConfig sourceConfig =
+                new KafkaSourceConfig(ReadonlyConfig.fromMap(avroSourceConfig(true)));
+        ConsumerMetadata metadata = sourceConfig.getMapMetadata().get(TablePath.of("test"));
+        SeaTunnelRowType rowType = metadata.getCatalogTable().getSeaTunnelRowType();
+        Assertions.assertEquals(2, rowType.getTotalFields());
+
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                metadata.getDeserializationSchema();
+        // The AVRO schema is always the delegate of the event time wrapper.
+        Assertions.assertInstanceOf(
+                KafkaEventTimeDeserializationSchema.class, deserializationSchema);
+        Assertions.assertInstanceOf(
+                AvroDeserializationSchema.class,
+                ((KafkaEventTimeDeserializationSchema) deserializationSchema).getDelegate());
+
+        SeaTunnelRow sourceRow = new SeaTunnelRow(rowType.getTotalFields());
+        sourceRow.setField(rowType.indexOf("id"), 1);
+        sourceRow.setField(rowType.indexOf("payload"), null);
+        byte[] message = new AvroSerializationSchema(rowType, true).serialize(sourceRow);
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(rowType.indexOf("id")));
+        Assertions.assertNull(row.getField(rowType.indexOf("payload")));
+    }
+
+    // The option is opt-in: when it is absent the source keeps the legacy ROW layout, so messages
+    // written with the default layout still read back unchanged.
+    @Test
+    void testAvroRowNullableAbsentKeepsLegacyLayout() throws IOException {
+        assertLegacyAvroLayoutRoundTrip(null);
+    }
+
+    @Test
+    void testAvroRowNullableFalseKeepsLegacyLayout() throws IOException {
+        assertLegacyAvroLayoutRoundTrip(false);
+    }
+
+    // The option has to be declared by the source factory, otherwise the unknown option validator
+    // rejects a job that sets avro_row_nullable.
+    @Test
+    void testKafkaSourceFactoryAcceptsAvroRowNullable() {
+        Assertions.assertTrue(
+                new KafkaSourceFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(AvroFormatOptions.AVRO_ROW_NULLABLE));
+        Assertions.assertFalse(AvroFormatOptions.AVRO_ROW_NULLABLE.defaultValue());
+    }
+
+    /**
+     * Builds an AVRO source config whose schema contains a nested ROW field, as a nested map is the
+     * idiomatic way to declare a ROW in the schema block.
+     *
+     * @param rowNullable value for the avro_row_nullable option, or null to leave it unset
+     * @return config map accepted by {@link KafkaSourceConfig}
+     */
+    private static Map<String, Object> avroSourceConfig(Boolean rowNullable) {
+        Map<String, Object> payloadFields = new LinkedHashMap<>();
+        payloadFields.put("InnerID", "int");
+        Map<String, Object> schemaFields = new LinkedHashMap<>();
+        schemaFields.put("id", "int");
+        schemaFields.put("payload", payloadFields);
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", schemaFields);
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("bootstrap.servers", "localhost:9092");
+        configMap.put("group.id", "test");
+        configMap.put("topic", "test");
+        configMap.put("schema", schema);
+        configMap.put("format", "avro");
+        if (rowNullable != null) {
+            configMap.put(AvroFormatOptions.AVRO_ROW_NULLABLE.key(), rowNullable);
+        }
+        return configMap;
+    }
+
+    /**
+     * Serializes a row with a present ROW value in the legacy layout and asserts that the source
+     * schema built from the given config reads it back unchanged.
+     *
+     * @param rowNullable value for the avro_row_nullable option, or null to leave it unset
+     */
+    private static void assertLegacyAvroLayoutRoundTrip(Boolean rowNullable) throws IOException {
+        KafkaSourceConfig sourceConfig =
+                new KafkaSourceConfig(ReadonlyConfig.fromMap(avroSourceConfig(rowNullable)));
+        ConsumerMetadata metadata = sourceConfig.getMapMetadata().get(TablePath.of("test"));
+        SeaTunnelRowType rowType = metadata.getCatalogTable().getSeaTunnelRowType();
+
+        SeaTunnelRow sourceRow = new SeaTunnelRow(rowType.getTotalFields());
+        sourceRow.setField(rowType.indexOf("id"), 1);
+        sourceRow.setField(rowType.indexOf("payload"), new SeaTunnelRow(new Object[] {42}));
+        byte[] message = new AvroSerializationSchema(rowType, false).serialize(sourceRow);
+
+        SeaTunnelRow row = metadata.getDeserializationSchema().deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(rowType.indexOf("id")));
+        Assertions.assertEquals(
+                42, ((SeaTunnelRow) row.getField(rowType.indexOf("payload"))).getField(0));
     }
 }
