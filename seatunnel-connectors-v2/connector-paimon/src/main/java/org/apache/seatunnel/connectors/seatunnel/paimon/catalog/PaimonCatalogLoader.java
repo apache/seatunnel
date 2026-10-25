@@ -102,7 +102,12 @@ public class PaimonCatalogLoader implements Serializable {
         }
     }
 
-    /** Builds catalog options while forwarding filesystem-specific Hadoop settings. */
+    /**
+     * Builds catalog options while forwarding filesystem-specific Hadoop settings.
+     *
+     * <p>The FILE catalog forwards object-store settings for S3A and OSS warehouses. HDFS and HIVE
+     * configuration handling retains its existing behavior.
+     */
     Map<String, String> buildCatalogOptions() {
         final Map<String, String> optionsMap = new HashMap<>(1);
         optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
