@@ -56,10 +56,14 @@ curl -X POST http://192.168.1.100:8080/submit-job \
 ```bash
 docker run -d --name seatunnel \
   -p 8080:8080 \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 ```
 
-单个容器使用默认配置即可组成一个单节点集群，无需额外环境变量。
+官方镜像没有定义 `ENTRYPOINT` 或 `CMD`，因此必须把集群启动脚本作为容器命令显式传入
+（与 [Docker 快速开始](docker/docker.md) 中的写法一致）。不带 `-r` 参数时，
+`seatunnel-cluster.sh` 默认以 `master_and_worker` 角色启动节点，因此这个单容器就是
+一个可用的单节点集群，无需额外环境变量。
 
 ### 3.2 从容器外部提交作业
 
@@ -82,7 +86,8 @@ curl -X POST http://localhost:8080/submit-job \
 docker run -d --name seatunnel \
   -p 8080:8080 \
   -v /path/to/your/jobs:/jobs \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 
 # 在容器内执行
 docker exec seatunnel \
@@ -98,7 +103,9 @@ docker exec seatunnel \
 
 ### 4.1 Docker Compose 示例
 
-集群成员列表通过 `ST_DOCKER_MEMBER_LIST` 环境变量传给每个容器（这是引擎唯一读取的集群发现环境变量）：
+集群成员列表通过 `ST_DOCKER_MEMBER_LIST` 环境变量传给每个容器（这是引擎唯一读取的集群发现环境变量）。
+由于镜像没有定义 `ENTRYPOINT`，每个服务还需要显式以各自角色启动 `seatunnel-cluster.sh`，
+与 [Docker 快速开始](docker/docker.md) 中的 compose 文件一致：
 
 ```yaml
 version: "3.8"
@@ -111,6 +118,10 @@ services:
       - "5801:5801"
     environment:
       ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "
     networks:
       - st-net
 
@@ -119,6 +130,10 @@ services:
     container_name: seatunnel-worker
     environment:
       ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      "
     networks:
       - st-net
     depends_on:
@@ -252,9 +267,13 @@ volumes:
       name: seatunnel-job-config
 ```
 
-通过 `kubectl exec` 提交：
+通过 `kubectl exec` 提交（`${MASTER_POD}` 只在 5.1 节定义过，如果直接从本节开始，请先重复一次查找）：
 
 ```bash
+MASTER_POD=$(kubectl get pods -n seatunnel \
+  -l app.kubernetes.io/name=seatunnel-master \
+  -o jsonpath='{.items[0].metadata.name}')
+
 kubectl exec -n seatunnel ${MASTER_POD} -- \
   /opt/seatunnel/bin/seatunnel.sh \
   --config /opt/seatunnel/jobs/cdc-job.conf
@@ -270,8 +289,8 @@ SeaTunnel 的 Helm chart 以 OCI 构件形式发布在 Docker Hub 上（不存�
 `https://apache.github.io/seatunnel-helm-charts` 这个 chart 仓库）：
 
 ```bash
-# 请自行选择对应版本
-export VERSION=2.3.10
+# 版本号请与 kubernetes/helm.md 保持一致
+export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm

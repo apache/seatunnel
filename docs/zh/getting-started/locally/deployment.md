@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';
@@ -27,15 +27,16 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-在 Windows 上，可以从 [SeaTunnel下载页面](https://seatunnel.apache.org/download) 下载 `.zip` 压缩包，
-然后使用文件资源管理器或 PowerShell 解压：
+在 Windows 上，可以从 [SeaTunnel下载页面](https://seatunnel.apache.org/download) 下载 `.tar.gz` 压缩包，
+然后使用 Windows 10 1803+ 自带的 `tar` 工具解压。archive.apache.org 上只发布 `.tar.gz` 包，
+没有 `.zip` 发布包：
 
 ```powershell
-$version = "3.0.0"
+$version = "3.1.0"
 Invoke-WebRequest `
-  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.zip" `
-  -OutFile "apache-seatunnel-$version-bin.zip"
-Expand-Archive "apache-seatunnel-$version-bin.zip" -DestinationPath .
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.tar.gz" `
+  -OutFile "apache-seatunnel-$version-bin.tar.gz"
+tar -xzf "apache-seatunnel-$version-bin.tar.gz"
 Set-Location "apache-seatunnel-$version"
 ```
 

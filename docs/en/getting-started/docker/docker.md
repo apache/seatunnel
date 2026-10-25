@@ -140,6 +140,8 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connecto
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-13-connector-v2.sh -c config/v2.streaming.conf.template'
 # flink version between `1.15.x` and `1.18.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
+# flink version `1.20.x`
+docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-20-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
 
 

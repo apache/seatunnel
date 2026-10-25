@@ -58,11 +58,15 @@ See [REST API v2](../engines/zeta/rest-api-v2.md) for the complete request and r
 ```bash
 docker run -d --name seatunnel \
   -p 8080:8080 \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 ```
 
-A single container forms a working one-node cluster with the default configuration, so no extra
-environment variables are needed.
+The published image defines no `ENTRYPOINT` or `CMD`, so the cluster startup script must be
+passed as the container command (the same pattern as the [Docker quickstart](docker/docker.md)).
+Without `-r`, `seatunnel-cluster.sh` starts the node with the default role `master_and_worker`,
+so this single container is a working one-node cluster and no extra environment variables
+are needed.
 
 ### 3.2 Submit a job from outside the container
 
@@ -85,7 +89,8 @@ curl -X POST http://localhost:8080/submit-job \
 docker run -d --name seatunnel \
   -p 8080:8080 \
   -v /path/to/your/jobs:/jobs \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 
 # Execute inside the container
 docker exec seatunnel \
@@ -103,7 +108,9 @@ inside that container process.
 ### 4.1 Docker Compose example
 
 The cluster membership is passed to each container with the `ST_DOCKER_MEMBER_LIST` environment
-variable (this is the only cluster-discovery environment variable the engine reads):
+variable (this is the only cluster-discovery environment variable the engine reads). Because the
+image defines no `ENTRYPOINT`, each service also starts `seatunnel-cluster.sh` explicitly with
+its role, the same as the compose file in the [Docker quickstart](docker/docker.md):
 
 ```yaml
 version: "3.8"
@@ -116,6 +123,10 @@ services:
       - "5801:5801"
     environment:
       ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "
     networks:
       - st-net
 
@@ -124,6 +135,10 @@ services:
     container_name: seatunnel-worker
     environment:
       ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      "
     networks:
       - st-net
     depends_on:
@@ -259,9 +274,14 @@ volumes:
       name: seatunnel-job-config
 ```
 
-Then submit via `kubectl exec`:
+Then submit via `kubectl exec` (`${MASTER_POD}` is only defined in section 5.1, so repeat the
+lookup here if you jumped straight to this section):
 
 ```bash
+MASTER_POD=$(kubectl get pods -n seatunnel \
+  -l app.kubernetes.io/name=seatunnel-master \
+  -o jsonpath='{.items[0].metadata.name}')
+
 kubectl exec -n seatunnel ${MASTER_POD} -- \
   /opt/seatunnel/bin/seatunnel.sh \
   --config /opt/seatunnel/jobs/cdc-job.conf
@@ -277,8 +297,8 @@ The SeaTunnel Helm chart is published as an OCI artifact on Docker Hub (there is
 `https://apache.github.io/seatunnel-helm-charts` chart repository):
 
 ```bash
-# Choose the corresponding version yourself
-export VERSION=2.3.10
+# Keep the chart version in sync with kubernetes/helm.md
+export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
