@@ -48,7 +48,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | url                 | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username            | String | 是 | - | Databend 数据库用户名                    |
 | password            | String | 是 | - | Databend 数据库密码                     |
-| database            | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
+| database            | String | 否 | - | 与 `table` 一起用于定位写入目标表的 Databend 数据库名称 |
 | table               | String | 否 | - | Databend 表名称                       |
 | batch_size          | Integer | 否 | 1000 | 批量写入的记录数                           |
 | auto_commit         | Boolean | 否 | true | 是否自动提交事务                           |

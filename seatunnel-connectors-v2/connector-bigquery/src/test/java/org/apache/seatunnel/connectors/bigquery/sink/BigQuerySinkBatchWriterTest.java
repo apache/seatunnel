@@ -123,9 +123,28 @@ class BigQuerySinkBatchWriterTest {
         assertSame(streamWriter, sinkWriter.streamWriter);
     }
 
+    @Test
+    void testCloseDoesNotFlushUncheckpointedRowsInBatchMode() {
+        TestingBigQueryWriter streamWriter =
+                new TestingBigQueryWriter(
+                        ApiFutures.immediateFuture(AppendRowsResponse.newBuilder().build()));
+        BigQuerySinkBatchWriter sinkWriter = createSinkWriter(streamWriter);
+        sinkWriter.buffer.put("row-1");
+        sinkWriter.buffer.put("row-2");
+
+        sinkWriter.close();
+
+        // In batch mode (flushOnClose == false), close() must NOT append un-checkpointed rows
+        // to preserve 2PC stream offset consistency during state recovery.
+        assertEquals(0, streamWriter.appendCount);
+        assertEquals(0, streamWriter.successfulRowCount);
+        assertEquals(1, streamWriter.closeCount);
+        assertEquals(2, sinkWriter.buffer.length());
+    }
+
     private static BigQuerySinkBatchWriter createSinkWriter(BigQueryWriter streamWriter) {
         return new BigQuerySinkBatchWriter(
-                ReadonlyConfig.fromMap(Collections.emptyMap()), streamWriter, null, null);
+                ReadonlyConfig.fromMap(Collections.emptyMap()), streamWriter, null);
     }
 
     private static AppendRowsResponse errorResponse(Code code) {

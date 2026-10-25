@@ -58,7 +58,7 @@ HBase 的 zookeeper 集群主机，例如：“hadoop001:2181,hadoop002:2181,had
 
 HBase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。
 行键列使用 `rowkey`，HBase 单元格使用 `列簇:列名` 形式，例如 `info:name`。
-更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### hbase_extra_config [config]
 
@@ -115,7 +115,7 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 
 **说明:**
 
-- `start_timestamp` / `end_timestamp` 必须大于等于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
+- `start_timestamp` 必须大于等于 0，`end_timestamp` 必须大于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
 - 当 `start_rowkey` / `end_rowkey` 与 `start_timestamp` / `end_timestamp` 同时配置时，会同时应用行键范围与时间范围限制，最终返回两者的交集。
 
 ### 常用选项

@@ -21,6 +21,7 @@ Supports multiple backends while presenting a unified interface:
   - bedrock  : AWS Bedrock Converse API (Claude models)
   - anthropic: Anthropic Messages API (direct)
   - openai   : OpenAI Chat Completions API
+  - orcarouter: OrcaRouter AI gateway (OpenAI Chat Completions API)
 
 All providers normalize their responses to a common internal format
 so that the agent layer (agents.py) needs no provider-specific code.
@@ -1250,6 +1251,66 @@ class BedrockMantleProvider(LLMProvider):
                 }
 
 
+# ─── OrcaRouter Provider ───
+
+class OrcaRouterProvider(OpenAIProvider):
+    """OrcaRouter AI gateway provider (OpenAI Chat Completions API).
+
+    OrcaRouter is an OpenAI-compatible gateway that exposes many models (and
+    provider/model routing namespaces) behind one endpoint. Models are
+    addressed as ``provider/model``, e.g. ``orcarouter/auto`` routes and
+    grades automatically. Defaults to the ``orcarouter/auto`` model, which
+    automatically selects the best model for each request.
+
+    Since OrcaRouter speaks the OpenAI Chat Completions protocol, this
+    provider mirrors :class:`OpenAIProvider` and only customizes the base
+    URL, the API key environment variable, and the default model.
+    """
+
+    #: OrcaRouter's OpenAI-compatible base URL.
+    DEFAULT_BASE_URL = "https://api.orcarouter.ai/v1"
+    #: Default model: auto-routes to the best model for the request.
+    DEFAULT_MODEL = "orcarouter/auto"
+
+    def __init__(self):
+        try:
+            import openai
+        except ImportError:
+            raise ImportError(
+                "openai package required for AI_PROVIDER=orcarouter. "
+                "Install it: pip install openai"
+            )
+
+        api_key = os.environ.get("ORCAROUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "ORCAROUTER_API_KEY environment variable is required for "
+                "AI_PROVIDER=orcarouter"
+            )
+
+        self._model_id = os.environ.get(
+            "ORCAROUTER_MODEL",
+            os.environ.get("OPENAI_MODEL", self.DEFAULT_MODEL))
+        self._fast_model_id = os.environ.get(
+            "ORCAROUTER_SMALL_FAST_MODEL",
+            os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id))
+        self._client = openai.OpenAI(api_key=api_key, base_url=self.DEFAULT_BASE_URL)
+        self._echo_reasoning_content = _env_bool(
+            "ORCAROUTER_ECHO_REASONING_CONTENT", True)
+
+    @property
+    def provider_name(self) -> str:
+        return "orcarouter"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def fast_model_id(self) -> str:
+        return self._fast_model_id
+
+
 # ─── Config file ───
 
 
@@ -1286,11 +1347,15 @@ def _auto_detect_provider() -> str | None:
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
 
-    # 2. OpenAI API key
+    # 2. OrcaRouter gateway key
+    if os.environ.get("ORCAROUTER_API_KEY"):
+        return "orcarouter"
+
+    # 3. OpenAI API key
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
 
-    # 3. AWS credentials (for Bedrock)
+    # 4. AWS credentials (for Bedrock)
     if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
         return "bedrock"
     try:
@@ -1312,6 +1377,7 @@ _PROVIDERS = {
     "bedrock-mantle": BedrockMantleProvider,
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
+    "orcarouter": OrcaRouterProvider,
 }
 
 
@@ -1354,16 +1420,22 @@ def create_provider(provider: str | None = None) -> LLMProvider:
     # Apply model overrides from config file
     if name and "models" in config:
         model_config = config["models"].get(name, {})
-        if model_config.get("model") and not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
-            if name in ("openai", "bedrock-mantle"):
-                os.environ.setdefault("OPENAI_MODEL", model_config["model"])
-            else:
-                os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
-        if model_config.get("fast_model") and not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
-            if name in ("openai", "bedrock-mantle"):
-                os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
-            else:
-                os.environ.setdefault("ANTHROPIC_SMALL_FAST_MODEL", model_config["fast_model"])
+        if model_config.get("model"):
+            if name == "orcarouter":
+                os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
+            elif not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
+                if name in ("openai", "bedrock-mantle"):
+                    os.environ.setdefault("OPENAI_MODEL", model_config["model"])
+                else:
+                    os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
+        if model_config.get("fast_model"):
+            if name == "orcarouter":
+                os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
+            elif not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
+                if name in ("openai", "bedrock-mantle"):
+                    os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
+                else:
+                    os.environ.setdefault("ANTHROPIC_SMALL_FAST_MODEL", model_config["fast_model"])
 
     # 4. Auto-detect
     if not name:
