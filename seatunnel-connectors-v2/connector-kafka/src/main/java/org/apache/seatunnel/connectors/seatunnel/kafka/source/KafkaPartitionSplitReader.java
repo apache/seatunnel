@@ -127,6 +127,8 @@ public class KafkaPartitionSplitReader
 
         if (!finishedPartitions.isEmpty()) {
             unassignPartitions(finishedPartitions);
+            // Finished partitions no longer need retained split bounds.
+            finishedPartitions.forEach(stoppingOffsets::remove);
         }
 
         return recordsBySplits;
