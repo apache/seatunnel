@@ -12,14 +12,28 @@ You need to check this document before you upgrade to related version.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Native CLI help exit code
+
+`seatunnel.sh -h` and `seatunnel-application.sh -h` now exit with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
+
 ### Application CLI unknown wait outcome
 
 `seatunnel-application.sh status --wait` and `submit --wait` now exit with code `2` when the
 platform reports `UNKNOWN`, distinguishing an indeterminate outcome from success or a generic
 execution failure. The application state remains `UNKNOWN`;
 this does not mean the application failed. Scripts should handle exit `2` as an indeterminate
-outcome and inspect the platform before retrying a submission. Plain `status` and `CANCELED`
-handling are unchanged.
+outcome and inspect the platform before retrying a submission. Compared with the previous behavior:
+
+| Operation and observed state | Previous exit code | Current exit code |
+| --- | --- | --- |
+| Plain `status`: `FAILED`, `CANCELED` or `UNKNOWN` | `1` | `0` |
+| `status --wait` / `submit --wait`: `CANCELED` | `1` | `0` |
+| `status --wait` / `submit --wait`: `UNKNOWN` | `1` | `2` |
+
+A successful plain status query does not mean the application succeeded; scripts must inspect the
+reported state. Waited `FAILED` still exits `1`, and waited `SUCCEEDED` still exits `0`.
 
 
 ### CDC: nullable columns are no longer used as the snapshot split column

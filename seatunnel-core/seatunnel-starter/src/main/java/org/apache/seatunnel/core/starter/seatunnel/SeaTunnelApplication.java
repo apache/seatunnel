@@ -25,6 +25,7 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 /** User-facing entrypoint for native Zeta application deployment and management. */
 public final class SeaTunnelApplication {
+    private static final int HELP_EXIT_CODE = 0;
 
     public static void main(String[] args) {
         ApplicationCommandArgs applicationCommandArgs =
@@ -34,7 +35,7 @@ public final class SeaTunnelApplication {
                         EngineType.SEATUNNEL_APPLICATION.getStarterShellName(),
                         false,
                         ApplicationCommandArgs::validateCommandOptions,
-                        0);
+                        HELP_EXIT_CODE);
         final int exitCode;
         try {
             ApplicationExecuteCommand command =

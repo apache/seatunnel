@@ -59,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -405,7 +406,7 @@ class ApplicationExecuteCommandTest {
         ApplicationClusterDescriptorFactory<String> factory =
                 mock(ApplicationClusterDescriptorFactory.class);
         when(factory.parseApplicationId("application_1")).thenReturn("native-id");
-        org.mockito.Mockito.doReturn(descriptor).when(factory).create(any());
+        doReturn(descriptor).when(factory).create(any());
         when(descriptor.getApplicationStatus("native-id")).thenReturn(status);
         try (MockedConstruction<ClusterClientServiceLoader> loaders =
                 mockConstruction(
@@ -489,7 +490,7 @@ class ApplicationExecuteCommandTest {
         ApplicationClusterDescriptorFactory<String> factory =
                 mock(ApplicationClusterDescriptorFactory.class);
         when(factory.parseApplicationId("application_1")).thenReturn("native-id");
-        org.mockito.Mockito.doReturn(descriptor).when(factory).create(any());
+        doReturn(descriptor).when(factory).create(any());
         when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.SUCCEEDED);
         try (MockedConstruction<ClusterClientServiceLoader> loaders =
                 mockConstruction(
