@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+> By default, the sink runs with `semantics = NON`, which does not guarantee exactly-once delivery. Kafka 2pc transactions are used only when `semantics = EXACTLY_ONCE` is configured (see [Semantics](#semantics)).
 
 ## Description
 

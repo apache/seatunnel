@@ -631,11 +631,7 @@ LN(A)
 
 ```LOG(baseNumeric, numeric) -> DOUBLE```
 
-计算以指定底数的对数，返回一个双精度浮点数。参数和底数必须是正数值。底数不能等于1。
-
-默认底数是 e（自然对数），在 PostgreSQL 模式下，默认底数是 10。在 MSSQLServer 模式下，可选的底数在参数之后指定。
-
-LOG 函数的单参数变体已被弃用，请使用 LN 或 LOG10 替代。
+计算以指定底数的对数，返回一个双精度浮点数。两个参数都必须是正数值，且底数不能等于 1。`LOG` 必须且只能传入两个参数；自然对数请使用 `LN`，以 10 为底请使用 `LOG10`。
 
 示例:
 
@@ -695,7 +691,7 @@ POWER(A, B)
 
 ```RAND | RANDOM([ int ]) -> DOUBLE```
 
-如果不带参数调用该函数，则返回下一个伪随机数。如果带有参数调用，则将会给该会话的随机数生成器设定种子。该方法返回一个介于 0（包括）和 1（不包括）之间的双精度浮点数。
+返回一个介于 0（包括）和 1（不包括）之间的伪随机双精度浮点数。每次调用都会使用新的随机数生成器；如果传入参数，该参数将作为本次调用的随机种子，因此相同种子会得到确定性的结果。
 
 示例:
 
@@ -1388,7 +1384,7 @@ select ARRAY(1,2,3) as arrays
 select ARRAY('c_1',2,3.12) as arrays
 select ARRAY(column1,column2,column3) as arrays
 
-注意：目前仅支持string、double、long、int几种类型
+注意：元素类型会按照数值/字符串提升规则进行统一，支持 string、tinyint、smallint、int、bigint、float、double 等元素类型。详情参见 [集合表达式](sql.md)。
 
 ### MAP
 

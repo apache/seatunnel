@@ -212,6 +212,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 
 ### driver [string]
 
@@ -245,7 +246,9 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example, when using mysql, you need to set its value to `mysql`.
+
+Note: `StarRocks` and `Inceptor` are not valid `dialect` values. StarRocks is handled by the MySQL dialect when `compatible_mode = "starrocks"` is set, and Inceptor is handled by the Hive dialect when `compatible_mode = "inceptor"` is set.
 
 If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
 
@@ -255,14 +258,14 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
-| Phoenix   | Postgres     | Redshift |
-| SapHana   | Snowflake    | Sqlite   |
-| SqlServer | Tablestore   | Teradata |
-| Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
-| DSQL      |              |          |
-| YashanDB  |              |          |
+| MySQL     | OpenGauss    | Oracle   |
+| Phoenix   | Postgres     | Presto   |
+| Redshift  | SapHana      | Snowflake|
+| Sqlite    | SqlServer    | Tablestore|
+| Teradata  | Vertica      | OceanBase|
+| XUGU      | DuckDB       | IRIS     |
+| Highgo    | YashanDB     | DSQL     |
+
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

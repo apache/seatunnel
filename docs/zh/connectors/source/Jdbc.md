@@ -138,6 +138,9 @@ driver = "org.mariadb.jdbc.Driver"
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source 是有界（bounded）数据源：完成一次快照读取后即结束。如果作业需要持续捕获后续的插入、更新和删除，请使用 CDC source 连接器。
+
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 
 使用 `query` 可以只读取需要的列。
@@ -158,7 +161,7 @@ driver = "org.mariadb.jdbc.Driver"
 | password                                   | String  | 否    | -       | 数据库账号的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | query                                      | String  | 否    | -       | 要执行的 SQL。需要同时明确表身份和元数据时，可以与 `table_path` 组合使用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | compatible_mode                            | String  | 否    | -       | 数据库的兼容模式，当数据库支持多种兼容模式时需要。<br/> 例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle'。<br/> 使用 starrocks 时，需要将其设置为 `starrocks`                                                                                                                                                                                                                                                                                                                                                                                                             |
-| dialect                                    | String  | 否    | -       | 指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。<br/> 例如，使用 starrocks 时，需要将其设置为 `starrocks`                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| dialect                                    | String  | 否    | -       | 指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。<br/> 例如，使用 mysql 时，需要将其设置为 `mysql`。注意：`starrocks` 和 `inceptor` 不是 dialect 的取值，它们需要通过 `compatible_mode` 指定                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec               | Int     | 否    | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | connect_timeout_ms                         | Int     | 否    | 86400000 | 建立 JDBC 连接时的连接超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | socket_timeout_ms                          | Int     | 否    | 86400000 | JDBC 连接建立后的 socket 读取超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -184,6 +187,7 @@ driver = "org.mariadb.jdbc.Driver"
 | properties                                 | Map     | 否    | -       | 其他连接配置参数，当 properties 和 URL 具有相同参数时，优先级由<br/>驱动程序的具体实现确定。例如，在 MySQL 中，properties 优先于 URL。                                                                                                                                                                                                                                                                                                                                                                                                     |
 | table_path                                 | String  | 否    | -       | 表的完整路径。在单表布局中可以单独使用，也可以与 `query` 组合。<br/>示例：<br/>`- mysql: "testdb.table1" `<br/>`- oracle: "test_schema.table1" `<br/>`- sqlserver: "testdb.test_schema.table1"` <br/>`- postgresql: "testdb.test_schema.table1"`  <br/>`- iris: "test_schema.table1"`                                                                                                                                                                                                                                                                                                                                                                       |
 | table_list                                 | Array   | 否    | -       | 要读取的表列表，您可以使用此配置代替 `table_path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| multi_table.failure_policy                 | Enum    | 否    | FAIL_FAST       | 多表 `table_list` 读取的失败处理策略。`FAIL_FAST` 在任一表出错时使整个作业失败。`CONTINUE_OTHER_TABLES` 在错误可以归因于单个表时隔离失败表，保持健康表继续运行。 |
 | where_condition                            | String  | 否    | -       | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.size                                 | Int     | 否    | 8096    | 使用动态分片时每个 split 的目标行数，适用于 `table_path` 和 `table_list` 布局；不控制顶层 `query` 与 `partition_column` 的 fixed partition 模式。                                                                                                                                                                                                                                                                                                                                                                                           |
 | split.even-distribution.factor.lower-bound | Double  | 否    | 0.05            | 不建议修改。<br/> 分片键分布因子的下界。该因子用于判断表数据是否均匀分布。如果计算出的分布因子大于或等于此下界（即 (MAX(id) - MIN(id) + 1) / 行数），则将优化为均匀分布的分片方式。否则，如果分布因子更小，则表将被视为非均匀分布，当预估的分片数超过 `sample-sharding.threshold` 指定的值时，将使用基于采样的分片策略。默认值为 0.05。  |
@@ -282,7 +286,9 @@ numeric_special_value_as_null = true
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。例如，使用 starrocks 时，需要将其设置为 `starrocks`。类似地，使用 mysql 时，需要将其值设置为 `mysql`。
+指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。例如，使用 mysql 时，需要将其值设置为 `mysql`。
+
+注意：`StarRocks` 和 `Inceptor` 不是有效的 `dialect` 取值。设置 `compatible_mode = "starrocks"` 时由 MySQL 方言处理 StarRocks；设置 `compatible_mode = "inceptor"` 时由 Hive 方言处理 Inceptor。
 
 如果 SeaTunnel 不支持某个方言，它将使用默认方言 `GenericDialect`。只需确保您提供的驱动程序支持您想要连接的数据库。
 
@@ -292,13 +298,13 @@ numeric_special_value_as_null = true
 |-----------|---------|----------|
 | Greenplum | DB2     | Dameng   |
 | Gbase8a   | HIVE    | KingBase |
-| MySQL     | StarRocks | Oracle |
-| Phoenix   | Postgres | Redshift |
-| SapHana   | Snowflake | Sqlite |
-| SqlServer | Tablestore | Teradata |
-| Vertica   | OceanBase | XUGU |
-| IRIS      | Inceptor | Highgo |
-| YashanDB  | DSQL     |          |
+| MySQL     | OpenGauss | Oracle |
+| Phoenix   | Postgres | Presto |
+| Redshift  | SapHana | Snowflake|
+| Sqlite    | SqlServer | Tablestore|
+| Teradata  | Vertica | OceanBase|
+| XUGU      | DuckDB  | IRIS     |
+| Highgo    | YashanDB | DSQL     |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
@@ -523,6 +529,44 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 使用显式分区列和分区查询读取
+
+使用 `partition_column` 配合 `query` 可以将单表读取拆分为多个并行分片。`partition_lower_bound` 和 `partition_upper_bound` 是可选的；如果不配置，读取开始前会先执行一条 `MIN`/`MAX` 探测查询。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 
