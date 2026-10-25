@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
@@ -166,7 +167,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     private void handleSchemaChangeDetected(SchemaChangeEvent event) {
         List<SchemaChangeType> supportedTypes = source.supports();
-        if (supportedTypes == null || supportedTypes.isEmpty()) {
+        if (!(event instanceof RestoreTableSchemaEvent)
+                && (supportedTypes == null || supportedTypes.isEmpty())) {
             log.info("Source does not support any schema change types, skipping");
             return;
         }
@@ -372,7 +374,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         TableIdentifier tableId = event.tableIdentifier();
         long eventTime = event.getCreatedTime();
 
-        if (lastProcessedEventTime != null && eventTime <= lastProcessedEventTime) {
+        // Restore events only refresh runtime schema state and are safe to apply repeatedly. They
+        // can also share the same millisecond timestamp when multiple tables are restored in one
+        // batch, so applying the normal timestamp deduplication would silently skip later tables.
+        if (!(event instanceof RestoreTableSchemaEvent)
+                && lastProcessedEventTime != null
+                && eventTime <= lastProcessedEventTime) {
             log.warn(
                     "Skipping outdated schema change event (epoch {} <= last processed {})",
                     eventTime,
@@ -546,7 +553,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 && config.getBoolean("schema-changes.enabled");
     }
 
-    private boolean isSchemaChangeSupported(
+    boolean isSchemaChangeSupported(
             SchemaChangeEvent event, List<SchemaChangeType> supportedTypes) {
         switch (event.getEventType()) {
             case SCHEMA_CHANGE_ADD_COLUMN:
@@ -567,6 +574,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                         || supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN)
                         || supportedTypes.contains(SchemaChangeType.RENAME_COLUMN)
                         || supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
+            case SCHEMA_CHANGE_RESTORE:
+                return true;
             default:
                 log.error("Unknown schema change event type: {}", event.getEventType());
                 throw SchemaValidationException.unsupportedChangeType(

@@ -153,7 +153,9 @@ public class MongodbSinkAggregatedCommitter
     @Override
     public void close() {
         long deadline = System.currentTimeMillis() + TRANSACTION_TIMEOUT_MS;
-        while (clientSession.hasActiveTransaction() && System.currentTimeMillis() < deadline) {
+        while (clientSession != null
+                && clientSession.hasActiveTransaction()
+                && System.currentTimeMillis() < deadline) {
             // wait for active transaction to finish or timeout
             Thread.sleep(waitingTime);
         }

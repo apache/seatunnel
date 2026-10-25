@@ -51,6 +51,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 | index                  | string  | 是  | -             |
 | primary_keys           | list    | 否       | -             |
 | key_delimiter          | string  | 否       | `_`           |
+| key_encoding           | enum    | 否       | LEGACY        |
 | username               | string  | 否       | -             |
 | password               | string  | 否       | -             |
 | max_retry_count        | int     | 否       | 3             |
@@ -80,6 +81,12 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 ### key_delimiter [string]
 
 复合键的分隔符 (默认为"_" ), 例如, "$" 将导致文档 `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有文档 ID 不变。配置多个 `primary_keys` 时，字段值包含 `key_delimiter` 可能导致不同记录生成相同 ID。设置为 `LENGTH_PREFIXED` 后，每个格式化后的字段值按 `<长度>:<值>` 编码，例如 `["1_1", "2"]` 生成 `3:1_11:2`，`["1", "1_2"]` 生成 `1:13:1_2`。该模式忽略 `key_delimiter`，单字段主键的 ID 不变。
+
+对已有复合键索引切换此选项会改变文档 ID。切换前应重建索引或迁移已有文档，否则后续写入可能创建重复文档，而不是更新原文档。
 
 ### username [string]
 
