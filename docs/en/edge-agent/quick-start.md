@@ -10,8 +10,8 @@ Two validation paths:
 
 | Path                                                            | Engine required | Purpose                                    |
 | --------------------------------------------------------------- | --------------- | ------------------------------------------ |
-| [Console local test](#console-local-test-no-engine)             | No              | Install, collect, local WAL without Engine |
-| [Production setup (with Engine)](#production-setup-with-engine) | Yes             | Agent → Engine job                         |
+| [Console local test](#console-local-test)             | No              | Install, collect, local WAL without Engine |
+| [Production setup (with Engine)](#production-setup) | Yes             | Agent → Engine job                         |
 
 
 For production hardening, see [Deployment Guide](deployment-guide.md) and [Operations](operations.md).
@@ -31,7 +31,7 @@ The install root contains bin/, config/, and starter/.
 
 ### Prerequisites
 
-- Java 8 or 11 on the edge host, with JAVA_HOME set.
+- Java 11 or 17 on the edge host, with JAVA_HOME set.
 - No SeaTunnel Engine and no EdgeSocket connectivity required.
 - Writable install root (default WAL data/wal.db, logs, edge-agent.id).
 
@@ -79,7 +79,7 @@ Search log/edge-agent.log for EDGE_CONSOLE_OUTPUT (console writes via the app lo
 
 :::
 
-The agent still creates edge-agent.id and the WAL persistence files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — WAL persistence files](configuration.md#sqlite-persistence-files).
+The agent still creates edge-agent.id and the WAL persistence files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — WAL persistence files](configuration.md#wal-persistence-files).
 
 ### Stop
 
@@ -87,7 +87,7 @@ The agent still creates edge-agent.id and the WAL persistence files under data/ 
 sh bin/seatunnel-edge-agent.sh stop
 ```
 
-To continue with Engine, see [Production setup](#production-setup-with-engine).
+To continue with Engine, see [Production setup](#production-setup).
 
 ## Production setup
 
@@ -181,5 +181,4 @@ Keep edge-agent.id and the data/ directory (default wal.db plus -wal/-shm) when 
 ## Next steps
 
 Once you have completed the quick start, continue with the [Deployment Guide](deployment-guide.md) for production setup, or see the [Configuration Reference](configuration.md) for full parameters. For a complete documentation map, visit [About Edge Agent](about.md#recommended-reading-order).
-
 

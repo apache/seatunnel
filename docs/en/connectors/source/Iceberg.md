@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, reading tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -64,12 +64,18 @@ libfb303-xxx.jar
 | DATE              | DATE                |
 | TIME              | TIME                |
 | TIMESTAMP         | TIMESTAMP           |
+| TIMESTAMPTZ       | TIMESTAMP_TZ        |
+| TIMESTAMP_NS      | TIMESTAMP, scale 9  |
+| TIMESTAMPTZ_NS    | TIMESTAMP_TZ, scale 9 |
+| UNKNOWN           | NULL                |
 | STRING            | STRING              |
 | FIXED<br/>BINARY  | BYTES               |
 | DECIMAL           | DECIMAL             |
 | STRUCT            | ROW                 |
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
+
+`TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` only exist in format version 3 tables. Nanosecond timestamps keep their nanoseconds and are reported with column scale 9. `VARIANT`, `GEOMETRY` and `GEOGRAPHY` columns are not supported yet and fail the job; leave them out with the `query` option, for example `select id, ts from table`. Rows removed by deletion vectors are not returned. Row lineage fields (`_row_id`, `_last_updated_sequence_number`) are not read.
 
 ## Source Options
 
@@ -90,7 +96,7 @@ libfb303-xxx.jar
 | use_snapshot_id          | long    | no       | -                    | Instructs this scan to look for use the given snapshot ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_snapshot_timestamp   | long    | no       | -                    | Instructs this scan to look for use the most recent snapshot as of the given time in milliseconds. timestamp – the timestamp in millis since the Unix epoch                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don't specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
-| increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills). Must be a positive value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | no       | -                    | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | query                    | String  | no       | -                    | The select DML used to filter or project Iceberg data. Use the literal placeholder table name `table`, and do not use table aliases. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`. The current LIKE support is limited: the LIKE pattern should not start with `%`; for example, `select f1 from table where f2 like 'tom%'` is supported.                                                                                                                                                                      |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path to the `krb5.conf` file for Kerberos authentication.                                                                                                                                                                                                                                                                |

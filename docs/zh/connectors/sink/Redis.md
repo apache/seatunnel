@@ -12,6 +12,19 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 `key` 可以是固定的 Redis key，也可以是上游字段名。开启 `support_custom_key = true` 后，还可以用上游字段
 拼出 Redis key，例如 `user:${id}`。
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配置的凭据。客户端通过与正常作业
+运行相同的连接逻辑创建，因此 `user` 和 `auth` 会按运行时的方式进行验证：配置了 `user` 时发送
+`AUTH user auth`，仅配置了 `auth` 时发送 `AUTH auth`。`SINGLE` 模式下随后发送 `SELECT db_num` 和
+`PING`。`CLUSTER` 模式下会基于 `nodes` 初始化集群 slot 缓存（`CLUSTER SLOTS`），并从一个节点读取
+`INFO`。连接超时和 socket 超时沿用运行时的默认值（2 秒），无论成功或失败都会关闭所有客户端。校验不会
+读取、扫描、写入任何 key，不会设置过期时间或创建 key 空间，也不会修改任何 ACL 条目。正常作业运行保持不变。
+
+校验成功**不代表**具备目标 key 的写入权限。`key`、`value_field`、`hash_key_field` 和
+`hash_value_field` 不会与上游 schema 进行比对，因为运行时如果名称不是上游字段，会作为字面值写入。
+`CLUSTER` 模式下只要有一个节点响应即可通过校验，因此无法发现集群中部分节点不可达的情况。
+
 ## 支持引擎
 
 > Spark<br/>
@@ -56,6 +69,18 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 | hash_value_field   | string  | 否                          | -      | `data_type = HASH` 时，作为 Redis hash value 的上游字段。 |
 | multi_table_sink_replica | int | 否                          | 1      | 多表写入时的写入器副本数。 |
 | common-options     | config  | 否                          | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
+
+### 认证
+
+在 `SINGLE` 和 `CLUSTER` 模式下，非空白的 `user` 使用 Redis ACL 认证
+（`AUTH user auth`，需要 Redis 6 或更新版本）。连接器不会创建或修改 ACL 用户。
+启动作业前，请创建用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+`SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+密码将原样传递，包括空白字符；省略 `auth` 或使用空字符串时将发送空密码，
+仅当该 ACL 用户允许时才能成功认证（例如配置了 `nopass` 的用户）。
+
+若省略 `user`，或其值为空字符串、仅包含空白字符，则非空白的 `auth` 将用于默认用户的密码认证。
+如果两个选项都省略或为空白，则不发送认证命令。
 
 ## 写入规则
 

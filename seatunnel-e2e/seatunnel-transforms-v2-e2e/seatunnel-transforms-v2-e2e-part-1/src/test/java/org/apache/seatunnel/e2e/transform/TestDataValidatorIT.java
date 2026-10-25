@@ -84,4 +84,33 @@ public class TestDataValidatorIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/data_validator_email_udf.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** Validates different tables with a transform level rule and per-table rules. */
+    @TestTemplate
+    public void testDataValidatorMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/data_validator_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testDataValidatorTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * The global error handling policy must also reach the tables built from a {@code
+     * table_transform} entry, so both tables route their invalid row to the error table.
+     */
+    @TestTemplate
+    public void testDataValidatorRouteToTableWithTableTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator_route_to_table_with_table_transform.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
