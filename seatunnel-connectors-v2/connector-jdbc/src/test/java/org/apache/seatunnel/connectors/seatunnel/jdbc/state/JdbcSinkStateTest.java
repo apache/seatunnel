@@ -29,7 +29,14 @@ import javax.transaction.xa.Xid;
 
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
+import java.util.Base64;
 
+/**
+ * Verifies JDBC checkpoint schema round trips and legacy Xid-only state compatibility.
+ *
+ * <p>The old serialized class-layout fixture must remain readable after the optional table schema
+ * is introduced, alongside round trips that retain both XA identifiers and evolved schema.
+ */
 class JdbcSinkStateTest {
 
     @Test
@@ -59,10 +66,19 @@ class JdbcSinkStateTest {
     }
 
     @Test
-    void testStateWithoutSchemaSupportsInitialSchemaFallback() {
-        JdbcSinkState state = new JdbcSinkState(null);
+    void testDeserializeLegacyCheckpointWithoutSchema() throws Exception {
+        // Java serialization descriptor from the legacy JdbcSinkState layout: the same
+        // serialVersionUID, one javax.transaction.xa.Xid field, and a null Xid value.
+        // It intentionally contains no tableSchema descriptor or value.
+        byte[] legacyCheckpoint =
+                Base64.getDecoder()
+                        .decode(
+                                "rO0ABXNyAEJvcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5qZGJjLnN0YXRlLkpkYmNTaW5rU3RhdGU/4O4GMz6ApwIAAUwAA3hpZHQAGkxqYXZheC90cmFuc2FjdGlvbi94YS9YaWQ7eHBw");
+        JdbcSinkState restored =
+                new DefaultSerializer<JdbcSinkState>().deserialize(legacyCheckpoint);
 
-        Assertions.assertNull(state.getTableSchema());
+        Assertions.assertNull(restored.getXid());
+        Assertions.assertNull(restored.getTableSchema());
     }
 
     @Test

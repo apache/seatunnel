@@ -159,6 +159,13 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
         if ((source == SqlType.FLOAT || source == SqlType.DOUBLE) && (sink == SqlType.DOUBLE)) {
             return true;
         }
+        // BigQuery has no native MAP type; this connector always represents a source MAP
+        // column as a BigQuery STRUCT (see RowToJsonConverters#createMapConverter and the
+        // ADD COLUMN handling in BigQuerySchemaChangeManager), so a remote ROW/STRUCT field
+        // is the expected, compatible target for a source MAP column.
+        if (source == SqlType.MAP && sink == SqlType.ROW) {
+            return true;
+        }
         return false;
     }
 }

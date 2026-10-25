@@ -28,6 +28,12 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 
+/**
+ * Verifies restored JDBC schemas retain configured fallback and reject divergent state.
+ *
+ * <p>Legacy state without a schema must keep the configured table definition, while incompatible
+ * schemas from the same checkpoint must fail instead of silently choosing one.
+ */
 class JdbcSinkTest {
 
     @Test

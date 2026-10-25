@@ -38,7 +38,9 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -80,7 +82,13 @@ class SeaTunnelSourceCollectorSchemaChangeTest {
         collector.restoreSchema(Collections.singletonList(restoredTable));
         collector.collect(new SeaTunnelRow(new Object[] {1, "Alice", "alice@example.com"}));
 
-        verify(output).received(Mockito.any());
+        ArgumentCaptor<Record> emitted = ArgumentCaptor.forClass(Record.class);
+        verify(output).received(emitted.capture());
+        SeaTunnelRow row = (SeaTunnelRow) emitted.getValue().getData();
+        Assertions.assertArrayEquals(
+                new Object[] {1, "Alice", "alice@example.com"}, row.getFields());
+        // INT (4 bytes) + Alice (5 characters) + alice@example.com (17 characters).
+        Assertions.assertEquals(26, row.getBytesSize());
     }
 
     @Test

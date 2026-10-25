@@ -18,15 +18,18 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -50,10 +53,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -104,7 +107,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context);
         this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
-        this.finishedUnackedSplits = new HashMap<>();
+        // Ack events are handled on the engine's event-delivery thread while splits finish on the
+        // reader thread, so the map must tolerate concurrent access.
+        this.finishedUnackedSplits = new ConcurrentHashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
     }
@@ -129,14 +134,6 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         } else {
             super.pollNext(output);
         }
-    }
-
-    private void restoreCollectorSchema(Collector<T> output) {
-        List<CatalogTable> checkpointTables = restoredCheckpointTables.getAndSet(null);
-        if (checkpointTables == null || checkpointTables.isEmpty()) {
-            return;
-        }
-        output.restoreSchema(checkpointTables);
     }
 
     @Override
@@ -236,12 +233,29 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     new CompletedSnapshotSplitsReportEvent();
             reportEvent.setCompletedSnapshotSplitWatermarks(completedSnapshotSplitWatermarks);
             context.sendSourceEventToEnumerator(reportEvent);
-            // TODO need enumerator return ack
-            finishedUnackedSplits.clear();
+            // The splits stay in finishedUnackedSplits until the enumerator returns a
+            // CompletedSnapshotSplitsAckEvent via handleSourceEvent. Clearing them eagerly
+            // here would let a snapshot phase advance without the enumerator ever knowing
+            // which splits the reader finished.
             log.debug(
                     "The subtask {} reports offsets of finished snapshot splits {}.",
                     subtaskId,
                     completedSnapshotSplitWatermarks);
+        }
+    }
+
+    @Override
+    public void handleSourceEvent(SourceEvent sourceEvent) {
+        if (sourceEvent instanceof CompletedSnapshotSplitsAckEvent) {
+            CompletedSnapshotSplitsAckEvent ackEvent =
+                    (CompletedSnapshotSplitsAckEvent) sourceEvent;
+            ackEvent.getCompletedSplits().forEach(finishedUnackedSplits::remove);
+            log.debug(
+                    "The subtask {} receives acknowledgements for finished snapshot splits {}.",
+                    subtaskId,
+                    ackEvent.getCompletedSplits());
+        } else {
+            super.handleSourceEvent(sourceEvent);
         }
     }
 
@@ -251,10 +265,17 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            List<CatalogTable> checkpointTables =
-                    restoreCheckpointState(incrementalSplit, debeziumDeserializationSchema);
-            if (!checkpointTables.isEmpty()) {
-                restoredCheckpointTables.set(checkpointTables);
+            restoreCheckpointState(
+                    incrementalSplit,
+                    debeziumDeserializationSchema,
+                    isSchemaChangeEnabled(sourceConfig));
+            List<CatalogTable> collectorTables =
+                    restoreCollectorCheckpointTables(
+                            incrementalSplit,
+                            debeziumDeserializationSchema,
+                            isSchemaChangeEnabled(sourceConfig));
+            if (!collectorTables.isEmpty()) {
+                restoredCheckpointTables.set(collectorTables);
             }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
@@ -273,28 +294,65 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     /**
-     * Restores schema-evolution state from the current or legacy incremental split checkpoint.
-     *
-     * <p>Both the Debezium deserializer and the engine collector must restore the same table list.
-     * Resolver-less CDC dialects deliberately keep their current table definition, so this method
-     * returns no tables for them.
+     * Selects the schema restored to the engine collector without changing deserializer history.
+     * Schema-disabled jobs retain their live schema, matching the deserializer restore contract.
      */
-    static <T> List<CatalogTable> restoreCheckpointState(
-            IncrementalSplit incrementalSplit,
-            DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
-        if (debeziumDeserializationSchema.getSchemaChangeResolver() == null) {
+    static <T> List<CatalogTable> restoreCollectorCheckpointTables(
+            IncrementalSplit split,
+            DebeziumDeserializationSchema<T> schema,
+            boolean schemaChangeEnabled) {
+        if (!schemaChangeEnabled || schema.getSchemaChangeResolver() == null) {
             return Collections.emptyList();
         }
+        List<CatalogTable> tables = split.getCheckpointTables();
+        if ((tables == null || tables.isEmpty()) && split.getCheckpointDataType() != null) {
+            tables = restoreLegacyCheckpointTables(split);
+        }
+        return tables == null ? Collections.emptyList() : new ArrayList<>(tables);
+    }
 
+    /**
+     * Restores the deserializer's runtime schema and Debezium table history from a checkpointed
+     * incremental split.
+     *
+     * <p>The checkpointed runtime schema is only restored when {@code schemaChangeEnabled} is true.
+     * Restoring it replaces the schema discovered from the live database at startup, so any column
+     * added while the job was stopped disappears from the produced rows until the change stream
+     * widens the schema again; only a job that propagates schema changes (MySQL DDL events,
+     * PostgreSQL RELATION messages, all gated on {@code schema-changes.enabled}) can do that. A job
+     * with schema change propagation disabled would otherwise keep silently dropping such columns
+     * after every savepoint restore, so it keeps the live-discovered schema, which is the contract
+     * it always had. Debezium table history is restored in both cases: it only drives how the
+     * change stream itself is decoded and is never widened by SeaTunnel.
+     *
+     * @param incrementalSplit the split restored from checkpoint state
+     * @param debeziumDeserializationSchema the deserializer whose runtime state is restored
+     * @param schemaChangeEnabled whether this job propagates source schema changes downstream
+     */
+    static <T> void restoreCheckpointState(
+            IncrementalSplit incrementalSplit,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
+            boolean schemaChangeEnabled) {
         List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
-        if (checkpointTables != null && !checkpointTables.isEmpty()) {
+        if (!schemaChangeEnabled) {
+            if ((checkpointTables != null && !checkpointTables.isEmpty())
+                    || incrementalSplit.getCheckpointDataType() != null) {
+                log.info(
+                        "The incremental split[{}] carries a checkpoint schema, but schema change propagation is disabled for this job, so the live discovered schema is kept instead of restoring the checkpoint schema.",
+                        incrementalSplit.splitId());
+            }
+        } else if (checkpointTables != null && !checkpointTables.isEmpty()) {
             log.info(
-                    "The incremental split[{}] has checkpoint tables {} for restore.",
+                    "The incremental split[{}] has {} checkpoint table(s) for restore: {}.",
                     incrementalSplit.splitId(),
-                    checkpointTables);
+                    checkpointTables.size(),
+                    toCheckpointTablePaths(checkpointTables));
+            debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
         } else if (incrementalSplit.getCheckpointDataType() != null) {
-            checkpointTables = restoreLegacyCheckpointTables(incrementalSplit);
-            if (checkpointTables.isEmpty()) {
+            // Keep reading checkpoints written before checkpoint tables were introduced.
+            List<CatalogTable> legacyCheckpointTables =
+                    restoreLegacyCheckpointTables(incrementalSplit);
+            if (legacyCheckpointTables.isEmpty()) {
                 log.warn(
                         "Skip restoring the legacy checkpoint data type for incremental split[{}] because the table identity cannot be recovered from split state.",
                         incrementalSplit.splitId());
@@ -302,16 +360,39 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 log.info(
                         "The incremental split[{}] restores {} legacy checkpoint table(s): {}.",
                         incrementalSplit.splitId(),
-                        checkpointTables.size(),
-                        toCheckpointTablePaths(checkpointTables));
+                        legacyCheckpointTables.size(),
+                        toCheckpointTablePaths(legacyCheckpointTables));
+                debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
             }
         }
 
-        if (checkpointTables == null || checkpointTables.isEmpty()) {
-            return Collections.emptyList();
+        Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
+        if (historyTableChanges != null && !historyTableChanges.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has checkpoint history table changes for restore.",
+                    incrementalSplit.splitId());
+            debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
         }
-        debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
-        return checkpointTables;
+    }
+
+    /**
+     * Resolves whether the job propagates source schema changes downstream, i.e. the value of
+     * {@code schema-changes.enabled} as every JDBC-based CDC connector forwards it to Debezium's
+     * {@code include.schema.changes}. This is the same switch that gates DDL emission in the MySQL
+     * connector and the RELATION listener in the PostgreSQL connector, so it tells exactly whether
+     * a checkpoint-restored runtime schema can ever be widened again by the change stream. Non-JDBC
+     * sources never emit schema change events and therefore report false.
+     *
+     * @param sourceConfig the reader's source configuration
+     * @return true when schema change propagation is enabled for this job
+     */
+    static boolean isSchemaChangeEnabled(SourceConfig sourceConfig) {
+        if (sourceConfig instanceof JdbcSourceConfig) {
+            return ((JdbcSourceConfig) sourceConfig)
+                    .getDbzConnectorConfig()
+                    .isSchemaChangesHistoryEnabled();
+        }
+        return false;
     }
 
     private static List<CatalogTable> restoreLegacyCheckpointTables(
@@ -341,8 +422,12 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         (SeaTunnelRowType) incrementalSplit.getCheckpointDataType()));
     }
 
-    private static CatalogTable toLegacyCheckpointTable(String tableId, SeaTunnelRowType rowType) {
+    private static CatalogTable toLegacyCheckpointTable(
+            String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
         TablePath tablePath = TablePath.of(tableId);
+        // The deprecated getCatalogTable(String, RowType) overload treats the full table path as a
+        // plain tableName and injects a synthetic "default" prefix. Build the identifier
+        // explicitly so restored legacy checkpoint tables keep their original path.
         return CatalogTableUtil.getCatalogTable(
                 "schema",
                 tablePath.getDatabaseName(),
@@ -447,5 +532,17 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 checkpointTables,
                 incrementalSplit.splitId());
         return Arrays.asList(newIncrementalSplit);
+    }
+    /**
+     * Applies recovered collector state before the next restored record is emitted.
+     *
+     * <p>Atomically consuming the pending state prevents a later poll from replaying the same
+     * restore while preserving state published by a concurrent split assignment.
+     */
+    private void restoreCollectorSchema(Collector<T> output) {
+        List<CatalogTable> tables = restoredCheckpointTables.getAndSet(null);
+        if (tables != null && !tables.isEmpty()) {
+            output.restoreSchema(tables);
+        }
     }
 }
