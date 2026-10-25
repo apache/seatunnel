@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
@@ -24,11 +27,14 @@ import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -38,11 +44,13 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -132,6 +140,21 @@ public class ClusterFailureNoRestoreIT {
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
             awaitSourceProgressBeforeShutdown(
                     engineClient, clientJobProxy.getJobId(), expectedSourceReadCount);
+            long jobId = clientJobProxy.getJobId();
+            SeaTunnelServer masterServer =
+                    node1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinator = masterServer.getCoordinatorService();
+            Awaitility.await()
+                    .atMost(PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                JobMetrics running = coordinator.getRunningJobMetrics().get(jobId);
+                                Assertions.assertNotNull(running);
+                                Assertions.assertFalse(
+                                        running.get(MetricNames.SOURCE_RECEIVED_COUNT).isEmpty(),
+                                        "Healthy workers must supply running source metrics");
+                            });
+            String departedAddress = node2.getCluster().getLocalMember().getAddress().toString();
 
             CompletableFuture<JobResult> waitForCompleteFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
@@ -161,6 +184,36 @@ public class ClusterFailureNoRestoreIT {
                                             FileUtils.getFileLineNumberFromDir(
                                                     testResources.getLeft()));
                                 }
+                            });
+
+            // Read terminal evidence while the surviving master is still running. A departed
+            // worker cannot contribute a final snapshot, but surviving metrics must be retained.
+            IMap<Long, JobMetrics> history = node1.getMap(Constant.IMAP_FINISHED_JOB_METRICS);
+            SeaTunnelClient finalClient = engineClient;
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertNull(coordinator.getJobMaster(jobId));
+                                JobMetrics stored = history.get(jobId);
+                                Assertions.assertNotNull(
+                                        stored, "Terminal metrics must be persisted");
+                                Assertions.assertFalse(stored.metrics().isEmpty());
+                                stored.getMetrics().values().stream()
+                                        .flatMap(Collection::stream)
+                                        .forEach(
+                                                measurement ->
+                                                        Assertions.assertNotEquals(
+                                                                departedAddress,
+                                                                measurement.tag(MetricTags.ADDRESS),
+                                                                "Departed workers must not supply final metrics"));
+                                JobMetricsSummary summary = finalClient.getJobMetricsSummary(jobId);
+                                Assertions.assertEquals(
+                                        sumMetric(stored, MetricNames.SOURCE_RECEIVED_COUNT),
+                                        summary.getSourceReadCount());
+                                Assertions.assertEquals(
+                                        sumMetric(stored, MetricNames.SINK_WRITE_COUNT),
+                                        summary.getSinkWriteCount());
                             });
         } finally {
             if (engineClient != null) {
@@ -197,6 +250,16 @@ public class ClusterFailureNoRestoreIT {
                                             < expectedSourceReadCount,
                                     "The bounded fake source finished before worker shutdown was injected");
                         });
+    }
+
+    /**
+     * Sums a persisted count metric for comparison with the public client summary. This avoids
+     * expecting a complete count from the worker deliberately removed before terminal collection.
+     */
+    private long sumMetric(JobMetrics metrics, String metricName) {
+        return metrics.get(metricName).stream()
+                .mapToLong(measurement -> ((Number) measurement.value()).longValue())
+                .sum();
     }
 
     private ImmutablePair<String, String> createTestResources(

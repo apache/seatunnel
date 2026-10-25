@@ -4,6 +4,186 @@
 
 ## dev
 
+### Zeta：管道故障转移恢复后运行时计数器从零重新计数
+
+- **行为变更：运行时计数器不再累计失败管道执行的数值**
+  - **描述**：Zeta 引擎在 worker 故障转移后恢复管道（或失败后重试）时，新一次执行的运行时计数器（`SourceReceivedCount`、`SinkWriteCount`、队列指标）从零开始计数。此前由于任务位置在多次重试之间保持不变，新执行的计数器会从共享指标存储中继承失败执行的数值继续累加，导致已完成作业的指标可能包含早已被取消的执行所完成的工作量。
+  - **影响**：对批作业，这消除了已完成作业指标多计的问题。对流作业，故障转移恢复后上报的总量会从新一次执行的数值重新开始，而不是延续故障前的累计值；外部聚合这些计数器的看板或告警不应将这种清零解读为数据丢失。该清零是尽力而为的：恢复期间恰好在途的 worker 上报，最多可能在毫秒级窗口内携带一次旧数值。
+  - **迁移指南**：正确性上无需任何操作。如果需要跨故障转移的生命周期总量，请在运行中的作业之外自行累计，例如从作业历史中已完成作业存储的指标获取。
+
+### JSON 格式：`ARRAY` 与 `MAP` 字段拒绝容器类型不匹配的值
+
+当字段声明为 `ARRAY` 时，此前若 JSON 值不是数组（字符串、数字、布尔值或对象），会静默得到空数组 `[]`，若是对象则得到每个成员都为 `null` 的数组；当字段声明为 `MAP` 时，非对象的 JSON 值会静默得到空 Map `{}`。无论 `ignore-parse-errors` 关闭还是开启，行为都是如此。
+
+现在这类值会报告解析错误，指出字段名和预期的容器类型；配置 `ignore-parse-errors = true` 时只把该容器值置为 `null`，同一行的其余值仍然保留。嵌套在数组或 Map 中的类似值同样如此：只有出错的那个嵌套值变为 `null`，其兄弟值和外层容器仍然保留；与声明类型匹配的空数组、空对象，以及 `null` 与缺失值，以及元素和键的转换行为保持不变。如需迁移，请为 `ARRAY` 字段提供真正的 JSON 数组、为 `MAP` 字段提供真正的 JSON 对象，或开启 `ignore-parse-errors = true`，使格式不合法的容器值变成 `null`而不是让作业失败。
+
+同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
+
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### CDC：可空列不再用作快照分片列
+
+- **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
+  - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
+  - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
+  - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
+### Markdown File Source 的 `child_ids` 数组
+
+Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
+### 运行环境要求
+
+- **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
+  - **影响范围**：所有模块——整个发行包、Zeta 引擎、全部连接器，以及发布的 Docker 镜像
+  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jdk`——仍保留完整 JDK 而非 JRE，以便 `jps`/`jstack`/`jmap` 继续可用于诊断运行中的节点。
+  - **影响**：
+    - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
+    - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
+    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才正式支持 Java 11（SPARK-24417）。Spark 2.4 在 Java 11 上仍可启动，但会打印非法反射访问告警，并且会把较老的 commons-lang3 放进 classpath，部分连接器会因此初始化失败，因此强烈建议使用 Spark 3.x。
+    - 已按 Java 8 编译的第三方连接器仍可正常使用。Java 11 JVM 可以直接加载更低版本的 class 文件，所以只有 JVM 版本有要求，对您自己 jar 的字节码级别没有要求。
+  - **迁移指南**：
+    1. 将所有运行 SeaTunnel 代码的节点的 JVM 升级到 Java 11 或 Java 17：客户端、Zeta master 与 worker，以及作业提交到的 Flink 或 Spark 集群。
+    2. 如果提交到 Flink，请将集群切换到运行 Java 11 及以上的镜像或部署。
+    3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
+    4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
+    5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### Application Mode 内部 API 变更
+
+- `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
+  Application Mode 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+- `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
+  提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+- `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理
+  逻辑需下移到 `closeResourceManager()`，由 `close()` 保证只调用一次；此前重写 `close()` 的子类将无法
+  编译，需要迁移。
+
+### 用户变量(`-i` 参数)
+
+- **`-i` 参数值在 `System.getProperties()`中不可见**
+
+  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过 `System.getProperties()` 访问。
+
+- **`-i` 参数不再允许重复key**
+  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
+  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
+
+- **双引号包裹的 `-i` 值会被解包**
+  - 例如 `-i k="v"` 现在等价于 `-i k=v`（引号被剥掉）。双引号主要针对包含逗号(`,`),花括号(`{}`)和方括号(`[]`)等包含结构化定界符的字符串参数值使用，其他普通字符可不用双引号。
+
+- **不平衡的`{}`或`[]`会被部分解析成map和list**
+  - `-i k=[a,b],c]` 中`[a,b]`会当成数组解析，`c]` 因为没有 `=` 会被忽略（不会作为字符串保留）
+  - 以 `{` 或 `[` 开头、括号平衡但不是合法 HOCON/JSON 的参数值，现在会在解析阶段抛出 BadValue 错误。之前能正常工作的未加引号的值（如 `-i pattern={a,b} `）会因此失败。如需保留为普通字符串，请用转义双引号包裹：
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` key 和 value 现在会 trim，空 key 会被拒绝**
+  - `-i 'k1= , k2=v2'` 现在会明确将空格去掉，k1的会变为空字符串，第二个键值对的key会变为`k2`而不是带空格的` k2`。
+  - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
+  - 有意义的首尾空白会被静默去除。
+
+### SQL TINYINT 数组模式
+
+Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
+
+### Zeta SQL Transform：数值来源转换为 INT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `INT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：将数值转换为 `INT` | `INTEGER` 时会经由 `Number.intValue()`，它只保留低 32 位，
+    因此 `CAST(bigint_col AS INT)` 对 `3000000000` 返回 `-1294967296`，略小于 `Integer.MIN_VALUE`
+    的值会变成 `2147483647`，符号发生翻转。而字符串来源已经经由 `Integer.parseInt` 报告溢出，
+    所以同一个表达式究竟是失败还是损坏数据，仅取决于来源列的类型。现在数值路径也会报告该情况。
+    `TINYINT`、`SMALLINT` 与 `BYTE` 不受影响，因为它们使用 `Byte.parseByte` 与 `Short.parseShort`
+    转换，本来就会拒绝超出范围的值。规划阶段的接受范围保持不变：每个目标类型允许的来源类型与此前完全一致。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、扩宽转换和同类型转换均不受影响。本次变更不涉及 `FLOAT` 与 `DOUBLE`，它们对无法表示的值
+    仍返回 `Infinity`。
+  - **同样影响 `COALESCE` 与 `IFNULL`**：它们会走到同一个转换边界，且其结果类型是按第一个非空参数推断的，
+    而不是按最宽的类型推断。因此 `COALESCE(int_col, bigint_col)` 的目标类型是 `INT`，取自 `BIGINT`
+    参数的超范围值此前同样会被静默截断，现在也会失败。`CASE` 表达式不受影响，因为它的类型按最宽的分支推断，
+    不会发生收窄。
+  - **覆盖宽类型与非有限数值来源**：范围检查按数值族分别进行，而不是先统一加宽再检查，因为
+    `Number.longValue()` 本身对部分类型是有损的。超过 64 位的 `DECIMAL`（可通过
+    `COALESCE(int_col, decimal_col)` 到达）、`BigInteger`，以及来自 `DOUBLE` 的 `NaN` 或无穷，
+    现在都会被拒绝，而不是以截断后的值通过。
+  - **小数来源的行为不变**：通过 `COALESCE` 或 `IFNULL` 到达时，例如 `5.7` 仍然向零截断，而不是被拒绝，
+    这是该转换一直以来的行为，本次只改变范围相关的行为。而显式写成 `CAST` 到整型目标的浮点来源，在语句准备
+    阶段就会被拒绝，本次变更前后都是如此。注意截断这条路径与字符串来源仍然不同，`Integer.parseInt("5.7")`
+    会失败；是否统一两者是另一个决定。
+  - **未改变的目标类型**：`BIGINT` | `LONG` 保持原有转换方式，本次变更不对其做范围检查；该问题单独记录在 #12612。
+  - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
+    扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
+
+### DuckDB BIT 和 ENUM 自动建表
+
+- Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
+  正长度保持不变。自动生成的列将使用 MySQL `LONGTEXT` 或 PostgreSQL `text`，不再使用原来的有界字符串类型。
+- 已有目标表不会自动扩容。传输超出原有限制的值前，请检查列定义并手动扩容。
+- 使用 `create_index = true`（默认值）时，如果这些列属于主键，MySQL 自动建表会失败：`LONGTEXT` 无法作为
+  使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
+  并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
+  `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
+
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
+
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
+### Zeta SQL Transform：内置 AES_ENCRYPT / AES_DECRYPT
+
+- **行为变更：AES_ENCRYPT / AES_DECRYPT 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
+  - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
@@ -14,6 +194,22 @@
   - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
   - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
     `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
+### FakeSource (connector-fake)
+
+- 声明式选项约束现在在工厂校验阶段即强制生效，而不再静默放行、直到运行时才失败。受影响选项：`split.num`、
+  `vector.dimension` 和 `binary.vector.dimension` 必须 > 0；`row.num`、`split.read-interval`、`map.size`、
+  `array.size`、`bytes.length` 和 `string.length` 必须 >= 0；`tinyint.min/max`、`smallint.min/max`、
+  `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
+  必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
+  将在启动时快速抛出校验错误并失败。
+
+### DataValidator 数组长度
+
+`LENGTH` 规则现在计算数组元素个数，而非数组的 Java 标识字符串长度。
+因此，包含数组的行可能得到与此前不同的验证结果。请检查曾为适应旧行为而调整的数组长度限制，
+并在重放数据前核对此前被跳过或路由到错误表的数据。
+字符串、集合、二进制值和空值的处理保持不变，无需迁移配置或状态格式。
 
 ### Zeta REST 分页参数校验
 
@@ -28,6 +224,14 @@
   - **影响范围**：`connector-cdc-mysql`
   - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
   - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
+### MySQL-CDC：可空唯一键列中的 NULL 按 NULL 输出
+
+- **行为变更：对于没有主键的表，MySQL-CDC 对可空唯一键列输出 NULL，而不是类型默认值**
+  - **影响组件**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **描述**：对于没有主键的表，MySQL DDL 解析器（Debezium 1.9.8）会把第一个唯一键提升为主键，并把其中的列标记为 NOT NULL，尽管数据库允许这些列为 NULL。这些列中的 NULL 值在快照阶段和 binlog 阶段会被输出为类型默认值（例如 `0`、`''` 或纪元时间），在 binlog 中出现 `ALTER TABLE ... ADD UNIQUE KEY` 或 `CREATE UNIQUE INDEX` 等 DDL 之后也是如此。现在这些列保持声明时的可空性，NULL 按 NULL 输出。真正的主键列不受影响。这一变更依赖于可空列不再被用作快照分片列（见“CDC：可空列不再用作快照分片列”）：否则在 `exactly_once = true` 时，分片列中的 NULL 会导致分片范围检查失败。
+  - **影响**：Sink 现在会在原来收到类型默认值的位置收到 NULL。如果 Sink 列声明为 `NOT NULL`，或 Sink 的 `primary_keys` 包含这样的列，这些行可能会被拒绝。
+  - **迁移指南**：将受影响的 Sink 列改为可空，并且不要使用可空列作为 Sink 主键。如果作业从一个已经保存了此类表结构的 checkpoint 恢复（该表在 binlog 中出现过 DDL 之后保存），该表会保持旧行为，直到作业不使用该 checkpoint 重新启动。
 
 ### JDBC Connector
 
@@ -48,7 +252,8 @@
     - **CDC（基于 Debezium，TiDB）**：CDC 连接器现在可以正确处理 Debezium 反序列化层中的 `TIMESTAMP_TZ` 类型。以前，`TIMESTAMP_TZ` 不受支持，会抛出 `UnsupportedOperationException`。现在，在 CDC 管道中使用带时区列的用户可以正常使用。
     - **Iceberg（已有表）**：在本 PR 之前，SeaTunnel 的 `TIMESTAMP` 类型错误地以带时区（`withZone()`）的形式写入 Iceberg。本 PR 之后，`TIMESTAMP` 写为不带时区（`withoutZone()`），而 Iceberg `withZone()` 列读取时返回 `TIMESTAMP_TZ`。**升级影响**：如果您的 Iceberg 表是由旧版 SeaTunnel 创建的，其时间戳列以 `withZone()` 形式存储。升级后，SeaTunnel 会将其读取为 `TIMESTAMP_TZ` 而非 `TIMESTAMP`，下游 Sink 或 Transform 若期望 `TIMESTAMP` 类型可能遇到类型不匹配错误。**迁移方案**：重新创建受影响的 Iceberg 表，或在管道配置中使用 SQL Transform 将 `TIMESTAMP_TZ` 转换回 `TIMESTAMP`。
     - **TIMESTAMP_TZ 写入约定**：SeaTunnel 根据 Sink 格式的表达能力，对 `TIMESTAMP_TZ` 采用两级序列化约定：
-      - **不支持原生时区类型的 DB 列类型 Sink（Doris、StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
+      - **Doris Sink**：`TIMESTAMP_TZ` 会先转换到 Doris 的目标时区，再以 `DATETIME` 存储。可通过 `sink.datetime-timezone` 显式指定目标时区；未配置时，SeaTunnel 使用 JVM 默认时区。例如，配置 `sink.datetime-timezone = "Asia/Shanghai"` 时，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 02:00:00`。
+      - **其他不支持原生时区类型的 DB 列类型 Sink（StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
       - **基于字符串/文本的 Sink（Text 文件、Kafka、Pulsar、RocketMQ、RabbitMQ、Redis 等）**：保留完整的 ISO 8601 偏移（例如 `"2024-01-01T03:00:00+09:00"`）。这些格式可以用字符串表示时区偏移，不会丢失信息。如果需要在这类 Sink 中使用 wall-clock 行为，请在写入前通过 SQL Transform 将 `TIMESTAMP_TZ` 转换为 `TIMESTAMP`。
     - **Xugu TIMESTAMP_TZ（有损写入）**：Xugu `TIMESTAMP WITH TIME ZONE` 列在类型层面暴露为 `TIMESTAMP_TZ`，但由于 Xugu JDBC 驱动批量执行缺陷（[E19138]），实际写入时会丢弃时区偏移，仅存储时钟时间。首次写入时会输出 WARN 日志。
 
@@ -133,6 +338,18 @@
 
 
 ### 连接器变更
+
+- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
+  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
+  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
+  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
+  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
+
+- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
+  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
+  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
+  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
 
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
@@ -219,6 +436,12 @@
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+- **行为变更：每个 `table_transform` 条目都会在提交时校验**
+  - **影响范围**：所有支持 `table_transform` 的转换：`Copy`、`Calcite`、`DataValidator`、`DefineSinkType`、`DynamicCompile`、`FieldEncrypt`、`FieldMapper`、`Filter`、`FilterRowKind`、`JsonPath`、`Metadata`、`Python`、`RegexExtract`、`Replace`、`Sql`、`Split`、`TableMerge` 和 `TextChunk`。
+  - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
+  - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
+  - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
+- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 - **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
   这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
   从而静默产生错误的值：
@@ -286,6 +509,43 @@
   `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
   （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
+### 格式变更
+
+- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
+  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
+  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+
 ### 引擎行为变更
+
+- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
+  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
+  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
+
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
 ### 依赖升级

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -59,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.ArgumentCaptor;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.impl.MemberImpl;
@@ -70,8 +72,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -87,8 +87,10 @@ import java.util.function.BiConsumer;
 
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -410,17 +412,37 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     @Test
     void testFinalMetricsSkipsDepartedWorker() throws Exception {
         long jobId = 10003L;
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
         TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
         Address workerAddress = new Address("127.0.0.2", 5801);
         NodeEngine nodeEngine = mock(NodeEngine.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
         FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
         ClusterService clusterService = mock(ClusterService.class);
+        JobHistoryService jobHistoryService = mock(JobHistoryService.class);
+        JobImmutableInformation jobInformation = mock(JobImmutableInformation.class);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                mock(IMap.class);
+        SlotProfile slotProfile = mock(SlotProfile.class);
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         when(hazelcastInstance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME))
                 .thenReturn(flakeIdGenerator);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
         when(clusterService.getMember(workerAddress)).thenReturn(null);
+        when(jobInformation.getJobId()).thenReturn(jobId);
+        when(slotProfile.getWorker()).thenReturn(workerAddress);
+        Map<TaskGroupLocation, SlotProfile> slots =
+                Collections.singletonMap(taskGroupLocation, slotProfile);
+        when(ownedSlotProfilesIMap.get(pipelineLocation)).thenReturn(slots);
+        doAnswer(
+                        invocation -> {
+                            BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+                                    consumer = invocation.getArgument(0);
+                            consumer.accept(pipelineLocation, slots);
+                            return null;
+                        })
+                .when(ownedSlotProfilesIMap)
+                .forEach((BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>) any());
 
         JobMaster jobMaster =
                 new JobMaster(
@@ -429,27 +451,31 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         nodeEngine,
                         jobMasterTestExecutor,
                         mock(ResourceManager.class),
-                        mock(JobHistoryService.class),
+                        jobHistoryService,
                         mock(IMap.class),
                         mock(IMap.class),
-                        mock(IMap.class),
+                        ownedSlotProfilesIMap,
                         mock(IMap.class),
                         null,
-                        null);
+                        null) {
+                    @Override
+                    public JobImmutableInformation getJobImmutableInformation() {
+                        return jobInformation;
+                    }
 
-        Method finalMetricsMethod =
-                JobMaster.class.getDeclaredMethod("getFinalJobMetrics", Map.class);
-        finalMetricsMethod.setAccessible(true);
-        Map<TaskGroupLocation, Address> workers =
-                Collections.singletonMap(taskGroupLocation, workerAddress);
+                    @Override
+                    protected RawJobMetrics fetchTaskGroupMetrics(
+                            Address address, List<TaskGroupLocation> taskGroupLocations) {
+                        throw new AssertionError(
+                                "A departed worker must not receive a metrics RPC");
+                    }
+                };
 
-        List<RawJobMetrics> metrics;
-        try {
-            metrics = (List<RawJobMetrics>) finalMetricsMethod.invoke(jobMaster, workers);
-        } catch (InvocationTargetException e) {
-            throw new AssertionError(e.getCause());
-        }
-        Assertions.assertTrue(metrics.isEmpty());
+        jobMaster.savePipelineMetricsToHistory(pipelineLocation);
+
+        ArgumentCaptor<JobMetrics> metrics = ArgumentCaptor.forClass(JobMetrics.class);
+        verify(jobHistoryService).storeFinishedPipelineMetrics(eq(jobId), metrics.capture());
+        Assertions.assertTrue(metrics.getValue().metrics().isEmpty());
     }
 
     @Test

@@ -63,9 +63,9 @@ public class YamlSeaTunnelDomConfigProcessorTest {
                                         .toURI())
                         .toString();
 
-        SeaTunnelConfig config =
-                new YamlSeaTunnelConfigBuilder(new FileInputStream(configPath)).build();
-
-        assertEquals(4500L, config.getEngineConfig().getMetricsFetchTimeoutMs());
+        try (FileInputStream input = new FileInputStream(configPath)) {
+            SeaTunnelConfig config = new YamlSeaTunnelConfigBuilder(input).build();
+            assertEquals(4500L, config.getEngineConfig().getMetricsFetchTimeoutMs());
+        }
     }
 }

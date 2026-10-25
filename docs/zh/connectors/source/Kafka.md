@@ -41,7 +41,8 @@ header 字段和事件时间元数据。
 
 校验成功仅证明可以访问元数据，**不代表**具备消费消息、访问消费组或反序列化实际消息
 的能力。与运行时一致，允许正则表达式当前没有可见的匹配主题；此时仅校验主题列表访问，
-不验证未来主题的访问权限。Kafka sink 仍不支持连通性 dry-run。
+不验证未来主题的访问权限。Kafka sink 支持独立的[元数据连通性预检查](../sink/Kafka.md#连通性-dry-run)，
+但不验证 Produce 或事务权限。
 
 ## 支持的数据源信息
 
@@ -66,8 +67,10 @@ header 字段和事件时间元数据。
 | poll.timeout                        | Long                                | 否    | 10000                        | kafka主动拉取时间间隔(毫秒)。                                                                                                                                                                                                                                                                                                             |
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
-| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
+| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, compatible_kafka_connect_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
 | avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
+| value_converter_schema_enabled      | Boolean                             | 否    | true                         | 仅在 `format = compatible_kafka_connect_json` 时生效。Kafka Connect value 转换后的 JSON 载荷是否携带 schema。                                                                                                                                                                                                                                                                                |
+| avro_row_nullable                   | Boolean                             | 否    | false                        | 当 `format` 为 `avro` 时生效。当生产端按可空 Avro union 写入 ROW 字段（写入端配置了 `avro_row_nullable = true`）时设为 `true`，否则无法解码值为 `null` 的 ROW；读取端必须与写入端保持一致。显式配置的 `avro_schema` 始终是线上布局的权威描述。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 使用 `tables_configs` 或 `table_list` 时，请在每个表配置中设置此选项。 |
 | format_error_handle_way             | String                              | 否    | fail                         | 数据格式错误的处理方式。默认值为 fail，可选值为 fail 和 skip。当选择 fail 时，数据格式错误将阻塞并抛出异常。当选择 skip 时，数据格式错误将跳过此行数据。                                                                                                                                                                                                                                     |
 | debezium_record_include_schema      | Boolean                             | 否    | true                         | 当 `format` 为 `debezium_json` 时生效，用于说明 Debezium 记录中是否携带 schema 信息。                                                                                                                                                                                                                                          |
 | debezium_record_table_filter        | Config                              | 否    | -                            | 用于过滤 debezium 格式的数据，仅当格式设置为 `debezium_json` 时使用。请参阅下面的 `debezium_record_table_filter`                                                                                                                                                                                                                                          |
@@ -107,7 +110,7 @@ header 字段和事件时间元数据。
 
 :::caution
 
-当消费的消息体较大时，过高的值会导致堆内存占用过高。如果观察到内存压力，请减小此值或降低 `kafka.max.poll.records`。
+当消费的消息体较大时，过高的值会导致堆内存占用过高。如果观察到内存压力，请减小此值或降低 `kafka.config` 中的 `max.poll.records`。
 
 :::
 
@@ -580,7 +583,6 @@ source {
     start_mode = "earliest"
     format_error_handle_way = skip
     format = "NATIVE"
-    value_converter_schema_enabled = false
     consumer.group = "native_group"
   }
 }
@@ -601,6 +603,15 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+### 墓碑消息（tombstone）
+
+墓碑消息是只有 key、没有 value 的 Kafka 记录，压缩主题用它标记某个 key 已被删除。对于 `json`、`text`、`canal_json`、
+`debezium_json`、`ogg_json`、`maxwell_json` 和 `avro` 格式，源端把墓碑消息读取为不产生任何数据行的记录：它不属于格式错误，因此无论
+`format_error_handle_way` 取何值都会被跳过，并且位点会继续向前推进。其中 `text`、`canal_json`、`debezium_json`、`ogg_json`
+和 `avro` 对空（长度为 0）的 value 也做同样处理；`json` 和 `maxwell_json` 仅跳过 null value。
+
+`protobuf` 格式没有这样的空值判断，不适用上述行为。
 
 ### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
 
@@ -719,13 +730,13 @@ transform {
 
 ### Kafka Source 支持哪些消息格式？
 
-支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
+支持：`json`、`text`、`canal_json`、`debezium_json`、`maxwell_json`、`ogg_json`、`avro`、`protobuf`、`compatible_kafka_connect_json` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
 
 `format = avro` 默认读取原始 Avro 二进制消息。对于由 Confluent `KafkaAvroSerializer` 写入的消息，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器通过开头的 magic byte 检测并剥离固定的 5 字节线上格式头（magic byte `0` 加 4 字节 schema ID）后再解码，不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
 
 ### 如何配置 SASL/Kerberos 认证？
 
-通过 `kafka.*` 属性传入认证参数：
+连接器只会把 `kafka.config` 块中的属性透传给 Kafka 客户端，像 `kafka.security.protocol` 这样的顶层键不会被识别，会被静默忽略。认证相关的配置需要放在 `kafka.config` 中：
 
 ```hocon
 source {
@@ -733,13 +744,15 @@ source {
     bootstrap.servers = "broker:9092"
     topic = "secure-topic"
     consumer.group = "my-group"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
