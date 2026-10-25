@@ -237,15 +237,13 @@ spec:
       serviceAccountName: seatunnel
       containers:
         - name: app
-          image: seatunnel:3.0.1
+          image: seatunnel:3.1.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
-            - name: HAZELCAST_CLUSTER_NAME
-              value: seatunnel-cluster
           ports:
             - containerPort: 8080
               name: rest-api

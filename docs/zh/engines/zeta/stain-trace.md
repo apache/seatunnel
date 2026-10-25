@@ -117,7 +117,7 @@ open report.html
 | 参数 | 类型 | 默认值 | 说明 |
 |-----|------|--------|------|
 | stain-trace-enabled | boolean | false | 启用追踪的主开关 |
-| stain-trace-sample-rate | int | 100000 | 每 N 条记录采样 1 条（`stain-trace-sample-interval` 作为已废弃的别名仍可使用） |
+| stain-trace-sample-rate | int | 100000 | 每 N 条记录采样 1 条。旧名称 `stain-trace-sample-interval` 仍作为兼容别名被接受 |
 | stain-trace-max-traces-per-second-per-worker | int | 50 | 每个 Worker 每秒最大追踪数 |
 | stain-trace-max-entries-per-trace | int | 32 | 每条追踪最大阶段条目数 |
 | stain-trace-propagate-to-all-splits | boolean | false | 是否传播到所有分裂输出 |

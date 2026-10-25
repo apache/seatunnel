@@ -119,7 +119,7 @@ open report.html
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | stain-trace-enabled | boolean | false | Master switch to enable tracing |
-| stain-trace-sample-rate | int | 100000 | Sample 1 out of every N records (`stain-trace-sample-interval` is accepted as a deprecated alias) |
+| stain-trace-sample-rate | int | 100000 | Sample 1 out of every N records. The legacy name `stain-trace-sample-interval` is still accepted as a backward-compatible alias |
 | stain-trace-max-traces-per-second-per-worker | int | 50 | Max traces per worker per second |
 | stain-trace-max-entries-per-trace | int | 32 | Max stage entries per trace |
 | stain-trace-propagate-to-all-splits | boolean | false | Propagate to all split outputs |

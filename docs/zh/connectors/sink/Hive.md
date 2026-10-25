@@ -22,12 +22,10 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 默认情况下，我们使用 2PC 提交来确保“精确一次”。
 
-- [x] 文件格式
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
 - [x] 压缩编解码器
     - [x] LZO
 
@@ -110,8 +108,6 @@ Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`�
 ### krb5_path [string]
 
 `krb5.conf` 的路径，用于 Kerberos 认证
-
-`hive-site.xml` 的路径，用于 Hive 元存储认证
 
 ### kerberos_principal [string]
 
@@ -614,18 +610,17 @@ sink {
 
 ### Hive Sink 支持哪些文件格式？
 
-Hive Sink 支持 `ORC`、`PARQUET`、`TEXT`、`JSON` 和 `SEQUENCE` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
+Hive Sink 支持 `TEXT`、`PARQUET` 和 `ORC` 三种存储格式的表。文件格式会根据 Hive 表的 `STORED AS` 子句自动识别（自动建表时则根据 `save_mode_create_template` 中的 `STORED AS` 识别），连接器没有用于覆盖文件格式的选项。其他存储格式的表会被拒绝，并报错 `Hive connector only support [text parquet orc] table now`。
 
 ### Hive Sink 是否支持分区表？
 
-支持。对于分区表，通过 `partition_by` 指定分区字段，SeaTunnel 会自动将数据写入正确的分区目录：
+支持。分区字段从 Hive Metastore 中的表定义读取（自动建表时则从 `save_mode_create_template` 的 `PARTITIONED BY` 子句中解析），SeaTunnel 会自动将数据写入正确的分区目录。Hive Sink 没有 `partition_by` 选项，分区键始终来自表定义：
 
 ```hocon
 sink {
   Hive {
     table_name = "mydb.sales"
     metastore_uri = "thrift://hive-metastore:9083"
-    partition_by = ["dt", "region"]
   }
 }
 ```
