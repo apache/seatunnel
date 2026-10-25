@@ -60,6 +60,12 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
+/**
+ * Verifies PostgreSQL pgvector reads, writes and automatic sink-table creation on Zeta.
+ *
+ * <p>Real catalog and JDBC metadata checks retain vector dimensions, including extension types
+ * outside the search path, while exact row comparisons guard source-to-sink data conversion.
+ */
 @Slf4j
 @DisabledOnContainer(
         value = {},
