@@ -141,7 +141,8 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | TIMESTAMP          | timestamp（微秒精度，Asia/Shanghai 时区） |
 | STRING             | utf8                   |
 | ARRAY              | list                   |
-| MAP                | map                    |
+
+暂不支持 Map 列。Lance 原生格式会拒绝 Arrow Map 值，因此 sink 在构建 schema 时会直接报错。请在写入 Lance 之前将 Map 序列化为字符串，或展开成多个列。
 
 :::tip
 

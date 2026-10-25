@@ -23,6 +23,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.ExecutionException;
+
 public class ExceptionUtilsTest {
     @Test
     public void testGetRootException() {
@@ -34,5 +36,30 @@ public class ExceptionUtilsTest {
                                         "class not fount")));
         Throwable throwable = ExceptionUtils.getRootException(exception);
         Assertions.assertTrue(throwable instanceof SeaTunnelRuntimeException);
+    }
+
+    @Test
+    public void testUnwrapKeepsAnErrorBehindATransportException() {
+        StackOverflowError error = new StackOverflowError("stack");
+        ExecutionException wrapper = new ExecutionException(error);
+        IllegalStateException suppressed = new IllegalStateException("cleanup");
+        wrapper.addSuppressed(suppressed);
+
+        Throwable unwrapped = ExceptionUtils.unwrap((Throwable) wrapper);
+
+        Assertions.assertSame(error, unwrapped);
+        Assertions.assertSame(suppressed, error.getSuppressed()[0]);
+    }
+
+    @Test
+    public void testCollectKeepsTheFirstFailureAndAttachesTheNext() {
+        StackOverflowError error = new StackOverflowError("stack");
+        IllegalStateException cleanup = new IllegalStateException("cleanup");
+
+        Throwable collected = ExceptionUtils.collect(error, cleanup);
+
+        Assertions.assertSame(error, collected);
+        Assertions.assertSame(cleanup, error.getSuppressed()[0]);
+        Assertions.assertSame(cleanup, ExceptionUtils.collect((Throwable) null, cleanup));
     }
 }

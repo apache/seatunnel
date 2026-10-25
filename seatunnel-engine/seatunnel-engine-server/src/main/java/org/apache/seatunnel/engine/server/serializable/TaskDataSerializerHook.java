@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderO
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
@@ -110,6 +111,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int REPORT_METRICS_OPERATION = 28;
 
+    public static final int SOURCE_ENUMERATOR_EVENT_TYPE = 29;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -170,6 +173,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanTaskGroupContextOperation();
                 case SOURCE_READER_EVENT_OPERATOR:
                     return new SourceReaderEventOperation();
+                case SOURCE_ENUMERATOR_EVENT_TYPE:
+                    return new SourceEnumeratorEventOperation();
                 case CHECK_TASKGROUP_IS_EXECUTING:
                     return new CheckTaskGroupIsExecutingOperation();
                 case GET_METRICS_OPERATION:
