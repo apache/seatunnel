@@ -20,9 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.google.pubsub.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum GooglePubSubConnectorErrorCode implements SeaTunnelErrorCode {
-    CONNECTION_FAILED("GooglePubSub-01", "Create Google Pub/Sub publisher failed"),
+    CONNECTION_FAILED("GooglePubSub-01", "Create Google Pub/Sub client failed"),
     WRITE_FAILED("GooglePubSub-02", "Publish Google Pub/Sub message failed"),
-    CLOSE_FAILED("GooglePubSub-03", "Close Google Pub/Sub publisher failed");
+    CLOSE_FAILED("GooglePubSub-03", "Close Google Pub/Sub client failed"),
+    READ_FAILED("GooglePubSub-04", "Read Google Pub/Sub message failed"),
+    ACKNOWLEDGE_FAILED("GooglePubSub-05", "Acknowledge Google Pub/Sub message failed"),
+    CONFIGURATION_FAILED("GooglePubSub-06", "Validate Google Pub/Sub configuration failed");
 
     private final String code;
     private final String description;

@@ -33,6 +33,32 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class InsertOrUpdateBatchStatementExecutorTest {
 
     @Test
+    void clearBatchClearsPreparedStatementsAndPreventsCloseFlush() throws Exception {
+        StatementRecorder insertRecorder = new StatementRecorder();
+        StatementRecorder updateRecorder = new StatementRecorder();
+        InsertOrUpdateBatchStatementExecutor executor =
+                new InsertOrUpdateBatchStatementExecutor(
+                        ignored -> insertRecorder.statement(),
+                        ignored -> updateRecorder.statement(),
+                        TableSchema.builder().build(),
+                        null,
+                        new NoopJdbcRowConverter());
+
+        executor.prepareStatements(null);
+        executor.addToBatch(new SeaTunnelRow(new Object[] {1}));
+        executor.clearBatch();
+        executor.closeStatements();
+
+        assertEquals(1, insertRecorder.addBatchCount);
+        assertEquals(1, insertRecorder.clearBatchCount);
+        assertEquals(0, insertRecorder.executeBatchCount);
+        assertEquals(1, insertRecorder.closeCount);
+        assertEquals(1, updateRecorder.clearBatchCount);
+        assertEquals(0, updateRecorder.executeBatchCount);
+        assertEquals(1, updateRecorder.closeCount);
+    }
+
+    @Test
     void closeDoesNotFlushPendingBatch() throws Exception {
         StatementRecorder insertRecorder = new StatementRecorder();
         StatementRecorder updateRecorder = new StatementRecorder();

@@ -43,15 +43,15 @@ public abstract class BufferExecutorTest {
         SQLException exception =
                 Assertions.assertThrows(SQLException.class, executor::executeBatch);
         Assertions.assertEquals("test", exception.getMessage());
-        // The failed buffer should survive statement close/reopen, but closeStatements itself
-        // must not execute it again.
-        executor.closeStatements();
+        // closeStatements should not flush a batch that already failed, but the local buffer must
+        // stay available for a later recovery path.
+        Assertions.assertDoesNotThrow(executor::closeStatements);
         executor.prepareStatements(new TestConnection());
         SQLException exception2 =
                 Assertions.assertThrows(SQLException.class, executor::executeBatch);
         Assertions.assertEquals("test", exception2.getMessage());
 
-        // two times of addToBatch, 1. executeBatch, 2. executeBatch after reopening
+        // two times of addToBatch, 1. executeBatch, 2. executeBatch after recovery
         Assertions.assertEquals(2, recorder.size());
         // same row to executeBatch
         Assertions.assertEquals(recorder.get(0), recorder.get(1));

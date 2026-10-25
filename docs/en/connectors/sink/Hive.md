@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, CSV, parquet, ORC, JSON) to HDFS (or S3/OSS when configured). By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
 
 :::tip
 
@@ -28,12 +28,10 @@ If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [x] file format
+- [x] file format (detected from the Hive table's `STORED AS` clause)
   - [x] text
-  - [x] csv
   - [x] parquet
   - [x] orc
-  - [x] json
 - [x] compress codec
   - [x] lzo
 
@@ -42,7 +40,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | name                                  | type    | required | default value  | description |
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
-| metastore_uri                         | string  | yes      | -              | Hive metastore URI. Comma-separated values enable HA failover. |
+| metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
 | compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
@@ -68,6 +66,31 @@ Target Hive table name eg: db1.table1, and if the source is multiple mode, you c
 
 Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
 
+This option can be omitted when `hive.metastore.client.factory.class` selects an external metastore client through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. SeaTunnel does not fall back to an embedded metastore when neither a URI nor a client factory is configured.
+
+### AWS Glue Data Catalog
+
+AWS Glue Data Catalog can be used through the standard Hive metastore client factory:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.seatunnel_parquet"
+    hive.hadoop.conf = {
+      "hive.metastore.client.factory.class" = "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+      # Optional when accessing a catalog in another AWS account
+      # "hive.metastore.glue.catalogid" = "123456789012"
+    }
+  }
+}
+```
+
+The AWS Glue Data Catalog client and a compatible patched Hive runtime must be available on every SeaTunnel process that creates or uses the Hive sink. Amazon EMR distributions that support Glue include these components, but they must still be visible to the SeaTunnel runtime classpath. For other deployments, install a mutually compatible Hive runtime and AWS Glue Data Catalog client.
+
+Authentication is handled by the AWS SDK default credential provider chain. Use the IAM role, web identity, container credentials, instance profile, environment, or shared configuration supported by the runtime instead of placing access keys in the SeaTunnel job configuration.
+
+If the configured factory class or its compatible Hive classes are missing, sink initialization fails without falling back to a local metastore.
+
 ### hdfs_site_path [string]
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
@@ -91,8 +114,6 @@ Hadoop remote user name used when connecting to HDFS/Hive storage without Kerber
 ### krb5_path [string]
 
 The path of `krb5.conf`, used to authentication kerberos
-
-The path of `hive-site.xml`, used to authentication hive metastore
 
 ### kerberos_principal [string]
 
@@ -602,18 +623,17 @@ sink {
 
 ### What file formats does Hive Sink support?
 
-Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
+Hive Sink supports `TEXT`, `PARQUET`, and `ORC` tables. The format is detected automatically from the Hive table's `STORED AS` clause (or from `save_mode_create_template` when the table is auto-created); there is no connector option to override it. Tables stored in any other format are rejected with `Hive connector only support [text parquet orc] table now`.
 
 ### Does Hive Sink support partitioned tables?
 
-Yes. For partitioned tables, specify the partition fields using `partition_by`. SeaTunnel writes data into the correct partition directories automatically:
+Yes. The partition columns are read from the Hive Metastore table definition (or from the `PARTITIONED BY` clause of `save_mode_create_template` when the table is auto-created), and SeaTunnel writes data into the correct partition directories automatically. There is no `partition_by` option on the Hive sink; the partition keys always come from the table definition:
 
 ```hocon
 sink {
   Hive {
     table_name = "mydb.sales"
     metastore_uri = "thrift://hive-metastore:9083"
-    partition_by = ["dt", "region"]
   }
 }
 ```

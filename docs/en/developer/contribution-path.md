@@ -21,6 +21,7 @@ Use this page if you want to:
 
 - fix a documentation issue
 - contribute a connector or transform
+- investigate and fix a performance problem
 - fix a bug
 - understand where to ask questions before opening a PR
 
@@ -70,6 +71,19 @@ Start here:
 - [Contribute Transform-V2 Plugins](./contribute-transform-v2-guide.md)
 - [Transform Plugin System](../architecture/transform-plugin-system.md)
 - [Transforms Catalog](../transforms)
+
+### Performance Contribution
+
+Best first steps:
+
+- start from an observed problem or measured regression, not an arbitrary hot-looking method
+- discuss the workload, evidence, and expected benefit with the community before substantial implementation
+- contribute a reproducible benchmark before submitting the optimization
+
+Start here:
+
+- [Contribute Performance Improvements](./contribute-performance-guide.md)
+- [Zeta Benchmark](../engines/zeta/benchmark.md)
 
 ### Code or Architecture Contribution
 
@@ -133,6 +147,16 @@ The workflow selects jobs as follows:
 
 Check the jobs listed under the Backend `Build` before assuming that a green result includes every connector integration-test shard.
 
+### If the Build check reports "Workflow run detection failed"
+
+This means no `Build` workflow run was found in your fork for the PR head commit — it is not a test failure. Recover as follows:
+
+1. **Actions disabled in the fork.** Open the **Actions** tab of your fork: if it shows an enable button or a billing banner (Actions can be disabled account-wide by a billing or spending-limit hold), resolve that first — while Actions is disabled, no build runs in the fork at all.
+2. **GitHub did not create a run for your push.** Select the **Build** workflow in your fork's **Actions** tab, click **Run workflow**, and pick the PR branch. The scheduled `Update build status workflow` links the run back to the PR `Build` check within 15 minutes. Alternatively, push an empty commit: `git commit --allow-empty -m "Trigger CI" && git push`.
+3. **Branch based on an old `dev`.** Rebase onto the latest `dev` and push again.
+
+If a run exists in your fork but the check stays failed or queued for more than 15 minutes, ask a committer to run the `Update build status workflow` manually from the repository's **Actions** tab.
+
 ## Good First Contribution Shapes
 
 These contribution shapes tend to land faster:
@@ -165,4 +189,5 @@ Pick one path based on your goal:
 - docs path: [Docs Format Specification](./docs-format-specification.md) -> [Getting Started Overview](../getting-started/overview.md)
 - connector path: [How to Create Your Connector](./how-to-create-your-connector.md) -> [Source Connector Development](./source-connector-development.md) or [Sink Connector Development](./sink-connector-development.md)
 - transform path: [Contribute Transform-V2 Plugins](./contribute-transform-v2-guide.md) -> [Transform Plugin System](../architecture/transform-plugin-system.md)
+- performance path: [Contribute Performance Improvements](./contribute-performance-guide.md) -> [Zeta Benchmark](../engines/zeta/benchmark.md)
 - engine path: [Set Up Develop Environment](./setup.md) -> [Architecture Overview](../architecture/overview.md)

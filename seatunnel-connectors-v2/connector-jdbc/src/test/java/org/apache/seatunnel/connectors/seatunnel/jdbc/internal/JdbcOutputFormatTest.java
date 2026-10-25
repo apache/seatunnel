@@ -96,7 +96,7 @@ public class JdbcOutputFormatTest {
     }
 
     @Test
-    public void testRowLevelSqlStateStillRetriesByDefault() throws Exception {
+    public void testRowLevelSqlStateFailsFastOnValidConnection() throws Exception {
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
         RowLevelSQLExceptionExecutor executor = new RowLevelSQLExceptionExecutor();
@@ -113,7 +113,7 @@ public class JdbcOutputFormatTest {
 
         Assertions.assertThrows(
                 JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
-        Assertions.assertEquals(2, executor.executeBatchCount);
+        Assertions.assertEquals(1, executor.executeBatchCount);
     }
 
     @Test
@@ -189,6 +189,32 @@ public class JdbcOutputFormatTest {
         Assertions.assertEquals(1, executor.executeBatchCount);
     }
 
+    @Test
+    public void testDiscardedRowErrorBatchAllowsNextWrite() throws Exception {
+        JdbcConnectionProvider provider = mock(JdbcConnectionProvider.class);
+        CountingExecutor executor =
+                new CountingExecutor() {
+                    @Override
+                    public void executeBatch() throws SQLException {
+                        if (++executeBatchCount == 1) {
+                            throw new SQLException("data too long", "22001");
+                        }
+                    }
+                };
+        JdbcOutputFormat<String, CountingExecutor> format =
+                new JdbcOutputFormat<>(
+                        provider,
+                        JdbcConnectionConfig.builder().batchSize(1).build(),
+                        () -> executor);
+        format.setFailFastOnRowLevelSqlState(true);
+        format.open();
+        Assertions.assertThrows(JdbcConnectorException.class, () -> format.writeRecord("bad"));
+        format.clearBatchSilently();
+        format.resetAfterRowError();
+        Assertions.assertDoesNotThrow(() -> format.writeRecord("good"));
+        Assertions.assertEquals(2, executor.executeBatchCount);
+    }
+
     private static void setLastFlushTimeMs(JdbcOutputFormat<?, ?> outputFormat, long value)
             throws Exception {
         Field field = JdbcOutputFormat.class.getDeclaredField("lastFlushTimeMs");
@@ -238,6 +264,7 @@ public class JdbcOutputFormatTest {
         }
     }
 
+    /** Records SQL batch attempts to detect replay during failure cleanup. */
     private static class FailingBatchExecutor extends CountingExecutor {
 
         @Override
@@ -247,6 +274,7 @@ public class JdbcOutputFormatTest {
         }
     }
 
+    /** Records connector exception failures to detect replay during writer close. */
     private static class RuntimeFailingBatchExecutor extends CountingExecutor {
 
         @Override

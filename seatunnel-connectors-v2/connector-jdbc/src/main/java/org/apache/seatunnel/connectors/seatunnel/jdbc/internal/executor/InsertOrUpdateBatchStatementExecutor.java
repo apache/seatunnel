@@ -123,6 +123,9 @@ public class InsertOrUpdateBatchStatementExecutor
         preExistFlag = null;
     }
 
+    /**
+     * Closes resources without executing a pending batch, preventing replay after flush failure.
+     */
     @Override
     public void closeStatements() throws SQLException {
         for (PreparedStatement statement :
