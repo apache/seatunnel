@@ -85,4 +85,39 @@ class SocketFactoryTest {
         cfg.put(SocketSinkOptions.MAX_RETRIES.key(), -1);
         Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
     }
+
+    @Test
+    void testSinkOptionRuleWithNegativeConnectTimeoutFails() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.CONNECT_TIMEOUT_MS.key(), -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkOptionRuleAcceptsZeroConnectTimeout() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.CONNECT_TIMEOUT_MS.key(), 0);
+        Assertions.assertDoesNotThrow(() -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkDoesNotExposeReadTimeout() {
+        // The sink only writes, so a read timeout would be a no-op there and must not be offered.
+        Assertions.assertFalse(
+                sinkRule.getOptionalOptions().stream()
+                        .anyMatch(o -> "read_timeout_ms".equals(o.key())),
+                "read_timeout_ms must not be part of the sink option rule");
+    }
+
+    @Test
+    void testSourceOptionRuleWithNegativeConnectTimeoutFails() {
+        OptionRule sourceRule = new SocketSourceFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(SocketSinkOptions.HOST.key(), "localhost");
+        cfg.put(SocketSinkOptions.PORT.key(), 8080);
+        cfg.put(SocketSinkOptions.CONNECT_TIMEOUT_MS.key(), -1);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(sourceRule));
+    }
 }

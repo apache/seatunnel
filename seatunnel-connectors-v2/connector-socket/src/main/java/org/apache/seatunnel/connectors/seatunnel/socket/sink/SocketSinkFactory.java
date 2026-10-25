@@ -45,9 +45,6 @@ public class SocketSinkFactory implements TableSinkFactory {
                 .optional(
                         SocketSinkOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(SocketSinkOptions.CONNECT_TIMEOUT_MS, 0))
-                .optional(
-                        SocketSinkOptions.READ_TIMEOUT_MS,
-                        Conditions.greaterOrEqual(SocketSinkOptions.READ_TIMEOUT_MS, 0))
                 .build();
     }
 

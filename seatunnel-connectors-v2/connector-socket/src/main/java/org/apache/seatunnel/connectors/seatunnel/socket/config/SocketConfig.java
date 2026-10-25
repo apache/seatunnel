@@ -36,6 +36,6 @@ public class SocketConfig implements Serializable {
         this.port = config.get(SocketCommonOptions.PORT);
         this.maxNumRetries = config.get(SocketSinkOptions.MAX_RETRIES);
         this.connectTimeoutMs = config.get(SocketCommonOptions.CONNECT_TIMEOUT_MS);
-        this.readTimeoutMs = config.get(SocketCommonOptions.READ_TIMEOUT_MS);
+        this.readTimeoutMs = config.get(SocketSourceOptions.READ_TIMEOUT_MS);
     }
 }

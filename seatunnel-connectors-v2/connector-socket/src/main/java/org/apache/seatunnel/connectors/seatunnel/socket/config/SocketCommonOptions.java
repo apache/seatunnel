@@ -31,24 +31,19 @@ public class SocketCommonOptions {
             Options.key("port").intType().noDefaultValue().withDescription("socket port");
 
     public static final int DEFAULT_CONNECT_TIMEOUT_MS = 10000;
-    public static final int DEFAULT_READ_TIMEOUT_MS = 0;
 
+    /**
+     * Bound on the TCP connect for both source and sink. Without it an unreachable or filtered peer
+     * blocks the connector thread until the OS-level TCP timeout, which is minutes. Note that 0
+     * means "no application-level timeout", so the OS default applies.
+     */
     public static final Option<Integer> CONNECT_TIMEOUT_MS =
             Options.key("connect_timeout_ms")
                     .intType()
                     .defaultValue(DEFAULT_CONNECT_TIMEOUT_MS)
                     .withDescription(
-                            "Socket connect timeout in milliseconds. A value of 0 means no timeout. "
-                                    + "Default is "
+                            "Socket connect timeout in milliseconds. A value of 0 disables the "
+                                    + "application-level timeout, leaving the OS default. Default is "
                                     + DEFAULT_CONNECT_TIMEOUT_MS
                                     + " ms");
-
-    public static final Option<Integer> READ_TIMEOUT_MS =
-            Options.key("read_timeout_ms")
-                    .intType()
-                    .defaultValue(DEFAULT_READ_TIMEOUT_MS)
-                    .withDescription(
-                            "Socket read (SO_TIMEOUT) in milliseconds. A value of 0 means no timeout, "
-                                    + "which is the default and preserves the existing blocking behaviour "
-                                    + "for long-lived socket sources");
 }
