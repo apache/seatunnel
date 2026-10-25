@@ -87,7 +87,21 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     }
 
     @Override
-    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(
+                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(dateTimeFormat)
+                        .timeFormatter(timeFormat)
+                        .charset(charset)
+                        .build();
+    }
+
+    @Override
+    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
@@ -97,19 +111,14 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
-            fsDataOutputStream.write(
-                    serializationSchema.serialize(
-                            seaTunnelRow.copy(
-                                    sinkColumnsIndexInRow.stream()
-                                            .mapToInt(Integer::intValue)
-                                            .toArray())));
+            fsDataOutputStream.write(serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
         }
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
                 (key, value) -> {
                     try {

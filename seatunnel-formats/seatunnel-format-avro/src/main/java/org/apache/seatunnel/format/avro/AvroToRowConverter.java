@@ -48,7 +48,45 @@ public class AvroToRowConverter implements Serializable {
     private Schema schema;
 
     public AvroToRowConverter(SeaTunnelRowType rowType) {
-        schema = SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType);
+        this(rowType, false);
+    }
+
+    /**
+     * Creates a converter that derives the reader schema from the row type.
+     *
+     * @param rowType row type to read into
+     * @param rowNullable whether a ROW value was written as a nullable Avro union, see {@link
+     *     AvroFormatOptions#AVRO_ROW_NULLABLE}
+     */
+    public AvroToRowConverter(SeaTunnelRowType rowType, boolean rowNullable) {
+        schema =
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                        rowType, rowNullable);
+    }
+
+    public AvroToRowConverter(SeaTunnelRowType rowType, String writerSchema) {
+        this(rowType, writerSchema, false);
+    }
+
+    /**
+     * Creates a converter for a message written with the given schema.
+     *
+     * <p>A supplied writer schema is authoritative: it describes the actual wire layout, so {@code
+     * rowNullable} only shapes the schema derived from the row type when no writer schema is
+     * supplied.
+     *
+     * @param rowType row type to read into
+     * @param writerSchema schema the message was written with, or null to derive it from the row
+     *     type
+     * @param rowNullable whether a ROW value is written as a nullable Avro union, see {@link
+     *     AvroFormatOptions#AVRO_ROW_NULLABLE}
+     */
+    public AvroToRowConverter(SeaTunnelRowType rowType, String writerSchema, boolean rowNullable) {
+        schema =
+                writerSchema == null
+                        ? SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                                rowType, rowNullable)
+                        : new Schema.Parser().parse(writerSchema);
     }
 
     public DatumReader<GenericRecord> getReader() {

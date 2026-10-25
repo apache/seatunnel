@@ -27,5 +27,5 @@ import java.util.List;
 @AllArgsConstructor
 public class PulsarAggregatedCommitInfo implements Serializable {
     private static final long serialVersionUID = -1365922376470598498L;
-    List<PulsarCommitInfo> commitInfos;
+    private final List<PulsarCommitInfo> commitInfos;
 }

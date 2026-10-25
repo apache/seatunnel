@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -67,6 +68,8 @@ public class DorisSinkFactory implements TableSinkFactory {
                         DorisSinkOptions.DATABASE,
                         DorisSinkOptions.TABLE,
                         DorisSinkOptions.TABLE_IDENTIFIER,
+                        DorisSinkOptions.BENODES,
+                        DorisSinkOptions.DIRECT_TO_BE,
                         DorisSinkOptions.QUERY_PORT,
                         DorisSinkOptions.DORIS_BATCH_SIZE,
                         DorisSinkOptions.SINK_ENABLE_2PC,
@@ -78,11 +81,17 @@ public class DorisSinkFactory implements TableSinkFactory {
                         DorisSinkOptions.SINK_BUFFER_SIZE,
                         DorisSinkOptions.SINK_BUFFER_COUNT,
                         DorisSinkOptions.DEFAULT_DATABASE,
+                        DorisSinkOptions.SINK_DATETIME_TIMEZONE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         DorisSinkOptions.DATA_SAVE_MODE,
                         DataSaveMode.CUSTOM_PROCESSING,
                         DorisSinkOptions.CUSTOM_SQL)
+                .conditional(DorisSinkOptions.DIRECT_TO_BE, true, DorisSinkOptions.BENODES)
+                .conditional(
+                        DorisSinkOptions.DIRECT_TO_BE,
+                        true,
+                        Conditions.notBlank(DorisSinkOptions.BENODES))
                 .build();
     }
 

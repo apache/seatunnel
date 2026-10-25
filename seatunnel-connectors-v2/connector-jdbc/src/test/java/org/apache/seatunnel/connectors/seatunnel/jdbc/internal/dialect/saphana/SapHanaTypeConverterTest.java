@@ -227,11 +227,39 @@ public class SapHanaTypeConverterTest {
         Assertions.assertEquals(typeDefine.getLength(), column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
+        for (long length : new long[] {1L, 15L, 2000L}) {
+            BasicTypeDefine<Object> charType =
+                    BasicTypeDefine.builder()
+                            .name("test")
+                            .columnType("CHAR")
+                            .dataType("CHAR")
+                            .length(length)
+                            .build();
+            Column charColumn = SapHanaTypeConverter.INSTANCE.convert(charType);
+            Assertions.assertEquals(BasicType.STRING_TYPE, charColumn.getDataType());
+            Assertions.assertEquals(length, charColumn.getColumnLength());
+            Assertions.assertEquals("CHAR", charColumn.getSourceType());
+        }
+
         typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
                         .columnType("NVARCHAR")
                         .dataType("NVARCHAR")
+                        .length(1L)
+                        .build();
+        column = SapHanaTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(4, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("NCHAR")
+                        .dataType("NCHAR")
                         .length(1L)
                         .build();
         column = SapHanaTypeConverter.INSTANCE.convert(typeDefine);
@@ -639,33 +667,34 @@ public class SapHanaTypeConverterTest {
     }
 
     @Test
-    public void testReconvertStringToChar() {
-        Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(BasicType.STRING_TYPE)
-                        .columnLength(10L)
-                        .sourceType("CHAR")
-                        .build();
+    public void testReconvertCharSourceKeepsExistingStringMapping() {
+        // CHAR may originate from a Unicode-capable source; it does not prove HANA provenance.
+        for (String sourceType : new String[] {"CHAR", "CHAR(15)", "char(15)"}) {
+            for (Long length : new Long[] {null, 10L, 2000L, 2001L, 5000L, 5001L}) {
+                Column column =
+                        PhysicalColumn.builder()
+                                .name("test")
+                                .dataType(BasicType.STRING_TYPE)
+                                .columnLength(length)
+                                .sourceType(sourceType)
+                                .build();
 
-        BasicTypeDefine typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
+                BasicTypeDefine typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
 
-        Assertions.assertEquals("CHAR(10)", typeDefine.getColumnType());
-        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getDataType());
-        Assertions.assertEquals(10L, typeDefine.getLength());
-
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(BasicType.STRING_TYPE)
-                        .columnLength(15L)
-                        .sourceType("CHAR(15)")
-                        .build();
-
-        typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
-
-        Assertions.assertEquals("CHAR(15)", typeDefine.getColumnType());
-        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getDataType());
-        Assertions.assertEquals(15L, typeDefine.getLength());
+                if (length == null || length <= 5000L) {
+                    long expectedLength = length == null ? 5000L : length;
+                    Assertions.assertEquals(
+                            "NVARCHAR(" + expectedLength + ")", typeDefine.getColumnType());
+                    Assertions.assertEquals(
+                            SapHanaTypeConverter.HANA_NVARCHAR, typeDefine.getDataType());
+                    Assertions.assertEquals(expectedLength, typeDefine.getLength());
+                } else {
+                    Assertions.assertEquals(
+                            SapHanaTypeConverter.HANA_CLOB, typeDefine.getColumnType());
+                    Assertions.assertEquals(
+                            SapHanaTypeConverter.HANA_CLOB, typeDefine.getDataType());
+                }
+            }
+        }
     }
 }

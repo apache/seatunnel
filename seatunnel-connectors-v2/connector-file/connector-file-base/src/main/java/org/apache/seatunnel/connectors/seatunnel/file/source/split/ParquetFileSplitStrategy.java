@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileSystemInputFile;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.HadoopReadOptions;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
@@ -58,7 +60,9 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
         if (splitSizeBytes <= 0) {
             throw new SeaTunnelRuntimeException(
                     FileConnectorErrorCode.FILE_SPLIT_SIZE_ILLEGAL,
-                    "SplitSizeBytes must be greater than 0");
+                    String.format(
+                            "file_split_size must be greater than 0 when enable_file_split=true, but got: %d",
+                            splitSizeBytes));
         }
         this.splitSizeBytes = splitSizeBytes;
         this.hadoopFileSystemProxy = null;
@@ -68,7 +72,9 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
         if (splitSizeBytes <= 0) {
             throw new SeaTunnelRuntimeException(
                     FileConnectorErrorCode.FILE_SPLIT_SIZE_ILLEGAL,
-                    "SplitSizeBytes must be greater than 0");
+                    String.format(
+                            "file_split_size must be greater than 0 when enable_file_split=true, but got: %d",
+                            splitSizeBytes));
         }
         this.splitSizeBytes = splitSizeBytes;
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
@@ -79,7 +85,12 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
         try {
             return splitByRowGroups(tableId, filePath, readRowGroups(filePath));
         } catch (IOException e) {
-            throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_SPLIT_FAIL, e);
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_SPLIT_FAIL,
+                    String.format(
+                            "Split parquet file for [%s] failed, cause=%s: %s",
+                            filePath, e.getClass().getSimpleName(), e.getMessage()),
+                    e);
         }
     }
 
@@ -141,7 +152,9 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
                     (configuration, userGroupInformation) -> {
                         try (ParquetFileReader reader =
                                 ParquetFileReader.open(
-                                        HadoopInputFile.fromPath(path, configuration))) {
+                                        FileSystemInputFile.fromPath(
+                                                hadoopFileSystemProxy.getFileSystem(), path),
+                                        HadoopReadOptions.builder(configuration).build())) {
                             return reader.getFooter().getBlocks();
                         }
                     });

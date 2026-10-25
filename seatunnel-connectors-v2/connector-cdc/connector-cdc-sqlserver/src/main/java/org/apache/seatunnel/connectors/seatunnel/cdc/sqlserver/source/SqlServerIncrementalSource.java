@@ -20,16 +20,21 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
@@ -39,12 +44,24 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.Lsn
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
+import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
+
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism {
+        implements SupportParallelism, SupportSchemaEvolution {
 
     static final String IDENTIFIER = "SqlServer-CDC";
 
@@ -77,18 +94,62 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
+        configFactory.jdbcUrlProperties(toDebeziumJdbcProperties(urlInfo.getSuffix()));
         return configFactory;
+    }
+
+    /**
+     * Converts SQL Server JDBC URL properties to Debezium connection properties.
+     *
+     * <p>The Debezium SQL Server connector rebuilds its JDBC connection from {@code database.*}
+     * properties. Carrying the URL suffix into that namespace preserves driver options such as
+     * {@code encrypt} and {@code trustServerCertificate}.
+     */
+    static Properties toDebeziumJdbcProperties(String suffix) {
+        Properties properties = new Properties();
+        for (String property : suffix.split(";")) {
+            int separator = property.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            String key = property.substring(0, separator).trim();
+            if (isConnectionAddressProperty(key)) {
+                continue;
+            }
+            properties.setProperty("database." + key, property.substring(separator + 1).trim());
+        }
+        return properties;
+    }
+
+    private static boolean isConnectionAddressProperty(String key) {
+        // Exclude URL properties that are identity-related: the SQL Server JDBC driver accepts
+        // these inside the connection-string but SeaTunnel sources them from dedicated options
+        // (URL/host/port/username/password). Forwarding them here would silently override the
+        // operator-configured values and create a credential-handling surprise.
+        return "database".equalsIgnoreCase(key)
+                || "databaseName".equalsIgnoreCase(key)
+                || "serverName".equalsIgnoreCase(key)
+                || "port".equalsIgnoreCase(key)
+                || "portNumber".equalsIgnoreCase(key)
+                || "instanceName".equalsIgnoreCase(key)
+                || "user".equalsIgnoreCase(key)
+                || "password".equalsIgnoreCase(key);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
+        boolean schemaChangesEnabled =
+                config.get(SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED);
+        Map<TableId, Struct> tableIdTableChangeMap =
+                schemaChangesEnabled ? tableChanges() : Collections.emptyMap();
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
                 config.get(JdbcSourceOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            tableIdTableChangeMap);
         }
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
@@ -96,6 +157,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
+                        .setSchemaChangeResolver(
+                                schemaChangesEnabled ? new SqlServerSchemaChangeResolver() : null)
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .build();
     }
 
@@ -113,5 +178,40 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     @Override
     public Optional<String> driverName() {
         return Optional.of("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN,
+                SchemaChangeType.RENAME_COLUMN);
+    }
+
+    private Map<TableId, Struct> tableChanges() {
+        // Reuse the already-initialized dialect and config rather than constructing a second
+        SqlServerDialect dialect = (SqlServerDialect) dataSourceDialect;
+        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
+        ConnectTableChangeSerializer connectTableChangeSerializer =
+                new ConnectTableChangeSerializer();
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
+            return discoverTables.stream()
+                    .collect(
+                            Collectors.toMap(
+                                    Function.identity(),
+                                    tableId -> {
+                                        TableChanges tableChanges = new TableChanges();
+                                        tableChanges.create(
+                                                dialect.queryTableSchema(jdbcConnection, tableId)
+                                                        .getTable());
+                                        return connectTableChangeSerializer
+                                                .serialize(tableChanges)
+                                                .get(0);
+                                    }));
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
     }
 }

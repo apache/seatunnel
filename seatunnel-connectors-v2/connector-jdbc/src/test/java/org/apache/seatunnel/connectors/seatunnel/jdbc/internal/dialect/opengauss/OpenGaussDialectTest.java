@@ -31,9 +31,9 @@ public class OpenGaussDialectTest {
     void returnsUpsertStatementWhenUpdateClauseIsNotEmpty() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id", "name", "age"};
-        String[] uniqueKeyFields = {"id"};
+        String[] pkNames = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, pkNames);
         assertTrue(upsertStatement.isPresent());
         assertEquals(
                 "INSERT INTO \"test_db\".\"test_table\" (\"id\", \"name\", \"age\") VALUES (:id, :name, :age) ON DUPLICATE KEY UPDATE \"name\"=EXCLUDED.\"name\", \"age\"=EXCLUDED.\"age\"",
@@ -44,9 +44,9 @@ public class OpenGaussDialectTest {
     void returnsEmptyWhenUpdateClauseIsEmpty() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id"};
-        String[] uniqueKeyFields = {"id"};
+        String[] pkNames = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, pkNames);
         assertFalse(upsertStatement.isPresent());
     }
 
@@ -54,9 +54,9 @@ public class OpenGaussDialectTest {
     void handlesEmptyFieldNames() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {};
-        String[] uniqueKeyFields = {"id"};
+        String[] pkNames = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, pkNames);
         assertFalse(upsertStatement.isPresent());
     }
 
@@ -64,9 +64,9 @@ public class OpenGaussDialectTest {
     void handlesEmptyUniqueKeyFields() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id", "name", "age"};
-        String[] uniqueKeyFields = {};
+        String[] pkNames = {};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, pkNames);
         assertTrue(upsertStatement.isPresent());
         assertEquals(
                 "INSERT INTO \"test_db\".\"test_table\" (\"id\", \"name\", \"age\") VALUES (:id, :name, :age) ON DUPLICATE KEY UPDATE \"id\"=EXCLUDED.\"id\", \"name\"=EXCLUDED.\"name\", \"age\"=EXCLUDED.\"age\"",

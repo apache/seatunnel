@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.common.utils.function.SupplierWithException;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
@@ -31,6 +32,7 @@ import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
 import lombok.NonNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -59,7 +61,11 @@ public final class ExceptionUtil {
                             new ImmutableTriple<>(
                                     ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2,
                                     JobDefineCheckException.class,
-                                    JobDefineCheckException::new));
+                                    JobDefineCheckException::new),
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 3,
+                                    JobRestoreInProgressException.class,
+                                    JobRestoreInProgressException::new));
 
     private ExceptionUtil() {}
 
@@ -151,10 +157,33 @@ public final class ExceptionUtil {
         throw new RuntimeException("Never throw here.");
     }
 
+    /**
+     * Check if an exception indicates an operation that should be retried.
+     *
+     * <p>This method is used by {@link org.apache.seatunnel.common.utils.RetryUtils} to determine
+     * if a failed operation should be retried. It extracts the root cause of the exception chain
+     * and checks if it matches known transient exception types.
+     *
+     * <p>The following exception types are considered retryable:
+     *
+     * <ul>
+     *   <li>{@link HazelcastInstanceNotActiveException} - Hazelcast instance is shutting down
+     *   <li>{@link InterruptedException} - Operation was interrupted
+     *   <li>{@link OperationTimeoutException} - Operation timed out waiting for a response
+     *   <li>{@link RetryableHazelcastException} - Hazelcast explicitly marks the operation as
+     *       retryable, e.g., when an IMap partition is still loading data from external storage
+     *       (MapStore) during cluster startup or master switch
+     * </ul>
+     *
+     * @param e the exception to check (may be wrapped in CompletionException / ExecutionException)
+     * @return {@code true} if the root cause is a transient, retryable exception; {@code false}
+     *     otherwise
+     */
     public static boolean isOperationNeedRetryException(@NonNull Throwable e) {
         Throwable exception = ExceptionUtils.getRootException(e);
         return exception instanceof HazelcastInstanceNotActiveException
                 || exception instanceof InterruptedException
-                || exception instanceof OperationTimeoutException;
+                || exception instanceof OperationTimeoutException
+                || exception instanceof RetryableHazelcastException;
     }
 }

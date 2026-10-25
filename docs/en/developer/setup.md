@@ -1,5 +1,9 @@
 # Set Up Develop Environment
 
+## Start Here
+
+If you are new to contributing, read [Contribution Path](./contribution-path.md) first. It will help you decide whether you should begin with docs, connector work, or engine debugging before setting up the full local environment.
+
 In this section, we are going to show you how to set up your development environment for SeaTunnel, and then run a simple
 example in your JetBrains IntelliJ IDEA.
 
@@ -12,7 +16,7 @@ Before we start talking about how to set up the environment, we need to do some 
 have installed the following software:
 
 * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) installed.
-* [Java](https://www.java.com/en/download/) ( JDK8/JDK11 are supported by now) installed and `JAVA_HOME` set.
+* [Java](https://www.java.com/en/download/) (JDK11/JDK17 are supported by now) installed and `JAVA_HOME` set.
 * [Scala](https://www.scala-lang.org/download/2.11.12.html) (only scala 2.11.12 supported by now) installed.
 * [JetBrains IDEA](https://www.jetbrains.com/idea/) installed.
 
@@ -124,4 +128,3 @@ sink {
   Console {}
 }
 ```
-

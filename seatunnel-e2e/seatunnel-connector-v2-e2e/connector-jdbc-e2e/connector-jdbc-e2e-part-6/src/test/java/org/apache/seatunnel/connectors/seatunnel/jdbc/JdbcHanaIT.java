@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -56,6 +58,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String PASSWORD = "testPassword123";
     private static final String DATABASE = "TEST";
     private static final String SOURCE_TABLE = "ALLDATATYPES";
+    // HANA creates its tenant database after the container process starts, which can exceed five
+    // minutes on shared CI runners even though startup is still progressing normally.
+    private static final Duration HANA_STARTUP_TIMEOUT = Duration.of(10, ChronoUnit.MINUTES);
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
@@ -72,7 +77,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "NVARCHAR_VALUE NVARCHAR, \n"
                     + "NVARCHAR_VALUE_255 NVARCHAR(255), \n"
                     + "CHAR_VALUE CHAR, \n"
-                    + "CHAR_VALUE_10 CHAR(15), \n"
+                    + "CHAR_VALUE_15 CHAR(15), \n"
                     + "TEXT_VALUE TEXT, \n"
                     + "BINTEXT_VALUE BINTEXT, \n"
                     //                + "DECIMAL_VALUE DECIMAL, \n"
@@ -123,6 +128,10 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(DATABASE)
+                // HANA stores these test tables under schema TEST. Keep the test-side schema so
+                // comparison and cleanup qualify the same schema, but keep the connector config on
+                // database-only mode to avoid producing a TEST.TEST.table identifier in sink SQL.
+                .schema(DATABASE)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SOURCE_TABLE + "_SINK")
                 .createSql(CREATE_SOURCE_SQL)
@@ -131,11 +140,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .useSaveModeCreateTable(true)
                 .testData(testDataSet)
                 .build();
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/sap/cloud/db/jdbc/ngdbc/2.21.11/ngdbc-2.21.11.jar";
     }
 
     @Override
@@ -148,7 +152,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "NVARCHAR_VALUE",
                     "NVARCHAR_VALUE_255",
                     "CHAR_VALUE",
-                    "CHAR_VALUE_10",
+                    "CHAR_VALUE_15",
                     "TEXT_VALUE",
                     "BINTEXT_VALUE",
                     "DECIMAL_VALUE_10_2",
@@ -275,8 +279,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HANA_IMAGE)))
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
-                                        .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
+                                        .withStartupTimeout(HANA_STARTUP_TIMEOUT));
+        container.addExposedPort(HANA_PORT);
         return container;
     }
 
@@ -289,6 +293,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         List<String> columnNames = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
         Assertions.assertEquals(1, columnNames.size());
         Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
+        assertCharColumn(catalogTable, "CHAR_VALUE", 1L);
+        assertCharColumn(catalogTable, "CHAR_VALUE_15", 15L);
     }
 
     @SneakyThrows
@@ -304,5 +310,18 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         Assertions.assertEquals(
                 1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
         Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
+        assertCharColumn(catalogTable, "CHAR_VALUE", 1L);
+        assertCharColumn(catalogTable, "CHAR_VALUE_15", 15L);
+    }
+
+    /** Verifies that real HANA CHAR metadata preserves its byte length when read as STRING. */
+    private void assertCharColumn(CatalogTable catalogTable, String name, long expectedLength) {
+        Column column =
+                catalogTable.getTableSchema().getColumns().stream()
+                        .filter(candidate -> name.equals(candidate.getName()))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing HANA CHAR column " + name));
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(expectedLength, column.getColumnLength());
     }
 }

@@ -43,11 +43,14 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
                         EnvCommonOptions.CHECKPOINT_TIMEOUT,
                         EnvCommonOptions.CHECKPOINT_MIN_PAUSE,
+                        EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED,
                         EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
                         EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
                         EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
+                        MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
                         EnvCommonOptions.CUSTOM_PARAMETERS,
-                        EnvCommonOptions.NODE_TAG_FILTER)
+                        EnvCommonOptions.NODE_TAG_FILTER,
+                        EnvCommonOptions.SINK_FLUSH_INTERVAL)
                 .build();
     }
 }

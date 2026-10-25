@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.Lsn
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.sqlserver.Lsn;
-import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
@@ -46,13 +45,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 /** The utils for SqlServer data source. */
 @Slf4j
@@ -269,7 +271,7 @@ public class SqlServerUtils {
             offsetStrMap.put(
                     entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
-        return LsnOffset.valueOf(offsetStrMap.get(SourceInfo.COMMIT_LSN_KEY));
+        return LsnOffset.valueOf(offsetStrMap);
     }
 
     /** Fetch current largest log sequence number (LSN) of the database. */
@@ -279,6 +281,83 @@ public class SqlServerUtils {
             return LsnOffset.valueOf(commitLsn.toString());
         } catch (SQLException e) {
             throw new SeaTunnelException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Convert timestamp (in milliseconds) to LSN using SQL Server's sys.fn_cdc_map_time_to_lsn
+     * function.
+     *
+     * @param connection SQL Server connection
+     * @param timestampMs timestamp in milliseconds
+     * @param serverTimeZone database server time zone
+     * @return LsnOffset corresponding to the timestamp
+     */
+    public static LsnOffset timestampToLsn(
+            SqlServerConnection connection, long timestampMs, String serverTimeZone) {
+        try {
+            String effectiveServerTimeZone =
+                    serverTimeZone == null ? TimeZone.getDefault().getID() : serverTimeZone;
+            String sql =
+                    "SELECT sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', ?) AS lsn";
+
+            return connection.prepareQueryAndMap(
+                    sql,
+                    ps -> {
+                        Timestamp timestamp = new Timestamp(timestampMs);
+                        Calendar calendar =
+                                Calendar.getInstance(TimeZone.getTimeZone(effectiveServerTimeZone));
+                        ps.setTimestamp(1, timestamp, calendar);
+                    },
+                    rs -> {
+                        if (!rs.next()) {
+                            throw new SQLException(
+                                    String.format(
+                                            "No LSN found for timestamp %d (%s)",
+                                            timestampMs, new Timestamp(timestampMs)));
+                        }
+                        byte[] lsnBytes = rs.getBytes("lsn");
+                        if (lsnBytes == null) {
+                            throw new SQLException(
+                                    String.format(
+                                            "LSN is null for timestamp %d (%s). "
+                                                    + "This may indicate that CDC is not enabled or the timestamp is too old.",
+                                            timestampMs, new java.sql.Timestamp(timestampMs)));
+                        }
+                        Lsn lsn = Lsn.valueOf(lsnBytes);
+                        log.info(
+                                "Converted timestamp {} ({}) to LSN: {}",
+                                timestampMs,
+                                new Timestamp(timestampMs),
+                                lsn);
+                        return LsnOffset.timestampBoundary(lsn.toString());
+                    });
+        } catch (SQLException e) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Failed to convert timestamp %d (%s) to LSN: %s",
+                            timestampMs, new Timestamp(timestampMs), e.getMessage()),
+                    e);
+        }
+    }
+
+    /**
+     * Convert LSN string to LsnOffset.
+     *
+     * @param lsnString LSN string in format "00000027:00000a80:0003"
+     * @return LsnOffset
+     */
+    public static LsnOffset lsnStringToOffset(String lsnString) {
+        try {
+            // Validate LSN format
+            Lsn.valueOf(lsnString);
+            return LsnOffset.valueOf(lsnString);
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Invalid LSN format: %s. Expected format: 00000027:00000a80:0003",
+                            lsnString),
+                    e);
         }
     }
 

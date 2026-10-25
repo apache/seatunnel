@@ -1,20 +1,20 @@
-# TableMerge
+# 多表合并
 
-> TableMerge transform plugin
+> TableMerge：将分库分表或多张来源表合并为统一输出表
 
-## Description
+## 描述
 
-表合并插件，用于分库分表合并为一个表。
+TableMerge 转换插件用于将分库分表或多张来源表合并为统一输出表。
 
-## Options
+## 参数
 
-|   name   | type   | required | default value | Description      |
-|:--------:|--------|----------|---------------|------------------|
-| database | string | no       |               | 指定新的 database 名称 |
-|  schema  | string | no       |               | 指定新的 schema 名称   |
-|  table   | string | yes      |               | 指定新的 table 名称    |
+| 参数名   | 类型   | 是否必填 | 默认值 | 说明 |
+|:--------:|--------|----------|--------|------|
+| database | string | 否       |        | 合并后新的 database 名称 |
+| schema   | string | 否       |        | 合并后新的 schema 名称 |
+| table    | string | 是       |        | 合并后新的 table 名称 |
 
-## Examples
+## 示例
 
 ### 合并分库分表为一个表
 

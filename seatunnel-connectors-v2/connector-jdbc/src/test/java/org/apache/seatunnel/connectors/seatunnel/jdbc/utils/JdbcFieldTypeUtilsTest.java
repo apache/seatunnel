@@ -18,20 +18,77 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 import org.junit.jupiter.api.Test;
+import org.postgresql.util.PSQLException;
+import org.postgresql.util.PSQLState;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class JdbcFieldTypeUtilsTest {
+
+    @Test
+    public void testGetLocalTimePreservesMicroseconds() throws SQLException {
+        LocalTime expected = LocalTime.parse("12:34:56.123456");
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenReturn(expected);
+
+        assertEquals(expected, JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToFractionalText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLFeatureNotSupportedException());
+        when(rs.getString(1)).thenReturn("12:34:56.123456");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToOffsetTimeText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLException("unsupported time type"));
+        when(rs.getString(1)).thenReturn("12:34:56.123456+08:00");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToShortOffsetTimeText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLException("unsupported time type"));
+        when(rs.getString(1)).thenReturn("12:34:56.123456+08");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeReportsUnparseableFallbackTextAsSqlException() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        SQLException original = new SQLException("unsupported time type");
+        when(rs.getObject(1, LocalTime.class)).thenThrow(original);
+        when(rs.getString(1)).thenReturn("24:00:00");
+
+        SQLException exception =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        SQLException.class, () -> JdbcFieldTypeUtils.getLocalTime(rs, 1));
+        assertEquals(original, exception.getCause());
+    }
 
     @Test
     public void testGetOffsetDateTimeFromTimestampUsesInstant() throws SQLException {
@@ -40,6 +97,9 @@ public class JdbcFieldTypeUtilsTest {
 
         ResultSet rs = mock(ResultSet.class);
         when(rs.getObject(1)).thenReturn(timestamp);
+        // getString is called as the primary parse path for Timestamp objects;
+        // return an ISO-8601 string so parseOffsetDateTimeFromString can convert it.
+        when(rs.getString(1)).thenReturn("2025-01-01T00:00:00Z");
         OffsetDateTime result = JdbcFieldTypeUtils.getOffsetDateTime(rs, 1);
 
         assertEquals(instant, result.toInstant());
@@ -83,5 +143,94 @@ public class JdbcFieldTypeUtilsTest {
 
         assertEquals(instant, result.toInstant());
         assertEquals(ZoneOffset.UTC, result.getOffset());
+    }
+
+    @Test
+    public void testGetBigDecimalWithNormalValue() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getBigDecimal(1)).thenReturn(new BigDecimal("123.45"));
+
+        assertEquals(new BigDecimal("123.45"), JdbcFieldTypeUtils.getBigDecimal(rs, 1));
+    }
+
+    @Test
+    public void testGetBigDecimalWithNumericNaN() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getBigDecimal(1))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : NaN",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+        when(rs.getString(1)).thenReturn("NaN");
+
+        assertNull(JdbcFieldTypeUtils.getBigDecimal(rs, 1, true));
+    }
+
+    @Test
+    public void testGetBigDecimalWithNumericInfinity() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getBigDecimal(1))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : Infinity",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+        when(rs.getString(1)).thenReturn("Infinity");
+
+        assertNull(JdbcFieldTypeUtils.getBigDecimal(rs, 1, true));
+    }
+
+    @Test
+    public void testGetBigDecimalWithNumericNegativeInfinity() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getBigDecimal(1))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : -Infinity",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+        when(rs.getString(1)).thenReturn("-Infinity");
+
+        assertNull(JdbcFieldTypeUtils.getBigDecimal(rs, 1, true));
+    }
+
+    @Test
+    public void testGetBigDecimalWithNumericNaNInBinaryMode() throws SQLException {
+        // In binary transfer mode the pgjdbc driver returns a Double for numeric special
+        // values, so getBigDecimal fails with a ClassCastException instead of a SQLException
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getBigDecimal(1))
+                .thenThrow(
+                        new ClassCastException(
+                                "java.lang.Double cannot be cast to java.math.BigDecimal"));
+        when(rs.getString(1)).thenReturn("NaN");
+
+        assertNull(JdbcFieldTypeUtils.getBigDecimal(rs, 1, true));
+    }
+
+    @Test
+    public void testGetBigDecimalKeepsErrorWithoutNarrowing() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        SQLException expected =
+                new PSQLException(
+                        "Bad value for type BigDecimal : NaN",
+                        PSQLState.NUMERIC_VALUE_OUT_OF_RANGE);
+        when(rs.getBigDecimal(1)).thenThrow(expected);
+        when(rs.getString(1)).thenReturn("NaN");
+
+        assertSame(
+                expected,
+                assertThrows(SQLException.class, () -> JdbcFieldTypeUtils.getBigDecimal(rs, 1)));
+    }
+
+    @Test
+    public void testGetBigDecimalRethrowsUnrelatedError() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        SQLException expected = new SQLException("connection reset by peer");
+        when(rs.getBigDecimal(1)).thenThrow(expected);
+        when(rs.getString(1)).thenReturn("123.45");
+
+        assertEquals(
+                expected,
+                assertThrows(
+                        SQLException.class, () -> JdbcFieldTypeUtils.getBigDecimal(rs, 1, true)));
     }
 }

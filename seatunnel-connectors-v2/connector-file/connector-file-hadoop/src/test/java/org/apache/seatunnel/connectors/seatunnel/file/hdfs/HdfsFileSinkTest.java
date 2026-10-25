@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.HdfsFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.HdfsFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 
 import org.apache.avro.generic.GenericRecord;
@@ -225,7 +224,7 @@ public class HdfsFileSinkTest {
 
     private Map<String, Object> createBasicConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put(HdfsSourceConfigOptions.DEFAULT_FS.key(), DEFAULT_FS);
+        config.put(FileBaseSinkOptions.DEFAULT_FS.key(), DEFAULT_FS);
         config.put(FileBaseSinkOptions.FILE_PATH.key(), FS_TARGET_PATH);
         config.put(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key(), false);
         config.put(FileBaseSinkOptions.HAVE_PARTITION.key(), false);

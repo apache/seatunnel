@@ -39,6 +39,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -264,7 +265,7 @@ public class JsonUtils {
     }
 
     public static ObjectNode parseObject(String text) {
-        return parseObject(text.getBytes());
+        return parseObject(text.getBytes(StandardCharsets.UTF_8));
     }
 
     public static ObjectNode parseObject(byte[] content) {
@@ -272,7 +273,9 @@ public class JsonUtils {
             return (ObjectNode) OBJECT_MAPPER.readTree(content);
         } catch (IOException e) {
             throw new RuntimeException(
-                    "String json deserialization exception." + new String(content), e);
+                    "String json deserialization exception."
+                            + new String(content, StandardCharsets.UTF_8),
+                    e);
         }
     }
 

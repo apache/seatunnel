@@ -36,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 // reference
 // https://help.sap.com/docs/SAP_HANA_PLATFORM/4fe29514fd584807ac9f2a04f6754767/20a1569875191014b507cf392724b7eb.html?locale=en-US
@@ -54,6 +53,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     // -------------------------string----------------------------
     public static final String HANA_VARCHAR = "VARCHAR";
+    public static final String HANA_NCHAR = "NCHAR";
     public static final String HANA_NVARCHAR = "NVARCHAR";
     public static final String HANA_CHAR = "CHAR";
     public static final String HANA_ALPHANUM = "ALPHANUM";
@@ -105,6 +105,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                     HANA_BINARY,
                     HANA_VARBINARY,
                     HANA_VARCHAR,
+                    HANA_NCHAR,
                     HANA_NVARCHAR,
                     HANA_CHAR,
                     HANA_ALPHANUM,
@@ -212,6 +213,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case HANA_NVARCHAR:
+            case HANA_NCHAR:
             case HANA_SHORTTEXT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
@@ -414,14 +416,10 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(HANA_BLOB);
                 break;
             case STRING:
-                if (column.getSourceType() != null
-                        && HANA_CHAR.equals(
-                                removeColumnSizeIfNeed(
-                                        column.getSourceType().toUpperCase(Locale.ROOT)))) {
-                    builder.columnType(HANA_CHAR);
-                    builder.dataType(HANA_CHAR);
-                    builder.length(column.getColumnLength());
-                } else if (column.getColumnLength() == null
+                // Source type names do not identify the source dialect. Preserve the existing
+                // STRING
+                // mapping instead of treating every upstream CHAR as HANA's ASCII type.
+                if (column.getColumnLength() == null
                         || column.getColumnLength() <= MAX_NVARCHAR_LENGTH) {
                     builder.columnType(HANA_NVARCHAR);
                     builder.dataType(HANA_NVARCHAR);
