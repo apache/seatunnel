@@ -19,7 +19,7 @@ The Metadata SPI (Service Provider Interface) is an extension mechanism introduc
 
 ### Engine Support
 
-> **Important**: Metadata SPI is currently only supported on the **SeaTunnel Zeta engine**. It is not yet compatible with Flink or Spark engines.
+> **Important**: Metadata SPI is supported on **SeaTunnel Zeta** and **Flink**. Flink reads metadata-provider configuration from `$SEATUNNEL_HOME/config/seatunnel.yaml` before connector validation. Spark is not yet supported.
 
 ## Using metadata_datasource_id
 

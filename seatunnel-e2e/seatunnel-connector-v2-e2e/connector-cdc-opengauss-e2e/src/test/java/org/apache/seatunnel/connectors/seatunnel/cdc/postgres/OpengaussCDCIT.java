@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -26,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -93,38 +92,35 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
     protected static final DockerImageName OPENGAUSS_IMAGE =
             DockerImageName.parse("opengauss/opengauss:5.0.0")
                     .asCompatibleSubstituteFor("postgres");
+    private static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/JDBC/lib";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
+
+    /**
+     * Restoring a checkpoint and reconnecting the WAL replication connection can take longer on
+     * shared CI runners than the initial CDC startup, so the assertions that observe a restored job
+     * need a larger budget than the snapshot-stage awaits.
+     */
+    private static final long RESTORE_ASSERT_TIMEOUT_MILLIS = 180000L;
 
     public static final GenericContainer<?> OPENGAUSS_CONTAINER =
             new GenericContainer<>(OPENGAUSS_IMAGE)
                     .withNetwork(NETWORK)
                     .withNetworkAliases(OPENGAUSS_HOST)
+                    .withExposedPorts(OPENGAUSS_PORT)
                     .withEnv("GS_PASSWORD", PASSWORD)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/JDBC/lib && cd /tmp/seatunnel/plugins/JDBC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(org.postgresql.Driver.class)
+                            .copyTo(container, JDBC_PLUGIN_LIB);
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
         log.info("The second stage: Starting opengauss containers...");
-        OPENGAUSS_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", OPENGAUSS_PORT, OPENGAUSS_PORT)));
         Startables.deepStart(Stream.of(OPENGAUSS_CONTAINER)).join();
         log.info("Opengauss Containers are started");
         given().ignoreExceptions()
@@ -334,17 +330,18 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            return container.executeJob(
-                                    "/opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                    });
+            CompletableFuture<Container.ExecResult> initialJob =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // insert update delete
             upsertDeleteSourceTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
@@ -352,62 +349,66 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertAll(
-                                            () ->
-                                                    Assertions.assertIterableEquals(
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SOURCE_TABLE_1)),
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SINK_TABLE_1)))));
+                            () -> {
+                                assertJobHasNoAsyncFailure(initialJob);
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SINK_TABLE_1))));
+                            });
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // Restore job with add a new table
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.restoreJob(
-                                    "/opengausscdc_to_opengauss_with_multi_table_mode_two_table.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
+            CompletableFuture<Void> restoreJob =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.restoreJob(
+                                            "/opengausscdc_to_opengauss_with_multi_table_mode_two_table.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             upsertDeleteSourceTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_2);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertAll(
-                                            () ->
-                                                    Assertions.assertIterableEquals(
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SOURCE_TABLE_1)),
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SINK_TABLE_1))),
-                                            () ->
-                                                    Assertions.assertIterableEquals(
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SOURCE_TABLE_2)),
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SINK_TABLE_2)))));
+                            () -> {
+                                assertJobHasNoAsyncFailure(restoreJob);
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SINK_TABLE_1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SOURCE_TABLE_2)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SINK_TABLE_2))));
+                            });
 
             log.info("****************** container logs start ******************");
             String containerLogs = container.getServerLogs();
@@ -433,70 +434,75 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            return container.executeJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                    });
+            CompletableFuture<Container.ExecResult> initialJob =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertAll(
-                                            () ->
-                                                    Assertions.assertIterableEquals(
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SOURCE_TABLE_3)),
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SINK_TABLE_3)))));
+                            () -> {
+                                assertJobHasNoAsyncFailure(initialJob);
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SOURCE_TABLE_3)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SINK_TABLE_3))));
+                            });
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add field add insert source table data
+            // Keep the source and sink schemas aligned before restoring the job.
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
 
             // Restore job
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.restoreJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
+            CompletableFuture<Void> restoreJob =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.restoreJob(
+                                            "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertAll(
-                                            () ->
-                                                    Assertions.assertIterableEquals(
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SOURCE_TABLE_3)),
-                                                            query(
-                                                                    getQuerySQL(
-                                                                            OPENGAUSS_SCHEMA,
-                                                                            SINK_TABLE_3)))));
+                            () -> {
+                                assertJobHasNoAsyncFailure(restoreJob);
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SOURCE_TABLE_3)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        OPENGAUSS_SCHEMA,
+                                                                        SINK_TABLE_3))));
+                            });
         } finally {
             // Clear related content to ensure that multiple operations are not affected
             clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
@@ -656,6 +662,16 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    /**
+     * Surfaces an async job failure immediately (via the uncaught {@code CompletionException}
+     * thrown by {@code join()}) instead of masking it as a data comparison timeout.
+     */
+    private void assertJobHasNoAsyncFailure(CompletableFuture<?> job) {
+        if (job.isDone()) {
+            job.join();
+        }
     }
 
     private List<List<Object>> query(String sql) {

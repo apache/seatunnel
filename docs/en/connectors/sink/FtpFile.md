@@ -23,6 +23,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -35,6 +36,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] excel
   - [x] xml
   - [x] binary
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -45,9 +47,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | user                                  | string  | yes      | -                                          |                                                                                                                                                                        |
 | password                              | string  | yes      | -                                          |                                                                                                                                                                        |
 | path                                  | string  | yes      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
 | remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
+| control_encoding                      | string  | no       | UTF-8                                      | Character encoding for the FTP control connection, useful for paths with spaces or non-ASCII characters                                                               |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
@@ -66,7 +69,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                              |
-| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_name                            | string  | no       | Sheet0                      | Only used when file_format_type is excel.                                                                                                                              |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
@@ -77,8 +80,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                 |
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
+| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                      |
 
 ### host [string]
 
@@ -110,6 +115,13 @@ The target ftp connection mode , default is active mode, supported as the follow
 
 Whether to enable remote host verification for FTP data channels, default is `true`.
 
+### control_encoding [string]
+
+Character encoding for the FTP control connection. Default is `UTF-8`.
+
+When file paths contain special characters, spaces, or non-ASCII characters, keep this value as
+`UTF-8` unless your FTP server requires another control-channel encoding.
+
 ### custom_filename [boolean]
 
 Whether custom the filename
@@ -136,7 +148,6 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | d      | Day of month       |
 | H      | Hour in day (0-23) |
 | m      | Minute in hour     |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | s      | Second in minute   |
 
 ### file_format_type [string]
@@ -277,8 +288,51 @@ Existing dir processing method.
 Existing data processing method.
 
 - DROP_DATA: preserve dir and delete data files
-- APPEND_DATA: preserve dir, preserve data files
+- APPEND_DATA: preserve dir and data files. For FTP sinks, new rows are appended to
+  existing target files only when `data_save_mode = "APPEND_DATA"` is explicitly
+  configured in the job config. If this option is omitted and the value only comes from
+  the default, FTP sinks keep the legacy commit path and do not use FTP byte-level append.
+  Byte-level append additionally requires a stable target filename across commits, i.e.
+  `custom_filename = true` with a `file_name_expression` that does not vary per
+  transaction; with the default expression each checkpoint writes a new file, so there is
+  nothing to append to. FTP append is at-least-once: if a checkpoint is aborted while a
+  commit is only partially applied, the rows of that commit can appear twice in the target
+  file, so verify this is acceptable for your target before enabling the mode
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+FtpFile {
+    host = "xxx.xxx.xxx.xxx"
+    port = 21
+    user = "username"
+    password = "password"
+    path = "/data/ftp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. The default value is `1`; increase it
+only when each table needs more sink writer parallelism.
 
 ## Example
 
@@ -326,7 +380,9 @@ FtpFile {
 
 ```
 
-When our source end is multiple tables, and wants different expressions to different directory, we can configure this way
+When the upstream source has multiple tables and each table should be written to its own FTP directory, include
+`${table_name}` in `path`. `schema_save_mode` and `data_save_mode` decide how existing directories and files are handled
+before writing.
 
 ```hocon
 
@@ -354,31 +410,25 @@ FtpFile {
 
 ```
 
+### Writing via SFTP
 
-### schema_evolution_enabled [boolean]
-
-When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
-
-**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
-
-**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
-
-**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
-
-**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
-
-Example usage in a CDC pipeline:
+The `FtpFile` sink supports `sftp://` URIs alongside `ftp://`. Authentication and host-key trust are configured the same way as for the source — SSH key or password plus a `known_hosts` file (the connector does not auto-trust unknown hosts).
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
     file_format_type = "parquet"
-    schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
 }
 ```
 

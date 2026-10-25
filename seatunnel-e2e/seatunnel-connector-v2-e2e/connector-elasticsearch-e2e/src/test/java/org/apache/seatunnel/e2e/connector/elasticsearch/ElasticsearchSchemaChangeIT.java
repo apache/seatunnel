@@ -34,6 +34,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterEach;
@@ -74,8 +75,6 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String DATABASE = "shop";
-    protected static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     private final UniqueDatabase shopDatabase = new UniqueDatabase(MYSQL_CONTAINER, DATABASE);
 
     private EsRestClient esRestClient;
@@ -116,15 +115,9 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
@@ -139,7 +132,6 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("mysql-docker-image")));
-        mySqlContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 3306, 3306)));
         return mySqlContainer;
     }
 

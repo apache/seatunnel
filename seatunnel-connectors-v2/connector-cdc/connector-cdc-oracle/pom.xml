@@ -29,6 +29,7 @@
     <name>SeaTunnel : Connectors V2 : CDC : Oracle</name>
 
     <properties>
+        <debezium.version>1.9.8.Final</debezium.version>
         <oracle.version>19.18.0.0</oracle.version>
     </properties>
 

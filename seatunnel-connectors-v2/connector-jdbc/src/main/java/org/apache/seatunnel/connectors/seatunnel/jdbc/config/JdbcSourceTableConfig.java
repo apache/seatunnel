@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class JdbcSourceTableConfig implements Serializable {
+    private static final long serialVersionUID = 2L;
+
     private static final int DEFAULT_PARTITION_NUMBER = 10;
 
     @JsonProperty("table_path")

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -90,6 +91,80 @@ public class ConfigBuilderTest {
 
     @Test
     @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
+    public void testMetadataProviderBeforeKindPreservesQuotedHashes(@TempDir Path tempDir)
+            throws Exception {
+        Path configDir = tempDir.resolve("config");
+        Files.createDirectories(configDir);
+        Files.write(
+                configDir.resolve("seatunnel.yaml"),
+                Arrays.asList(
+                        "seatunnel:",
+                        "  engine:",
+                        "    metadata:",
+                        "      enabled: true",
+                        "      test-provider:",
+                        "        uri: \"http://localhost:8090/path#fragment\" # trailing comment",
+                        "        metalake: 'test#metalake'",
+                        "      unused-provider:",
+                        "        uri: http://unused:8090",
+                        "      kind: test-provider # selection follows provider blocks"));
+        String originalHome = System.getProperty("SEATUNNEL_HOME");
+        System.setProperty("SEATUNNEL_HOME", tempDir.toString());
+        try {
+            MetadataConfig metadataConfig = ConfigBuilder.parseMetadataConfigFromSeatunnelYaml();
+            Assertions.assertTrue(metadataConfig.isEnabled());
+            Assertions.assertEquals("test-provider", metadataConfig.getKind());
+            Map<String, String> expected = new LinkedHashMap<>();
+            expected.put("uri", "http://localhost:8090/path#fragment");
+            expected.put("metalake", "test#metalake");
+            Assertions.assertEquals(expected, metadataConfig.getProperties());
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("SEATUNNEL_HOME");
+            } else {
+                System.setProperty("SEATUNNEL_HOME", originalHome);
+            }
+        }
+    }
+
+    @Test
+    @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
+    public void testMetadataYamlUsesFourSpaceIndentationAndEscapedScalars(@TempDir Path tempDir)
+            throws Exception {
+        Path configDir = tempDir.resolve("config");
+        Files.createDirectories(configDir);
+        Files.write(
+                configDir.resolve("seatunnel.yaml"),
+                Arrays.asList(
+                        "seatunnel:",
+                        "    engine:",
+                        "        metadata:",
+                        "            enabled: true",
+                        "            gravitino:",
+                        "                uri: \"http://localhost:8090/#fragment\"",
+                        "                metalake: \"test\\nmetalake\"",
+                        "            kind: gravitino"));
+        String originalHome = System.getProperty("SEATUNNEL_HOME");
+        System.setProperty("SEATUNNEL_HOME", tempDir.toString());
+        try {
+            MetadataConfig metadataConfig = ConfigBuilder.parseMetadataConfigFromSeatunnelYaml();
+            Assertions.assertTrue(metadataConfig.isEnabled());
+            Assertions.assertEquals("gravitino", metadataConfig.getKind());
+            Map<String, String> expected = new LinkedHashMap<>();
+            expected.put("uri", "http://localhost:8090/#fragment");
+            expected.put("metalake", "test\nmetalake");
+            Assertions.assertEquals(expected, metadataConfig.getProperties());
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("SEATUNNEL_HOME");
+            } else {
+                System.setProperty("SEATUNNEL_HOME", originalHome);
+            }
+        }
+    }
+
+    @Test
+    @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
     public void testParseMetadataConfigFromMissingSeatunnelYaml(@TempDir Path tempDir) {
         String originalHome = System.getProperty("SEATUNNEL_HOME");
         System.setProperty("SEATUNNEL_HOME", tempDir.toString());
@@ -104,5 +179,220 @@ public class ConfigBuilderTest {
                 System.setProperty("SEATUNNEL_HOME", originalHome);
             }
         }
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksJdbcUrls() {
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put(
+                "url",
+                "jdbc:mysql://alice:secret-password@db.example.com:3306/orders?token=secret-token");
+        source.put("metadata_url", "https://catalog.example.com/tables");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+
+        Assertions.assertEquals("******", desensitizedSource.get("url"));
+        Assertions.assertEquals(
+                "https://catalog.example.com/tables", desensitizedSource.get("metadata_url"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksKafkaJaasConfig() {
+        Map<String, Object> jaasConfig = new LinkedHashMap<>();
+        jaasConfig.put(
+                "config",
+                "org.apache.kafka.common.security.scram.ScramLoginModule required "
+                        + "username=\"alice\" password=\"secret\";");
+
+        Map<String, Object> saslConfig = new LinkedHashMap<>();
+        saslConfig.put("jaas", jaasConfig);
+
+        Map<String, Object> kafkaConfig = new LinkedHashMap<>();
+        kafkaConfig.put("bootstrap.servers", "localhost:9092");
+        kafkaConfig.put("sasl", saslConfig);
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("kafka.config", kafkaConfig);
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+        Map<?, ?> desensitizedKafkaConfig = (Map<?, ?>) desensitizedSource.get("kafka.config");
+        Map<?, ?> desensitizedSaslConfig = (Map<?, ?>) desensitizedKafkaConfig.get("sasl");
+        Map<?, ?> desensitizedJaasConfig = (Map<?, ?>) desensitizedSaslConfig.get("jaas");
+
+        Assertions.assertEquals("******", desensitizedJaasConfig.get("config"));
+        Assertions.assertEquals("localhost:9092", desensitizedKafkaConfig.get("bootstrap.servers"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksConnectionStrings() {
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put(
+                "connection_string",
+                "Endpoint=sb://example/;SharedAccessKeyName=name;SharedAccessKey=secret;");
+        source.put("event_hub_name", "events");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+
+        Assertions.assertEquals("******", desensitizedSource.get("connection_string"));
+        Assertions.assertEquals("events", desensitizedSource.get("event_hub_name"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("connection_string"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksSnmpCommunity() {
+        Map<String, Object> sink = new LinkedHashMap<>();
+        sink.put("host", "127.0.0.1");
+        sink.put("community", "private-community");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("sink", Arrays.asList(sink));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sinks = (List<?>) desensitized.get("sink");
+        Map<?, ?> desensitizedSink = (Map<?, ?>) sinks.get(0);
+
+        Assertions.assertEquals("******", desensitizedSink.get("community"));
+        Assertions.assertEquals("127.0.0.1", desensitizedSink.get("host"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksSalesforceSecretsWithoutAddingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("client_secret", "private-secret");
+        connector.put("security_token", "private-token");
+        connector.put("object_name", "Account");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(connector));
+        config.put("sink", Arrays.asList(connector));
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        for (String role : Arrays.asList("source", "sink")) {
+            Map<?, ?> entry = (Map<?, ?>) ((List<?>) masked.get(role)).get(0);
+            Assertions.assertEquals("******", entry.get("client_secret"));
+            Assertions.assertEquals("******", entry.get("security_token"));
+            Assertions.assertEquals("Account", entry.get("object_name"));
+        }
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("client_secret"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("security_token"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksS3CredentialOptions() {
+        Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
+        accessKeyConfig.put("key", "access-key");
+
+        Map<String, Object> s3aConfig = new LinkedHashMap<>();
+        s3aConfig.put("endpoint", "http://localhost:9000");
+        s3aConfig.put("path.style.access", "true");
+        s3aConfig.put("aws.credentials.provider", "SimpleAWSCredentialsProvider");
+        s3aConfig.put("access", accessKeyConfig);
+
+        Map<String, Object> fsConfig = new LinkedHashMap<>();
+        fsConfig.put("s3a", s3aConfig);
+
+        Map<String, Object> checkpointConfig = new LinkedHashMap<>();
+        checkpointConfig.put("fs", fsConfig);
+        checkpointConfig.put("fs.s3a.access-key", "access-key");
+        checkpointConfig.put("fs.s3a.secret.key", "secret-key");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("checkpoint", checkpointConfig);
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getSensitiveOptions(null));
+        Map<?, ?> desensitizedCheckpoint = (Map<?, ?>) desensitized.get("checkpoint");
+        Map<?, ?> desensitizedFsConfig = (Map<?, ?>) desensitizedCheckpoint.get("fs");
+        Map<?, ?> desensitizedS3aConfig = (Map<?, ?>) desensitizedFsConfig.get("s3a");
+        Map<?, ?> desensitizedAccessConfig = (Map<?, ?>) desensitizedS3aConfig.get("access");
+
+        Assertions.assertEquals("******", desensitizedAccessConfig.get("key"));
+        Assertions.assertEquals("******", desensitizedCheckpoint.get("fs.s3a.access-key"));
+        Assertions.assertEquals("******", desensitizedCheckpoint.get("fs.s3a.secret.key"));
+        Assertions.assertEquals("http://localhost:9000", desensitizedS3aConfig.get("endpoint"));
+        Assertions.assertEquals("true", desensitizedS3aConfig.get("path.style.access"));
+        Assertions.assertEquals(
+                "SimpleAWSCredentialsProvider",
+                desensitizedS3aConfig.get("aws.credentials.provider"));
+    }
+
+    @Test
+    public void testConfigDesensitizationKeepsSchemaFieldsReadable() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("access_token", "string");
+        fields.put("user-password", "string");
+
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("fields", fields);
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("schema", schema);
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+        Map<?, ?> desensitizedSchema = (Map<?, ?>) desensitizedSource.get("schema");
+        Map<?, ?> desensitizedFields = (Map<?, ?>) desensitizedSchema.get("fields");
+
+        Assertions.assertEquals("string", desensitizedFields.get("access_token"));
+        Assertions.assertEquals("string", desensitizedFields.get("user-password"));
+    }
+
+    @Test
+    void testDuplicateKeyThrowsException() {
+        List<String> variables = Arrays.asList("jobName=value1", "jobName=value2");
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
+    }
+
+    @Test
+    void testUserKeyValueTrimmed() {
+        List<String> variables = Arrays.asList("k1= , k2=v2".split(","));
+        Map<String, String> userConfigMap = ConfigBuilder.extractUserVariables(variables);
+
+        Assertions.assertTrue(userConfigMap.get("k1").isEmpty());
+        Assertions.assertTrue(userConfigMap.containsKey("k2"));
+        Assertions.assertFalse(userConfigMap.containsKey(" k2"));
+    }
+
+    @Test
+    void testUserEmptyKeyThrowsConfigCheckException() {
+        List<String> variables = Arrays.asList(" =v1 , k2=v2".split(","));
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
     }
 }

@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatal
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.saphana.SapHanaCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.yashandb.YashanDbCatalogFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -207,5 +208,47 @@ class JdbcCatalogFactoryTest {
         cfg.put("password", "Password1");
         Assertions.assertDoesNotThrow(
                 () -> validate(new SapHanaCatalogFactory().optionRule(), cfg));
+    }
+
+    // ==================== YashanDB dialect validator ====================
+
+    @Test
+    void testYashanDbCatalogValidUrl() {
+        OptionRule rule = new YashanDbCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:yasdb://localhost:1688/SYS");
+        cfg.put("username", "SYS");
+        cfg.put("password", "Cod-2022");
+        Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
+    }
+
+    @Test
+    void testYashanDbCatalogValidUrlWithoutDatabase() {
+        OptionRule rule = new YashanDbCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:yasdb://localhost:1688");
+        cfg.put("username", "SYS");
+        cfg.put("password", "Cod-2022");
+        Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
+    }
+
+    @Test
+    void testYashanDbCatalogRejectsNonYashanUrl() {
+        OptionRule rule = new YashanDbCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
+        cfg.put("username", "root");
+        cfg.put("password", "pass");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(rule, cfg));
+    }
+
+    @Test
+    void testYashanDbCatalogUrlWithProperties() {
+        OptionRule rule = new YashanDbCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:yasdb://localhost:1688/SYS?connectTimeout=30000");
+        cfg.put("username", "SYS");
+        cfg.put("password", "Cod-2022");
+        Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
     }
 }

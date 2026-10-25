@@ -51,6 +51,7 @@ import com.hazelcast.cluster.Address;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,6 +61,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -100,7 +102,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private Address enumeratorTaskAddress;
 
-    private SourceReader<T, SplitT> reader;
+    // Volatile: cancel() reads it from the engine cancel thread while the task thread may still be
+    // creating the reader in init().
+    private volatile SourceReader<T, SplitT> reader;
 
     private transient Serializer<SplitT> splitSerializer;
 
@@ -108,7 +112,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final TaskLocation currentTaskLocation;
 
-    private SeaTunnelSourceCollector<T> collector;
+    @Setter private SeaTunnelSourceCollector<T> collector;
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
@@ -119,6 +123,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
+    private final long flushIntervalMs;
+
+    private transient volatile ScheduledFuture<?> flushFuture;
+
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
             int indexID,
@@ -126,19 +134,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             SeaTunnelTask runningTask,
             TaskLocation currentTaskLocation,
             CompletableFuture<Void> completableFuture,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            long flushIntervalMs) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
         this.metricsContext = metricsContext;
+        this.flushIntervalMs = flushIntervalMs;
         this.eventListener =
                 new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
-    }
-
-    public void setCollector(SeaTunnelSourceCollector<T> collector) {
-        this.collector = collector;
     }
 
     /**
@@ -181,6 +187,32 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         register();
     }
 
+    @Override
+    public void cancel() {
+        if (reader != null) {
+            reader.cancel();
+        }
+    }
+
+    /**
+     * Timer callback invoked by the {@code timerFlushWorker} thread pool.
+     *
+     * <p>Acquires the {@code checkpointLock} (the same monitor that {@link #triggerBarrier} uses)
+     * so that flush signals and barriers are strictly serialized — a FlushSignal either completes
+     * entirely before a Barrier or queues behind it, never crossing it.
+     */
+    private void onTimerTick() {
+        if (prepareClose) {
+            return;
+        }
+        try {
+            collector.sendFlushSignal(
+                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+        } catch (Exception e) {
+            log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
+        }
+    }
+
     private Address getEnumeratorTaskAddress() throws ExecutionException, InterruptedException {
         return (Address)
                 runningTask
@@ -191,9 +223,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void close() throws IOException {
-        context.getEventListener().onEvent(new ReaderCloseEvent());
-        reader.close();
-        super.close();
+        try {
+            context.getEventListener().onEvent(new ReaderCloseEvent());
+            reader.close();
+            super.close();
+        } finally {
+            closeFlushTimer();
+        }
+    }
+
+    @Override
+    public void hook() throws IOException {
+        startFlushTimer();
     }
 
     /**
@@ -247,7 +288,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                     sourceReadNs.inc(pollCostNs);
                 }
                 collector.resetEmptyThisPollNext();
-                /**
+                /*
                  * The current thread obtain a checkpoint lock in the method {@link
                  * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
                  * other threads try to obtain the lock in the method {@link
@@ -305,7 +346,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (Exception e) {
-            log.warn("source close failed {}", e);
+            log.warn("source close failed", e);
             throw new RuntimeException(e);
         }
     }
@@ -331,6 +372,37 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             log.warn("source register failed.", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private void startFlushTimer() {
+        if (flushIntervalMs <= 0) {
+            return;
+        }
+        flushFuture =
+                runningTask
+                        .getExecutionContext()
+                        .getTaskExecutionService()
+                        .registerTimerFlushTask(
+                                currentTaskLocation, this::onTimerTick, flushIntervalMs);
+        log.info(
+                "Registered flush timer for source task {}, intervalMs={}",
+                currentTaskLocation,
+                flushIntervalMs);
+    }
+
+    private void closeFlushTimer() {
+        if (flushFuture == null) {
+            return;
+        }
+        try {
+            runningTask
+                    .getExecutionContext()
+                    .getTaskExecutionService()
+                    .closeTimerFlushTask(currentTaskLocation);
+        } catch (Exception e) {
+            log.warn("Failed to close flush timer for task {}", currentTaskLocation, e);
+        }
+        flushFuture = null;
     }
 
     /**
@@ -387,6 +459,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         } else {
             reader.addSplits(splits);
         }
+    }
+
+    /**
+     * Delivers a source event sent by the remote split enumerator to this reader.
+     *
+     * <p>This runs on a Hazelcast operation thread, not the reader's task thread, so the
+     * implementation must be safe against concurrent access with the {@code pollNext} loop. The
+     * event is dispatched to {@link SourceReader#handleSourceEvent(SourceEvent)}, which connectors
+     * such as the CDC sources use to receive enumerator acknowledgements.
+     *
+     * @param sourceEvent the event sent by the enumerator
+     */
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        reader.handleSourceEvent(sourceEvent);
     }
 
     /**

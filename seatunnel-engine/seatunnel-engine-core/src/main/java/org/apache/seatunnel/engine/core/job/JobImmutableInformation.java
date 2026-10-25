@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
+import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.SerializationService;
@@ -30,17 +31,31 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Immutable job submission payload shared between the submitter and the engine master.
+ *
+ * <p>The serialized layout keeps the historic prefix unchanged and appends restore metadata as an
+ * optional trailer. Old payloads without the trailer derive restore semantics from {@code
+ * isStartWithSavePoint}; new payloads carry explicit {@link RestoreMode} and {@code
+ * restoreSourceJobId} values.
+ */
 public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long jobId;
 
     private String jobName;
 
     private boolean isStartWithSavePoint;
+
+    private RestoreMode restoreMode = RestoreMode.NONE;
+
+    private Long restoreSourceJobId;
 
     private long createTime;
 
@@ -76,10 +91,32 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             @NonNull LogicalDag logicalDag,
             @NonNull List<URL> pluginJarsUrls,
             @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(
+                jobId,
+                jobName,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
+                serializationService,
+                logicalDag,
+                pluginJarsUrls,
+                connectorJarIdentifiers);
+    }
+
+    public JobImmutableInformation(
+            long jobId,
+            String jobName,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            SerializationService serializationService,
+            @NonNull LogicalDag logicalDag,
+            @NonNull List<URL> pluginJarsUrls,
+            @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.jobName = jobName;
-        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.restoreSourceJobId = restoreSourceJobId;
+        this.isStartWithSavePoint = this.restoreMode == RestoreMode.SAVEPOINT;
         logicalDag
                 .getLogicalVertexMap()
                 .forEach(
@@ -116,6 +153,18 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     public boolean isStartWithSavePoint() {
         return isStartWithSavePoint;
+    }
+
+    public RestoreMode getRestoreMode() {
+        return restoreMode;
+    }
+
+    public Long getRestoreSourceJobId() {
+        return restoreSourceJobId;
+    }
+
+    public boolean isRestoreJob() {
+        return restoreMode != null && restoreMode.isRestore();
     }
 
     public long getCreateTime() {
@@ -175,6 +224,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
         out.writeObject(connectorJarIdentifiers);
+        out.writeInt(restoreMode == null ? RestoreMode.NONE.getCode() : restoreMode.getCode());
+        out.writeBoolean(restoreSourceJobId != null);
+        if (restoreSourceJobId != null) {
+            out.writeLong(restoreSourceJobId);
+        }
     }
 
     @Override
@@ -192,5 +246,30 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobConfig = in.readObject();
         pluginJarsUrls = in.readObject();
         connectorJarIdentifiers = in.readObject();
+
+        restoreMode = isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE;
+        restoreSourceJobId = isStartWithSavePoint ? jobId : null;
+        if (hasRemainingBytes(in)) {
+            restoreMode = RestoreMode.fromCode(in.readInt());
+            if (in.readBoolean()) {
+                restoreSourceJobId = in.readLong();
+            } else {
+                restoreSourceJobId = null;
+            }
+        }
+    }
+
+    private static boolean hasRemainingBytes(ObjectDataInput in) throws IOException {
+        if (!(in instanceof BufferObjectDataInput)) {
+            return false;
+        }
+        try {
+            Method availableMethod = in.getClass().getMethod("available");
+            availableMethod.setAccessible(true);
+            Object available = availableMethod.invoke(in);
+            return available instanceof Integer && ((Integer) available) > 0;
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new IOException("Failed to inspect remaining JobImmutableInformation bytes", e);
+        }
     }
 }

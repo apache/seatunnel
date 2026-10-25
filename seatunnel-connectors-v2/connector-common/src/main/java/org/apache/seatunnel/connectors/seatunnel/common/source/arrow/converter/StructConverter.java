@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.StructVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 
+import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
+@AutoService(Converter.class)
 public class StructConverter implements Converter<StructVector> {
     @Override
     public Object convert(int rowIndex, StructVector fieldVector) {

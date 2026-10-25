@@ -32,6 +32,9 @@ import java.util.HashMap;
 
 public class S3StorageTest {
 
+    private static final String TEST_S3_CREDENTIALS_PROVIDER =
+            S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER;
+
     private static final ReadonlyConfig S3A =
             ReadonlyConfig.fromMap(
                     new HashMap<String, Object>() {
@@ -44,11 +47,10 @@ public class S3StorageTest {
                                                     S3FileBaseOptions.S3_BUCKET.key(),
                                                     "s3a://my_bucket");
                                             put(
-                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions
+                                                            .S3A_AWS_CREDENTIALS_PROVIDER_CLASS
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    TEST_S3_CREDENTIALS_PROVIDER);
                                             put(
                                                     S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                                                     "http://s3.ap-northeast-1.amazonaws.com");
@@ -69,11 +71,10 @@ public class S3StorageTest {
                                                     S3FileBaseOptions.S3_BUCKET.key(),
                                                     "s3://my_bucket");
                                             put(
-                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions
+                                                            .S3A_AWS_CREDENTIALS_PROVIDER_CLASS
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    TEST_S3_CREDENTIALS_PROVIDER);
                                             put(S3FileBaseOptions.FS_S3A_ENDPOINT.key(), "test");
                                         }
                                     });

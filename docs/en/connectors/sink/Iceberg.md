@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, writing tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -16,10 +16,11 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Description
 
-Sink connector for Apache Iceberg. It can support cdc mode 、auto create table and table schema evolution.
+Sink connector for Apache Iceberg. It supports CDC writes, automatic table creation, table schema evolution, and multi-table write jobs.
 
 ## Key features
 
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
@@ -52,6 +53,7 @@ libfb303-xxx.jar
 | DATE                | DATE              |
 | TIME                | TIME              |
 | TIMESTAMP           | TIMESTAMP         |
+| TIMESTAMP_TZ        | TIMESTAMPTZ       |
 | STRING              | STRING            |
 | BYTES               | FIXED<br/>BINARY  |
 | DECIMAL             | DECIMAL           |
@@ -59,13 +61,17 @@ libfb303-xxx.jar
 | ARRAY               | LIST              |
 | MAP                 | MAP               |
 
+When the sink creates a table with `format-version = 3`, `TIMESTAMP` and `TIMESTAMP_TZ` columns with nanosecond precision (column scale 9, for example an Iceberg `timestamp_ns` column read by the Iceberg source) are created as `TIMESTAMP_NS` and `TIMESTAMPTZ_NS`. These types only hold values from the year 1677 to 2262; a value outside that range fails the write. Other scales, nested fields, columns added by schema evolution and tables of format version 1 and 2 keep microsecond timestamps. On the Spark engine, rows carry `TIMESTAMP` values in microseconds and `TIMESTAMP_TZ` values in milliseconds, so the extra precision is already cut before it reaches the sink.
+
+Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and `TIMESTAMPTZ_NS` columns. `UNKNOWN` columns only accept null values. `VARIANT` columns are not supported yet: leave them out of the written rows, which works for Parquet data files only. Tables with `GEOMETRY` or `GEOGRAPHY` columns cannot be written yet.
+
 ## Sink Options
 
 | Name                                   | Type    | Required | Default                      | Description                                                                                                                                                                                                                                                                                                               |
 |----------------------------------------|---------|----------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| catalog_name                           | string  | yes      | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                         |
-| namespace                              | string  | yes      | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                    |
-| table                                  | string  | yes      | -                            | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                            |
+| catalog_name                           | string  | no       | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                         |
+| namespace                              | string  | no       | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                    |
+| table                                  | string  | no       | -                            | The iceberg table name in the backend catalog. If not set, the table name of the upstream table is used.                                                                                                                                                                                                                  |
 | iceberg.catalog.config                 | map     | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file: [CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                                                              |
 | hadoop.config                          | map     | no       | -                            | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                     |
 | iceberg.hadoop-conf-path               | string  | no       | -                            | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                              |
@@ -78,13 +84,46 @@ libfb303-xxx.jar
 | iceberg.table.upsert-mode-enabled      | boolean | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                   |
 | schema_save_mode                       | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
-| custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
+| custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| multi_table_sink_replica               | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
 ## Sink Option descriptions
+
+### iceberg.table.auto-create-props [map]
+
+Table properties used when the sink creates the table. Set `format-version` to choose the Iceberg table format version; supported values are `1`, `2` and `3`, and Iceberg creates format version 2 tables when it is not set. Any other value fails the job before the table is created. The property only applies to tables the sink creates: an existing table keeps its format version, upgrade it with your Iceberg engine, for example `ALTER TABLE ... SET TBLPROPERTIES ('format-version' = '3')` in Spark.
+
+```hocon
+iceberg.table.auto-create-props = {
+  "format-version" = "3"
+}
+```
+
+Format version 3 tables support append writes. Upsert and CDC writes are rejected with error `ICEBERG-04` before any data is written, because the sink writes position delete files, which format version 3 replaces with deletion vectors. This covers `iceberg.table.primary-keys`, `iceberg.table.upsert-mode-enabled` and existing tables with identifier fields, and also creating a format version 3 table for a source table with a primary key, which would otherwise become the identifier fields. Use a format version 2 table for upsert and CDC pipelines.
+
+### iceberg.table.upsert-mode-enabled [boolean]
+
+When this option is `true`, `iceberg.table.primary-keys` must be configured explicitly. The sink does not inherit primary keys from the source table automatically.
+
+### iceberg.table.partition-keys [string]
+
+Use a comma-separated list, for example `dt,region` or Iceberg transforms such as `days(ts)`. In multi-table jobs, `${partition_keys}` can be used as a placeholder from the upstream table metadata.
+
+### iceberg.table.commit-branch [string]
+
+Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### custom_sql [string]
+
+When `data_save_mode = CUSTOM_PROCESSING`, configure the `delete` SQL that removes the target data before the sink writes. This option is required in that mode.
+
+For Iceberg `timestamptz` columns, comparison and `IN`/`NOT IN` predicates accept timestamp literals with an offset, for example `event_time >= '2026-09-12 10:00:00.123456+05:30'`. Offsets are converted to the corresponding UTC instant at microsecond precision. Offset-free literals retain their existing UTC interpretation. Iceberg `timestamp` columns without a time zone continue to require offset-free literals.
+
+The existing file-level delete restriction still applies: Iceberg rejects a delete when only some rows in a data file match the condition.
 
 ### krb5_path [string]
 
@@ -192,6 +231,23 @@ sink {
     iceberg.table.upsert-mode-enabled = true
     iceberg.table.schema-evolution-enabled = true
     case_sensitive = true
+  }
+}
+```
+
+### Commit To Iceberg Branch
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.commit-branch = "audit_branch"
   }
 }
 ```

@@ -96,7 +96,8 @@ public class MetalakeIT extends TestSuiteBase {
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
-    private static final String GRAVITINO_IMAGE = "apache/gravitino:latest";
+    private static final String GRAVITINO_IMAGE =
+            "apache/gravitino:0.9.1@sha256:7f305bca0c6df9763f88542c1f0516751ffc9ecc4a06657acfbe27aed2e00ad3";
     private static final int GRAVITINO_PORT = 8090;
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String SEATUNNEL_YAML = "/config/seatunnel.yaml";
@@ -139,6 +140,10 @@ public class MetalakeIT extends TestSuiteBase {
         startGravitinoContainer();
 
         jdbcCase = getJdbcCase();
+        int mappedPort = dbServer.getMappedPort(jdbcCase.getPort());
+        jdbcCase.setJdbcUrl(
+                jdbcCase.getJdbcUrl().replace(":" + jdbcCase.getLocalPort(), ":" + mappedPort));
+        jdbcCase.setLocalPort(mappedPort);
 
         given().ignoreExceptions()
                 .await()
@@ -238,9 +243,6 @@ public class MetalakeIT extends TestSuiteBase {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
         return container;
     }

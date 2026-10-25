@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -29,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
@@ -41,20 +41,47 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     private static final String SQLSERVER_USER = "sa";
     private static final String ACCEPT_EULA = "ACCEPT_EULA";
     private static final String Y = "Y";
-    private static final String SA_PASSWORD = "SA_PASSWORD";
+    /**
+     * Uses the supported SQL Server container password variable instead of deprecated SA_PASSWORD.
+     */
+    private static final String MSSQL_SA_PASSWORD = "MSSQL_SA_PASSWORD";
+
     private static final String SQLSERVER_PASSWORD = "paanssy1234$";
     private static final int SQLSERVER_PORT = 1433;
-    private static final int SQLSERVER_XA_PORT = 5022;
-    private static final Duration SQLSERVER_SQLCMD_READY_TIMEOUT = Duration.ofMinutes(2);
-    private static final Duration SQLSERVER_SQLCMD_RETRY_INTERVAL = Duration.ofSeconds(2);
+    /** Exposes the RPC endpoint mapper required by SQL Server MSDTC inside containers. */
+    private static final int SQLSERVER_RPC_PORT = 135;
+    /** Exposes the MSDTC listener required by XA transactions in containerized SQL Server. */
+    private static final int SQLSERVER_DTC_PORT = 51000;
+    /** Executes real SQL Server login probes instead of relying on container logs alone. */
+    private static final String SQLSERVER_COMMAND = "/opt/mssql-tools18/bin/sqlcmd";
+    /** Gives SQL Server enough time to finish startup tasks before login and XA checks begin. */
+    private static final Duration SQLSERVER_READY_TIMEOUT = Duration.ofMinutes(2);
+    /** Exercises an authenticated query to prove the server is actually accepting connections. */
+    private static final String SQLSERVER_READY_QUERY = "SET NOCOUNT ON; SELECT 1";
+    /**
+     * SQL Server 2022 can emit the client-ready log before recovery and `msdb` upgrades finish in
+     * CI, so XA installation must wait for the stronger recovery-complete signal.
+     */
+    private static final String SQLSERVER_RECOVERY_COMPLETE_LOG = ".*Recovery is complete\\..*";
+    /**
+     * Verifies that the XA initialization procedure is visible before the exactly-once test runs.
+     */
+    private static final String SQLSERVER_XA_PROCEDURE_QUERY =
+            "SET NOCOUNT ON; SELECT CASE WHEN OBJECT_ID('master..xp_sqljdbc_xa_init_ex') IS NOT NULL THEN 1 ELSE 0 END";
+    /**
+     * Newer SQL Server Linux containers do not always expose the external-user toggle. Guard the
+     * setup statement so the XA bootstrap path stays compatible across image variants.
+     */
+    private static final String SQLSERVER_ENABLE_EXTERNAL_USER_IF_SUPPORTED =
+            "IF EXISTS (SELECT 1 FROM sys.configurations WHERE name = 'external user enabled') "
+                    + "BEGIN EXEC sp_configure 'external user enabled', 1; RECONFIGURE; END";
+
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
                     + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;"
                     + "integratedSecurity=false;xaTransactionCompatible=true;"
                     + "encrypt=false;trustServerCertificate=true;";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    private static final String SQLSERVER_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.2.1.jre8/mssql-jdbc-9.2.1.jre8.jar";
     private final String schemaEvolutionCaseConfig =
             "/mysqlcdc_to_sqlserver_with_schema_change.conf";
     private final String schemaEvolutionCaseExactlyOnceConfig =
@@ -68,7 +95,6 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                 .jdbcUrl(SQLSERVER_JDBC_URL)
                 .username(SQLSERVER_USER)
                 .password(SQLSERVER_PASSWORD)
-                .driverUrl(SQLSERVER_DRIVER_JAR)
                 .port(SQLSERVER_PORT)
                 .driverClassName(DRIVER_CLASS)
                 .databaseName(SQLSERVER_DATABASE)
@@ -89,45 +115,43 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
                         .withEnv(ACCEPT_EULA, Y)
-                        .withEnv(SA_PASSWORD, SQLSERVER_PASSWORD)
-                        .withEnv("MSSQL_ENABLE_HADR", "1")
-                        .withEnv("MSSQL_AGENT_ENABLED", "1")
-                        .withExposedPorts(SQLSERVER_PORT, SQLSERVER_XA_PORT)
-                        .waitingFor(
-                                Wait.forLogMessage(
-                                        ".*SQL Server is now ready for client connections.*\\n", 1))
+                        .withEnv(MSSQL_SA_PASSWORD, SQLSERVER_PASSWORD)
+                        .withEnv("MSSQL_AGENT_ENABLED", "true")
+                        // MSDTC ports are required for distributed XA transactions in SQL Server
+                        // Linux containers.
+                        .withEnv("MSSQL_RPC_PORT", String.valueOf(SQLSERVER_RPC_PORT))
+                        .withEnv("MSSQL_DTC_TCP_PORT", String.valueOf(SQLSERVER_DTC_PORT))
+                        .withExposedPorts(SQLSERVER_PORT)
+                        .waitingFor(Wait.forLogMessage(SQLSERVER_RECOVERY_COMPLETE_LOG, 1))
                         .withStartupTimeout(Duration.ofMinutes(10))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT),
-                        String.format("%d:%d", SQLSERVER_XA_PORT, SQLSERVER_XA_PORT)));
-
         container.start();
         try {
-            // This set of commands prepares for the subsequent enabling of the external user
-            // enabled configuration (for XA transaction support)
-            execSqlcmdWithRetry(
+            waitForSqlServerLogin(container);
+            // Prepare the SQL Server instance before installing the XA procedures that the
+            // exactly-once connector path depends on.
+            assertSqlCommandSucceeded(
                     container,
-                    "configure advanced options",
-                    "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;");
-
-            // Enable external user access permissions, which is a requirement for SQL Server to
-            // support XA distributed transactions.
-            execSqlcmdWithRetry(
+                    "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;",
+                    "enable SQL Server advanced options");
+            // Some SQL Server variants still expose this switch, while the current Linux image no
+            // longer does. Keep the bootstrap compatible by enabling it only when the option
+            // exists.
+            assertSqlCommandSucceeded(
                     container,
-                    "enable external user access",
-                    "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;");
+                    SQLSERVER_ENABLE_EXTERNAL_USER_IF_SUPPORTED,
+                    "enable external user access");
 
             log.info("Installing stored procedures sp_sqljdbc_xa_install.");
-            execSqlcmdWithRetry(
+            assertSqlCommandSucceeded(
                     container,
-                    "install SQL Server XA stored procedures",
                     "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                            + "EXEC sp_sqljdbc_xa_install");
+                            + "EXEC sp_sqljdbc_xa_install",
+                    "install SQL Server XA stored procedures");
+            waitForXaStoredProcedure(container);
         } catch (IOException | InterruptedException e) {
             log.error("XA procedure installation failed: ", e);
             throw new RuntimeException(e);
@@ -141,43 +165,86 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     }
 
     /**
-     * SQL Server 2022 can emit the generic ready log before system database upgrades finish, so
-     * retry sqlcmd setup steps until login and execution both succeed.
+     * Recovery-complete is the earliest safe container log marker, and a real authenticated probe
+     * confirms that `sqlcmd` can connect before XA setup starts.
      */
-    private void execSqlcmdWithRetry(GenericContainer<?> container, String description, String sql)
+    private void waitForSqlServerLogin(GenericContainer<?> container) {
+        await().pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofSeconds(2))
+                .atMost(SQLSERVER_READY_TIMEOUT)
+                .until(() -> isSqlCommandSuccessful(container, SQLSERVER_READY_QUERY));
+    }
+
+    /**
+     * XA setup must complete before the exactly-once test starts, otherwise the job fails later
+     * with a missing xp_sqljdbc_xa_init_ex procedure.
+     */
+    private void waitForXaStoredProcedure(GenericContainer<?> container) {
+        await().pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofSeconds(2))
+                .atMost(SQLSERVER_READY_TIMEOUT)
+                .until(
+                        () ->
+                                sqlCommandOutputContains(
+                                        container, SQLSERVER_XA_PROCEDURE_QUERY, "1"));
+    }
+
+    /**
+     * Fails fast when a setup statement is rejected so the test does not continue on false success.
+     */
+    private void assertSqlCommandSucceeded(
+            GenericContainer<?> container, String sql, String description)
             throws IOException, InterruptedException {
-        long deadline = System.nanoTime() + SQLSERVER_SQLCMD_READY_TIMEOUT.toNanos();
-        Container.ExecResult lastResult = null;
-        while (System.nanoTime() < deadline) {
-            lastResult =
-                    container.execInContainer(
-                            "/opt/mssql-tools18/bin/sqlcmd",
-                            "-S",
-                            "localhost",
-                            "-U",
-                            SQLSERVER_USER,
-                            "-P",
-                            SQLSERVER_PASSWORD,
-                            "-Q",
-                            sql,
-                            "-C");
-            if (lastResult.getExitCode() == 0) {
-                return;
-            }
-            log.info(
-                    "sqlcmd step [{}] is not ready yet, exitCode={}, stdout={}, stderr={}",
-                    description,
-                    lastResult.getExitCode(),
-                    lastResult.getStdout(),
-                    lastResult.getStderr());
-            Thread.sleep(SQLSERVER_SQLCMD_RETRY_INTERVAL.toMillis());
+        Container.ExecResult execResult = executeSqlCommand(container, sql);
+        if (execResult.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Failed to %s, exitCode=%s, stdout=%s, stderr=%s",
+                            description,
+                            execResult.getExitCode(),
+                            execResult.getStdout(),
+                            execResult.getStderr()));
         }
-        throw new IllegalStateException(
-                String.format(
-                        "Timed out waiting for sqlcmd step [%s] to succeed, last exitCode=%s, stdout=%s, stderr=%s",
-                        description,
-                        lastResult == null ? null : lastResult.getExitCode(),
-                        lastResult == null ? null : lastResult.getStdout(),
-                        lastResult == null ? null : lastResult.getStderr()));
+    }
+
+    /** Returns true only when sqlcmd completes successfully with the supplied statement. */
+    private boolean isSqlCommandSuccessful(GenericContainer<?> container, String sql) {
+        try {
+            return executeSqlCommand(container, sql).getExitCode() == 0;
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
+    /** Checks the normalized sqlcmd output for the expected probe result. */
+    private boolean sqlCommandOutputContains(
+            GenericContainer<?> container, String sql, String expected) {
+        try {
+            Container.ExecResult execResult = executeSqlCommand(container, sql);
+            return execResult.getExitCode() == 0
+                    && execResult.getStdout().replaceAll("\\s+", "").equals(expected);
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
+    /** Executes sqlcmd with consistent flags so login, setup, and probe checks share one path. */
+    private Container.ExecResult executeSqlCommand(GenericContainer<?> container, String sql)
+            throws IOException, InterruptedException {
+        return container.execInContainer(
+                SQLSERVER_COMMAND,
+                "-S",
+                "localhost",
+                "-U",
+                SQLSERVER_USER,
+                "-P",
+                SQLSERVER_PASSWORD,
+                "-Q",
+                sql,
+                "-b",
+                "-h",
+                "-1",
+                "-W",
+                "-C");
     }
 }

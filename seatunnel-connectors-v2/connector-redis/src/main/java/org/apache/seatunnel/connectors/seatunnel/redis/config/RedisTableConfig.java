@@ -135,9 +135,6 @@ public class RedisTableConfig implements Serializable {
      * @return Fully initialized RedisTableConfig with runtime objects
      */
     private static RedisTableConfig buildTableConfig(ReadonlyConfig config) {
-        // Validate required fields are present
-        validateRequiredFields(config);
-
         // Build catalog table and deserialization schema
         TableConfigResult result = buildCatalogTableAndSchema(config, config.get(KEY_PATTERN));
 
@@ -156,23 +153,6 @@ public class RedisTableConfig implements Serializable {
                 .catalogTable(result.catalogTable)
                 .deserializationSchema(result.deserializationSchema)
                 .build();
-    }
-
-    /**
-     * Validate required fields in a (table-level) configuration.
-     *
-     * @param config ReadonlyConfig to validate
-     */
-    private static void validateRequiredFields(ReadonlyConfig config) {
-        String keys = config.getOptional(KEY_PATTERN).orElse(null);
-        if (keys == null || keys.trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Redis table configuration requires 'keys' parameter.");
-        }
-        if (!config.getOptional(DATA_TYPE).isPresent()) {
-            throw new IllegalArgumentException(
-                    "Redis table configuration requires 'data_type' parameter.");
-        }
     }
 
     /** Result class containing catalog table and deserialization schema. */

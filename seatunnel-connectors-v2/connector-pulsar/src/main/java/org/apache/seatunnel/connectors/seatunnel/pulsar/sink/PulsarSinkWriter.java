@@ -37,6 +37,8 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnecto
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -109,10 +111,12 @@ public class PulsarSinkWriter
             ProducerCreator producerCreator) {
         String format = pluginConfig.get(PulsarSinkOptions.FORMAT);
         String delimiter = pluginConfig.get(PulsarSinkOptions.FIELD_DELIMITER);
+        boolean avroRowNullable = pluginConfig.get(AvroFormatOptions.AVRO_ROW_NULLABLE);
         this.transactionTimeout = pluginConfig.get(PulsarSinkOptions.TRANSACTION_TIMEOUT);
         this.pulsarSemantics = pluginConfig.get(PulsarSinkOptions.SEMANTICS);
         this.messageRoutingMode = pluginConfig.get(PulsarSinkOptions.MESSAGE_ROUTING_MODE);
-        this.serializationSchema = createSerializationSchema(seaTunnelRowType, format, delimiter);
+        this.serializationSchema =
+                createSerializationSchema(seaTunnelRowType, format, delimiter, avroRowNullable);
         List<String> partitionKeyList = getPartitionKeyFields(pluginConfig, seaTunnelRowType);
         this.keySerializationSchema =
                 createKeySerializationSchema(partitionKeyList, seaTunnelRowType);
@@ -249,14 +253,14 @@ public class PulsarSinkWriter
         Throwable closeFailure = null;
         for (Producer<byte[]> producer : producerMap.values()) {
             try {
-                producer.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(producer::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
         }
         if (pulsarClient != null) {
             try {
-                pulsarClient.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarClient::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
@@ -273,7 +277,7 @@ public class PulsarSinkWriter
     }
 
     private SerializationSchema createSerializationSchema(
-            SeaTunnelRowType rowType, String format, String delimiter) {
+            SeaTunnelRowType rowType, String format, String delimiter, boolean avroRowNullable) {
         if (PulsarSinkOptions.DEFAULT_FORMAT.equals(format)) {
             return new JsonSerializationSchema(rowType);
         } else if (PulsarSinkOptions.TEXT_FORMAT.equals(format)) {
@@ -281,6 +285,8 @@ public class PulsarSinkWriter
                     .seaTunnelRowType(rowType)
                     .delimiter(delimiter)
                     .build();
+        } else if (PulsarSinkOptions.AVRO_FORMAT.equals(format)) {
+            return new AvroSerializationSchema(rowType, avroRowNullable);
         } else {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
