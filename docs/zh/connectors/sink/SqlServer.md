@@ -65,8 +65,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                           |
 | DATE                                                             | LOCAL_DATE                                                                                       |
 | TIME                                                             | LOCAL_TIME                                                                                       |
-| DATETIME<br />DATETIME2<br />SMALLDATETIME<br />DATETIMEOFFSET   | LOCAL_DATE_TIME                                                                                  |
-| TIMESTAMP<br />BINARY<br />VARBINARY<br />IMAGE<br />UNKNOWN     | 尚未支持                                                                                         |
+| DATETIME<br />DATETIME2<br />SMALLDATETIME   | LOCAL_DATE_TIME                                                                                  |
+| DATETIMEOFFSET | OFFSET_DATE_TIME (TIMESTAMP_TZ) |
+| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP | BYTES |
+| UNKNOWN | 尚未支持 |
 
 ## 接收器选项
 
@@ -77,8 +79,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |-------------------------------|---------|----------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String  | 是       | -                            | JDBC 连接的 URL。参考示例：`jdbc:sqlserver://localhost:1433;databaseName=mydatabase`，其中 `databaseName` 指定连接的默认数据库。                                                                  |
 | driver                        | String  | 是       | -                            | 用于连接远程数据源的 JDBC 类名，SQL Server 使用 `com.microsoft.sqlserver.jdbc.SQLServerDriver`。                                                                                                |
-| username                      | String  | 是       | -                            | 连接实例的用户名。同时接受 `user` 作为 `username` 的别名。                                                                                                                                          |
-| password                      | String  | 是       | -                            | 连接实例的密码。                                                                                                                                                                                  |
+| username                      | String  | 否 | -                            | 连接实例的用户名。同时接受 `user` 作为 `username` 的别名。                                                                                                                                          |
+| password                      | String  | 否 | -                            | 连接实例的密码。                                                                                                                                                                                  |
 | query                         | String  | 否       | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 优先级更高。                                                                                                                       |
 | database                      | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                  |
 | table                         | String  | 否       | -                            | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                  |

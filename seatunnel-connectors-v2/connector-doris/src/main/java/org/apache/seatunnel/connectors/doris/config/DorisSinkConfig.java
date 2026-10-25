@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import lombok.Getter;
@@ -30,8 +31,15 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DORIS_BATCH_SIZE;
@@ -42,6 +50,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABL
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.BENODES;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DATA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DIRECT_TO_BE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
@@ -49,10 +58,12 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_COUNT;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_CHECK_INTERVAL;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_DATETIME_TIMEZONE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_2PC;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_VISIBILITY_TIMEOUT_MS;
 
 @Slf4j
 @Setter
@@ -76,23 +87,21 @@ public class DorisSinkConfig implements Serializable {
     private String labelPrefix;
     private Integer checkInterval;
     private Integer maxRetries;
+    private Long visibilityTimeoutMs;
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private List<String> partitions = Collections.emptyList();
     private boolean directToBe;
     private boolean needsUnsupportedTypeCasting;
     private boolean caseSensitive;
+    private ZoneId datetimeTimezone;
 
     // create table option
     private String createTableTemplate;
 
     public static DorisSinkConfig of(Config pluginConfig) {
         return of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    public static void validate(ReadonlyConfig config) {
-        validateDirectWriteOptions(
-                config.get(DIRECT_TO_BE), config.getOptional(BENODES).orElse(null), false);
     }
 
     public static DorisSinkConfig of(ReadonlyConfig config) {
@@ -106,6 +115,15 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setPassword(config.get(PASSWORD));
         dorisSinkConfig.setQueryPort(config.get(QUERY_PORT));
         dorisSinkConfig.setStreamLoadProps(parseStreamLoadProperties(config));
+        if (config.get(DATA_SAVE_MODE) == DataSaveMode.DROP_DATA) {
+            List<String> partitions = parseDropDataPartitions(dorisSinkConfig.getStreamLoadProps());
+            dorisSinkConfig.setPartitions(partitions);
+            if (!partitions.isEmpty()) {
+                dorisSinkConfig
+                        .getStreamLoadProps()
+                        .setProperty("partitions", String.join(",", partitions));
+            }
+        }
         dorisSinkConfig.setDatabase(config.get(DATABASE));
         dorisSinkConfig.setTable(config.get(TABLE));
         dorisSinkConfig.setBatchSize(config.get(DORIS_BATCH_SIZE));
@@ -115,18 +133,52 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setLabelPrefix(config.get(SINK_LABEL_PREFIX));
         dorisSinkConfig.setCheckInterval(config.get(SINK_CHECK_INTERVAL));
         dorisSinkConfig.setMaxRetries(config.get(SINK_MAX_RETRIES));
+        dorisSinkConfig.setVisibilityTimeoutMs(config.get(SINK_VISIBILITY_TIMEOUT_MS));
         dorisSinkConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
         dorisSinkConfig.setDirectToBe(config.get(DIRECT_TO_BE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
         dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
+        dorisSinkConfig.setDatetimeTimezone(parseDatetimeTimezone(config));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
-        validateDirectWriteOptions(
-                dorisSinkConfig.isDirectToBe(), dorisSinkConfig.getBackends(), true);
+
+        if (!dorisSinkConfig.isDirectToBe()
+                && StringUtils.isNotBlank(dorisSinkConfig.getBackends())) {
+            log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
+        }
+
+        validateVisibilityTimeout(dorisSinkConfig.getVisibilityTimeoutMs());
 
         return dorisSinkConfig;
+    }
+
+    private static void validateVisibilityTimeout(Long visibilityTimeoutMs) {
+        if (visibilityTimeoutMs == null || visibilityTimeoutMs <= 0) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.visibility-timeout-ms' must be greater than 0.");
+        }
+    }
+
+    private static ZoneId parseDatetimeTimezone(ReadonlyConfig config) {
+        if (!config.getOptional(SINK_DATETIME_TIMEZONE).isPresent()) {
+            return null;
+        }
+        String zoneId = config.get(SINK_DATETIME_TIMEZONE).trim();
+        if (zoneId.isEmpty()) {
+            return null;
+        }
+        try {
+            return ZoneId.of(zoneId);
+        } catch (DateTimeException e) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.datetime-timezone' is not a valid ZoneId ID: "
+                            + zoneId,
+                    e);
+        }
     }
 
     private static Properties parseStreamLoadProperties(ReadonlyConfig config) {
@@ -140,16 +192,34 @@ public class DorisSinkConfig implements Serializable {
         }
         return streamLoadProps;
     }
+    /**
+     * Parses a comma-separated partition list for partition-scoped DROP_DATA cleanup.
+     *
+     * @throws DorisConnectorException if a partition name is blank or duplicated
+     */
+    private static List<String> parseDropDataPartitions(Properties streamLoadProperties) {
+        String configuredPartitions = streamLoadProperties.getProperty("partitions");
+        if (configuredPartitions == null) {
+            return Collections.emptyList();
+        }
 
-    private static void validateDirectWriteOptions(
-            boolean directToBe, String backends, boolean logInactiveBenodes) {
-        if (directToBe && StringUtils.isBlank(backends)) {
-            throw new DorisConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "PluginName: Doris, Message: Option 'benodes' must be configured when 'direct_to_be=true'.");
+        String[] values = configuredPartitions.split(",", -1);
+        List<String> partitions = new ArrayList<>(values.length);
+        Set<String> uniquePartitions = new HashSet<>();
+        for (String value : values) {
+            String partition = value.trim();
+            if (partition.isEmpty()) {
+                throw new DorisConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "PluginName: Doris, Message: 'doris.config.partitions' cannot contain blank partition names.");
+            }
+            if (!uniquePartitions.add(partition)) {
+                throw new DorisConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "PluginName: Doris, Message: 'doris.config.partitions' cannot contain duplicate partition names.");
+            }
+            partitions.add(partition);
         }
-        if (logInactiveBenodes && !directToBe && StringUtils.isNotBlank(backends)) {
-            log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
-        }
+        return Collections.unmodifiableList(partitions);
     }
 }

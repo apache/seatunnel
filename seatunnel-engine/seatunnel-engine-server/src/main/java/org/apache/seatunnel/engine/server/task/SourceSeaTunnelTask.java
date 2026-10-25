@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -66,7 +67,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
             int indexID,
             PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow,
             Map<String, Object> envOption) {
-        super(jobID, taskID, indexID, executionFlow);
+        super(jobID, taskID, indexID, executionFlow, envOption);
         this.sourceFlow = executionFlow;
         this.envOption = envOption;
     }
@@ -113,7 +114,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             tablePaths,
                             this,
                             engineConfig,
-                            envOption);
+                            envOption,
+                            () ->
+                                    ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                                            .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
@@ -157,6 +161,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     public void receivedSourceSplit(List<SplitT> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
+    }
+
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSourceEvent(sourceEvent);
     }
 
     @Override

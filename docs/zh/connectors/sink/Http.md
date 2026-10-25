@@ -41,8 +41,8 @@ import ChangeLog from '../changelog/connector-http.md';
 |-------------------------------|--------|----------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String | 是       | -      | Http 请求 URL。静态查询参数可以直接拼接在 URL 中。                                                                                                  |
 | headers                       | Map    | 否       | -      | 每个请求都会携带的 HTTP 头，每个条目是一个 `name = "value"` 键值对。                                                                                  |
-| params                        | Map    | 否       | -      | HTTP 请求参数。对 `POST`/`PUT`/`DELETE` 请求（无 JSON body 时）会作为表单字段发送；对 `GET` 请求会拼到 URL 作为查询参数。                                              |
-| retry                         | Int    | 否       | -      | 当 HTTP 请求返回 `IOException` 时的最大重试次数。                                                                                                |
+| params                        | Map    | 否       | -      | 当前 Sink 写入器不读取 `params`。请将查询参数直接写入 `url`；行数据作为 POST 请求体发送。 |
+| retry                         | Int    | 否       | -      | 大于等于 1 时，表示包含首次请求在内的最大总尝试次数。仅对 `IOException` 进行重试。 |
 | retry_backoff_multiplier_ms   | Int    | 否       | 100    | 失败重试时回退时间（毫秒）的乘数。                                                                                                                  |
 | retry_backoff_max_ms          | Int    | 否       | 10000  | 失败重试时回退时间（毫秒）的上限。                                                                                                                  |
 | array_mode                    | Boolean| 否       | false  | 为 true 时，多条数据会被合并为 JSON 数组发送；为 false 时（默认）每条数据单独作为 JSON 对象发送。                                                              |
@@ -58,18 +58,19 @@ Webhook 接收端的 HTTP URL。可以把静态的查询参数直接写在 URL �
 
 ### params
 
-`params` 是附加 HTTP 请求参数最灵活的方式：
-
-- 对 `POST`/`PUT`/`DELETE` 请求（无 JSON body 时）会作为 `application/x-www-form-urlencoded` 表单字段发送。
-- 对 `GET` 请求会拼到 URL 上作为查询参数。
-
-当请求方法为 `POST` 且上游行本身是 JSON 对象时，JSON 体作为请求主体发送，`params` 作为额外的表单字段一同发送。
+Http Sink 始终使用 `POST` 请求，并将行数据转换为 JSON 请求体。当前写入器不读取
+`params`；静态查询参数应直接写入 `url`，例如
+`http://localhost/test/webhook?source=seatunnel`。
 
 ### 重试行为
 
-只有遇到 `IOException` 才会触发重试。第一次重试等待 `retry_backoff_multiplier_ms`（默认 100 ms），
-之后每次等待时间为 `min(上次等待 * retry_backoff_multiplier_ms, retry_backoff_max_ms)`，直到重试
-成功或达到 `retry` 设置的次数上限。
+只有 `IOException` 失败会触发重试。`retry >= 1` 时，它限制包含首次请求在内的总尝试
+次数：`retry = 3` 表示最多尝试三次，即最多重试两次。等待时间使用斐波那契序列：
+`min(Fibonacci(尝试序号) * retry_backoff_multiplier_ms, retry_backoff_max_ms)`。
+默认乘数为 100 ms，对应后续重试等待 100、100、200、300、500 ms，并受
+`retry_backoff_max_ms` 上限限制。
+
+当 HTTP 响应不是 200，或请求过程中发生异常时，Sink 会将写入失败上报给引擎；失败批次不会被当作已成功发送。该连接器不提供精确一次投递保证，接收端应保证幂等。
 
 ### array_mode 与 batch_size
 
@@ -126,18 +127,14 @@ sink {
 }
 ```
 
-### 带重试和表单参数的示例
+### 带重试和 URL 查询参数的示例
 
 ```hocon
 sink {
   Http {
-    url = "http://localhost/test/webhook"
+    url = "http://localhost/test/webhook?source=seatunnel&channel=cdc"
     headers {
       token = "9e32e859ef044462a257e1fc76730066"
-    }
-    params {
-      source = "seatunnel"
-      channel = "cdc"
     }
     retry = 3
     retry_backoff_multiplier_ms = 200

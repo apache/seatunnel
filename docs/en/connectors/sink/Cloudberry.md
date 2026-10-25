@@ -66,8 +66,8 @@ the generic JDBC sink are listed below; for everything else, follow the PostgreS
 |-------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------|
 | url                           | String  | Yes      | -       | JDBC connection URL. Use the PostgreSQL protocol, for example `jdbc:postgresql://localhost:5432/cloudberrydb` |
 | driver                        | String  | Yes      | -       | Always `org.postgresql.Driver`                                                                               |
-| username                      | String  | Yes      | -       | Connection instance user name. `user` is also accepted as a fallback key for `username`                       |
-| password                      | String  | Yes      | -       | Connection instance password                                                                                 |
+| username                      | String  | No | -       | Connection instance user name. `user` is also accepted as a fallback key for `username`                       |
+| password                      | String  | No | -       | Connection instance password                                                                                 |
 | query                         | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`, `query` have the higher priority     |
 | database                      | String  | No       | -       | Use this `database` and `table` auto-generate sql and receive upstream input datas write to database        |
 | table                         | String  | No       | -       | Use database and this table auto-generate sql and receive upstream input datas write to database            |

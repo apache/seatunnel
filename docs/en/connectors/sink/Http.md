@@ -41,8 +41,8 @@ downloaded via `install-plugin.sh` or from the Maven central repository.
 |-----------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                         | String  | Yes      | -       | Http request URL. Static query parameters can be embedded directly in the URL.                                                                            |
 | headers                     | Map     | No       | -       | HTTP headers added to every request. Each entry is one `name = "value"` pair.                                                                              |
-| params                      | Map     | No       | -       | HTTP request parameters. For `POST`/`PUT`/`DELETE` requests without a JSON body they are sent as form fields; for `GET` requests they are appended as URL query parameters. |
-| retry                       | Int     | No       | -       | The maximum retry count if the HTTP request returns an `IOException`.                                                                                      |
+| params                      | Map     | No       | -       | The current sink writer does not use `params`. Put query parameters directly in `url`; rows are sent as the POST body. |
+| retry                       | Int     | No       | -       | When at least 1, the maximum total HTTP attempts, including the first request. Only `IOException` failures are retried. |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff time (millis) multiplier applied between retries.                                                                                         |
 | retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff time (millis) between retries.                                                                                                   |
 | array_mode                  | Boolean | No       | false   | When `true`, rows are accumulated into a JSON array before being sent. When `false`, each row is sent as a single JSON object.                            |
@@ -58,20 +58,20 @@ directly, for example `http://localhost/test/webhook?source=seatunnel`.
 
 ### params
 
-`params` is the most flexible way to attach HTTP request parameters:
-
-- For `POST`/`PUT`/`DELETE` requests without a JSON body, the entries are sent as `application/x-www-form-urlencoded` form fields.
-- For `GET` requests, the entries are appended to the URL as query string parameters.
-
-If the upstream row itself is a JSON object and the request method is `POST`, the JSON body is sent
-as the request payload and `params` is sent alongside it as additional form fields.
+The Http sink always sends `POST` requests with JSON row data as the body. The
+current writer does not read `params`; put static query parameters directly in
+`url`, for example `http://localhost/test/webhook?source=seatunnel`.
 
 ### retry behavior
 
-Retries are triggered only for `IOException` responses. The first retry happens after
-`retry_backoff_multiplier_ms` (default 100 ms), then each subsequent retry waits
-`min(previous_wait * retry_backoff_multiplier_ms, retry_backoff_max_ms)` until either the
-retry succeeds or `retry` attempts are exhausted.
+Only `IOException` failures are retried. When `retry >= 1`, it limits the total
+number of attempts, including the initial request: `retry = 3` allows at most
+three attempts (two retries). The waits follow a Fibonacci sequence:
+`min(Fibonacci(attempt_number) * retry_backoff_multiplier_ms, retry_backoff_max_ms)`.
+With the default multiplier of 100 ms, successive retry waits are 100, 100, 200,
+300, 500 ms, capped by `retry_backoff_max_ms`.
+
+The sink treats a non-200 HTTP response or a request exception as a write failure and reports it to the engine. A failed batch is not acknowledged as successfully flushed. The connector does not provide exactly-once delivery, so receivers should remain idempotent.
 
 ### array_mode and batch_size
 
@@ -128,18 +128,14 @@ sink {
 }
 ```
 
-### With Retry And Form Params
+### With Retry And URL Query Parameters
 
 ```hocon
 sink {
   Http {
-    url = "http://localhost/test/webhook"
+    url = "http://localhost/test/webhook?source=seatunnel&channel=cdc"
     headers {
       token = "9e32e859ef044462a257e1fc76730066"
-    }
-    params {
-      source = "seatunnel"
-      channel = "cdc"
     }
     retry = 3
     retry_backoff_multiplier_ms = 200

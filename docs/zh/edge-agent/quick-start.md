@@ -10,8 +10,8 @@ title: 快速开始
 
 | 路径                                                 | 需要 Engine | 用途                            |
 | -------------------------------------------------- | --------- | ----------------------------- |
-| [Console 本地验证](#console-本地验证无需-engine) | 否 | 验证安装、采集、本地 WAL，无需 Engine |
-| [生产模式（接入 Engine）](#生产模式接入-engine) | 是 | Agent 将数据发到 Engine 作业 |
+| [Console 本地验证](#console-本地验证) | 否 | 验证安装、采集、本地 WAL，无需 Engine |
+| [生产模式（接入 Engine）](#生产模式) | 是 | Agent 将数据发到 Engine 作业 |
 
 
 生产环境加固请参阅 [部署指南](deployment-guide.md) 与 [运维](operations.md)。
@@ -31,7 +31,7 @@ cd "$EDGE_AGENT_HOME"
 
 ### 前提
 
-- 边缘主机已安装 Java 8 或 11，并设置 JAVA_HOME。
+- 边缘主机已安装 Java 11 或 17，并设置 JAVA_HOME。
 - 不需要 SeaTunnel Engine，也不需要 EdgeSocket 网络连通。
 - 安装根目录可写（默认持久化文件 data、日志、edge-agent.id）。
 
@@ -79,7 +79,7 @@ echo '{"event":"world","ts":2}' >> /tmp/edge-agent-quickstart.log
 
 :::
 
-仍会生成 edge-agent.id 与 data/ 目录下的 WAL 持久化文件（wal.db、wal.db-wal、wal.db-shm），与是否连接 Engine 无关。说明见[配置说明 — WAL 持久化文件](configuration.md#sqlite-持久化文件)。
+仍会生成 edge-agent.id 与 data/ 目录下的 WAL 持久化文件（wal.db、wal.db-wal、wal.db-shm），与是否连接 Engine 无关。说明见[配置说明 — WAL 持久化文件](configuration.md#wal-持久化文件)。
 
 ### 停止
 
@@ -87,7 +87,7 @@ echo '{"event":"world","ts":2}' >> /tmp/edge-agent-quickstart.log
 sh bin/seatunnel-edge-agent.sh stop
 ```
 
-接入 Engine 请参阅 [生产模式](#生产模式接入-engine)。
+接入 Engine 请参阅 [生产模式](#生产模式)。
 
 ## 生产模式
 
@@ -181,5 +181,4 @@ sh bin/seatunnel-edge-agent.sh stop
 ## 下一步
 
 快速开始完成后，建议继续阅读 [部署指南](deployment-guide.md) 进行生产部署，或查看 [配置参数说明](configuration.md) 了解完整参数。全部文档导航见 [关于 Edge Agent](about.md#推荐阅读顺序)。
-
 
