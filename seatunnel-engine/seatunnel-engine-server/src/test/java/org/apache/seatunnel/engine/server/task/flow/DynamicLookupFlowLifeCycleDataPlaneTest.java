@@ -47,6 +47,7 @@ import org.mockito.Mockito;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -178,6 +179,35 @@ public class DynamicLookupFlowLifeCycleDataPlaneTest {
     }
 
     @Test
+    void snapshotShouldRejectShrinkingSerializationBeforeAcknowledgingAnchor() throws Exception {
+        Fixture fixture =
+                newFlow(DynamicLookupDescriptor.JoinType.LEFT, Long.MAX_VALUE, Long.MAX_VALUE);
+        ShrinkingValue value = new ShrinkingValue();
+        fixture.dimension.add(new Record<>(new SeaTunnelRow(new Object[] {1, value})));
+        fixture.collect();
+        // Admission serialized this value once. Reset so the snapshot's counting pass is larger.
+        value.writes = 0;
+        fixture.dimension.add(new Record<>(DynamicLookupBootstrapReader.Status.COMPLETE));
+        Barrier barrier = Mockito.mock(Barrier.class);
+        Mockito.when(barrier.getId()).thenReturn(31L);
+        Mockito.when(barrier.snapshot()).thenReturn(true);
+        fixture.dimension.add(new Record<>(barrier));
+        fixture.fact.add(new Record<>(barrier));
+
+        IOException error = Assertions.assertThrows(IOException.class, fixture::collect);
+
+        Assertions.assertEquals(
+                "Dynamic lookup snapshot payload length changed between passes",
+                error.getMessage());
+        Mockito.verify(fixture.task, Mockito.never())
+                .addState(Mockito.any(), Mockito.any(ActionStateKey.class), Mockito.anyList());
+        Mockito.verify(fixture.task, Mockito.never()).ack(barrier);
+        fixture.flow.notifyCheckpointComplete(31L);
+        Assertions.assertTrue(fixture.gate.isEmpty());
+        Assertions.assertTrue(fixture.output.isEmpty());
+    }
+
+    @Test
     void partialBootstrapCheckpointMustKeepFactGateClosedAcrossRestore() throws Exception {
         Fixture original =
                 newFlow(DynamicLookupDescriptor.JoinType.LEFT, Long.MAX_VALUE, Long.MAX_VALUE);
@@ -301,6 +331,20 @@ public class DynamicLookupFlowLifeCycleDataPlaneTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {key, name});
         row.setRowKind(RowKind.INSERT);
         return row;
+    }
+
+    /**
+     * Emulates a serializer whose payload shrinks between the counting and writing passes.
+     *
+     * <p>The counter is reset after admission to isolate the checkpoint's two serialization passes.
+     */
+    private static final class ShrinkingValue implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private transient int writes;
+
+        private void writeObject(ObjectOutputStream output) throws IOException {
+            output.write(new byte[writes++ == 0 ? 64 : 0]);
+        }
     }
 
     /** Drives the public lifecycle with real input queues and captured output records. */

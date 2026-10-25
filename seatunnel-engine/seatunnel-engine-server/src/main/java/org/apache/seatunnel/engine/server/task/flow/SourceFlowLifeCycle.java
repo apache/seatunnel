@@ -760,9 +760,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * Serializes the fact gate state into a versioned envelope with a SHA-256 payload digest.
      *
      * <p>The outer envelope lets restore fail fast when legacy split bytes are accidentally routed
-     * into the dynamic lookup fact-gate path.
+     * into the dynamic lookup fact-gate path. Package-private for production-codec round-trip
+     * tests.
      */
-    private static byte[] serializeSourceGateState(SourceGateState gateState) throws IOException {
+    static byte[] serializeSourceGateState(SourceGateState gateState) throws IOException {
         ByteArrayOutputStream payloadStream = new ByteArrayOutputStream();
         try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(payloadStream)) {
             objectOutputStream.writeObject(gateState);
@@ -780,8 +781,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     /**
      * Deserializes and validates a fact gate state envelope before handing ownership to the reader.
+     * Package-private so tests exercise the production framing and class allowlist.
      */
-    private static SourceGateState deserializeSourceGateState(byte[] stateBytes)
+    static SourceGateState deserializeSourceGateState(byte[] stateBytes)
             throws IOException, ClassNotFoundException {
         if (stateBytes == null
                 || stateBytes.length < Integer.BYTES * 3 + SOURCE_GATE_STATE_DIGEST_LENGTH) {

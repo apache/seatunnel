@@ -531,6 +531,10 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         MessageDigest digest = newSha256();
         writeDimensionStatePayload(
                 new DigestOutputStream(new ByteBufferOutputStream(envelope), digest));
+        // Reject a shrinking second pass before publishing a misplaced digest as a durable cut.
+        if (envelope.position() != Integer.BYTES * 3 + payloadLength) {
+            throw new IOException("Dynamic lookup snapshot payload length changed between passes");
+        }
         envelope.put(digest.digest());
         return envelope.array();
     }
