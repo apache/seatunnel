@@ -713,6 +713,11 @@ jobs:
           # flags must be repeated here as well as in the pom.xml surefire.module.args property.
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os == 'Windows'
+      - name: Run packaged Spark 3.5 launcher tests (Unix)
+        if: runner.os != 'Windows'
+        run: ./mvnw -B -T 1 verify -pl seatunnel-core/seatunnel-spark-starter/seatunnel-spark-3.5-starter -am -DskipUT=true -DskipIT=false -D"it.test=TestSpark35StarterJarContentIT" -D"it.failIfNoSpecifiedTests=false" -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
       - name: Upload test reports
         if: failure()
         uses: ./.github/actions/upload-test-reports
