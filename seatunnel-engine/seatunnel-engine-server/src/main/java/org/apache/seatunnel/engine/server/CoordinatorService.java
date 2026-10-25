@@ -2215,65 +2215,20 @@ public class CoordinatorService {
     }
 
     public JobCounter getJobCountMetrics() {
-        AtomicLong createdJobCount = new AtomicLong();
-        AtomicLong scheduledJobCount = new AtomicLong();
-        AtomicLong runningJobCount = new AtomicLong();
-        AtomicLong pendingJobCount = new AtomicLong();
-        AtomicLong failingJobCount = new AtomicLong();
-        AtomicLong failedJobCount = new AtomicLong();
-        AtomicLong cancellingJobCount = new AtomicLong();
-        AtomicLong canceledJobCount = new AtomicLong();
-        AtomicLong finishedJobCount = new AtomicLong();
-
-        if (jobHistoryService != null) {
-            jobHistoryService
-                    .getJobStatusData()
-                    .forEach(
-                            jobStatusData -> {
-                                JobStatus jobStatus = jobStatusData.getJobStatus();
-                                switch (jobStatus) {
-                                    case CREATED:
-                                        createdJobCount.addAndGet(1);
-                                        break;
-                                    case PENDING:
-                                        pendingJobCount.addAndGet(1);
-                                        break;
-                                    case SCHEDULED:
-                                        scheduledJobCount.addAndGet(1);
-                                        break;
-                                    case RUNNING:
-                                        runningJobCount.addAndGet(1);
-                                        break;
-                                    case FAILING:
-                                        failingJobCount.addAndGet(1);
-                                        break;
-                                    case FAILED:
-                                        failedJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELING:
-                                        cancellingJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELED:
-                                        canceledJobCount.addAndGet(1);
-                                        break;
-                                    case FINISHED:
-                                        finishedJobCount.addAndGet(1);
-                                        break;
-                                    default:
-                                }
-                            });
-        }
-
+        Map<JobStatus, Long> counts =
+                jobHistoryService == null
+                        ? Collections.emptyMap()
+                        : jobHistoryService.getJobStatusCounts();
         return new JobCounter(
-                createdJobCount.longValue(),
-                pendingJobCount.longValue(),
-                scheduledJobCount.longValue(),
-                runningJobCount.longValue(),
-                failingJobCount.longValue(),
-                failedJobCount.longValue(),
-                cancellingJobCount.longValue(),
-                canceledJobCount.longValue(),
-                finishedJobCount.longValue());
+                counts.getOrDefault(JobStatus.CREATED, 0L),
+                counts.getOrDefault(JobStatus.PENDING, 0L),
+                counts.getOrDefault(JobStatus.SCHEDULED, 0L),
+                counts.getOrDefault(JobStatus.RUNNING, 0L),
+                counts.getOrDefault(JobStatus.FAILING, 0L),
+                counts.getOrDefault(JobStatus.FAILED, 0L),
+                counts.getOrDefault(JobStatus.CANCELING, 0L),
+                counts.getOrDefault(JobStatus.CANCELED, 0L),
+                counts.getOrDefault(JobStatus.FINISHED, 0L));
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
