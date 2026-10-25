@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | BIGINT             | 写为 InfluxDB field；配置为 `key_time` 时也可以作为时间戳。 |
 | FLOAT              | 写为 InfluxDB field。 |
 | DOUBLE             | 写为 InfluxDB field。 |
-| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为时间戳字符串。 |
+| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为数字时间戳字符串。 |
 | TIMESTAMP          | 可用于 `key_time`，连接器会按 UTC 时区转换成 epoch 毫秒。 |
 
 当前 InfluxDB sink 序列化器不支持其他 SeaTunnel 类型。
@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | epoch                       | string | 否  | n            | 客户端使用的时间精度。写入精度识别大写值：`H`、`M`、`S`、`MS`、`U`、`NS`。 |
 | connect_timeout_ms          | long   | 否  | 15000        | 连接 InfluxDB 的超时时间，单位毫秒。                                  |
 | query_timeout_sec           | int    | 否  | 3            | InfluxDB 客户端读超时时间，单位秒。                                   |
-| multi_table_sink_replica    | int    | 否  | -            | 多表写入时的 sink writer 副本数。                                  |
+| multi_table_sink_replica    | int    | 否  | 1            | 多表写入时的 sink writer 副本数。                                  |
 | common-options              | config | 否  | -            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### url [string]
@@ -85,7 +85,9 @@ InfluxDB 用户密码。
 ### key_time [string]
 
 指定 SeaTunnelRow 中作为 InfluxDB measurement 时间戳的字段名。
-如果未指定，则使用处理时间作为时间戳；支持数值类型或 ISO-8601 时间戳字符串。
+如果未指定，则使用处理时间作为时间戳；该字段必须是 `BIGINT` 或内容为数字的 `STRING`
+（数值按 `epoch` 选项配置的精度解释，默认 `n` 即纳秒），或 `TIMESTAMP` 类型
+（按 UTC 时区转换为 epoch 毫秒，仅当 `epoch` 设为 `MS` 时与写入精度一致），不支持 ISO-8601 时间戳字符串。
 
 ### key_tags [array]
 

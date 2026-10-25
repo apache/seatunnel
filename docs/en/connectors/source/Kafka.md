@@ -41,8 +41,9 @@ are read or written, no consumer offsets are accessed or committed, and missing 
 
 Successful validation proves metadata access, **not** permission to consume records, access a consumer
 group, or deserialize actual messages. A pattern with no currently visible matches is allowed, as it
-is at runtime; validation in that case checks topic listing only, not access to future topics. Kafka
-sinks remain unsupported by connectivity dry-run.
+is at runtime; validation in that case checks topic listing only, not access to future topics.
+Kafka sinks support a separate [metadata-only connectivity dry-run](../sink/Kafka.md#connectivity-dry-run),
+which does not verify Produce or transaction permissions.
 
 ## Supported DataSource Info
 
@@ -67,8 +68,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, compatible_kafka_connect_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
 | avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
+| value_converter_schema_enabled      | Boolean                                                                    | No       | true                     | Effective only when `format = compatible_kafka_connect_json`. Whether the Kafka Connect value converter carries its schema in the JSON payload.                                                                                                                                                                                                                                                                                                                                                       |
+| avro_row_nullable                   | Boolean                                                                    | No       | false                    | Effective when `format` is `avro`. Set `true` when the producer wrote ROW fields as nullable Avro unions (the writer had `avro_row_nullable = true`), so a `null` ROW value can be decoded; the reader must match the writer. An explicit `avro_schema` stays authoritative for the wire layout. See [Avro format](../formats/avro.md#avro_row_nullable). When using `tables_configs` or `table_list`, set this option in each table entry. |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
 | debezium_record_include_schema      | Boolean                                                                    | No       | true                     | Effective when `format` is `debezium_json`. Set whether Debezium records include schema information.                                                                                                                                                                                                                                                                                                                                                                            |
 | debezium_record_table_filter        | Config                                                                     | No       | -                        | Used for filtering data in debezium format, only when the format is set to `debezium_json`. Please refer `debezium_record_table_filter` below                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -109,7 +112,7 @@ When back-pressure occurs downstream, the queue may fill up, and the upper bound
 
 :::caution
 
-When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `max.poll.records` inside `kafka.config`.
 
 :::
 
@@ -590,7 +593,6 @@ source {
     start_mode = "earliest"
     format_error_handle_way = skip
     format = "NATIVE"
-    value_converter_schema_enabled = false
     consumer.group = "native_group"
   }
 }
@@ -611,6 +613,17 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Tombstone records
+
+A tombstone is a Kafka record that has a key and no value, which compacted topics use to mark a
+key as deleted. For the `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `maxwell_json`
+and `avro` formats the source reads a tombstone as a record that produces no row: it is not a
+format error, so it is passed over whatever `format_error_handle_way` is set to, and the offset
+moves on past it. The `text`, `canal_json`, `debezium_json`, `ogg_json` and `avro` formats treat
+an empty (zero length) value the same way; `json` and `maxwell_json` pass over a null value only.
+
+The `protobuf` format has no such guard and is not covered by this behaviour.
 
 ### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
 
@@ -729,13 +742,13 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 
 ### What message formats does Kafka Source support?
 
-Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `maxwell_json`, `ogg_json`, `avro`, `protobuf`, `compatible_kafka_connect_json`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
 
 `format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel detects the header by its leading magic byte and strips the fixed five-byte wire header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass authentication settings via `kafka.*` properties in the connector configuration:
+The connector only forwards Kafka client properties that are placed inside the `kafka.config` block; top-level keys such as `kafka.security.protocol` are not recognized and are silently ignored. Put the authentication settings inside `kafka.config`:
 
 ```hocon
 source {
@@ -743,13 +756,15 @@ source {
     bootstrap.servers = "broker:9092"
     topic = "secure-topic"
     consumer.group = "my-group"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```

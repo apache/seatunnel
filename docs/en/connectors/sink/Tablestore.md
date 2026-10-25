@@ -47,6 +47,7 @@ Write SeaTunnel rows to Alibaba Cloud Tablestore.
 
 ## Usage notes
 
+- `end_point`, `instance_name`, `access_key_id`, `access_key_secret`, and `table` must be non-blank, and `primary_keys` must contain at least one entry. Missing, empty, or whitespace-only values are rejected during configuration validation before any connection is made.
 - `primary_keys` can contain one or more primary key fields. These fields are written as Tablestore primary key columns; all other schema fields are written as normal attribute columns.
 - The sink writes rows with Tablestore `RowPutChange` and `RowExistenceExpectation.IGNORE`. It does not delete rows when upstream sends `DELETE` row kinds.
 - `batch_size` controls when buffered rows are flushed. The writer also flushes remaining rows when the job closes.

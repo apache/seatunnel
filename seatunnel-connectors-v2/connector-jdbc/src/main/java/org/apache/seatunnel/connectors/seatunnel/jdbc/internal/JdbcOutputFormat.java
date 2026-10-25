@@ -211,7 +211,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 List<SQLException> sqlExceptions = findSqlExceptions(e);
                 String sqlStates =
                         sqlExceptions.stream()
-                                .map(SQLException::getSQLState)
+                                .map(
+                                        sqlException ->
+                                                sqlException.getSQLState() == null
+                                                        ? "UNKNOWN"
+                                                        : sqlException.getSQLState())
                                 .collect(Collectors.joining(", "));
                 boolean needReestablish;
                 try {

@@ -12,19 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported file formats include text, CSV, parquet, ORC, JSON, and markdown. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
-
-When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each extracted element is converted to a document-element row with the following schema:
-- `element_id`: Unique identifier for the element
-- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
-- `heading_level`: Level of heading (1-6, null for non-heading elements)
-- `text`: Text content of the element
-- `page_number`: Page number (default: 1)
-- `position_index`: Position index within the document
-- `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
-
-Note: Markdown format only supports reading, not writing.
+Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported table storage formats are text, parquet and ORC; the format is detected from the Hive table's storage format (`STORED AS`) and tables stored in any other format are rejected. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
 
 :::tip
 
@@ -44,13 +32,10 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [schema projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-- [x] file format
+- [x] file format (detected from the Hive table's `STORED AS` clause)
   - [x] text
-  - [x] csv
   - [x] parquet
   - [x] orc
-  - [x] json
-  - [x] markdown
 
 ## Options
 
@@ -71,7 +56,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | remote_user           | string | no       | -              | Hadoop remote user name used when connecting to HDFS / Hive storage without Kerberos. |
 | read_partitions       | list   | no       | -              | Restrict the read to a subset of partitions. All entries must have the same directory depth. |
 | read_columns          | list   | no       | -              | Column projection list. Only the listed columns are read from the source. |
-| compress_codec        | string | no       | none           | Compression codec for text / CSV / JSON outputs. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec        | string | no       | none           | Compression codec for text tables. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
 | common-options        |        | no       | -              | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 ### table_name [string]
@@ -148,8 +133,6 @@ The read column list of the data source, user can use it to implement field proj
 The compress codec of files and the details that supported as the following shown:
 
 - txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 

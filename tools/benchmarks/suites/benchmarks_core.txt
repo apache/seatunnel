@@ -14,20 +14,9 @@
 # limitations under the License.
 
 # Fundamental data-path operations.
-SeaTunnelRowBenchmark
-IntermediateQueueBenchmark
-DebeziumJsonFormatBenchmark
 SeaTunnelPipelineBenchmark.sourceSink$
 SeaTunnelPipelineBenchmark.sourceTransformSink$
+SeaTunnelPipelineBenchmark.sourceTransformSinkWithObservabilityAndTrace$
 
-# Checkpoint coordination and storage.
+# Checkpoint coordination.
 CheckpointingTimeBenchmark.checkpointSingleInput$
-CheckpointStorageBenchmark.checkpointPersistenceTransaction$
-
-# High-frequency IMap state paths.
-IMapJobStorageBenchmark.taskGroupStateTransition$
-IMapJobStorageBenchmark.runningMetricsReport$
-
-# DAG persistence and reload.
-IMapDagStorageBenchmark.finishedJobDagStore$
-IMapDagStorageBenchmark.finishedJobDagLoad$
