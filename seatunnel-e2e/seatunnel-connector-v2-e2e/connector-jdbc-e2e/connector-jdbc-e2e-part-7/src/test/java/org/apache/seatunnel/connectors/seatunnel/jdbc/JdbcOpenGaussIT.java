@@ -46,6 +46,10 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,6 +58,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -368,7 +373,7 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
     }
 
     /**
-     * Waits until OpenGauss can authenticate a real SQL session inside the container.
+     * Waits until OpenGauss can authenticate a real SQL session through the JDBC endpoint.
      *
      * <p>The first host-port readiness signal can arrive before OpenGauss accepts authenticated
      * sessions, which makes downstream SeaTunnel JDBC catalog creation fail with EOF.
@@ -380,22 +385,20 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                 .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            Container.ExecResult result =
-                                    dbServer.execInContainer(
-                                            "gsql",
-                                            "-h",
-                                            "localhost",
-                                            "-p",
-                                            String.valueOf(OPEN_GAUSS_PORT),
-                                            "-d",
-                                            DATABASE,
-                                            "-U",
-                                            USERNAME,
-                                            "-W",
-                                            PASSWORD,
-                                            "-c",
-                                            "select 1");
-                            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                            // Docker exec does not inherit the image entrypoint's gsql PATH.
+                            // Probe through the same driver and authenticated endpoint as the test.
+                            Driver driver = (Driver) loadDriverClass().newInstance();
+                            Properties properties = new Properties();
+                            properties.setProperty("user", USERNAME);
+                            properties.setProperty("password", PASSWORD);
+                            String jdbcUrl =
+                                    jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+                            try (Connection probe = driver.connect(jdbcUrl, properties);
+                                    Statement statement = probe.createStatement();
+                                    ResultSet result = statement.executeQuery("SELECT 1")) {
+                                Assertions.assertTrue(result.next());
+                                Assertions.assertEquals(1, result.getInt(1));
+                            }
                         });
     }
 
