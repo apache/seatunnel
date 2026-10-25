@@ -126,7 +126,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI

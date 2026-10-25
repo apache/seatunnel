@@ -48,8 +48,8 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes mysql协议查询端口                                                                                                                            |
 | username                       | String  | Yes      | -                            | `Doris` 用户名                                                                                                                                            |
 | password                       | String  | Yes      | -                            | `Doris` 密码                                                                                                                                             |
-| database                       | String  | Yes      | -                            | `Doris`数据库名称 , 使用 `${database_name}` 表示上游数据库名称。                                                                                                        |
-| table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
+| database                       | String  | No       | -                            | `Doris`数据库名称 , 使用 `${database_name}` 表示上游数据库名称。未配置时使用上游表所属的数据库名。                                                                                    |
+| table                          | String  | No       | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。未配置时使用上游表名。                                                                                                   |
 | table.identifier               | String  | No       | -                            | 已弃用的表标识，建议改用 `database` 和 `table`。                                                                                                                        |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
 | sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
@@ -67,6 +67,8 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
+| default-database               | String  | no       | information_schema           | Doris catalog 在执行建表等 save mode 操作时，通过 `query-port` 建立 JDBC 连接所使用的数据库。                                                                                   |
+| multi_table_sink_replica       | int     | no       | 1                            | 多表写入作业中每张表使用的写入器副本数，最小为 1。                                                                                                                                  |
 | doris.config                   | map     | yes      | -                            | 传递给 Doris Stream Load 的数据描述参数。常用参数包括 `format`、`read_json_by_line`、`column_separator`、`row_delimiter` 和 `partitions`。                                                   |
 
 ## Redirect 行为说明
@@ -154,6 +156,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 - rowtype_fields：用于获取上游schema中的所有字段，自动映射到Doris的字段描述。
 - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
+- rowtype_duplicate_key：用于获取上游模式中的 duplicate key（仅 Doris source 提供，可能是列表）。
 - comment：用于获取上游模式中的表注释。
 
 ## 数据类型映射
@@ -472,6 +475,182 @@ sink {
           read_json_by_line = "true"
         }
     }
+}
+```
+
+### 自定义 SQL 预处理
+
+当 `data_save_mode = "CUSTOM_PROCESSING"` 时，`custom_sql` 中配置的 SQL 会在同步任务读取数据之前在目标
+Doris 集群上执行。这样可以在连接器常规写入路径之外准备、清理或初始化目标表。此后连接器仍通过
+Stream Load 写入数据。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        F_ID = bigint
+        F_INT = int
+        F_BIGINT = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_sink"
+    table = "doris_e2e_unique_table"
+    data_save_mode = "CUSTOM_PROCESSING"
+    custom_sql = "INSERT INTO e2e_sink.doris_e2e_unique_table (F_ID, F_INT, F_BIGINT) VALUES (1, 123, 1234567890123);"
+    sink.enable-2pc = true
+    sink.label-prefix = "test_custom_sql"
+    save_mode_create_template = """CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) ENGINE=OLAP UNIQUE KEY (`F_ID`) DISTRIBUTED BY HASH (`F_ID`) PROPERTIES ("replication_allocation" = "tag.location.default: 1")"""
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### CDC 与 Schema 变更
+
+该示例展示 MySQL-CDC 以 `schema-changes.enabled = true` 流式写入 Doris，使上游 MySQL 源的加列、
+类型扩宽等 DDL 变更能同步应用到目标 Doris 表。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "products"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = true
+    sink.enable-delete = true
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### 多表
+
+#### 示例 1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+#### 示例 2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
 }
 ```
 

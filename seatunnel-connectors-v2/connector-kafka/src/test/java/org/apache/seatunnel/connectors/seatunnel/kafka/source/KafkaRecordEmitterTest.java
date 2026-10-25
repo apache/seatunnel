@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
@@ -26,10 +28,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.common.record.TimestampType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -229,6 +234,96 @@ class KafkaRecordEmitterTest {
         // Event time also set
         Assertions.assertEquals(
                 kafkaTimestamp, row.getOptions().get(CommonOptions.EVENT_TIME.getName()));
+    }
+
+    @Test
+    void emitRecordShouldSkipAnAvroTombstoneAndAdvanceTheOffset() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+
+        // A tombstone must not fail the job under the default handling, and the offset must
+        // move past it. Leaving the offset behind makes the record be replayed after every
+        // restart, which the reader can never get past.
+        for (MessageFormatErrorHandleWay handleWay : MessageFormatErrorHandleWay.values()) {
+            List<SeaTunnelRow> out = new ArrayList<>();
+            KafkaSourceSplitState splitState =
+                    emitTombstone(new AvroDeserializationSchema(catalogTable), handleWay, out);
+
+            Assertions.assertEquals(0, out.size(), "handleWay=" + handleWay);
+            Assertions.assertEquals(43L, splitState.getCurrentOffset(), "handleWay=" + handleWay);
+        }
+    }
+
+    @Test
+    void emitRecordShouldNotFailInsideTheSkipHandlerWhenTheValueIsNull() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        // Independently of any one format: once the skip handler is reached for a record with
+        // no value, logging the body would raise a NullPointerException from inside the
+        // handler and so defeat the skip that was configured.
+        List<SeaTunnelRow> out = new ArrayList<>();
+        KafkaSourceSplitState splitState =
+                emitTombstone(
+                        new AlwaysFailingRowSchema(rowType), MessageFormatErrorHandleWay.SKIP, out);
+
+        Assertions.assertEquals(0, out.size());
+        Assertions.assertEquals(43L, splitState.getCurrentOffset());
+    }
+
+    private static KafkaSourceSplitState emitTombstone(
+            DeserializationSchema<SeaTunnelRow> schema,
+            MessageFormatErrorHandleWay handleWay,
+            List<SeaTunnelRow> out)
+            throws Exception {
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setDeserializationSchema(schema);
+        Map<TablePath, ConsumerMetadata> map = new HashMap<>();
+        map.put(TablePath.DEFAULT, metadata);
+        KafkaRecordEmitter emitter = new KafkaRecordEmitter(map, handleWay);
+
+        // A real tombstone: a key, and a null value.
+        ConsumerRecord<byte[], byte[]> record =
+                new ConsumerRecord<>(
+                        "tombstone-topic",
+                        3,
+                        42L,
+                        123L,
+                        TimestampType.CREATE_TIME,
+                        0L,
+                        1,
+                        -1,
+                        "k".getBytes(StandardCharsets.UTF_8),
+                        null);
+
+        KafkaSourceSplit split =
+                new KafkaSourceSplit(TablePath.DEFAULT, new TopicPartition("tombstone-topic", 3));
+        KafkaSourceSplitState splitState = new KafkaSourceSplitState(split);
+        splitState.setCurrentOffset(42L);
+
+        emitter.emitRecord(record, new TestCollector(out), splitState);
+        return splitState;
+    }
+
+    private static class AlwaysFailingRowSchema implements DeserializationSchema<SeaTunnelRow> {
+        private final SeaTunnelRowType producedType;
+
+        private AlwaysFailingRowSchema(SeaTunnelRowType producedType) {
+            this.producedType = producedType;
+        }
+
+        @Override
+        public SeaTunnelRow deserialize(byte[] message) throws IOException {
+            throw new IOException("cannot deserialize");
+        }
+
+        @Override
+        public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+            return producedType;
+        }
     }
 
     private static class SimpleStringRowSchema implements DeserializationSchema<SeaTunnelRow> {

@@ -416,10 +416,7 @@ FtpFile {
 
 ### 写入 SFTP 服务器
 
-`FtpFile` Sink 只支持 FTP 协议：连接器始终根据 `host`/`port` 选项建立 `ftp://` 连接，
-`fs.defaultFS` 和 `ftp_properties` 都不是该 Sink 支持的选项。如果需要写入 SFTP
-（SSH 文件传输协议）服务器，请改用 [SftpFile](SftpFile.md) Sink，它支持密码和 SSH
-私钥（`keyfile`）认证。
+`FtpFile` Sink 仅支持标准 FTP 协议——连接始终由 `host`/`port` 选项拼接为 `ftp://<host>:<port>`，不支持 `fs.defaultFS`、`ftp_properties`、`known_hosts` 等选项。如需通过 SFTP（SSH 文件传输协议）写入文件，请改用 [SftpFile](SftpFile.md) Sink。
 
 
 ## 变更日志

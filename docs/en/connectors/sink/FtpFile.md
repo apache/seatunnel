@@ -410,13 +410,9 @@ FtpFile {
 
 ```
 
-### Writing to an SFTP Server
+### Writing to an SFTP server
 
-The `FtpFile` sink only speaks the plain FTP protocol: it always builds an `ftp://`
-connection from the `host`/`port` options, and `fs.defaultFS` / `ftp_properties`
-are not supported options of this sink. To write to an SFTP server (SSH File
-Transfer Protocol), use the [SftpFile](SftpFile.md) sink instead, which supports
-password and SSH private key (`keyfile`) authentication.
+The `FtpFile` sink only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To write files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) sink instead.
 
 
 ## Changelog
