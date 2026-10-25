@@ -16,15 +16,14 @@ import ChangeLog from '../changelog/connector-http-zendesk.md';
 账号邮箱和 API token 进行认证（以 HTTP Basic `Authorization` 请求头发送），并将某个 Zendesk 接口
 （如 tickets、users、organizations）读取为 SeaTunnel 的行数据。
 
-该连接器基于 [Http source](Http.md) 实现，继承了大部分选项。区别主要在于认证选项以及 `format`
-的默认值。
+该连接器基于 [Http source](Http.md) 实现，继承了大部分选项。区别主要在于认证选项（`email` 和 `api_token`）。
 
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 

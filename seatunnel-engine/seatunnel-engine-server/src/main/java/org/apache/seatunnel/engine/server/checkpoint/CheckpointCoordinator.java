@@ -559,20 +559,29 @@ public class CheckpointCoordinator {
             CheckpointType checkpointType, long delayMills) {
         try {
             scheduler.schedule(
-                    () -> tryTriggerPendingCheckpoint(checkpointType),
+                    () -> {
+                        try {
+                            tryTriggerPendingCheckpoint(checkpointType);
+                        } catch (Throwable e) {
+                            // Preserve failure propagation from a scheduled trigger on shutdown
+                            // races.
+                            handleCoordinatorError(
+                                    String.format(
+                                            "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                            checkpointType, jobId, pipelineId),
+                                    e,
+                                    CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                        }
+                    },
                     delayMills,
                     TimeUnit.MILLISECONDS);
         } catch (RejectedExecutionException e) {
-            // A concurrent terminal cleanup shuts the scheduler down and, for a terminal close
-            // reason, does not replace it. Callers that reach here before taking the lock can
-            // therefore lose the race against that cleanup; the coordinator is ending anyway,
-            // so skip the reschedule instead of surfacing a rejection from an already-terminating
-            // pipeline.
+            // Terminal cleanup keeps the scheduler shut down; a concurrent trigger may arrive late.
             LOG.info(
-                    String.format(
-                            "Job %s pipeline %s scheduler is already shut down, skip scheduling a"
-                                    + " %s checkpoint.",
-                            jobId, pipelineId, checkpointType));
+                    "Job {} pipeline {} scheduler is already shut down, skip scheduling a {} checkpoint.",
+                    jobId,
+                    pipelineId,
+                    checkpointType);
         }
     }
 
@@ -1048,26 +1057,38 @@ public class CheckpointCoordinator {
                             checkpointTimeout =
                                     coordinatorConfig.getSchemaChangeCheckpointTimeout();
                         }
-                        pendingCheckpoint.setCheckpointTimeOutFuture(
-                                scheduler.schedule(
-                                        () -> {
-                                            // If any task is not acked within the checkpoint
-                                            // timeout
-                                            if (pendingCheckpoints.get(
-                                                                    pendingCheckpoint
-                                                                            .getCheckpointId())
-                                                            != null
-                                                    && !pendingCheckpoint.isFullyAcknowledged()) {
-                                                LOG.info(
-                                                        "timeout checkpoint: {}",
-                                                        pendingCheckpoint.getInfo());
-                                                handleCoordinatorError(
-                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
-                                                        null);
-                                            }
-                                        },
-                                        checkpointTimeout,
-                                        TimeUnit.MILLISECONDS));
+                        try {
+                            pendingCheckpoint.setCheckpointTimeOutFuture(
+                                    scheduler.schedule(
+                                            () -> {
+                                                // If any task is not acked within the checkpoint
+                                                // timeout
+                                                if (pendingCheckpoints.get(
+                                                                        pendingCheckpoint
+                                                                                .getCheckpointId())
+                                                                != null
+                                                        && !pendingCheckpoint
+                                                                .isFullyAcknowledged()) {
+                                                    LOG.info(
+                                                            "timeout checkpoint: {}",
+                                                            pendingCheckpoint.getInfo());
+                                                    handleCoordinatorError(
+                                                            CheckpointCloseReason
+                                                                    .CHECKPOINT_EXPIRED,
+                                                            null);
+                                                }
+                                            },
+                                            checkpointTimeout,
+                                            TimeUnit.MILLISECONDS));
+                        } catch (RejectedExecutionException e) {
+                            // Terminal cleanup may finish while the asynchronous barrier RPC is in
+                            // flight.
+                            LOG.info(
+                                    "Job {} pipeline {} scheduler is already shut down, skip arming timeout for checkpoint {}.",
+                                    jobId,
+                                    pipelineId,
+                                    pendingCheckpoint.getCheckpointId());
+                        }
                     }
                 });
         pendingCounter.incrementAndGet();

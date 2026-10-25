@@ -1027,8 +1027,9 @@ public class CheckpointCoordinatorTest
     @Test
     void testCancelDoesNotRecreateScheduler() {
         ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
         try {
-            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            coordinator = buildMinimalCoordinator(executorService);
             coordinator.cancelCheckpoint().join();
 
             ScheduledExecutorService scheduler =
@@ -1042,7 +1043,13 @@ public class CheckpointCoordinatorTest
                     scheduler.isShutdown(),
                     "terminal cleanup must not replace the shutdown checkpoint scheduler");
         } finally {
-            executorService.shutdownNow();
+            try {
+                if (coordinator != null) {
+                    coordinator.cancelCheckpoint().join();
+                }
+            } finally {
+                executorService.shutdownNow();
+            }
         }
     }
 
@@ -1054,8 +1061,9 @@ public class CheckpointCoordinatorTest
     @Test
     void testResetRecreatesLiveScheduler() {
         ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
         try {
-            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            coordinator = buildMinimalCoordinator(executorService);
 
             coordinator.restoreCoordinator(true);
 
@@ -1070,7 +1078,13 @@ public class CheckpointCoordinatorTest
                     scheduler.isShutdown(),
                     "a coordinator reset must leave a schedulable checkpoint scheduler behind");
         } finally {
-            executorService.shutdownNow();
+            try {
+                if (coordinator != null) {
+                    coordinator.cancelCheckpoint().join();
+                }
+            } finally {
+                executorService.shutdownNow();
+            }
         }
     }
 
