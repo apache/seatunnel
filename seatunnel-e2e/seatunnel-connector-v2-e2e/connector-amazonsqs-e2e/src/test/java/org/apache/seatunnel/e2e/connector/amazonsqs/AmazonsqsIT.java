@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.amazonsqs;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -82,10 +80,6 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(LOCALSTACK_DOCKER_IMAGE)));
 
-        localstack.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", AMAZONSQS_CONTAINER_PORT, AMAZONSQS_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(localstack)).join();
 
         log.info("localstack container started");

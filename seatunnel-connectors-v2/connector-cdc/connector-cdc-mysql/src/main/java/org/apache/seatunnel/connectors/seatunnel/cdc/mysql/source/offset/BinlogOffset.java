@@ -121,6 +121,11 @@ public class BinlogOffset extends Offset {
         return longOffsetValue(offset, SERVER_ID_KEY);
     }
 
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
+
     /**
      * This method is inspired by {@link io.debezium.relational.history.HistoryRecordComparator}.
      */
@@ -175,10 +180,19 @@ public class BinlogOffset extends Offset {
             // again we know that this offset not having GTIDs is before the target offset ...
             return -1;
         } else if (StringUtils.isNotEmpty(gtidSetStr)) {
-            // This offset has a GTID but the target offset does not, so per the previous paragraph
-            // we
-            // assume that previous
-            // is not at or before ...
+            // This offset has a GTID but the target offset does not, so we need to compare
+            // by binlog filename and position instead
+            String thisFilename = this.getFilename();
+            String thatFilename = that.getFilename();
+            if (StringUtils.isNotEmpty(thisFilename) && StringUtils.isNotEmpty(thatFilename)) {
+                int filenameCompare = thisFilename.compareToIgnoreCase(thatFilename);
+                if (filenameCompare != 0) {
+                    return filenameCompare;
+                }
+                // Same binlog file, compare by position
+                return Long.compare(this.getPosition(), that.getPosition());
+            }
+            // Cannot compare, assume this is newer
             return 1;
         }
 

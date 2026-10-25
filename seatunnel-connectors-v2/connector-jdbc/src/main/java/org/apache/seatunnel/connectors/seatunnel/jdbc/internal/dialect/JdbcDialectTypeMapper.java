@@ -216,10 +216,9 @@ public interface JdbcDialectTypeMapper extends Serializable {
     }
 
     /**
-     * Maps a column from ResultSetMetaData with an optional JDBC Connection and SQL query. Dialects
-     * can use the connection to query additional metadata (e.g., PostgreSQL vector dimension from
-     * pg_attribute) and the SQL query to extract table names when ResultSetMetaData doesn't provide
-     * them. The default implementation delegates to {@link #mappingColumn(ResultSetMetaData, int)}.
+     * Maps column metadata with an optional connection and query context. Implementations may use
+     * the connection to obtain driver-specific metadata; query text alone does not establish the
+     * physical provenance of columns from joins, expressions, or subqueries.
      */
     default Column mappingColumn(
             ResultSetMetaData metadata, int colIndex, Connection connection, String sqlQuery)

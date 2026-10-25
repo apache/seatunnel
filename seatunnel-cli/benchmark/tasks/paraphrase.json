@@ -1,0 +1,81 @@
+{
+  "_license": [
+    "Licensed to the Apache Software Foundation (ASF) under one or more",
+    "contributor license agreements.  See the NOTICE file distributed with",
+    "this work for additional information regarding copyright ownership.",
+    "The ASF licenses this file to You under the Apache License, Version 2.0",
+    "(the \"License\"); you may not use this file except in compliance with",
+    "the License.  You may obtain a copy of the License at",
+    "",
+    "   http://www.apache.org/licenses/LICENSE-2.0",
+    "",
+    "Unless required by applicable law or agreed to in writing, software",
+    "distributed under the License is distributed on an \"AS IS\" BASIS,",
+    "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+    "See the License for the specific language governing permissions and",
+    "limitations under the License."
+  ],
+  "description": "Public paraphrases; inherit reviewed baseline task contracts without changing assertions or fixtures.",
+  "paraphrases": [
+    {
+      "parent_id": "t1_probe_parquet_conditional",
+      "parent_sha256": "af32bf2a72fda5b103550a02f4f3519daedd4d049d5c909359cbddb678860682",
+      "prompt": "I need a batch export of shop.products from MySQL at localhost:3306, using root. Save the data locally in /tmp/st_bench/products_parquet as Parquet, compressed with snappy."
+    },
+    {
+      "parent_id": "t1_probe_streaming_checkpoint",
+      "parent_sha256": "374f09790dfc69d2ed9588d8c61c39fb2b03a7f3580785ba11ef031caf55fdeb",
+      "prompt": "Keep producing synthetic records indefinitely and display them on the console. Each record has id of type bigint and name of type string; the source must not stop after a fixed number of rows."
+    },
+    {
+      "parent_id": "t2_cdc_mysql_initial_snapshot",
+      "parent_sha256": "58380d160e4479a06dce4f27ebcc0a54b9ce4e62652ad0ee0dc6b3bc74ae3360",
+      "prompt": "For shop.users in MySQL at localhost:3306 (user root), print all existing rows to the console first, then keep printing incremental changes through CDC. Include the full initial snapshot before following changes."
+    },
+    {
+      "parent_id": "t2_cdc_pg_kafka",
+      "parent_sha256": "cb054552e1319c3b09c8abd7379e23b71cbed5c6a5a611caa13fc3ae1ba747be",
+      "prompt": "Send a live CDC feed from the inventory table in PostgreSQL database analytics to Kafka topic wms.inventory at localhost:9092. PostgreSQL is at localhost:5432, the login is bench, logical replication is already enabled, and the decoding plugin is pgoutput."
+    },
+    {
+      "parent_id": "t2_cdc_probe_batch_mode",
+      "parent_sha256": "20cf05311949730f71d1778ee3ce496e821e8fdd7dbdc70985b504ffaa2bfa9a",
+      "prompt": "Whenever orders change in MySQL database shop, show the changes on the console and keep listening for later changes. Connect as root to localhost:3306. This replication should continue without ending."
+    },
+    {
+      "parent_id": "t2_cdc_probe_privileges",
+      "parent_sha256": "1f018216caa10640944adfc73e3c0459cc74e39c18e70c4fd465a0bdf6d0426b",
+      "prompt": "Monitor shop.orders with MySQL CDC and send the changes to Console, connecting to localhost:3306 as root. Other CDC jobs share this server: allocate this job a separate, unique server id range so they do not conflict."
+    },
+    {
+      "parent_id": "t2_si_probe_group_offsets",
+      "parent_sha256": "5f4c435a7875f430d3256795e492a22d843b3debfdd515a966c7a1ed34d09a12",
+      "prompt": "Resume Kafka consumption at the offsets already committed for group st_bench_group, then stream messages to Console. Use topic events at localhost:9092 with fields id bigint, name string, and ts string."
+    },
+    {
+      "parent_id": "t2_bs_probe_sink_options_on_source",
+      "parent_sha256": "ab96a591e60f173ef1fbe9a039a63abc04cae93bc31a5e3ae21ea33105a5923c",
+      "prompt": "Run a batch copy from shop.users to the existing shop.users_replica table on the same MySQL server, localhost:3306, with user root. Have the sink derive its INSERT statements from the destination database and table; do not supply handwritten INSERT SQL."
+    },
+    {
+      "parent_id": "t3_cr_amount_split",
+      "parent_sha256": "26eca94cabaac65274f42f5965918dafde06fbdf00226e66d4fb6fd8a3e4f6ee",
+      "prompt": "Make a batch job reading shop.transactions from MySQL at localhost:3306 as root. Feed that one source output into two SQL transforms: amount >= 1000 goes to JSON files in /tmp/st_bench/tx_large, while amount < 1000 goes to JSON files in /tmp/st_bench/tx_small."
+    },
+    {
+      "parent_id": "t3_cr_status_routing",
+      "parent_sha256": "d03acd9c710a5f3853b7d2f1033333619055fccecff784b4e24dbc68ad439df8",
+      "prompt": "In one batch job, read shop.orders once from MySQL localhost:3306 using root. Branch through two SQL transforms: send status = 'PAID' to Console and status <> 'PAID' to local JSON files at /tmp/st_bench/unpaid."
+    },
+    {
+      "parent_id": "t3_cr_log_level_split_zh",
+      "parent_sha256": "9e11eee428d592410fe74e3e06176389ae85a6eabaf0b89673071017af2ec810",
+      "prompt": "请创建批处理任务，连接 localhost:5432 上的 PostgreSQL，以 bench 用户读取 analytics 数据库的 app_logs 表。通过两个 SQL transform 分流：level = 'ERROR' 的记录输出到控制台，level <> 'ERROR' 的记录以 JSON 格式保存到本地 /tmp/st_bench/non_error_logs。"
+    },
+    {
+      "parent_id": "t3_cr_stream_split",
+      "parent_sha256": "37f1ef729bb42f0f0c7171070b6cc982c6605e372ae6a61bf67db4100bd0705e",
+      "prompt": "Use one Kafka source to continuously read JSON from clicks on localhost:9092, starting at the earliest offset. Its schema is event_id string, user_id bigint, url string. With two SQL transforms, publish user_id = 1 events to vip_clicks and all other events to other_clicks on that same broker."
+    }
+  ]
+}

@@ -27,6 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSin
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notEmpty;
+
 @AutoService(Factory.class)
 public class TableStoreSinkFactory implements TableSinkFactory {
 
@@ -39,13 +42,21 @@ public class TableStoreSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TableStoreSinkOptions.END_POINT,
-                        TableStoreSinkOptions.TABLE,
+                        TableStoreSinkOptions.END_POINT, notBlank(TableStoreSinkOptions.END_POINT))
+                .required(TableStoreSinkOptions.TABLE, notBlank(TableStoreSinkOptions.TABLE))
+                .required(
                         TableStoreSinkOptions.INSTANCE_NAME,
+                        notBlank(TableStoreSinkOptions.INSTANCE_NAME))
+                .required(
                         TableStoreSinkOptions.ACCESS_KEY_ID,
+                        notBlank(TableStoreSinkOptions.ACCESS_KEY_ID))
+                .required(
                         TableStoreSinkOptions.ACCESS_KEY_SECRET,
+                        notBlank(TableStoreSinkOptions.ACCESS_KEY_SECRET))
+                .required(
                         TableStoreSinkOptions.PRIMARY_KEYS,
-                        ConnectorCommonOptions.SCHEMA)
+                        notEmpty(TableStoreSinkOptions.PRIMARY_KEYS))
+                .required(ConnectorCommonOptions.SCHEMA)
                 .optional(TableStoreSinkOptions.BATCH_SIZE)
                 .build();
     }

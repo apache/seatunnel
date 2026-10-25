@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -42,9 +48,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -56,7 +64,8 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK not support FLOAT_VECTOR type")
+        disabledReason =
+                "This pgvector suite currently validates Zeta; Flink and Spark are not covered")
 public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResource {
 
     private static final String PGVECTOR_IMAGE = "pgvector/pgvector:pg16";
@@ -146,6 +155,70 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
     }
 
     /**
+     * Verifies vector dimensions are independent of the extension schema and search path.
+     *
+     * <p>The extension lives in an isolated database outside the connection search path so the
+     * other source and sink scenarios keep their original database configuration.
+     */
+    @TestTemplate
+    public void testPgVectorDimensionOutsideSearchPath(TestContainer container)
+            throws SQLException {
+        String database = "vector_metadata_" + UUID.randomUUID().toString().replace("-", "");
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE " + database);
+        }
+        String url =
+                PGVECTOR_CONTAINER
+                        .getJdbcUrl()
+                        .replace("/" + PGVECTOR_CONTAINER.getDatabaseName(), "/" + database);
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                url,
+                                PGVECTOR_CONTAINER.getUsername(),
+                                PGVECTOR_CONTAINER.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA extensions");
+            statement.execute("CREATE EXTENSION vector WITH SCHEMA extensions");
+            statement.execute(
+                    "CREATE TABLE public.vector_dimensions (embedding extensions.vector(3))");
+            // extensions is intentionally absent from the default search_path.
+            try (ResultSet result =
+                    statement.executeQuery("SELECT embedding FROM public.vector_dimensions")) {
+                Column column =
+                        new PostgresTypeMapper()
+                                .mappingColumn(
+                                        result.getMetaData(),
+                                        1,
+                                        connection,
+                                        "SELECT embedding FROM public.vector_dimensions");
+                Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+                Assertions.assertEquals(Integer.valueOf(3), column.getScale());
+            }
+        }
+        PostgresCatalog catalog =
+                new PostgresCatalog(
+                        "pgvector",
+                        PGVECTOR_CONTAINER.getUsername(),
+                        PGVECTOR_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(url),
+                        "public",
+                        PGVECTOR_CONTAINER.getDriverClassName());
+        catalog.open();
+        try {
+            Column column =
+                    catalog.getTable(TablePath.of(database, "public", "vector_dimensions"))
+                            .getTableSchema()
+                            .getColumns()
+                            .get(0);
+            Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+            Assertions.assertEquals(Integer.valueOf(3), column.getScale());
+        } finally {
+            catalog.close();
+        }
+    }
+
+    /**
      * Tests the auto-create sink path: sink table is NOT pre-created, so SeaTunnel must infer the
      * schema from the source query (including vector dimension) and generate the sink DDL
      * automatically. This validates that vector(N) dimensions survive the full query-source ->
@@ -154,6 +227,35 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
     @TestTemplate
     public void testPgVectorAutoCreateSink(TestContainer container)
             throws IOException, InterruptedException {
+        // Exercise the real catalog path as well as query metadata: pgvector stores the
+        // dimension directly in atttypmod, unlike PostgreSQL varchar's four-byte offset.
+        PostgresCatalog catalog =
+                new PostgresCatalog(
+                        "pgvector",
+                        PGVECTOR_CONTAINER.getUsername(),
+                        PGVECTOR_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(PGVECTOR_CONTAINER.getJdbcUrl()),
+                        "public",
+                        PGVECTOR_CONTAINER.getDriverClassName());
+        catalog.open();
+        try {
+            Column embedding =
+                    catalog
+                            .getTable(
+                                    TablePath.of(
+                                            PGVECTOR_CONTAINER.getDatabaseName(),
+                                            "public",
+                                            "pgvector_e2e_auto_create_source_table"))
+                            .getTableSchema().getColumns().stream()
+                            .filter(column -> "embedding".equals(column.getName()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () -> new AssertionError("Catalog omitted embedding column"));
+            Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, embedding.getDataType());
+            Assertions.assertEquals(Integer.valueOf(3), embedding.getScale());
+        } finally {
+            catalog.close();
+        }
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_postgres_pgvector_auto_create_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), "pgvector auto-create job run failed");

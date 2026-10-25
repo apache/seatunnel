@@ -21,23 +21,22 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+/**
+ * Maps PostgreSQL column metadata while retaining vector dimensions.
+ *
+ * <p>Only physical JDBC column provenance is trusted; query text is never used to guess the table
+ * for expressions, joins or subqueries.
+ */
+@Slf4j
 public class PostgresTypeMapper implements JdbcDialectTypeMapper {
-
-    private static final Logger LOG = LoggerFactory.getLogger(PostgresTypeMapper.class);
-
-    private static final Pattern FROM_TABLE_PATTERN =
-            Pattern.compile("(?i)\\bFROM\\s+([\\w.\"`]+)");
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
@@ -69,8 +68,8 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     /**
      * Overrides the default mapping to resolve vector dimension from pg_attribute when the column
      * type is {@code vector}. ResultSetMetaData does not carry the dimension for pgvector columns,
-     * so we query {@code format_type(atttypid, atttypmod)} to obtain the full type string (e.g.
-     * "vector(3)").
+     * so we read the column's {@code atttypmod}, which pgvector stores as the dimension directly.
+     * SQL text is never parsed to infer a result column's physical table.
      */
     @Override
     public Column mappingColumn(
@@ -79,7 +78,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
         String nativeType = metadata.getColumnTypeName(colIndex);
 
         if (PostgresTypeConverter.PG_VECTOR.equalsIgnoreCase(nativeType) && connection != null) {
-            String[] tableInfo = resolveTableInfo(metadata, colIndex, sqlQuery);
+            String[] tableInfo = resolveTableInfo(metadata, colIndex);
             if (tableInfo != null && tableInfo[1] != null && !tableInfo[1].isEmpty()) {
                 // Use getColumnName (physical column name) for pg_attribute lookup,
                 // as pg_attribute.attname stores the original column name, not the SELECT alias.
@@ -112,11 +111,12 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     }
 
     /**
-     * Resolves the schema name and table name by first checking ResultSetMetaData, then falling
-     * back to parsing the SQL query. Returns a two-element String array: [schemaName, tableName].
-     * schemaName may be null if it cannot be determined.
+     * Resolves the physical schema and table from JDBC column metadata. SQL text is deliberately
+     * not parsed: joins, subqueries and expressions do not reliably identify a result column's
+     * physical table. Returns null when the driver cannot provide this provenance; callers then
+     * retain the unconstrained vector type rather than guessing a dimension.
      */
-    private String[] resolveTableInfo(ResultSetMetaData metadata, int colIndex, String sqlQuery) {
+    private String[] resolveTableInfo(ResultSetMetaData metadata, int colIndex) {
         // Try ResultSetMetaData first - the PostgreSQL JDBC driver often populates this.
         try {
             String tableName = metadata.getTableName(colIndex);
@@ -124,39 +124,27 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
                 String schemaName = metadata.getSchemaName(colIndex);
                 return new String[] {schemaName, tableName};
             }
-        } catch (SQLException ignored) {
-            // driver may not support it
+        } catch (SQLException e) {
+            log.debug("JDBC driver cannot resolve the physical table for column {}", colIndex, e);
         }
 
-        // Fall back to parsing FROM clause from the query
-        if (sqlQuery != null) {
-            Matcher matcher = FROM_TABLE_PATTERN.matcher(sqlQuery);
-            if (matcher.find()) {
-                String fullName = matcher.group(1);
-                // Strip any quoting
-                fullName = fullName.replace("\"", "").replace("`", "");
-                int lastDot = fullName.lastIndexOf('.');
-                if (lastDot >= 0) {
-                    String schemaName = fullName.substring(0, lastDot);
-                    String tableName = fullName.substring(lastDot + 1);
-                    return new String[] {schemaName, tableName};
-                } else {
-                    return new String[] {null, fullName};
-                }
-            }
-        }
+        // SQL text is not a reliable source of column provenance for joins or subqueries.
+        // Retain an unconstrained vector when the driver cannot identify its physical table.
+        log.warn(
+                "Cannot resolve vector dimension because JDBC metadata has no physical table for column {}",
+                colIndex);
         return null;
     }
 
     /**
-     * Queries pg_attribute to get the full vector type string (e.g. "vector(3)") for a specific
-     * column. Uses pg_namespace to ensure correct schema-scoped matching, avoiding ambiguity when
-     * tables with the same name exist in different schemas.
+     * Reads pgvector's dimension directly from pg_attribute. Building the known type name locally
+     * avoids search_path-dependent qualification by format_type for extension-owned types.
+     * Schema-scoped matching avoids tables with the same name in different schemas.
      */
     private String queryVectorTypeFromPgAttribute(
             Connection connection, String schemaName, String tableName, String columnName) {
         String sql =
-                "SELECT format_type(a.atttypid, a.atttypmod) "
+                "SELECT a.atttypmod "
                         + "FROM pg_attribute a "
                         + "JOIN pg_class c ON a.attrelid = c.oid "
                         + "JOIN pg_namespace n ON c.relnamespace = n.oid "
@@ -167,16 +155,14 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             ps.setString(3, columnName);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    String fullType = rs.getString(1);
-                    if (fullType != null
-                            && fullType.toLowerCase()
-                                    .startsWith(PostgresTypeConverter.PG_VECTOR + "(")) {
-                        return fullType;
+                    int dimension = rs.getInt(1);
+                    if (!rs.wasNull() && dimension > 0) {
+                        return PostgresTypeConverter.PG_VECTOR + "(" + dimension + ")";
                     }
                 }
             }
         } catch (SQLException e) {
-            LOG.debug(
+            log.debug(
                     "Failed to query vector type from pg_attribute for {}.{}.{}",
                     schemaName,
                     tableName,
