@@ -125,7 +125,10 @@ public class ConfigValueUtilsTest {
     }
 
     @Test
-    void testParseValueThrowsForBalancedNonStructure() {
+    void testParseValueAsStringForBalancedNonStructure() {
+        /* the value is neither ambiguous JSON nor structured value,
+         * parsed as string for backward compatibility
+         */
         String value = "{k1,k2,[k3,k4]}";
         boolean isStructured = ConfigValueUtils.isStructured(value);
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
