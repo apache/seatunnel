@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.transform.copy;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -35,11 +39,37 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: either the 'fields' map or the deprecated
+        // 'src_field'/'dest_field' pair, but never both.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .exclusive(CopyTransformConfig.FIELDS, CopyTransformConfig.SRC_FIELD)
+                        .optional(
+                                CopyTransformConfig.FIELDS,
+                                Conditions.mapNotEmpty(CopyTransformConfig.FIELDS))
+                        .optional(
+                                CopyTransformConfig.SRC_FIELD,
+                                Conditions.notBlank(CopyTransformConfig.SRC_FIELD),
+                                Conditions.extension(
+                                        CopyTransformConfig.SRC_FIELD,
+                                        new RequireDestFieldValidator()))
+                        .build();
         return OptionRule.builder()
-                .bundled(CopyTransformConfig.SRC_FIELD, CopyTransformConfig.DEST_FIELD)
-                .bundled(CopyTransformConfig.FIELDS)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        CopyTransformConfig.FIELDS,
+                        CopyTransformConfig.SRC_FIELD,
+                        CopyTransformConfig.DEST_FIELD)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 
@@ -48,5 +78,18 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
         return () ->
                 new CopyFieldMultiCatalogTransform(
                         context.getCatalogTables(), context.getOptions());
+    }
+
+    static class RequireDestFieldValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "'dest_field' is required when 'src_field' is provided";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            String destField = config.get(CopyTransformConfig.DEST_FIELD);
+            return destField != null && !destField.trim().isEmpty();
+        }
     }
 }

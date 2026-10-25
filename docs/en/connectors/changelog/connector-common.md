@@ -76,7 +76,7 @@
 |[Feature][Connector-V2] Support user-defined schema for source connectors (#2392)|https://github.com/apache/seatunnel/commit/6b650bef07|2.2.0-beta|
 |Merge from dev to st-engine (#2243)|https://github.com/apache/seatunnel/commit/41e530afd5|2.3.0-beta|
 |StateT of SeaTunnelSource should extend `Serializable` (#2214)|https://github.com/apache/seatunnel/commit/8c426ef850|2.2.0-beta|
-|[Improvement][new api] refer to https://github.com/apache/incubator-seatunnel/issues/2127 (#2144)|https://github.com/apache/seatunnel/commit/e19660a049|2.2.0-beta|
+|[Improvement][new api] refer to https://github.com/apache/seatunnel/issues/2127 (#2144)|https://github.com/apache/seatunnel/commit/e19660a049|2.2.0-beta|
 |[api-draft][Optimize] Optimize module name (#2062)|https://github.com/apache/seatunnel/commit/f79e3112b1|2.2.0-beta|
 
 </details>

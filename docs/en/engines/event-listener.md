@@ -118,7 +118,32 @@ seatunnel:
       url: "http://example.com:1024/event/report"
       headers:
         Content-Type: application/json
+      report-non-terminal-job-state: false
 ```
+
+#### report-non-terminal-job-state
+
+- Type: boolean
+
+- Default: false
+
+Whether to report non-terminal job state events to the configured HTTP endpoint.
+
+When set to `true`, the engine will report job state change events for non-terminal states, including:
+
+- `PENDING`
+
+- `SCHEDULED`
+
+- `RUNNING`
+
+- `FAILING`
+
+- `CANCELING`
+
+- `DOING_SAVEPOINT`
+
+When set to `false`, only terminal job states (such as `FINISHED`, `FAILED`, `CANCELED`, `SAVEPOINT_DONE`) will be reported, and transitions into non-terminal states will be ignored.
 
 ### Flink Engine
 

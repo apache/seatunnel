@@ -17,16 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
-import org.apache.seatunnel.api.configuration.util.Expression;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 class LocalFileFactoryTest {
 
@@ -44,22 +51,120 @@ class LocalFileFactoryTest {
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
         Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.DISCOVERY_MODE));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
-
-        Expression expectExpression =
-                Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.POST_SYNC_ACTION));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.EXCEL_USE_HEADER_LINE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BACKUP_PATH));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.RETENTION_MAX_AGE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getRequiredOptions().stream()
                         .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
                         .map(RequiredOption.ConditionalRequiredOptions.class::cast)
-                        .filter(
+                        .anyMatch(
                                 required ->
                                         required.getOptions()
-                                                .contains(FileBaseSourceOptions.TARGET_PATH))
-                        .anyMatch(required -> expectExpression.equals(required.getExpression())));
+                                                .contains(
+                                                        FileBaseSourceOptions
+                                                                .MARKDOWN_RAG_METADATA_ENABLED)));
+    }
+
+    @Test
+    void syncUpdateRequiresTargetPath() {
+        OptionRule optionRule = (new LocalFileSourceFactory()).optionRule();
+        Map<String, Object> config = sourceConfig();
+        config.put(FileBaseSourceOptions.SYNC_MODE.key(), "update");
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(config, optionRule));
+
+        config.put(FileBaseSourceOptions.TARGET_PATH.key(), "/target");
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
+    }
+
+    @Test
+    void postSyncActionValidation() {
+        OptionRule optionRule = (new LocalFileSourceFactory()).optionRule();
+        Map<String, Object> noneConfig = sourceConfig();
+        noneConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "none");
+        Assertions.assertDoesNotThrow(() -> validate(noneConfig, optionRule));
+
+        noneConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), "/backup");
+        noneConfig.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "7D");
+        noneConfig.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "1H");
+        Assertions.assertDoesNotThrow(() -> validate(noneConfig, optionRule));
+
+        Map<String, Object> backupConfig = sourceConfig();
+        backupConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(backupConfig, optionRule));
+
+        backupConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), "/backup");
+        Assertions.assertDoesNotThrow(() -> validate(backupConfig, optionRule));
+    }
+
+    @Test
+    void consumedOptionsAcceptedByValidateUnknownKeys() {
+        // These 7 options are consumed by AbstractReadStrategy / CsvReadStrategy /
+        // BinaryReadStrategy at runtime. They MUST be declared in the factory's
+        // optionRule() so that ConfigValidator.validateUnknownKeys (called by
+        // --check / --dry-run at SeaTunnelConfValidateCommand:325) does not
+        // reject them as "unknown option keys".
+        Map<String, Object> consumedOptions = new LinkedHashMap<>();
+        consumedOptions.put(
+                FileBaseSourceOptions.READ_PARTITIONS.key(),
+                Collections.singletonList("year=2024"));
+        consumedOptions.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), true);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key(), 2048);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key(), true);
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key(), "2024-01-01 00:00:00");
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key(), "2024-12-31 23:59:59");
+        consumedOptions.put(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key(), true);
+
+        OptionRule optionRule = (new LocalFileSourceFactory()).optionRule();
+
+        for (Map.Entry<String, Object> entry : consumedOptions.entrySet()) {
+            Map<String, Object> config = sourceConfig();
+            config.put(entry.getKey(), entry.getValue());
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            ConfigValidator.validateUnknownKeys(
+                                    ReadonlyConfig.fromMap(config), optionRule, "LocalFile"),
+                    "validateUnknownKeys should accept declared option: " + entry.getKey());
+        }
+    }
+
+    private static Map<String, Object> sourceConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseOptions.FILE_PATH.key(), "/source");
+        return config;
+    }
+
+    private static void validate(Map<String, Object> config, OptionRule optionRule) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(optionRule);
     }
 }

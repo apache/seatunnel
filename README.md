@@ -5,7 +5,7 @@
 [![Build Workflow](https://github.com/apache/seatunnel/actions/workflows/build_main.yml/badge.svg?branch=dev)](https://github.com/apache/seatunnel/actions/workflows/build_main.yml)
 [![Join Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/apache/seatunnel)
+[![Ask DeepWiki](docs/images/deepwiki-badge.svg)](https://deepwiki.com/apache/seatunnel)
 
 ## Overview
 SeaTunnel is a multimodal, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
@@ -49,14 +49,14 @@ Choose your runtime execution engine:
 - For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
 
 ## Apache SeaTunnel Tools
-SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
+SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc, please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
 
 ## Users
 Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. 
 Explore real-world use cases of SeaTunnel, such as JP morgan, S7, JDT, Bytedance, Tencent Cloud. More use cases can be found on the [SeaTunnel Users](https://seatunnel.apache.org/user).
 
 ## Code of Conduct
-Participate in this project in accordance with the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
+Participate in this project in accordance with the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct.html).
 
 ## Contributors
 We appreciate all developers for their contributions. See the [List Of Contributors](https://github.com/apache/seatunnel/graphs/contributors).
@@ -70,7 +70,7 @@ Refer to this [Setup](https://seatunnel.apache.org/docs/developer/setup) for com
 - Twitter: [ASFSeaTunnel on Twitter](https://twitter.com/ASFSeaTunnel)
 
 ## Landscapes
-SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
+SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=Apache+License+2.0).
 
 ## License
 [Apache 2.0 License](LICENSE)
@@ -93,4 +93,3 @@ More information, please refer to [FAQ](https://seatunnel.apache.org/docs/faq).
 
 ### 4. How can I contribute to SeaTunnel?
 We welcome contributions! Please refer to our [Contribution Guidelines](https://seatunnel.apache.org/docs/developer/coding-guide) for details.
-

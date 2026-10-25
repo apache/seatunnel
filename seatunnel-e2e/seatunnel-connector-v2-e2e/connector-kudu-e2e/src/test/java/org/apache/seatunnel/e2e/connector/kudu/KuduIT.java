@@ -63,10 +63,13 @@ import java.net.Inet4Address;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -151,43 +154,53 @@ public class KuduIT extends TestSuiteBase implements TestResource {
     private void batchInsertData() throws KuduException {
         KuduTable table = kuduClient.openTable(KUDU_SOURCE_TABLE);
         KuduSession kuduSession = kuduClient.newSession();
-        for (int i = 0; i < 100; i++) {
-            Insert insert = table.newInsert();
-            PartialRow row = insert.getRow();
-            row.addObject("id", i);
-            row.addObject("val_bool", true);
-            row.addObject("val_int8", (byte) 1);
-            row.addObject("val_int16", (short) 300);
-            row.addObject("val_int32", 30000);
-            row.addObject("val_int64", 30000000L);
-            row.addObject("val_float", 1.0f);
-            row.addObject("val_double", 2.0d);
-            row.addObject("val_decimal", new BigDecimal("1.1212"));
-            row.addObject("val_string", "test");
-            row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
-            row.addObject("val_binary", "NEW".getBytes());
-            OperationResponse response = kuduSession.apply(insert);
+        try {
+            for (int i = 0; i < 100; i++) {
+                Insert insert = table.newInsert();
+                PartialRow row = insert.getRow();
+                row.addObject("id", i);
+                row.addObject("val_bool", true);
+                row.addObject("val_int8", (byte) 1);
+                row.addObject("val_int16", (short) 300);
+                row.addObject("val_int32", 30000);
+                row.addObject("val_int64", 30000000L);
+                row.addObject("val_float", 1.0f);
+                row.addObject("val_double", 2.0d);
+                row.addObject("val_decimal", new BigDecimal("1.1212"));
+                row.addObject("val_string", "test");
+                row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
+                row.addObject("val_binary", "NEW".getBytes());
+                OperationResponse response = kuduSession.apply(insert);
+            }
+            kuduSession.flush();
+        } finally {
+            kuduSession.close();
         }
     }
 
     private void batchInsertData(String tableName) throws KuduException {
         KuduTable table = kuduClient.openTable(tableName);
         KuduSession kuduSession = kuduClient.newSession();
-        for (int i = 0; i < 100; i++) {
-            Insert insert = table.newInsert();
-            PartialRow row = insert.getRow();
-            row.addObject("id", i);
-            row.addObject("val_bool", true);
-            row.addObject("val_int8", (byte) 1);
-            row.addObject("val_int16", (short) 300);
-            row.addObject("val_int32", 30000);
-            row.addObject("val_int64", 30000000L);
-            row.addObject("val_float", 1.0f);
-            row.addObject("val_double", 2.0d);
-            row.addObject("val_decimal", new BigDecimal("1.1212"));
-            row.addObject("val_string", "test");
-            row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
-            OperationResponse response = kuduSession.apply(insert);
+        try {
+            for (int i = 0; i < 100; i++) {
+                Insert insert = table.newInsert();
+                PartialRow row = insert.getRow();
+                row.addObject("id", i);
+                row.addObject("val_bool", true);
+                row.addObject("val_int8", (byte) 1);
+                row.addObject("val_int16", (short) 300);
+                row.addObject("val_int32", 30000);
+                row.addObject("val_int64", 30000000L);
+                row.addObject("val_float", 1.0f);
+                row.addObject("val_double", 2.0d);
+                row.addObject("val_decimal", new BigDecimal("1.1212"));
+                row.addObject("val_string", "test");
+                row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
+                OperationResponse response = kuduSession.apply(insert);
+            }
+            kuduSession.flush();
+        } finally {
+            kuduSession.close();
         }
     }
 
@@ -312,7 +325,24 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.createTable(tableName, schema, tableOptions);
     }
 
+    private void dropTableIfExists(String tableName) {
+        try {
+            if (kuduClient.tableExists(tableName)) {
+                kuduClient.deleteTable(tableName);
+            }
+        } catch (KuduException e) {
+            log.warn("Failed to drop table {}", tableName, e);
+        }
+    }
+
     private void getKuduClient() {
+        if (kuduClient != null) {
+            try {
+                kuduClient.close();
+            } catch (Exception e) {
+                log.warn("Failed to close previous KuduClient", e);
+            }
+        }
         kuduClient =
                 new AsyncKuduClient.AsyncKuduClientBuilder(
                                 Arrays.asList(
@@ -325,33 +355,45 @@ public class KuduIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testKudu(TestContainer container) throws IOException, InterruptedException {
+        dropTableIfExists(KUDU_SOURCE_TABLE);
+        dropTableIfExists(KUDU_SINK_TABLE);
         initializeKuduTable();
         batchInsertData();
-        Container.ExecResult execResult = container.executeJob("/kudu_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        try {
+            Container.ExecResult execResult = container.executeJob("/kudu_to_console.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    readData(KUDU_SINK_TABLE), readData(KUDU_SOURCE_TABLE));
-                        });
-        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
-        kuduClient.deleteTable(KUDU_SINK_TABLE);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        readData(KUDU_SINK_TABLE), readData(KUDU_SOURCE_TABLE));
+                            });
+        } finally {
+            dropTableIfExists(KUDU_SOURCE_TABLE);
+            dropTableIfExists(KUDU_SINK_TABLE);
+        }
     }
 
     @TestTemplate
     public void testKuduFilter(TestContainer container) throws IOException, InterruptedException {
+        dropTableIfExists(KUDU_SOURCE_TABLE);
+        dropTableIfExists(KUDU_SINK_TABLE);
         initializeKuduTable();
         batchInsertData();
-        Container.ExecResult execResult = container.executeJob("/kudu_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Container.ExecResult execResultRange = container.executeJob("/kudu_to_assert_range.conf");
-        Assertions.assertEquals(0, execResultRange.getExitCode());
-        Container.ExecResult execResultEqual = container.executeJob("/kudu_to_assert_equal.conf");
-        Assertions.assertEquals(0, execResultEqual.getExitCode());
-        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
-        kuduClient.deleteTable(KUDU_SINK_TABLE);
+        try {
+            Container.ExecResult execResult = container.executeJob("/kudu_to_assert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+            Container.ExecResult execResultRange =
+                    container.executeJob("/kudu_to_assert_range.conf");
+            Assertions.assertEquals(0, execResultRange.getExitCode());
+            Container.ExecResult execResultEqual =
+                    container.executeJob("/kudu_to_assert_equal.conf");
+            Assertions.assertEquals(0, execResultEqual.getExitCode());
+        } finally {
+            dropTableIfExists(KUDU_SOURCE_TABLE);
+            dropTableIfExists(KUDU_SINK_TABLE);
+        }
     }
 
     @DisabledOnContainer(
@@ -360,103 +402,128 @@ public class KuduIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK do not support cdc")
     @TestTemplate
     public void testCdcKudu(TestContainer container) throws IOException, InterruptedException {
+        dropTableIfExists("kudu_cdc_sink_table");
         this.initializeKuduTable("kudu_cdc_sink_table");
-        Container.ExecResult execResult = container.executeJob("/write-cdc-changelog-to-kudu.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/write-cdc-changelog-to-kudu.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    Stream.<List<Object>>of(
-                                                    Arrays.asList(
-                                                            "3",
-                                                            "true",
-                                                            "1",
-                                                            "2",
-                                                            "3",
-                                                            "4",
-                                                            "4.3",
-                                                            "5.3",
-                                                            "6.30000",
-                                                            "NEW",
-                                                            "2020-02-02 02:02:02.0"),
-                                                    Arrays.asList(
-                                                            "1",
-                                                            "true",
-                                                            "2",
-                                                            "2",
-                                                            "3",
-                                                            "4",
-                                                            "4.3",
-                                                            "5.3",
-                                                            "6.30000",
-                                                            "NEW",
-                                                            "2020-02-02 02:02:02.0"))
-                                            .collect(Collectors.toList()),
-                                    readData("kudu_cdc_sink_table"));
-                        });
-
-        kuduClient.deleteTable("kudu_cdc_sink_table");
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        Stream.<List<Object>>of(
+                                                        Arrays.asList(
+                                                                "1",
+                                                                "true",
+                                                                "2",
+                                                                "2",
+                                                                "3",
+                                                                "4",
+                                                                "4.3",
+                                                                "5.3",
+                                                                "6.30000",
+                                                                "NEW",
+                                                                "2020-02-02 02:02:02.0"),
+                                                        Arrays.asList(
+                                                                "3",
+                                                                "true",
+                                                                "1",
+                                                                "2",
+                                                                "3",
+                                                                "4",
+                                                                "4.3",
+                                                                "5.3",
+                                                                "6.30000",
+                                                                "NEW",
+                                                                "2020-02-02 02:02:02.0"))
+                                                .collect(Collectors.toList()),
+                                        readData("kudu_cdc_sink_table"));
+                            });
+        } finally {
+            dropTableIfExists("kudu_cdc_sink_table");
+        }
     }
 
     @TestTemplate
     public void testKuduMultipleRead(TestContainer container)
             throws IOException, InterruptedException {
+        dropTableIfExists("kudu_source_table_1");
+        dropTableIfExists("kudu_source_table_2");
         initializeKuduTable("kudu_source_table_1");
         initializeKuduTable("kudu_source_table_2");
         batchInsertData("kudu_source_table_1");
         batchInsertData("kudu_source_table_2");
-        Container.ExecResult execResult =
-                container.executeJob("/kudu_to_assert_with_multipletable.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        kuduClient.deleteTable("kudu_source_table_1");
-        kuduClient.deleteTable("kudu_source_table_2");
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/kudu_to_assert_with_multipletable.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+        } finally {
+            dropTableIfExists("kudu_source_table_1");
+            dropTableIfExists("kudu_source_table_2");
+        }
     }
 
     @TestTemplate
     public void testKuduMultipleReadWithRegex(TestContainer container)
             throws IOException, InterruptedException {
+        dropTableIfExists("kudu_source_table_1");
+        dropTableIfExists("kudu_source_table_2");
         initializeKuduTable("kudu_source_table_1");
         initializeKuduTable("kudu_source_table_2");
         batchInsertData("kudu_source_table_1");
         batchInsertData("kudu_source_table_2");
-        Container.ExecResult execResult =
-                container.executeJob("/kudu_to_assert_with_pattern_tables.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        kuduClient.deleteTable("kudu_source_table_1");
-        kuduClient.deleteTable("kudu_source_table_2");
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/kudu_to_assert_with_pattern_tables.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+        } finally {
+            dropTableIfExists("kudu_source_table_1");
+            dropTableIfExists("kudu_source_table_2");
+        }
     }
 
     @TestTemplate
     public void testKuduWholeDatabaseRead(TestContainer container)
             throws IOException, InterruptedException {
+        dropTableIfExists("kudu_source_table_1");
+        dropTableIfExists("kudu_source_table_2");
         initializeKuduTable("kudu_source_table_1");
         initializeKuduTable("kudu_source_table_2");
         batchInsertData("kudu_source_table_1");
         batchInsertData("kudu_source_table_2");
-        Container.ExecResult execResult =
-                container.executeJob("/kudu_to_assert_with_all_tables.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        kuduClient.deleteTable("kudu_source_table_1");
-        kuduClient.deleteTable("kudu_source_table_2");
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/kudu_to_assert_with_all_tables.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+        } finally {
+            dropTableIfExists("kudu_source_table_1");
+            dropTableIfExists("kudu_source_table_2");
+        }
     }
 
     @TestTemplate
     public void testKuduTableListWithRegex(TestContainer container)
             throws IOException, InterruptedException {
+        dropTableIfExists("kudu_source_table_1");
+        dropTableIfExists("kudu_source_table_2");
+        dropTableIfExists("kudu_extra_1");
         initializeKuduTable("kudu_source_table_1");
         initializeKuduTable("kudu_source_table_2");
         initializeKuduTable("kudu_extra_1");
         batchInsertData("kudu_source_table_1");
         batchInsertData("kudu_source_table_2");
         batchInsertData("kudu_extra_1");
-        Container.ExecResult execResult =
-                container.executeJob("/kudu_to_assert_with_table_list_pattern.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        kuduClient.deleteTable("kudu_source_table_1");
-        kuduClient.deleteTable("kudu_source_table_2");
-        kuduClient.deleteTable("kudu_extra_1");
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/kudu_to_assert_with_table_list_pattern.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+        } finally {
+            dropTableIfExists("kudu_source_table_1");
+            dropTableIfExists("kudu_source_table_2");
+            dropTableIfExists("kudu_extra_1");
+        }
     }
 
     @DisabledOnContainer(
@@ -466,78 +533,95 @@ public class KuduIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testKuduMultipleWrite(TestContainer container)
             throws IOException, InterruptedException {
+        dropTableIfExists("kudu_sink_1");
+        dropTableIfExists("kudu_sink_2");
         initializeKuduTable("kudu_sink_1");
         initializeKuduTable("kudu_sink_2");
-        Container.ExecResult execResult =
-                container.executeJob("/fake_to_kudu_with_multipletable.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/fake_to_kudu_with_multipletable.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertAll(
-                                        () -> {
-                                            Assertions.assertIterableEquals(
-                                                    Stream.<List<Object>>of(
-                                                                    Arrays.asList(
-                                                                            "1",
-                                                                            "true",
-                                                                            "1",
-                                                                            "2",
-                                                                            "3",
-                                                                            "4",
-                                                                            "4.3",
-                                                                            "5.3",
-                                                                            "6.30000",
-                                                                            "NEW",
-                                                                            "2020-02-02 02:02:02.0"))
-                                                            .collect(Collectors.toList()),
-                                                    readData("kudu_sink_1"));
-                                        },
-                                        () -> {
-                                            Assertions.assertIterableEquals(
-                                                    Stream.<List<Object>>of(
-                                                                    Arrays.asList(
-                                                                            "1",
-                                                                            "true",
-                                                                            "1",
-                                                                            "2",
-                                                                            "3",
-                                                                            "4",
-                                                                            "4.3",
-                                                                            "5.3",
-                                                                            "6.30000",
-                                                                            "NEW",
-                                                                            "2020-02-02 02:02:02.0"))
-                                                            .collect(Collectors.toList()),
-                                                    readData("kudu_sink_2"));
-                                        }));
-
-        kuduClient.deleteTable("kudu_sink_1");
-        kuduClient.deleteTable("kudu_sink_2");
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () -> {
+                                                Assertions.assertIterableEquals(
+                                                        Stream.<List<Object>>of(
+                                                                        Arrays.asList(
+                                                                                "1",
+                                                                                "true",
+                                                                                "1",
+                                                                                "2",
+                                                                                "3",
+                                                                                "4",
+                                                                                "4.3",
+                                                                                "5.3",
+                                                                                "6.30000",
+                                                                                "NEW",
+                                                                                "2020-02-02 02:02:02.0"))
+                                                                .collect(Collectors.toList()),
+                                                        readData("kudu_sink_1"));
+                                            },
+                                            () -> {
+                                                Assertions.assertIterableEquals(
+                                                        Stream.<List<Object>>of(
+                                                                        Arrays.asList(
+                                                                                "1",
+                                                                                "true",
+                                                                                "1",
+                                                                                "2",
+                                                                                "3",
+                                                                                "4",
+                                                                                "4.3",
+                                                                                "5.3",
+                                                                                "6.30000",
+                                                                                "NEW",
+                                                                                "2020-02-02 02:02:02.0"))
+                                                                .collect(Collectors.toList()),
+                                                        readData("kudu_sink_2"));
+                                            }));
+        } finally {
+            dropTableIfExists("kudu_sink_1");
+            dropTableIfExists("kudu_sink_2");
+        }
     }
 
     public List<List<Object>> readData(String tableName) throws KuduException {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         List<List<Object>> result = new ArrayList<>();
         KuduTable kuduTable = kuduClient.openTable(tableName);
         KuduScanner scanner = kuduClient.newScannerBuilder(kuduTable).build();
         while (scanner.hasMoreRows()) {
             RowResultIterator rowResults = scanner.nextRows();
-            List<Object> row = new ArrayList<>();
             while (rowResults.hasNext()) {
                 RowResult rowResult = rowResults.next();
+                List<Object> row = new ArrayList<>();
                 for (int i = 0; i < rowResult.getSchema().getColumns().size(); i++) {
                     if (rowResult.getSchema().getColumnByIndex(i).getType() == Type.BINARY) {
                         row.add(Bytes.pretty(rowResult.getBinaryCopy(i)));
-                        break;
+                        continue;
+                    }
+                    if (rowResult.getSchema().getColumnByIndex(i).getType()
+                            == Type.UNIXTIME_MICROS) {
+                        Timestamp ts = rowResult.getTimestamp(i);
+                        row.add(sdf.format(ts));
+                        continue;
                     }
                     row.add(rowResult.getObject(i).toString());
                 }
-            }
-            if (!row.isEmpty()) {
                 result.add(row);
             }
         }
+        result.sort(
+                (a, b) -> {
+                    if (a.isEmpty() && b.isEmpty()) return 0;
+                    if (a.isEmpty()) return -1;
+                    if (b.isEmpty()) return 1;
+                    return String.valueOf(a.get(0)).compareTo(String.valueOf(b.get(0)));
+                });
         return result;
     }
 
@@ -548,12 +632,16 @@ public class KuduIT extends TestSuiteBase implements TestResource {
             kuduClient.close();
         }
 
+        if (tServers != null) {
+            tServers.close();
+        }
+
         if (master != null) {
             master.close();
         }
 
-        if (tServers != null) {
-            tServers.close();
+        if (toxiProxy != null) {
+            toxiProxy.close();
         }
     }
 

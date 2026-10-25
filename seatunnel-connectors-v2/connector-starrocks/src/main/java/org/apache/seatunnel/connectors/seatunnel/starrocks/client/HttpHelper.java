@@ -105,9 +105,30 @@ public class HttpHelper {
 
     public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header)
             throws IOException {
+        return doHttpGet(getUrl, header, 0);
+    }
+
+    /**
+     * Executes a JSON GET request with a caller-provided deadline for connection and response I/O.
+     *
+     * @param getUrl target URL
+     * @param header request headers
+     * @param timeoutMs timeout in milliseconds, or zero to preserve the client default
+     * @return parsed JSON response, or null when the response has no usable entity
+     */
+    Map<String, Object> doHttpGet(String getUrl, Map<String, String> header, int timeoutMs)
+            throws IOException {
         log.info("Executing GET from {}.", getUrl);
         try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
             HttpGet httpGet = new HttpGet(getUrl);
+            if (timeoutMs > 0) {
+                httpGet.setConfig(
+                        RequestConfig.custom()
+                                .setConnectTimeout(timeoutMs)
+                                .setConnectionRequestTimeout(timeoutMs)
+                                .setSocketTimeout(timeoutMs)
+                                .build());
+            }
             if (null != header) {
                 for (Map.Entry<String, String> entry : header.entrySet()) {
                     httpGet.setHeader(entry.getKey(), String.valueOf(entry.getValue()));

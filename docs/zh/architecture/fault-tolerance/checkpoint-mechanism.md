@@ -44,83 +44,27 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 
 ### 2.1 检查点架构
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              JobMaster（每个作业一个，内部按 pipeline 管理）        │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         CheckpointCoordinator                         │     │
-│   │                                                         │     │
-│   │  • 触发检查点（定期/手动）                             │     │
-│   │  • 生成检查点 ID                                       │     │
-│   │  • 跟踪待处理的检查点                                  │     │
-│   │  • 收集任务确认                                        │     │
-│   │  • 持久化完成的检查点                                  │     │
-│   │  • 清理旧检查点                                        │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                            │                                      │
-│                            │ (触发屏障)                           │
-│                            ▼                                      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (CheckpointBarrier)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         工作节点                                  │
-│                                                                   │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ SourceTask 1 │      │ SourceTask 2 │      │ SourceTask N │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 快照      │      │ 2. 快照      │      │ 2. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   │ 4. 转发      │      │ 4. 转发      │      │ 4. 转发      │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          │ (屏障传播)           │                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ Transform 1  │      │ Transform 2  │      │ Transform N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 快照      │      │ 2. 快照      │      │ 2. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   │ 4. 转发      │      │ 4. 转发      │      │ 4. 转发      │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │  SinkTask 1  │      │  SinkTask 2  │      │  SinkTask N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 准备      │      │ 2. 准备      │      │ 2. 准备      │ │
-│   │    提交      │      │    提交      │      │    提交      │ │
-│   │ 3. 快照      │      │ 3. 快照      │      │ 3. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 4. ACK       │      │ 4. ACK       │      │ 4. ACK       │ │
-│   └──────────────┘      └──────────────┘      └──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (收到所有 ACK)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    CheckpointStorage                             │
-│            （例如 localfile/hdfs 等，取决于插件与配置）              │
-│                                                                   │
-│   CompletedCheckpoint {                                          │
-│     checkpointId: 123                                            │
-│     taskStates: {                                                │
-│       SourceTask-1: { splits: [...], offsets: [...] }           │
-│       SinkTask-1: { commitInfo: XidInfo(...) }                  │
-│       ...                                                        │
-│     }                                                            │
-│   }                                                              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    coordinator["CheckpointCoordinator<br/>触发检查点 / 生成 checkpointId / 跟踪 PendingCheckpoint<br/>收集 ACK / 持久化 CompletedCheckpoint / 清理旧检查点"]
+    source["SourceTask<br/>接收屏障 / 快照状态 / ACK / 转发屏障"]
+    transform["TransformTask<br/>接收屏障 / 快照状态 / ACK / 转发屏障"]
+    sink["SinkTask<br/>接收屏障 / prepareCommit / 快照状态 / ACK"]
+    storage["CheckpointStorage<br/>CompletedCheckpoint<br/>checkpointId + taskStates"]
+
+    coordinator -->|触发屏障| source
+    source -->|屏障传播| transform
+    transform -->|屏障传播| sink
+    sink -->|收到所有 ACK 后持久化| storage
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class coordinator,storage layerBlue;
+    class source,transform layerCyan;
+    class sink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 关键数据结构
@@ -411,6 +355,27 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot
 ```
+
+监控保留的 checkpoint 历史条数同样在引擎侧配置：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      monitor-history-size: 32   # 默认值
+```
+
+它表示为 `/jobs/checkpoints/{jobId}` REST 端点按 pipeline 保留多少条 checkpoint
+历史记录，已完成和失败的 checkpoint 共用这个窗口，取值范围 1 到 4096。
+
+这个窗口决定了客户端最多能把作业和自己多久之前的历史做对比，对发现"逐渐变慢"
+尤为关键。注意它是**条数**而不是时长：覆盖多长时间取决于每个作业自己的
+`checkpoint.interval`，而本选项是集群级的。按默认 300000ms 的间隔，32 条约覆盖
+2.5 小时；若作业每 10000ms 做一次 checkpoint，则只覆盖约 5 分钟。
+
+历史保存在集群级的 checkpoint overview map 中，每次 checkpoint 事件都会重写整条
+记录，因此窗口越大，除堆内存外还会增加 master 的 CPU、网络与副本复制开销——不只是
+堆内存。该值只在 master 启动时读取一次，修改后需要重启。
 
 说明：
 - BATCH 模式下如果作业 env 未配置 `checkpoint.interval`，当前实现会禁用 checkpoint（以源码实现为准）。

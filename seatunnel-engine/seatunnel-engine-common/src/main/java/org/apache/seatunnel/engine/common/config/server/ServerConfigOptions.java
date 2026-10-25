@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import java.util.Map;
 
+/** Declares the server-side configuration keys that are exposed through `seatunnel.yaml`. */
 public class ServerConfigOptions {
 
     public static final Option<Boolean> CLASSLOADER_CACHE_MODE =
@@ -33,6 +34,69 @@ public class ServerConfigOptions {
                     .defaultValue(true)
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final Option<Boolean> STAIN_TRACE_ENABLED =
+            Options.key("stain-trace-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable stain trace. When enabled, the engine will sample a small number of records and report end-to-end latency breakdown as events.");
+
+    public static final Option<Integer> STAIN_TRACE_SAMPLE_RATE =
+            Options.key("stain-trace-sample-rate")
+                    .intType()
+                    .defaultValue(100000)
+                    .withDescription("Sample 1 record per N records for stain trace.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER =
+            Options.key("stain-trace-max-traces-per-second-per-worker")
+                    .intType()
+                    .defaultValue(50)
+                    .withDescription(
+                            "Maximum number of stain traces generated per second per worker. 0 means disable trace generation.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_ENTRIES_PER_TRACE =
+            Options.key("stain-trace-max-entries-per-trace")
+                    .intType()
+                    .defaultValue(32)
+                    .withDescription("Maximum stage entries recorded per stain trace payload.");
+
+    public static final Option<Boolean> STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS =
+            Options.key("stain-trace-propagate-to-all-splits")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to propagate stain trace payload to all split outputs in transform (e.g. flatMap). "
+                                    + "When enabled, all derived output rows will inherit payload and append TRANSFORM_OUT stage.");
+
+    public static final Option<String> STAIN_TRACE_FILE_BASE_PATH =
+            Options.key("stain-trace-file-base-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Base directory for writing stain trace OTLP JSONL files. "
+                                    + "If not set, local file writing is disabled. "
+                                    + "Should use the same storage root as "
+                                    + "checkpoint.storage.plugin-config.namespace to keep "
+                                    + "engine-level persistent data co-located.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE =
+            Options.key("stain-trace-file-max-events-per-file")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription("Maximum number of trace events per JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_SIZE_MB =
+            Options.key("stain-trace-file-max-size-mb")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Maximum size (MB) of each trace JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS =
+            Options.key("stain-trace-file-flush-interval-seconds")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Flush interval in seconds for the trace file writer.");
 
     /////////////////////////////////////////////////
     // The options for metrics start
@@ -116,8 +180,25 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1440)
                         .withDescription("The expire time of history jobs.time unit minute");
+
+        public static final Option<Long> STATE_CLEANUP_DELAY_MILLIS =
+                Options.key("state-cleanup-delay-ms")
+                        .longType()
+                        .defaultValue(60000L)
+                        .withDescription(
+                                "How long to retain terminal job/pipeline/task state in distributed maps before removing it. "
+                                        + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
+
+        public static final Option<Integer> HEALTH_METRICS_TIMEOUT_SECONDS =
+                Options.key("health-metrics-timeout-seconds")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "The shared deadline (in seconds) for collecting health metrics from all cluster members "
+                                        + "for the system-monitoring-information REST API. Members that do not answer in time "
+                                        + "are reported with a timeout marker instead of blocking the response.");
 
         /////////////////////////////////////////////////
         // The options for checkpoint start
@@ -133,6 +214,45 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(30000)
                         .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+        /**
+         * Upper bound for {@link #CHECKPOINT_MONITOR_HISTORY_SIZE}. The history lives in the
+         * cluster-wide checkpoint overview IMap, whose whole value is re-serialised on every
+         * checkpoint event, so an unbounded value would multiply master CPU, replication and
+         * listener traffic rather than just heap. A few thousand entries is far beyond any useful
+         * comparison window while staying well clear of that cost.
+         */
+        public static final int MAX_CHECKPOINT_MONITOR_HISTORY_SIZE = 4096;
+
+        /**
+         * Above this, {@link #CHECKPOINT_MONITOR_HISTORY_SIZE} is legal but worth a word at
+         * startup. The hard cap stops the pathological case; this catches the merely expensive one,
+         * where an operator has chosen a window large enough to be felt on a cluster with many
+         * pipelines or a short checkpoint interval. A warning rather than a rejection, because
+         * whether the cost is acceptable depends on the cluster, not on the number.
+         */
+        public static final int CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD = 256;
+
+        public static final Option<Integer> CHECKPOINT_MONITOR_HISTORY_SIZE =
+                Options.key("monitor-history-size")
+                        .intType()
+                        .defaultValue(32)
+                        .withDescription(
+                                "How many checkpoint history entries the monitor keeps per pipeline "
+                                        + "for the /jobs/checkpoints endpoint. Completed and failed "
+                                        + "checkpoints share the window. This is a count, not a "
+                                        + "duration: how much time it covers depends on each job's "
+                                        + "own checkpoint.interval, while this option is "
+                                        + "cluster-wide, so the same value covers about 2.5 hours at "
+                                        + "the default interval of 300000ms but only about 5 minutes "
+                                        + "at an interval of 10000ms. The history is stored in the "
+                                        + "cluster-wide checkpoint overview map, and every "
+                                        + "checkpoint event rewrites the whole overview entry, so a "
+                                        + "larger window costs master CPU, network and backup "
+                                        + "traffic as well as heap. Read once at master startup, so "
+                                        + "a change needs a restart. Must be between 1 and "
+                                        + MAX_CHECKPOINT_MONITOR_HISTORY_SIZE
+                                        + ".");
 
         public static final Option<Integer> CHECKPOINT_MIN_PAUSE =
                 Options.key("min-pause")
@@ -172,6 +292,15 @@ public class ServerConfigOptions {
                         .type(new TypeReference<Map<String, String>>() {})
                         .noDefaultValue()
                         .withDescription("The checkpoint storage instance configuration.");
+
+        public static final Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+                Options.key("retain-after-job-cancelled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to retain completed checkpoint data after a job is cancelled. "
+                                        + "When enabled, checkpoint data will not be cleaned up on job cancellation, "
+                                        + "allowing later resume from the latest completed checkpoint via --restore-with-checkpoint.");
 
         public static final Option<CheckpointConfig> CHECKPOINT =
                 Options.key("checkpoint")
@@ -293,6 +422,27 @@ public class ServerConfigOptions {
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
 
+        public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
+                Options.key("upload-max-file-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum size in MB of a single file uploaded to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> UPLOAD_MAX_REQUEST_SIZE_MB =
+                Options.key("upload-max-request-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> LOG_RESPONSE_MAX_SIZE_MB =
+                Options.key("log-response-max-size-mb")
+                        .intType()
+                        .defaultValue(64)
+                        .withDescription(
+                                "The maximum size in MB of a log file returned by the log endpoints. Larger files are truncated to their last log-response-max-size-mb of content. A value <= 0 means unlimited.");
+
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")
                         .type(new TypeReference<HttpConfig>() {})
@@ -302,6 +452,7 @@ public class ServerConfigOptions {
         public static final String EVENT_REPORT_HTTP = "event-report-http";
         public static final String EVENT_REPORT_HTTP_URL = "url";
         public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
+        public static final String REPORT_NON_TERMINAL_JOB_STATE = "report-non-terminal-job-state";
 
         // The options for http server end
         /////////////////////////////////////////////////////
@@ -433,5 +584,11 @@ public class ServerConfigOptions {
         // The options for slot end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
+                Options.key("timer-flush-pool-size")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription(
+                                "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
     }
 }

@@ -22,6 +22,8 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ExecutionAddress implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String hostname;
     private int port;
 }

@@ -58,6 +58,7 @@ import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
 import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
 
+/** Builds {@link SeaTunnelConfig} from the YAML DOM tree used by the engine startup path. */
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
     private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
 
@@ -140,6 +141,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return coordinatorServiceConfig;
     }
 
+    /**
+     * Parses the top-level engine section, including stain trace sampling and file output options.
+     */
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
@@ -206,6 +210,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setTimerFlushPoolSize(
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT
                     .key()
                     .equals(name)) {
@@ -219,12 +231,71 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .HISTORY_JOB_EXPIRE_MINUTES
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStateCleanupDelayMillis(Long.parseLong(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setHealthMetricsTimeoutSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .HEALTH_METRICS_TIMEOUT_SECONDS
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
                 engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_ENABLED.key().equals(name)) {
+                engineConfig.setStainTraceEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key().equals(name)
+                    || "stain-trace-sample-interval".equals(name)) {
+                // "stain-trace-sample-interval" is accepted as a backward-compatible alias
+                engineConfig.setStainTraceSampleRate(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceMaxTracesPerSecondPerWorker(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key().equals(name)) {
+                engineConfig.setStainTraceMaxEntriesPerTrace(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS.key().equals(name)) {
+                engineConfig.setStainTracePropagateToAllSplits(
+                        getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_BASE_PATH.key().equals(name)) {
+                engineConfig.setStainTraceFileBasePath(getTextContent(node));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceFileMaxEventsPerFile(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_MAX_SIZE_MB.key().equals(name)) {
+                engineConfig.setStainTraceFileMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_MAX_SIZE_MB.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceFileFlushIntervalSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS.key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.EVENT_REPORT_HTTP
                     .equalsIgnoreCase(name)) {
                 NamedNodeMap attributes = node.getAttributes();
@@ -246,6 +317,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                             headers.put(cleanNodeName(item), getTextContent(item));
                         }
                         engineConfig.setEventReportHttpHeaders(headers);
+                    }
+
+                    Node reportNonTerminalJobStateNode =
+                            attributes.getNamedItem(
+                                    ServerConfigOptions.MasterServerConfigOptions
+                                            .REPORT_NON_TERMINAL_JOB_STATE);
+                    if (reportNonTerminalJobStateNode != null) {
+                        engineConfig.setReportNonTerminalJobState(
+                                getBooleanValue(getTextContent(reportNonTerminalJobStateNode)));
                     }
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
@@ -303,6 +383,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setMonitorHistorySize(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CHECKPOINT_MONITOR_HISTORY_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions
                     .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .key()
@@ -317,6 +406,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 checkpointConfig.setStorage(parseCheckpointStorageConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setRetainAfterJobCancelled(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -582,6 +676,33 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 httpConfig.setBasicAuthPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxFileSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_FILE_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxRequestSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setLogResponseMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .LOG_RESPONSE_MAX_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

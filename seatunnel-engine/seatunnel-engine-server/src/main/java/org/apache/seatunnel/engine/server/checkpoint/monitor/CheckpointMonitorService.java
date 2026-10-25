@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.checkpoint.monitor;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
@@ -31,9 +30,9 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatistics;
 import org.apache.seatunnel.engine.server.checkpoint.TaskStatistics;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
 
-import com.hazelcast.map.IMap;
-import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -47,23 +46,25 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CheckpointMonitorService {
 
-    private final NodeEngine nodeEngine;
-    private volatile IMap<Long, CheckpointOverview> overviewMap;
+    private final SeaTunnelEngineContext engineContext;
     private final int maxHistorySize;
 
-    public CheckpointMonitorService(NodeEngine nodeEngine, int maxHistorySize) {
-        this.nodeEngine = nodeEngine;
+    private volatile CheckpointOverviewStateStore overviewMap;
+
+    public CheckpointMonitorService(SeaTunnelEngineContext engineContext, int maxHistorySize) {
+        this.engineContext = engineContext;
         this.maxHistorySize = maxHistorySize;
     }
 
-    private IMap<Long, CheckpointOverview> getOverviewMap() {
+    private CheckpointOverviewStateStore getOverviewMap() {
         if (overviewMap == null) {
             synchronized (this) {
                 if (overviewMap == null) {
                     overviewMap =
-                            nodeEngine
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_CHECKPOINT_MONITOR);
+                            engineContext
+                                    .getStateStores()
+                                    .auxiliary()
+                                    .checkpointOverviewStateStore();
                 }
             }
         }
@@ -236,20 +237,21 @@ public class CheckpointMonitorService {
                 });
     }
 
+    public long getOverviewJobCount() {
+        return getOverviewMap().getOverviewJobCount();
+    }
+
+    public long getInProgressCheckpointCount() {
+        return getOverviewMap().getInProgressCheckpointCount();
+    }
+
+    public long getRetainedHistoryCount() {
+        return getOverviewMap().getRetainedHistoryCount();
+    }
+
     private void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> consumer) {
-        getOverviewMap()
-                .compute(
-                        jobId,
-                        (id, overview) -> {
-                            CheckpointOverview snapshot =
-                                    overview == null ? new CheckpointOverview(jobId) : overview;
-                            PipelineCheckpointOverview pipeline =
-                                    snapshot.getOrCreatePipeline(pipelineId);
-                            consumer.accept(pipeline);
-                            snapshot.setUpdatedAt(System.currentTimeMillis());
-                            return snapshot;
-                        });
+        getOverviewMap().updateOverview(jobId, pipelineId, consumer);
     }
 
     private void removeInProgressIfExists(PipelineCheckpointOverview pipeline, long checkpointId) {

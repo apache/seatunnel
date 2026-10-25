@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.transform.table;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -35,11 +37,27 @@ public class TableMergeTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the resulting table name, optionally with database/schema.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                TableMergeConfig.TABLE, Conditions.notBlank(TableMergeConfig.TABLE))
+                        .optional(TableMergeConfig.DATABASE, TableMergeConfig.SCHEMA)
+                        .build();
         return OptionRule.builder()
-                .required(TableMergeConfig.TABLE)
-                .optional(TableMergeConfig.DATABASE, TableMergeConfig.SCHEMA)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        TableMergeConfig.TABLE, TableMergeConfig.DATABASE, TableMergeConfig.SCHEMA)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

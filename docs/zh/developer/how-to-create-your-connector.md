@@ -23,4 +23,3 @@
 - [检查点机制](../architecture/fault-tolerance/checkpoint-mechanism.md) - 容错和状态管理
 
 这些文档将帮助你理解 SeaTunnel 连接器中使用的底层架构和设计模式。
-

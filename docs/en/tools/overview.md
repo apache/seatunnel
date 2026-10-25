@@ -10,9 +10,9 @@ Apache SeaTunnel Tools is a collection of auxiliary tools focused on developer a
 
 | Tool | Purpose | Status |
 |------|---------|--------|
-| [SeaTunnel Skill](seatunnel-skill) | Claude AI integration for SeaTunnel operations | Available |
-| [SeaTunnel MCP Server](seatunnel-mcp) | Model Context Protocol server for LLM integration | Available |
-| [x2seatunnel](x2seatunnel) | Configuration converter (DataX → SeaTunnel) | Available |
+| [SeaTunnel Skill](seatunnel-skill.md) | Claude AI integration for SeaTunnel operations | Available |
+| [SeaTunnel MCP Server](seatunnel-mcp.md) | Model Context Protocol server for LLM integration | Available |
+| [x2seatunnel](x2seatunnel.md) | Configuration converter (DataX → SeaTunnel) | Available |
 
 ## Source Repository
 

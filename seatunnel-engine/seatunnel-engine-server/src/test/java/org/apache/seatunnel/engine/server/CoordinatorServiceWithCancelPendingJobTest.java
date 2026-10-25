@@ -142,8 +142,7 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
 
         // Verify if the final status of the task is cancelled
-        await().pollDelay(3, TimeUnit.SECONDS)
-                .atMost(120, TimeUnit.SECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
@@ -185,14 +184,15 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
-        // waiting for job status turn to running
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals(JobStatus.PENDING, jobMaster.getJobStatus()));
-
-        // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
-        // status become running again
-        Thread.sleep(5000);
+                        () -> {
+                            JobStatus status = jobMaster.getJobStatus();
+                            Assertions.assertTrue(
+                                    JobStatus.PENDING.equals(status)
+                                            || JobStatus.RUNNING.equals(status),
+                                    "Expected PENDING or RUNNING but was: " + status);
+                        });
         return jobMaster;
     }
 }

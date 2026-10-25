@@ -52,7 +52,6 @@ public class ClickhouseSinkWriter
         implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState>,
                 SupportMultiTableSinkWriter<Void> {
 
-    private final Context context;
     private final ReaderOption option;
     private final ShardRouter shardRouter;
     private final transient ClickhouseProxy proxy;
@@ -60,11 +59,10 @@ public class ClickhouseSinkWriter
 
     ClickhouseSinkWriter(ReaderOption option, Context context) {
         this.option = option;
-        this.context = context;
-
         this.proxy = new ClickhouseProxy(option.getShardMetadata().getDefaultShard().getNode());
         this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
+        context.registerFlushAction(this::flushPendingStatements);
     }
 
     @Override
@@ -93,6 +91,12 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
+        flushPendingStatements();
+        return Optional.empty();
+    }
+
+    /** Flushes pending JDBC batches when the Zeta engine delivers a timer flush signal. */
+    private void flushPendingStatements() {
         for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
             JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
             IntHolder intHolder = batchStatement.getIntHolder();
@@ -101,7 +105,6 @@ public class ClickhouseSinkWriter
                 intHolder.setValue(0);
             }
         }
-        return Optional.empty();
     }
 
     @Override

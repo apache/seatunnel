@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
@@ -85,9 +86,9 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         return new OceanBaseMysqlCreateTableSqlBuilder(
                         tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
-                // todo: set charset and collate
-                .engine(null)
-                .charset(null)
+                .engine(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE))
+                .charset(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET))
+                .collate(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_COLLATE))
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())
@@ -201,8 +202,9 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         }
         columnSqls.add(type);
         columnTypeMap.put(column.getName(), type);
-        // nullable
-        if (column.isNullable()) {
+        // Primary key columns must be NOT NULL for OceanBase MySQL mode to accept the generated
+        // DDL.
+        if (column.isNullable() && !isPrimaryKeyColumn(column)) {
             columnSqls.add("NULL");
         } else {
             columnSqls.add("NOT NULL");
@@ -216,6 +218,12 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         }
 
         return String.join(" ", columnSqls);
+    }
+
+    private boolean isPrimaryKeyColumn(Column column) {
+        return createIndex
+                && primaryKey != null
+                && primaryKey.getColumnNames().contains(column.getName());
     }
 
     private String buildPrimaryKeySql() {

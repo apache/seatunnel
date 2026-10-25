@@ -30,6 +30,7 @@ import io.debezium.relational.Tables;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -58,13 +60,22 @@ public class SqlServerConnectionTest {
         when(columnsRs.getString("TABLE_NAME")).thenReturn("user_info", "userAinfo");
         when(columnsRs.getString("TABLE_SCHEM")).thenReturn("dbo", "dbo");
         when(columnsRs.getString("COLUMN_NAME")).thenReturn("id", "bad");
+        // doReadTableColumn reads column name and type by JDBC positional index, not by label
+        when(columnsRs.getString(4)).thenReturn("id", "bad"); // COLUMN_NAME
+        when(columnsRs.getString(6)).thenReturn("INT", "INT"); // TYPE_NAME
 
         DatabaseMetaData metadata = mock(DatabaseMetaData.class);
         when(metadata.getColumns(eq(databaseName), eq("dbo"), eq("user_info"), isNull()))
                 .thenReturn(columnsRs);
 
+        ResultSet emptyRs = mock(ResultSet.class);
+        when(emptyRs.next()).thenReturn(false);
+        PreparedStatement mockPs = mock(PreparedStatement.class);
+        when(mockPs.executeQuery()).thenReturn(emptyRs);
+
         Connection jdbcConnection = mock(Connection.class);
         when(jdbcConnection.getMetaData()).thenReturn(metadata);
+        when(jdbcConnection.prepareStatement(anyString())).thenReturn(mockPs);
 
         TestSqlServerConnection connection = new TestSqlServerConnection(jdbcConnection);
         Table table = connection.getTableSchemaFromTable(databaseName, changeTable);
@@ -93,8 +104,14 @@ public class SqlServerConnectionTest {
         when(metadata.getColumns(eq(databaseName), eq("dbo"), eq("UserInfo"), isNull()))
                 .thenReturn(columnsRs);
 
+        ResultSet emptyRs = mock(ResultSet.class);
+        when(emptyRs.next()).thenReturn(false);
+        PreparedStatement mockPs = mock(PreparedStatement.class);
+        when(mockPs.executeQuery()).thenReturn(emptyRs);
+
         Connection jdbcConnection = mock(Connection.class);
         when(jdbcConnection.getMetaData()).thenReturn(metadata);
+        when(jdbcConnection.prepareStatement(anyString())).thenReturn(mockPs);
 
         TestSqlServerConnection connection = new TestSqlServerConnection(jdbcConnection);
         Table table = connection.getTableSchemaFromTable(databaseName, changeTable);

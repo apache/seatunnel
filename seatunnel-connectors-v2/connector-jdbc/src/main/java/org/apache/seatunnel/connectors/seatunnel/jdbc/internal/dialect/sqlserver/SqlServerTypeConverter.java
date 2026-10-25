@@ -290,9 +290,10 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.scale(typeDefine.getScale());
                 break;
             case SQLSERVER_DATETIMEOFFSET:
+                // DATETIMEOFFSET is LTZ (includes timezone offset)
                 builder.sourceType(
                         String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, typeDefine.getScale()));
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case SQLSERVER_SMALLDATETIME:
@@ -458,6 +459,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(SQLSERVER_TIME);
                 break;
             case TIMESTAMP:
+                // NTZ: maps to DATETIME2
                 if (column.getScale() != null && column.getScale() > 0) {
                     int timestampScale = column.getScale();
                     if (timestampScale > MAX_TIMESTAMP_SCALE) {
@@ -478,6 +480,29 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.columnType(SQLSERVER_DATETIME2);
                 }
                 builder.dataType(SQLSERVER_DATETIME2);
+                break;
+            case TIMESTAMP_TZ:
+                // LTZ: maps to DATETIMEOFFSET
+                if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type datetimeoffset({}) is out of"
+                                        + " range, which exceeds the maximum scale of {}, "
+                                        + "it will be converted to datetimeoffset({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(
+                            String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(SQLSERVER_DATETIMEOFFSET);
+                }
+                builder.dataType(SQLSERVER_DATETIMEOFFSET);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(

@@ -29,47 +29,25 @@ SeaTunnel's DAG execution model aims to:
 
 ### 1.3 Execution Model Overview
 
-```
-User Config (HOCON)
-    │
-    ▼
-┌─────────────────────┐
-│    LogicalDag       │  Logical Plan (What to do)
-│  • LogicalVertex    │  - Source/Transform/Sink actions
-│  • LogicalEdge      │  - Data dependencies
-│  • Parallelism      │  - Logical parallelism
-└─────────────────────┘
-    │ (Plan Generation)
-    ▼
-┌─────────────────────┐
-│   PhysicalPlan      │  Physical Plan (How to execute)
-│  • SubPlan[]        │  - Multiple pipelines
-│  • Resources        │  - Resource requirements
-│  • Scheduling       │  - Deployment strategy
-└─────────────────────┘
-    │ (Pipeline Split)
-    ▼
-┌─────────────────────┐
-│  SubPlan (Pipeline) │  Independent Execution Unit
-│  • PhysicalVertex[] │  - Parallel task instances
-│  • CheckpointCoord  │  - Independent checkpointing
-│  • PipelineLocation │  - Unique identifier
-└─────────────────────┘
-    │ (Task Deployment)
-    ▼
-┌─────────────────────┐
-│  PhysicalVertex     │  Deployed Task Group
-│  • TaskGroup        │  - Co-located tasks (fusion)
-│  • SlotProfile      │  - Assigned resource slot
-│  • ExecutionState   │  - Running state
-└─────────────────────┘
-    │ (Execution)
-    ▼
-┌─────────────────────┐
-│   SeaTunnelTask     │  Actual Execution
-│  • Source/Transform │  - Data processing
-│  • /Sink Logic     │  - State management
-└─────────────────────┘
+```mermaid
+flowchart TD
+    config["User Config<br/>HOCON"]
+    logical["LogicalDag<br/>LogicalVertex / LogicalEdge<br/>Logical parallelism"]
+    physical["PhysicalPlan<br/>SubPlan list<br/>Resource requirements<br/>Scheduling strategy"]
+    pipeline["SubPlan (Pipeline)<br/>Independent execution unit<br/>PhysicalVertex list<br/>CheckpointCoordinator"]
+    vertex["PhysicalVertex<br/>TaskGroup<br/>SlotProfile<br/>ExecutionState"]
+    task["SeaTunnelTask<br/>Actual Source / Transform / Sink execution"]
+
+    config --> logical --> physical --> pipeline --> vertex --> task
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,logical layerBlue;
+    class physical,pipeline layerCyan;
+    class vertex,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 2. LogicalDag: User Intent
@@ -204,14 +182,19 @@ sink {
 ```
 
 Generated LogicalDag:
-```
-Vertex 1 (JDBC Source, parallelism=4)
-    │
-    ▼
-Vertex 2 (SQL Transform, parallelism=4)
-    │
-    ▼
-Vertex 3 (Elasticsearch Sink, parallelism=4)
+```mermaid
+flowchart TD
+    v1["Vertex 1<br/>JDBC Source<br/>parallelism = 4"]
+    v2["Vertex 2<br/>SQL Transform<br/>parallelism = 4"]
+    v3["Vertex 3<br/>Elasticsearch Sink<br/>parallelism = 4"]
+    v1 --> v2 --> v3
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class v1,v3 layerBlue;
+    class v2 layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 3. PhysicalPlan: Execution Strategy
@@ -254,9 +237,9 @@ sink { Elasticsearch { } }
 ```
 
 Generated: **1 Pipeline**
-```
-Pipeline 1: [JDBC Source] → [SQL Transform] → [Elasticsearch Sink]
-```
+Generated result:
+
+- `Pipeline 1`: `JDBC Source → SQL Transform → Elasticsearch Sink`
 
 **Example 2: Multiple Sources**:
 ```hocon
@@ -275,10 +258,10 @@ sink {
 ```
 
 Generated: **2 Pipelines**
-```
-Pipeline 1: [JDBC Source] → [SQL Transform] → [Elasticsearch Sink]
-Pipeline 2: [Kafka Source] → [SQL Transform] → [Elasticsearch Sink]
-```
+Generated result:
+
+- `Pipeline 1`: `JDBC Source → SQL Transform → Elasticsearch Sink`
+- `Pipeline 2`: `Kafka Source → SQL Transform → Elasticsearch Sink`
 
 **Example 3: Multiple Sinks**:
 ```hocon
@@ -293,8 +276,19 @@ sink {
 ```
 
 Generated: **1 Pipeline**
-```
-Pipeline 1: [MySQL-CDC Source] → ([Elasticsearch Sink], [JDBC Sink])
+Generated result:
+
+```mermaid
+flowchart LR
+    source["MySQL-CDC Source"] --> elastic["<div style='width:12em;text-align:center'>Elasticsearch</div>"]
+    source --> jdbc["<div style='width:12em;text-align:center'>JDBC</div>"]
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerCyan;
+    class elastic,jdbc layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.3 PhysicalPlan Generation
@@ -343,36 +337,24 @@ public class SubPlan {
 Each LogicalVertex with parallelism N generates N PhysicalVertices.
 
 **Example**:
-```
-LogicalVertex: JDBC Source (parallelism = 4)
-    ↓
-PhysicalVertices:
-    - PhysicalVertex (subtask 0, slot 1)
-    - PhysicalVertex (subtask 1, slot 2)
-    - PhysicalVertex (subtask 2, slot 3)
-    - PhysicalVertex (subtask 3, slot 4)
-```
+| Logical vertex | Generated physical vertices |
+|----------------|-----------------------------|
+| `JDBC Source (parallelism = 4)` | `PhysicalVertex` subtask `0` on slot `1`, subtask `1` on slot `2`, subtask `2` on slot `3`, subtask `3` on slot `4` |
 
 ### 4.3 Coordinator Vertices
 
 Special vertices for coordination tasks:
 
-- **SourceSplitEnumerator**: Runs on master, assigns splits to readers
-- **SinkCommitter**: Runs on master, coordinates commits
-- **SinkAggregatedCommitter**: Runs on master, global commit coordination
+- **SourceSplitEnumerator**: Usually runs as a single coordination instance that assigns splits to readers (deployment is engine-specific)
+- **SinkAggregatedCommitter**: When a sink provides an aggregated committer, it usually runs as a single coordination instance for global commit orchestration (deployment is engine-specific)
+
+Note: `SinkCommitter` depends on the execution engine and does not necessarily appear as an independent coordinator vertex. In SeaTunnel Engine, for example, the committer can be triggered inside the sink task's checkpoint callback.
 
 **Example**:
-```
-SubPlan for JDBC → Transform → Elasticsearch:
-    physicalVertexList:
-        - JdbcSourceTask (4 instances)
-        - TransformTask (4 instances)
-        - ElasticsearchSinkTask (4 instances)
-
-    coordinatorVertexList:
-        - JdbcSourceSplitEnumerator (1 instance, master)
-        - ElasticsearchSinkCommitter (1 instance, master)
-```
+| Runtime scope | Instances |
+|---------------|-----------|
+| `physicalVertexList` | `JdbcSourceTask × 4`, `TransformTask × 4`, `ElasticsearchSinkTask × 4` |
+| `coordinatorVertexList` | `JdbcSourceSplitEnumerator × 1`, plus `ElasticsearchSinkAggregatedCommitter × 1` (optional) |
 
 ### 4.4 Independent Checkpointing
 
@@ -385,15 +367,10 @@ Each pipeline has its own `CheckpointCoordinator`:
 - Simpler barrier alignment
 
 **Example**:
-```
-Pipeline 1 (JDBC → ES):
-    CheckpointCoordinator triggers every 60s
-    Manages checkpoints for JDBC and ES tasks only
-
-Pipeline 2 (Kafka → JDBC):
-    CheckpointCoordinator triggers every 30s (different interval)
-    Manages checkpoints for Kafka and JDBC tasks only
-```
+| Pipeline | Checkpoint behavior |
+|----------|---------------------|
+| `Pipeline 1 (JDBC → ES)` | A `CheckpointCoordinator` triggers every `60s` and manages only JDBC and Elasticsearch tasks |
+| `Pipeline 2 (Kafka → JDBC)` | A separate coordinator can trigger every `30s` and manages only Kafka and JDBC tasks |
 
 ## 5. PhysicalVertex: Deployed Task
 
@@ -442,18 +419,11 @@ public class TaskGroupDefaultImpl implements TaskGroup {
 3. No data shuffle required
 
 **Example (with fusion)**:
-```
-LogicalDag:
-    Source (parallelism=4) → Transform (parallelism=4) → Sink (parallelism=4)
-
-Without Fusion:
-    12 separate tasks (4 + 4 + 4)
-    Network overhead for Source → Transform and Transform → Sink
-
-With Fusion:
-    4 TaskGroups, each containing:
-        [SourceTask → TransformTask → SinkTask] (single thread, shared memory)
-```
+| Mode | Execution shape | Impact |
+|------|-----------------|--------|
+| Logical DAG | `Source (4) → Transform (4) → Sink (4)` | Same business topology in both modes |
+| Without fusion | `12` separate tasks with network hops between stages | Higher serialization and network overhead |
+| With fusion | `4` task groups, each containing `SourceTask → TransformTask → SinkTask` | Lower network cost and better locality |
 
 **Benefits**:
 - Reduced network serialization/deserialization
@@ -600,17 +570,11 @@ sink {
 ### 7.3 Resource Allocation
 
 **Slot Calculation**:
-```
-Required Slots = Sum of all task parallelism
+Slot sizing rule:
 
-Example:
-  Source (parallelism=4) + Transform (parallelism=4) + Sink (parallelism=2)
-  = 10 slots required
-
-With Fusion:
-  TaskGroup (parallelism=4, fusion[Source+Transform]) + Sink (parallelism=2)
-  = 6 slots required
-```
+- `Required slots = sum of all task parallelism`
+- Example without fusion: `Source (4) + Transform (4) + Sink (2) = 10 slots`
+- Example with fusion: `TaskGroup (4, Source+Transform fused) + Sink (2) = 6 slots`
 
 **Resource Profile**:
 ```java
@@ -641,15 +605,12 @@ ResourceProfile profile =
 **Key Insight**: Pipeline failures are isolated.
 
 **Example**:
-```
-Job with 2 pipelines:
-    Pipeline 1: JDBC → ES (RUNNING)
-    Pipeline 2: Kafka → JDBC (FAILED)
+| Pipeline | State | Recovery outcome |
+|----------|-------|------------------|
+| `Pipeline 1` | `RUNNING` | Keeps running |
+| `Pipeline 2` | `FAILED` | Restarts from the latest checkpoint |
 
-Result:
-    Pipeline 2 restarts from checkpoint
-    Pipeline 1 continues unaffected
-```
+The key point is isolation: one failed pipeline does not automatically stop unrelated healthy pipelines.
 
 **Benefits**:
 - Reduced blast radius
@@ -672,32 +633,21 @@ Result:
 
 ### 9.2 Visualization
 
-```
-Job: mysql-to-es
-│
-├── Pipeline 1 (mysql-cdc → elasticsearch)
-│   ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-1
-│   ├── PhysicalVertex 1 [RUNNING] @ worker-2:slot-1
-│   ├── PhysicalVertex 2 [RUNNING] @ worker-3:slot-1
-│   └── PhysicalVertex 3 [RUNNING] @ worker-4:slot-1
-│
-└── Pipeline 2 (mysql-cdc → jdbc)
-    ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-2
-    └── PhysicalVertex 1 [RUNNING] @ worker-2:slot-2
-```
+| Pipeline | Vertex placement |
+|----------|------------------|
+| `Pipeline 1 (mysql-cdc → elasticsearch)` | `PhysicalVertex 0 @ worker-1:slot-1`, `1 @ worker-2:slot-1`, `2 @ worker-3:slot-1`, `3 @ worker-4:slot-1` |
+| `Pipeline 2 (mysql-cdc → jdbc)` | `PhysicalVertex 0 @ worker-1:slot-2`, `1 @ worker-2:slot-2` |
 
 ## 10. Best Practices
 
 ### 10.1 Parallelism Configuration
 
 **Rule of Thumb**:
-```
-Parallelism = min(
-    data partitions,
-    available slots,
-    target throughput / single-task throughput
-)
-```
+Choose parallelism from the smallest practical bound among:
+
+- data partitions
+- available slots
+- `target throughput / single-task throughput`
 
 **Examples**:
 - **JDBC Source**: Set to number of DB partitions (e.g., 8 partitions → parallelism=8)

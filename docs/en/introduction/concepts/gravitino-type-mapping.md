@@ -85,4 +85,5 @@ Gravitino indexes are mapped to SeaTunnel constraints:
 
 - [Gravitino Column Types](https://gravitino.apache.org/docs/1.1.0/manage-relational-metadata-using-gravitino/#apache-gravitino-table-column-type)
 - [Schema Feature](./schema-feature.md)
+- SeaTunnel Data Types
 - [SeaTunnel Data Types](./schema-feature.md)

@@ -46,14 +46,36 @@ public class OptionRuleResponse {
         private final List<OptionMetadata> optionalOptions;
         private final List<RequiredOptionMetadata> requiredOptions;
         private final List<ConditionRuleMetadata> conditionRules;
+        private final List<ValueConstraintMetadata> valueConstraints;
 
         public OptionRuleMetadata(
                 List<OptionMetadata> optionalOptions,
                 List<RequiredOptionMetadata> requiredOptions,
                 List<ConditionRuleMetadata> conditionRules) {
+            this(optionalOptions, requiredOptions, conditionRules, null);
+        }
+
+        public OptionRuleMetadata(
+                List<OptionMetadata> optionalOptions,
+                List<RequiredOptionMetadata> requiredOptions,
+                List<ConditionRuleMetadata> conditionRules,
+                List<ValueConstraintMetadata> valueConstraints) {
             this.optionalOptions = optionalOptions;
             this.requiredOptions = requiredOptions;
             this.conditionRules = conditionRules;
+            this.valueConstraints = valueConstraints;
+        }
+    }
+
+    @Getter
+    public static class ValueConstraintMetadata {
+
+        private final String expression;
+        private final ConditionNode conditionTree;
+
+        public ValueConstraintMetadata(String expression, ConditionNode conditionTree) {
+            this.expression = expression;
+            this.conditionTree = conditionTree;
         }
     }
 
@@ -138,6 +160,10 @@ public class OptionRuleResponse {
 
         private final OptionMetadata option;
         private final Object expectValue;
+        private final String compareOperator;
+        private final OptionMetadata compareOption;
+        private final String conditionOperator;
+        private final String conditionOperatorCategory;
         private final LogicalOperator operator;
         private final ConditionNode next;
 
@@ -146,8 +172,24 @@ public class OptionRuleResponse {
                 Object expectValue,
                 LogicalOperator operator,
                 ConditionNode next) {
+            this(option, expectValue, null, null, null, null, operator, next);
+        }
+
+        public ConditionNode(
+                OptionMetadata option,
+                Object expectValue,
+                String compareOperator,
+                OptionMetadata compareOption,
+                String conditionOperator,
+                String conditionOperatorCategory,
+                LogicalOperator operator,
+                ConditionNode next) {
             this.option = option;
             this.expectValue = expectValue;
+            this.compareOperator = compareOperator;
+            this.compareOption = compareOption;
+            this.conditionOperator = conditionOperator;
+            this.conditionOperatorCategory = conditionOperatorCategory;
             this.operator = operator;
             this.next = next;
         }

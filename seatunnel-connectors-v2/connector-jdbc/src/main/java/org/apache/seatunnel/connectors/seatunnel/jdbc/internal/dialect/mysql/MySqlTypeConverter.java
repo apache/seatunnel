@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -35,6 +36,12 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Collections;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 // reference https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 @Slf4j
@@ -76,6 +83,11 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_JSON = "JSON";
     public static final String MYSQL_ENUM = "ENUM";
     public static final String MYSQL_SET = "SET";
+    // Not a real MySQL type. It is synthesized by convert() when the catalog marks a SET column as
+    // unsigned, which happens because unsigned detection is a substring match over the whole
+    // COLUMN_TYPE, e.g. SET('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION',...). Columns reported this
+    // way are handled exactly like SET. See https://github.com/apache/seatunnel/issues/10451
+    public static final String MYSQL_SET_UNSIGNED = "SET UNSIGNED";
 
     // ------------------------------time-------------------------
     public static final String MYSQL_DATE = "DATE";
@@ -93,6 +105,51 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_BINARY = "BINARY";
     public static final String MYSQL_VARBINARY = "VARBINARY";
     public static final String MYSQL_GEOMETRY = "GEOMETRY";
+
+    /**
+     * Suffix that turns the name of a numeric type into the name of its {@code UNSIGNED} variant,
+     * e.g. {@code INT} into {@code INT UNSIGNED}.
+     */
+    private static final String UNSIGNED_SUFFIX = " UNSIGNED";
+
+    /**
+     * Base names of the numeric types that accept the {@code UNSIGNED} attribute. The members are
+     * computed from the {@code *_UNSIGNED} type names listed below by stripping {@link
+     * #UNSIGNED_SUFFIX}, so the set itself is never re-typed by hand and cannot disagree with those
+     * names about spelling or case. Adding a numeric type still means declaring its {@code
+     * *_UNSIGNED} constant and listing it below; {@code MySqlTypeConverterTest} reflects over the
+     * constants and fails when the two fall out of step, so the entry cannot be forgotten silently.
+     *
+     * <p>The membership follows those constants and not MySQL's own rules, which is why {@code BIT}
+     * and {@code YEAR} are members. They are declared for parity with the MySQL type list even
+     * though MySQL does not accept {@code UNSIGNED} on them, and {@code
+     * OceanBaseMySqlTypeConverter} has no {@code *_UNSIGNED} case for either. Keeping the superset
+     * is the safe choice: the guard only answers "is this column unsigned", and narrowing it per
+     * dialect would silently drop the attribute for the shared numeric types.
+     *
+     * <p>{@code MYSQL_SET_UNSIGNED} is deliberately not a member. That key is synthesized when a
+     * non-numeric {@code SET} column is mis-flagged as unsigned, and the guard exists to stop that
+     * mis-flagging, so accepting it here would undo the fix.
+     */
+    private static final Set<String> UNSIGNED_BASE_TYPE_NAMES =
+            Collections.unmodifiableSet(
+                    Stream.of(
+                                    MYSQL_BIT_UNSIGNED,
+                                    MYSQL_TINYINT_UNSIGNED,
+                                    MYSQL_SMALLINT_UNSIGNED,
+                                    MYSQL_MEDIUMINT_UNSIGNED,
+                                    MYSQL_INT_UNSIGNED,
+                                    MYSQL_INTEGER_UNSIGNED,
+                                    MYSQL_BIGINT_UNSIGNED,
+                                    MYSQL_DECIMAL_UNSIGNED,
+                                    MYSQL_FLOAT_UNSIGNED,
+                                    MYSQL_DOUBLE_UNSIGNED,
+                                    MYSQL_YEAR_UNSIGNED)
+                            .map(
+                                    name ->
+                                            name.substring(
+                                                    0, name.length() - UNSIGNED_SUFFIX.length()))
+                            .collect(Collectors.toSet()));
 
     public static final int DEFAULT_PRECISION = 38;
     public static final int MAX_PRECISION = 65;
@@ -144,8 +201,8 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             mysqlDataType =
                     mysqlDataType.substring(0, mysqlDataType.length() - "ZEROFILL".length()).trim();
         }
-        if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
-            mysqlDataType = mysqlDataType + " UNSIGNED";
+        if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(UNSIGNED_SUFFIX))) {
+            mysqlDataType = mysqlDataType + UNSIGNED_SUFFIX;
         }
         switch (mysqlDataType) {
             case MYSQL_NULL:
@@ -246,6 +303,15 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 break;
             case MYSQL_ENUM:
             case MYSQL_SET:
+            case MYSQL_SET_UNSIGNED:
+                if (MYSQL_SET_UNSIGNED.equals(mysqlDataType)) {
+                    log.warn(
+                            "Column {} with type {} was reported as {}; not a real MySQL type, converting as {}.",
+                            typeDefine.getName(),
+                            typeDefine.getColumnType(),
+                            MYSQL_SET_UNSIGNED,
+                            MYSQL_SET);
+                }
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(100L);
@@ -317,8 +383,12 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(typeDefine.getScale());
                 break;
             case MYSQL_DATETIME:
-            case MYSQL_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case MYSQL_TIMESTAMP:
+                // MySQL TIMESTAMP is LTZ (stored as UTC, displayed in session timezone)
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:
@@ -537,6 +607,31 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                     builder.columnType(MYSQL_DATETIME);
                 }
                 break;
+            case TIMESTAMP_TZ:
+                // TIMESTAMP_TZ (LTZ) maps back to MySQL TIMESTAMP
+                builder.nativeType(MysqlType.TIMESTAMP);
+                builder.dataType(MYSQL_TIMESTAMP);
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_TIMESTAMP);
+                } else if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(MYSQL_TIMESTAMP);
+                }
+                break;
             default:
                 throw CommonError.convertToConnectorTypeError(
                         DatabaseIdentifier.MYSQL,
@@ -545,5 +640,33 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
         }
 
         return builder.build();
+    }
+
+    /**
+     * Tells whether a column is a numeric type carrying the {@code UNSIGNED} attribute.
+     *
+     * <p>MySQL and its compatible dialects only allow {@code UNSIGNED} on numeric types, and the
+     * attribute always follows the type name and an optional length / precision part, for example
+     * {@code int(10) unsigned} or {@code bigint(20) unsigned zerofill}. Searching the whole {@code
+     * COLUMN_TYPE} for the word is not safe, because a {@code SET} or {@code ENUM} column keeps its
+     * value list in the same string. {@code mysql.event.sql_mode}, for example, is declared as
+     * {@code set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION',...)}: the literal value name inside
+     * that list used to be mistaken for the attribute, which turned the column into the
+     * non-existent type {@code SET UNSIGNED} and failed the job during catalog discovery.
+     *
+     * <p>The guard therefore also takes the server-normalised base type name: only a type that
+     * accepts {@code UNSIGNED} is allowed to look for the attribute in the raw type.
+     *
+     * @param dataType the server-normalised {@code DATA_TYPE}, e.g. {@code int} or {@code set}
+     * @param columnType the raw {@code COLUMN_TYPE}, e.g. {@code int(10) unsigned}
+     * @return true when columnType is a numeric type carrying the {@code UNSIGNED} attribute
+     * @see <a href="https://github.com/apache/seatunnel/issues/10451">issue #10451</a>
+     */
+    public static boolean isNumericUnsignedColumnType(String dataType, String columnType) {
+        if (StringUtils.isBlank(dataType) || StringUtils.isBlank(columnType)) {
+            return false;
+        }
+        return UNSIGNED_BASE_TYPE_NAMES.contains(dataType.trim().toUpperCase(Locale.ROOT))
+                && columnType.toLowerCase(Locale.ROOT).contains("unsigned");
     }
 }

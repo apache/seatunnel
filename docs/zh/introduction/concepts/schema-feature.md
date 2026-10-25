@@ -155,7 +155,7 @@ columns = [
 | timestamp_tz | `java.time.OffsetDateTime`                         | 存储带有 UTC 偏移量的日期和时间信息，包含本地日期时间和 UTC 偏移量。在处理多时区场景时，可以提供更精确的时间信息。                                                                                     |
 | row          | `org.apache.seatunnel.api.table.type.SeaTunnelRowType` | 行类型，可以嵌套。                                                                                                                                                                                                                                                                                                       |
 | map          | `java.util.Map`                                    | Map 是将键映射到值的对象。 键类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
-| array        | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                                              |
+| array        | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `map` 以及嵌套的 `array`。                                                                                                                                                                                      |
 
 #### 如何声明支持的类型
 
@@ -165,9 +165,9 @@ SeaTunnel 提供了一种简单直接的方式来声明基本类型。基本类�
 
 声明复杂类型（例如 **decimal**、**array**、**map** 和 **row**）时，请注意具体注意事项。
 - 声明decimal类型时，需要设置精度(precision)和小数位数(scale)，类型定义遵循“decimal(precision, scale)”格式。 需要强调的是，十进制类型的声明必须用 `"` 括起来；不能像基本类型一样直接使用类型名称。例如，当声明精度为 10、小数位数为 2 的十进制字段时，您可以指定字段类型为`"decimal(10,2)"`。
-- 声明array类型时，需要指定元素类型，类型定义遵循 `array<T>` 格式，其中 `T` 代表元素类型。元素类型包括`int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` 和 `double`。与十进制类型声明类似，它也用 `"` 括起来。例如，在声明具有整数数组的字段时，将字段类型指定为 `"array<int>"`。
+- 声明array类型时，需要指定元素类型，类型定义遵循 `array<T>` 格式，其中 `T` 代表元素类型。元素类型包括`int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float`,`double`、`map<K,V>` 以及嵌套的 `array<T>`。与十进制类型声明类似，它也用 `"` 括起来。例如，在声明具有整数数组的字段时，将字段类型指定为 `"array<int>"`；字符串到整数 map 的数组则为 `"array<map<string, int>>"`。
 - 声明map类型时，需要指定键和值类型。map类型定义遵循`map<K,V>`格式，其中`K`表示键类型，`V`表示值类型。 `K`可以是任何基本类型和十进制类型，`V`可以是 SeaTunnel 支持的任何类型。 与之前的类型声明类似，map类型声明必须用双引号引起来。 例如，当声明一个map类型的字段时，键类型为字符串，值类型为整数，则可以将该字段声明为`"map<string, int>"`。
-- 声明row类型时，需要定义一个 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 对象来描述字段及其类型。 字段类型可以是 SeaTunnel 支持的任何类型。 例如，当声明包含整数字段“a”和字符串字段“b”的行类型时，可以将其声明为“{a = int, b = string}”。 将定义作为字符串括在 `"` 中也是可以接受的，因此 `"{a = int, b = string}"` 相当于 `{a = int, c = string}`。由于 HOCON 与 JSON 兼容， `"{\"a\":\"int\", \"b\":\"string\"}"` 等价于 `"{a = int, b = string}"`。
+- 声明row类型时，需要定义一个 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 对象来描述字段及其类型。 字段类型可以是 SeaTunnel 支持的任何类型。 例如，当声明包含整数字段“a”和字符串字段“b”的行类型时，可以将其声明为“{a = int, b = string}”。 将定义作为字符串括在 `"` 中也是可以接受的，因此 `"{a = int, b = string}"` 相当于 `{a = int, b = string}`。由于 HOCON 与 JSON 兼容， `"{\"a\":\"int\", \"b\":\"string\"}"` 等价于 `"{a = int, b = string}"`。
 
 以下是复杂类型声明的示例：
 
@@ -193,19 +193,19 @@ schema {
 
 ### 主键（PrimaryKey）
 
-主键是用于定义模式中主键的配置，它包含name、columns字段。
+主键是用于定义模式中主键的配置，它包含name、columnNames字段。
 
 ```
 primaryKey {
     name = id
-    columns = [id]
+    columnNames = [id]
 }
 ```
 
-| 字段      | 是否必须 | 默认值 |   描述    |
-|:--------|:-----|:----|---------|
-| name    | 是    | -   | 主键名称    |
-| columns | 是    | -   | 主键中的列列表 |
+| 字段          | 是否必须 | 默认值 |   描述    |
+|:------------|:-----|:----|---------|
+| name        | 是    | -   | 主键名称    |
+| columnNames | 是    | -   | 主键中的列列表 |
 
 ### 约束键（constraintKeys）
 
@@ -230,7 +230,7 @@ constraintKeys = [
 |:------------------|:-----|:----|------------------------------------------------------------------------|
 | constraintName    | 是    | -   | 约束键的名称                                                                 |
 | constraintType    | 否    | KEY | 约束键的类型                                                                 |
-| constraintColumns | 是    | -   | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
+| constraintColumns | 是    | -   | 约束键中的列。每列必须包含 `columnName`。当 `constraintType` 为 `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY` 时，支持 `sortType`（ASC/DESC，默认 ASC）；当 `constraintType` 为 `VECTOR_INDEX_KEY` 时，`indexName` 为可选项；`indexType` 和 `metricType` 在 schema 解析层面为可选项，但需要创建向量索引的 connector（如 Milvus）可能要求必填。 |
 
 #### 目前支持哪些约束类型
 
@@ -238,6 +238,46 @@ constraintKeys = [
 |:-----------|:----|
 | INDEX_KEY  | 键   |
 | UNIQUE_KEY | 唯一键 |
+| FOREIGN_KEY | 外键 |
+| VECTOR_INDEX_KEY | 向量索引键 |
+
+#### VECTOR_INDEX_KEY
+
+当 `constraintType = VECTOR_INDEX_KEY` 时，`constraintColumns` 中每一项必须包含：
+
+- `columnName`：向量列名
+- `indexName`：索引名称（可选，未指定时默认使用列名）
+- `indexType`：向量索引类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
+  - 浮点型：`FLAT`，`IVF_FLAT`，`IVF_SQ8`，`IVF_PQ`，`HNSW`，`DISKANN`，`AUTOINDEX`，`SCANN`
+  - 二进制型：`BIN_FLAT`，`BIN_IVF_FLAT`
+  - GPU 浮点型：`GPU_IVF_FLAT`，`GPU_IVF_PQ`，`GPU_BRUTE_FORCE`，`GPU_CAGRA`
+  - 字符串型：`TRIE`
+  - 标量字段：`STL_SORT`（数值类型），`INVERTED`（所有类型，JSON 除外）
+  - 稀疏向量：`SPARSE_INVERTED_INDEX`，`SPARSE_WAND`
+  - 大小写不敏感（如：`hnsw`，`HNSW`，`Hnsw`，均满足）
+- `metricType`：距离度量类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
+  - 浮点型：`L2`，`IP`，`COSINE`
+  - 二进制型：`HAMMING`，`JACCARD`
+  - 大小写不敏感（如：`cosine`，`COSINE`，`Cosine`，均满足）
+
+示例：
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## 多表Schema
 

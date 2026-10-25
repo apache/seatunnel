@@ -119,4 +119,12 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                                     + "Example: [{\"name\": \"day_of_week\", \"type\": \"keyword\", \"script\": \"emit(doc['timestamp'].value.dayOfWeekEnum.toString())\"}]. "
                                     + "Supported types: boolean, date, double, geo_point, ip, keyword, long. "
                                     + "Available in Elasticsearch 7.11+");
+
+    public static final Option<Integer> SLICE_MAX =
+            Options.key("slice_max")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Split a single index into multiple slices for parallel reads. "
+                                    + "Only effective for Scroll/PIT, and should be > 1 to enable slicing.");
 }

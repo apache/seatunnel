@@ -155,7 +155,7 @@ columns = [
 | timestamp_tz | `java.time.OffsetDateTime`                         | Stores date and time information with an offset from UTC. It includes both the local date-time and the offset from UTC, providing more precise temporal information when working with multiple time zones.                                                                                     |
 | row          | `org.apache.seatunnel.api.table.type.SeaTunnelRowType` | Row type, can be nested.                                                                                                                                                                                                                                                                                                                                    |
 | map          | `java.util.Map`                                    | A Map is an object that maps keys to values. The key type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
-| array        | `ValueType[]`                                      | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                         |
+| array        | `ValueType[]`                                      | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `map` and a nested `array`.                                                                                                                                                             |
 
 #### How to declare type supported
 
@@ -165,9 +165,9 @@ SeaTunnel provides a simple and direct way to declare basic types. Basic type ke
 
 When declaring complex types (such as **decimal**, **array**, **map**, and **row**), pay attention to specific considerations.
 - When declaring a decimal type, precision and scale settings are required, and the type definition follows the format `decimal(precision, scale)`. It's essential to emphasize that the declaration of the decimal type must be enclosed in `"`; you cannot use the type name directly, as with basic types. For example, when declaring a decimal field with precision 10 and scale 2, you specify the field type as `"decimal(10,2)"`.
-- When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type. The element type includes `int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` and `double`. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`.
+- When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type. The element type includes `int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float`,`double`, a `map<K,V>` and a nested `array<T>`. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`; an array of string-to-int maps is `"array<map<string, int>>"`.
 - When declaring a map type, you need to specify the key and value types. The map type definition follows the format `map<K,V>`, where `K` represents the key type and `V` represents the value type. `K` can be any basic type and decimal type, and `V` can be any type supported by SeaTunnel. Similar to previous type declarations, the map type declaration must be enclosed in double quotes. For example, when declaring a field with map type, where the key type is string and the value type is integer, you can declare the field as `"map<string, int>"`.
-- When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, c = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
+- When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, b = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
 
 Here is an example of complex type declarations:
 
@@ -193,19 +193,19 @@ schema {
 
 ### PrimaryKey
 
-Primary key is a config used to define the primary key in schema, it contains name, columns field.
+Primary key is a config used to define the primary key in schema, it contains name, columnNames field.
 
 ```
 primaryKey {
     name = id
-    columns = [id]
+    columnNames = [id]
 }
 ```
 
-| Field   | Required | Default Value |            Description            |
-|:--------|:---------|:--------------|-----------------------------------|
-| name    | Yes      | -             | The name of the primaryKey        |
-| columns | Yes      | -             | The column list in the primaryKey |
+| Field       | Required | Default Value |            Description            |
+|:------------|:---------|:--------------|-----------------------------------|
+| name        | Yes      | -             | The name of the primaryKey        |
+| columnNames | Yes      | -             | The column list in the primaryKey |
 
 ### ConstraintKeys
 
@@ -230,7 +230,7 @@ constraintKeys = [
 |:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
 | constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
-| constraintColumns | Yes      | -             | The column list in the primaryKey, each column should contains constraintType and sortType, sortType support ASC and DESC, default is ASC |
+| constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName` is optional; `indexType` and `metricType` are optional at the schema parsing level but may be required by specific connectors that create vector indexes (e.g., Milvus). |
 
 #### What constraintType supported at now
 
@@ -238,6 +238,46 @@ constraintKeys = [
 |:---------------|:------------|
 | INDEX_KEY      | key         |
 | UNIQUE_KEY     | unique key  |
+| FOREIGN_KEY     | foreign key  |
+| VECTOR_INDEX_KEY | vector index key |
+
+##### VECTOR_INDEX_KEY
+
+When `constraintType = VECTOR_INDEX_KEY`, each item in `constraintColumns` must contain:
+
+- `columnName`: the vector column name
+- `indexName`: the index name (optional, defaults to column name if not specified)
+- `indexType`: the vector index type (optional at parse level, but required by connectors that create vector indexes such as Milvus). Case-insensitive. Supported values:
+  - For float vectors: `FLAT`, `IVF_FLAT`, `IVF_SQ8`, `IVF_PQ`, `HNSW`, `DISKANN`, `AUTOINDEX`, `SCANN`
+  - For binary vectors: `BIN_FLAT`, `BIN_IVF_FLAT`
+  - For GPU (float vectors): `GPU_IVF_FLAT`, `GPU_IVF_PQ`, `GPU_BRUTE_FORCE`, `GPU_CAGRA`
+  - For varchar: `TRIE`
+  - For scalar fields: `STL_SORT` (numeric), `INVERTED` (all scalar except JSON)
+  - For sparse vectors: `SPARSE_INVERTED_INDEX`, `SPARSE_WAND`
+  - Case-insensitive (e.g., `hnsw`, `HNSW`, `Hnsw` are all valid)
+- `metricType`: the distance metric type (optional at parse level, but required by connectors that create vector indexes such as Milvus). Case-insensitive. Supported values:
+  - For float vectors: `L2`, `IP`, `COSINE`
+  - For binary vectors: `HAMMING`, `JACCARD`
+  - Case-insensitive (e.g., `cosine`, `COSINE`, `Cosine` are all valid)
+
+Example:
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## Multi table schemas
 

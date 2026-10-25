@@ -1,69 +1,132 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq 数据接收器
+> RabbitMQ Sink 连接器
+
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## 描述
 
-该数据接收器是将数据写入Rabbitmq。
+用于将数据写入 RabbitMQ 队列。
 
 ## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
 
 |             名称             |   类型    | 是否必须 |  默认值  |
 |----------------------------|---------|------|-------|
-| host                       | string  | yes  | -     |
-| port                       | int     | yes  | -     |
-| virtual_host               | string  | yes  | -     |
-| username                   | string  | yes  | -     |
-| password                   | string  | yes  | -     |
-| queue_name                 | string  | yes  | -     |
-| url                        | string  | no   | -     |
-| network_recovery_interval  | int     | no   | -     |
-| topology_recovery_enabled  | boolean | no   | -     |
-| automatic_recovery_enabled | boolean | no   | -     |
-| use_correlation_id         | boolean | no   | false |
-| connection_timeout         | int     | no   | -     |
-| rabbitmq.config            | map     | no   | -     |
-| common-options             |         | no   | -     |
+| host                       | string  | 是    | -     |
+| port                       | int     | 是    | -     |
+| virtual_host               | string  | 是    | -     |
+| username                   | string  | 否    | -     |
+| password                   | string  | 否    | -     |
+| queue_name                 | string  | 是    | -     |
+| format                     | string  | 否    | json  |
+| protobuf_schema            | string  | 否    | -     |
+| protobuf_message_name      | string  | 否    | -     |
+| url                        | string  | 否    | -     |
+| uri                        | string  | 否    | -     |
+| ssl                        | boolean | 否    | false |
+| routing_key                | string  | 否    | -     |
+| exchange                   | string  | 否    | -     |
+| network_recovery_interval  | int     | 否    | -     |
+| topology_recovery_enabled  | boolean | 否    | -     |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     |
+| connection_timeout         | int     | 否    | -     |
+| rabbitmq.config            | map     | 否    | -     |
+| durable                    | boolean | 否    | true  |
+| exclusive                  | boolean | 否    | false |
+| auto_delete                | boolean | 否    | false |
+| passive                    | boolean | 否    | false |
+| common-options             |         | 否    | -     |
 
 ### host [string]
 
-Rabbitmq服务器地址
+RabbitMQ 服务器地址
 
 ### port [int]
 
-Rabbitmq服务器端口
+RabbitMQ 服务器端口
 
 ### virtual_host [string]
 
-virtual host – 连接broker使用的vhost
+virtual host，连接 broker 使用的 vhost
 
 ### username [string]
 
-连接broker时使用的用户名
+连接 broker 时使用的用户名
 
 ### password [string]
 
-连接broker时使用的密码
+连接 broker 时使用的密码
+
+`username` 和 `password` 需要一起配置。
 
 ### url [string]
 
 设置host、port、username、password和virtual host的简便方式。
 
+### uri [string]
+
+`url` 的兼容别名。`url` 和 `uri` 只能配置一个。
+
+### ssl [boolean]
+
+使用 `host` 和 `port` 配置连接时启用 SSL/TLS。若 URI 本身提供连接信息，请使用 `amqps://` 开头的 `url`。
+
+当 `url` 使用 `amqps://` 时，将按 JVM 信任库校验 Broker 证书并启用主机名校验。此前依赖隐式信任所有证书、使用自签名或私有 CA 证书的连接，需要将 Broker 证书导入信任库，否则将无法建立连接。
+
 ### queue_name [string]
 
-数据写入的队列名。
+数据写入的队列名。该值不能为空或仅包含空白字符。如果没有配置 `routing_key`，连接器会通过默认 exchange 将消息直接写入该队列。
 
-### schema [Config]
+### format [string]
 
-#### fields [Config]
+消息体格式，支持 `json` 和 `protobuf`，默认值为 `json`。
 
-上游数据的模式字段。
+### protobuf_schema [string]
+
+当 `format` 为 `protobuf` 时生效，定义用于序列化 RabbitMQ 消息体的 Protobuf Schema。
+
+### protobuf_message_name [string]
+
+当 `format` 为 `protobuf` 时生效，指定要序列化的 Protobuf Message 名称。
+
+### routing_key [string]
+
+发布消息时使用的路由键。如果希望通过指定 exchange 发布消息，而不是直接写入 `queue_name`，请同时配置 `routing_key` 和 `exchange`。
+
+### exchange [string]
+
+配置 `routing_key` 时使用的 exchange。
+
+### durable [boolean]
+
+- true：队列将在服务器重启时保留。
+- false：队列将在服务器重启时删除。
+
+### exclusive [boolean]
+
+- true：队列仅由当前连接使用，连接关闭时将删除。
+- false：队列可以由多个连接使用。
+
+### auto_delete [boolean]
+
+- true：队列将在最后一个消费者取消订阅时自动删除。
+- false：队列不会自动删除。
+
+### passive [boolean]
+
+- false：按已配置的 durable、exclusive 和 auto_delete 参数声明队列。
+- true：只校验队列已存在，不创建或修改队列。适用于可发布但没有队列声明权限的账号。
 
 ### network_recovery_interval [int]
 
@@ -73,13 +136,11 @@ virtual host – 连接broker使用的vhost
 
 设置为true，表示启用拓扑恢复。
 
-### automatic_recovery_enabled [boolean]
+### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-设置为true，表示启用连接恢复。
+设置为 true，表示启用连接恢复。
 
-### use_correlation_id [boolean]
-
-接收到的消息是否都提供唯一ID，来删除重复的消息达到幂等（在失败的情况下）
+当前连接器配置项名称使用大写形式。请写成 `AUTOMATIC_RECOVERY_ENABLED`，不要写成 `automatic_recovery_enabled`。
 
 ### connection_timeout [int]
 
@@ -87,18 +148,43 @@ TCP连接建立的超时时间，单位为毫秒；0代表不限制。
 
 ### rabbitmq.config [map]
 
-In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).
 除了上面提及必须设置的RabbitMQ客户端参数，你也还可以为客户端指定多个非强制参数，参见 [RabbitMQ官方文档参数设置](https://www.rabbitmq.com/configure.html)。
 
 ### common options
 
 Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
 
+## 配置说明
+
+- 如果配置了 `username`，也必须配置 `password`，反过来也一样。
+- `url` 和 `uri` 只能配置一个。`uri` 为兼容已有配置保留，新配置请使用 `url`。
+- 使用 `host` 和 `port` 连接 AMQPS 端点时，请设置 `ssl = true`。
+- `host`、`port`、`virtual_host` 和 `queue_name` 是连接器必填项。`url` 可额外提供 RabbitMQ 客户端使用的 AMQP URI。
+- `durable`、`exclusive` 和 `auto_delete` 用于连接器声明目标队列。
+- 当 `format` 为 `protobuf` 时，需要同时配置 `protobuf_schema` 和 `protobuf_message_name`。
+
 ## 示例
 
-simple:
+### 写入队列
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+    FakeSource {
+        row.num = 10
+        schema = {
+            fields {
+                id = bigint
+                c_string = string
+            }
+        }
+    }
+}
+
 sink {
       RabbitMQ {
           host = "rabbitmq-e2e"
@@ -114,6 +200,79 @@ sink {
       }
 }
 ```
+
+### 示例 2
+
+配置队列的 durable、exclusive、auto_delete：
+
+```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+    FakeSource {
+        row.num = 10
+        schema = {
+            fields {
+                id = bigint
+                c_string = string
+            }
+        }
+    }
+}
+
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          username = "guest"
+          password = "guest"
+          queue_name = "test1"
+          durable = true
+          exclusive = false
+          auto_delete = false
+          rabbitmq.config = {
+            requested-heartbeat = 10
+            connection-timeout = 10
+          }
+      }
+}
+```
+
+### 写入 Protobuf 消息到队列
+
+```hocon
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          queue_name = "protobuf_queue"
+          format = protobuf
+          protobuf_message_name = Person
+          protobuf_schema = """
+              syntax = "proto3";
+              message Person {
+                int64 id = 1;
+                string name = 2;
+              }
+          """
+      }
+}
+```
+
+## 常见问题
+
+### RabbitMQ Sink 支持路由到指定的 Exchange 和 Routing Key 吗？
+
+支持。Sink 会根据配置的 `queue_name` 及路由参数将消息发布到 RabbitMQ 目标队列或路由规则中。
+
+### RabbitMQ Sink 如何处理网络重连和超时？
+
+可以通过 `rabbitmq.config` 配置块调优客户端连接参数（如 `connection-timeout`、`requested-heartbeat` 等），以应对网络短暂抖动并提高连接稳定性。
 
 ## 变更日志
 

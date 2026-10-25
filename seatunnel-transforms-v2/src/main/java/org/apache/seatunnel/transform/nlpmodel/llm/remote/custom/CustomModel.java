@@ -95,13 +95,21 @@ public class CustomModel extends AbstractModel {
         if (response.getStatusLine().getStatusCode() != 200) {
             throw new IOException("Failed to get vector from custom, response: " + responseStr);
         }
+        Object parsedResponse = parseResponse(responseStr);
+        if (parsedResponse instanceof String) {
+            String result = (String) parsedResponse;
+            try {
+                return OBJECT_MAPPER.readValue(
+                        convertData(result), new TypeReference<List<String>>() {});
+            } catch (Exception e) {
+                return Collections.singletonList(convertData(result));
+            }
+        }
         try {
-            return OBJECT_MAPPER.convertValue(
-                    parseResponse(responseStr), new TypeReference<List<String>>() {});
+            return OBJECT_MAPPER.convertValue(parsedResponse, new TypeReference<List<String>>() {});
         } catch (Exception e) {
             String result =
-                    OBJECT_MAPPER.convertValue(
-                            parseResponse(responseStr), new TypeReference<String>() {});
+                    OBJECT_MAPPER.convertValue(parsedResponse, new TypeReference<String>() {});
             return Collections.singletonList(result);
         }
     }

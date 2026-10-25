@@ -21,6 +21,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 /** Vector Database need special Index on its vector field. */
 @EqualsAndHashCode(callSuper = true)
@@ -39,8 +40,8 @@ public class VectorIndex extends ConstraintKey.ConstraintKeyColumn implements Se
     public VectorIndex(String indexName, String columnName, String indexType, String metricType) {
         super(columnName, null);
         this.indexName = indexName;
-        this.indexType = IndexType.of(indexType);
-        this.metricType = MetricType.of(metricType);
+        this.indexType = parseIndexType(indexType, columnName);
+        this.metricType = parseMetricType(metricType, columnName);
     }
 
     public VectorIndex(
@@ -105,6 +106,36 @@ public class VectorIndex extends ConstraintKey.ConstraintKeyColumn implements Se
 
         public static MetricType of(String name) {
             return valueOf(name.toUpperCase());
+        }
+    }
+
+    private static IndexType parseIndexType(String indexType, String columnName) {
+        if (indexType == null || indexType.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return IndexType.of(indexType);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid indexType '%s' for column '%s'. Valid values are: %s",
+                            indexType, columnName, Arrays.toString(IndexType.values())),
+                    exception);
+        }
+    }
+
+    private static MetricType parseMetricType(String metricType, String columnName) {
+        if (metricType == null || metricType.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return MetricType.of(metricType);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid metricType '%s' for column '%s'. Valid values are: %s",
+                            metricType, columnName, Arrays.toString(MetricType.values())),
+                    exception);
         }
     }
 }

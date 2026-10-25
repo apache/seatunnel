@@ -4,21 +4,25 @@
 
 ## Description
 
-Examines string value in a given field and replaces substring of the string value that matches the given string literal or regexes with the given replacement.
+Examines string value in given fields and replaces substring of the string value that matches the given string literal or regexes with the given replacement.
 
 ## Options
 
-|     name      |  type   | required | default value |
+|     name      | type    | required | default value |
 |---------------|---------|----------|---------------|
-| replace_field | string  | yes      |               |
+| replace_fields | array   | yes      |               |
 | pattern       | string  | yes      | -             |
 | replacement   | string  | yes      | -             |
 | is_regex      | boolean | no       | false         |
 | replace_first | boolean | no       | false         |
 
-### replace_field [string]
+### replace_fields [array]
 
-The field you want to replace
+The fields you want to replace
+
+`replace_fields` accepts a list such as `["name"]` or `["name", "title"]`.
+
+For backward compatibility, legacy key `replace_field = "name"` is still supported, but new configurations should use `replace_fields`.
 
 ### pattern [string]
 
@@ -58,7 +62,7 @@ transform {
   Replace {
     plugin_input = "fake"
     plugin_output = "fake1"
-    replace_field = "name"
+    replace_fields = ["name"]
     pattern = " "
     replacement = "_"
     is_regex = true
@@ -99,7 +103,7 @@ transform {
   Replace {
     plugin_input = "fake"
     plugin_output = "fake1"
-    replace_field = "name"
+    replace_fields = ["name"]
     pattern = ".+"
     replacement = "b"
     is_regex = true
