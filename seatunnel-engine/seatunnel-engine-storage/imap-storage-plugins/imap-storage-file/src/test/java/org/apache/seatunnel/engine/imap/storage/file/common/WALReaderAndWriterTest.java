@@ -20,6 +20,10 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -55,6 +59,15 @@ public class WALReaderAndWriterTest {
     private static final Path PARENT_PATH = new Path("/tmp/9/");
     private static final Path SAME_TIMESTAMP_TOMBSTONE_PATH =
             new Path("/tmp/imap-wal-same-timestamp-tombstone/");
+    // A real pre-#9689 WAL file is not required to exercise the legacy path: the
+    // relocated types (JobStatus, JobResult, JobStatusData) kept identical field
+    // layout and enum ordinals across the #9689 move, and the static serialVersionUID
+    // added later is skipped by ProtoStuff's RuntimeSchema, so the only wire difference
+    // is the valueClassName string, which these fixtures set to the old names explicitly.
+    // Replaying a captured pre-relocation WAL frame remains a welcome follow-up.
+    private static final Path LEGACY_JOB_STATUS_PATH = new Path("/tmp/imap-wal-legacy-job-status/");
+    private static final Path UNKNOWN_CLASS_NAME_PATH =
+            new Path("/tmp/imap-wal-unknown-class-name/");
     private static final Serializer SERIALIZER = new ProtoStuffSerializer();
 
     @BeforeAll
@@ -240,10 +253,160 @@ public class WALReaderAndWriterTest {
         Assertions.assertFalse(reader.loadAllKeys(SAME_TIMESTAMP_TOMBSTONE_PATH).contains(key));
     }
 
+    /**
+     * Binds every legacy mapping target to the live engine-common class at compile time: if a
+     * target class is renamed again, this test fails to compile or fails the assertion instead of
+     * leaving a stale shim behind.
+     */
+    @Test
+    public void testLegacyMappingsTargetCurrentClassNames() throws Exception {
+        java.lang.reflect.Field field =
+                WALReader.class.getDeclaredField("LEGACY_CLASS_NAME_MAPPINGS");
+        field.setAccessible(true);
+        java.util.Map<String, String> mappings = (java.util.Map<String, String>) field.get(null);
+
+        Assertions.assertEquals(
+                JobStatus.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobStatus"));
+        Assertions.assertEquals(
+                JobResult.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobResult"));
+        Assertions.assertEquals(
+                JobStatusData.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobStatusData"));
+    }
+
+    @Test
+    public void testReaderLoadsJobStatusWrittenWithLegacyClassName() throws Exception {
+        String key = "job-status";
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, LEGACY_JOB_STATUS_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(key))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(JobStatus.RUNNING))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatus")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> data = reader.loadAllData(LEGACY_JOB_STATUS_PATH, new HashSet<>());
+
+        Assertions.assertEquals(JobStatus.class, data.get(key).getClass());
+        // ProtoStuff returns a non-canonical enum instance, so compare by value, not identity.
+        Assertions.assertEquals(JobStatus.RUNNING.name(), ((JobStatus) data.get(key)).name());
+    }
+
+    @Test
+    public void testReaderLoadsAllLegacyJobModelClassNames() throws Exception {
+        String jobStatusKey = "legacy-job-status";
+        String jobResultKey = "legacy-job-result";
+        String jobStatusDataKey = "legacy-job-status-data";
+        JobStatusData jobStatusData =
+                new JobStatusData(1L, "legacy-job", JobStatus.FINISHED, 1L, 2L, 3L);
+        JobResult jobResult = new JobResult(JobStatus.CANCELED, "legacy error");
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, LEGACY_JOB_STATUS_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobStatusKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(JobStatus.RUNNING))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatus")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobResultKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(jobResult))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobResult")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobStatusDataKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(jobStatusData))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatusData")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> data = reader.loadAllData(LEGACY_JOB_STATUS_PATH, new HashSet<>());
+
+        Assertions.assertEquals(
+                JobStatus.RUNNING.name(), ((JobStatus) data.get(jobStatusKey)).name());
+
+        JobResult replayedResult = (JobResult) data.get(jobResultKey);
+        Assertions.assertEquals(JobResult.class, replayedResult.getClass());
+        Assertions.assertEquals(JobStatus.CANCELED.name(), replayedResult.getStatus().name());
+        Assertions.assertEquals("legacy error", replayedResult.getError());
+
+        JobStatusData replayedStatusData = (JobStatusData) data.get(jobStatusDataKey);
+        Assertions.assertEquals(JobStatusData.class, replayedStatusData.getClass());
+        Assertions.assertEquals(jobStatusData.getJobId(), replayedStatusData.getJobId());
+        Assertions.assertEquals(jobStatusData.getJobName(), replayedStatusData.getJobName());
+        Assertions.assertEquals(
+                jobStatusData.getJobStatus().name(), replayedStatusData.getJobStatus().name());
+        Assertions.assertEquals(jobStatusData.getSubmitTime(), replayedStatusData.getSubmitTime());
+        Assertions.assertEquals(jobStatusData.getStartTime(), replayedStatusData.getStartTime());
+        Assertions.assertEquals(jobStatusData.getFinishTime(), replayedStatusData.getFinishTime());
+    }
+
+    /**
+     * Feeds a record whose class name is neither a current class nor a legacy mapping key: the
+     * failure must surface the recorded and the resolved class name so a stale or wrong mapping is
+     * diagnosable from the restart error alone. A name absent from the legacy table resolves to
+     * itself, so both rendered names equal the recorded one.
+     */
+    @Test
+    public void testUnknownClassNameSurfacesInExceptionMessage() throws Exception {
+        String unknownClassName = "org.apache.seatunnel.engine.core.job.NeverExistedJobStatus";
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, UNKNOWN_CLASS_NAME_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize("unknown-class"))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize("value"))
+                            .valueClassName(unknownClassName)
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        IMapStorageException exception =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> reader.loadAllData(UNKNOWN_CLASS_NAME_PATH, new HashSet<>()));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(
+                                "class name is "
+                                        + unknownClassName
+                                        + ", resolved class name is "
+                                        + unknownClassName),
+                "exception message should render the recorded and resolved class names, got: "
+                        + exception.getMessage());
+    }
+
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);
         FS.delete(SAME_TIMESTAMP_TOMBSTONE_PATH, true);
+        FS.delete(LEGACY_JOB_STATUS_PATH, true);
+        FS.delete(UNKNOWN_CLASS_NAME_PATH, true);
         FS.close();
     }
 }
