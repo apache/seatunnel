@@ -45,6 +45,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
@@ -59,6 +62,11 @@ import java.util.function.IntFunction;
  * org.apache.seatunnel.api.table.type.SeaTunnelRow}. *
  */
 public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
 
     private static final long serialVersionUID = 1L;
 
@@ -305,10 +313,35 @@ public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
             throw CommonError.formatDateTimeError(datetimeStr, fieldName);
         }
 
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        TemporalAccessor parsedTimestamp =
+                parseDateTimeWithFormatterRefresh(datetimeStr, fieldName, dateTimeFormatter);
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
+    }
+
+    /**
+     * Re-resolves the formatter when the cached per-field formatter no longer matches the current
+     * timestamp text. This happens when one JSON field mixes second-only and fractional-second
+     * values across rows.
+     */
+    private TemporalAccessor parseDateTimeWithFormatterRefresh(
+            String datetimeStr, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(datetimeStr);
+        } catch (DateTimeParseException parseException) {
+            if (StringUtils.isBlank(fieldName)) {
+                throw parseException;
+            }
+
+            DateTimeFormatter refreshedFormatter =
+                    DateTimeUtils.matchDateTimeFormatter(datetimeStr);
+            if (refreshedFormatter == null) {
+                throw CommonError.formatDateTimeError(datetimeStr, fieldName);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(datetimeStr);
+        }
     }
 
     private OffsetDateTime convertToOffsetDateTime(JsonNode jsonNode, String fieldName) {
@@ -422,6 +455,10 @@ public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
         return new JsonToObjectConverter() {
             @Override
             public Object convert(JsonNode jsonNode, String fieldName) {
+                if (!jsonNode.isArray()) {
+                    throw new JsonParseException(
+                            String.format("Field '%s' expects an array for ARRAY.", fieldName));
+                }
                 Object arr =
                         Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
                 for (int i = 0; i < jsonNode.size(); i++) {
@@ -438,6 +475,10 @@ public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
         return new JsonToObjectConverter() {
             @Override
             public Object convert(JsonNode jsonNode, String fieldName) {
+                if (!jsonNode.isObject()) {
+                    throw new JsonParseException(
+                            String.format("Field '%s' expects an object for MAP.", fieldName));
+                }
                 Map<Object, Object> value = new HashMap<>();
                 jsonNode.fields()
                         .forEachRemaining(

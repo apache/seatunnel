@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -214,5 +216,20 @@ public class DateUtilsTest {
                         throw e;
                     }
                 });
+    }
+
+    @Test
+    public void testHistoricalSlashFormatterRetainsItsPattern() {
+        LocalDate date = LocalDate.of(2026, 1, 2);
+        assertEquals("2026/1/2", DateUtils.toString(date, DateUtils.Formatter.YYYY_M_D));
+        assertEquals("2026-1-2", DateUtils.toString(date, DateUtils.Formatter.YYYY_M_D_DASH));
+    }
+
+    @Test
+    public void testTimeOnlyInputIsRejectedAsDate() {
+        assertThrows(DateTimeParseException.class, () -> DateUtils.parse("12:34:56"));
+        assertThrows(
+                DateTimeParseException.class,
+                () -> DateUtils.parse("12:34:56", DateTimeFormatter.ISO_LOCAL_TIME));
     }
 }

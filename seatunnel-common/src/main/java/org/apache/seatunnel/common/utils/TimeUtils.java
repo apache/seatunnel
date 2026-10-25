@@ -92,6 +92,11 @@ public class TimeUtils {
     }
 
     // Define time format pattern, containing regex and corresponding Formatter
+    /**
+     * Associates one compiled input pattern with the reusable formatter selected by inference.
+     *
+     * <p>Instances are initialized once and shared by the matching table.
+     */
     @Getter
     private static class TimePattern {
         final Pattern pattern;
@@ -121,20 +126,38 @@ public class TimeUtils {
     // {@link #parse(String, Formatter)}.
     // -------------------------------------------------------------------------
 
-    /** @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)}
+     */
     @Deprecated
     public static final Pattern[] PATTERN_ARRAY =
             new Pattern[] {
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}"),
-                Pattern.compile("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}"),
+                Pattern.compile("\\d{2}:\\d{2}:\\d{2}.\\d{3}"),
             };
 
-    /** @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)}
+     */
     @Deprecated public static final Map<Pattern, Formatter> Time_FORMATTER_MAP = new HashMap<>();
 
     static {
         Time_FORMATTER_MAP.put(PATTERN_ARRAY[0], Formatter.parse(Formatter.HH_MM_SS.value));
         Time_FORMATTER_MAP.put(PATTERN_ARRAY[1], Formatter.parse(Formatter.HH_MM_SS_SSS.value));
+    }
+
+    /** Preserves the historical enum-returning API used by compiled connector extensions. */
+    public static Formatter matchTimeFormatter(String time) {
+        for (Pattern pattern : PATTERN_ARRAY) {
+            if (pattern.matcher(time).matches()) {
+                return Time_FORMATTER_MAP.get(pattern);
+            }
+        }
+        return null;
     }
 
     /**
@@ -143,7 +166,7 @@ public class TimeUtils {
      * @param dateTime Time string, e.g.: 23:00:00
      * @return Matched Formatter, or null if no pattern matches
      */
-    public static DateTimeFormatter matchTimeFormatter(String dateTime) {
+    public static DateTimeFormatter inferTimeFormatter(String dateTime) {
         for (TimePattern pattern : PATTERN_LIST) {
             if (pattern.getPattern().matcher(dateTime).matches()) {
                 return pattern.getFormatter();
@@ -159,7 +182,7 @@ public class TimeUtils {
      * @return Parsed LocalTime object
      */
     public static LocalTime parse(String time) {
-        DateTimeFormatter formatter = matchTimeFormatter(time);
+        DateTimeFormatter formatter = inferTimeFormatter(time);
         if (formatter == null) {
             throw new IllegalArgumentException("Unsupported time format: " + time);
         }

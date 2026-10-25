@@ -181,4 +181,11 @@ public class TimeUtilsTest {
                 assertThrows(IllegalArgumentException.class, () -> TimeUtils.parse("15:301"));
         assertEquals("Unsupported time format: 15:301", assertThrows.getMessage());
     }
+
+    @Test
+    public void testHistoricalFormatterReturnTypeRemainsCompatible() {
+        TimeUtils.Formatter formatter = TimeUtils.matchTimeFormatter("12:34:56");
+        Assertions.assertEquals(TimeUtils.Formatter.HH_MM_SS, formatter);
+        Assertions.assertEquals("12:34:56", TimeUtils.parse("12:34:56", formatter).toString());
+    }
 }

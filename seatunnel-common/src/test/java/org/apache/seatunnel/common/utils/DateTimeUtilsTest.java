@@ -771,4 +771,27 @@ public class DateTimeUtilsTest {
         System.out.printf("ToString performance: %d iterations in %d ms%n", iterations, durationMs);
         assertTrue(durationMs > 0);
     }
+
+    @Test
+    public void testHistoricalMaxcomputeDatetimeFormatsRemainSupported() {
+        LocalDateTime value = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
+        DateTimeUtils.Formatter slash = DateTimeUtils.Formatter.parse("yyyy/M/d HH:mm:ss");
+        DateTimeUtils.Formatter dash = DateTimeUtils.Formatter.parse("yyyy-M-d HH:mm:ss");
+        assertEquals("2026/1/2 03:04:05", DateTimeUtils.toString(value, slash));
+        assertEquals("2026-1-2 03:04:05", DateTimeUtils.toString(value, dash));
+        assertEquals(value, DateTimeUtils.parse("2026/1/2 03:04:05", slash));
+        assertEquals(value, DateTimeUtils.parse("2026-1-2 03:04:05", dash));
+    }
+
+    @Test
+    public void testOffsetInferencePreservesWallClockTimeForEitherSign() {
+        for (String offset : new String[] {"+09:00", "-09:00", "Z"}) {
+            assertEquals(
+                    LocalDateTime.of(2024, 5, 20, 12, 34, 56),
+                    DateTimeUtils.parse("2024-05-20T12:34:56" + offset));
+            assertEquals(
+                    LocalDateTime.of(2024, 5, 20, 12, 34, 56, 123000000),
+                    DateTimeUtils.parse("2024-05-20T12:34:56.123" + offset));
+        }
+    }
 }

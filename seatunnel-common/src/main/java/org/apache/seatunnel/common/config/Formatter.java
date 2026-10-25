@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.common.config;
 
+/**
+ * Exposes a temporal format pattern while retaining its typed formatter value.
+ *
+ * @param <T> the typed formatter value whose pattern is exposed to the parser
+ */
 public interface Formatter<T> {
     T getFormatter();
 

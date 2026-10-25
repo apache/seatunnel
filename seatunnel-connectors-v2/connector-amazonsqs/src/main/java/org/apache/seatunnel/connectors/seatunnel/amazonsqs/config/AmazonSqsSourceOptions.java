@@ -28,6 +28,12 @@ public class AmazonSqsSourceOptions extends AmazonSqsBaseOptions {
                     .defaultValue(false)
                     .withDescription("Delete the message after it is consumed if set true.");
 
+    public static final Option<Boolean> IGNORE_PARSE_ERRORS =
+            Options.key("ignore_parse_errors")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Optional flag to skip parse errors instead of failing.");
+
     public static final Option<String> MESSAGE_GROUP_ID =
             Options.key("message_group_id")
                     .stringType()

@@ -51,7 +51,9 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
@@ -62,6 +64,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TextDeserializationSchema
         implements DeserializationSchema<SeaTunnelRow>, DateTimeParseHelper {
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
     private final String encoding;
@@ -72,7 +80,7 @@ public class TextDeserializationSchema
     private final FormatterConfig<DateTimeUtils.Formatter> dateTimeFormatterConfig;
     private final FormatterConfig<TimeUtils.Formatter> timeFormatterConfig;
 
-    private final Map<String, DateTimeFormatter> fieldFormatterCache = new ConcurrentHashMap<>();
+    public Map<String, DateTimeFormatter> fieldFormatterMap = new ConcurrentHashMap<>();
 
     private TextDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -317,12 +325,12 @@ public class TextDeserializationSchema
             case BYTES:
                 return fieldValue.getBytes(StandardCharsets.UTF_8);
             case DATE:
-                return parseDate(fieldValue, fieldName, dateFormatterConfig, fieldFormatterCache);
+                return parseDate(fieldValue, fieldName, dateFormatterConfig, fieldFormatterMap);
             case TIME:
-                return parseTime(fieldValue, fieldName, timeFormatterConfig, fieldFormatterCache);
+                return parseTime(fieldValue, fieldName, timeFormatterConfig, fieldFormatterMap);
             case TIMESTAMP:
                 return parseTimestamp(
-                        fieldValue, fieldName, dateTimeFormatterConfig, fieldFormatterCache);
+                        fieldValue, fieldName, dateTimeFormatterConfig, fieldFormatterMap);
             case TIMESTAMP_TZ:
                 try {
                     return OffsetDateTime.parse(fieldValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME);

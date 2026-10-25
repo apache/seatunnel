@@ -179,6 +179,13 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testMultiTableSource(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result = container.executeJob("/influxdb-multi-table-source.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    @TestTemplate
     public void testInfluxdb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/influxdb-to-influxdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

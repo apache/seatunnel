@@ -214,7 +214,7 @@ public class DateTimeUtils {
 
         // ===================== Length 20: Fixed Length =====================
         // Format Type: Chinese datetime format
-        // Example: 2024年12月29日21时30分21秒
+        // Example: a date and time separated by Chinese year/month/day/hour/minute/second literals.
         List<DateTimePattern> length20Patterns = new ArrayList<>();
         length20Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(20, length20Patterns);
@@ -369,49 +369,85 @@ public class DateTimeUtils {
     // {@link #matchDateTimeFormatter(String)}, {@link #parse(String, Formatter)}.
     // -------------------------------------------------------------------------
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS_14_FORMATTER =
             Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.getDateTimeFormatter();
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP =
             legacyFormatterMap(17);
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_15_FORMATTER_MAP =
             legacyFormatterMap(15);
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP =
             legacyFormatterMap(19);
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP =
             legacyFormatterMap(OVER_LENGTH_KEY);
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static Set<Map.Entry<Pattern, DateTimeFormatter>>
             YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET =
                     YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP.entrySet();
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static Set<Map.Entry<Pattern, DateTimeFormatter>>
             YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET = YYYY_M_D_HH_MM_15_FORMATTER_MAP.entrySet();
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static Set<Map.Entry<Pattern, DateTimeFormatter>>
             YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET =
                     YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.entrySet();
 
-    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)}
+     */
     @Deprecated
     public static Set<Map.Entry<Pattern, DateTimeFormatter>>
             YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET =
@@ -430,6 +466,11 @@ public class DateTimeUtils {
     }
 
     // Define date-time format pattern, containing regex and corresponding formatter
+    /**
+     * Associates one compiled input pattern with the reusable formatter selected by inference.
+     *
+     * <p>Instances are initialized once and shared by the matching table.
+     */
     @Getter
     private static class DateTimePattern {
         private final Pattern pattern;
@@ -504,7 +545,7 @@ public class DateTimeUtils {
      * <ul>
      *   <li>Standard: 2023-12-25 15:30:45, 2023-12-25T15:30:45
      *   <li>Slash: 2023/12/25 15:30:45, 2023/1/25 8:30:45
-     *   <li>Chinese: 2023年12月25日 15时30分45秒
+     *   <li>Chinese: numeric fields separated by Chinese date and time unit literals
      *   <li>Compact: 20231225153045
      *   <li>With milliseconds: 2023-12-25 15:30:45.123 (supports 1-9 digits)
      * </ul>
@@ -518,16 +559,7 @@ public class DateTimeUtils {
      * (wall-clock) column. If the offset must be preserved, use {@link java.time.OffsetDateTime}
      * handling instead (e.g. the connector's {@code TIMESTAMP_TZ} support) rather than this method.
      *
-     * <p><strong>Performance characteristics:</strong>
-     *
-     * <ul>
-     *   <li>Auto-format parsing: 4.2-4.8 ms per 10⁷ iterations (0.42-0.48 μs/iteration)
-     *   <li>Predefined formatter parsing: ~2.97 ms per 10⁷ iterations (0.297 μs/iteration)
-     *   <li>Performance overhead: ~1.3-1.9 ms per 10⁷ iterations vs predefined formatters
-     * </ul>
-     *
-     * The overhead primarily results from regex pattern matching and support for variable-length
-     * millisecond precision. For maximum performance when the format is known, use {@link
+     * <p>Automatic inference performs pattern matching. When the format is known, use {@link
      * #parse(String, DateTimeFormatter)} or {@link #parse(String, Formatter)}.
      *
      * @param dateTime the datetime string to parse (must not be null or empty)
@@ -657,8 +689,8 @@ public class DateTimeUtils {
             return false;
         }
         return timeStr.endsWith("Z")
-                || timeStr.contains("+") && timeStr.contains(":")
-                || timeStr.contains("-") && timeStr.indexOf("-") > 5;
+                || timeStr.lastIndexOf('+') > 9
+                || timeStr.lastIndexOf('-') > 9;
     }
 
     @Getter
@@ -670,6 +702,9 @@ public class DateTimeUtils {
         YYYY_MM_DD_HH_MM_SS_SLASH("yyyy/MM/dd HH:mm:ss"),
         YYYY_M_D_HH_MM_SLASH("yyyy/M/d HH:mm"),
         YYYY_M_D_HH_MM_ISO8601("yyyy-M-d HH:mm"),
+        // Preserve documented Maxcompute format strings and the historical public constants.
+        YYYY_M_D_HH_MM_SS_SLASH("yyyy/M/d HH:mm:ss"),
+        YYYY_M_D_HH_MM_SS_ISO8601("yyyy-M-d HH:mm:ss"),
         YYYY_M_D_H_MM_SS_SLASH("yyyy/M/d H:mm:ss"),
         YYYY_M_D_H_MM_SS_ISO8601("yyyy-M-d H:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_NO_SPLIT("yyyyMMddHHmmss"),

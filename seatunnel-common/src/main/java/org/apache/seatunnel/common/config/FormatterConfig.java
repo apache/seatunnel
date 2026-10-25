@@ -21,6 +21,11 @@ import lombok.Getter;
 
 import java.io.Serializable;
 
+/**
+ * Distinguishes explicit user temporal formats from defaults eligible for automatic inference.
+ *
+ * @param <T> the typed formatter value whose pattern is exposed to the parser
+ */
 @Getter
 public class FormatterConfig<T extends Formatter> implements Serializable {
     private static final long serialVersionUID = 1L;

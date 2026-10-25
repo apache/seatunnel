@@ -24,8 +24,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
 import java.time.temporal.Temporal;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -75,7 +73,8 @@ public class DateUtils {
         PATTERN_LIST.add(new DatePattern("\\d{4}/\\d{2}/\\d{2}", Formatter.YYYY_MM_DD_SLASH.value));
         PATTERN_LIST.add(
                 new DatePattern("\\d{4}\\.\\d{2}\\.\\d{2}", Formatter.YYYY_MM_DD_SPOT.value));
-        PATTERN_LIST.add(new DatePattern("\\d{4}-\\d{1,2}-\\d{1,2}", Formatter.YYYY_M_D.value));
+        PATTERN_LIST.add(
+                new DatePattern("\\d{4}-\\d{1,2}-\\d{1,2}", Formatter.YYYY_M_D_DASH.value));
         PATTERN_LIST.add(
                 new DatePattern("\\d{4}/\\d{1,2}/\\d{1,2}", Formatter.YYYY_M_D_SLASH.value));
         PATTERN_LIST.add(
@@ -128,12 +127,20 @@ public class DateUtils {
     // {@link #matchDateFormatter(String)} / {@link #parse(String, Formatter)}.
     // -------------------------------------------------------------------------
 
-    /** @deprecated internal implementation detail; use {@link #matchDateFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateFormatter(String)}
+     */
     @Deprecated
     public static final Pattern[] PATTERN_ARRAY =
             PATTERN_LIST.stream().map(p -> p.pattern).toArray(Pattern[]::new);
 
-    /** @deprecated internal implementation detail; use {@link #matchDateFormatter(String)} */
+    /**
+     * Retains the historical formatter surface for compiled connector extensions.
+     *
+     * @deprecated internal implementation detail; use {@link #matchDateFormatter(String)}
+     */
     @Deprecated
     public static final Map<Pattern, DateTimeFormatter> DATE_FORMATTER_MAP = legacyFormatterMap();
 
@@ -182,8 +189,7 @@ public class DateUtils {
      * @return Parsed LocalDate object
      */
     public static LocalDate parse(String date, DateTimeFormatter dateTimeFormatter) {
-        TemporalAccessor temporalAccessor = dateTimeFormatter.parse(date);
-        return temporalAccessor.query(TemporalQueries.localDate());
+        return LocalDate.parse(date, dateTimeFormatter);
     }
 
     /**
@@ -248,7 +254,9 @@ public class DateUtils {
         YYYY_MM_DD("yyyy-MM-dd"),
         YYYY_MM_DD_SPOT("yyyy.MM.dd"),
         YYYY_MM_DD_SLASH("yyyy/MM/dd"),
-        YYYY_M_D("yyyy-M-d"),
+        // Keep the historical public enum name and slash pattern unchanged.
+        YYYY_M_D("yyyy/M/d"),
+        YYYY_M_D_DASH("yyyy-M-d"),
         YYYY_M_D_SPOT("yyyy.M.d"),
         YYYY_M_D_SLASH("yyyy/M/d"),
         M_D_YYYY("M/d/yyyy"),

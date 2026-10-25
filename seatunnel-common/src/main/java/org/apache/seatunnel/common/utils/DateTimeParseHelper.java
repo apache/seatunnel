@@ -29,6 +29,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Parses temporal fields with strict explicit formats and per-field automatic inference caching.
+ *
+ * <p>Explicit formats never fall back to an inferred alternative after a parsing failure.
+ */
 public interface DateTimeParseHelper {
 
     /**
@@ -40,11 +45,21 @@ public interface DateTimeParseHelper {
         DateTimeFormatter get(String fieldVal);
     }
 
+    /**
+     * Converts a field using the selected formatter.
+     *
+     * @param <T> the temporal value produced for a successfully parsed field
+     */
     @FunctionalInterface
     interface Parser<T> {
         T parse(String fieldVal, DateTimeFormatter formatter);
     }
 
+    /**
+     * Creates a contextual failure when the configured or inferred format cannot parse a field.
+     *
+     * <p>The source field name and raw value identify the failing input to the connector.
+     */
     @FunctionalInterface
     interface ErrorSupplier {
         SeaTunnelRuntimeException get(String fieldVal, String fieldName);
@@ -121,7 +136,7 @@ public interface DateTimeParseHelper {
                 fieldVal,
                 fieldName,
                 timeFormatterConfig,
-                TimeUtils::matchTimeFormatter,
+                TimeUtils::inferTimeFormatter,
                 TimeUtils::parse,
                 CommonError::formatTimeError,
                 cache);

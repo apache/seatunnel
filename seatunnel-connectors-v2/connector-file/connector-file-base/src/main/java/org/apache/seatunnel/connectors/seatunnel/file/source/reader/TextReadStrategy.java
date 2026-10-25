@@ -38,6 +38,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSpl
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 
+import org.apache.commons.io.input.CountingInputStream;
+
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,10 +56,12 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
     private int[] indexes;
     private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
+    private transient long lastReadBytes = -1L;
 
     /** Custom stream divider for splitting text streams by specified delimiters */
     public static class StreamLineSplitter {
         private final char[] delimiterChars;
+        private final int[] delimiterPrefix;
         private final StringBuilder lineBuffer;
         private int delimiterIndex;
         private int skipCount;
@@ -68,6 +72,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         public StreamLineSplitter(
                 String delimiter, long skipHeaderNumber, LineProcessor lineProcessor) {
             this.delimiterChars = delimiter.toCharArray();
+            this.delimiterPrefix = buildPrefixTable(delimiterChars);
             this.lineBuffer = new StringBuilder();
             this.delimiterIndex = 0;
             this.skipCount = 0;
@@ -122,9 +127,14 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
 
         private void processChar(char currentChar) throws IOException {
+            lineBuffer.append(currentChar);
+            while (delimiterIndex > 0 && currentChar != delimiterChars[delimiterIndex]) {
+                delimiterIndex = delimiterPrefix[delimiterIndex - 1];
+            }
             if (currentChar == delimiterChars[delimiterIndex]) {
                 delimiterIndex++;
                 if (delimiterIndex == delimiterChars.length) {
+                    lineBuffer.setLength(lineBuffer.length() - delimiterChars.length);
                     if (skipCount >= skipHeaderNumber) {
                         String line = lineBuffer.toString();
                         if (!line.trim().isEmpty()) {
@@ -137,15 +147,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     lineBuffer.setLength(0);
                     delimiterIndex = 0;
                 }
-            } else {
-                if (delimiterIndex > 0) {
-                    for (int i = 0; i < delimiterIndex; i++) {
-                        lineBuffer.append(delimiterChars[i]);
-                    }
-                    delimiterIndex = 0;
-                }
-                lineBuffer.append(currentChar);
             }
+        }
+
+        private static int[] buildPrefixTable(char[] delimiter) {
+            int[] prefix = new int[delimiter.length];
+            int matched = 0;
+            for (int i = 1; i < delimiter.length; i++) {
+                while (matched > 0 && delimiter[i] != delimiter[matched]) {
+                    matched = prefix[matched - 1];
+                }
+                if (delimiter[i] == delimiter[matched]) {
+                    matched++;
+                    prefix[i] = matched;
+                }
+            }
+            return prefix;
         }
     }
 
@@ -193,10 +210,14 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        final boolean useSplitRead = split.getLength() > -1;
+        CountingInputStream countingInputStream = null;
         if (useSplitRead) {
             actualInputStream = safeSlice(actualInputStream, split.getStart(), split.getLength());
+            countingInputStream = new CountingInputStream(actualInputStream);
+            actualInputStream = countingInputStream;
         }
+        lastReadBytes = -1L;
         try (BufferedReader reader = createBomAwareBufferedReader(actualInputStream, encoding)) {
 
             LineProcessor lineProcessor =
@@ -214,7 +235,16 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
             }
             splitter.processStream(reader);
+        } finally {
+            if (countingInputStream != null) {
+                lastReadBytes = countingInputStream.getByteCount();
+            }
         }
+    }
+
+    @Override
+    public long getLastReadBytes() {
+        return lastReadBytes;
     }
 
     private void processLineData(
