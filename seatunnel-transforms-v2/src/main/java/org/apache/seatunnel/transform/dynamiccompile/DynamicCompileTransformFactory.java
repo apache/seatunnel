@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.transform.dynamiccompile;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -35,20 +37,46 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the compile language plus the source code or absolute path
+        // that matches the compile pattern.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(DynamicCompileTransformConfig.COMPILE_LANGUAGE)
+                        .optional(DynamicCompileTransformConfig.COMPILE_PATTERN)
+                        .conditional(
+                                DynamicCompileTransformConfig.COMPILE_PATTERN,
+                                CompilePattern.SOURCE_CODE,
+                                DynamicCompileTransformConfig.SOURCE_CODE)
+                        .conditional(
+                                DynamicCompileTransformConfig.COMPILE_PATTERN,
+                                CompilePattern.SOURCE_CODE,
+                                Conditions.notBlank(DynamicCompileTransformConfig.SOURCE_CODE))
+                        .conditional(
+                                DynamicCompileTransformConfig.COMPILE_PATTERN,
+                                CompilePattern.ABSOLUTE_PATH,
+                                DynamicCompileTransformConfig.ABSOLUTE_PATH)
+                        .conditional(
+                                DynamicCompileTransformConfig.COMPILE_PATTERN,
+                                CompilePattern.ABSOLUTE_PATH,
+                                Conditions.notBlank(DynamicCompileTransformConfig.ABSOLUTE_PATH))
+                        .build();
         return OptionRule.builder()
                 .optional(
                         DynamicCompileTransformConfig.COMPILE_LANGUAGE,
-                        DynamicCompileTransformConfig.COMPILE_PATTERN)
-                .conditional(
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
-                        CompilePattern.SOURCE_CODE,
-                        DynamicCompileTransformConfig.SOURCE_CODE)
-                .conditional(
-                        DynamicCompileTransformConfig.COMPILE_PATTERN,
-                        CompilePattern.ABSOLUTE_PATH,
+                        DynamicCompileTransformConfig.SOURCE_CODE,
                         DynamicCompileTransformConfig.ABSOLUTE_PATH)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

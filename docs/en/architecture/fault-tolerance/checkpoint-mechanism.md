@@ -44,82 +44,29 @@ Result: Globally consistent snapshot without pausing entire system.
 
 ### 2.1 Checkpoint Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      JobMaster (per job)                         │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         CheckpointCoordinator (per pipeline)           │     │
-│   │                                                         │     │
-│   │  • Trigger checkpoint (periodic/manual)                │     │
-│   │  • Generate checkpoint ID                              │     │
-│   │  • Track pending checkpoints                           │     │
-│   │  • Collect task acknowledgements                       │     │
-│   │  • Persist completed checkpoints                       │     │
-│   │  • Cleanup old checkpoints                             │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                            │                                      │
-│                            │ (Trigger Barrier)                    │
-│                            ▼                                      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (CheckpointBarrier)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Worker Nodes                             │
-│                                                                   │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ SourceTask 1 │      │ SourceTask 2 │      │ SourceTask N │ │
-│   │              │      │              │      │              │ │
-│   │ 1. Receive   │      │ 1. Receive   │      │ 1. Receive   │ │
-│   │    Barrier   │      │    Barrier   │      │    Barrier   │ │
-│   │ 2. Snapshot  │      │ 2. Snapshot  │      │ 2. Snapshot  │ │
-│   │    State     │      │    State     │      │    State     │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          │ (Barrier Propagation)                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ Transform 1  │      │ Transform 2  │      │ Transform N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. Receive   │      │ 1. Receive   │      │ 1. Receive   │ │
-│   │    Barrier   │      │    Barrier   │      │    Barrier   │ │
-│   │ 2. Snapshot  │      │ 2. Snapshot  │      │ 2. Snapshot  │ │
-│   │    State     │      │    State     │      │    State     │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   │ 4. Forward   │      │ 4. Forward   │      │ 4. Forward   │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │  SinkTask 1  │      │  SinkTask 2  │      │  SinkTask N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. Receive   │      │ 1. Receive   │      │ 1. Receive   │ │
-│   │    Barrier   │      │    Barrier   │      │    Barrier   │ │
-│   │ 2. Prepare   │      │ 2. Prepare   │      │ 2. Prepare   │ │
-│   │    Commit    │      │    Commit    │      │    Commit    │ │
-│   │ 3. Snapshot  │      │ 3. Snapshot  │      │ 3. Snapshot  │ │
-│   │    State     │      │    State     │      │    State     │ │
-│   │ 4. ACK       │      │ 4. ACK       │      │ 4. ACK       │ │
-│   └──────────────┘      └──────────────┘      └──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (All ACKs received)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    CheckpointStorage                             │
-│                  (HDFS / S3 / Local / OSS)                       │
-│                                                                   │
-│   CompletedCheckpoint {                                          │
-│     checkpointId: 123                                            │
-│     taskStates: {                                                │
-│       SourceTask-1: { splits: [...], offsets: [...] }           │
-│       SinkTask-1: { commitInfo: XidInfo(...) }                  │
-│       ...                                                        │
-│     }                                                            │
-│   }                                                              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    jobMaster["JobMaster<br/>One per job"]
+    coordinator["CheckpointCoordinator<br/>Trigger checkpoints<br/>Generate checkpoint IDs<br/>Track pending checkpoints<br/>Collect acknowledgements<br/>Persist completed checkpoints"]
+    source["Source tasks<br/>Receive barrier<br/>Snapshot state<br/>ACK"]
+    transform["Transform tasks<br/>Receive barrier<br/>Snapshot state<br/>Forward barrier<br/>ACK"]
+    sink["Sink tasks<br/>Receive barrier<br/>Prepare commit<br/>Snapshot state<br/>ACK"]
+    storage["CheckpointStorage<br/>HDFS / S3 / Local / OSS<br/>CompletedCheckpoint with task states"]
+
+    jobMaster --> coordinator
+    coordinator -- "Trigger barrier" --> source
+    source -- "Barrier propagation" --> transform
+    transform -- "Barrier propagation" --> sink
+    sink -- "All ACKs received" --> storage
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class jobMaster,coordinator layerBlue;
+    class source,transform,sink layerCyan;
+    class storage layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 Key Data Structures
@@ -331,15 +278,10 @@ sequenceDiagram
 3. **Sink Tasks**: End of pipeline, receive from upstream, snapshot, no forward
 
 **Barrier Alignment** (for tasks with multiple inputs):
-```java
-// Task with 2 inputs
-Input 1: ──data──data──[barrier-123]──data──data──
-                         │ Wait!
-Input 2: ──data──data──data──data──[barrier-123]──
-                                     │
-                                     ▼
-                        Both barriers received, snapshot state
-```
+| Input | Arrival pattern | Alignment behavior |
+|-------|-----------------|--------------------|
+| `Input 1` | `barrier-123` arrives first | This input waits at the alignment point |
+| `Input 2` | `barrier-123` arrives later | Once the same barrier arrives here, the task snapshots state and resumes downstream emission |
 
 ### 3.3 State Snapshot
 
@@ -570,6 +512,31 @@ env {
 ```
 
 Checkpoint storage is configured on the engine side (e.g., `config/seatunnel.yaml` under `seatunnel.engine.checkpoint.storage`), rather than as job-level `env` options.
+
+The size of the checkpoint history the monitor retains is also engine-side:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      monitor-history-size: 32   # default
+```
+
+This is how many checkpoint history entries are kept per pipeline for the
+`/jobs/checkpoints/{jobId}` REST endpoint; completed and failed checkpoints
+share the window. Valid values are 1 to 4096.
+
+It bounds how far back a client can compare a job against its own past, which
+matters for spotting a gradual slowdown. Note that it is a count, not a
+duration: how much time it covers depends on each job's own
+`checkpoint.interval`, while the option itself is cluster-wide. At the default
+interval of 300000ms, 32 entries cover roughly 2.5 hours; on a job
+checkpointing every 10000ms they cover only about 5 minutes.
+
+The history is stored in the cluster-wide checkpoint overview map, and every
+checkpoint event rewrites that whole entry, so a larger window costs master
+CPU, network and backup traffic as well as heap — not heap alone. The value is
+read once at master startup, so changing it requires a restart.
 
 ### 5.2 Tuning Guidelines
 

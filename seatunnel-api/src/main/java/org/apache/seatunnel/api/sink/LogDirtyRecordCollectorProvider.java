@@ -21,7 +21,12 @@ import org.apache.seatunnel.api.table.factory.Factory;
 
 import com.google.auto.service.AutoService;
 
-/** Built-in provider for the "log" type dirty record collector. */
+/**
+ * Provides the built-in log collector for explicit dirty-record handling.
+ *
+ * <p>Each factory call creates an independent collector with its own configuration and default
+ * local counter; the provider does not share record counts across writers.
+ */
 @AutoService(Factory.class)
 public class LogDirtyRecordCollectorProvider implements DirtyRecordCollectorProvider {
 

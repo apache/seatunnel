@@ -19,24 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.common.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.io.IOException;
 import java.util.Optional;
 
-@Slf4j
 public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
-
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
-    }
-
-    @Override
-    public abstract void write(T element) throws IOException;
 
     @Override
     public Optional<Void> prepareCommit() {

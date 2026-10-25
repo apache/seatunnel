@@ -22,66 +22,105 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Locale;
 
 /**
- * Factory for creating user-defined dirty data validators.
- *
- * <p>First tries direct class loading, then falls back to SPI discovery via {@link
- * FactoryUtil#discoverFactories}.
+ * Resolves validators using the current invocation's context loader. Only a missing class permits
+ * SPI lookup; a present but broken implementation must never fall through to another policy.
  */
-@Slf4j
 public class DirtyDataValidatorFactory {
 
+    /**
+     * Initializes exactly one explicitly named validator and releases it if initialization fails.
+     * Direct class names retain Java case sensitivity; SPI identifiers use locale-independent case.
+     */
     public static DirtyDataValidator createValidator(
             String validatorName, Config config, CatalogTable catalogTable) {
-        DirtyDataValidator validator = tryDirectInstantiation(validatorName, config, catalogTable);
-        if (validator != null) {
-            return validator;
+        if (validatorName == null || validatorName.trim().isEmpty()) {
+            throw new IllegalArgumentException("dirty.validator type must not be blank.");
         }
-
-        try {
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            List<DirtyDataValidator> validators =
-                    FactoryUtil.discoverFactories(classLoader, DirtyDataValidator.class);
-
-            for (DirtyDataValidator v : validators) {
-                if (v.factoryIdentifier().equalsIgnoreCase(validatorName)
-                        || v.getClass().getSimpleName().equals(validatorName)
-                        || v.getClass().getName().equals(validatorName)) {
-                    v.init(config, catalogTable);
-                    log.info("Created dirty data validator via SPI: {}", v.getClass().getName());
-                    return v;
+        validatorName = validatorName.trim();
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = DirtyDataValidatorFactory.class.getClassLoader();
+        }
+        DirtyDataValidator validator = directValidator(validatorName, classLoader);
+        if (validator == null && !validatorName.contains(".")) {
+            validator =
+                    directValidator("org.apache.seatunnel.api.sink." + validatorName, classLoader);
+        }
+        if (validator == null) {
+            String identifier = validatorName.toLowerCase(Locale.ROOT);
+            for (DirtyDataValidator candidate :
+                    FactoryUtil.discoverFactories(classLoader, DirtyDataValidator.class)) {
+                String factoryIdentifier = candidate.factoryIdentifier();
+                if ((factoryIdentifier != null
+                                && identifier.equals(
+                                        factoryIdentifier.trim().toLowerCase(Locale.ROOT)))
+                        || candidate.getClass().getSimpleName().equals(validatorName)
+                        || candidate.getClass().getName().equals(validatorName)) {
+                    if (validator != null) {
+                        throw new IllegalArgumentException(
+                                "Multiple dirty.validator providers for type '"
+                                        + validatorName
+                                        + "'.");
+                    }
+                    validator = candidate;
                 }
             }
-        } catch (Exception e) {
-            log.warn("SPI discovery failed for dirty data validator: {}", validatorName, e);
         }
-
-        log.error("Could not create dirty data validator: {}", validatorName);
-        return null;
+        if (validator == null) {
+            throw new IllegalArgumentException(
+                    "Could not resolve dirty.validator type '" + validatorName + "'.");
+        }
+        try {
+            validator.init(config, catalogTable);
+            return validator;
+        } catch (Throwable failure) {
+            try {
+                validator.close();
+            } catch (Throwable closeFailure) {
+                if (closeFailure != failure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            if (failure instanceof Error) {
+                throw (Error) failure;
+            }
+            throw new IllegalArgumentException(
+                    "Failed to initialize dirty.validator of type '" + validatorName + "'",
+                    failure);
+        }
     }
 
-    private static DirtyDataValidator tryDirectInstantiation(
-            String validatorName, Config config, CatalogTable catalogTable) {
-        String[] candidates = {
-            validatorName, "org.apache.seatunnel.api.sink." + validatorName,
-        };
-        for (String className : candidates) {
-            try {
-                Class<?> clazz = Class.forName(className);
-                if (DirtyDataValidator.class.isAssignableFrom(clazz)) {
-                    DirtyDataValidator validator =
-                            (DirtyDataValidator) clazz.getDeclaredConstructor().newInstance();
-                    validator.init(config, catalogTable);
-                    log.info("Created dirty data validator: {}", className);
-                    return validator;
-                }
-            } catch (Exception ignored) {
-            }
+    /**
+     * Distinguishes an absent class from a broken class without initializing unrelated classes.
+     * Constructor and linkage failures remain visible instead of switching to SPI implementations.
+     */
+    private static DirtyDataValidator directValidator(String className, ClassLoader classLoader) {
+        Class<?> type;
+        try {
+            type = Class.forName(className, false, classLoader);
+        } catch (ClassNotFoundException absent) {
+            return null;
         }
-        return null;
+        if (!DirtyDataValidator.class.isAssignableFrom(type)) {
+            throw new IllegalArgumentException(
+                    "dirty.validator class '"
+                            + className
+                            + "' does not implement DirtyDataValidator.");
+        }
+        try {
+            return (DirtyDataValidator) type.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException failure) {
+            Throwable cause =
+                    failure instanceof InvocationTargetException ? failure.getCause() : failure;
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new IllegalArgumentException(
+                    "Could not construct dirty.validator class '" + className + "'.", cause);
+        }
     }
 }

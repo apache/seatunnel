@@ -31,6 +31,7 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final int numberOfParallelSubtasks;
     private final EventListener eventListener;
     private final DirtyRecordCollector dirtyRecordCollector;
+    private transient volatile boolean deferredTerminalWriteOutcomesEnabled;
 
     public DefaultSinkWriterContext(int subtask, int parallelism) {
         this(subtask, parallelism, new DefaultEventProcessor(), NoOpDirtyRecordCollector.INSTANCE);
@@ -98,5 +99,15 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
     @Override
     public DirtyRecordCollector getDirtyRecordCollector() {
         return dirtyRecordCollector;
+    }
+
+    @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        this.deferredTerminalWriteOutcomesEnabled = true;
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return deferredTerminalWriteOutcomesEnabled;
     }
 }

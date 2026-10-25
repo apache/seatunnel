@@ -40,19 +40,31 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
-import urllib.error
 from pathlib import Path
+
+from . import rest
 
 logger = logging.getLogger(__name__)
 
 # ─── Runtime API client ───
 
-# Default REST API base — SeaTunnel engine HTTP port.
-# In cluster mode (seatunnel-server.sh): REST API on port 5801 by default.
+# Default REST API base — the engine's Jetty HTTP port, 8080.
+#
+# Not 5801. Every endpoint this CLI calls (/running-jobs, /option-rules,
+# /submit-job, /job-info) is registered as a Jetty servlet in JettyService and
+# served on `seatunnel.engine.http.port`, which is 8080 both as the code
+# default and in the packaged config/seatunnel.yaml. Port 5801 is the
+# Hazelcast member port: there the same handlers answer only under
+# RestConstant.CONTEXT_PATH ("/hazelcast/rest/maps") and only when Hazelcast's
+# own REST API is enabled, which the packaged config does not do. A base URL
+# of localhost:5801 therefore returns 404 for every call the CLI makes.
+#
 # In local mode (-m local): REST API is NOT available.
-# Users can override with SEATUNNEL_API_BASE env var.
-_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:5801")
+# Users can override with SEATUNNEL_API_BASE env var — needed when
+# enable-dynamic-port moves the listener off 8080, when a non-empty
+# seatunnel.engine.http.context-path mounts every servlet under a prefix
+# (the code default is empty), or for a remote cluster.
+_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:8080")
 _API_CACHE: dict[str, dict] = {}  # memory cache: "source:Jdbc" → parsed response
 _ENGINE_AVAILABLE: bool | None = None  # None = not checked yet
 _ENGINE_CHECK_TS: float = 0  # timestamp of last check — recheck after 60s
@@ -72,12 +84,7 @@ def _check_engine() -> bool:
     now = time.monotonic()
     if _ENGINE_AVAILABLE is not None and (now - _ENGINE_CHECK_TS) < 60:
         return _ENGINE_AVAILABLE
-    try:
-        req = urllib.request.Request(f"{_ENGINE_API_BASE}/running-jobs", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            _ENGINE_AVAILABLE = resp.status == 200
-    except Exception:
-        _ENGINE_AVAILABLE = False
+    _ENGINE_AVAILABLE = rest.is_reachable(f"{_ENGINE_API_BASE}/running-jobs", timeout=2)
     _ENGINE_CHECK_TS = now
     return _ENGINE_AVAILABLE
 
@@ -127,13 +134,10 @@ def _fetch_option_rules(plugin_type: str, plugin_name: str) -> dict | None:
     if _check_engine():
         try:
             url = f"{_ENGINE_API_BASE}/option-rules?type={plugin_type}&plugin={plugin_name}"
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    _API_CACHE[cache_key] = data
-                    _write_disk_cache(cache_key, data)
-                    return data
+            data = rest.request_json(url, timeout=5)
+            _API_CACHE[cache_key] = data
+            _write_disk_cache(cache_key, data)
+            return data
         except Exception as e:
             logger.debug(f"option-rules API call failed for {cache_key}: {e}")
 
@@ -180,6 +184,11 @@ def _api_response_to_detail(resp: dict) -> dict:
                 "then_options": nested_opts,
             })
 
+    value_constraints = [
+        _value_constraint_to_dict(constraint)
+        for constraint in rule.get("valueConstraints", [])
+    ]
+
     return {
         "name": resp.get("pluginName", ""),
         "types": [resp.get("pluginType", "unknown")],
@@ -187,6 +196,7 @@ def _api_response_to_detail(resp: dict) -> dict:
         "optional": optional,
         "exclusive": [],
         "conditional": conditional,
+        "value_constraints": value_constraints,
         "examples": [],
         "source": "runtime_api",
     }
@@ -240,6 +250,43 @@ def _api_opt_to_dict(opt: dict, rule_type: str = "") -> dict:
     if fallbacks:
         result["fallback_keys"] = fallbacks
     return result
+
+
+def _value_constraint_to_dict(constraint: dict) -> dict:
+    """Convert one value constraint to a compact prompt-friendly form."""
+    result = {"expression": constraint.get("expression", "")}
+    tree = constraint.get("conditionTree") or {}
+    if not isinstance(tree, dict):
+        return result
+
+    option = tree.get("option") or {}
+    key = tree.get("key") or option.get("key")
+    if key:
+        result["key"] = key
+
+    expect_value = tree.get("expectValue")
+    if expect_value is not None:
+        result["expect"] = _constraint_value_to_text(expect_value)
+
+    operator = tree.get("compareOperator")
+    if operator:
+        result["operator"] = str(operator)
+
+    condition_operator = tree.get("conditionOperator")
+    if condition_operator:
+        result["condition_operator"] = str(condition_operator)
+
+    return result
+
+
+def _constraint_value_to_text(value) -> str:
+    """Return a stable, prompt-friendly string for a constraint expected value."""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        return str(value)
 
 
 # ─── Runtime JSON metadata (from Java exporter) ───
@@ -371,6 +418,11 @@ def _runtime_metadata_to_detail(entry: dict) -> dict:
                         "then_options": [_runtime_opt_to_dict(opt)],
                     })
 
+    value_constraints = [
+        _value_constraint_to_dict(constraint)
+        for constraint in entry.get("valueConstraints", [])
+    ]
+
     detail = {
         "name": entry.get("name", ""),
         "types": [entry.get("type", "unknown")],
@@ -378,6 +430,7 @@ def _runtime_metadata_to_detail(entry: dict) -> dict:
         "optional": optional,
         "exclusive": [],
         "conditional": conditional,
+        "value_constraints": value_constraints,
         "examples": [],
         "source": "runtime_json",
     }
@@ -585,6 +638,11 @@ def format_metadata_for_prompt(metadata: dict, plugin_name: str, plugin_type: st
             opt_list = ", ".join(f"`{o['key']}`" for o in unique_opts)
             lines.append(f"  - When {cond_label} → {opt_list}")
 
+    if metadata.get("value_constraints"):
+        lines.append("**Value Constraints (must satisfy):**")
+        for constraint in metadata["value_constraints"]:
+            lines.append(_format_value_constraint(constraint, prefix="  - "))
+
     # 3. Optional: show important ones with type, rest as key list
     important_keys = {"username", "password", "query", "table_path", "table_list",
                       "user", "bucket", "path", "topic", "database", "table",
@@ -607,6 +665,29 @@ def format_metadata_for_prompt(metadata: dict, plugin_name: str, plugin_type: st
         lines.append(f"**Other Optional ({len(other_opt_keys)}):** {', '.join(f'`{k}`' for k in other_opt_keys)}")
 
     return "\n".join(lines)
+
+
+def _format_value_constraint(constraint: dict, prefix: str = "- ") -> str:
+    """Format one value constraint without attempting to evaluate it locally."""
+    key = constraint.get("key")
+    operator = constraint.get("operator")
+    expect = constraint.get("expect")
+    expression = constraint.get("expression", "")
+
+    if key and operator and expect and str(operator).lower() == "extension":
+        line = f"{prefix}`{key}` {expect}"
+    elif key and operator and expect:
+        line = f"{prefix}`{key}` {operator} {expect}"
+    elif key and expect:
+        line = f"{prefix}`{key}` {expect}"
+    elif expression:
+        line = f"{prefix}{expression}"
+    else:
+        line = f"{prefix}<unspecified constraint>"
+
+    if expression and expression not in line.replace("`", ""):
+        line += f" ({expression})"
+    return line
 
 
 def _format_opt_detail(opt: dict) -> str:
@@ -904,7 +985,10 @@ def get_connector_catalog() -> str:
 
     count = sum(len(types) for types in connectors.values())
     lines = [f"## Available Connectors ({len(connectors)} connectors, {count} endpoints) [engine: {engine_status}]\n"]
-    lines.append("Use `get_connector_info` tool with `connector_type` ('source' or 'sink') to get type-specific details.")
+    lines.append(
+        "Use `get_connector_info` tool with `connector_type` "
+        "('source', 'sink', or 'transform') to get type-specific details."
+    )
     if engine_status == "connected":
         lines.append("(Details fetched live from running engine — always up-to-date)\n")
     elif runtime_meta:
@@ -940,8 +1024,8 @@ def get_connector_detail(name: str, connector_type: str | None = None) -> str | 
 
     Args:
         name: Connector name (e.g., 'Jdbc', 'Kafka', 'S3File').
-        connector_type: 'source' or 'sink' for type-specific options.
-                        None returns both types with separate sections.
+        connector_type: 'source', 'sink', or 'transform' for type-specific options.
+                        None returns all available types with separate sections.
 
     Resolution order:
       1. Runtime API (live /option-rules endpoint — always accurate)
@@ -952,7 +1036,7 @@ def get_connector_detail(name: str, connector_type: str | None = None) -> str | 
     Returns a formatted string with all options, defaults, conditions, and examples.
     """
     # ── 1. Try runtime API ──
-    query_types = [connector_type] if connector_type else ["source", "sink"]
+    query_types = [connector_type] if connector_type else ["source", "sink", "transform"]
     api_details: dict[str, dict] = {}
     for ptype in query_types:
         api_resp = _fetch_option_rules(ptype, name)
@@ -1044,6 +1128,11 @@ def _format_connector_detail_typed(
                 deps = ", ".join(cond["then_require"])
                 lines.append(f"- When `{cond['when']}` = `{cond['equals']}` → also require: {deps}")
 
+        if detail.get("value_constraints"):
+            lines.append(f"\n## {type_label} — Value Constraints")
+            for constraint in detail["value_constraints"]:
+                lines.append(_format_value_constraint(constraint))
+
         if len(show_types) > 1:
             lines.append("")  # separator between types
 
@@ -1126,6 +1215,7 @@ def list_connector_names() -> dict:
     runtime_meta = _load_runtime_metadata()
     sources = set()
     sinks = set()
+    transforms = set(TRANSFORMS.keys())
     if runtime_meta:
         for key in runtime_meta:
             parts = key.split(":", 1)
@@ -1135,8 +1225,9 @@ def list_connector_names() -> dict:
                     sources.add(name)
                 elif ctype == "sink":
                     sinks.add(name)
-    transforms = list(TRANSFORMS.keys())
-    return {"sources": sorted(sources), "sinks": sorted(sinks), "transforms": transforms}
+                elif ctype == "transform":
+                    transforms.add(name)
+    return {"sources": sorted(sources), "sinks": sorted(sinks), "transforms": sorted(transforms)}
 
 
 def validate_connector_options(

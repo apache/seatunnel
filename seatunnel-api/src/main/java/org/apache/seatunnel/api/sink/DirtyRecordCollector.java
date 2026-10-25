@@ -58,6 +58,13 @@ public interface DirtyRecordCollector extends Serializable {
         collect(subTaskIndex, dirtyRecord, exception, "", null);
     }
 
+    /**
+     * Initializes serializable policy configuration during job planning.
+     *
+     * <p>No worker-side initialization callback is invoked after policy serialization. Live
+     * transient resources needed by a worker must be created lazily on that worker rather than
+     * retained from planning; close must release resources owned by this policy instance.
+     */
     default void init(Config config) throws Exception {}
 
     default void init(Config config, CatalogTable catalogTable) throws Exception {

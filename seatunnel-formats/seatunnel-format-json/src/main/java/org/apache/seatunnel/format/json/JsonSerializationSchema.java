@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -31,6 +32,7 @@ import lombok.Getter;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -67,6 +69,32 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.charset = StandardCharsets.UTF_8;
     }
 
+    public JsonSerializationSchema(SeaTunnelRowType rowType, boolean serializeTimestampTzAsLocal) {
+        this(rowType, serializeTimestampTzAsLocal, null);
+    }
+
+    /**
+     * Construct a {@link JsonSerializationSchema} with an explicit target zone for wall-clock
+     * {@code TIMESTAMP_TZ} serialization. Use this overload when the caller knows the target
+     * session zone (for example the Doris sink session timezone) so the JVM default is not silently
+     * relied on.
+     *
+     * @param rowType the row type to serialize
+     * @param serializeTimestampTzAsLocal whether to drop the offset on {@code TIMESTAMP_TZ}
+     * @param timestampTzZoneId the target zone to convert {@code TIMESTAMP_TZ} values to before
+     *     dropping the offset; if {@code null}, {@link ZoneId#systemDefault()} is used.
+     */
+    public JsonSerializationSchema(
+            SeaTunnelRowType rowType,
+            boolean serializeTimestampTzAsLocal,
+            ZoneId timestampTzZoneId) {
+        this.rowType = rowType;
+        this.runtimeConverter =
+                new RowToJsonConverters(serializeTimestampTzAsLocal, timestampTzZoneId)
+                        .createConverter(checkNotNull(rowType));
+        this.charset = StandardCharsets.UTF_8;
+    }
+
     {
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
@@ -79,9 +107,25 @@ public class JsonSerializationSchema implements SerializationSchema {
 
         try {
             runtimeConverter.convert(mapper, node, row);
+            // Avoid intermediate String allocation for the common UTF-8 path.
+            if (StandardCharsets.UTF_8.equals(charset)) {
+                return mapper.writeValueAsBytes(node);
+            }
             return mapper.writeValueAsString(node).getBytes(charset);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
+        }
+    }
+
+    public JsonNode convert(SeaTunnelRow row) {
+        if (node == null) {
+            node = mapper.createObjectNode();
+        }
+
+        try {
+            return runtimeConverter.convert(mapper, node, row);
+        } catch (Exception e) {
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), e);
         }
     }
 }

@@ -24,9 +24,11 @@ import org.apache.seatunnel.engine.server.operation.GetCheckpointOverviewOperati
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobCheckpointOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobDiagnosticsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobTaskMappingOperation;
 import org.apache.seatunnel.engine.server.operation.GetNodeHttpPortOperation;
 import org.apache.seatunnel.engine.server.operation.GetRunningJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -74,6 +76,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     public static final int GET_CHECKPOINT_OVERVIEW_OPERATION = 13;
     public static final int GET_CHECKPOINT_HISTORY_OPERATION = 14;
     public static final int GET_NODE_HTTP_PORT_OPERATION = 15;
+    public static final int GET_JOB_TASK_MAPPING_OPERATION = 16;
+    public static final int GET_JOB_DIAGNOSTICS_OPERATION = 17;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -85,6 +89,11 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
         return FACTORY_ID;
     }
 
+    /**
+     * Registers all client-triggered operations.
+     *
+     * <p>Keep existing type ids stable for backward compatibility and only append new ones.
+     */
     @Override
     public DataSerializableFactory createFactory() {
         return new Factory();
@@ -126,6 +135,10 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new GetCheckpointHistoryOperation();
                 case GET_NODE_HTTP_PORT_OPERATION:
                     return new GetNodeHttpPortOperation();
+                case GET_JOB_TASK_MAPPING_OPERATION:
+                    return new GetJobTaskMappingOperation();
+                case GET_JOB_DIAGNOSTICS_OPERATION:
+                    return new GetJobDiagnosticsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

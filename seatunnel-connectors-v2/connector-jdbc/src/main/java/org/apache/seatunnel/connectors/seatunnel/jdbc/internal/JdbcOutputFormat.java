@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -29,7 +30,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -45,20 +55,33 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
+    private final boolean commitOnFlush;
 
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
+    private transient volatile boolean flushFailed = false;
+    private transient volatile boolean commitFailed = false;
     private transient volatile Exception flushException;
     private transient long lastFlushTimeMs;
+    private transient boolean failFastOnRowLevelSqlState;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
             StatementExecutorFactory<E> statementExecutorFactory) {
+        this(connectionProvider, jdbcConnectionConfig, statementExecutorFactory, false);
+    }
+
+    public JdbcOutputFormat(
+            JdbcConnectionProvider connectionProvider,
+            JdbcConnectionConfig jdbcConnectionConfig,
+            StatementExecutorFactory<E> statementExecutorFactory,
+            boolean commitOnFlush) {
         this.connectionProvider = checkNotNull(connectionProvider);
         this.jdbcConnectionConfig = checkNotNull(jdbcConnectionConfig);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
+        this.commitOnFlush = commitOnFlush;
     }
 
     /** Connects to the target database and initializes the prepared statement. */
@@ -98,13 +121,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public final synchronized void writeRecord(I record) {
+        writeRecordWithAutoFlush(record);
+    }
+
+    public final synchronized boolean writeRecordWithAutoFlush(I record) {
         checkFlushException();
         try {
             addToBatch(record);
             batchCount++;
             if (batchCount > 0 && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
                 flush();
+                return true;
             }
+            return false;
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
@@ -117,7 +146,50 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         jdbcStatementExecutor.addToBatch(record);
     }
 
+    /**
+     * Clears pending batched statements without executing them. Used for row-level error handling
+     * to discard failed batches.
+     */
+    public synchronized void clearBatchSilently() {
+        try {
+            jdbcStatementExecutor.clearBatch();
+            batchCount = 0;
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Failed to clear JDBC batch after row-level error.",
+                    e);
+        }
+    }
+
+    /**
+     * Clears the failure latch only after a failed row batch has been discarded and rolled back.
+     */
+    public synchronized void resetAfterRowError() {
+        if (failFastOnRowLevelSqlState && batchCount == 0 && !commitFailed) {
+            flushFailed = false;
+            flushException = null;
+        }
+    }
+
+    public boolean hasCommitFailed() {
+        return commitFailed;
+    }
+
+    public synchronized void setFailFastOnRowLevelSqlState(boolean failFastOnRowLevelSqlState) {
+        this.failFastOnRowLevelSqlState = failFastOnRowLevelSqlState;
+    }
+
     public synchronized void flush() throws IOException {
+        if (flushException != null) {
+            LOG.warn(
+                    String.format(
+                            "An exception occurred during the previous flush process %s, skipping"
+                                    + " this flush",
+                            ExceptionUtils.getMessage(flushException)));
+            return;
+        }
+
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -127,17 +199,55 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
                 attemptFlush();
+                commitAfterFlushIfNeeded();
                 batchCount = 0;
+                flushFailed = false;
+                flushException = null;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
             } catch (SQLException e) {
+                recordFlushException(e);
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+                // Row-error mode delegates failed data batches to the writer for rollback.
+                if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                }
+
+                List<SQLException> sqlExceptions = findSqlExceptions(e);
+                SQLException nonRetryableDataException =
+                        findNonRetryableDataException(sqlExceptions);
+                if (nonRetryableDataException != null) {
+                    boolean connectionValid;
+                    try {
+                        connectionValid = connectionProvider.isConnectionValid();
+                    } catch (SQLException exception) {
+                        LOG.error("JDBC connection validity check failed.", exception);
+                        throw new JdbcConnectorException(
+                                JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                                "JDBC connection validity check failed",
+                                exception);
+                    }
+                    if (connectionValid) {
+                        LOG.error(
+                                "Flush failed by non-retryable data error. batchCount={}, retry"
+                                        + " times = {}, sqlState={}, errorCode={}",
+                                batchCount,
+                                i,
+                                nonRetryableDataException.getSQLState(),
+                                nonRetryableDataException.getErrorCode(),
+                                e);
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    }
+                }
+
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 try {
-                    if (!connectionProvider.isConnectionValid()) {
+                    if (shouldRefreshExecutor(findSqlExceptions(e))) {
                         updateExecutor(true);
                     }
                 } catch (Exception exception) {
@@ -150,7 +260,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             exception);
                 }
                 try {
-                    Thread.sleep(sleepMs * i);
+                    sleepBeforeFlushRetry((long) sleepMs * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
@@ -166,6 +276,49 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         jdbcStatementExecutor.executeBatch();
     }
 
+    /**
+     * Commits the transaction after a successful batch flush when the connection uses manual
+     * commit.
+     *
+     * <p>This is only enabled for the non-XA writer when checkpointing is disabled, so each
+     * batch-size / batch-interval triggered flush carries its own commit boundary instead of
+     * accumulating every flushed batch in one unbounded transaction until close. When checkpointing
+     * is enabled the commit boundary stays at prepareCommit, keeping the existing checkpoint
+     * semantics unchanged.
+     */
+    private void commitAfterFlushIfNeeded() throws SQLException {
+        if (!commitOnFlush) {
+            return;
+        }
+        Connection connection = connectionProvider.getConnection();
+        if (connection != null && !connection.getAutoCommit()) {
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                commitFailed = true;
+                recordFlushException(e);
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        "JDBC commit after flush failed. The batch commit result is unknown, so"
+                                + " the writer will not retry this batch silently.",
+                        e);
+            }
+        }
+    }
+
+    private boolean isRowLevelSqlState(SQLException sqlException) {
+        Set<SQLException> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        SQLException current = sqlException;
+        while (current != null && visited.add(current)) {
+            String sqlState = current.getSQLState();
+            if (sqlState != null && (sqlState.startsWith("22") || sqlState.startsWith("23"))) {
+                return true;
+            }
+            current = current.getNextException();
+        }
+        return false;
+    }
+
     /** Executes prepared statement and closes all resources of this instance. */
     public synchronized void close() {
         if (!closed) {
@@ -178,17 +331,22 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     private void flushBufferedRecords() {
-        if (batchCount > 0) {
+        if (batchCount > 0 && !flushFailed) {
             try {
                 flush();
             } catch (Exception e) {
                 LOG.warn("Writing records to JDBC failed.", e);
+                flushFailed = true;
                 flushException =
                         new JdbcConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Writing records to JDBC failed.",
                                 e);
             }
+        } else if (batchCount > 0) {
+            LOG.warn(
+                    "Skip flushing buffered JDBC records during close because the previous flush"
+                            + " failed.");
         }
     }
 
@@ -213,6 +371,77 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 && (System.currentTimeMillis() - lastFlushTimeMs) >= batchIntervalMs;
     }
 
+    private void recordFlushException(Exception e) {
+        flushFailed = true;
+        flushException =
+                e instanceof JdbcConnectorException
+                        ? e
+                        : new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Writing records to JDBC failed.",
+                                e);
+    }
+
+    protected void sleepBeforeFlushRetry(long sleepMs) throws InterruptedException {
+        Thread.sleep(sleepMs);
+    }
+
+    private List<SQLException> findSqlExceptions(Throwable throwable) {
+        List<SQLException> sqlExceptions = new ArrayList<>();
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException) {
+                collectSqlExceptionChain((SQLException) current, sqlExceptions);
+            }
+            current = current.getCause();
+        }
+        return sqlExceptions;
+    }
+
+    private void collectSqlExceptionChain(
+            SQLException sqlException, List<SQLException> sqlExceptions) {
+        SQLException current = sqlException;
+        while (current != null) {
+            sqlExceptions.add(current);
+            current = current.getNextException();
+        }
+    }
+
+    private SQLException findNonRetryableDataException(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            if (isNonRetryableDataException(sqlException)) {
+                return sqlException;
+            }
+        }
+        return null;
+    }
+
+    private boolean isNonRetryableDataException(SQLException sqlException) {
+        if (sqlException instanceof SQLDataException
+                || sqlException instanceof SQLIntegrityConstraintViolationException) {
+            return true;
+        }
+
+        String sqlState = sqlException.getSQLState();
+        if (sqlState != null && (sqlState.startsWith("22") || sqlState.startsWith("23"))) {
+            return true;
+        }
+
+        return isOracleDataException(sqlException);
+    }
+
+    private boolean isOracleDataException(SQLException sqlException) {
+        String message = sqlException.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.toUpperCase(Locale.ROOT);
+        int vendorCode = sqlException.getErrorCode();
+        return (vendorCode == 1 && normalizedMessage.contains("ORA-00001"))
+                || (vendorCode == 12899 && normalizedMessage.contains("ORA-12899"));
+    }
+
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
         try {
             jdbcStatementExecutor.closeStatements();
@@ -226,6 +455,52 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 reconnect
                         ? connectionProvider.reestablishConnection()
                         : connectionProvider.getConnection());
+    }
+
+    private boolean shouldRefreshExecutor(List<SQLException> sqlExceptions) throws SQLException {
+        // BatchUpdateException often stores the vendor SQLException in nextException.
+        return hasConnectionErrorSqlState(sqlExceptions)
+                || isStatementClosed(sqlExceptions)
+                || !connectionProvider.isConnectionValid();
+    }
+
+    private boolean hasConnectionErrorSqlState(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            String sqlState = sqlException.getSQLState();
+            if (sqlState != null && sqlState.startsWith("08")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isStatementClosed(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            if (isStatementClosed(sqlException)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isStatementClosed(SQLException sqlException) {
+        String exceptionClassName =
+                sqlException.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        if (exceptionClassName.contains("statementisclosedexception")) {
+            return true;
+        }
+
+        String message = sqlException.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        // SQL Server may report a closed statement handle without using "closed".
+        return normalizedMessage.contains("statement closed")
+                || normalizedMessage.contains("statement is closed")
+                || normalizedMessage.contains("statement handle is not executing")
+                || normalizedMessage.contains("statement handle is closed");
     }
 
     /**

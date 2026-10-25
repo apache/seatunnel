@@ -67,6 +67,14 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
             CatalogTable[] catalogTables,
             String jobId,
+            int parallelism) {
+        this(sink, catalogTables, jobId, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    SparkDataWriterFactory(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
+            CatalogTable[] catalogTables,
+            String jobId,
             int parallelism,
             DirtyRecordCollector dirtyRecordCollector) {
         this.sink = sink;
@@ -78,25 +86,12 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
                         ? dirtyRecordCollector
                         : NoOpDirtyRecordCollector.INSTANCE;
 
-        this.dirtyRecordAccumulator = createSparkAccumulator(jobId);
+        this.dirtyRecordAccumulator =
+                this.dirtyRecordCollector instanceof NoOpDirtyRecordCollector
+                        ? null
+                        : createSparkAccumulator(jobId);
         if (this.dirtyRecordAccumulator != null) {
             log.info("Created Spark LongAccumulator for distributed dirty record counting");
-        }
-    }
-
-    private LongAccumulator createSparkAccumulator(String jobId) {
-        try {
-            SparkSession session =
-                    SparkSession.getActiveSession().isDefined()
-                            ? SparkSession.getActiveSession().get()
-                            : null;
-            if (session != null) {
-                return session.sparkContext().longAccumulator("dirtyRecordCount_" + jobId);
-            }
-            return null;
-        } catch (Exception e) {
-            log.warn("Failed to create Spark accumulator for dirty record counting", e);
-            return null;
         }
     }
 
@@ -138,13 +133,14 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
         }
         if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
             writer =
-                    new DirtyDataAwareSinkWriter<>(
+                    DirtyDataAwareSinkWriter.wrap(
                             writer,
                             dirtyRecordCollector,
                             context.getIndexOfSubtask(),
                             catalogTables != null && catalogTables.length == 1
                                     ? catalogTables[0]
-                                    : null);
+                                    : null,
+                            context);
         }
         try {
             committer = sink.createCommitter().orElse(null);
@@ -153,5 +149,21 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
         }
         return new SparkDataWriter<>(
                 writer, committer, new MultiTableManager(catalogTables), epochId, context);
+    }
+
+    private LongAccumulator createSparkAccumulator(String jobId) {
+        try {
+            SparkSession session =
+                    SparkSession.getActiveSession().isDefined()
+                            ? SparkSession.getActiveSession().get()
+                            : null;
+            if (session != null) {
+                return session.sparkContext().longAccumulator("dirtyRecordCount_" + jobId);
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("Failed to create Spark accumulator for dirty record counting", e);
+            return null;
+        }
     }
 }

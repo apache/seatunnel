@@ -19,6 +19,12 @@ package org.apache.seatunnel.api.sink;
 
 import java.io.Serializable;
 
+/**
+ * Supplies serializable counter operations to a dirty-record collector.
+ *
+ * <p>The adapter controls counter scope; this contract does not promise a durable job-wide total or
+ * globally coordinated threshold enforcement.
+ */
 public interface DistributedCounter extends Serializable {
 
     void add(long delta);

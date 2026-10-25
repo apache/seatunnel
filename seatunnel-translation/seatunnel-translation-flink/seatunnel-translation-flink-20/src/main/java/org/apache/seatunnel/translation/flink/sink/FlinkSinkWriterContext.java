@@ -58,46 +58,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(initContext));
         this.dirtyRecordCollector = dirtyRecordCollector;
 
-        // initialize metrics context and set up distributed dirty record counter
-        initMetricsContext();
         setupDistributedDirtyRecordCounter();
-    }
-
-    private void initMetricsContext() {
-        RuntimeContext runtimeContext = getRuntimeContext();
-        if (runtimeContext != null) {
-            this.metricsContext = new FlinkMetricContext(runtimeContext);
-        }
-    }
-
-    private void setupDistributedDirtyRecordCounter() {
-        if (dirtyRecordCollector == null
-                || dirtyRecordCollector instanceof NoOpDirtyRecordCollector
-                || metricsContext == null) {
-            return;
-        }
-        try {
-            Counter dirtyCounter = metricsContext.counter(DIRTY_RECORD_COUNT_METRIC);
-            dirtyRecordCollector.setDistributedCounter(
-                    new DistributedCounter() {
-                        private static final long serialVersionUID = 1L;
-
-                        @Override
-                        public void add(long delta) {
-                            dirtyCounter.inc(delta);
-                        }
-
-                        @Override
-                        public long value() {
-                            return dirtyCounter.getCount();
-                        }
-                    });
-            log.info(
-                    "Set up Flink distributed counter for dirty record counting (subtask {})",
-                    initContext.getTaskInfo().getIndexOfThisSubtask());
-        } catch (Exception e) {
-            log.warn("Failed to set up Flink distributed counter for dirty record counting", e);
-        }
     }
 
     @Override
@@ -136,6 +97,13 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         }
     }
 
+    private void initMetricsContext() {
+        RuntimeContext runtimeContext = getRuntimeContext();
+        if (runtimeContext != null) {
+            this.metricsContext = new FlinkMetricContext(runtimeContext);
+        }
+    }
+
     private RuntimeContext tryGetFromInitContextBase(Object context) {
         try {
             Class<?> initContextBaseClass =
@@ -164,6 +132,35 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         } catch (Exception e) {
             log.warn("Get flink job id failed", e);
             return null;
+        }
+    }
+
+    private void setupDistributedDirtyRecordCounter() {
+        if (dirtyRecordCollector == null
+                || dirtyRecordCollector instanceof NoOpDirtyRecordCollector) {
+            return;
+        }
+        try {
+            Counter dirtyCounter = getMetricsContext().counter(DIRTY_RECORD_COUNT_METRIC);
+            dirtyRecordCollector.setDistributedCounter(
+                    new DistributedCounter() {
+                        private static final long serialVersionUID = 1L;
+
+                        @Override
+                        public void add(long delta) {
+                            dirtyCounter.inc(delta);
+                        }
+
+                        @Override
+                        public long value() {
+                            return dirtyCounter.getCount();
+                        }
+                    });
+            log.info(
+                    "Set up Flink distributed counter for dirty record counting (subtask {})",
+                    initContext.getTaskInfo().getIndexOfThisSubtask());
+        } catch (Exception e) {
+            log.warn("Failed to set up Flink distributed counter for dirty record counting", e);
         }
     }
 }

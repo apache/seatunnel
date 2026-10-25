@@ -19,11 +19,16 @@ package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
+
+import java.util.Objects;
+import java.util.Optional;
 
 public class SinkWriterContext implements SinkWriter.Context {
 
@@ -33,18 +38,16 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
     private final DirtyRecordCollector dirtyRecordCollector;
+    private final transient RowErrorCollector rowErrorCollector;
+    private transient volatile RunnableWithException flushAction;
+    private transient volatile boolean deferredTerminalWriteOutcomesEnabled;
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
             int indexOfSubtask,
             MetricsContext metricsContext,
             EventListener eventListener) {
-        this(
-                numberOfParallelSubtasks,
-                indexOfSubtask,
-                metricsContext,
-                eventListener,
-                NoOpDirtyRecordCollector.INSTANCE);
+        this(numberOfParallelSubtasks, indexOfSubtask, metricsContext, eventListener, null);
     }
 
     public SinkWriterContext(
@@ -52,6 +55,28 @@ public class SinkWriterContext implements SinkWriter.Context {
             int indexOfSubtask,
             MetricsContext metricsContext,
             EventListener eventListener,
+            RowErrorCollector rowErrorCollector) {
+        this(
+                numberOfParallelSubtasks,
+                indexOfSubtask,
+                metricsContext,
+                eventListener,
+                rowErrorCollector,
+                NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    /**
+     * Supplies independent asynchronous row-error and dirty-validation collectors.
+     *
+     * <p>The existing five-argument constructor retains its row-error meaning; optional dirty
+     * validation uses a separate sixth argument without changing deferred outcomes or flush hooks.
+     */
+    public SinkWriterContext(
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener,
+            RowErrorCollector rowErrorCollector,
             DirtyRecordCollector dirtyRecordCollector) {
         Preconditions.checkArgument(
                 numberOfParallelSubtasks >= 1, "Parallelism must be a positive number.");
@@ -61,6 +86,7 @@ public class SinkWriterContext implements SinkWriter.Context {
         this.indexOfSubtask = indexOfSubtask;
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
+        this.rowErrorCollector = rowErrorCollector;
         this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
@@ -86,5 +112,31 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public DirtyRecordCollector getDirtyRecordCollector() {
         return dirtyRecordCollector;
+    }
+
+    @Override
+    public Optional<RowErrorCollector> getRowErrorCollector() {
+        return Optional.ofNullable(rowErrorCollector);
+    }
+
+    @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        this.deferredTerminalWriteOutcomesEnabled = true;
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return deferredTerminalWriteOutcomesEnabled;
+    }
+
+    @Override
+    public void registerFlushAction(RunnableWithException action) {
+        Objects.requireNonNull(action, "flushAction");
+        this.flushAction = action;
+    }
+
+    @Override
+    public RunnableWithException getFlushAction() {
+        return flushAction;
     }
 }

@@ -39,11 +39,12 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public void init(Config config) {
-        if (config.hasPath("threshold")) {
-            this.threshold = config.getLong("threshold");
+        if (config.hasPath(LogDirtyRecordCollector.THRESHOLD.key())) {
+            this.threshold = config.getLong(LogDirtyRecordCollector.THRESHOLD.key());
         }
-        if (config.hasPath("fail_on_threshold")) {
-            this.failOnThreshold = config.getBoolean("fail_on_threshold");
+        if (config.hasPath(LogDirtyRecordCollector.FAIL_ON_THRESHOLD.key())) {
+            this.failOnThreshold =
+                    config.getBoolean(LogDirtyRecordCollector.FAIL_ON_THRESHOLD.key());
         }
         log.info(
                 "[CountingCollector] initialized, threshold={}, failOnThreshold={}",

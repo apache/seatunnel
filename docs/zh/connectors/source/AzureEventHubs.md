@@ -1,0 +1,153 @@
+import ChangeLog from '../changelog/connector-azure-event-hubs.md';
+
+# AzureEventHubs
+
+> Azure Event Hubs 源连接器
+
+## 描述
+
+通过 Azure 原生 AMQP 客户端从一个 Azure Event Hub 读取事件，并将事件体转换为 SeaTunnel 行。
+
+当作业需要 Event Hubs 分区发现和由 SeaTunnel 管理的序列号恢复时，使用此原生连接器。Azure Event Hubs 也提供 Kafka 兼容端点；如果现有部署已经统一使用 Kafka 协议配置和语义，可改用 SeaTunnel Kafka 连接器。
+
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## 主要特性
+
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+
+## 选项
+
+| 名称 | 类型 | 是否必填 | 默认值 |
+| --- | --- | --- | --- |
+| connection_string | string | 是 | - |
+| event_hub_name | string | 是 | - |
+| consumer_group | string | 否 | $Default |
+| start_mode | enum | 否 | earliest |
+| format | enum | 否 | json |
+| field_delimiter | string | 否 | , |
+| max_batch_size | int | 否 | 100 |
+| poll_timeout_ms | long | 否 | 1000 |
+| prefetch_count | int | 否 | 300 |
+| schema | config | 是 | - |
+| common-options | | 否 | - |
+
+### connection_string [string]
+
+Azure Event Hubs 命名空间连接字符串。必须单独配置 `event_hub_name`；包含 `EntityPath` 段的连接字符串会被拒绝，从而保证只有一种明确的 Event Hub 选择方式。该选项会在解析后的配置日志中遮蔽，但默认不参与配置加密或解密。若需启用配置加密，请将 `connection_string` 加入 `env.shade.options`，并使用配置的加密方式加密其值。
+
+首个版本仅支持命名空间连接字符串认证，暂不支持 Microsoft Entra ID、托管身份和自定义端点认证。
+
+请为源作业使用仅具有 `Listen` 权限的专用 SAS 策略，不要使用 `RootManageSharedAccessKey`。命名空间级策略可访问该命名空间内的资源，而 Event Hub 级策略仅允许访问对应的 Hub。参见 [Azure SAS 授权](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature)。
+
+包含 `EntityPath` 的 Hub 级连接字符串不能直接使用。请手动保留策略名称和密钥，移除 `EntityPath` 段，并将 `event_hub_name` 设置为同一个 Hub。连接器不会自动转换或规范化 `EntityPath`，即使它与 `event_hub_name` 相同也会拒绝。这只改变 Hub 名称的传入方式，不会扩大 SAS 策略的权限。模拟器测试不验证 Azure 服务端的 SAS 授权，因此使用 Hub 级策略前，应在目标 Azure 部署中验证。
+
+### event_hub_name [string]
+
+要消费的 Event Hub 名称。
+
+### consumer_group [string]
+
+源使用的消费者组。每个独立检查点作业应使用专用消费者组。
+
+### start_mode [enum]
+
+仅在作业没有恢复的源状态时使用的起始位置：
+
+- `earliest`：从每个分区当前的起始序列号开始。
+- `latest`：从每个分区最后入队序列号之后开始。
+
+枚举器会将此模式一次性解析为每个分区的具体序列号。恢复的作业始终使用 SeaTunnel 检查点中保存的序列号，不会再次计算 `start_mode`。
+
+### format [enum]
+
+事件体格式：
+
+- `json`：将事件体读取为 JSON 对象。
+- `text`：使用 `field_delimiter` 拆分事件体字段。
+
+### field_delimiter [string]
+
+`format = text` 时使用的字段分隔符。
+
+### max_batch_size [int]
+
+每次从一个分区轮询的最大事件数，必须大于零。
+
+### poll_timeout_ms [long]
+
+每次分区轮询等待事件的最长时间，取值范围为 1 到 5000 毫秒。有限超时可使源关闭和分片变更及时中断空闲轮询。
+
+### prefetch_count [int]
+
+Azure SDK 为分配给源读取器的每个分区预取的最大事件数。该值必须在 1 到 8000 之间且不小于 `max_batch_size`。创建源配置时会校验这些边界，早于连接 Azure。一个读取器可以负责多个分区，因此其客户端缓冲总量由该值乘以已分配的分区数进行限制。
+
+### schema [config]
+
+用于反序列化每个事件体的 schema。
+
+### 通用选项
+
+源插件通用参数请参考 [Source 通用选项](../common-options/source-common-options.md)。
+
+## 分区与恢复语义
+
+该源仅支持流处理。启动时，每个 Event Hubs 分区创建一个 SeaTunnel 源分片，并通过 SeaTunnel 常规的分片所有者计算进行分配。源并行度可并发处理不同分区；并行度高于分区数时，部分读取器会空闲。
+
+首个版本仅在初始枚举时发现分区。作业启动后新增的分区不会动态发现，恢复已有源状态时也不会发现。要发现新增分区，必须在不恢复源状态的情况下启动，这会对所有分区重新应用 `start_mode`，可能重放或跳过已有数据，因此需要提前规划重启方式。
+
+SeaTunnel 检查点状态是唯一的恢复依据。连接器不使用 Azure Blob Storage 检查点或 `EventProcessorClient`。分片检查点保存下一条待读取的序列号。已取入读取器队列但尚未发出的事件会在恢复后重放，已发出的事件会推进分片状态。启用检查点时提供至少一次投递语义。
+
+连接器可以在未启用检查点时运行，但任务或作业重启时会重新应用 `start_mode`，因为不存在恢复状态。启用检查点时，下游处理应能容忍重复。
+
+如果 Event Hubs 保留策略在恢复前删除了检查点对应的序列位置，源会失败，而不会静默重置为 `earliest` 或 `latest`。无效的 JSON 或文本负载也会使源任务失败；最后完成的检查点决定重放位置。
+
+从已被删除的检查点位置恢复时，请停止持续失败的作业，并启动一个不恢复旧源状态的新作业。请明确选择 `start_mode`：`earliest` 会重放所有仍保留的事件，包括已经处理过的事件；`latest` 会跳过现有积压数据。该选择适用于所有分区，而不仅是受影响的分区。已被保留策略删除的事件无法从 Event Hubs 恢复，必要时需从其他数据源补齐。使用同一检查点重启或仅修改 `start_mode` 不会重置保存的位置。
+
+反序列化和行发送错误会报告分区 ID、事件序列号、安全的失败类别（I/O 或运行时失败）以及长度受限的异常类名链，包括被包装的中断异常。诊断不会保留可能包含事件隐私数据的原始异常消息、原因或被抑制异常。失败事件不会推进检查点位置。当前版本不支持跳过格式错误的事件，也没有死信选项；从同一检查点恢复时可能再次遇到同一无效事件。
+
+## 重试与失败行为
+
+Azure SDK 会应用其内置的 AMQP 重试策略。故障持续时间超过重试预算时，源任务会失败。如果已配置检查点和作业恢复，SeaTunnel 会从最后完成的检查点继续读取每个分区。当前连接器版本不提供 Azure SDK 重试或退避配置。本地单元测试和模拟器覆盖尚未验证真实 Azure 服务的授权和故障恢复行为。
+
+## 作业示例
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  AzureEventHubs {
+    connection_string = "Endpoint=sb://my-namespace.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=..."
+    event_hub_name = "events"
+    consumer_group = "$Default"
+    start_mode = earliest
+    format = json
+    max_batch_size = 100
+    poll_timeout_ms = 1000
+    prefetch_count = 300
+    schema = {
+      fields {
+        event_id = string
+        event_type = string
+      }
+    }
+  }
+}
+```
+
+## 变更日志
+
+<ChangeLog />

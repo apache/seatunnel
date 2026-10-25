@@ -110,6 +110,13 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .enumType(HttpConfig.ResponseFormat.class)
                     .defaultValue(HttpConfig.ResponseFormat.TEXT)
                     .withDescription("Http response format");
+
+    public static final Option<Long> BINARY_CHUNK_SIZE =
+            Options.key("binary_chunk_size")
+                    .longType()
+                    .defaultValue(10 * 1024 * 1024L)
+                    .withDescription(
+                            "Chunk size in bytes for binary response mode. When the response body exceeds this size, it will be split into multiple rows. Only effective when format=binary. Default is 10MB.");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
                     .intType()

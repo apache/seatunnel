@@ -48,58 +48,47 @@ public class DirtyDataCustomExtensionIT extends TestSuiteBase {
     @TestTemplate
     public void testCustomCollectorViaSPI(TestContainer container)
             throws IOException, InterruptedException {
+        String previousServerLogs = container.getServerLogs();
         Container.ExecResult result =
                 container.executeJob("/fake_to_console_custom_collector.conf");
 
         String stdout = result.getStdout();
         String stderr = result.getStderr();
-        String serverLogs = container.getServerLogs();
-        String allLogs = stdout + "\n" + stderr + "\n" + serverLogs;
+        String allLogs =
+                DirtyDataCollectionIT.currentExecutionLogs(
+                        result, previousServerLogs, container.getServerLogs());
 
         log.info("Custom collector test exit code: {}", result.getExitCode());
         Assertions.assertEquals(
                 0, result.getExitCode(), "Job should complete successfully: stderr=" + stderr);
 
-        boolean hasCountingMarker = allLogs.contains("[CountingCollector]");
-        Assertions.assertTrue(
-                hasCountingMarker,
-                "Expected [CountingCollector] marker in logs, proving the custom SPI collector was used. "
-                        + "Log snippet (last 500 chars): "
-                        + allLogs.substring(Math.max(0, allLogs.length() - 500)));
-
-        log.info("Custom collector SPI test passed — [CountingCollector] confirmed in logs");
+        for (int count = 1; count <= 50; count++) {
+            Assertions.assertTrue(
+                    allLogs.contains("[CountingCollector] dirty record #" + count + ":"),
+                    "Missing actual SPI collection " + count + " from this execution: " + allLogs);
+        }
     }
 
     @TestTemplate
     public void testCustomValidatorDefinition(TestContainer container)
             throws IOException, InterruptedException {
+        String previousServerLogs = container.getServerLogs();
         Container.ExecResult result =
                 container.executeJob("/fake_to_console_custom_validator.conf");
 
         String stdout = result.getStdout();
         String stderr = result.getStderr();
-        String serverLogs = container.getServerLogs();
-        String allLogs = stdout + "\n" + stderr + "\n" + serverLogs;
+        String allLogs =
+                DirtyDataCollectionIT.currentExecutionLogs(
+                        result, previousServerLogs, container.getServerLogs());
 
         log.info("Custom validator test exit code: {}", result.getExitCode());
         Assertions.assertEquals(
                 0, result.getExitCode(), "Job should complete successfully: stderr=" + stderr);
 
-        boolean hasUserRule = allLogs.contains("user rule");
+        DirtyDataCollectionIT.assertCollectedRows(allLogs, 30);
         Assertions.assertTrue(
-                hasUserRule,
-                "Expected 'user rule' in logs, proving records were caught by validator pre-check. "
-                        + "Log snippet (last 500 chars): "
-                        + allLogs.substring(Math.max(0, allLogs.length() - 500)));
-
-        boolean hasValidatorMarker = allLogs.contains("[AlwaysDirtyValidator]");
-        Assertions.assertTrue(
-                hasValidatorMarker,
-                "Expected [AlwaysDirtyValidator] marker in logs, proving the custom validator was used. "
-                        + "Log snippet (last 500 chars): "
-                        + allLogs.substring(Math.max(0, allLogs.length() - 500)));
-
-        log.info(
-                "Custom validator test passed — [AlwaysDirtyValidator] + 'user rule' confirmed in logs");
+                allLogs.contains("[AlwaysDirtyValidator]"),
+                "Expected custom validator output from this execution: " + allLogs);
     }
 }

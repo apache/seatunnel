@@ -19,6 +19,12 @@ package org.apache.seatunnel.api.sink;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Counts dirty records atomically within one serialized collector instance.
+ *
+ * <p>The counter is not checkpointed by the wrapper and cannot provide a durable job-wide total
+ * across restarts, retries or independently created task writers.
+ */
 public class LocalAtomicCounter implements DistributedCounter {
 
     private static final long serialVersionUID = 1L;

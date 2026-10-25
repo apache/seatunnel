@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,14 +29,56 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** A dirty record collector that logs dirty data information. */
+/**
+ * Logs dirty records and applies an optional count threshold.
+ *
+ * <p>The default counter belongs to this collector instance, and payload values remain hidden
+ * unless full logging is explicitly configured.
+ */
 @Slf4j
 public class LogDirtyRecordCollector implements DirtyRecordCollector {
+
+    public static final Option<String> LOG_LEVEL =
+            Options.key("log_level")
+                    .stringType()
+                    .defaultValue("ERROR")
+                    .withDescription("Log level used for dirty records.");
+    public static final Option<Boolean> INCLUDE_STACK_TRACE =
+            Options.key("include_stack_trace")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Include the exception message when logging dirty records.");
+    public static final Option<Long> THRESHOLD =
+            Options.key("threshold")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription(
+                            "Dirty record count at which the threshold action runs; non-positive values disable it.");
+    public static final Option<Boolean> FAIL_ON_THRESHOLD =
+            Options.key("fail_on_threshold")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Fail the job when the configured threshold is reached.");
+    public static final Option<String> LOG_PAYLOAD =
+            Options.key("log_payload")
+                    .stringType()
+                    .defaultValue("false")
+                    .withDescription(
+                            "Payload detail: false logs arity, fields logs field names, full logs values.");
+    public static final Option<List<String>> MASK_FIELDS =
+            Options.key("mask_fields")
+                    .stringType()
+                    .asList()
+                    .defaultValue(Collections.emptyList())
+                    .withDescription(
+                            "Case-insensitive field names masked when log_payload is full.");
 
     private static final long serialVersionUID = 1L;
 
@@ -61,25 +105,25 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public void init(Config config) {
-        if (config.hasPath("log_level")) {
-            this.logLevel = config.getString("log_level").toUpperCase();
+        if (config.hasPath(LOG_LEVEL.key())) {
+            this.logLevel = config.getString(LOG_LEVEL.key()).toUpperCase(Locale.ROOT);
         }
-        if (config.hasPath("include_stack_trace")) {
-            this.includeStackTrace = config.getBoolean("include_stack_trace");
+        if (config.hasPath(INCLUDE_STACK_TRACE.key())) {
+            this.includeStackTrace = config.getBoolean(INCLUDE_STACK_TRACE.key());
         }
-        if (config.hasPath("threshold")) {
-            this.threshold = config.getLong("threshold");
+        if (config.hasPath(THRESHOLD.key())) {
+            this.threshold = config.getLong(THRESHOLD.key());
         }
-        if (config.hasPath("fail_on_threshold")) {
-            this.failOnThreshold = config.getBoolean("fail_on_threshold");
+        if (config.hasPath(FAIL_ON_THRESHOLD.key())) {
+            this.failOnThreshold = config.getBoolean(FAIL_ON_THRESHOLD.key());
         }
-        if (config.hasPath("log_payload")) {
-            this.logPayload = config.getString("log_payload").toLowerCase();
+        if (config.hasPath(LOG_PAYLOAD.key())) {
+            this.logPayload = config.getString(LOG_PAYLOAD.key()).toLowerCase(Locale.ROOT);
         }
-        if (config.hasPath("mask_fields")) {
+        if (config.hasPath(MASK_FIELDS.key())) {
             this.maskFields =
-                    config.getStringList("mask_fields").stream()
-                            .map(String::toLowerCase)
+                    config.getStringList(MASK_FIELDS.key()).stream()
+                            .map(value -> value.toLowerCase(Locale.ROOT))
                             .collect(Collectors.toSet());
         }
         if ("full".equals(logPayload)) {
@@ -144,6 +188,30 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
         checkThresholdRuntime();
     }
 
+    @Override
+    public long getDirtyRecordCount() {
+        return dirtyRecordCounter.value();
+    }
+
+    @Override
+    public void checkThreshold() throws Exception {
+        if (threshold <= 0) {
+            return;
+        }
+
+        long count = dirtyRecordCounter.value();
+        if (count >= threshold) {
+            String message =
+                    String.format("Dirty record threshold exceeded: %d >= %d", count, threshold);
+            if (failOnThreshold) {
+                log.error(message + " - Task will be failed!");
+                throw new RuntimeException(message);
+            } else {
+                log.warn(message + " - Threshold reached but task continues");
+            }
+        }
+    }
+
     private static String formatTableInfo(CatalogTable catalogTable) {
         return catalogTable != null
                 ? String.format(
@@ -190,7 +258,9 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             values.add(
                     fieldName
                             + "="
-                            + (maskFields.contains(fieldName.toLowerCase()) ? "***" : value));
+                            + (maskFields.contains(fieldName.toLowerCase(Locale.ROOT))
+                                    ? "***"
+                                    : value));
         }
         return values.toString();
     }
@@ -238,30 +308,6 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             checkThreshold();
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public long getDirtyRecordCount() {
-        return dirtyRecordCounter.value();
-    }
-
-    @Override
-    public void checkThreshold() throws Exception {
-        if (threshold <= 0) {
-            return;
-        }
-
-        long count = dirtyRecordCounter.value();
-        if (count >= threshold) {
-            String message =
-                    String.format("Dirty record threshold exceeded: %d >= %d", count, threshold);
-            if (failOnThreshold) {
-                log.error(message + " - Task will be failed!");
-                throw new RuntimeException(message);
-            } else {
-                log.warn(message + " - Threshold reached but task continues");
-            }
         }
     }
 }

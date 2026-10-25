@@ -42,10 +42,14 @@ SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适�
 | **精确一次** | ✅ | ✅ | ✅ |
 | **多表同步** | ✅ | ✅ | ✅ |
 | **Schema 演变** | ✅ | ✅ | ❌ |
-| **REST API** | ✅ | ✅ | ❌ |
+| **REST API** | ✅ | ❌ | ❌ |
 | **Web UI** | ✅ | ✅ | ✅ |
 | **单机模式** | ✅ | ✅ | ✅ |
 | **集群模式** | ✅ | ✅ | ✅ |
+
+:::note
+此处的"REST API"指 SeaTunnel 自身的作业提交/监控接口（[REST API V2](zeta/rest-api-v2.md)）。该接口仅由 SeaTunnel Engine（Zeta）的 server 实现，因此作业运行在 Flink 或 Spark 引擎上时不可用。使用 Flink 或 Spark 引擎时，请通过该引擎自身的工具提交和监控作业（例如 Flink 的 CLI/REST API、Spark 的 `spark-submit`/history server）。
+:::
 
 ### 性能对比
 
@@ -127,21 +131,30 @@ SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适�
 
 ## 决策流程图
 
-```
-开始
-  │
-  ▼
-是否有现有的 Flink/Spark 基础设施？
-  │
-  ├─ 是 ──► 是否想要复用？
-  │          │
-  │          ├─ 是 (Flink) ──► 使用 Flink 引擎
-  │          │
-  │          ├─ 是 (Spark) ──► 使用 Spark 引擎
-  │          │
-  │          └─ 否 ──► 使用 SeaTunnel Engine
-  │
-  └─ 否 ──► 使用 SeaTunnel Engine（推荐）
+```mermaid
+flowchart TD
+    start["开始"]
+    infra{"是否已经有<br/>Flink 或 Spark 基础设施？"}
+    reuse{"是否希望继续复用？"}
+    flink["使用 Flink 引擎"]
+    spark["使用 Spark 引擎"]
+    zeta["使用 SeaTunnel Engine<br/>（默认更推荐）"]
+
+    start --> infra
+    infra -- "是" --> reuse
+    infra -- "否" --> zeta
+    reuse -- "是，Flink" --> flink
+    reuse -- "是，Spark" --> spark
+    reuse -- "否" --> zeta
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class start,infra,reuse layerBlue;
+    class flink,spark layerCyan;
+    class zeta layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 配置示例

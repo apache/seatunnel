@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -289,7 +290,9 @@ public class SubPlan {
     }
 
     private boolean checkNeedRestore(PipelineStatus pipelineStatus) {
-        return canRestorePipeline() && !PipelineStatus.FINISHED.equals(pipelineStatus);
+        return canRestorePipeline()
+                && !PipelineStatus.FINISHED.equals(pipelineStatus)
+                && !MultiTableFailureHelper.isIsolatedFailure(errorByPhysicalVertex.get());
     }
 
     /** only call when the pipeline will never restart */
@@ -491,6 +494,7 @@ public class SubPlan {
                         String.format(
                                 "Restore time %s, pipeline %s",
                                 pipelineRestoreNum + "", pipelineFullName));
+                jobMaster.clearPipelineMetricsForRestore(getPipelineLocation());
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);

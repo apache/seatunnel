@@ -37,6 +37,13 @@ import java.io.Serializable;
  */
 public interface DirtyDataValidator extends Factory, Serializable {
 
+    /**
+     * Initializes serializable policy configuration during job planning.
+     *
+     * <p>No worker-side initialization callback is invoked after policy serialization. Live
+     * transient resources needed by a worker must be created lazily on that worker rather than
+     * retained from planning; close must release resources owned by this policy instance.
+     */
     default void init(Config config, CatalogTable catalogTable) throws Exception {}
 
     ValidationResult validate(SeaTunnelRow record, CatalogTable catalogTable);
@@ -53,6 +60,12 @@ public interface DirtyDataValidator extends Factory, Serializable {
         return OptionRule.builder().build();
     }
 
+    /**
+     * Carries the validation decision and its optional diagnostic details.
+     *
+     * <p>A dirty result is dispositioned by the configured collector before any delegate write;
+     * validator execution failures must propagate instead of becoming clean decisions.
+     */
     @Getter
     class ValidationResult implements Serializable {
         private final boolean isDirty;

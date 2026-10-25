@@ -8,24 +8,31 @@ sidebar_position: 1
 
 ## SeaTunnel 能帮你做什么
 
-SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型处理异构系统之间的数据流转。常见场景包括：
+SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处理异构系统之间的数据流转。常见场景包括：
 
 - 数据库、文件、数据仓库之间的批量同步
 - CDC 与实时同步
 - 多表同步或全库迁移
 - 结构化、非结构化和二进制数据的多模态集成
 
-如果你是第一次评估 SeaTunnel，建议优先从内置的 **SeaTunnel Engine (Zeta)** 开始。它的部署路径最短，也是新项目的默认推荐执行引擎。
+如果你是第一次评估 SeaTunnel，建议优先从内置的 **SeaTunnel 引擎（Zeta）** 开始。它的部署路径最短，也是新项目的默认推荐执行引擎。
 
 ## 如何选择执行引擎
 
 | 引擎 | 适用场景 | 推荐入口 |
 | --- | --- | --- |
-| SeaTunnel Engine (Zeta) | 新项目、CDC、低资源环境、本地快速验证 | [SeaTunnel 引擎快速开始](./locally/quick-start-seatunnel-engine.md) |
-| Flink | 已有 Flink 集群和运维体系 | [Flink 快速开始](./locally/quick-start-flink.md) |
-| Spark | 已有 Spark 集群和运维体系 | [Spark 快速开始](./locally/quick-start-spark.md) |
+| SeaTunnel 引擎（Zeta） | 新项目、CDC、低资源环境、本地快速验证 | [SeaTunnel 引擎快速开始](./locally/quick-start-seatunnel-engine.md) |
+| Flink 引擎 | 已有 Flink 集群和运维体系 | [Flink 快速开始](./locally/quick-start-flink.md) |
+| Spark 引擎 | 已有 Spark 集群和运维体系 | [Spark 快速开始](./locally/quick-start-spark.md) |
 
 如需更完整的引擎比较，请查看 [执行引擎概览](../engines/overview.md)。
+
+## 如何选择 Zeta 部署模式
+
+- **常驻集群**：部署并维护共享的 Zeta 集群，再向集群提交作业。参见 [Zeta 安装部署](../engines/zeta/deployment.md)。
+- **Application Mode（实验性）**：在 Kubernetes 上为一个作业启动独立的 Master 和固定数量的 Worker，应用结束后释放计算资源。参见 [Application Mode 总览](./application/overview.md)。
+
+如果已有 Kubernetes 资源平台，可以直接阅读 [Kubernetes 快速开始](./application/kubernetes/quick-start.md)。Application Mode 是 Zeta 的一种部署模式，不是另一种执行引擎。
 
 ## 最短首跑路径
 
@@ -34,7 +41,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型�
 1. 阅读 [安装部署](./locally/deployment.md)，完成二进制包安装。
 2. 安装示例任务所需的插件。
 3. 使用 `FakeSource -> FieldMapper -> Console` 跑通本地 SeaTunnel Engine 快速开始。
-4. 示例成功后，再替换成真实的 Source 和 Sink。
+4. 示例成功后，再替换成真实连接器，开始编写真正的同步链路。
 
 ## 推荐阅读路径
 
@@ -47,9 +54,10 @@ SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型�
 ### 路径 B：我已经知道要接什么数据源
 
 - [作业配置指南](./job-configuration-guide.md)
-- [Source 连接器列表](../connectors/source)
-- [Sink 连接器列表](../connectors/sink)
-- [Transform 列表](../transforms)
+- [数据来源连接器总览](../connectors/source-overview.md)
+- [数据写入连接器总览](../connectors/sink-overview.md)
+- [数据转换总览](../transforms)
+- [场景教程](./recipes/overview.md)
 
 ### 路径 C：我想先理解整体架构
 
@@ -59,7 +67,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型�
 
 ## 开始之前需要准备什么
 
-- Java 8 或 Java 11，并正确设置 `JAVA_HOME`
+- Java 11 或 Java 17，并正确设置 `JAVA_HOME`
 - 从 [下载页面](https://seatunnel.apache.org/download) 获取 SeaTunnel 二进制包
 - 在 `${SEATUNNEL_HOME}/connectors/` 下安装所需插件
 - 如果所选连接器依赖第三方驱动，还需要准备对应 jar 包
@@ -77,5 +85,8 @@ SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型�
 推荐继续阅读：
 
 - [作业配置指南](./job-configuration-guide.md)
-- [SeaTunnel Engine(Zeta) 安装部署](../engines/zeta/deployment.md)
+- [场景教程](./recipes/overview.md)
+- [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
+- [Kubernetes Application Mode](./application/overview.md)
 - [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

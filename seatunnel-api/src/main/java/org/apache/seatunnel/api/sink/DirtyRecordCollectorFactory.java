@@ -21,95 +21,100 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Locale;
 
 /**
- * Factory for creating dirty record collectors.
- *
- * <p>Built-in types ("log", "noop") are instantiated directly without SPI. Custom collector types
- * are discovered via {@link FactoryUtil#discoverFactories}.
+ * Creates independently initialized collectors from explicit configuration. Custom providers are
+ * discovered through the current invocation's context loader and never retained in a global cache.
  */
-@Slf4j
 public class DirtyRecordCollectorFactory {
 
-    private static final Map<String, DirtyRecordCollectorProvider> PROVIDERS =
-            new ConcurrentHashMap<>();
-
-    private static volatile boolean discovered = false;
-
-    static {
-        PROVIDERS.put("log", new LogDirtyRecordCollectorProvider());
-    }
-
-    private static void discoverCustomProviders() {
-        if (discovered) {
-            return;
-        }
-        synchronized (DirtyRecordCollectorFactory.class) {
-            if (discovered) {
-                return;
-            }
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            try {
-                List<DirtyRecordCollectorProvider> providers =
-                        FactoryUtil.discoverFactories(
-                                classLoader, DirtyRecordCollectorProvider.class);
-                for (DirtyRecordCollectorProvider provider : providers) {
-                    String type = provider.getType().toLowerCase();
-                    PROVIDERS.putIfAbsent(type, provider);
-                }
-            } catch (Exception e) {
-                log.warn("Failed to discover custom DirtyRecordCollectorProviders via SPI", e);
-            }
-            log.info(
-                    "DirtyRecordCollectorProvider discovery complete. Available types: {}",
-                    PROVIDERS.keySet());
-            discovered = true;
-        }
-    }
-
+    /**
+     * Creates an active collector or the explicitly selected no-op implementation. A present block
+     * must declare its policy so malformed configuration cannot silently disable dirty handling.
+     */
     public static DirtyRecordCollector createCollector(Config config) {
-        if (config == null || !config.hasPath("type")) {
-            return NoOpDirtyRecordCollector.INSTANCE;
-        }
-
-        String type = config.getString("type").toLowerCase();
-
+        String type = collectorType(config);
         if ("noop".equals(type) || "none".equals(type)) {
             return NoOpDirtyRecordCollector.INSTANCE;
         }
-
-        DirtyRecordCollectorProvider provider = PROVIDERS.get(type);
-        if (provider == null) {
-            discoverCustomProviders();
-            provider = PROVIDERS.get(type);
+        DirtyRecordCollector collector;
+        if ("log".equals(type)) {
+            collector = new LogDirtyRecordCollector();
+        } else {
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            if (classLoader == null) {
+                classLoader = DirtyRecordCollectorFactory.class.getClassLoader();
+            }
+            DirtyRecordCollectorProvider selected = null;
+            for (DirtyRecordCollectorProvider provider :
+                    FactoryUtil.discoverFactories(
+                            classLoader, DirtyRecordCollectorProvider.class)) {
+                String providerType = provider.getType();
+                if (providerType != null
+                        && type.equals(providerType.trim().toLowerCase(Locale.ROOT))) {
+                    if (selected != null) {
+                        throw new IllegalArgumentException(
+                                "Multiple dirty.collector providers for type '"
+                                        + type
+                                        + "': "
+                                        + selected.getClass().getName()
+                                        + ", "
+                                        + provider.getClass().getName());
+                    }
+                    selected = provider;
+                }
+            }
+            if (selected == null) {
+                throw new IllegalArgumentException(
+                        "Unknown dirty.collector type '"
+                                + type
+                                + "'. Register a DirtyRecordCollectorProvider via SPI.");
+            }
+            collector = selected.createCollector();
+            if (collector == null) {
+                throw new IllegalArgumentException(
+                        "dirty.collector provider returned null for type '" + type + "'.");
+            }
         }
-
-        if (provider == null) {
-            throw new IllegalArgumentException(
-                    "Unknown dirty.collector type '"
-                            + type
-                            + "'. Available built-in types: "
-                            + PROVIDERS.keySet()
-                            + ". Register a custom DirtyRecordCollectorProvider via SPI.");
-        }
-
-        DirtyRecordCollector collector = provider.createCollector();
         try {
             collector.init(config);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to initialize dirty record collector of type '" + type + "'", e);
+            return collector;
+        } catch (Throwable failure) {
+            try {
+                collector.close();
+            } catch (Throwable closeFailure) {
+                if (closeFailure != failure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            if (failure instanceof Error) {
+                throw (Error) failure;
+            }
+            throw new IllegalArgumentException(
+                    "Failed to initialize dirty record collector of type '" + type + "'", failure);
         }
+    }
 
-        log.info(
-                "Created dirty record collector: type='{}', class={}",
-                type,
-                collector.getClass().getSimpleName());
-        return collector;
+    /**
+     * Parses the configured policy without constructing providers or allocating resources. Planning
+     * guards share this validation so malformed blocks cannot bypass the factory's strict contract.
+     */
+    static String collectorType(Config config) {
+        if (config == null) {
+            return "noop";
+        }
+        if (!config.hasPath(DirtyCollectorConfigProcessor.DIRTY_TYPE.key())) {
+            throw new IllegalArgumentException(
+                    "dirty.collector is configured but missing required 'type' field.");
+        }
+        String type =
+                config.getString(DirtyCollectorConfigProcessor.DIRTY_TYPE.key())
+                        .trim()
+                        .toLowerCase(Locale.ROOT);
+        if (type.isEmpty()) {
+            throw new IllegalArgumentException("dirty.collector type must not be blank.");
+        }
+        return type;
     }
 }

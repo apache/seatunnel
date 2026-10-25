@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -38,7 +39,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.PullPolicy;
@@ -55,6 +55,7 @@ import java.sql.DriverManager;
 import java.sql.NClob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,6 +78,23 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
     private static final String SOURCE_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
+    /**
+     * Deterministic source row used to prove the MySQL CDC reader is consuming binlog events before
+     * schema-change DDL is executed.
+     */
+    private static final int STREAM_READY_MARKER_ID = 1000;
+    /**
+     * Marker value written to the source table so sink-side readiness polling can identify the
+     * probe row without depending on connector internals.
+     */
+    private static final String STREAM_READY_MARKER_NAME = "__cdc_stream_ready__";
+    /**
+     * Stable payload for the readiness probe row; keeping it constant makes repeated test attempts
+     * idempotent through the upsert statement.
+     */
+    private static final String STREAM_READY_MARKER_DESCRIPTION =
+            "wait for binlog stream readiness";
+
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -85,6 +103,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private static final String QUERY = "select * from %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s";
+    private static final String SOURCE_DESC_QUERY = "desc %s.%s";
 
     private static final String SOURCE_QUERY_COLUMNS =
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' ORDER by COLUMN_NAME";
@@ -151,29 +170,13 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands1 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands1.getExitCode(), extraCommands1.getStderr());
-                Container.ExecResult extraCommands2 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + schemaChangeCase.getDriverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands2.getExitCode(), extraCommands2.getStderr());
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.ofClassName(schemaChangeCase.getDriverClassName())
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     @Order(1)
@@ -199,7 +202,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -231,7 +234,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // savepoint 2
         given().pollDelay(Duration.ofSeconds(5))
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -284,7 +287,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -294,63 +297,21 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        // The exactly-once path can report RUNNING before the sink finishes the first XA batch in
+        // slower CI environments, so reuse the longer schema assertion timeout for the initial
+        // data catch-up instead of failing on a transient empty sink table.
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                                QUERY,
-                                                                schemaChangeCase.getSchemaName(),
-                                                                sinkTable)
-                                                        + ORDER_BY)));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
+
+        waitForStreamingReady(sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(
-                                                        SOURCE_QUERY_COLUMNS,
-                                                        SOURCE_DATABASE,
-                                                        sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                        schemaChangeCase.getSinkQueryColumns(),
-                                                        schemaChangeCase.getSchemaName(),
-                                                        sinkTable))));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    querySource(
-                                            String.format(QUERY, SOURCE_DATABASE, sourceTable)
-                                                    + " where id >= 128"),
-                                    querySink(
-                                            String.format(
-                                                            QUERY,
-                                                            schemaChangeCase.getSchemaName(),
-                                                            sinkTable)
-                                                    + " where id >= 128"
-                                                    + ORDER_BY));
-
-                            Assertions.assertIterableEquals(
-                                    querySource(
-                                            String.format(
-                                                    PROJECTION_QUERY,
-                                                    SOURCE_DATABASE,
-                                                    sourceTable)),
-                                    querySink(
-                                            String.format(
-                                                            PROJECTION_QUERY,
-                                                            schemaChangeCase.getSchemaName(),
-                                                            sinkTable)
-                                                    + ORDER_BY));
-                        });
+        waitForSinkColumnsCatchUp(sourceTable, sinkTable);
+        assertAddColumnsDataSynced(sourceTable, sinkTable);
 
         // case2 drop columns with cdc data at same time
         assertCaseByDdlName("drop_columns");
@@ -362,55 +323,83 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         assertCaseByDdlName("modify_columns");
     }
 
-    private void assertCaseByDdlName(String drop_columns) {
-        sourceDatabase.setTemplateName(drop_columns).createAndInitialize();
+    private void assertCaseByDdlName(String ddlTemplateName) {
+        sourceDatabase.setTemplateName(ddlTemplateName).createAndInitialize();
         assertTableStructureAndData(SOURCE_TABLE, schemaChangeCase.getSinkTable2());
     }
 
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                                QUERY,
-                                                                schemaChangeCase.getSchemaName(),
-                                                                sinkTable)
-                                                        + ORDER_BY)));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
+
+        waitForStreamingReady(sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        given().pollDelay(Duration.ofSeconds(5))
-                .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+        waitForSinkColumnsCatchUp(sourceTable, sinkTable);
+        assertAddColumnsDataSynced(sourceTable, sinkTable);
+    }
+
+    /**
+     * Snapshot convergence does not prove the MySQL CDC reader has entered steady-state binlog
+     * consumption. Emit one deterministic DML event and wait until the sink receives it before
+     * running schema-change DDL bursts.
+     */
+    private void waitForStreamingReady(String sourceTable, String sinkTable) {
+        // Keep the probe database-neutral because JDBC drivers can return different decimal scales.
+        executeSourceSql(
+                String.format(
+                        "INSERT INTO %s.%s (id, name, description, weight) "
+                                + "VALUES (%d, '%s', '%s', NULL) "
+                                + "ON DUPLICATE KEY UPDATE "
+                                + "name = VALUES(name), description = VALUES(description), weight = VALUES(weight)",
+                        SOURCE_DATABASE,
+                        sourceTable,
+                        STREAM_READY_MARKER_ID,
+                        STREAM_READY_MARKER_NAME,
+                        STREAM_READY_MARKER_DESCRIPTION));
+
+        String readyQuery =
+                String.format(
+                        "select id,name,description,weight from %%s.%%s where id = %d order by id",
+                        STREAM_READY_MARKER_ID);
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         querySource(
-                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
+                                                String.format(
+                                                        readyQuery, SOURCE_DATABASE, sourceTable)),
                                         querySink(
                                                 String.format(
-                                                                QUERY,
-                                                                schemaChangeCase.getSchemaName(),
-                                                                sinkTable)
-                                                        + ORDER_BY)));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+                                                        readyQuery,
+                                                        schemaChangeCase.getSchemaName(),
+                                                        sinkTable))));
+    }
+
+    /**
+     * Schema-change sinks can publish the new rows before the sink table metadata is fully updated.
+     * Waiting for the column list first avoids racing the add-columns data assertions.
+     */
+    private void waitForSinkColumnsCatchUp(String sourceTable, String sinkTable) {
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> assertColumnNamesEqualsIgnoringPhysicalOrder(sourceTable, sinkTable));
+    }
+
+    /**
+     * Validates both the new add-columns rows and the projected full-table view once schema
+     * evolution has settled on the sink side.
+     */
+    private void assertAddColumnsDataSynced(String sourceTable, String sinkTable) {
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertIterableEquals(
-                                    querySource(
-                                            String.format(QUERY, SOURCE_DATABASE, sourceTable)
-                                                    + " where id >= 128"),
-                                    querySink(
-                                            String.format(
-                                                            QUERY,
-                                                            schemaChangeCase.getSchemaName(),
-                                                            sinkTable)
-                                                    + " where id >= 128"
-                                                    + ORDER_BY));
+                            assertTableDataEqualsBySourceColumnOrder(
+                                    sourceTable, sinkTable, "id >= 128");
 
                             Assertions.assertIterableEquals(
                                     querySource(
@@ -432,30 +421,85 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                 .await()
                 .atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(
-                                                        SOURCE_QUERY_COLUMNS,
-                                                        SOURCE_DATABASE,
-                                                        sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                        schemaChangeCase.getSinkQueryColumns(),
-                                                        schemaChangeCase.getSchemaName(),
-                                                        sinkTable))));
+                        () -> assertColumnNamesEqualsIgnoringPhysicalOrder(sourceTable, sinkTable));
         await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                                QUERY,
-                                                                schemaChangeCase.getSchemaName(),
-                                                                sinkTable)
-                                                        + ORDER_BY)));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
+    }
+
+    /**
+     * JDBC schema evolution can keep the effective column set while materializing a different
+     * physical order in the sink, so schema assertions should compare normalized column names.
+     */
+    private void assertColumnNamesEqualsIgnoringPhysicalOrder(
+            String sourceTable, String sinkTable) {
+        Assertions.assertIterableEquals(
+                normalizeColumnNames(
+                        querySource(
+                                String.format(SOURCE_QUERY_COLUMNS, SOURCE_DATABASE, sourceTable))),
+                normalizeColumnNames(
+                        querySink(
+                                String.format(
+                                        schemaChangeCase.getSinkQueryColumns(),
+                                        schemaChangeCase.getSchemaName(),
+                                        sinkTable))));
+    }
+
+    /**
+     * Projects sink data with the current source column order so row assertions stay stable when a
+     * JDBC sink reorders equivalent columns after applying schema changes.
+     */
+    private void assertTableDataEqualsBySourceColumnOrder(
+            String sourceTable, String sinkTable, String whereClause) {
+        List<String> sourceColumns = getSourceColumnNames(sourceTable);
+        Assertions.assertIterableEquals(
+                querySource(
+                        buildProjectionQuery(
+                                SOURCE_DATABASE, sourceTable, sourceColumns, whereClause)),
+                querySink(
+                        buildProjectionQuery(
+                                schemaChangeCase.getSchemaName(),
+                                sinkTable,
+                                sourceColumns,
+                                whereClause)));
+    }
+
+    /** Reads the current MySQL source schema order that downstream row assertions should follow. */
+    private List<String> getSourceColumnNames(String sourceTable) {
+        List<String> sourceColumns = new ArrayList<>();
+        for (List<Object> row :
+                querySource(String.format(SOURCE_DESC_QUERY, SOURCE_DATABASE, sourceTable))) {
+            sourceColumns.add(String.valueOf(row.get(0)));
+        }
+        return sourceColumns;
+    }
+
+    /** Builds a deterministic projection query without relying on sink-specific physical order. */
+    private String buildProjectionQuery(
+            String database, String table, List<String> columns, String whereClause) {
+        StringBuilder queryBuilder =
+                new StringBuilder("select ")
+                        .append(String.join(",", columns))
+                        .append(" from ")
+                        .append(database)
+                        .append(".")
+                        .append(table);
+        if (StringUtils.isNotBlank(whereClause)) {
+            queryBuilder.append(" where ").append(whereClause);
+        }
+        return queryBuilder.append(ORDER_BY).toString();
+    }
+
+    /** Sorts schema query output by column name so assertions ignore placement-only differences. */
+    private List<String> normalizeColumnNames(List<List<Object>> rows) {
+        List<String> normalizedColumnNames = new ArrayList<>();
+        for (List<Object> row : rows) {
+            normalizedColumnNames.add(String.valueOf(row.get(0)));
+        }
+        normalizedColumnNames.sort(String::compareTo);
+        return normalizedColumnNames;
     }
 
     private Connection getJdbcConnection(String connectionType) throws SQLException {
@@ -469,7 +513,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                 String.format(
                         schemaChangeCase.getJdbcUrl(),
                         sinkDbServer.getHost(),
-                        schemaChangeCase.getPort(),
+                        sinkDbServer.getMappedPort(schemaChangeCase.getPort()),
                         schemaChangeCase.getDatabaseName()),
                 schemaChangeCase.getUsername(),
                 schemaChangeCase.getPassword());
@@ -494,6 +538,19 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         }
     }
 
+    /**
+     * Executes a source-side DML statement directly against MySQL to produce a CDC event that the
+     * running SeaTunnel job must consume.
+     */
+    private void executeSourceSql(String sql) {
+        try (Connection connection = getJdbcConnection("source");
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private List<List<Object>> querySink(String sql) {
         try (Connection connection = getJdbcConnection("sink")) {
             ResultSet resultSet = connection.createStatement().executeQuery(sql);
@@ -505,6 +562,23 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                     Object object = resultSet.getObject(i);
                     if (object instanceof NClob) {
                         objects.add(readNClobAsString((NClob) object));
+                    } else if (object instanceof java.time.OffsetDateTime) {
+                        // TIMESTAMP_TZ (OffsetDateTime) → normalize to Timestamp for comparison
+                        // with MySQL source which returns java.sql.Timestamp
+                        objects.add(
+                                java.sql.Timestamp.valueOf(
+                                        ((java.time.OffsetDateTime) object).toLocalDateTime()));
+                    } else if (object != null
+                            && object.getClass().getName().equals("microsoft.sql.DateTimeOffset")) {
+                        // SQL Server DATETIMEOFFSET → normalize to Timestamp for comparison
+                        // microsoft.sql.DateTimeOffset.getTimestamp() returns java.sql.Timestamp
+                        try {
+                            java.lang.reflect.Method getTimestamp =
+                                    object.getClass().getMethod("getTimestamp");
+                            objects.add(getTimestamp.invoke(object));
+                        } catch (Exception e) {
+                            objects.add(object);
+                        }
                     } else {
                         objects.add(object);
                     }

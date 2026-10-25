@@ -55,17 +55,17 @@ public class Constant {
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
-    public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
-
-    public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
-
     public static final String IMAP_PENDING_PIPELINE_CLEANUP = "engine_pendingPipelineCleanup";
 
     public static final String IMAP_PENDING_JOB_CLEANUP = "engine_pendingJobCleanup";
 
-    public static final String IMAP_CHECKPOINT_MONITOR = "engine_checkpoint_monitor";
-
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
+
+    /**
+     * @deprecated Use {@code EngineStateStoreNames.CHECKPOINT_ID} via the engine state-store
+     *     abstraction instead.
+     */
+    @Deprecated public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
 
     public static final String PROP_FILE = "zeta.version.properties";
 }

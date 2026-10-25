@@ -51,7 +51,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
+/** The {@link JdbcDataSourceDialect} implementation for SQL Server datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;

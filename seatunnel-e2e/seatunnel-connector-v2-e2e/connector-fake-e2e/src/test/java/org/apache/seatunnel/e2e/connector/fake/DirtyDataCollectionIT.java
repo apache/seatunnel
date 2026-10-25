@@ -27,6 +27,9 @@ import org.testcontainers.containers.Container;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Integration test for dirty data collection functionality. Tests the complete workflow using
@@ -42,24 +45,18 @@ public class DirtyDataCollectionIT extends TestSuiteBase {
     @TestTemplate
     public void testDirtyDataCollectionLogging(TestContainer container)
             throws IOException, InterruptedException {
+        String previousServerLogs = container.getServerLogs();
         Container.ExecResult result =
                 container.executeJob("/fake_to_console_dirty_collection_only.conf");
 
         String stdout = result.getStdout();
         String stderr = result.getStderr();
-        String serverLogs = container.getServerLogs();
-        String allLogs = stdout + "\n" + stderr + "\n" + serverLogs;
+        String allLogs =
+                currentExecutionLogs(result, previousServerLogs, container.getServerLogs());
 
         Assertions.assertEquals(0, result.getExitCode(), "Job should complete: stderr=" + stderr);
 
-        boolean hasDirtyCollected =
-                allLogs.contains("Dirty record collected")
-                        || allLogs.contains("user rule")
-                        || allLogs.contains("[AlwaysDirtyValidator]");
-        Assertions.assertTrue(
-                hasDirtyCollected,
-                "Expected dirty record collection logs. Log tail: "
-                        + allLogs.substring(Math.max(0, allLogs.length() - 500)));
+        assertCollectedRows(allLogs, 50);
 
         log.info("Dirty data collection (logging only) test completed!");
     }
@@ -68,6 +65,7 @@ public class DirtyDataCollectionIT extends TestSuiteBase {
     public void testDirtyDataCollectionFailure(TestContainer container)
             throws IOException, InterruptedException {
 
+        String previousServerLogs = container.getServerLogs();
         Container.ExecResult failResult =
                 container.executeJob("/fake_to_console_dirty_fail_threshold.conf");
 
@@ -75,29 +73,55 @@ public class DirtyDataCollectionIT extends TestSuiteBase {
                 0, failResult.getExitCode(), "Job should fail when dirty threshold is exceeded");
 
         String combinedOutput =
-                failResult.getStdout()
-                        + "\n"
-                        + failResult.getStderr()
-                        + "\n"
-                        + container.getServerLogs();
-
-        boolean hasDirtyCollected =
-                combinedOutput.contains("Dirty record collected")
-                        || combinedOutput.contains("user rule")
-                        || combinedOutput.contains("[AlwaysDirtyValidator]");
+                currentExecutionLogs(failResult, previousServerLogs, container.getServerLogs());
+        assertCollectedRows(combinedOutput, 10);
         Assertions.assertTrue(
-                hasDirtyCollected,
-                "Expected dirty collection log in output. Log tail: "
-                        + combinedOutput.substring(Math.max(0, combinedOutput.length() - 500)));
-
-        boolean hasThresholdMessage =
-                combinedOutput.contains("threshold exceeded")
-                        || combinedOutput.contains("Dirty record threshold exceeded");
-        Assertions.assertTrue(
-                hasThresholdMessage,
-                "Expected threshold exceeded message. Log tail: "
-                        + combinedOutput.substring(Math.max(0, combinedOutput.length() - 500)));
+                combinedOutput.contains("Dirty record threshold exceeded: 10 >= 10"),
+                "Expected exact threshold failure from this execution: " + combinedOutput);
 
         log.info("Dirty data threshold failure test completed!");
+    }
+    /**
+     * Removes server lines already present before submission while retaining current client output.
+     *
+     * <p>Containers are reused between test cases, so historical collection markers cannot prove
+     * that this job invoked its validator or collector.
+     */
+    static String currentExecutionLogs(
+            Container.ExecResult result, String previousServerLogs, String currentServerLogs) {
+        Map<String, Integer> previousLines = new HashMap<>();
+        Arrays.stream(previousServerLogs.split("\\R"))
+                .forEach(line -> previousLines.merge(line, 1, Integer::sum));
+        StringBuilder newServerLogs = new StringBuilder();
+        Arrays.stream(currentServerLogs.split("\\R"))
+                .forEach(
+                        line -> {
+                            int remaining = previousLines.getOrDefault(line, 0);
+                            if (remaining > 0) {
+                                previousLines.put(line, remaining - 1);
+                            } else {
+                                newServerLogs.append(line).append('\n');
+                            }
+                        });
+        return result.getStdout() + "\n" + result.getStderr() + "\n" + newServerLogs;
+    }
+
+    /**
+     * Verifies every expected per-record collection count rather than provider initialization.
+     *
+     * <p>Single-parallelism fixtures make each count observable and prevent an initialization-only
+     * implementation from satisfying the integration test.
+     */
+    static void assertCollectedRows(String logs, int expectedRows) {
+        for (int count = 1; count <= expectedRows; count++) {
+            String expectedCount = "Count: " + count + ",";
+            Assertions.assertTrue(
+                    Arrays.stream(logs.split("\\R"))
+                            .anyMatch(
+                                    line ->
+                                            line.contains("Dirty record collected (user rule)")
+                                                    && line.contains(expectedCount)),
+                    "Missing collected row " + count + " from this execution: " + logs);
+        }
     }
 }

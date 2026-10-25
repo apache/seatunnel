@@ -40,10 +40,17 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
     private final DirtyRecordCollector delegate;
     private final DirtyDataValidator validator;
 
+    /**
+     * Requires a real collection destination before enabling user validation. A no-op destination
+     * would drop rejected rows without providing the configured dirty-handling guarantee.
+     */
     public ValidatingDirtyRecordCollector(
             DirtyRecordCollector delegate, DirtyDataValidator validator) {
-        this.delegate = delegate;
         this.validator = Preconditions.checkNotNull(validator, "validator cannot be null");
+        this.delegate = Preconditions.checkNotNull(delegate, "collector cannot be null");
+        Preconditions.checkArgument(
+                !(delegate instanceof NoOpDirtyRecordCollector),
+                "dirty.validator requires an active dirty.collector.");
     }
 
     @Override
@@ -62,6 +69,10 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
         delegate.collectFromUserRule(subTaskIndex, record, errorMessage, catalogTable);
     }
 
+    /**
+     * Validates before writing and collects only explicit dirty results. Validator failures or a
+     * missing result abort the row path instead of being interpreted as successful validation.
+     */
     @Override
     public boolean validateAndCollectIfDirty(
             int subTaskIndex, SeaTunnelRow record, CatalogTable catalogTable) {
@@ -69,8 +80,12 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
         try {
             result = validator.validate(record, catalogTable);
         } catch (Exception e) {
-            log.warn("User validator failed, treating as non-dirty: {}", e.getMessage());
-            return false;
+            throw new IllegalStateException(
+                    "Dirty data validator failed: " + validator.getClass().getName(), e);
+        }
+        if (result == null) {
+            throw new IllegalStateException(
+                    "Dirty data validator returned null: " + validator.getClass().getName());
         }
         if (result.isDirty()) {
             collectFromUserRule(
@@ -93,12 +108,32 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
         delegate.init(config, catalogTable);
     }
 
+    /**
+     * Closes both owned components while retaining the first failure as the primary exception.
+     * Collector closure still runs after a validator failure, with its failure suppressed.
+     */
     @Override
     public void close() throws Exception {
+        Throwable failure = null;
         try {
             validator.close();
-        } finally {
+        } catch (Throwable validatorFailure) {
+            failure = validatorFailure;
+        }
+        try {
             delegate.close();
+        } catch (Throwable collectorFailure) {
+            if (failure == null) {
+                failure = collectorFailure;
+            } else if (failure != collectorFailure) {
+                failure.addSuppressed(collectorFailure);
+            }
+        }
+        if (failure instanceof Error) {
+            throw (Error) failure;
+        }
+        if (failure != null) {
+            throw (Exception) failure;
         }
     }
 

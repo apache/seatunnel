@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
@@ -69,8 +70,22 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final int parallelism;
 
-    /** Pre-built collector passed from driver. */
+    /**
+     * Collector prepared on the driver and passed to Spark writers.
+     *
+     * <p>Keeping this instance with the write plan preserves the selected provider and its explicit
+     * configuration when Spark creates individual writer tasks.
+     */
     private final DirtyRecordCollector dirtyRecordCollector;
+
+    public SeaTunnelBatchWrite(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism)
+            throws IOException {
+        this(sink, catalogTables, jobId, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
 
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,

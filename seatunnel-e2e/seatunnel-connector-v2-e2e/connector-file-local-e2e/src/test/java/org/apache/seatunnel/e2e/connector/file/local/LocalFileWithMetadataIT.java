@@ -21,7 +21,9 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +40,7 @@ import org.testcontainers.utility.MountableFile;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -87,7 +88,7 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                         .withEnv("TZ", "UTC")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -95,7 +96,6 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -109,10 +109,8 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server.start();
         // execute extra commands (including copying CSV files via extendedFactory)
@@ -153,12 +151,27 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysqlContainer.setPortBindings(
-                Collections.singletonList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         mysqlContainer.start();
         log.info("MySQL container started at {}", mysqlContainer.getHost());
-        // Wait for MySQL to be fully ready
-        Thread.sleep(10000);
+        // The healthcheck only covers the server process; poll until the root
+        // account is actually usable, because Gravitino's catalog creation
+        // connects to MySQL right after this and fails on a slow init.
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        mysqlContainer
+                                                .execInContainer(
+                                                        "mysql",
+                                                        "-u" + MYSQL_USERNAME,
+                                                        "-p" + MYSQL_PASSWORD,
+                                                        "-e",
+                                                        "SELECT 1")
+                                                .getExitCode()));
     }
 
     private void startGravitinoServer() throws Exception {
@@ -171,8 +184,6 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "gravitino:" + GRAVITINO_IMAGE)));
-        gravitinoContainer.setPortBindings(
-                Collections.singletonList(String.format("%s:%s", GRAVITINO_PORT, GRAVITINO_PORT)));
         gravitinoContainer.start();
         log.info("Gravitino server started at {}", gravitinoContainer.getHost());
         // Create metalake and catalog using curl with MySQL as backend

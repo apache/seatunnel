@@ -91,18 +91,15 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
                 new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
         CatalogTable catalogTable = catalogTables.size() == 1 ? catalogTables.get(0) : null;
 
-        org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
-                seatunnelWriter = seaTunnelSink.createWriter(writerContext);
-        if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
-            seatunnelWriter =
-                    new DirtyDataAwareSinkWriter<>(
-                            seatunnelWriter,
-                            dirtyRecordCollector,
-                            writerContext.getIndexOfSubtask(),
-                            catalogTable);
-        }
-
-        return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
+        return new FlinkSinkWriter<>(
+                DirtyDataAwareSinkWriter.wrap(
+                        seaTunnelSink.createWriter(writerContext),
+                        dirtyRecordCollector,
+                        writerContext.getIndexOfSubtask(),
+                        catalogTable,
+                        writerContext),
+                context,
+                writerContext);
     }
 
     @Override
@@ -170,34 +167,21 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
 
         if (recoveredState == null || recoveredState.isEmpty()) {
             // No state to restore, create new writer
-            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
-                    seatunnelWriter = seaTunnelSink.createWriter(writerContext);
-            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
-                seatunnelWriter =
-                        new DirtyDataAwareSinkWriter<>(
-                                seatunnelWriter,
-                                dirtyRecordCollector,
-                                writerContext.getIndexOfSubtask(),
-                                catalogTable);
-            }
-            return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
+            return new FlinkSinkWriter<>(
+                    DirtyDataAwareSinkWriter.wrap(
+                            seaTunnelSink.createWriter(writerContext),
+                            dirtyRecordCollector,
+                            writerContext.getIndexOfSubtask(),
+                            catalogTable,
+                            writerContext),
+                    context,
+                    writerContext);
         } else {
             // Restore from state
             List<WriterStateT> states =
                     recoveredState.stream()
                             .map(FlinkWriterState::getState)
                             .collect(Collectors.toList());
-
-            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
-                    seatunnelWriter = seaTunnelSink.restoreWriter(writerContext, states);
-            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
-                seatunnelWriter =
-                        new DirtyDataAwareSinkWriter<>(
-                                seatunnelWriter,
-                                dirtyRecordCollector,
-                                writerContext.getIndexOfSubtask(),
-                                catalogTable);
-            }
 
             // Find the maximum checkpoint ID from all recovered states to ensure consistency
             long maxCheckpointId =
@@ -209,7 +193,16 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
             // Start from the next checkpoint ID after the maximum recovered checkpoint
             long nextCheckpointId = maxCheckpointId + 1;
 
-            return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext, nextCheckpointId);
+            return new FlinkSinkWriter<>(
+                    DirtyDataAwareSinkWriter.wrap(
+                            seaTunnelSink.restoreWriter(writerContext, states),
+                            dirtyRecordCollector,
+                            writerContext.getIndexOfSubtask(),
+                            catalogTable,
+                            writerContext),
+                    context,
+                    writerContext,
+                    nextCheckpointId);
         }
     }
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,6 +47,13 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
             List<? extends Config> pluginConfigs,
             JobContext jobContext) {
         super(jarPaths, envConfig, pluginConfigs, jobContext);
+    }
+
+    @Override
+    protected DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
+            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig) {
+        return createVersionSpecificDataStreamSink(
+                stream, sink, parallelism, sinkConfig, NoOpDirtyRecordCollector.INSTANCE);
     }
 
     @Override

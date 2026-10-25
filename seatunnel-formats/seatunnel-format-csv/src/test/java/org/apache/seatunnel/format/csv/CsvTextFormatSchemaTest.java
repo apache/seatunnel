@@ -38,9 +38,12 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -293,6 +296,125 @@ public class CsvTextFormatSchemaTest {
             Assertions.assertDoesNotThrow(
                     () -> Integer.parseInt(amountField),
                     "Amount should be a valid integer at line " + (i + 1));
+        }
+    }
+
+    @Test
+    void testTimestampTzRoundTrip() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+
+        CsvSerializationSchema ser =
+                CsvSerializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+        CsvDeserializationSchema deser =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        OffsetDateTime[] cases = {
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(9)),
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(-8)),
+            OffsetDateTime.of(2024, 6, 15, 0, 0, 0, 0, ZoneOffset.UTC),
+        };
+
+        for (OffsetDateTime original : cases) {
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {original});
+            byte[] serialized = ser.serialize(row);
+            SeaTunnelRow deserialized = deser.deserialize(serialized);
+            OffsetDateTime result = (OffsetDateTime) deserialized.getField(0);
+            Assertions.assertEquals(
+                    original.toInstant(), result.toInstant(), "Epoch mismatch for " + original);
+            Assertions.assertEquals(
+                    original.getOffset(), result.getOffset(), "Offset mismatch for " + original);
+        }
+    }
+
+    @Test
+    void testTimestampTzWallClockUsesSessionTimezone() {
+        // Issue #10795: wall-clock serialization must convert the instant to the
+        // session (JVM) timezone, not strip the value's own offset.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            CsvSerializationSchema ser =
+                    CsvSerializationSchema.builder()
+                            .seaTunnelRowType(rowType)
+                            .delimiter(",")
+                            .wallClockTimestampTz(true)
+                            .build();
+
+            // 2024-01-01T10:00:00Z == 2024-01-01 18:00:00 in Asia/Shanghai.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(utcRow)));
+
+            // A value already carrying the session offset keeps its wall-clock.
+            SeaTunnelRow localRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 18, 0, 0, 0, ZoneOffset.ofHours(8))
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(localRow)));
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    void testTimestampTzBackwardCompatFallback() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        CsvDeserializationSchema deser =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        SeaTunnelRow row = deser.deserialize("2024-01-01 03:00:00".getBytes());
+        OffsetDateTime result = (OffsetDateTime) row.getField(0);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(ZoneOffset.UTC, result.getOffset());
+        Assertions.assertEquals(
+                java.time.LocalDateTime.of(2024, 1, 1, 3, 0, 0).toInstant(ZoneOffset.UTC),
+                result.toInstant());
+    }
+
+    @Test
+    void testTimestampTzWallClockExplicitZoneIdIsIndependentOfJvmDefault() {
+        // When an explicit target zone is supplied, the JVM default must not affect the output
+        // (issue #10795 follow-up). Run the assertion under a JVM default that does NOT match the
+        // target zone to prove the explicit zone is the only thing that matters.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        CsvSerializationSchema ser =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .wallClockTimestampTz(true)
+                        .wallClockTimestampTzZoneId(java.time.ZoneId.of("Asia/Shanghai"))
+                        .build();
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            // 2024-01-01T10:00:00Z == 2024-01-01 18:00:00 in Asia/Shanghai, regardless of JVM
+            // default being UTC.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(utcRow)));
+        } finally {
+            TimeZone.setDefault(original);
         }
     }
 }

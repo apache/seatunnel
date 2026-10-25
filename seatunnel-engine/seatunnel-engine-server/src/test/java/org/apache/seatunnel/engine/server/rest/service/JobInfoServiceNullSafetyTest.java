@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -29,13 +31,26 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.internal.nio.IOUtil;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JobInfoServiceNullSafetyTest {
@@ -45,6 +60,7 @@ class JobInfoServiceNullSafetyTest {
     private JobInfoService jobInfoService;
     private NodeEngineImpl nodeEngine;
     private HazelcastInstance hazelcastInstance;
+    private InternalSerializationService serializationService;
 
     private IMap<Object, Object> runningJobInfoMap;
     private IMap<Object, Object> finishedJobStateMap;
@@ -55,6 +71,8 @@ class JobInfoServiceNullSafetyTest {
     void setUp() {
         nodeEngine = mock(NodeEngineImpl.class);
         hazelcastInstance = mock(HazelcastInstance.class);
+        serializationService =
+                (InternalSerializationService) new DefaultSerializationServiceBuilder().build();
 
         runningJobInfoMap = mock(IMap.class);
         finishedJobStateMap = mock(IMap.class);
@@ -62,6 +80,7 @@ class JobInfoServiceNullSafetyTest {
         finishedJobVertexInfoMap = mock(IMap.class);
 
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(nodeEngine.getSerializationService()).thenReturn(serializationService);
         when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO))
                 .thenReturn(runningJobInfoMap);
         when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE))
@@ -72,6 +91,65 @@ class JobInfoServiceNullSafetyTest {
                 .thenReturn(finishedJobVertexInfoMap);
 
         jobInfoService = new JobInfoService(nodeEngine);
+    }
+
+    @Test
+    void shouldDecodeLegacyJobImmutableInformationInFastPath() throws Exception {
+        long createTime = 123456L;
+        JobInfo jobInfo =
+                new JobInfo(
+                        1L,
+                        serializationService.toData(
+                                new LegacyJobImmutableInformation(jobId, createTime)));
+
+        Object basicInfo = invokeDecodeJobBasicInfo(jobInfo);
+
+        Assertions.assertNotNull(basicInfo);
+        Assertions.assertEquals("legacy-job", getFieldValue(basicInfo, "jobName"));
+        Assertions.assertEquals(createTime, getFieldValue(basicInfo, "createTime"));
+    }
+
+    /**
+     * A paged request must pay the per-job metrics and DAG lookups for the rows it returns, not for
+     * every retained job. Verifying the lookup count is the point of the test: asserting only on
+     * the returned JSON would still pass if the whole listing were built and then sliced.
+     */
+    @Test
+    void shouldApplyPageBeforePerJobLookups() {
+        List<Object> storedStates = new ArrayList<>();
+        for (int index = 0; index < 25; index++) {
+            storedStates.add(buildJobState((long) index, 1000L, 2000L + index));
+        }
+        when(finishedJobStateMap.values()).thenReturn(storedStates);
+        when(finishedJobMetricsMap.getOrDefault(any(), any())).thenReturn(JobMetrics.empty());
+        when(finishedJobVertexInfoMap.get(any())).thenReturn(null);
+
+        JobInfoService.JobPage page = jobInfoService.getJobsByStateJson("", 0, 10);
+
+        Assertions.assertEquals(10, page.getData().size());
+        Assertions.assertEquals(25, page.getTotal(), "total must count matches before slicing");
+        verify(finishedJobMetricsMap, times(10)).getOrDefault(any(), any());
+        verify(finishedJobVertexInfoMap, times(10)).get(any());
+    }
+
+    /** Newest finish time first, so that paging over a growing history stays stable. */
+    @Test
+    void shouldReturnNewestFinishedJobsFirst() {
+        List<Object> storedStates = new ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            storedStates.add(buildJobState((long) index, 1000L, 2000L + index));
+        }
+        when(finishedJobStateMap.values()).thenReturn(storedStates);
+        when(finishedJobMetricsMap.getOrDefault(any(), any())).thenReturn(JobMetrics.empty());
+        when(finishedJobVertexInfoMap.get(any())).thenReturn(null);
+
+        JobInfoService.JobPage page = jobInfoService.getJobsByStateJson("", 0, 2);
+
+        Assertions.assertEquals(2, page.getData().size());
+        Assertions.assertEquals(
+                "4", page.getData().get(0).asObject().getString(RestConstant.JOB_ID, null));
+        Assertions.assertEquals(
+                "3", page.getData().get(1).asObject().getString(RestConstant.JOB_ID, null));
     }
 
     private JobHistoryService.JobState buildJobState(Long jobId, Long startTime, Long finishTime) {
@@ -133,5 +211,82 @@ class JobInfoServiceNullSafetyTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+    }
+
+    @Test
+    void shouldListFinishedJobsWhenFinishTimeMetricsOrDagAreMissing() {
+        Long jobWithFinishTime = 2L;
+        JobHistoryService.JobState missingFinishTime = buildJobState(jobId, 1000L, null);
+        JobHistoryService.JobState completed = buildJobState(jobWithFinishTime, 1000L, 2000L);
+
+        when(finishedJobStateMap.values())
+                .thenReturn((java.util.Collection) Arrays.asList(missingFinishTime, completed));
+        when(finishedJobMetricsMap.getOrDefault(jobId, JobMetrics.empty())).thenReturn(null);
+        when(finishedJobMetricsMap.getOrDefault(jobWithFinishTime, JobMetrics.empty()))
+                .thenThrow(new RuntimeException("metrics unavailable"));
+        when(finishedJobVertexInfoMap.get(jobId))
+                .thenThrow(new RuntimeException("dag unavailable"));
+        when(finishedJobVertexInfoMap.get(jobWithFinishTime)).thenReturn(null);
+
+        JsonArray result = jobInfoService.getJobsByStateJson("");
+
+        Assertions.assertEquals(2, result.size());
+        Assertions.assertEquals(
+                jobWithFinishTime.toString(),
+                result.get(0).asObject().getString(RestConstant.JOB_ID, null));
+        Assertions.assertEquals(
+                jobId.toString(), result.get(1).asObject().getString(RestConstant.JOB_ID, null));
+    }
+
+    private Object invokeDecodeJobBasicInfo(JobInfo jobInfo) throws Exception {
+        Method method = JobInfoService.class.getDeclaredMethod("decodeJobBasicInfo", JobInfo.class);
+        method.setAccessible(true);
+        return method.invoke(jobInfoService, jobInfo);
+    }
+
+    private Object getFieldValue(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    private static final class LegacyJobImmutableInformation
+            implements com.hazelcast.nio.serialization.IdentifiedDataSerializable {
+
+        private final long jobId;
+        private final long createTime;
+
+        private LegacyJobImmutableInformation(long jobId, long createTime) {
+            this.jobId = jobId;
+            this.createTime = createTime;
+        }
+
+        @Override
+        public int getFactoryId() {
+            return JobDataSerializerHook.FACTORY_ID;
+        }
+
+        @Override
+        public int getClassId() {
+            return JobDataSerializerHook.JOB_IMMUTABLE_INFORMATION;
+        }
+
+        @Override
+        public void writeData(com.hazelcast.nio.ObjectDataOutput out) throws IOException {
+            out.writeLong(jobId);
+            out.writeString("legacy-job");
+            out.writeBoolean(true);
+            out.writeLong(createTime);
+            out.writeInt(0);
+            IOUtil.writeData(out, null);
+            out.writeObject(null);
+            out.writeObject(null);
+            out.writeObject(null);
+        }
+
+        @Override
+        public void readData(com.hazelcast.nio.ObjectDataInput in) {
+            throw new UnsupportedOperationException("write-only test fixture");
+        }
     }
 }
