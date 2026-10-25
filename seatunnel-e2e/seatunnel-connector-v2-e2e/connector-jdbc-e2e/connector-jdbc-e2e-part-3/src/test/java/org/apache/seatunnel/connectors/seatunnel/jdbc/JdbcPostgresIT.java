@@ -503,8 +503,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     }
 
     private boolean runConcurrentUpsertDeadlockAttempt() throws Exception {
-        String table = "jdbc_deadlock_real_upsert_test";
-        int rowCount = 40;
+        String table = "public.jdbc_deadlock_real_upsert_test";
+        // A large batch keeps both writers executing server-side long enough that the opposite
+        // traversal orders reliably interleave row locks.
+        int rowCount = 200;
         executeSQL("DROP TABLE IF EXISTS " + table);
         executeSQL("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)");
         executeSQL("INSERT INTO " + table + " (id, value) VALUES " + seedValues(rowCount, 0));
@@ -577,8 +579,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         // AFTER UPDATE/DELETE triggers record the execution order, so a batch written in
         // unsorted order must land in primary-key order with one child batch per change-flag
         // transition: U1, D2, U3, D4, U5.
-        String table = "jdbc_key_ordered_mixed_test";
-        String auditTable = "jdbc_key_ordered_mixed_audit";
+        String table = "public.jdbc_key_ordered_mixed_test";
+        String auditTable = "public.jdbc_key_ordered_mixed_audit";
         executeSQL("DROP TABLE IF EXISTS " + table);
         executeSQL("DROP TABLE IF EXISTS " + auditTable);
         executeSQL("DROP FUNCTION IF EXISTS jdbc_key_ordered_audit_fn()");
@@ -646,11 +648,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
             createUpsertOutput(
                     JdbcConnectionConfig connectionConfig, String table, boolean keyOrdered) {
+        // The schema-qualified table keeps the generated upsert/delete SQL and the test DDL in
+        // the same schema, independent of the connection's search_path.
+        String schema = table.substring(0, table.indexOf('.'));
+        String tableName = table.substring(table.indexOf('.') + 1);
         JdbcSinkConfig sinkConfig =
                 JdbcSinkConfig.builder()
                         .jdbcConnectionConfig(connectionConfig)
-                        .database(POSTGRESQL_CONTAINER.getDatabaseName())
-                        .table(table)
+                        .database(schema)
+                        .table(tableName)
                         .primaryKeys(Collections.singletonList("id"))
                         .enableUpsert(true)
                         .upsertBatchKeyOrdered(keyOrdered)
