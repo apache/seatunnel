@@ -264,7 +264,11 @@ public class JdbcOutputFormatTest {
         }
     }
 
-    /** Records SQL batch attempts to detect replay during failure cleanup. */
+    /**
+     * Records SQL batch attempts to detect replay during failure cleanup.
+     *
+     * <p>The retained counter must remain unchanged when a failed writer is closed.
+     */
     private static class FailingBatchExecutor extends CountingExecutor {
 
         @Override
@@ -274,7 +278,11 @@ public class JdbcOutputFormatTest {
         }
     }
 
-    /** Records connector exception failures to detect replay during writer close. */
+    /**
+     * Records connector exception failures to detect replay during writer close.
+     *
+     * <p>This fixture exercises the unchecked connector-exception path independently of SQL errors.
+     */
     private static class RuntimeFailingBatchExecutor extends CountingExecutor {
 
         @Override
