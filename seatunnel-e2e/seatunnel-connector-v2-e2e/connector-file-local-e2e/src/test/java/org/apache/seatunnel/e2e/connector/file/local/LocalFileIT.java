@@ -402,7 +402,13 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/csv_with_header_to_assert.conf");
     }
 
-    /** Verifies file-source inference across rows and preserves strict explicit-format failures. */
+    /**
+     * Verifies file-source inference across rows and preserves strict explicit-format failures.
+     *
+     * @param container the engine runtime used by the existing file-source integration suite
+     * @throws IOException if submitting a test job fails
+     * @throws InterruptedException if waiting for a test job is interrupted
+     */
     @TestTemplate
     public void testLocalFileTemporalFormats(TestContainer container)
             throws IOException, InterruptedException {

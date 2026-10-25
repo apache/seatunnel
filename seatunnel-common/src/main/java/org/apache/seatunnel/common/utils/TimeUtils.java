@@ -150,7 +150,12 @@ public class TimeUtils {
         Time_FORMATTER_MAP.put(PATTERN_ARRAY[1], Formatter.parse(Formatter.HH_MM_SS_SSS.value));
     }
 
-    /** Preserves the historical enum-returning API used by compiled connector extensions. */
+    /**
+     * Preserves the historical enum-returning API used by compiled connector extensions.
+     *
+     * @param time the input checked against the historical public pattern mapping
+     * @return the matched legacy enum, or null when neither historical pattern matches
+     */
     public static Formatter matchTimeFormatter(String time) {
         for (Pattern pattern : PATTERN_ARRAY) {
             if (pattern.matcher(time).matches()) {
