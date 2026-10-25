@@ -65,9 +65,9 @@ semantics (using XA transaction guarantee).
 | DATE                                                            | LOCAL_DATE                                                                                                                                                |
 | TIME                                                            | LOCAL_TIME                                                                                                                                                |
 | DATETIME<br />DATETIME2<br />SMALLDATETIME                      | LOCAL_DATE_TIME                                                                                                                                           |
-| DATETIMEOFFSET                                                  | OFFSET_DATE_TIME                                                                                                                                          |
-| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP                  | BYTES                                                                                                                                                     |
-| UNKNOWN                                                          | Not supported yet                                                                                                                                         |
+| DATETIMEOFFSET                                                  | OFFSET_DATE_TIME (TIMESTAMP_TZ)                                                                                                                           |
+| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP                 | BYTES                                                                                                                                                     |
+| UNKNOWN                                                         | Not supported yet                                                                                                                                         |
 
 ## Sink Options
 

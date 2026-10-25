@@ -6,19 +6,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 描述
 
-从 Hive 读取数据。
-
-使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
-- `element_id`：元素的唯一标识符
-- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
-- `heading_level`：标题级别（1-6，非标题元素为 null）
-- `text`：元素的文本内容
-- `page_number`：页码（默认：1）
-- `position_index`：文档中的位置索引
-- `parent_id`：父元素的 ID
-- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
-
-注意：Markdown 格式仅支持读取，不支持写入。
+从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
 
 :::tip 提示
 
@@ -38,13 +26,10 @@ import ChangeLog from '../changelog/connector-hive.md';
 - [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
-- [x] 文件格式
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
-    - [x] markdown
 
 ## 选项
 
@@ -65,7 +50,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
 | read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
 | read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
-| compress_codec        | string | 否   | none    | text / CSV / JSON 输出的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
 | common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### table_name [string]
@@ -142,8 +127,6 @@ Kerberos 认证的 keytab 文件路径
 文件的压缩编解码器，支持的详细信息如下所示：
 
 - txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
 - orc/parquet:  
   自动识别压缩类型，无需额外设置。
 

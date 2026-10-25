@@ -69,6 +69,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options        |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
 | protobuf_message_name | String | No       | -       | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema       | String | No       | -       | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                |
+| avro_row_nullable     | Boolean | No      | false   | Effective when the format is set to avro. Set `true` when a ROW field (including a ROW nested in another ROW, an ARRAY or a MAP) may be `null`, so the ROW is written as a nullable Avro union instead of a bare record; the reader must enable the same option. See [Avro format](../formats/avro.md#avro_row_nullable). |
 
 
 ## Parameter Interpretation
@@ -506,20 +507,22 @@ completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass broker authentication settings via `kafka.*` properties:
+The connector only forwards Kafka client properties that are placed inside the `kafka.config` block; top-level keys such as `kafka.security.protocol` are not recognized and are silently ignored. Put the broker authentication settings inside `kafka.config`:
 
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```

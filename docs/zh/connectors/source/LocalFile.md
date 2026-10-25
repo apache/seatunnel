@@ -323,6 +323,11 @@ PDF 特有的解析行为如下：
 
 然后 SeaTunnel 将跳过源文件的前 2 行
 
+对于设置了 `enable_file_split = false` 的 CSV 文件，此参数跳过的是 CSV 解析之前的物理行。如果设置了
+`csv_use_header_line = true`，跳过这些行之后的第一条 CSV 记录将作为表头。
+`skip_header_row_number` 只应包含表头之前的说明行，不要将表头本身计入；
+如果表头之前没有说明行，请保持默认值 `0`。
+
 ### schema [config]
 
 仅在 file_format_type 为 text、json、excel、xml 或 csv（或其他我们无法从元数据读取 schema 的格式）时需要配置。
