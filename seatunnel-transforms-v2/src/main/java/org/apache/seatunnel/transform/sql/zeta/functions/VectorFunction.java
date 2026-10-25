@@ -183,7 +183,9 @@ public class VectorFunction {
 
     private static Float[] convertToFloatArray(Object obj) {
         if (obj instanceof ByteBuffer) {
-            return VectorUtils.toFloatArray((ByteBuffer) obj);
+            ByteBuffer buffer = (ByteBuffer) obj;
+            // A vector can be shared by multiple expressions and downstream consumers.
+            return VectorUtils.toFloatArray(buffer.duplicate().order(buffer.order()));
         } else if (obj instanceof Float[]) {
             return (Float[]) obj;
         } else if (obj instanceof float[]) {

@@ -38,7 +38,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 |            Name             |  Type  | Required | Default |                                                 Description                                                 |
 |-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
-| url                         | String | Yes      | -       | Http request url                                                                                            |
+| url                         | String | Yes      | -       | HTTP request URL. Must not be empty or whitespace-only.                                                      |
 | headers                     | Map    | No       | -       | Http headers                                                                                                |
 | params                      | Map    | No       | -       | Accepted by the option rule. For the current sink writer, put query parameters directly in `url`; rows are posted to the final URL as the request body. |
 | retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
@@ -53,6 +53,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 ## Example
 
 The Http sink always sends `POST` requests. Each upstream row is converted to JSON and used as the request body. When `array_mode = true`, rows are accumulated into a JSON array before sending; `batch_size` controls the maximum number of rows in one request.
+
+The sink treats a non-200 HTTP response or a request exception as a write failure and reports it to the engine. A failed batch is not acknowledged as successfully flushed. The connector does not provide exactly-once delivery, so receivers should remain idempotent.
 
 simple:
 

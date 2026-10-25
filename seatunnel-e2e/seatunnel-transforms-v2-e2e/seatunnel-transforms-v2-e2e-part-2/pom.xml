@@ -26,6 +26,10 @@
 
     <name>SeaTunnel : E2E : Transforms V2 : Part 2</name>
 
+    <properties>
+        <hutool.version>5.3.6</hutool.version>
+    </properties>
+
     <dependencies>
 
         <dependency>
@@ -33,6 +37,12 @@
             <artifactId>seatunnel-transforms-v2-e2e-common</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>${hutool.version}</version>
             <scope>test</scope>
         </dependency>
 

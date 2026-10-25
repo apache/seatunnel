@@ -168,11 +168,15 @@ driver = "org.mariadb.jdbc.Driver"
 | partition_num                              | Int     | 否    | 10      | 顶层 `query` 与 `partition_column` 触发 fixed splitter 时的分片数，无论是否同时配置 `table_path`。动态 `table_path` 和 `table_list` 布局改用 `split.size`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | decimal_type_narrowing                     | Boolean | 否    | true    | 十进制类型缩小，如果为 true，十进制类型将缩小为 int 或 long 类型（如果没有精度损失）。目前仅支持 Oracle。请参考下面的 `decimal_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | 否    | true    | Int 类型缩小，如果为 true，tinyint(1) 类型将缩小为布尔类型（如果没有精度损失）。目前支持 MySQL。请参考下面的 `int_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| numeric_special_value_as_null              | Boolean | 否    | false   | 数值特殊值按 null 读取，如果为 true，无法表示为 BigDecimal 的数值特殊值（NaN、Infinity、-Infinity）将按 null 读取。目前仅支持 PostgreSQL。请参考下面的 `numeric_special_value_as_null`                                                                                                                                                                                                                                                                                                                                                                                                       |
 | handle_blob_as_string                      | Boolean | 否    | false   | 如果为 true，BLOB 类型将转换为 STRING 类型。**仅支持 Oracle 数据库**。这对于处理超过默认大小限制的 Oracle 中的大 BLOB 字段很有用。将 Oracle 的 BLOB 字段传输到 Doris 等系统时，将其设置为 true 可以使数据传输更高效。                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_kerberos                               | Boolean | 否    | false   | 是否为 JDBC 连接启用 Kerberos 认证。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | kerberos_principal                         | String  | 否    | -       | `use_kerberos = true` 时使用的 Kerberos principal。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | kerberos_keytab_path                       | String  | 否    | -       | `use_kerberos = true` 时使用的 Kerberos keytab 文件路径。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | krb5_path                                  | String  | 否    | /etc/krb5.conf | Kerberos krb5 配置文件路径。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| access_key_id                              | String  | 否    | -              | AWS 认证使用的 access_key_id。仅在 `dialect = "Dsql"`（Amazon Aurora DSQL）时有效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| secret_access_key                          | String  | 否    | -              | AWS 认证使用的 secret_access_key。仅在 `dialect = "Dsql"`（Amazon Aurora DSQL）时有效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| region                                     | String  | 否    | -              | Amazon Aurora DSQL 集群所在的 AWS 区域。仅在 `dialect = "Dsql"` 时有效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | use_select_count                           | Boolean | 否    | false   | 在动态块分割阶段使用 select count 来获取表计数，而不是其他方法。这目前仅适用于 jdbc-oracle。在这种情况下，当使用 sql 从分析表更新统计信息更快时，直接使用 select count                                                                                                                                                                                                                                                                                                                                                                                                     |
 | skip_analyze                               | Boolean | 否    | false   | 在动态块分割阶段跳过表计数分析。这目前仅适用于 jdbc-oracle。在这种情况下，您定期安排分析表 sql 来更新相关表统计信息，或您的表数据不经常更改                                                                                                                                                                                                                                                                                                                                                                                                    |
 | use_regex                                  | Boolean | 否    | false   | 控制 table_path 的正则表达式匹配。设置为 `true` 时，table_path 将被视为正则表达式模式。设置为 `false` 或未指定时，table_path 将被视为精确路径（无正则表达式匹配）。 |
@@ -214,6 +218,18 @@ HOCON 字符串中的正则反斜杠需要转义，因此正则中的 `\d+` 在�
 
 许多 JDBC 驱动会把传给 `DatabaseMetaData` 的 schema 和表名参数当作 SQL `LIKE` 模式。SeaTunnel 会在发现元数据后再次精确核对标识符；对于大小写敏感的数据库，仍应确保配置与数据库中的真实标识符大小写完全一致。
 
+:::note 视图与表匹配
+
+`table_path`（无论是否启用 `use_regex`）是否会连带匹配到数据库视图（而不仅仅是基础表），取决于各方言内部列举表所使用的查询方式，目前没有可以显式包含或排除视图的配置项：
+
+- MySQL 和 PostgreSQL 会把视图和基础表列在一起，因此像 `db.*` 这样宽泛的匹配模式也会匹配到视图。
+- SQL Server 通过 `TABLE_TYPE = 'BASE TABLE'` 过滤，会排除视图。
+- Oracle 和 Dameng 查询的是 `ALL_TABLES`，视图不在其中，因此会被间接排除。
+
+如果需要在任意方言下都只读取指定的基础表，建议直接在 `table_list` 中显式列出表名，而不要依赖宽泛的正则表达式。
+
+:::
+
 ### decimal_type_narrowing
 
 十进制类型缩小，如果为 true，十进制类型将缩小为 int 或 long 类型（如果没有精度损失）。目前仅支持 Oracle。
@@ -254,6 +270,16 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+数值特殊值按 null 读取，如果为 true，无法表示为 BigDecimal 的数值特殊值（NaN、Infinity、-Infinity）将按 null 读取。目前仅支持 PostgreSQL。
+
+注意：该选项仅在读取行数据时生效，不适用于分片范围查询，因此数值类型的分片列包含特殊值时仍可能导致任务失败。目前仅 PostgreSQL 及 `postgresLow` 兼容模式支持该选项。
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。例如，使用 starrocks 时，需要将其设置为 `starrocks`。类似地，使用 mysql 时，需要将其值设置为 `mysql`。
@@ -272,7 +298,10 @@ int_type_narrowing = false
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
-| YashanDB  |          |          |
+| YashanDB  | DSQL     |          |
+
+达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
+达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
 
 ## 并行读取器
 
@@ -321,7 +350,7 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 | oceanbase         | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | hive              | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar                                 |
 | xugu              | com.xugu.cloudjdbc.Driver                           | jdbc:xugu://localhost:5138                                             | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
-| InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar                         |
 | opengauss         | org.opengauss.Driver                                | jdbc:opengauss://localhost:5432/postgres                               | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |

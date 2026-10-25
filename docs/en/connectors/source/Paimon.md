@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read data from Apache Paimon.
@@ -41,7 +47,7 @@ Read data from Apache Paimon.
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -54,7 +60,7 @@ Read data from Apache Paimon.
 | catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                |
 | database                | String   | Yes            | -             | The database you want to access.                                                                                             |
 | table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
-| table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `table`, and may contain its own `query`.                                  |
+| table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
 | user                    | String   | No             | -             | The Paimon user used to access the table (for example, with a `hive` catalog that enables authentication).                   |
 | password                | String   | No             | -             | The Paimon user password. Required when `user` is configured.                                                                 |
 | hdfs_site_path          | String   | No             | -             | The file path of `hdfs-site.xml`. Deprecated; prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.        |
@@ -64,7 +70,7 @@ Read data from Apache Paimon.
 
 ### warehouse [string]
 
-Paimon warehouse path.
+Paimon warehouse path. Must not be blank.
 
 ### catalog_name [string]
 
@@ -88,15 +94,17 @@ The table you want to access. Configure exactly one of `table` and `table_list`.
 
 ### table_list [array]
 
-The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `table`, and may contain its own `query` filter.
+The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `database` and `table`, and may contain its own `query` filter.
 
 ```hocon
 table_list = [
   {
+    database = "default"
     table = "table1"
     query = "select * from table1 where id > 100"
   },
   {
+    database = "default"
     table = "table2"
   }
 ]
@@ -279,8 +287,21 @@ source {
 }
 ```
 
-## Reading Paimon Changelog
+### paimon enable privilege example
 
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
+}
+```
+
+## Read Paimon Table Changelog
 If you want to read the changelog of the Paimon table, first set the `changelog-producer` for the Paimon source table and then use the SeaTunnel stream task to read it.
 
 ### Note
@@ -313,19 +334,19 @@ sink {
 }
 ```
 
-### paimon enable privilege example
+## FAQ
 
-```hocon
-source {
- Paimon {
-     warehouse = "/tmp/paimon"
-     database = "default"
-     table = "st_test"
-     user = "paimon"
-     password = "******"
-   }
-}
-```
+### Which read modes does the Paimon source support?
+
+The SeaTunnel Paimon source supports both batch snapshot queries and streaming changelog consumption. In batch mode, it scans the target table's latest snapshot or a specified snapshot range. In streaming mode, it continuously consumes newly committed changes and splits.
+
+### How do I configure storage and catalog backends for Paimon?
+
+Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `catalog_type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+
+### Does Paimon source support column projection?
+
+Yes. The Paimon source reads only the projection fields defined in the SeaTunnel job schema, avoiding unnecessary column deserialization and optimizing read performance on columnar formats like ORC and Parquet.
 
 ## Changelog
 

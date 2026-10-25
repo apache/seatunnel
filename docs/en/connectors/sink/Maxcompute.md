@@ -4,9 +4,19 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 > Maxcompute sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Used to write data to Maxcompute.
+Used to write data to Maxcompute. The connector supports AccessKey (`accessId`/`accesskey`)
+authentication, STS-token authentication, and the default Aliyun credentials provider chain. It can
+append to or overwrite a target table or partition, create the target table from a template, and
+uses an upload
+or upsert session selected by `insert_strategy`.
 
 ## Key features
 
@@ -17,27 +27,33 @@ Used to write data to Maxcompute.
 
 ## Options
 
-| name                      | type    | required | default value |
-|---------------------------|---------|----------|---------------|
-| accessId                  | string  | no       | -             |
-| accesskey                 | string  | no       | -             |
-| sts_token                 | string  | no       | -             |
-| endpoint                  | string  | yes      | -             |
-| project                   | string  | yes      | -             |
-| table_name                | string  | yes      | -             |
-| schema_name               | string  | no       | -             |
-| partition_spec            | string  | no       | -             |
-| overwrite                 | boolean | no       | false         |
-| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode            | enum    | no       | APPEND_DATA   |
-| custom_sql                | string  | no       | -             |
-| save_mode_create_template | string  | no       | see below     |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| tunnel_endpoint           | string  | no       | -             |
-| tunnel_name               | string  | no       | -             |
-| insert_strategy           | string  | no       | upload        |
-| multi_table_sink_replica  | int     | no       | 1             |
-| common-options            | string  | no       |               |
+| name                      | type    | required | default value                | description                                                                                                              |
+|---------------------------|---------|----------|------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| accessId                  | string  | no       | -                            | Aliyun AccessKey ID used to access MaxCompute.                                                                            |
+| accesskey                 | string  | no       | -                            | Aliyun AccessKey secret used to access MaxCompute.                                                                        |
+| sts_token                 | string  | no       | -                            | STS token used for temporary MaxCompute authentication. When `sts_token` is provided, `accessId` and `accesskey` are required. |
+| endpoint                  | string  | yes      | -                            | MaxCompute endpoint, starting with `http`.                                                                                |
+| project                   | string  | yes      | -                            | MaxCompute project created in Alibaba Cloud.                                                                              |
+| table_name                | string  | yes      | -                            | Target MaxCompute table name, for example `fake`.                                                                         |
+| schema_name               | string  | no       | -                            | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema.    |
+| partition_spec            | string  | no       | -                            | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                           |
+| overwrite                 | boolean | no       | false                        | Whether to overwrite the target table or partition.                                                                       |
+| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing, such as `RECREATE_SCHEMA` or `CREATE_SCHEMA_WHEN_NOT_EXIST`.                |
+| data_save_mode            | enum    | no       | APPEND_DATA                  | How to handle existing target data before writing, such as `DROP_DATA`, `APPEND_DATA`, or `ERROR_WHEN_DATA_EXISTS`.      |
+| custom_sql                | string  | no       | -                            | Custom SQL to execute before writing when `data_save_mode = CUSTOM_PROCESSING`.                                          |
+| save_mode_create_template | string  | no       | see below                    | DDL template used when the sink creates the target table.                                                                 |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss          | Format string used to convert `LocalDateTime` fields to strings.                                                         |
+| tunnel_endpoint           | string  | no       | -                            | Custom endpoint URL for the MaxCompute Tunnel service. When not set, the endpoint is auto-inferred from the region.       |
+| tunnel_name               | string  | no       | -                            | Tunnel Quota name used for exclusive resource groups. Requires both `endpoint` and `tunnel_endpoint` to be VPC endpoints. |
+| connect_timeout_ms        | long    | no       | 10000                        | HTTP connect timeout for the ODPS REST client (metadata/catalog calls) in ms. Default 10000 (10s).     |
+| read_timeout_ms           | long    | no       | 120000                       | HTTP read timeout for the ODPS REST client (metadata/catalog calls) in ms. Default 120000 (120s).      |
+| retry_times               | int     | no       | 4                            | Max retry times for the ODPS REST client. Default 4.                                                  |
+| tunnel_connect_timeout_ms | long    | no       | 180000                       | HTTP connect timeout for the Tunnel client (data upload/download) in ms. Default 180000 (180s).       |
+| tunnel_read_timeout_ms    | long    | no       | 300000                       | HTTP read timeout for the Tunnel client (data upload/download) in ms. Default 300000 (300s).          |
+| tunnel_retry_times        | int     | no       | 4                            | Max retry times for the Tunnel client. Default 4.                                                       |
+| insert_strategy           | string  | no       | upload                       | Insert session strategy: `upload` uses an upload session, `upsert` uses an upsert session and requires a primary key.    |
+| multi_table_sink_replica  | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job.                                                      |
+| common-options            |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`.                                                                   |
 
 ### accessId [string]
 
@@ -195,6 +211,38 @@ Example values:
 - `your_tunnel_quota_name`
 
 Default: Not set (use default quota)
+
+> **Client timeout & retry**
+> MaxCompute has two HTTP clients. The **ODPS REST client** handles the control plane
+> (table/schema lookup, catalog listing); tune it with `connect_timeout_ms`,
+> `read_timeout_ms`, `retry_times`. The **Tunnel client** handles the data plane
+> (bulk row upload/download); tune it with the `tunnel_*` options. Setting the REST
+> options alone does **not** change the Tunnel client's timeouts.
+> Millisecond timeout values are converted to whole seconds; the minimum is `1000`.
+
+### connect_timeout_ms [long]
+
+`connect_timeout_ms` HTTP connect timeout for the MaxCompute ODPS REST client, which handles metadata and catalog calls (table/schema lookup, table listing). In milliseconds. Default `10000` (10 seconds).
+
+### read_timeout_ms [long]
+
+`read_timeout_ms` HTTP read timeout for the ODPS REST client (metadata/catalog calls) in milliseconds. Default `120000` (120 seconds). Raise this if listing a project with many tables or fetching very wide schemas times out.
+
+### retry_times [int]
+
+`retry_times` Maximum retry times for the ODPS REST client on transient failures. Default `4`.
+
+### tunnel_connect_timeout_ms [long]
+
+`tunnel_connect_timeout_ms` HTTP connect timeout for the Tunnel client, which performs bulk data upload/download. In milliseconds. Default `180000` (180 seconds).
+
+### tunnel_read_timeout_ms [long]
+
+`tunnel_read_timeout_ms` HTTP read timeout for the Tunnel client (bulk data upload/download) in milliseconds. Default `300000` (300 seconds). Raise this when uploading large partitions or upserting large batches whose single write requests exceed 5 minutes.
+
+### tunnel_retry_times [int]
+
+`tunnel_retry_times` Maximum retry times for the Tunnel client on transient failures. Default `4`.
 
 ### insert_strategy [string]
 

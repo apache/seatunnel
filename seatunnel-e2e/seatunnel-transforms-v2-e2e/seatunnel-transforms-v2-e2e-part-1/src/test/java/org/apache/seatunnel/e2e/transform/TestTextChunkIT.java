@@ -48,4 +48,13 @@ public class TestTextChunkIT extends TestSuiteBase {
                 container.executeJob("/text_chunk_transform_overlap.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTextChunkTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/text_chunk_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
 }

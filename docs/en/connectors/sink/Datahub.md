@@ -174,6 +174,21 @@ sink {
 }
 ```
 
+## FAQ
+
+### Does DataHub sink support exactly-once delivery?
+
+No. The connector performs best-effort writes with bounded retries (`retryTimes`, default `3`). Failures beyond the retry budget are surfaced to the job rather than silently swallowed, so enable checkpointing at the job level if at-least-once replay from upstream is acceptable.
+
+### How does multi-table routing work?
+
+When the upstream source emits more than one table, set `topic` to a value containing the `${table}` placeholder (for example `topic = "${table}"`). Each input table is then routed to a DataHub topic that shares its name. `${table_name}` is still recognized as a deprecated alias — prefer `${table}` in new jobs. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
+
+### Why is `topic` a required field even for single-table jobs?
+
+DataHub writes are schema-bound: the sink serializes each row against the field names declared on the target topic. A missing or empty `topic` leaves the connector with nowhere to write, so it is validated at job start rather than guessed from the project.
+
 ## Changelog
 
 <ChangeLog />
+

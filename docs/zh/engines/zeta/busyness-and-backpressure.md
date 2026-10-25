@@ -220,6 +220,7 @@ curl "http://<master-host>:8080/metrics/realtime/jobs/<jobId>/vertices?windowMs=
 
 ## 相关文档
 
+- [运行时执行图](./runtime-execution-graph.md)
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [Web UI](./web-ui.md)
 - [RESTful API V2](./rest-api-v2.md)
