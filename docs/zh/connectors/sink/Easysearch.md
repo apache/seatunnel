@@ -53,6 +53,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 | index                  | string  | 是  | -             | Easysearch 索引名称。支持占位符，例如 `seatunnel_${age}`。                                                              |
 | primary_keys           | list    | 否       | -             | 用于构建文档 `_id` 的主键字段。写入需要更新或删除语义的 CDC 数据时需要配置。                                                                |
 | key_delimiter          | string  | 否       | `_`           | 在构建 `_id` 时连接复合主键字段的分隔符。                                                                                       |
+| key_encoding | enum | 否 | LEGACY | 文档主键的编码方式，详见下方 `key_encoding` 章节。 |
 | username               | string  | 否       | -             | 安全用户名。                                                                                                          |
 | password               | string  | 否       | -             | 安全密码。                                                                                                          |
 | max_retry_count        | int     | 否       | 3             | 单次批量请求的最大重试次数。                                                                                                    |
@@ -82,6 +83,12 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 ### key_delimiter [string]
 
 复合键的分隔符 (默认为"_" ), 例如, "$" 将导致文档 `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有文档 ID 不变。配置多个 `primary_keys` 时，字段值包含 `key_delimiter` 可能导致不同记录生成相同 ID。设置为 `LENGTH_PREFIXED` 后，每个格式化后的字段值按 `<长度>:<值>` 编码，例如 `["1_1", "2"]` 生成 `3:1_11:2`，`["1", "1_2"]` 生成 `1:13:1_2`。该模式忽略 `key_delimiter`，单字段主键的 ID 不变。
+
+对已有复合键索引切换此选项会改变文档 ID。切换前应重建索引或迁移已有文档，否则后续写入可能创建重复文档，而不是更新原文档。
 
 ### username [string]
 
@@ -179,11 +186,13 @@ sink {
 }
 ```
 
-### 多表写入
+### 按行字段写入动态索引
 
-> 注意：Easysearch 接收器**未实现** `SupportMultiTableSink` / `SupportMultiTableSinkWriter`。同一个接收器实例只能把
-> 全部行数据写入配置的 `index`，不会自动按上游表路由。下面的 `${table_name}` 占位符依赖上游行携带名为
-> `table_name` 的字段（例如通过 SQL Transform 把上游表名作为一列输出），它并不会被接收器自动解析。
+Easysearch 未实现多表 Sink 契约。以下示例只有一张输入表，每行均携带
+`target_index` 字段。索引模板读取该字段，将两行分别写入 `st_customers`
+和 `st_orders`。上游表标识不会自动转换为行字段。`target_index` 是行字段；
+这里不使用保留的 `${table_name}` 元数据占位符。请预先创建目标索引，或在服务器上启用
+自动创建索引。`schema_save_mode = "IGNORE"` 将索引结构管理交给服务器。
 
 ```hocon
 env {
@@ -193,31 +202,17 @@ env {
 
 source {
   FakeSource {
-    tables_configs = [
-      {
-        schema = {
-          table = "db.schema.table_a"
-          fields {
-            id = int
-            name = string
-          }
-        }
-        rows = [
-          { kind = INSERT, fields = [1, "alice"] }
-        ]
-      },
-      {
-        schema = {
-          table = "db.schema.table_b"
-          fields {
-            id = int
-            amount = double
-          }
-        }
-        rows = [
-          { kind = INSERT, fields = [2, 6.3] }
-        ]
+    row.num = 2
+    schema {
+      fields {
+        id = int
+        name = string
+        target_index = string
       }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", "customers"] },
+      { kind = INSERT, fields = [2, "order", "orders"] }
     ]
   }
 }
@@ -225,8 +220,9 @@ source {
 sink {
   Easysearch {
     hosts = ["localhost:9200"]
-    index = "st_${table_name}"
+    index = "st_${target_index}"
     primary_keys = ["id"]
+    schema_save_mode = "IGNORE"
   }
 }
 ```

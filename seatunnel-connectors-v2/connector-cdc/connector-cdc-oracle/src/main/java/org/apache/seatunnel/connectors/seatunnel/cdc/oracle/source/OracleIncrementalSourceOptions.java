@@ -37,11 +37,12 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                                     Arrays.asList(
                                             StartupMode.INITIAL,
                                             StartupMode.LATEST,
+                                            StartupMode.SPECIFIC,
                                             StartupMode.TIMESTAMP))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"latest\" or \"timestamp\"");
+                                            + "\"initial\", \"latest\", \"specific\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)
@@ -57,6 +58,12 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     .listType()
                     .noDefaultValue()
                     .withDescription("Schema name of the database to monitor.");
+
+    public static final Option<Long> STARTUP_SPECIFIC_OFFSET_SCN =
+            Options.key("startup.specific-offset.scn")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("Optional SCN used in case of \"specific\" startup mode.");
 
     public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")

@@ -53,6 +53,7 @@ Engine Supported
 | index                  | string  | yes      | -             | Easysearch index name. Supports placeholders such as `seatunnel_${age}`.                                          |
 | primary_keys           | list    | no       | -             | Primary key fields used to build the document `_id`. Configure when writing CDC rows that need upsert/delete.      |
 | key_delimiter          | string  | no       | `_`           | Delimiter used to join composite key fields when building `_id`.                                                 |
+| key_encoding | enum | no | LEGACY | Encoding used to build document keys; see `key_encoding` below. |
 | username               | string  | no       | -             | Username for secured Easysearch clusters.                                                                        |
 | password               | string  | no       | -             | Password for secured Easysearch clusters.                                                                        |
 | max_retry_count        | int     | no       | 3             | Maximum retry count for one bulk request.                                                                        |
@@ -82,6 +83,12 @@ Primary key fields used to generate the document `_id`. Configure this option wh
 ### key_delimiter [string]
 
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY` (default) keeps existing document IDs. With multiple `primary_keys`, values containing `key_delimiter` can produce the same ID. Set `LENGTH_PREFIXED` to encode each formatted value as `<length>:<value>`; for example, `["1_1", "2"]` becomes `3:1_11:2` and `["1", "1_2"]` becomes `1:13:1_2`. This mode ignores `key_delimiter` and leaves single-key IDs unchanged.
+
+Changing this option for an existing composite-key index changes its document IDs. Reindex or migrate existing documents before switching; otherwise subsequent writes can create duplicates instead of updating the old IDs.
 
 ### username [string]
 
@@ -179,13 +186,15 @@ sink {
 }
 ```
 
-### Multiple Table Sink
+### Route Rows To Dynamic Indexes
 
-> Note: The Easysearch sink does **not** implement `SupportMultiTableSink` / `SupportMultiTableSinkWriter`.
-> A single sink instance writes all rows to the same configured `index`, and there is no built-in per-table
-> routing. The `${table_name}` placeholder below relies on a row-level `table_name` field being added to
-> every upstream row (for example through a SQL transform that exposes the upstream table identifier as a
-> column) — it is not resolved automatically by the sink.
+Easysearch does not implement the multi-table sink contract. This example uses one
+input table with a `target_index` field on each row. The index template reads that
+field and writes the two rows to `st_customers` and `st_orders`. Upstream table
+identifiers are not automatically exposed as row fields. `target_index` is a
+row field; the reserved `${table_name}` metadata placeholder is not used here.
+Create the target indexes first or enable index auto-creation on the server.
+`schema_save_mode = "IGNORE"` leaves their schema management to the server.
 
 ```hocon
 env {
@@ -195,48 +204,27 @@ env {
 
 source {
   FakeSource {
-    tables_configs = [
-      {
-        schema = {
-          table = "db.schema.table_a"
-          fields {
-            id = int
-            name = string
-          }
-        }
-        rows = [
-          { kind = INSERT, fields = [1, "alice"] }
-        ]
-      },
-      {
-        schema = {
-          table = "db.schema.table_b"
-          fields {
-            id = int
-            amount = double
-          }
-        }
-        rows = [
-          { kind = INSERT, fields = [2, 6.3] }
-        ]
+    row.num = 2
+    schema {
+      fields {
+        id = int
+        name = string
+        target_index = string
       }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", "customers"] },
+      { kind = INSERT, fields = [2, "order", "orders"] }
     ]
-  }
-}
-
-transform {
-  # exposes the upstream table identifier as a column so it can be referenced
-  # from the sink's index template.
-  Sql {
-    sql = "SELECT id, name, 'db.schema.table_a' AS table_name FROM db_schema_table_a UNION ALL SELECT id, CAST(amount AS STRING) AS name, 'db.schema.table_b' AS table_name FROM db_schema_table_b"
   }
 }
 
 sink {
   Easysearch {
     hosts = ["localhost:9200"]
-    index = "st_${table_name}"
+    index = "st_${target_index}"
     primary_keys = ["id"]
+    schema_save_mode = "IGNORE"
   }
 }
 ```

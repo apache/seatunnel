@@ -38,6 +38,25 @@ The connector supports two write semantics:
 
 Buffering, retry, and the optional transaction are tuned via the options below.
 
+## Connectivity Dry Run
+
+`--dry-run connect` checks connectivity and authenticates the credentials configured in `uri`
+using a short-lived client and a `ping` command against `database`. The command uses the primary
+read preference because the sink writes to the primary. URI authentication, TLS and topology
+settings are preserved. No credentials are required for deployments that allow anonymous access;
+without credentials, this check only verifies connectivity, even if the server requires
+authentication for writes.
+
+The check does not read documents, create a writer, start a transaction, or execute save-mode
+actions. It does not validate collection existence, field compatibility, write permissions, or
+transaction support. A missing database or collection is allowed and is not created by the check.
+In particular, `DROP_DATA` and `ERROR_WHEN_DATA_EXISTS` do not inspect or modify existing data.
+
+Server selection, socket connection/read and connection-pool wait timeouts are capped at 30 seconds
+each; shorter positive URI timeouts are retained. The validation client uses a pool of at most one
+connection per server. These limits are not a single overall deadline, and DNS resolution may take
+additional time. Normal job execution and its connection settings are unchanged.
+
 ## Supported DataSource Info
 
 In order to use the MongoDB connector, the following dependency is required.
@@ -92,6 +111,7 @@ The following table lists the field data type mapping from SeaTunnel data type t
 | primary-key           | List     | No       | -             | The primary keys used for upsert/update. The list format is `["id","name",...]`.                                                                                                                                                                                                      |
 | transaction           | Boolean  | No       | false         | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                                      |
 | data_save_mode        | Enum     | No       | APPEND_DATA   | The data saving mode for the MongoDB collection. Supported values: `DROP_DATA` (truncate the collection before writing), `APPEND_DATA` (append to existing data), `ERROR_WHEN_DATA_EXISTS` (fail if the collection already has data).                                                    |
+| multi_table_sink_replica | Int   | No       | 1             | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                                                                                                 |
 | common-options        |          | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                            |
 
 ### Tips
