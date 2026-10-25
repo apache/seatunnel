@@ -285,7 +285,11 @@ public class ParquetTypeCoercionTest {
 
     // ── helper ─────────────────────────────────────────────────────────────────
 
-    /** One write/read round: the rows that came back, and the files they were written to. */
+    /**
+     * Captures round-trip rows together with output files for writer-reuse assertions.
+     *
+     * <p>The file list proves subsequent rows reused one writer instead of opening separate files.
+     */
     private static final class WriteResult {
         private final List<Object[]> rows;
         private final List<String> files;
