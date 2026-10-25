@@ -39,6 +39,10 @@ import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+/**
+ * Covers filename and path filter matching through actual JSON file-reader execution. The emitted
+ * rows must agree with configured file-selection boundaries.
+ */
 public class FileFilterPatternTest extends BaseTest {
     /**
      * filter based on the file directory at the same time, the expression needs to start with

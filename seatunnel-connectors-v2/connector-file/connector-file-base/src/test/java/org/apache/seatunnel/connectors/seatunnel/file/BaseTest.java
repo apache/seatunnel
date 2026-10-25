@@ -26,7 +26,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
+/**
+ * Shares real row collection and local Hadoop configuration across file-reader regression tests.
+ * Tests retain every emitted row for exact value and metadata assertions without remote services.
+ */
 public class BaseTest {
+    /**
+     * Stores actual file-reader output so tests inspect resulting rows and metadata. Reader
+     * invocations cannot pass solely by satisfying mock interaction counts.
+     */
     public static class TestCollector implements Collector<SeaTunnelRow> {
 
         private final List<SeaTunnelRow> rows = new ArrayList<>();
@@ -47,6 +55,10 @@ public class BaseTest {
         }
     }
 
+    /**
+     * Selects Hadoop's local filesystem for deterministic file-format fixtures. These tests
+     * exercise reader behavior without depending on a remote Hadoop cluster.
+     */
     public static class LocalConf extends HadoopConf {
         private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
         private static final String SCHEMA = "file";

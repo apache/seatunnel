@@ -28,6 +28,7 @@
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.release>8</maven.compiler.release>
     </properties>
 
     <dependencies>
@@ -71,7 +72,6 @@
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>dns-cache-manipulator</artifactId>
-            <version>1.8.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

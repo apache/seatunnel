@@ -103,24 +103,11 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 currentFileName,
                 split.getStart(),
                 split.getLength());
-        final boolean useSplitRead = isSplitReadEnabled(split);
         Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         try (BufferedReader reader =
                         createBomAwareBufferedReader(
                                 wrapInputStream(inputStream, split), encoding);
-                CSVParser csvParser = new CSVParser(reader, getCSVFormat(split))) {
-            // skip lines
-            // if split range is used, no need to skip
-            if (!useSplitRead) {
-                for (int i = 0; i < skipHeaderNumber; i++) {
-                    if (reader.readLine() == null) {
-                        throw new IOException(
-                                String.format(
-                                        "File [%s] has fewer lines than expected to skip.",
-                                        currentFileName));
-                    }
-                }
-            }
+                CSVParser csvParser = createCsvParser(reader, split, currentFileName)) {
             // read header lines
             List<String> headers = getHeaders(csvParser, split);
             // Clean up BOM characters (\uFEFF) in the header to solve occasional BOM residue
@@ -174,6 +161,24 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(
                     FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
+    }
+
+    private CSVParser createCsvParser(
+            BufferedReader reader, FileSourceSplit split, String currentFileName)
+            throws IOException {
+        // Header parsing can buffer input during construction, so skip physical lines first.
+        // Byte-range splits already account for skipped lines during enumeration.
+        if (!isSplitReadEnabled(split)) {
+            for (long i = 0; i < skipHeaderNumber; i++) {
+                if (reader.readLine() == null) {
+                    throw new IOException(
+                            String.format(
+                                    "File [%s] has fewer lines than expected to skip.",
+                                    currentFileName));
+                }
+            }
+        }
+        return new CSVParser(reader, getCSVFormat(split));
     }
 
     private InputStream wrapInputStream(InputStream inputStream, FileSourceSplit split)

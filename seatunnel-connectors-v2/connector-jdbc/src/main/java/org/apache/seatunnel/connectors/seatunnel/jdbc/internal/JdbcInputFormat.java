@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -57,31 +58,128 @@ public class JdbcInputFormat implements Serializable {
     private final JdbcRowConverter jdbcRowConverter;
     private final Map<TablePath, CatalogTable> tables;
     private final ChunkSplitter chunkSplitter;
+    private final boolean configuredAutoCommit;
 
     private transient String splitTableId;
     private transient TableSchema splitTableSchema;
-    private transient PreparedStatement statement;
+    private transient volatile PreparedStatement statement;
     private transient ResultSet resultSet;
+    // Runtime connection state written by the task thread and read by the engine cancel thread;
+    // cancel() may close it while the task thread is still using it.
+    private transient volatile Connection activeConnection;
+    // Sticky cancellation flag set by the engine cancel thread and honoured by cancel() and open(),
+    // so a cancel that arrives before the statement is published is not silently lost.
+    private transient volatile boolean cancelled;
     private volatile boolean hasNext;
 
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
-        this.jdbcDialect =
+        this(
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getDialect(),
-                        config.getCompatibleMode());
-        this.chunkSplitter = ChunkSplitter.create(config);
+                        config.getCompatibleMode(),
+                        config.getJdbcConnectionConfig()),
+                ChunkSplitter.create(config),
+                tables,
+                config.getJdbcConnectionConfig().isAutoCommit());
+    }
+
+    JdbcInputFormat(
+            JdbcDialect jdbcDialect,
+            ChunkSplitter chunkSplitter,
+            Map<TablePath, CatalogTable> tables,
+            boolean configuredAutoCommit) {
+        this.jdbcDialect = jdbcDialect;
+        this.chunkSplitter = chunkSplitter;
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.tables = tables;
+        this.configuredAutoCommit = configuredAutoCommit;
     }
 
     public void openInputFormat() {}
 
-    public void closeInputFormat() throws IOException {
-        close();
+    /**
+     * Cancels the JDBC operation currently owned by this input format.
+     *
+     * <p>This method is intentionally independent from {@link #close()}: the engine may call it
+     * while the source task is blocked inside {@code executeQuery()} or {@code ResultSet.next()}.
+     * Closing the statement and connection is the fallback for drivers that do not implement {@link
+     * PreparedStatement#cancel()} correctly.
+     *
+     * <p>The cancellation is sticky: it is recorded in {@code cancelled} and re-checked in {@link
+     * #open(JdbcSourceSplit)}, so a cancel that arrives before the statement is published — or
+     * between splits — is not silently lost. Safe to call multiple times from the engine cancel
+     * thread; only touches volatile fields and never acquires the checkpoint lock.
+     */
+    public void cancel() {
+        if (cancelled) {
+            return;
+        }
+        cancelled = true;
+        abortInFlight();
+    }
 
-        if (chunkSplitter != null) {
-            chunkSplitter.close();
+    /**
+     * Best-effort abort of the in-flight statement and its connection. Idempotent and safe to run
+     * concurrently from the task thread (via {@link #ensureNotCancelled()}) and the cancel thread
+     * (via {@link #cancel()}), because JDBC drivers must tolerate repeated {@code cancel()} and
+     * {@code close()} calls.
+     */
+    private void abortInFlight() {
+        PreparedStatement currentStatement = statement;
+        Connection currentConnection = activeConnection;
+        if (currentStatement != null) {
+            if (currentConnection == null) {
+                try {
+                    currentConnection = currentStatement.getConnection();
+                } catch (SQLException e) {
+                    LOG.warn("Get JDBC connection for cancelled statement failed", e);
+                }
+            }
+            try {
+                currentStatement.cancel();
+            } catch (SQLException e) {
+                LOG.warn("Cancel JDBC statement failed", e);
+            }
+            try {
+                currentStatement.close();
+            } catch (SQLException e) {
+                LOG.warn("Close cancelled JDBC statement failed", e);
+            }
+        }
+        if (currentConnection != null) {
+            try {
+                currentConnection.close();
+            } catch (SQLException e) {
+                LOG.warn("Close cancelled JDBC connection failed", e);
+            }
+        }
+    }
+
+    /**
+     * Honours a sticky cancellation before more work is started. Checked at the start of {@link
+     * #open(JdbcSourceSplit)} (a cancelled reader must not connect for the next split) and again
+     * after the statement is published (the usual publish-then-check ordering, so a cancel racing
+     * with statement creation is always observed by at least one side).
+     */
+    private void ensureNotCancelled() throws IOException {
+        if (!cancelled) {
+            return;
+        }
+        abortInFlight();
+        statement = null;
+        activeConnection = null;
+        throw new IOException(
+                "JDBC source reader has been cancelled, stop opening split " + splitTableId);
+    }
+
+    public void closeInputFormat() throws IOException {
+        try {
+            close();
+        } finally {
+            if (chunkSplitter != null) {
+                chunkSplitter.close();
+            }
         }
     }
 
@@ -93,18 +191,46 @@ public class JdbcInputFormat implements Serializable {
      * @throws IOException if there's an error during the execution of the query
      */
     public void open(JdbcSourceSplit inputSplit) throws IOException {
+        ensureNotCancelled();
         try {
             splitTableSchema = tables.get(inputSplit.getTablePath()).getTableSchema();
             splitTableId = inputSplit.getTablePath().toString();
 
             statement = chunkSplitter.generateSplitStatement(inputSplit, splitTableSchema);
+            try {
+                activeConnection = statement.getConnection();
+            } catch (SQLException e) {
+                LOG.debug("JDBC statement did not expose its connection before execution", e);
+            }
+            ensureNotCancelled();
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {
+            cleanupAfterOpenFailure(se);
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
                     "open() failed." + se.getMessage(),
                     se);
+        } catch (RuntimeException runtimeException) {
+            cleanupAfterOpenFailure(runtimeException);
+            throw runtimeException;
+        }
+    }
+
+    private void cleanupAfterOpenFailure(Throwable openException) {
+        boolean shouldDiscardConnection = statement == null;
+        try {
+            close();
+        } catch (IOException cleanupException) {
+            openException.addSuppressed(cleanupException);
+            shouldDiscardConnection = true;
+        } finally {
+            if (shouldDiscardConnection) {
+                // Statement creation may establish or mutate the cached connection before failing
+                // without returning a statement. Discard it because close() cannot identify and
+                // finish that transaction safely.
+                chunkSplitter.close();
+            }
         }
     }
 
@@ -114,11 +240,17 @@ public class JdbcInputFormat implements Serializable {
      * @throws IOException Indicates that a resource could not be closed.
      */
     public void close() throws IOException {
+        Connection connection = getStatementConnection();
+        if (connection == null) {
+            connection = activeConnection;
+        }
         if (resultSet != null) {
             try {
                 resultSet.close();
             } catch (SQLException e) {
                 LOG.info("ResultSet couldn't be closed - " + e.getMessage());
+            } finally {
+                resultSet = null;
             }
         }
         if (statement != null) {
@@ -126,7 +258,88 @@ public class JdbcInputFormat implements Serializable {
                 statement.close();
             } catch (SQLException e) {
                 LOG.info("Statement couldn't be closed - " + e.getMessage());
+            } finally {
+                statement = null;
             }
+        }
+
+        hasNext = false;
+        splitTableSchema = null;
+        splitTableId = null;
+        activeConnection = null;
+        finishReadTransaction(connection);
+    }
+
+    private Connection getStatementConnection() {
+        if (statement == null) {
+            return null;
+        }
+        try {
+            Connection connection = statement.getConnection();
+            activeConnection = connection;
+            if (connection == null) {
+                LOG.warn(
+                        "The JDBC source statement returned no connection. "
+                                + "Closing the cached connection to avoid reusing an unknown "
+                                + "transaction.");
+                chunkSplitter.close();
+            }
+            return connection;
+        } catch (SQLException e) {
+            LOG.warn(
+                    "Failed to get the JDBC source connection from the current statement. "
+                            + "Closing the cached connection to avoid reusing an unknown "
+                            + "transaction.",
+                    e);
+            chunkSplitter.close();
+            return null;
+        }
+    }
+
+    private void finishReadTransaction(Connection connection) {
+        try {
+            finishReadTransaction(connection, configuredAutoCommit);
+        } catch (SQLException e) {
+            LOG.warn(
+                    "Failed to finish the JDBC source read transaction. "
+                            + "Closing the connection to avoid leaving or reusing an idle "
+                            + "transaction.",
+                    e);
+            discardConnection(connection, e);
+        }
+    }
+
+    private void discardConnection(Connection connection, SQLException cleanupException) {
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (SQLException closeException) {
+            cleanupException.addSuppressed(closeException);
+            LOG.warn(
+                    "Failed to close the JDBC source connection after transaction cleanup failed.",
+                    cleanupException);
+        } finally {
+            // Clear the provider's cached reference and retry close for drivers whose first close
+            // attempt failed.
+            chunkSplitter.close();
+        }
+    }
+
+    static void finishReadTransaction(Connection connection, boolean configuredAutoCommit)
+            throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            return;
+        }
+
+        boolean currentAutoCommit = connection.getAutoCommit();
+        if (!currentAutoCommit) {
+            // JDBC source reads do not have changes to commit. Rollback ends the server-side cursor
+            // transaction, releases its snapshot, and also recovers a transaction in failed state.
+            connection.rollback();
+        }
+        if (currentAutoCommit != configuredAutoCommit) {
+            connection.setAutoCommit(configuredAutoCommit);
         }
     }
 

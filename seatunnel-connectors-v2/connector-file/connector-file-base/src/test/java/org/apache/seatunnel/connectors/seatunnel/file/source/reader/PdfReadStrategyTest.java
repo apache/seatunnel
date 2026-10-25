@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -57,6 +61,20 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 @Slf4j
 public class PdfReadStrategyTest {
 
+    private static final String[] DEFAULT_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final String[] RAG_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
+
     @Test
     public void testReadPdfStrategy()
             throws URISyntaxException, IOException, FileConnectorException {
@@ -70,6 +88,20 @@ public class PdfReadStrategyTest {
         pdfReadStrategy.read(path, "", tempCollector);
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
+        for (SeaTunnelRow row : rows) {
+            Assertions.assertEquals(5, row.getOptions().size());
+            Assertions.assertEquals(path, row.getOptions().get(CommonOptions.FILE_PATH.getName()));
+            Assertions.assertEquals("pdf", row.getOptions().get(CommonOptions.FILE_TYPE.getName()));
+            Assertions.assertEquals(
+                    Files.size(Paths.get(path)),
+                    row.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+            Assertions.assertEquals(
+                    Files.getLastModifiedTime(Paths.get(path)).toMillis(),
+                    row.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+            Assertions.assertTrue(
+                    (Long) row.getOptions().get(CommonOptions.FILE_CREATE_TIME.getName()) > 0);
+            Assertions.assertEquals(DEFAULT_FIELD_NAMES.length, row.getArity());
+        }
 
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
 
@@ -118,6 +150,64 @@ public class PdfReadStrategyTest {
         Assertions.assertThrows(
                 FileConnectorException.class,
                 () -> strategy.read("/nonexistent/path/file.pdf", "", collector));
+    }
+
+    @Test
+    public void testReadPdfWithRagMetadata()
+            throws URISyntaxException, IOException, FileConnectorException {
+        URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
+        String path = Paths.get(resource.toURI()).toString();
+        PdfReadStrategy pdfReadStrategy = createPdfReadStrategy(true);
+        SeaTunnelRowType rowType = pdfReadStrategy.getSeaTunnelRowTypeInfo(path);
+        TempCollector firstCollector = new TempCollector();
+        pdfReadStrategy.read(path, "", firstCollector);
+
+        Assertions.assertArrayEquals(
+                concat(DEFAULT_FIELD_NAMES, RAG_FIELD_NAMES), rowType.getFieldNames());
+        Assertions.assertFalse(firstCollector.getRows().isEmpty());
+        Assertions.assertEquals(13, firstCollector.getRows().get(0).getArity());
+        Assertions.assertEquals(path, firstCollector.getRows().get(0).getField(8));
+        Assertions.assertTrue(
+                String.valueOf(firstCollector.getRows().get(0).getField(9)).startsWith("doc_"));
+        Assertions.assertTrue(
+                String.valueOf(firstCollector.getRows().get(0).getField(10)).startsWith("chunk_"));
+        Assertions.assertEquals(1, firstCollector.getRows().get(0).getField(11));
+        Assertions.assertEquals(
+                64, String.valueOf(firstCollector.getRows().get(0).getField(12)).length());
+
+        PdfReadStrategy secondReadStrategy = createPdfReadStrategy(true);
+        TempCollector secondCollector = new TempCollector();
+        secondReadStrategy.read(path, "", secondCollector);
+
+        for (int fieldIndex = 8; fieldIndex < 13; fieldIndex++) {
+            Assertions.assertEquals(
+                    firstCollector.getRows().get(0).getField(fieldIndex),
+                    secondCollector.getRows().get(0).getField(fieldIndex));
+        }
+    }
+
+    @Test
+    public void testReadPdfWithRagMetadataNormalizesFileUri()
+            throws IOException, FileConnectorException {
+        Path tempPdf = createSimplePdf("Title in file uri pdf");
+        try {
+            PdfReadStrategy pdfReadStrategy = createPdfReadStrategy(true);
+            TempCollector tempCollector = new TempCollector();
+            pdfReadStrategy.read(tempPdf.toUri().toString(), "", tempCollector);
+
+            PdfReadStrategy expectedReadStrategy = createPdfReadStrategy(true);
+            TempCollector expectedCollector = new TempCollector();
+            expectedReadStrategy.read(tempPdf.toString(), "", expectedCollector);
+
+            Assertions.assertEquals(tempPdf.toString(), tempCollector.getRows().get(0).getField(8));
+            for (int fieldIndex = 8; fieldIndex < 11; fieldIndex++) {
+                Assertions.assertEquals(
+                        expectedCollector.getRows().get(0).getField(fieldIndex),
+                        tempCollector.getRows().get(0).getField(fieldIndex));
+            }
+        } finally {
+            Files.deleteIfExists(tempPdf);
+        }
     }
 
     @Test
@@ -298,8 +388,42 @@ public class PdfReadStrategyTest {
         return tempFile;
     }
 
+    private Path createSimplePdf(String text) throws IOException {
+        Path tempFile = Files.createTempFile("pdf_rag_metadata_test_", ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 700);
+                contentStream.showText(text);
+                contentStream.endText();
+            }
+            document.save(tempFile.toFile());
+        }
+        return tempFile;
+    }
+
     private List<SeaTunnelRow> getHeadingElements(List<SeaTunnelRow> rows) {
         return rows.stream().filter(row -> row.getField(2) != null).collect(Collectors.toList());
+    }
+
+    private PdfReadStrategy createPdfReadStrategy(boolean ragMetadataEnabled) {
+        PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        pdfReadStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        if (ragMetadataEnabled) {
+            pdfReadStrategy.setPluginConfig(
+                    ConfigFactory.parseString("pdf_rag_metadata_enabled = true"));
+        }
+        return pdfReadStrategy;
+    }
+
+    private static String[] concat(String[] left, String[] right) {
+        String[] result = new String[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
     }
 
     public static class LocalConf extends HadoopConf {

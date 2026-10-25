@@ -33,16 +33,52 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStra
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+/**
+ * Verifies text row decoding and file metadata, including basename-only extension detection.
+ *
+ * <p>These tests exercise real temporary files and preserve decoded payload assertions.
+ */
 public class TextReadStrategyTest extends BaseTest {
+
+    @TempDir private Path tempDir;
+
+    @Test
+    public void testExtensionlessFilesUnderDottedDirectory() throws Exception {
+        Path directory = Files.createDirectories(tempDir.resolve("v1.0"));
+        for (String fileName : new String[] {"README", "trailing."}) {
+            Path sourceFile = directory.resolve(fileName);
+            Files.write(sourceFile, "payload\n".getBytes(StandardCharsets.UTF_8));
+            TextReadStrategy strategy = new TextReadStrategy();
+            strategy.setPluginConfig(ConfigFactory.empty());
+            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.setCatalogTable(
+                    CatalogTableUtil.getCatalogTable(
+                            "test",
+                            new SeaTunnelRowType(
+                                    new String[] {"value"},
+                                    new SeaTunnelDataType[] {BasicType.STRING_TYPE})));
+            TestCollector collector = new TestCollector();
+            strategy.read(sourceFile.toString(), "", collector);
+            Assertions.assertEquals(1, collector.getRows().size());
+            SeaTunnelRow row = collector.getRows().get(0);
+            Assertions.assertEquals("payload", row.getField(0));
+            Assertions.assertEquals("", row.getOptions().get(CommonOptions.FILE_TYPE.getName()));
+            strategy.close();
+        }
+    }
 
     @Test
     public void testTextRead() throws IOException, URISyntaxException {

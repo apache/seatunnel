@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write SeaTunnel rows to Alibaba Cloud Tablestore.
@@ -14,6 +20,16 @@ Write SeaTunnel rows to Alibaba Cloud Tablestore.
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Data Type Mapping
+
+| SeaTunnel type                         | Tablestore attribute column type | Tablestore primary key type |
+|----------------------------------------|----------------------------------|-----------------------------|
+| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                        | `INTEGER`                   |
+| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                         | `STRING`                    |
+| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                         | `STRING`                    |
+| `BOOLEAN`                              | `BOOLEAN`                        | `STRING`                    |
+| `BYTES`                                | `BINARY`                         | `BINARY`                    |
 
 ## Options
 
@@ -31,6 +47,7 @@ Write SeaTunnel rows to Alibaba Cloud Tablestore.
 
 ## Usage notes
 
+- `end_point`, `instance_name`, `access_key_id`, `access_key_secret`, and `table` must be non-blank, and `primary_keys` must contain at least one entry. Missing, empty, or whitespace-only values are rejected during configuration validation before any connection is made.
 - `primary_keys` can contain one or more primary key fields. These fields are written as Tablestore primary key columns; all other schema fields are written as normal attribute columns.
 - The sink writes rows with Tablestore `RowPutChange` and `RowExistenceExpectation.IGNORE`. It does not delete rows when upstream sends `DELETE` row kinds.
 - `batch_size` controls when buffered rows are flushed. The writer also flushes remaining rows when the job closes.
@@ -88,16 +105,6 @@ sink {
   }
 }
 ```
-
-## Type mapping
-
-| SeaTunnel type                         | Tablestore attribute column type | Tablestore primary key type |
-|----------------------------------------|----------------------------------|-----------------------------|
-| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                        | `INTEGER`                   |
-| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                         | `STRING`                    |
-| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                         | `STRING`                    |
-| `BOOLEAN`                              | `BOOLEAN`                        | `STRING`                    |
-| `BYTES`                                | `BINARY`                         | `BINARY`                    |
 
 ## Changelog
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.excel;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -35,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,8 +44,8 @@ import java.util.Map;
 public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Object>>
         implements Serializable, Closeable {
     private final String tableId;
-    private final Collector<SeaTunnelRow> output;
     private final Map<String, Object> metadata;
+    private final Collector<SeaTunnelRow> output;
     private int cellCount;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -53,6 +55,10 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
     protected SeaTunnelRowType seaTunnelRowType;
 
     private SeaTunnelDataType<?>[] fieldTypes;
+    private final int[] indexes;
+    private final boolean useHeaderLine;
+    // Maps output field indexes to Excel column indexes.
+    private final Map<Integer, Integer> headerColumns = new HashMap<>();
 
     private ExcelCellUtils excelCellUtils;
 
@@ -62,23 +68,85 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             String tableId,
             Collector<SeaTunnelRow> output,
             ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType) {
+        this(tableId, output, excelCellUtils, seaTunnelRowType, null, true);
+    }
+
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
             SeaTunnelRowType seaTunnelRowType,
+            int[] indexes) {
+        this(tableId, output, excelCellUtils, seaTunnelRowType, indexes, true);
+    }
+
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType,
+            int[] indexes,
+            boolean useHeaderLine) {
+        this(
+                tableId,
+                output,
+                excelCellUtils,
+                seaTunnelRowType,
+                indexes,
+                useHeaderLine,
+                Collections.emptyMap());
+    }
+
+    /**
+     * Creates a row listener with per-file metadata without changing column selection.
+     *
+     * <p>Existing overloads retain their projection settings and leave row options unset when no
+     * file metadata is supplied.
+     */
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType,
+            int[] indexes,
+            boolean useHeaderLine,
             Map<String, Object> metadata) {
+        this.metadata = metadata;
         this.tableId = tableId;
         this.output = output;
-        this.metadata = metadata;
         this.excelCellUtils = excelCellUtils;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.indexes = indexes;
+        this.useHeaderLine = useHeaderLine;
 
         fieldTypes = seaTunnelRowType.getFieldTypes();
     }
 
     @Override
     public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
-        for (int i = 0; i < headMap.size(); i++) {
-            String header = headMap.get(i).getStringValue();
-            if (!"null".equals(header)) {
-                customHeaders.put(i, header);
+        headerColumns.clear();
+        customHeaders.clear();
+        for (Map.Entry<Integer, ReadCellData<?>> entry : headMap.entrySet()) {
+            String header = entry.getValue().getStringValue();
+            if (StringUtils.isNotEmpty(header) && !"null".equals(header)) {
+                customHeaders.put(entry.getKey(), header);
+                // Schema fields may appear in a different order than the Excel columns.
+                if (useHeaderLine) {
+                    int fieldIndex = seaTunnelRowType.indexOf(header, false);
+                    if (fieldIndex >= 0) {
+                        headerColumns.put(fieldIndex, entry.getKey());
+                    }
+                }
+            }
+        }
+        if (useHeaderLine) {
+            for (int i = 0; i < fieldTypes.length; i++) {
+                if (!headerColumns.containsKey(i)) {
+                    log.warn(
+                            "Excel header does not contain schema field '{}'; values will be null",
+                            seaTunnelRowType.getFieldName(i));
+                }
             }
         }
     }
@@ -90,15 +158,24 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
         Map<Integer, Cell> cellMap = context.readRowHolder().getCellMap();
         int i = 0;
         for (; i < fieldTypes.length; i++) {
-            if (cellMap.get(i) == null) {
+            Integer columnIndex;
+            if (!useHeaderLine) {
+                columnIndex = indexes == null ? i : indexes[i];
+            } else {
+                columnIndex = headerColumns.get(i);
+            }
+            Cell cell = columnIndex == null ? null : cellMap.get(columnIndex);
+            if (cell == null) {
                 seaTunnelRow.setField(i, null);
             } else {
-                Object cell = excelCellUtils.convert(data.get(i), fieldTypes[i], cellMap.get(i));
-                seaTunnelRow.setField(i, cell);
+                Object value = excelCellUtils.convert(data.get(columnIndex), fieldTypes[i], cell);
+                seaTunnelRow.setField(i, value);
             }
         }
         seaTunnelRow.setTableId(tableId);
-        seaTunnelRow.setOptions(metadata);
+        if (!metadata.isEmpty()) {
+            seaTunnelRow.getOptions().putAll(metadata);
+        }
         output.collect(seaTunnelRow);
     }
 

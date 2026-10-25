@@ -262,7 +262,8 @@ public class MultiTableManagerTest {
         row.getOptions().put(CommonOptions.FILE_SIZE.getName(), 123L);
 
         InternalRowConverter internalRowConverter = new InternalRowConverter(rowType1);
-        SeaTunnelRow internalRoundTrip = internalRowConverter.reconvert(internalRowConverter.convert(row));
+        SeaTunnelRow internalRoundTrip =
+                internalRowConverter.reconvert(internalRowConverter.convert(row));
         Assertions.assertNotNull(internalRoundTrip.getOptionsOrNull());
         Assertions.assertEquals(
                 "/tmp/test.csv",
@@ -271,7 +272,8 @@ public class MultiTableManagerTest {
                 123L, internalRoundTrip.getOptionsOrNull().get(CommonOptions.FILE_SIZE.getName()));
 
         SeaTunnelRowConverter seaTunnelRowConverter = new SeaTunnelRowConverter(rowType1);
-        SeaTunnelRow genericRoundTrip = seaTunnelRowConverter.reconvert(seaTunnelRowConverter.convert(row));
+        SeaTunnelRow genericRoundTrip =
+                seaTunnelRowConverter.reconvert(seaTunnelRowConverter.convert(row));
         Assertions.assertNotNull(genericRoundTrip.getOptionsOrNull());
         Assertions.assertEquals(
                 "/tmp/test.csv",

@@ -37,6 +37,7 @@ import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -211,14 +212,6 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         return seaTunnelRow;
     }
 
-    private static byte[] serializeOptions(SeaTunnelRow row) {
-        Map<String, Object> options = row.getOptionsOrNull();
-        if (options == null || options.isEmpty()) {
-            return null;
-        }
-        return SerializationUtils.serialize((java.io.Serializable) options);
-    }
-
     private Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
@@ -314,5 +307,17 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
             newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
         }
         return newArray;
+    }
+    /**
+     * Stores row options in the schema's trailing binary slot, after kind, table ID and data
+     * fields. Metadata stays attached through Spark conversion while an absent options map remains
+     * null.
+     */
+    private static byte[] serializeOptions(SeaTunnelRow row) {
+        Map<String, Object> options = row.getOptionsOrNull();
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        return SerializationUtils.serialize((Serializable) options);
     }
 }

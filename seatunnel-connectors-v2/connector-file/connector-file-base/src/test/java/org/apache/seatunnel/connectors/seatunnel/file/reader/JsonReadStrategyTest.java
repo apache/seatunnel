@@ -40,6 +40,10 @@ import java.nio.file.Paths;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+/**
+ * Covers decoded JSON rows and file metadata using the shared local filesystem fixtures. Result
+ * assertions exercise reader output rather than a metadata-only mock path.
+ */
 public class JsonReadStrategyTest extends BaseTest {
 
     @Test

@@ -23,7 +23,7 @@
 
 获取定时调度检查点的时间间隔(毫秒)。
 
-在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，默认值为30000毫秒。
+在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，如果`seatunnel.yaml`中也没有配置，引擎回退到默认值300000毫秒（5分钟）；注意 SeaTunnel 附带的默认 `seatunnel.yaml` 已将其设置为10000毫秒，因此多数部署实际看到的是10秒的检查点间隔。
 
 ### checkpoint.timeout
 
@@ -44,6 +44,8 @@
 ### job.retry.times
 
 用于控制作业失败时的默认重试次数。默认值为3，并且仅适用于Zeta引擎。
+
+该计数器会在整个 pipeline 生命周期内持续累加，中途一次成功恢复并不会将其重置。例如设置 `job.retry.times = 5` 时：如果 pipeline 失败后经过重试，在第 3 次尝试时恢复成功，之后又再次失败，此时只剩下 2 次重试机会（第 4、5 次尝试），用完后作业会被标记为永久失败，重试额度不会恢复到 5 次。唯一的例外是 Zeta 集群发生 active master 切换时，pipeline 执行计划（以及其重试计数器）会被重新构建。
 
 ### job.retry.interval.seconds
 

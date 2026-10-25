@@ -176,4 +176,13 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
+
+    public static final Option<Boolean> ENABLE_CONCURRENT_READ =
+            Options.key("enable_concurrent_read")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable concurrent read with split during snapshot phase. "
+                                    + "When set to false, the source reads the table as a single split "
+                                    + "without any split analysis, which is useful for tables without indexes.");
 }

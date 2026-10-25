@@ -40,6 +40,10 @@ import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+/**
+ * Covers binary chunk boundaries, complete-file reads and physical file metadata. Exact payload and
+ * path assertions protect file-reader output across filesystem configurations.
+ */
 public class BinaryReadStrategyTest extends BaseTest {
 
     @TempDir Path tempDir;

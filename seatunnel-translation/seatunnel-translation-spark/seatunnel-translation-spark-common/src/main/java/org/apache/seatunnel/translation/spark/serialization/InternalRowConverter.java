@@ -57,6 +57,7 @@ import scala.collection.immutable.List;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -463,14 +464,23 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return internalRowField;
     }
 
+    /**
+     * Stores row options in the schema's trailing binary slot, after kind, table ID and data
+     * fields. Metadata stays attached through Spark conversion while an absent options map remains
+     * null.
+     */
     private static byte[] serializeOptions(SeaTunnelRow row) {
         Map<String, Object> options = row.getOptionsOrNull();
         if (options == null || options.isEmpty()) {
             return null;
         }
-        return SerializationUtils.serialize((java.io.Serializable) options);
+        return SerializationUtils.serialize((Serializable) options);
     }
 
+    /**
+     * Reads the trailing options slot written by the matching Spark parcel schema. Null and empty
+     * bytes represent absent row metadata rather than an empty serialized object.
+     */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> deserializeOptions(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
