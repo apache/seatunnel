@@ -82,6 +82,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         this(nodeEngine, engineConfig, ResourceShortageListener.NOOP);
     }
 
+    /** Creates a resource manager that forwards capacity shortages to the supplied listener. */
     public AbstractResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,

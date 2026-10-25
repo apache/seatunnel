@@ -47,6 +47,7 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -472,8 +473,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     @Test
     public void testShortageEvidenceDistinguishesTagMismatchFromCapacityShortage()
             throws ExecutionException, InterruptedException {
-        AutoscalerSignalStore signals =
-                new AutoscalerSignalStore(AutoscalerConfig.builder().enabled(true).build());
+        AutoscalerConfig enabledConfig = AutoscalerConfig.builder().enabled(true).build();
+        AutoscalerSignalStore signals = new AutoscalerSignalStore(enabledConfig);
 
         FakeResourceManager tagMismatchResourceManager =
                 new FakeResourceManager(nodeEngine, signals);
@@ -491,6 +492,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
 
         FakeResourceManagerForRequestSlotRetryTest capacityResourceManager =
                 new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1, signals);
+        capacityResourceManager.getEngineConfig().setAutoscalerConfig(enabledConfig);
         capacityResourceManager
                 .applyResources(jobId, Collections.singletonList(new ResourceProfile()), null)
                 .get();
@@ -641,5 +643,43 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                                 new RandomStrategy())
                         .preCheckWorkerResource(new ResourceProfile());
         Assertions.assertEquals(result.isPresent(), dynamicSlot);
+    }
+
+    @Test
+    void testDisabledAutoscalerSkipsShortageDescription() throws Exception {
+        EngineConfig engineConfig = new EngineConfig();
+        AbstractResourceManager manager = mock(AbstractResourceManager.class);
+        when(manager.getEngineConfig()).thenReturn(engineConfig);
+        ResourceShortageListener listener = mock(ResourceShortageListener.class);
+        ResourceRequestHandler handler =
+                new ResourceRequestHandler(
+                        jobId,
+                        Collections.singletonList(new ResourceProfile()),
+                        new ConcurrentHashMap<>(),
+                        manager,
+                        new RandomStrategy(),
+                        listener);
+        AtomicInteger descriptions = new AtomicInteger();
+        ResourceProfile requested =
+                new ResourceProfile() {
+                    @Override
+                    public String toString() {
+                        descriptions.incrementAndGet();
+                        return "requested resource";
+                    }
+                };
+        Method recordShortage =
+                ResourceRequestHandler.class.getDeclaredMethod(
+                        "recordShortage", ResourceProfile.class);
+        recordShortage.setAccessible(true);
+
+        recordShortage.invoke(handler, requested);
+        Assertions.assertEquals(0, descriptions.get());
+        verifyNoInteractions(listener);
+
+        engineConfig.setAutoscalerConfig(AutoscalerConfig.builder().enabled(true).build());
+        recordShortage.invoke(handler, requested);
+        Assertions.assertEquals(1, descriptions.get());
+        verify(listener).recordShortage(false, 1, "requested resource");
     }
 }

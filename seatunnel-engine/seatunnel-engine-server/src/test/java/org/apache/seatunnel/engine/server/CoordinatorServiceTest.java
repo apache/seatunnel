@@ -609,6 +609,39 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testAutoscalerStartupFailureDoesNotDeactivateMaster() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenReturn(true);
+        AutoscalerConfig runtimeConfig = AutoscalerConfig.builder().enabled(true).build();
+        CoordinatorService coordinatorService =
+                newMockCoordinatorService(server, new EngineConfig(), runtimeConfig);
+        try {
+            setMockAutoscalerResourceManager(coordinatorService);
+            NodeEngineImpl nodeEngine =
+                    (NodeEngineImpl)
+                            ReflectionUtils.getField(coordinatorService, "nodeEngine")
+                                    .orElseThrow(AssertionError::new);
+            FlakeIdGenerator epochGenerator =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getFlakeIdGenerator(
+                                    Constant.SEATUNNEL_AUTOSCALER_EPOCH_GENERATOR_NAME);
+            Mockito.when(epochGenerator.newId())
+                    .thenThrow(new IllegalStateException("epoch unavailable"));
+
+            invokeCheckNewActiveMaster(coordinatorService);
+
+            Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+            AutoscalerView view = coordinatorService.getAutoscalerView();
+            Assertions.assertTrue(view.isEnabled());
+            Assertions.assertFalse(view.isRunning());
+            Assertions.assertEquals(0L, view.getCurrentMasterEpoch());
+        } finally {
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    @Test
     void testPromotionDiscardsResourceManagerCreatedAfterDemotion() throws Exception {
         AtomicBoolean masterFlag = new AtomicBoolean(true);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);

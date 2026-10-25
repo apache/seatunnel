@@ -91,6 +91,7 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                 ResourceShortageListener.NOOP);
     }
 
+    /** Creates an application manager that reports capacity shortages to the supplied listener. */
     protected ApplicationResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,

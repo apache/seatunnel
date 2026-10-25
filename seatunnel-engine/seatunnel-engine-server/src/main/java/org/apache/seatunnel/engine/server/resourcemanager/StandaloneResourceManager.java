@@ -29,6 +29,7 @@ public class StandaloneResourceManager extends AbstractResourceManager {
         super(nodeEngine, engineConfig);
     }
 
+    /** Creates a standalone manager that reports capacity shortages to the supplied listener. */
     public StandaloneResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,

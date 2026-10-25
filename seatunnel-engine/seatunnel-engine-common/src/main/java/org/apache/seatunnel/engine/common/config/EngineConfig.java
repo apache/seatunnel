@@ -69,6 +69,7 @@ public class EngineConfig {
     private SlotServiceConfig slotServiceConfig =
             ServerConfigOptions.WorkerServerConfigOptions.SLOT_SERVICE.defaultValue();
 
+    /** Node-local autoscaler settings; all master and worker nodes must use consistent values. */
     private AutoscalerConfig autoscalerConfig = AutoscalerConfig.defaults();
 
     private CheckpointConfig checkpointConfig =
@@ -150,6 +151,7 @@ public class EngineConfig {
         this.scheduleStrategy = scheduleStrategy;
     }
 
+    /** Sets the node-local autoscaler settings shared by this node's master and worker services. */
     public void setAutoscalerConfig(AutoscalerConfig autoscalerConfig) {
         this.autoscalerConfig = Objects.requireNonNull(autoscalerConfig, "autoscalerConfig");
     }

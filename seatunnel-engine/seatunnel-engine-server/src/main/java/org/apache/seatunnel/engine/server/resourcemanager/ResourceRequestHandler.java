@@ -92,6 +92,7 @@ public class ResourceRequestHandler {
                 ResourceShortageListener.NOOP);
     }
 
+    /** Creates a request handler that reports capacity shortages to the supplied listener. */
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
@@ -292,6 +293,9 @@ public class ResourceRequestHandler {
      * tag constraint.
      */
     private void recordShortage(ResourceProfile resourceProfile) {
+        if (!resourceManager.getEngineConfig().getAutoscalerConfig().isEnabled()) {
+            return;
+        }
         resourceShortageListener.recordShortage(
                 resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT,
                 this.resourceProfile.size(),
