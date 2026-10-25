@@ -239,6 +239,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_CONFIG.equals(
                     name)) {
                 parseDirtyJobConfig(node, engineConfig);
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setHealthMetricsTimeoutSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .HEALTH_METRICS_TIMEOUT_SECONDS
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
@@ -399,6 +408,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 checkpointConfig.setCheckpointMinPause(
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setMonitorHistorySize(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CHECKPOINT_MONITOR_HISTORY_SIZE
                                         .key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions
@@ -685,6 +703,33 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 httpConfig.setBasicAuthPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxFileSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_FILE_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxRequestSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setLogResponseMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .LOG_RESPONSE_MAX_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

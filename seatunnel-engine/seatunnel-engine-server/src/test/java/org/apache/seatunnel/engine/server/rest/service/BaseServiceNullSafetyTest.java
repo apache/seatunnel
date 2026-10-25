@@ -122,6 +122,14 @@ public class BaseServiceNullSafetyTest {
     public void testGetJobInfoJsonWithDirtyJobState() {
         JobHistoryService.JobState jobState = buildJobState(1000L, 2000L);
         DirtyJobState dirtyJobState = DirtyJobState.create(12345L, 1, 10, 600_000L, 0L);
+        jobState.setDirtyTask(dirtyJobState);
+        Assertions.assertTrue(
+                jobInfoService
+                        .getJobInfoJson(jobState, "{}", null)
+                        .get(RestConstant.DIRTY_TASK)
+                        .asObject()
+                        .get("lastCountedTime")
+                        .isNull());
         dirtyJobState.processMemberEvent(
                 1L,
                 "member-1",
@@ -139,6 +147,7 @@ public class BaseServiceNullSafetyTest {
         Assertions.assertTrue(dirtyTask.getBoolean("dirty", false));
         Assertions.assertEquals("DIRTY", dirtyTask.getString("evaluationStatus", null));
         Assertions.assertEquals(1, dirtyTask.getInt("recoveryAttemptCount", 0));
+        Assertions.assertEquals(120L, dirtyTask.getLong("lastCountedTime", -1L));
         Assertions.assertEquals(
                 "UNCLASSIFIED", dirtyTask.getString("lastLeaveClassification", null));
     }

@@ -55,6 +55,10 @@ import java.util.function.Supplier;
  * <p>Tracking failures are converted to UNKNOWN whenever state is still reachable. Member events
  * are journaled before coordinator readiness checks so a new master can replay the event before a
  * restored job becomes schedulable.
+ *
+ * <p>Distributed tracking operations use a 100 ms observation budget to isolate recovery from
+ * partition-owner pauses and network delays. Exceeding that budget reports UNKNOWN rather than
+ * assuming the tracking evidence is complete; it does not change the job's recovery result.
  */
 public class DirtyJobService {
     private static final long MEMBER_EVENT_SEQUENCE_KEY = 0L;
@@ -123,20 +127,38 @@ public class DirtyJobService {
             ILogger logger,
             int eventHistorySize,
             long pendingIncidentTtlMillis) {
-        this.dirtyJobStateMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_DIRTY_JOB_STATE);
-        this.memberEventSequenceMap =
+        this(
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_DIRTY_JOB_STATE),
                 nodeEngine
                         .getHazelcastInstance()
-                        .getMap(Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE);
-        this.pendingMemberEventMap =
+                        .getMap(Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE),
                 nodeEngine
                         .getHazelcastInstance()
-                        .getMap(Constant.IMAP_DIRTY_JOB_PENDING_MEMBER_EVENTS);
-        this.enabledThresholdMap =
+                        .getMap(Constant.IMAP_DIRTY_JOB_PENDING_MEMBER_EVENTS),
                 nodeEngine
                         .getHazelcastInstance()
-                        .getMap(Constant.IMAP_DIRTY_JOB_ENABLED_THRESHOLDS);
+                        .getMap(Constant.IMAP_DIRTY_JOB_ENABLED_THRESHOLDS),
+                logger,
+                eventHistorySize,
+                pendingIncidentTtlMillis);
+    }
+
+    /**
+     * Accepts map handles directly so service tests can control delayed distributed completions.
+     * Production construction still resolves the same four synchronously backed Hazelcast maps.
+     */
+    DirtyJobService(
+            IMap<Long, DirtyJobState> dirtyJobStateMap,
+            IMap<Long, Long> memberEventSequenceMap,
+            IMap<String, DirtyJobMemberEvent> pendingMemberEventMap,
+            IMap<Long, Integer> enabledThresholdMap,
+            ILogger logger,
+            int eventHistorySize,
+            long pendingIncidentTtlMillis) {
+        this.dirtyJobStateMap = dirtyJobStateMap;
+        this.memberEventSequenceMap = memberEventSequenceMap;
+        this.pendingMemberEventMap = pendingMemberEventMap;
+        this.enabledThresholdMap = enabledThresholdMap;
         this.logger = logger;
         this.eventHistorySize = eventHistorySize;
         this.pendingIncidentTtlMillis = pendingIncidentTtlMillis;
@@ -156,8 +178,7 @@ public class DirtyJobService {
                 locallyOwnedJobCreateTimes,
                 locallyIncompleteJobOwners,
                 jobId,
-                jobInformation.getCreateTime(),
-                restart);
+                jobInformation.getCreateTime());
         boolean enabledMarkerIncomplete = false;
         try {
             enabledThresholdMap
@@ -187,7 +208,6 @@ public class DirtyJobService {
                                     pendingIncidentTtlMillis,
                                     sequence,
                                     restart,
-                                    !restart,
                                     enabledMarkerIncomplete),
                             "initialize dirty-job state");
             awaitStateUpdate(jobId, update, "initialize dirty-job state");
@@ -203,13 +223,23 @@ public class DirtyJobService {
      * @return true only for a positive job-scoped threshold
      */
     public boolean isEnabled(JobMaster jobMaster) {
-        return jobMaster != null && getThreshold(jobMaster.getJobImmutableInformation()) > 0;
+        return jobMaster != null && isEnabled(jobMaster.getJobImmutableInformation());
+    }
+
+    /**
+     * Checks the immutable option before recovery allocates observation work for a restored job.
+     *
+     * @param jobInformation persisted submission metadata available before JobMaster creation
+     * @return true only when the job explicitly enables tracking
+     */
+    public boolean isEnabled(JobImmutableInformation jobInformation) {
+        return jobInformation != null && getThreshold(jobInformation) > 0;
     }
 
     /**
      * Avoids sending new tracking types during a disabled rolling upgrade.
      *
-     * @return true when tracking is enabled locally or in HA, or when the HA check is uncertain
+     * @return true only when tracking is positively enabled locally or in HA
      */
     public boolean shouldTrackMemberEvents() {
         if (!locallyEnabledJobIds.isEmpty()) {
@@ -225,10 +255,19 @@ public class DirtyJobService {
                 Thread.currentThread().interrupt();
             }
             logger.warning(
-                    "Failed to determine whether dirty-job member tracking is enabled; tracking conservatively",
+                    "Failed to determine whether dirty-job member tracking is enabled; retaining a local gap",
                     error);
-            return true;
+            rememberTrackingGap();
+            return false;
         }
+    }
+
+    /**
+     * Retains uncertain membership observation without transporting new distributed types. An
+     * enabled job replaying local evidence subsequently evaluates this gap as UNKNOWN.
+     */
+    public void rememberTrackingGap() {
+        localTrackingGap = true;
     }
 
     /**
@@ -487,6 +526,9 @@ public class DirtyJobService {
      * @return stable attempt ID, or null when no member-loss episode owns the pipeline
      */
     public String prepareRecoveryAttempt(long jobId, int pipelineId) {
+        if (!locallyEnabledJobIds.contains(jobId)) {
+            return null;
+        }
         CompletableFuture<String> update =
                 submitStateUpdate(
                         jobId,
@@ -504,7 +546,7 @@ public class DirtyJobService {
      * @param attemptId stable ID returned during restore preparation
      */
     public void confirmRecoveryAttempt(long jobId, int pipelineId, String attemptId) {
-        if (attemptId == null) {
+        if (attemptId == null || !locallyEnabledJobIds.contains(jobId)) {
             return;
         }
         submitStateUpdate(
@@ -523,7 +565,7 @@ public class DirtyJobService {
      * @param attemptId stable confirmed attempt which reached RUNNING
      */
     public void completeRecoveryPipeline(long jobId, int pipelineId, String attemptId) {
-        if (attemptId == null) {
+        if (attemptId == null || !locallyEnabledJobIds.contains(jobId)) {
             return;
         }
         submitStateUpdate(
@@ -544,7 +586,7 @@ public class DirtyJobService {
      */
     public String reconcileRecoveryPipeline(
             long jobId, int pipelineId, boolean deployed, boolean recovered) {
-        if (!deployed) {
+        if (!deployed || !locallyEnabledJobIds.contains(jobId)) {
             return null;
         }
         CompletableFuture<String> update =
@@ -708,6 +750,8 @@ public class DirtyJobService {
     }
 
     // Clears active-coordinator state while retaining member-event fallback evidence.
+    // Journal callbacks may outlive demotion: sequence-guarded processors cannot replace or
+    // acknowledge a newer master's event. Keep them alive to reconcile local fallback evidence.
     public void clearLocalCoordinatorState() {
         coordinatorEpoch.incrementAndGet();
         locallyEnabledJobIds.clear();
@@ -887,7 +931,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Forces the current replay round to fail closed when the shared journal cannot be read. */
+    /**
+     * Forces the current replay round to fail closed when the shared journal cannot be read.
+     *
+     * <p>A synthetic gap keeps missing shared evidence visible even when no local journal event
+     * survived.
+     */
     static List<DirtyJobMemberEvent> buildFailClosedPendingMemberEvents(
             Collection<DirtyJobMemberEvent> localEvents) {
         Map<String, DirtyJobMemberEvent> eventsByMember = new HashMap<>();
@@ -959,12 +1008,12 @@ public class DirtyJobService {
             return CompletableFuture.completedFuture(null);
         }
         try {
-            java.util.concurrent.CompletableFuture<Void> rawUpdate =
+            java.util.concurrent.CompletableFuture<Boolean> rawUpdate =
                     dirtyJobStateMap
                             .submitToKey(jobId, new MarkIncompleteProcessor(jobCreateTime, reason))
                             .toCompletableFuture();
             rawUpdate.whenComplete(
-                    (ignored, markError) -> {
+                    (applied, markError) -> {
                         if (markError != null) {
                             logger.warning(
                                     String.format(
@@ -972,9 +1021,14 @@ public class DirtyJobService {
                                             jobId),
                                     markError);
                             scheduleIncompleteMarkerRetry(jobId, jobCreateTime, reason);
+                        } else if (!Boolean.TRUE.equals(applied)) {
+                            // Initialization can still be in flight when this marker reaches
+                            // the owner. Retain the retry even if this coordinator is demoted.
+                            scheduleIncompleteMarkerRetry(jobId, jobCreateTime, reason);
                         }
                     });
-            CompletableFuture<Void> update = new CompletableFuture<>(rawUpdate);
+            CompletableFuture<Void> update =
+                    new CompletableFuture<>(rawUpdate.thenApply(ignored -> null));
             scheduleIncompleteMarkerWatchdog(jobId, jobCreateTime, reason, update);
             return update;
         } catch (Throwable markError) {
@@ -1074,6 +1128,7 @@ public class DirtyJobService {
         java.util.concurrent.CompletableFuture<R> rawUpdate;
         CompletableFuture<R> update;
         long epoch = coordinatorEpoch.get();
+        Long expectedOwner = locallyOwnedJobCreateTimes.get(jobId);
         try {
             synchronized (pendingStateUpdates) {
                 CompletionStage<?> previous = pendingStateUpdates.get(jobId);
@@ -1100,8 +1155,18 @@ public class DirtyJobService {
                     synchronized (pendingStateUpdates) {
                         pendingStateUpdates.remove(jobId, rawUpdate);
                     }
-                    if (error != null && coordinatorEpoch.get() == epoch) {
-                        handleTrackingFailure(jobId, operation, error);
+                    if (coordinatorEpoch.get() == epoch) {
+                        if (error != null) {
+                            handleTrackingFailure(jobId, operation, error);
+                        } else if (expectedOwner != null
+                                && expectedOwner.equals(locallyIncompleteJobOwners.get(jobId))) {
+                            // A timeout marker may have arrived before a delayed initialization
+                            // created the state. Reapply it after that write, for the same owner.
+                            markTrackingIncomplete(
+                                    jobId,
+                                    expectedOwner,
+                                    operation + " completed after tracking timed out");
+                        }
                     }
                 });
         return update;
@@ -1138,18 +1203,22 @@ public class DirtyJobService {
             Map<Long, Long> owners,
             Map<Long, Long> incompleteOwners,
             long jobId,
-            long jobCreateTime,
-            boolean restart) {
+            long jobCreateTime) {
         synchronized (owners) {
             owners.put(jobId, jobCreateTime);
             Long incompleteOwner = incompleteOwners.get(jobId);
-            if (!restart || (incompleteOwner != null && incompleteOwner != jobCreateTime)) {
+            if (incompleteOwner != null && incompleteOwner != jobCreateTime) {
                 incompleteOwners.remove(jobId);
             }
         }
     }
 
-    /** Retains local UNKNOWN evidence only while no different execution owns the same job ID. */
+    /**
+     * Retains local UNKNOWN evidence only while no different execution owns the same job ID.
+     *
+     * <p>A retry from an earlier execution must never replace the successor owner registered on
+     * this node.
+     */
     static boolean registerLocalIncompleteOwner(
             Map<Long, Long> owners,
             Map<Long, Long> incompleteOwners,
@@ -1182,7 +1251,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Initializes or validates state for one immutable job execution. */
+    /**
+     * Initializes or validates state for one immutable job execution.
+     *
+     * <p>Repeated writes for the same owner preserve irreversible recovery and completeness
+     * evidence.
+     */
     private static class InitializeProcessor extends DirtyJobProcessor<DirtyJobState> {
         private static final long serialVersionUID = 1L;
 
@@ -1193,7 +1267,6 @@ public class DirtyJobService {
         private final long pendingIncidentTtlMillis;
         private final long memberEventSequence;
         private final boolean missingIsIncomplete;
-        private final boolean resetExisting;
         private final boolean enabledMarkerIncomplete;
 
         private InitializeProcessor(
@@ -1204,7 +1277,6 @@ public class DirtyJobService {
                 long pendingIncidentTtlMillis,
                 long memberEventSequence,
                 boolean missingIsIncomplete,
-                boolean resetExisting,
                 boolean enabledMarkerIncomplete) {
             this.jobId = jobId;
             this.jobCreateTime = jobCreateTime;
@@ -1213,7 +1285,6 @@ public class DirtyJobService {
             this.pendingIncidentTtlMillis = pendingIncidentTtlMillis;
             this.memberEventSequence = memberEventSequence;
             this.missingIsIncomplete = missingIsIncomplete;
-            this.resetExisting = resetExisting;
             this.enabledMarkerIncomplete = enabledMarkerIncomplete;
         }
 
@@ -1221,7 +1292,13 @@ public class DirtyJobService {
         public DirtyJobState process(Map.Entry<Long, DirtyJobState> entry) {
             DirtyJobState state = entry.getValue();
             boolean ownerMismatch = state != null && state.getJobCreateTime() != jobCreateTime;
-            if (state == null || resetExisting || ownerMismatch) {
+            if (ownerMismatch && state.getJobCreateTime() > jobCreateTime) {
+                // An older submission cannot reclaim state already owned by its successor.
+                return state;
+            }
+            // An earlier timed-out initialization can arrive after the successor has already
+            // counted recovery. The same immutable execution must retain that newer evidence.
+            if (state == null || ownerMismatch) {
                 state =
                         DirtyJobState.create(
                                 jobId,
@@ -1250,7 +1327,11 @@ public class DirtyJobService {
         }
     }
 
-    /** Allocates the next cluster-wide member-event sequence. */
+    /**
+     * Allocates the next cluster-wide member-event sequence.
+     *
+     * <p>The returned watermark is backed up atomically with the primary entry mutation.
+     */
     private static class IncrementSequenceProcessor extends SequenceProcessor<Long> {
         private static final long serialVersionUID = 1L;
 
@@ -1262,7 +1343,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Base processor for the synchronously backed member-event sequence map. */
+    /**
+     * Base processor for the synchronously backed member-event sequence map.
+     *
+     * <p>Reusing the deterministic processor on backups preserves the ordering observed by a
+     * successor.
+     */
     private abstract static class SequenceProcessor<R>
             implements EntryProcessor<Long, Long, R>, Serializable {
         private static final long serialVersionUID = 1L;
@@ -1273,15 +1359,19 @@ public class DirtyJobService {
         }
     }
 
-    /** Retains only the highest observed event sequence for one member UUID. */
-    private static class JournalMemberEventProcessor
+    /**
+     * Retains only the highest observed event sequence for one member UUID.
+     *
+     * <p>A callback from a demoted coordinator cannot overwrite a newer coordinator event.
+     */
+    static class JournalMemberEventProcessor
             implements EntryProcessor<String, DirtyJobMemberEvent, DirtyJobMemberEvent>,
                     Serializable {
         private static final long serialVersionUID = 1L;
 
         private final DirtyJobMemberEvent event;
 
-        private JournalMemberEventProcessor(DirtyJobMemberEvent event) {
+        JournalMemberEventProcessor(DirtyJobMemberEvent event) {
             this.event = event;
         }
 
@@ -1302,15 +1392,20 @@ public class DirtyJobService {
         }
     }
 
-    /** Atomically converts one exact journal event into a short-lived acknowledgement tombstone. */
-    private static class AcknowledgeJournalEventProcessor
+    /**
+     * Atomically converts one exact journal event into a short-lived acknowledgement tombstone.
+     *
+     * <p>The expected sequence fences stale acknowledgements while the TTL bounds retained journal
+     * entries.
+     */
+    static class AcknowledgeJournalEventProcessor
             implements EntryProcessor<String, DirtyJobMemberEvent, Boolean>, Serializable {
         private static final long serialVersionUID = 1L;
 
         private final long expectedSequence;
         private final long tombstoneTtlMillis;
 
-        private AcknowledgeJournalEventProcessor(long expectedSequence, long tombstoneTtlMillis) {
+        AcknowledgeJournalEventProcessor(long expectedSequence, long tombstoneTtlMillis) {
             this.expectedSequence = expectedSequence;
             this.tombstoneTtlMillis = tombstoneTtlMillis;
         }
@@ -1332,7 +1427,11 @@ public class DirtyJobService {
         }
     }
 
-    /** Advances a new job to the current watermark before scheduling can begin. */
+    /**
+     * Advances a new job to the current watermark before scheduling can begin.
+     *
+     * <p>This does not invent a recovery incident for member losses which preceded the submission.
+     */
     private static class AdvanceSequenceProcessor extends DirtyJobProcessor<Void> {
         private static final long serialVersionUID = 1L;
         private final long jobId;
@@ -1381,7 +1480,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Records one member-loss incident and the pipelines assigned to that member. */
+    /**
+     * Records one member-loss incident and the pipelines assigned to that member.
+     *
+     * <p>The immutable owner check isolates delayed updates from a subsequent execution of the same
+     * ID.
+     */
     private static class MemberEventProcessor extends DirtyJobProcessor<Void> {
         private static final long serialVersionUID = 1L;
 
@@ -1450,7 +1554,11 @@ public class DirtyJobService {
         }
     }
 
-    /** Allocates or reuses a stable attempt identity before deployment starts. */
+    /**
+     * Allocates or reuses a stable attempt identity before deployment starts.
+     *
+     * <p>Preparation alone does not advance the confirmed job recovery generation counter.
+     */
     private static class PrepareAttemptProcessor extends DirtyJobProcessor<String> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
@@ -1476,7 +1584,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Counts an attempt only after persisted pipeline state proves deployment started. */
+    /**
+     * Counts an attempt only after persisted pipeline state proves deployment started.
+     *
+     * <p>Repeated callbacks reuse the stable attempt identity and cannot count the same generation
+     * twice.
+     */
     private static class ConfirmAttemptProcessor extends DirtyJobProcessor<Void> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
@@ -1503,7 +1616,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Completes one affected pipeline after all task groups report RUNNING. */
+    /**
+     * Completes one affected pipeline after all task groups report RUNNING.
+     *
+     * <p>The episode remains active until every pipeline participating in the incident has
+     * recovered.
+     */
     private static class CompletePipelineProcessor extends DirtyJobProcessor<Void> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
@@ -1530,7 +1648,11 @@ public class DirtyJobService {
         }
     }
 
-    /** Rebinds persisted deployment state to its stable attempt after an active-master switch. */
+    /**
+     * Rebinds persisted deployment state to its stable attempt after an active-master switch.
+     *
+     * <p>Replaying a confirmed attempt preserves the existing job-level generation count.
+     */
     private static class ReconcilePipelineProcessor extends DirtyJobProcessor<String> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
@@ -1561,7 +1683,12 @@ public class DirtyJobService {
         }
     }
 
-    /** Closes any unfinished episode before terminal history is persisted. */
+    /**
+     * Closes any unfinished episode before terminal history is persisted.
+     *
+     * <p>This retains incomplete evidence rather than reporting a successful recovery at
+     * termination.
+     */
     private static class FinishEpisodeProcessor extends DirtyJobProcessor<DirtyJobState> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
@@ -1584,8 +1711,13 @@ public class DirtyJobService {
         }
     }
 
-    /** Permanently changes the matching execution to UNKNOWN after tracking evidence is lost. */
-    private static class MarkIncompleteProcessor extends DirtyJobProcessor<Void> {
+    /**
+     * Permanently changes the matching execution to UNKNOWN after tracking evidence is lost.
+     *
+     * <p>The immutable submission owner prevents a delayed failure from poisoning a replacement
+     * execution.
+     */
+    private static class MarkIncompleteProcessor extends DirtyJobProcessor<Boolean> {
         private static final long serialVersionUID = 1L;
         private final long expectedJobCreateTime;
         private final String reason;
@@ -1596,13 +1728,15 @@ public class DirtyJobService {
         }
 
         @Override
-        public Void process(Map.Entry<Long, DirtyJobState> entry) {
+        public Boolean process(Map.Entry<Long, DirtyJobState> entry) {
             DirtyJobState state = entry.getValue();
             if (isOwnedBy(state, expectedJobCreateTime)) {
                 state.markTrackingIncomplete(reason);
                 entry.setValue(state);
             }
-            return null;
+            // Absence can be temporary while initialization is in flight. A different owner
+            // is a completed fence, so retries must stop instead of poisoning its execution.
+            return state != null;
         }
     }
 }

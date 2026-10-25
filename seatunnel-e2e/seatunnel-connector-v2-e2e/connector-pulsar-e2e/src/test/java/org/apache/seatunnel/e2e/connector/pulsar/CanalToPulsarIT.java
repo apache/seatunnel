@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
@@ -60,9 +61,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -126,35 +124,8 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p " + SEATUNNEL_JDBC_PLUGIN_LIB);
-
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                Path driverJarPath = postgresDriverJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        SEATUNNEL_JDBC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-            };
-
-    private Path postgresDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(Driver.class).copyTo(container, SEATUNNEL_JDBC_PLUGIN_LIB);
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
         POSTGRESQL_CONTAINER =

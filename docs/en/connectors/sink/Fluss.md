@@ -48,6 +48,12 @@ The target table schema should match the upstream SeaTunnel row schema by field 
 | multi_table_sink_replica | int | no | 1 | Number of writer replicas for multi-table sink mode. |
 | common-options | - | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
+### bootstrap.servers
+
+The Fluss coordinator address.
+
+This value must not be empty or contain only whitespace.
+
 ### database
 
 When `database` is not configured, the sink uses the upstream database name from the input table identifier.
@@ -239,9 +245,11 @@ sink {
 ### Replicate CDC changes across databases
 
 Use placeholders to replicate CDC changes from one Fluss namespace to another.
-The `schema_name` placeholder resolves to the upstream database name, and
-`table_name` to the upstream table name, so a single sink configuration can fan
-out many tables.
+Fluss only has a database + table identifier (no schema), so the upstream
+`schemaName` is always null for a Fluss-to-Fluss topology. Use `${database_name}`
+to capture the upstream Fluss database and `${table_name}` to capture the
+upstream Fluss table; the placeholder values are rewritten by the engine before
+the sink connects.
 
 ```hocon
 env {
@@ -264,7 +272,7 @@ sink {
   Fluss {
     plugin_input = "fluss_cdc"
     bootstrap.servers = "fluss-coordinator:9123"
-    database = "sink_db_${schema_name}"
+    database = "sink_db_${database_name}"
     table = "sink_${table_name}"
     multi_table_sink_replica = 2
   }

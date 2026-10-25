@@ -23,7 +23,7 @@ You can configure whether the task is in batch or stream mode through `job.mode`
 
 Gets the interval (milliseconds) in which checkpoints are periodically scheduled.
 
-In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, the default value is 30000 milliseconds.
+In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, if it is not set in `seatunnel.yaml` either, the engine falls back to 300000 milliseconds (5 minutes); note that the default `seatunnel.yaml` shipped with SeaTunnel already sets it to 10000 milliseconds, so most installations see 10-second checkpoints.
 
 ### checkpoint.timeout
 
@@ -57,7 +57,7 @@ Controls the optional Zeta dirty-job label. The default value is `-1`; values le
 
 One member-loss recovery that redeploys multiple pipelines counts as one first-generation attempt. A later redeployment advances the generation once. Ordinary connector, data, or user-code failures without an active member-loss recovery episode are not counted. Kubernetes Pod restart, manual deletion, and rolling replacement are observed as unclassified member loss unless a future trusted planned-leave protocol proves otherwise, so their redeployment attempts are counted.
 
-Running and finished job APIs expose an optional `dirtyTask` object when tracking is enabled. Its `evaluationStatus` is `CLEAN`, `DIRTY`, or `UNKNOWN`. `UNKNOWN` means the engine cannot prove tracking completeness after a state-store or failover problem and must not be interpreted as clean.
+Running and finished REST job APIs expose an optional `dirtyTask` object when tracking is enabled. The legacy CLI job-list JSON schema stays unchanged for both enabled and disabled jobs. Its `evaluationStatus` is `CLEAN`, `DIRTY`, or `UNKNOWN`. `UNKNOWN` means the engine cannot prove tracking completeness after a state-store or failover problem and must not be interpreted as clean. Distributed tracking updates use a 100 ms observation budget; a timeout preserves `UNKNOWN` even if the delayed update later completes, while primary job recovery continues.
 
 ### savemode.execute.location
 

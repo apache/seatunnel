@@ -24,6 +24,12 @@ Usage: seatunnel.sh [options]
     -can, --cancel, --cancel-job              Cancel job(s) by JobId
     -f, --force-cancel, --force-cancel-job    Force Cancel job(s) by jobId
     --check                                   Whether check config (default: false)
+    --checkpoint-history                      Get checkpoint history by JobId
+    --checkpoint-history-limit                Limit checkpoint history size (default: 20)
+    --checkpoint-history-pipeline             Filter checkpoint history by pipeline id
+    --checkpoint-history-status               Filter checkpoint history by status:
+                                              COMPLETED,FAILED,CANCELED
+    --checkpoint-overview                     Get checkpoint overview by JobId
     -cj, --close, --close-job                 Close client the task will also be closed
                                               (default: true)
     -cn, --cluster                            The name of cluster
@@ -32,8 +38,8 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
-    -d, --dry-run                             Run the job in dry-run mode, support
-                                              [static, connect]
+    -d, --dry-run                             Validate or preview without running sinks.
+                                              Supported modes: [static, connect, sample]
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt
@@ -50,6 +56,9 @@ Usage: seatunnel.sh [options]
     -r, --restore, --restore-job              按 jobId 从最新 Savepoint 恢复
     --restore-with-checkpoint                 按 jobId 从最新成功完成的 Checkpoint 恢复
     -s, --savepoint, --savepoint-job          savepoint job by jobId
+    --sample-limit                            Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000)
+    --sample-print-data                       Print sampled row values to persistent logs (default: false)
+    --set-job-id                              Set custom job id for job
     -i, --variable                            Variable substitution, such as -i
                                               city=beijing, or -i date=20190318.We use
                                               ',' as separator, when inside "", ',' are
@@ -63,6 +72,9 @@ Usage: seatunnel.sh [options]
 ```shell
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
+
+未使用 `--async` 时，客户端会等待作业的最终结果。如果作业在任务启动或自动恢复期间持续失败，例如
+Paimon source 缺少 `SELECT` 权限，达到配置的重试上限后，作业会返回 `FAILED`，客户端以非零状态退出。
 
 **--async** 参数可以让作业在后台运行，当作业提交后，客户端会退出。
 
@@ -95,12 +107,35 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | 连接器 | Source | Sink |
 |--------|--------|------|
 | Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
+| Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 支持（[元数据 + 本地序列化检查](../../connectors/sink/Kafka.md#连通性-dry-run)；动态主题仅执行有限检查，不检查 Produce/事务权限） |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
+| Clickhouse | 不支持 | 支持（[首个 host 的连通性 + 目标元数据](../../connectors/sink/Clickhouse.md#连通性-dry-run)，不校验写入权限或字段兼容性） |
+| MongoDB | 支持（[集合可见性 + 配置的 schema](../../connectors/source/MongoDB.md#连通性预检查)，要求 MongoDB 4.0+，不验证文档读取权限） | 支持（[连通性 + 配置的认证](../../connectors/sink/MongoDB.md#连通性-dry-run)，不检查集合、schema、写入权限或事务） |
+| Neo4j | 支持（[驱动连通性 + 配置 schema，不含数据库/查询校验](../../connectors/source/Neo4j.md#连接预检查)） | 不支持 |
+| RabbitMQ | 支持（[已有队列元数据 + 配置 schema，不含消费权限](../../connectors/source/Rabbitmq.md#连接预检查)） | 不支持 |
+| S3File | 支持（元数据连通性 + 内联 schema，仅单表 text/csv/json/xml；参见[支持范围](../../connectors/source/S3File.md#连接预检查)） | - |
+| Redis | 支持（[连通性 + 认证](../../connectors/source/Redis.md#连通性-dry-run) + 配置的 schema，不访问 key） | 支持（[连通性 + 认证](../../connectors/sink/Redis.md#连通性-dry-run)，不校验字段兼容性和写入权限） |
 
 作业中的每个插件都会在校验汇总中报告以下两种状态之一：
 
 - `VALIDATED` – 连接器执行了真实的连通性和/或 schema 校验。
 - `SKIPPED` – 连接器不支持 connect dry-run 校验。**对于 `SKIPPED` 的插件，`--dry-run connect` 成功并不代表其凭据或可达性得到了验证。** 对于不支持 dry-run 的 source，配置中显式声明的 schema 字段（`schema` / `tableConfigs` / `table_list` 中的 `fields` 或 `columns`）仍会用于下游 schema 校验；如果配置中也没有声明 schema 字段，则该管道的下游 transform/sink schema 校验同样会报告为 `SKIPPED`，而不是基于占位 schema 进行校验。
+
+### 预览样例数据
+
+```shell
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
+```
+
+`--dry-run sample` 模式具有以下行为：
+
+- 在本地运行配置的 source 和 transform，并输出表路径和物理行 schema。schema 输出不包含连接器选项或凭据。
+- 仅当设置 `--sample-print-data` 时，才输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为持久化的引擎日志可能暴露敏感数据。
+- 所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。
+- 默认最多从每个 source 向样例管道发送 `10` 行，`--sample-limit` 最大为 `10000`。source reader 停止前可能会完成当前正在执行的 poll 或批次。
+- 使用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。
+- 可能从外部 source 读取数据，但不会向配置的目标系统写入数据。
+- 仅支持本地执行。不支持集群模式、异步提交、恢复、savepoint、校验或作业控制操作。未选择 sample 模式时，sample 相关选项也会被拒绝。
 
 ## 查看作业列表
 
@@ -245,9 +280,9 @@ sh bin/seatunnel-cluster.sh -m -cn my_cluster
 **输出示例：**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5701  ACTIVE MASTER        5.3.0
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5701  MASTER               5.3.0
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5701  WORKER               5.3.0
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.3.0
+b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.3.0
+c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.3.0
 ```
 
 **注意**: 必须使用 `-cn` 参数指定集群名称。集群必须处于运行状态才能执行此命令。

@@ -23,7 +23,7 @@
 
 获取定时调度检查点的时间间隔(毫秒)。
 
-在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，默认值为30000毫秒。
+在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，如果`seatunnel.yaml`中也没有配置，引擎回退到默认值300000毫秒（5分钟）；注意 SeaTunnel 附带的默认 `seatunnel.yaml` 已将其设置为10000毫秒，因此多数部署实际看到的是10秒的检查点间隔。
 
 ### checkpoint.timeout
 
@@ -57,7 +57,7 @@
 
 一次成员离线恢复即使重新部署多个 Pipeline，首次部署也只计为一个作业级尝试；后续再次部署时，代数只增加一次。没有处于成员离线恢复上下文中的 Connector、数据或用户代码异常不会计入。Kubernetes Pod 重启、手动删除和滚动替换在缺少可信计划下线协议时只能识别为未分类成员离线，因此对应的重新部署尝试会被计入。
 
-启用后，运行中和已完成作业接口会返回可选的 `dirtyTask` 对象，其中 `evaluationStatus` 为 `CLEAN`、`DIRTY` 或 `UNKNOWN`。`UNKNOWN` 表示状态存储或故障转移期间无法证明观测完整，不能把该作业判断为干净任务。
+启用后，运行中和已完成作业的 REST 接口会返回可选的 `dirtyTask` 对象；无论是否启用，旧版 CLI 的作业列表 JSON 结构都保持不变。其中 `evaluationStatus` 为 `CLEAN`、`DIRTY` 或 `UNKNOWN`。`UNKNOWN` 表示状态存储或故障转移期间无法证明观测完整，不能把该作业判断为干净任务。分布式跟踪更新的观测预算为 100 毫秒；超时后即使延迟更新完成，也会保留 `UNKNOWN`，主作业恢复流程继续执行。
 
 ### savemode.execute.location
 

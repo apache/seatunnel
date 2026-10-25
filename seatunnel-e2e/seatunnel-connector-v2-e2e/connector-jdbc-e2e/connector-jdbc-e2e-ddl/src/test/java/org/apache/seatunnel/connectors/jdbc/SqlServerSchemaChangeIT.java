@@ -82,8 +82,6 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                     + "integratedSecurity=false;xaTransactionCompatible=true;"
                     + "encrypt=false;trustServerCertificate=true;";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    private static final String SQLSERVER_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.2.1.jre8/mssql-jdbc-9.2.1.jre8.jar";
     private final String schemaEvolutionCaseConfig =
             "/mysqlcdc_to_sqlserver_with_schema_change.conf";
     private final String schemaEvolutionCaseExactlyOnceConfig =
@@ -97,7 +95,6 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                 .jdbcUrl(SQLSERVER_JDBC_URL)
                 .username(SQLSERVER_USER)
                 .password(SQLSERVER_PASSWORD)
-                .driverUrl(SQLSERVER_DRIVER_JAR)
                 .port(SQLSERVER_PORT)
                 .driverClassName(DRIVER_CLASS)
                 .databaseName(SQLSERVER_DATABASE)

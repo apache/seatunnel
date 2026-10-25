@@ -595,13 +595,19 @@ public class DirtyJobState implements Serializable {
         private MemberLeaveClassification classification;
     }
 
-    /** Distinguishes allocated attempts from attempts proven to have started deployment. */
+    /**
+     * Distinguishes allocated attempts from attempts proven to have started deployment. Only the
+     * latter may advance the job-level recovery generation counter.
+     */
     public enum RecoveryAttemptStatus {
         PREPARED,
         CONFIRMED
     }
 
-    /** Terminal outcome retained for a bounded recovery episode summary. */
+    /**
+     * Terminal outcome retained for a bounded recovery episode summary. Aborted episodes preserve
+     * the distinction from a recovery which reached RUNNING.
+     */
     public enum RecoveryEpisodeStatus {
         COMPLETED,
         ABORTED,
