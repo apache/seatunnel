@@ -67,6 +67,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | row_delimiter              | string  | 否  | \n                          | 文本文件的行分隔符，默认 `\n`。 |
 | parse_partition_from_path  | boolean | 否  | true                        | 是否从文件路径解析分区键和值。 |
 | skip_header_row_number     | long    | 否  | 0                           | 跳过的头部行数，仅适用于 txt 和 csv。 |
+| null_format                | string  | 否  | -                           | 仅在 file_format_type 为 text 时使用。定义哪个字符串会被读取为 `null`，例如 `\N`。 |
 | date_format                | string  | 否  | yyyy-MM-dd                  | 日期格式，用于将字符串转换为日期，支持 `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。 |
 | datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间格式，用于将字符串转换为日期时间，支持 `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`。 |
 | time_format                | string  | 否  | HH:mm:ss                    | 时间格式，用于将字符串转换为时间，支持 `HH:mm:ss` `HH:mm:ss.SSS`。 |
