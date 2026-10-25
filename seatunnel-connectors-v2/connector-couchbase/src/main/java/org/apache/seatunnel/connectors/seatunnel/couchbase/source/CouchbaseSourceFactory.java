@@ -37,6 +37,7 @@ import java.io.Serializable;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 
+/** Creates a bounded, single-split source that requires parallelism 1 and an explicit schema. */
 @AutoService(Factory.class)
 public class CouchbaseSourceFactory implements TableSourceFactory {
     @Override
