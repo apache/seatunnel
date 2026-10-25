@@ -35,7 +35,7 @@ import ChangeLog from '../changelog/connector-druid.md';
 | 名称           | 类型   | 必需 | 默认值 | 说明 |
 |----------------|--------|------|--------|------|
 | coordinatorUrl | string | 是   | -      | Druid 协调器或路由节点的主机和端口。 |
-| datasource     | string | 是   | -      | Druid datasource 名称，单表和多表任务中都原样使用该值。 |
+| datasource     | string | 是   | -      | Druid datasource 名称，支持 `${table_name}` 这类占位符。 |
 | batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务，取值必须大于 `0`。 |
 | common-options |        | 否   | -      | Sink 通用参数。 |
 
@@ -47,7 +47,9 @@ SeaTunnel 会向 `http://{coordinatorUrl}/druid/indexer/v1/task` 提交索引任
 
 ### datasource [string]
 
-要写入的 Druid datasource 名称。该值会原样使用，不会做任何占位符替换。多表写入时，所有输入表的数据都会写入这同一个 datasource。
+要写入的 Druid datasource 名称。
+
+当上游有多张表时，可以使用 `${table_name}` 这类占位符，把每张上游表写入不同的 Druid datasource。
 
 ### batchSize [int]
 
@@ -128,8 +130,7 @@ sink {
 
 ### 写入多表
 
-Sink 没有按表路由 datasource 的能力：所有数据都会写入下面配置的单一 `datasource`，
-因此该 datasource 需要能容纳所有上游表的字段。
+使用 `${table_name}` 可以把每张上游表写入同名的 Druid datasource。
 
 ```hocon
 env {
@@ -192,7 +193,7 @@ source {
 sink {
   Druid {
     coordinatorUrl = "router:8888"
-    datasource = "testDataSource"
+    datasource = "${table_name}"
   }
 }
 ```
