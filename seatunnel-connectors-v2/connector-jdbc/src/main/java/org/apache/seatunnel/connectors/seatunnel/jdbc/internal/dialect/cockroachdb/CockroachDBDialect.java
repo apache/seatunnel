@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.cockroac
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
@@ -38,6 +40,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** PostgreSQL-wire-compatible reads and writes against pre-created CockroachDB tables. */
 public class CockroachDBDialect extends PostgresDialect {
@@ -74,7 +77,7 @@ public class CockroachDBDialect extends PostgresDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return java.util.stream.Stream.of(
+        return Stream.of(
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName())
@@ -113,6 +116,18 @@ public class CockroachDBDialect extends PostgresDialect {
             throw new JdbcConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "CockroachDB requires pre-created tables and does not support table_options");
+        }
+    }
+
+    @Override
+    public void validateSaveModes(DataSaveMode dataSaveMode, SchemaSaveMode schemaSaveMode) {
+        if (dataSaveMode != DataSaveMode.APPEND_DATA
+                || (schemaSaveMode != SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST
+                        && schemaSaveMode != SchemaSaveMode.IGNORE)) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "CockroachDB JDBC requires pre-created tables and supports only APPEND_DATA "
+                            + "with the default schema_save_mode or IGNORE");
         }
     }
 

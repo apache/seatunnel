@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+/** Explicit dialect selection without changing PostgreSQL URL discovery. */
 @AutoService(JdbcDialectFactory.class)
 public class CockroachDBDialectFactory implements JdbcDialectFactory {
     @Override

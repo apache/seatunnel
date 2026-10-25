@@ -48,6 +48,7 @@ import java.util.List;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -107,6 +108,23 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(hour, offsetDateTime.getHour());
         Assertions.assertEquals(minute, offsetDateTime.getMinute());
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
+    }
+
+    @Test
+    public void testStringReadDoesNotLookUpColumnByName() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        TableSchema schema = spy(createTableSchema("value", BasicType.STRING_TYPE, "VARCHAR"));
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnTypeName(2)).thenReturn("varchar");
+        when(rs.getInt(1)).thenReturn(1);
+        when(rs.getObject(2)).thenReturn("value");
+        when(rs.getString(2)).thenReturn("value");
+
+        SeaTunnelRow row = converter.toInternal(rs, schema);
+
+        Assertions.assertEquals("value", row.getField(1));
+        verify(schema, never()).getColumn("value");
     }
 
     @Test

@@ -129,10 +129,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
                     String metaDataColumnType =
-                            getStringColumnType(
-                                    rs,
-                                    tableSchema.getColumn(typeInfo.getFieldName(fieldIndex)),
-                                    resultSetIndex);
+                            getStringColumnType(rs, tableSchema, typeInfo, fieldIndex);
                     if (PG_GEOMETRY.equalsIgnoreCase(metaDataColumnType)
                             || PG_GEOGRAPHY.equalsIgnoreCase(metaDataColumnType)) {
                         Object geoObj = rs.getObject(resultSetIndex);
@@ -262,9 +259,10 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /** Resolves native string types that need PostgreSQL-specific value conversion. */
-    protected String getStringColumnType(ResultSet rs, Column column, int resultSetIndex)
+    protected String getStringColumnType(
+            ResultSet rs, TableSchema tableSchema, SeaTunnelRowType typeInfo, int fieldIndex)
             throws SQLException {
-        return rs.getMetaData().getColumnTypeName(resultSetIndex);
+        return rs.getMetaData().getColumnTypeName(fieldIndex + 1);
     }
 
     @Override

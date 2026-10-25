@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.cockroachdb;
 
-import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 
@@ -31,10 +32,11 @@ public class CockroachDBRowConverter extends PostgresJdbcRowConverter {
     }
 
     @Override
-    protected String getStringColumnType(ResultSet rs, Column column, int resultSetIndex) {
+    protected String getStringColumnType(
+            ResultSet rs, TableSchema tableSchema, SeaTunnelRowType typeInfo, int fieldIndex) {
         // pgjdbc's getColumnTypeName performs a catalog query to detect serial columns.
         // CockroachDB does not allow that second query while a cursor is suspended. Use
         // schema discovery instead; an explicit schema without sourceType is a plain STRING.
-        return column.getSourceType();
+        return tableSchema.getColumn(typeInfo.getFieldName(fieldIndex)).getSourceType();
     }
 }
