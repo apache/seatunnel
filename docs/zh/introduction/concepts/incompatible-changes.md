@@ -13,25 +13,9 @@
 
 ### 原生 CLI 帮助退出码
 
-`seatunnel.sh -h` 和 `seatunnel-application.sh -h` 现在以 `0` 而非 `234` 退出。
+`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
 依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
 对应包装脚本仍将帮助请求转换为退出码 `0`。
-
-### Application CLI 等待结果未知
-
-`seatunnel-application.sh status --wait` 和 `submit --wait` 在平台返回 `UNKNOWN` 时，使用独立
-退出码 `2`，以区别于成功或一般执行失败。应用状态仍为 `UNKNOWN`，不代表应用失败。脚本应将退出码 `2` 作为结果不确定
-单独处理，并在重新提交前检查平台状态。与此前行为相比：
-
-| 操作及查询到的状态 | 此前退出码 | 当前退出码 |
-| --- | --- | --- |
-| 不带 `--wait` 的 `status`：`FAILED`、`CANCELED` 或 `UNKNOWN` | `1` | `0` |
-| `status --wait` / `submit --wait`：`CANCELED` | `1` | `0` |
-| `status --wait` / `submit --wait`：`UNKNOWN` | `1` | `2` |
-
-普通状态查询成功不代表应用执行成功，脚本必须检查输出的状态。等待到 `FAILED` 仍以 `1` 退出，
-等待到 `SUCCEEDED` 仍以 `0` 退出。
-
 
 ### CDC：可空列不再用作快照分片列
 
