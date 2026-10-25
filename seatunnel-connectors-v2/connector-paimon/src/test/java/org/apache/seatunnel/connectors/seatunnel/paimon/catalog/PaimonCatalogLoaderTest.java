@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+/** Verifies that OSS options reach the catalog without leaking into local warehouses. */
 public class PaimonCatalogLoaderTest {
 
     @Test

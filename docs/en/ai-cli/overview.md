@@ -21,7 +21,7 @@ The AI CLI ships as the `seatunnel-cli` module inside the main SeaTunnel reposit
 ## Key Capabilities
 
 - **Natural language to config** — English or Chinese input, complete HOCON output
-- **Multi-provider LLM** — AWS Bedrock (including OpenAI-family models via the `bedrock-mantle` endpoint), Anthropic API, OpenAI and compatible APIs
+- **Multi-provider LLM** — AWS Bedrock (including OpenAI-family models via the `bedrock-mantle` endpoint), Anthropic API, OpenAI and compatible APIs, OrcaRouter AI gateway
 - **Multi-agent pipeline** — Planner → Config Generator → Validator → auto-fix, with up to 3 correction rounds
 - **Connector knowledge** — 150+ connectors with full option rules and value constraints, resolved from a live engine or bundled metadata
 - **Validation & repair** — local checks, engine `--check`/dry-run, and LLM-powered diagnosis-and-repair when `/check` or `/run` fails

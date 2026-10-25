@@ -74,31 +74,6 @@ public class PaimonCatalogLoader implements Serializable {
         this.password = paimonConfig.getPassword();
     }
 
-    Map<String, String> buildCatalogOptions() {
-        final Map<String, String> optionsMap = new HashMap<>(1);
-        optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
-        optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
-        if (StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password)) {
-            optionsMap.put(PaimonBaseOptions.USER.key(), user);
-            optionsMap.put(PaimonBaseOptions.PASSWORD.key(), password);
-        }
-        if (warehouse.startsWith(HDFS_PREFIX)) {
-            checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
-            paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
-            String username = paimonHadoopConfiguration.get(HADOOP_USER_NAME);
-            if (StringUtils.isNotBlank(username)) {
-                UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(username));
-            }
-        } else if (warehouse.startsWith(S3A_PREFIX) || warehouse.startsWith(OSS_PREFIX)) {
-            optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
-        }
-        if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
-            optionsMap.put(CatalogOptions.URI.key(), catalogUri);
-            optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
-        }
-        return optionsMap;
-    }
-
     public Catalog loadCatalog() {
         // When using the seatunnel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
@@ -125,6 +100,32 @@ public class PaimonCatalogLoader implements Serializable {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.LOAD_CATALOG, e.getMessage(), e);
         }
+    }
+
+    /** Builds catalog options while forwarding filesystem-specific Hadoop settings. */
+    Map<String, String> buildCatalogOptions() {
+        final Map<String, String> optionsMap = new HashMap<>(1);
+        optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
+        optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
+        if (StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password)) {
+            optionsMap.put(PaimonBaseOptions.USER.key(), user);
+            optionsMap.put(PaimonBaseOptions.PASSWORD.key(), password);
+        }
+        if (warehouse.startsWith(HDFS_PREFIX)) {
+            checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
+            paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
+            String username = paimonHadoopConfiguration.get(HADOOP_USER_NAME);
+            if (StringUtils.isNotBlank(username)) {
+                UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(username));
+            }
+        } else if (warehouse.startsWith(S3A_PREFIX) || warehouse.startsWith(OSS_PREFIX)) {
+            optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
+        }
+        if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
+            optionsMap.put(CatalogOptions.URI.key(), catalogUri);
+            optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
+        }
+        return optionsMap;
     }
 
     void checkConfiguration(Configuration configuration, String key) {
