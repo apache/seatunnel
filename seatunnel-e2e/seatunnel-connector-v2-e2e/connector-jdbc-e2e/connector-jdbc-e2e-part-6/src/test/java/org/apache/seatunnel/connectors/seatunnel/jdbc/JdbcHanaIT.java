@@ -314,7 +314,12 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         assertCharColumn(catalogTable, "CHAR_VALUE_15", 15L);
     }
 
-    /** Verifies that real HANA CHAR metadata preserves its byte length when read as STRING. */
+    /**
+     * Verifies real HANA CHAR metadata from both table and query discovery.
+     *
+     * <p>Checking the STRING type and declared byte width detects missing CHAR support or
+     * accidental Unicode length expansion that a column-count assertion alone would miss.
+     */
     private void assertCharColumn(CatalogTable catalogTable, String name, long expectedLength) {
         Column column =
                 catalogTable.getTableSchema().getColumns().stream()
