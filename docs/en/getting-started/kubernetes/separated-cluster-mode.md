@@ -324,7 +324,7 @@ spec:
       serviceAccountName: seatunnel
       containers:
         - name: app
-          image: seatunnel:3.0.1
+          image: seatunnel:3.1.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
@@ -397,7 +397,7 @@ spec:
       serviceAccountName: seatunnel
       containers:
         - name: app
-          image: seatunnel:3.0.1
+          image: seatunnel:3.1.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-cluster.sh

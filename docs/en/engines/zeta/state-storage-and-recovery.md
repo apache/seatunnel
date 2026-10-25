@@ -60,6 +60,8 @@ seatunnel:
           # fs.s3a.endpoint: https://s3.amazonaws.com
           # fs.s3a.access.key: <your-access-key>
           # fs.s3a.secret.key: <your-secret-key>
+          # Environment credentials:
+          # fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
 ```
 
 ### Checkpoint retention and cleanup
