@@ -49,8 +49,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestOpenApiV2RouteSync {
 
-    private static final Path SOURCE = Path.of("src/main/java/org/apache/seatunnel/engine/server");
-    private static final Path SPEC = Path.of("../../docs/en/engines/zeta/openapi-v2.yaml");
+    private static final Path MODULE_DIR =
+            Path.of(System.getProperty("basedir", ".")).toAbsolutePath().normalize();
+    private static final Path SOURCE =
+            MODULE_DIR.resolve("src/main/java/org/apache/seatunnel/engine/server");
+    private static final Path SPEC =
+            MODULE_DIR.resolve("../../docs/en/engines/zeta/openapi-v2.yaml").normalize();
     private static final Pattern CONSTANT =
             Pattern.compile("public static final String (REST_URL_[A-Z_]+)\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern REGISTRATION =
@@ -94,7 +98,11 @@ class TestOpenApiV2RouteSync {
                         classesByHolder.get(registrationMatcher.group(1)));
             }
         }
-        assertEquals(COVERED_ROUTES, registeredClasses);
+        assertEquals(
+                COVERED_ROUTES,
+                registeredClasses,
+                "JettyService route registrations changed: update TestOpenApiV2RouteSync patterns "
+                        + "or openapi-v2.yaml to match the current registrations");
         for (Map.Entry<String, String> route : COVERED_ROUTES.entrySet()) {
             String path = pathsByConstant.get(route.getKey());
             JsonNode operation = spec.path("paths").path(path);
