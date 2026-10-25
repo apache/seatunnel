@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
 import java.util.Map;
 
 public class KafkaSourceOptions extends KafkaBaseOptions {
@@ -135,8 +136,9 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Whether to strip the Confluent Schema Registry wire format header "
-                                    + "(magic byte, schema id and message indexes) before "
-                                    + "protobuf deserialization.");
+                                    + "before protobuf deserialization, or the five-byte "
+                                    + "magic-byte/schema-id header before Avro deserialization. "
+                                    + "For Avro, avro_schema is required when enabled.");
 
     public static final Option<String> AVRO_SCHEMA =
             Options.key("avro_schema")
@@ -146,4 +148,13 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                             "Effective when the format is avro. The writer Avro schema used to "
                                     + "deserialize binary Avro messages whose record name, namespace, "
                                     + "or union layout differs from the SeaTunnel schema.");
+
+    public static final Option<List<String>> KAFKA_HEADERS_FIELDS =
+            Options.key("kafka_headers_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specify which Kafka message header keys to extract as row fields. "
+                                    + "Each header value is read as a STRING and appended to the output row. "
+                                    + "Cannot be used with NATIVE format.");
 }

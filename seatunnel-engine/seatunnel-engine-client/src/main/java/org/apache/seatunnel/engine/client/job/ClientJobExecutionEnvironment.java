@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import java.net.URL;
@@ -56,6 +57,10 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final ConnectorPackageClient connectorPackageClient;
 
+    private final RestoreMode restoreMode;
+
+    private final Long restoreSourceJobId;
+
     /** If the JobId is not empty, it is used to restore job from savePoint */
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
@@ -65,14 +70,38 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             SeaTunnelConfig seaTunnelConfig,
             boolean isStartWithSavePoint,
             Long jobId) {
-        super(jobConfig, isStartWithSavePoint);
+        this(
+                jobConfig,
+                jobFilePath,
+                variables,
+                seaTunnelHazelcastClient,
+                seaTunnelConfig,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
+                jobId);
+    }
+
+    public ClientJobExecutionEnvironment(
+            JobConfig jobConfig,
+            String jobFilePath,
+            List<String> variables,
+            SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+            SeaTunnelConfig seaTunnelConfig,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            Long jobId) {
+        super(jobConfig, restoreMode);
         this.jobFilePath = jobFilePath;
         this.variables = variables;
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.seaTunnelConfig = seaTunnelConfig;
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.restoreSourceJobId = restoreSourceJobId;
         Long finalJobId;
-        if (isStartWithSavePoint || jobId != null) {
+        if (this.restoreMode == RestoreMode.SAVEPOINT) {
+            finalJobId = restoreSourceJobId;
+        } else if (jobId != null) {
             finalJobId = jobId;
         } else {
             finalJobId = jobClient.getNewJobId();
@@ -102,11 +131,11 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
         List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
-        if (isStartWithSavePoint) {
-            LOGGER.info("Start with savepoint, load checkpoint state from job client");
-            pipelineCheckpoints =
-                    jobClient.getCheckpointData(
-                            Long.parseLong(jobConfig.getJobContext().getJobId()));
+        if (restoreMode.isRestore()) {
+            LOGGER.info(
+                    String.format(
+                            "Start with %s, load checkpoint state from job client", restoreMode));
+            pipelineCheckpoints = jobClient.getCheckpointData(restoreSourceJobId, restoreMode);
         }
         MetadataConfig metaDataConfig = seaTunnelConfig.getEngineConfig().getMetadataConfig();
         return new MultipleTableJobConfigParser(
@@ -115,7 +144,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                isStartWithSavePoint,
+                restoreMode.isRestore(),
                 pipelineCheckpoints,
                 metaDataConfig);
     }
@@ -214,7 +243,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 new JobImmutableInformation(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         jobConfig.getName(),
-                        isStartWithSavePoint,
+                        restoreMode,
+                        restoreSourceJobId,
                         seaTunnelHazelcastClient.getSerializationService(),
                         logicalDag,
                         new ArrayList<>(jarUrls),

@@ -25,12 +25,12 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -89,15 +89,9 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Doris-CDC/lib && cd /tmp/seatunnel/plugins/Doris-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Doris-CDC/lib");
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(
@@ -114,10 +108,6 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                 .withPassword(MYSQL_USER_PASSWORD)
                 .withLogConsumer(
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
-    }
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     @BeforeAll

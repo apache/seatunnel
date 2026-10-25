@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -37,17 +38,14 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.sql.Connection;
-import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -65,8 +63,6 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String SR_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
     private static final String DDL_SINK =
             "create table "
@@ -91,15 +87,12 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + SR_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/Jdbc/lib",
+                                    "mysql-connector-java.jar");
 
     @BeforeAll
     @Override
@@ -162,21 +155,14 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcConnection() throws Exception {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)},
-                        StarRocksCDCSinkIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
+        Class.forName(DRIVER_CLASS);
         jdbcConnection =
-                driver.connect(
+                DriverManager.getConnection(
                         String.format(
                                 "jdbc:mysql://%s:%s",
                                 starRocksServer.getHost(), starRocksServer.getFirstMappedPort()),
-                        props);
+                        USERNAME,
+                        PASSWORD);
     }
 
     private void initializeJdbcTable() {

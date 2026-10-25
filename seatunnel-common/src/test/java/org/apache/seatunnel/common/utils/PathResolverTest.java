@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.config.Common;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,14 +29,34 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Verifies jar URL boundaries and lossless path translation between installations. Every case
+ * restores the process-wide home setting so unrelated tests retain their original environment.
+ */
 public class PathResolverTest {
+
+    private String previousHomeProperty;
+    private String previousHome;
 
     @BeforeEach
     public void setUp() {
+        previousHomeProperty = System.getProperty("SEATUNNEL_HOME");
+        previousHome = Common.getSeaTunnelHome();
         System.clearProperty("SEATUNNEL_HOME");
         Common.setSeaTunnelHome(null);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        if (previousHomeProperty == null) {
+            System.clearProperty("SEATUNNEL_HOME");
+        } else {
+            System.setProperty("SEATUNNEL_HOME", previousHomeProperty);
+        }
+        Common.setSeaTunnelHome(previousHome);
     }
 
     /**
@@ -184,5 +205,63 @@ public class PathResolverTest {
         String expectedServerPath =
                 Paths.get(serverHome, "lib", "test.jar").toUri().toURL().getPath();
         Assertions.assertEquals(expectedServerPath, resolvedUrl.getPath());
+    }
+
+    /**
+     * Verifies that encoded spaces, Unicode and literal percent sequences still identify the same
+     * jar after translating installation roots, rather than being encoded a second time.
+     */
+    @Test
+    public void testRoundTripPreservesEncodedJarNames() throws Exception {
+        Path clientHome = Paths.get("client home").toAbsolutePath();
+        Path serverHome = Paths.get("server home").toAbsolutePath();
+        for (String jarName : new String[] {"my plugin.jar", "插件.jar", "my%20plugin.jar"}) {
+            Common.setSeaTunnelHome(clientHome.toString());
+            URL logicalUrl =
+                    PathResolver.replacePathWithEnv(
+                            clientHome.resolve("lib").resolve(jarName).toUri().toURL());
+            Common.setSeaTunnelHome(serverHome.toString());
+            URL resolvedUrl = PathResolver.resolvePathEnv(logicalUrl);
+            Assertions.assertEquals(
+                    serverHome.resolve("lib").resolve(jarName), Paths.get(resolvedUrl.toURI()));
+        }
+    }
+
+    /**
+     * Restricts translation to a leading logical local-file root. Remote authorities, query or
+     * fragment components, and tokens embedded in an external path must retain their identity.
+     */
+    @Test
+    public void testResolvePathEnvPreservesUnrelatedUrls() throws Exception {
+        Common.setSeaTunnelHome(Paths.get("server home").toAbsolutePath().toString());
+        for (String value :
+                new String[] {
+                    "https://example.com/$SEATUNNEL_HOME/lib/plugin.jar",
+                    "file:/tmp/$SEATUNNEL_HOME/lib/plugin.jar",
+                    "file:/$SEATUNNEL_HOME_BACKUP/lib/plugin.jar",
+                    "file://server/share/plugin.jar",
+                    "file:/$SEATUNNEL_HOME/lib/plugin.jar?download=true",
+                    "file:/$SEATUNNEL_HOME/lib/plugin.jar#entry"
+                }) {
+            URL url = new URL(value);
+            Assertions.assertEquals(url, PathResolver.resolvePathEnv(url));
+            Assertions.assertEquals(url, PathResolver.replacePathWithEnv(url));
+        }
+    }
+
+    /**
+     * Preserves a placeholder-looking substring in a filename after resolving the leading root. The
+     * second occurrence is a literal file-name component and must never be replaced.
+     */
+    @Test
+    public void testResolvePathEnvReplacesOnlyLeadingToken() throws Exception {
+        Path serverHome = Paths.get("server home").toAbsolutePath();
+        Common.setSeaTunnelHome(serverHome.toString());
+        URL resolved =
+                PathResolver.resolvePathEnv(
+                        new URL("file:/$SEATUNNEL_HOME/lib/$SEATUNNEL_HOME.jar"));
+        Assertions.assertEquals(
+                serverHome.resolve("lib").resolve("$SEATUNNEL_HOME.jar"),
+                Paths.get(resolved.toURI()));
     }
 }

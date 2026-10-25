@@ -23,6 +23,28 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 Source connector for Apache Kafka.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` validates the Kafka source using only topic metadata. It uses the configured
+`bootstrap.servers` and `kafka.config` security settings, checks explicit topics with `describeTopics`,
+and resolves `pattern = true` with the same full-name matching as normal execution. Both
+`tables_configs` and the legacy `table_list` are supported. Output schemas, including native fields,
+Kafka header fields and event-time metadata, are inferred through the normal source configuration path.
+
+Metadata requests share a 30-second time budget; a smaller `kafka.config.default.api.timeout.ms`
+is honored. The request timeout is capped by this budget and client cleanup has a bounded wait.
+As in normal Kafka startup, an explicitly configured API timeout must not be smaller than the
+configured (or Kafka-default) `request.timeout.ms` before these dry-run limits are applied.
+Client setup, including DNS and authentication-provider initialization, can take additional time.
+Normal job execution and its timeouts are unchanged. No consumer or producer is created, no records
+are read or written, no consumer offsets are accessed or committed, and missing topics are not created.
+
+Successful validation proves metadata access, **not** permission to consume records, access a consumer
+group, or deserialize actual messages. A pattern with no currently visible matches is allowed, as it
+is at runtime; validation in that case checks topic listing only, not access to future topics.
+Kafka sinks support a separate [metadata-only connectivity dry-run](../sink/Kafka.md#connectivity-dry-run),
+which does not verify Produce or transaction permissions.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.
@@ -46,8 +68,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, compatible_kafka_connect_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
 | avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
+| value_converter_schema_enabled      | Boolean                                                                    | No       | true                     | Effective only when `format = compatible_kafka_connect_json`. Whether the Kafka Connect value converter carries its schema in the JSON payload.                                                                                                                                                                                                                                                                                                                                                       |
+| avro_row_nullable                   | Boolean                                                                    | No       | false                    | Effective when `format` is `avro`. Set `true` when the producer wrote ROW fields as nullable Avro unions (the writer had `avro_row_nullable = true`), so a `null` ROW value can be decoded; the reader must match the writer. An explicit `avro_schema` stays authoritative for the wire layout. See [Avro format](../formats/avro.md#avro_row_nullable). When using `tables_configs` or `table_list`, set this option in each table entry. |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
 | debezium_record_include_schema      | Boolean                                                                    | No       | true                     | Effective when `format` is `debezium_json`. Set whether Debezium records include schema information.                                                                                                                                                                                                                                                                                                                                                                            |
 | debezium_record_table_filter        | Config                                                                     | No       | -                        | Used for filtering data in debezium format, only when the format is set to `debezium_json`. Please refer `debezium_record_table_filter` below                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -61,8 +85,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
+| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf or avro. For protobuf, strips the Confluent Schema Registry header before deserialization. For avro, strips the fixed five-byte header (magic byte and schema ID); `avro_schema` is required when enabled, and no Schema Registry lookup is performed. |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
+| kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
 
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
 > `start_mode` and consumer-group offsets are only used for the first startup or for newly
@@ -87,7 +112,7 @@ When back-pressure occurs downstream, the queue may fill up, and the upper bound
 
 :::caution
 
-When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `max.poll.records` inside `kafka.config`.
 
 :::
 
@@ -509,7 +534,34 @@ source {
 ```
 
 **Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
+
+### Reading Kafka Headers
+
+Use `kafka_headers_fields` to extract specific Kafka message headers as row fields. The header values are appended as STRING type fields after all regular schema fields.
+
+> Note: Cannot be used with `NATIVE` format, which already exposes headers as a `Map<String, String>` field.
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
 ```
+
+The output row will contain: `user_id` (int), `name` (string), `correlation-id` (string), `x-trace-id` (string).  
+If a header key is absent in a record, the corresponding field value will be `null`.
+
+This is the counterpart of `kafka_headers_fields` in the Kafka sink connector, allowing round-trip header propagation between topics.
 
 ### Ignore No Leader Partition
 
@@ -541,7 +593,6 @@ source {
     start_mode = "earliest"
     format_error_handle_way = skip
     format = "NATIVE"
-    value_converter_schema_enabled = false
     consumer.group = "native_group"
   }
 }
@@ -554,7 +605,7 @@ The returned data is as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -562,6 +613,94 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Tombstone records
+
+A tombstone is a Kafka record that has a key and no value, which compacted topics use to mark a
+key as deleted. For the `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `maxwell_json`
+and `avro` formats the source reads a tombstone as a record that produces no row: it is not a
+format error, so it is passed over whatever `format_error_handle_way` is set to, and the offset
+moves on past it. The `text`, `canal_json`, `debezium_json`, `ogg_json` and `avro` formats treat
+an empty (zero length) value the same way; `json` and `maxwell_json` pass over a null value only.
+
+The `protobuf` format has no such guard and is not covered by this behaviour.
+
+### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
+
+A common long-running pattern is to consume from Kafka with auto-offset commit, enable checkpointing, and pipe the records into a downstream sink. Enable dynamic partition discovery so newly created partitions are picked up without restarting the job, and configure the sink with `semantics = EXACTLY_ONCE` for end-to-end exactly-once delivery.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+The same pattern works with `format = debezium_json` when you need to consume Debezium-formatted change events from a Kafka Connect sink and forward them downstream.
+
+### Avro Deserialization
+
+Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. When `avro_schema` is not provided, SeaTunnel derives the decode schema from the configured `schema` block and uses it as both reader and writer schema; set `avro_schema` explicitly whenever the producer's Avro layout (record name, namespace, union structure) differs from the SeaTunnel schema. There is no Confluent Schema Registry lookup or per-message schema fallback in the current implementation.
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## FAQ
 
@@ -603,11 +742,13 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 
 ### What message formats does Kafka Source support?
 
-Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `maxwell_json`, `ogg_json`, `avro`, `protobuf`, `compatible_kafka_connect_json`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+`format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel detects the header by its leading magic byte and strips the fixed five-byte wire header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass authentication settings via `kafka.*` properties in the connector configuration:
+The connector only forwards Kafka client properties that are placed inside the `kafka.config` block; top-level keys such as `kafka.security.protocol` are not recognized and are silently ignored. Put the authentication settings inside `kafka.config`:
 
 ```hocon
 source {
@@ -615,13 +756,15 @@ source {
     bootstrap.servers = "broker:9092"
     topic = "secure-topic"
     consumer.group = "my-group"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```

@@ -36,8 +36,22 @@ public class PostgresTypeUtils {
                         .precision((long) column.length())
                         .scale(column.scale().orElse(0))
                         .build();
-        org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
-                PostgresTypeConverter.INSTANCE.convert(typeDefine);
-        return seaTunnelColumn.getDataType();
+        return PostgresTypeConverter.INSTANCE.convert(typeDefine).getDataType();
+    }
+
+    /** Convert a pgoutput RELATION column with the metadata required by schema evolution. */
+    public static BasicTypeDefine convertRelationColumnToTypeDefine(Column column) {
+        return BasicTypeDefine.builder()
+                .name(column.name())
+                .columnType(column.typeName())
+                .dataType(column.typeName())
+                .sqlType(column.jdbcType())
+                .length(column.length() < 0 ? null : (long) column.length())
+                .precision(column.length() < 0 ? null : (long) column.length())
+                .scale(column.scale().orElse(0))
+                .nullable(column.isOptional())
+                .defaultValue(column.defaultValueExpression().orElse(null))
+                .comment(column.comment())
+                .build();
     }
 }

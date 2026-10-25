@@ -60,6 +60,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
@@ -230,7 +231,10 @@ public class MultipleTableJobConfigParser {
         List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
-        List<URL> sinkConnectorJars = getConnectorJarList(sinkConfigs, PluginType.SINK);
+        List<URL> sinkConnectorJars =
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
+                        ? Collections.emptyList()
+                        : getConnectorJarList(sinkConfigs, PluginType.SINK);
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
         // source and transform use the same classloader
@@ -367,11 +371,19 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
+        DryRunSampleConfig.applyTrustedConfiguration(jobConfig);
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            jobConfig.getJobContext().setEnableCheckpoint(false);
+        }
         this.commonPluginJars.addAll(JobPluginClasspathHelper.thirdPartyJarsFromEnv(envOptions));
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
     private int getParallelism(ReadonlyConfig config) {
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            // Keep task-local sample counters source-wide and the preview output deterministic.
+            return 1;
+        }
         return Math.max(
                 1,
                 config.getOptional(EnvCommonOptions.PARALLELISM)
@@ -513,7 +525,11 @@ public class MultipleTableJobConfigParser {
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
         int parallelism =
-                readonlyConfig.getOptional(EnvCommonOptions.PARALLELISM).orElse(spareParallelism);
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
+                        ? 1
+                        : readonlyConfig
+                                .getOptional(EnvCommonOptions.PARALLELISM)
+                                .orElse(spareParallelism);
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareMultiTableTransform(
                         new ArrayList<>(catalogTables), readonlyConfig, classLoader, factoryId);
@@ -639,7 +655,9 @@ public class MultipleTableJobConfigParser {
 
         // get jar urls
         Set<URL> jarUrls = new HashSet<>();
-        jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        if (!DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        }
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
         int failedTableStartIndex = failedTables.size();
 
@@ -682,6 +700,9 @@ public class MultipleTableJobConfigParser {
                             tuple._2().getParallelism(),
                             configIndex);
             sinkAction.ifPresent(sinkActions::add);
+        }
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            return sinkActions;
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
                 tryGenerateMultiTableSink(
@@ -765,6 +786,25 @@ public class MultipleTableJobConfigParser {
             String factoryId,
             int parallelism,
             int configIndex) {
+
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
+            SinkAction<Object, Void, Void, Void> sinkAction =
+                    new SinkAction<>(
+                            idGenerator.getNextId(),
+                            JobConfigParser.createSinkActionName(
+                                    configIndex,
+                                    "dry-run-sample",
+                                    actionConfig.getTablePath().toString()),
+                            new ArrayList<>(inputActions),
+                            new DryRunSampleSink(),
+                            Collections.emptySet(),
+                            Collections.emptySet(),
+                            actionConfig);
+            sinkAction.setParallelism(1);
+            log.info("Dry-run sample: sink DDL preview for {} is SKIPPED", factoryId);
+            return Optional.of(sinkAction);
+        }
 
         Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
                 pluginIdentifier -> {

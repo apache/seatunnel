@@ -311,6 +311,45 @@ public class DorisTypeConvertorV2Test {
     }
 
     @Test
+    public void testConvertVariant() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("variant")
+                        .dataType("variant")
+                        .build();
+        Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV2.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertIpv4() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder().name("test").columnType("ipv4").dataType("ipv4").build();
+        Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(
+                DorisTypeConverterV2.MAX_IPV4_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertIpv6() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder().name("test").columnType("ipv6").dataType("ipv6").build();
+        Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(
+                DorisTypeConverterV2.MAX_IPV6_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
@@ -764,6 +803,18 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(
                 String.format("%s(%s)", DorisTypeConverterV2.DORIS_VARCHAR, 200),
                 typeDefine.getColumnType());
+
+        // DECIMALV3 only requires scale <= precision, so a scale above 9 is kept as declared.
+        // This is the behaviour the Doris 1.x cap must not change.
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(20, 10)).build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_DECIMALV3, typeDefine.getDataType());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DorisTypeConverterV2.DORIS_DECIMALV3, 20, 10),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(10, typeDefine.getScale());
     }
 
     @Test
@@ -860,6 +911,19 @@ public class DorisTypeConvertorV2Test {
                 PhysicalColumn.builder()
                         .name("test")
                         .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType(DorisTypeConverterV2.DORIS_VARIANT)
+                        .build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_VARIANT, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_VARIANT, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
                         .columnLength(255L)
                         .build();
 
@@ -912,6 +976,31 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertIpFromDorisSource() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(DorisTypeConverterV2.MAX_IPV4_STRING_LENGTH)
+                        .sourceType("ipv4")
+                        .build();
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(DorisTypeConverterV2.MAX_IPV6_STRING_LENGTH)
+                        .sourceType("ipv6")
+                        .build();
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getDataType());
     }
 
     @Test

@@ -32,6 +32,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Translates installation-local jar URLs between client and worker roots. External URLs remain
+ * unchanged, and URL-encoded file names retain their original file identity after translation.
+ */
 public class PathResolver {
 
     private static final String SEATUNNEL_HOME_VAR = "$SEATUNNEL_HOME";
@@ -61,7 +65,11 @@ public class PathResolver {
      */
     public static URL replacePathWithEnv(URL url) {
         String home = Common.getSeaTunnelHome();
-        if (StringUtils.isBlank(home) || !"file".equalsIgnoreCase(url.getProtocol())) {
+        if (StringUtils.isBlank(home)
+                || !"file".equalsIgnoreCase(url.getProtocol())
+                || StringUtils.isNotEmpty(url.getAuthority())
+                || url.getQuery() != null
+                || url.getRef() != null) {
             return url;
         }
 
@@ -107,27 +115,32 @@ public class PathResolver {
      * @return The resolved absolute URL
      */
     public static URL resolvePathEnv(URL url) {
-        String path = url.getPath();
-        if (!path.contains(SEATUNNEL_HOME_VAR)) {
+        if (!"file".equalsIgnoreCase(url.getProtocol())
+                || StringUtils.isNotEmpty(url.getAuthority())
+                || url.getQuery() != null
+                || url.getRef() != null) {
             return url;
         }
-
-        String home = Common.getSeaTunnelHome();
-        if (StringUtils.isBlank(home)) {
-            return url;
-        }
-
-        // Replace the variable with the actual home path
-        // We need to handle the case where path might start with / or not
-        String cleanPath = path.startsWith("/") ? path.substring(1) : path;
-        String relativePath = cleanPath.replace(SEATUNNEL_HOME_VAR, "");
-        // Remove leading slashes from relative path
-        relativePath = relativePath.replaceAll("^/+", "");
-
-        Path fullPath = Paths.get(home, relativePath);
         try {
-            return fullPath.toUri().toURL();
-        } catch (MalformedURLException e) {
+            URI uri = url.toURI();
+            // URI accessors decode once; getPath() on URL would double-encode spaces and '%'.
+            String path = uri.isOpaque() ? uri.getSchemeSpecificPart() : uri.getPath();
+            String cleanPath = path.startsWith("/") ? path.substring(1) : path;
+            if (!cleanPath.equals(SEATUNNEL_HOME_VAR)
+                    && !cleanPath.startsWith(SEATUNNEL_HOME_VAR + "/")) {
+                return url;
+            }
+            String home = Common.getSeaTunnelHome();
+            if (StringUtils.isBlank(home)) {
+                return url;
+            }
+            String relativePath = cleanPath.substring(SEATUNNEL_HOME_VAR.length());
+            if (relativePath.startsWith("/")) {
+                relativePath = relativePath.substring(1);
+            }
+            // Only the leading placeholder is substituted; a literal token in a jar name stays.
+            return Paths.get(home, relativePath).toUri().toURL();
+        } catch (MalformedURLException | URISyntaxException e) {
             throw new RuntimeException("Failed to resolve logical URL for: " + url, e);
         }
     }

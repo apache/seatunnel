@@ -35,9 +35,11 @@ Two different storage strategies provide a more flexible storage mode for jar fi
 
 ## Related Configuration
 
+All options live under `seatunnel.engine.jar-storage` in `seatunnel.yaml`; a top-level `jar-storage` block is not parsed.
+
 |              Parameter              | Default Value |                                                                      Describe                                                                      |
 |-------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector-jar-storage-enable        | false         | Whether to enable uploading the connector jar package to the engine. The default enabled state is false.                                           |
+| enable                              | false         | Whether to enable uploading the connector jar package to the engine. The default enabled state is false.                                           |
 | connector-jar-storage-mode          | SHARED        | Engine-side jar package storage mode selection. There are two optional modes, SHARED and ISOLATED. The default Jar package storage mode is SHARED. |
 | connector-jar-storage-path          | " "           | User-defined jar package storage path.                                                                                                             |
 | connector-jar-cleanup-task-interval | 3600s         | Engine-side jar package cleaning scheduled task execution interval.                                                                                |
@@ -52,16 +54,18 @@ The jar package files required for the execution of a job have no influence on o
 Example:
 
 ```yaml
-jar-storage:
-   connector-jar-storage-enable: true
-   connector-jar-storage-mode: ISOLATED
-   connector-jar-storage-path: ""
-   connector-jar-cleanup-task-interval: 3600
-   connector-jar-expiry-time: 600
+seatunnel:
+  engine:
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: ISOLATED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600
 ```
 
 Detailed explanation of configuration parameters:
-- connector-jar-storage-enable: Enable uploading the connector jar package before executing the job.
+- enable: Enable uploading the connector jar package before executing the job.
 - connector-jar-storage-mode: Connector jar package storage mode, two storage modes are available: shared mode (SHARED) and isolation mode (ISOLATED).
 - connector-jar-storage-path: The local storage path of the user-defined connector jar package on the Zeta engine.
 - connector-jar-cleanup-task-interval: Zeta engine connector jar package scheduled cleanup task interval, the default is 3600 seconds.
@@ -77,17 +81,30 @@ The configuration in the following configuration file sets the running time of t
 Example:
 
 ```yaml
-jar-storage:
-   connector-jar-storage-enable: true
-   connector-jar-storage-mode: SHARED
-   connector-jar-storage-path: ""
-   connector-jar-cleanup-task-interval: 3600
-   connector-jar-expiry-time: 600
+seatunnel:
+  engine:
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: SHARED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600
 ```
 
 Detailed explanation of configuration parameters:
-- connector-jar-storage-enable: Enable uploading the connector jar package before executing the job.
+- enable: Enable uploading the connector jar package before executing the job.
 - connector-jar-storage-mode: Connector jar package storage mode, two storage modes are available: shared mode (SHARED) and isolation mode (ISOLATED).
 - connector-jar-storage-path: The local storage path of the user-defined connector jar package on the Zeta engine.
 - connector-jar-cleanup-task-interval: Zeta engine connector jar package scheduled cleanup task interval, the default is 3600 seconds.
 - connector-jar-expiry-time: The expiration time of the connector jar package. The default is 600 seconds.
+
+### Client and worker installation paths
+
+Local jar URLs beneath the client's `SEATUNNEL_HOME` are sent using a logical installation
+root and resolved beneath each worker's own `SEATUNNEL_HOME`. Keep the same relative jar layout
+and compatible jar versions on the client and every worker. Jar names containing spaces or
+Unicode are preserved. URLs outside the installation root and non-file URLs are unchanged.
+
+Use client and server versions that both support this logical-root representation. Existing
+absolute jar URLs, including URLs in older saved state, remain absolute and still require the
+original path to be available; this feature does not relocate historical external jar paths.
