@@ -101,7 +101,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | xml_use_attr_format        | Boolean | 否   | -                             | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用                                  |
 | compress_codec             | String  | 否   | None                          | 文件的压缩编解码器                                                                      |
 | encoding                   | String  | 否   | UTF-8                         | 读取文件时使用的编码                                                                      |
-| null_format                | String  | 否   | -                             | 仅在 file_format_type 为 text 时使用。定义哪些字符串可以表示为 null，例如 `\N`                  |
+| null_format                | String  | 否   | -                             | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | filename_extension         | String  | 否   | -                             | 文件扩展名过滤，用于过滤特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`                      |
 | excel_engine               | String  | 否   | POI                           | 仅在 file_format 为 excel 时使用。支持的引擎为 `POI` 和 `EasyExcel`                          |
 | poi_excel_max_file_size    | Long    | 否   | 52428800                      | 仅在 file_format 为 excel 且 excel_engine 为 POI 时使用。POI 引擎可读取的最大 Excel 文件大小（默认 50 MB） |

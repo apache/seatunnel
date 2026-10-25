@@ -91,7 +91,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | compress_codec | string | 否 | none | 文件使用的压缩编解码器。 |
 | archive_compress_codec | string | 否 | none | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding | string | 否 | UTF-8 | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
-| null_format | string | 否 | - | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N` |
+| null_format | string | 否 | - | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | binary_chunk_size | int | 否 | 1024 | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
 | binary_complete_file_mode | boolean | 否 | false | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。 |
 | file_filter_pattern | string | 否 | - | 用于过滤文件的模式。 |

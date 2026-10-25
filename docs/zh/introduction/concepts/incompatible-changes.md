@@ -389,6 +389,9 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   如果文件表头缺少该列，或字段值与 `null_format` 匹配，读取结果现在使用默认值而不是 null。
   未配置默认值的作业保持不变；空字段仍为 null，除非它与 `null_format` 匹配。
   如果下游逻辑原本依赖“配置了默认值但仍输出 null”的行为，升级前请移除 Source Schema 中的该默认值。
+  配置的默认值现在会在创建 CSV 读取器时转换为列类型。无法转换的默认值（例如 TIMESTAMP 列的
+  `CURRENT_TIMESTAMP`）现在会在创建读取器时导致作业失败，而不是被忽略，即使没有字段需要使用该默认值。
+  默认值必须是字面量，不能是 SQL 表达式。升级前请修正或移除无效的默认值。
 
 - **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。

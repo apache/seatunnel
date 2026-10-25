@@ -471,6 +471,10 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   unchanged, and an empty field remains null unless it matches `null_format`. If downstream logic
   intentionally relied on null despite a configured default, remove that default from the source
   schema before upgrading.
+  Configured defaults are now converted to the column type when the CSV reader is created.
+  A default that cannot be converted, such as `CURRENT_TIMESTAMP` for a TIMESTAMP column, now
+  fails the job at reader creation instead of being ignored, even if no field needs the default.
+  Defaults must be literal values, not SQL expressions. Fix or remove invalid defaults before upgrading.
 
 - **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)

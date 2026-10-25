@@ -86,7 +86,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | compress_codec            | string  | 否  | none                        | 读取文件时使用的压缩格式。 |
 | archive_compress_codec    | string  | 否  | none                        | 读取归档文件时使用的归档压缩格式。 |
 | encoding                  | string  | 否  | UTF-8                       | 读取 `json`、`text`、`csv` 或 `xml` 文件时使用的字符编码。 |
-| null_format               | string  | 否  | -                           | 仅用于 `text` 格式，指定应解析为 `null` 的字符串。 |
+| null_format               | string  | 否  | -                           | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | common-options            |         | 否  | -                           | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
 | file_filter_modified_start | string | 否  | -                           | 按文件最后修改时间筛选文件的起始时间（包含该时间）。 |
 | file_filter_modified_end  | string  | 否  | -                           | 按文件最后修改时间筛选文件的结束时间（不包含该时间）。 |
