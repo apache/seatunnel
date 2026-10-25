@@ -298,7 +298,14 @@ map:
 WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
 report 重新构建。
 
-说明：本节示例同时为 `engine_finishedJobMetrics` 关闭了 MapStore，因此整个集群重启后，重启前已完成作业的指标不会保留。作业恢复不依赖该 IMap。如需保留这些指标，请删除 `engine_finishedJobMetrics` 配置项：按精确名称配置的 map 不会继承 `engine*` 的任何设置，因此仅在其中设置 `enabled: true` 无效。
+这些示例保持 `engine*` 的 `map-store.enabled: true`，并通过精确名称配置单独关闭
+`engine_finishedJobMetrics` 的持久化。这是示例中的选择，不会改变产品默认值。使用该覆盖时，
+整个集群重启后不会保留重启前已完成作业的指标。作业恢复不依赖该 IMap。
+
+如需为这些指标启用 MapStore，可以删除 `engine_finishedJobMetrics` 配置项，使其使用 `engine*` 配置；也可以
+将 `engine*` 的完整 `map-store` 配置块复制到精确名称配置项中并设置 `enabled: true`，包括
+`factory-class-name` 和对应存储的 `properties`。精确名称配置项不会继承通配符配置，因此只修改
+`enabled` 不会配置持久化实现。
 
 如果您使用 OSS，可以像这样配置：
 
