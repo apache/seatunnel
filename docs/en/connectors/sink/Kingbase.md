@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Kingbase Sink Connector
 
-`Sink: Kingbase` (via the JDBC plugin)
+> Kingbase sink connector (via the JDBC plugin)
+
+## Description
 
 Write data to a KingbaseES database through the JDBC connector. Kingbase is configured by setting the JDBC plugin's `driver` to `com.kingbase8.Driver` and `url` to a `jdbc:kingbase8://` URL. Writes support batch flushing and the optional XA-based exactly-once mode that the generic JDBC sink provides — but only if the Kingbase JDBC driver exposes an XA `DataSource`; if not, keep `is_exactly_once=false`.
 
@@ -63,8 +65,8 @@ If you set `is_exactly_once = true`, the connector uses JDBC XA transactions; th
 | username                                      | String  | No       | -       | Connection instance user name. The old key `user` is still accepted as a fallback.                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
-| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
-| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                         |
+| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                     |
+| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                         |
 | primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                          |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |

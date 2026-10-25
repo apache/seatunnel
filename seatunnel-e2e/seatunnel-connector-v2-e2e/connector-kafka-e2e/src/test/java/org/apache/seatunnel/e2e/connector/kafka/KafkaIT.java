@@ -41,13 +41,12 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -104,6 +103,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -126,7 +126,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
-public class KafkaIT extends TestSuiteBase implements TestResource {
+public class KafkaIT extends AbstractKafkaIT {
     private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
     private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
     private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
@@ -145,7 +145,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private List<ConsumerRecord<String, String>> nativeData;
 
-    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    /**
+     * Topics created dynamically during tests.
+     *
+     * <p>They are cleaned up in {@link #tearDown()} to keep later Kafka E2E cases isolated.
+     */
     private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     private final AtomicInteger startModeTestSequence = new AtomicInteger();
@@ -230,6 +234,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 .get(30, SECONDS);
                                 Assertions.assertEquals(topicNames.size(), desc.size());
                             });
+            // Leader visibility in the admin metadata view does not guarantee the broker the
+            // job's own Kafka client connects to has finished propagating the partition
+            // leader. Wait for a non-null leader on every partition; the static topics below
+            // are then written by generateTestData, whose produce itself forces end-to-end
+            // propagation before any test submits a job. A produce/consume/deleteRecords
+            // warm-up is intentionally NOT applied here: deleteRecords would advance the log
+            // start offset and break tests that read with absolute offsets
+            // (specific_offsets / restore), e.g. testKafkaSpecificOffsetsToConsole.
+            waitForKafkaTopicsReady(topicNames);
         }
 
         log.info("Write 100 records to topic test_topic_source");
@@ -1363,7 +1376,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .count();
     }
 
-    /** Get the current end offset (LEO) on partition-0. */
+    /**
+     * Gets the current end offset on partition-0.
+     *
+     * <p>The exactly-once assertions use this as the visible sink baseline.
+     */
     private long endOffsetOnP0(String topic) {
         try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
             TopicPartition tp0 = new TopicPartition(topic, 0);
@@ -1746,6 +1763,165 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
     }
 
+    /**
+     * Row type of the opt-in nullable ROW round trip: a scalar id, a scalar string, and a ROW field
+     * that itself holds a nested ROW. The nesting lets the test cover a null ROW field and a null
+     * ROW two levels deep, both of which the default Avro layout cannot represent.
+     */
+    private static final SeaTunnelRowType AVRO_NULLABLE_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "c_string", "c_row"},
+                    new SeaTunnelDataType<?>[] {
+                        BasicType.LONG_TYPE,
+                        BasicType.STRING_TYPE,
+                        new SeaTunnelRowType(
+                                new String[] {"c_int", "c_sub_row"},
+                                new SeaTunnelDataType<?>[] {
+                                    BasicType.INT_TYPE,
+                                    new SeaTunnelRowType(
+                                            new String[] {"c_string"},
+                                            new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE})
+                                })
+                    });
+
+    /**
+     * Round-trips the opt-in nullable ROW layout through the Kafka source and the Kafka sink.
+     *
+     * <p>The messages on the source topic are written by the test itself with {@code
+     * avro_row_nullable = true}, one of them with a null ROW field and one with a null ROW nested
+     * two levels deep. Both connectors have to honour the option for the job to succeed: the source
+     * cannot decode the nullable layout without it, and the sink cannot re-encode a null ROW
+     * without it, so the exit code plus the decoded values are the assertion.
+     *
+     * <p>Both topics carry the engine container name because the engine containers of one run share
+     * the broker: a topic reused across engines would already hold the rows of the previous engine
+     * when the next one starts.
+     */
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroNullableRowRoundTrip(TestContainer container)
+            throws IOException, InterruptedException {
+        String sourceTopic = avroNullableRowTopic(container, "source");
+        String sinkTopic = avroNullableRowTopic(container, "sink");
+        createKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
+        produceNullableRowAvroData(sourceTopic);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/kafka_avro_nullable_row_to_kafka.conf",
+                        Arrays.asList("source_topic=" + sourceTopic, "sink_topic=" + sinkTopic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("", "", "", "test", AVRO_NULLABLE_ROW_TYPE);
+        AvroDeserializationSchema avroDeserializationSchema =
+                new AvroDeserializationSchema(catalogTable, null, false, true);
+        List<SeaTunnelRow> rows =
+                getKafkaSTRow(
+                        sinkTopic,
+                        value -> {
+                            try {
+                                return avroDeserializationSchema.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Assertions.assertEquals(3, rows.size());
+        // Rows are compared by id: the assertions below must not depend on delivery order.
+        rows.sort(Comparator.comparingLong(row -> (Long) row.getField(0)));
+
+        SeaTunnelRow rowWithNullRow = rows.get(0);
+        Assertions.assertEquals(1L, rowWithNullRow.getField(0));
+        Assertions.assertEquals("row-1", rowWithNullRow.getField(1));
+        Assertions.assertNull(rowWithNullRow.getField(2));
+
+        SeaTunnelRow rowWithNullNestedRow = rows.get(1);
+        Assertions.assertEquals(2L, rowWithNullNestedRow.getField(0));
+        SeaTunnelRow nestedRow = (SeaTunnelRow) rowWithNullNestedRow.getField(2);
+        Assertions.assertEquals(2, nestedRow.getField(0));
+        Assertions.assertNull(nestedRow.getField(1));
+
+        SeaTunnelRow rowWithPresentRow = rows.get(2);
+        Assertions.assertEquals(3L, rowWithPresentRow.getField(0));
+        SeaTunnelRow presentRow = (SeaTunnelRow) rowWithPresentRow.getField(2);
+        Assertions.assertEquals(3, presentRow.getField(0));
+        SeaTunnelRow presentNestedRow = (SeaTunnelRow) presentRow.getField(1);
+        Assertions.assertEquals("nested", presentNestedRow.getField(0));
+    }
+
+    private String avroNullableRowTopic(TestContainer container, String role) {
+        return "test_avro_nullable_row_"
+                + role
+                + "_"
+                + container.identifier().name().toLowerCase(Locale.ROOT);
+    }
+
+    private void produceNullableRowAvroData(String sourceTopic) {
+        AvroSerializationSchema serializationSchema =
+                new AvroSerializationSchema(AVRO_NULLABLE_ROW_TYPE, true);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(new SeaTunnelRow(new Object[] {1L, "row-1", null}));
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {2L, "row-2", new SeaTunnelRow(new Object[] {2, null})}));
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {
+                            3L,
+                            "row-3",
+                            new SeaTunnelRow(
+                                    new Object[] {3, new SeaTunnelRow(new Object[] {"nested"})})
+                        }));
+        for (SeaTunnelRow row : rows) {
+            try {
+                producer.send(new ProducerRecord<>(sourceTopic, serializationSchema.serialize(row)))
+                        .get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while producing Avro test data", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Failed to produce Avro test data", e);
+            }
+        }
+        producer.flush();
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroTombstoneToAssert(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        // The Kafka broker is shared across all engine variants in this class, so this test
+        // needs its own topic. With a fixed name every later template run would also read the
+        // records written by the earlier ones and trip the exact-100-row assertion.
+        String topic = startModeTopic(container, "avro-tombstone");
+        createKafkaTopic(topic);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        topic,
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
+
+        // A tombstone in the middle of the topic. The reader has to carry on past the
+        // record that has no value, so all 100 real records must still arrive. Leaving the
+        // offset on the tombstone would make it be replayed after every restart instead.
+        generateTestData(row -> serializer.serializeRow(row), 0, 50);
+        producer.send(
+                        new ProducerRecord<>(
+                                topic, "tombstone-key".getBytes(StandardCharsets.UTF_8), null))
+                .get();
+        generateTestData(row -> serializer.serializeRow(row), 50, 100);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/kafka_avro_tombstone_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @TestTemplate
     public void testFakeSourceToKafkaProtobufFormat(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
@@ -1990,10 +2166,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2025,10 +2198,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2056,6 +2226,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 sourceDataRestore)));
     }
 
+    /**
+     * Regression guard for issue #11534: under EXACTLY_ONCE semantics a checkpoint could capture
+     * the transaction state before the first record's asynchronous send had registered its
+     * partitions with the broker, causing the committer to skip EndTxn and drop that record
+     * permanently. The checkData assertion below fails on both a lost record (matched &lt; 10) and
+     * a duplicate (matched &gt; 10), so it exercises the exactly-once guarantee in both directions
+     * once the send is flushed before the transaction state is captured in
+     * KafkaTransactionSender#prepareCommit.
+     */
     @TestTemplate
     @DisabledOnContainer(
             type = EngineType.SPARK,
@@ -2113,10 +2292,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;
@@ -2458,6 +2634,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @Override
+    protected String kafkaBootstrapServers() {
+        return kafkaContainer.getBootstrapServers();
+    }
+
     private AdminClient createKafkaAdmin() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -2517,7 +2698,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(topicName);
     }
 
-    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    /**
+     * Builds the dynamic {@code -i key=value} variables for the exactly-once streaming template.
+     *
+     * <p>Each test run uses isolated topics and a dedicated consumer group.
+     */
     private List<String> buildExactlyOnceStreamingVariables(
             String sourceTopic, String sinkTopic, String consumerGroup) {
         return Arrays.asList(
@@ -2775,7 +2960,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
-            Set<Long> seenOffsets = new HashSet<>();
             consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
@@ -2785,27 +2969,48 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
-            long lastObservedOffset = startOffset - 1;
+            long nextOffset = startOffset;
             int consecutiveEmptyPolls = 0;
+            Set<Long> seenOffsets = new HashSet<>();
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 if (records.isEmpty()) {
                     consecutiveEmptyPolls++;
-                    continue;
-                }
-                consecutiveEmptyPolls = 0;
-                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
-                    if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
-                        data.add(record.value());
+                } else {
+                    consecutiveEmptyPolls = 0;
+                    for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                        if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
+                            data.add(record.value());
+                        }
                     }
-                    lastObservedOffset = Math.max(lastObservedOffset, record.offset());
                 }
-            } while (lastObservedOffset < visibleEndOffsetExclusive - 1
-                    && consecutiveEmptyPolls < 20);
+                long currentPosition = consumer.position(topicPartition);
+                // Exactly-once topics can contain transaction control records or aborted records
+                // that advance offsets without surfacing visible READ_COMMITTED records. Track the
+                // consumer position so we do not stop early while the broker is still advancing the
+                // transactional scan range.
+                if (records.isEmpty()
+                        && shouldStopAfterEmptyReadCommittedPoll(
+                                currentPosition, nextOffset, consecutiveEmptyPolls)) {
+                    break;
+                }
+                nextOffset = currentPosition;
+            } while (nextOffset < visibleEndOffsetExclusive && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
         }
+    }
+
+    /**
+     * Decides whether repeated empty READ_COMMITTED polls are stable enough to stop scanning.
+     *
+     * <p>If the broker advances the consumer position across aborted or control records, the scan
+     * must continue even when no visible records are returned.
+     */
+    static boolean shouldStopAfterEmptyReadCommittedPoll(
+            long currentPosition, long previousPosition, int consecutiveEmptyPolls) {
+        return currentPosition == previousPosition && consecutiveEmptyPolls >= 20;
     }
 
     private Properties kafkaManualConsumerConfig() {

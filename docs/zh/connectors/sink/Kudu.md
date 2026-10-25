@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 # Kudu 目标连接器
 
-`Sink: Kudu`
+> Kudu 目标连接器
+
+## 描述
 
 将 SeaTunnel 行写入 Apache Kudu 表。连接器按照行的变更类型映射 Kudu 写入操作：`INSERT` 行 append，`UPDATE_AFTER` 行 upsert，`DELETE` 行按主键删除。可以通过 `table_name` 中的占位符将数据路由到多张目标表。
 
@@ -42,21 +44,21 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 |                   名称                    |  类型  | 是否必填 |                    默认值                     |                                                                 描述                                                                 |
 |-------------------------------------------|--------|----------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| kudu_masters                              | String | 是      | -                                              | Kudu主地址。用“，”分隔，例如“192.168.88.110:7051”。                                                                        |
+| kudu_masters | String | 是 | - | Kudu master 地址列表，多个地址使用逗号分隔，例如 `192.168.88.110:7051`。 |
 | table_name                                | String | 否      | 上游表名                                      | Kudu 表名。不配置时，SeaTunnel 使用上游数据携带的表名。多表写入时可使用 `${database_name}`、`${schema_name}`、`${table_name}` 等占位符。 |
-| client_worker_count                       | Int    | 否       | 2 * Runtime.getRuntime().availableProcessors() | Kudu工人数。默认值是当前cpu核数的两倍。                                                                  |
-| client_default_operation_timeout_ms       | Long   | 否       | 30000                                          | Kudu正常运行超时。                                                                                                             |
-| client_default_admin_operation_timeout_ms | Long   | 否       | 30000                                          | Kudu管理员操作超时。                                                                                                              |
-| enable_kerberos                           | Bool   | 否       | false                                          | 启用Kerberos主体。                                                                                                                  |
-| kerberos_principal                        | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos principal。keytab 文件必须在每个 worker 节点都可访问。                                                                        |
-| kerberos_keytab                           | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos keytab 路径，文件必须在每个 worker 节点都可访问。                                                                           |
-| kerberos_krb5conf                         | String | 否       | -                                              | Kerberos krb5 conf.请注意，所有zeta节点都需要此文件。                                                                        |
+| client_worker_count | Int | 否 | 2 * Runtime.getRuntime().availableProcessors() | Kudu 客户端工作线程数，默认是 JVM 可用 CPU 核数的两倍。 |
+| client_default_operation_timeout_ms | Long | 否 | 30000 | Kudu 操作的默认超时时间，单位毫秒。 |
+| client_default_admin_operation_timeout_ms | Long | 否 | 30000 | Kudu 管理操作的默认超时时间，单位毫秒。 |
+| enable_kerberos | Bool | 否 | false | 是否为 Kudu 客户端启用 Kerberos 认证。设为 `true` 时，必须同时配置 `kerberos_principal` 和 `kerberos_keytab`。 |
+| kerberos_principal | String | 当 `enable_kerberos = true` 时必填 | - | Kudu 客户端使用的 Kerberos principal。对应 keytab 必须可供每个运行连接器的 worker 节点访问。 |
+| kerberos_keytab | String | 当 `enable_kerberos = true` 时必填 | - | Kudu 客户端使用的 Kerberos keytab 路径，文件必须可供每个运行连接器的 worker 节点访问。 |
+| kerberos_krb5conf | String | 否 | - | Kerberos `krb5.conf` 路径。配置后，文件必须可供每个运行连接器的 Zeta 节点访问。 |
 | save_mode                                 | String | 否       | APPEND                                         | 存储模式。支持 `append` 和 `overwrite`。在 `overwrite` 模式下，插入记录会按 Kudu upsert 写入。                                                                                             |
 | session_flush_mode                        | String | 否       | AUTO_FLUSH_SYNC                                | Kudu 刷新模式。支持 `AUTO_FLUSH_SYNC`、`AUTO_FLUSH_BACKGROUND` 和 `MANUAL_FLUSH`。                                                                                                   |
 | batch_size                                | Int    | 否       | 1024                                           | 仅当 `session_flush_mode` 为 `AUTO_FLUSH_BACKGROUND` 或 `MANUAL_FLUSH` 时需要关注。写入的 append、upsert、delete 记录达到该数量后会刷新。 |
 | buffer_flush_interval                     | Int    | 否       | 10000                                          | 仅当 `session_flush_mode = AUTO_FLUSH_BACKGROUND` 时生效，表示异步写入的刷新间隔，单位毫秒。                                                             |
-| ignore_not_found                          | Bool   | 否       | false                                          | 如果为true，则忽略所有未找到的行。                                                                                                         |
-| ignore_not_duplicate                      | Bool   | 否       | false                                          | 如果为 true，则忽略所有重复行。                                                                                                          |
+| ignore_not_found | Bool | 否 | false | 为 `true` 时，忽略删除不存在的行所产生的错误；为 `false` 时传播错误。 |
+| ignore_not_duplicate | Bool | 否 | false | 为 `true` 时，忽略插入重复行所产生的错误；为 `false` 时传播错误。 |
 | multi_table_sink_replica                  | Int    | 否       | 1                                              | 多表写入时每张表对应的 Sink Writer 副本数。                                                                          |
 | common-options                            |        | 否       | -                                              | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)。                           |
 

@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 # Kudu Sink Connector
 
-`Sink: Kudu`
+> Kudu sink connector
+
+## Description
 
 Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu write operation — `INSERT` rows append, `UPDATE_AFTER` rows upsert, and `DELETE` rows delete by primary key. Rows can be routed to a single target table or to multiple tables using placeholders in `table_name`.
 
@@ -50,7 +52,7 @@ Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu w
 | enable_kerberos                           | Bool   | No       | false                                          | Whether to enable Kerberos authentication for the Kudu client.                                                                                                                  |
 | kerberos_principal                        | String | Conditional (when `enable_kerberos = true`) | -                                              | Kerberos principal used by the Kudu client. The keytab must be available on every worker node.                                  |
 | kerberos_keytab                           | String | Conditional (when `enable_kerberos = true`) | -                                              | Kerberos keytab path used by the Kudu client. The file must be available on every worker node.                                  |
-| kerberos_krb5conf                         | String | No       | -                                              | Kerberos `krb5.conf` path. Required on every Zeta node that runs the connector.                                                                        |
+| kerberos_krb5conf | String | No | - | Kerberos `krb5.conf` path. If configured, the file must be available on every Zeta node that runs the connector. |
 | save_mode                                 | String | No       | append                                         | Write mode. Supported values are `append` and `overwrite`. In `overwrite` mode, insert rows are written as Kudu upserts and existing rows are replaced.                                                                                             |
 | session_flush_mode                        | String | No       | AUTO_FLUSH_SYNC                                | Kudu session flush mode. Supported values are `AUTO_FLUSH_SYNC`, `AUTO_FLUSH_BACKGROUND`, and `MANUAL_FLUSH`.                                                                                                   |
 | batch_size                                | Int    | No (required for async flush modes) | 1024                                           | Required only when `session_flush_mode` is `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. The writer flushes after this many append, upsert, or delete records. |

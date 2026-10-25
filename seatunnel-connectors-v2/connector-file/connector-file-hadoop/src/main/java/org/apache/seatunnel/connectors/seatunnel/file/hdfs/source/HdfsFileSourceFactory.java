@@ -110,6 +110,11 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.NULL_FORMAT)
                 .optional(HdfsFileSourceOptions.FILENAME_EXTENSION)
                 .optional(HdfsFileSourceOptions.READ_COLUMNS)
+                .optional(
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.EXCEL_USE_HEADER_LINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         HdfsFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,
@@ -151,6 +156,15 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
+                .optional(
+                        FileBaseSourceOptions.READ_PARTITIONS,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_START,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_END,
+                        FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME)
+                .optional(
+                        FileBaseSourceOptions.CSV_USE_HEADER_LINE,
+                        FileBaseSourceOptions.BINARY_CHUNK_SIZE,
+                        FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE)
                 .build();
     }
 

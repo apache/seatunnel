@@ -25,8 +25,9 @@ indexes in Google Cloud before running queries that need them.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -41,22 +42,22 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 | name           | type   | required | default value | description |
 |----------------|--------|----------|---------------|-------------|
-| project_id     | string | yes      | -             | Google Cloud project ID that owns the Firestore database. |
-| collection     | string | yes      | -             | Firestore collection name to write to. |
-| credentials    | string | no       | -             | Base64-encoded Google Cloud service account JSON. |
+| project_id     | string | yes      | -             | Nonblank Google Cloud project ID that owns the Firestore database. |
+| collection     | string | yes      | -             | Nonblank Firestore collection name to write to. |
+| credentials    | string | no       | -             | Base64-encoded Google Cloud service account JSON. If set, the value must not be blank. |
 | common-options |        | no       | -             | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### project_id [string]
 
-The Google Cloud project ID that owns the Firestore database.
+The Google Cloud project ID that owns the Firestore database. This option is required and must not be blank.
 
 ### collection [string]
 
-The Firestore collection to write to. Each sink block writes to one collection.
+The Firestore collection to write to. This option is required and must not be blank. Each sink block writes to one collection.
 
 ### credentials [string]
 
-Base64-encoded Google Cloud service account JSON.
+Optional Base64-encoded Google Cloud service account JSON. If configured, the value must not be blank.
 
 If this option is not set, the connector uses Google Application Default Credentials. In that case, make sure `GOOGLE_APPLICATION_CREDENTIALS` points to the service account JSON file or the runtime environment already provides default credentials.
 
@@ -99,14 +100,16 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 ## Notes
 
 - The connector currently provides a sink only. There is no GoogleFirestore source connector.
-- Each sink block writes to one configured collection. It does not switch collections automatically for multi-table input.
+- Each sink block writes to one configured collection. It does not switch collections automatically for multi-table input; use one sink block per Firestore collection.
 - Firestore document IDs are generated automatically. Use another connector or transform before this sink if you need deterministic document IDs.
-- The sink does not interpret `UPDATE` or `DELETE` row kinds as CDC operations.
+- The sink does not interpret `UPDATE` or `DELETE` row kinds as CDC operations — every row triggers a Firestore `add` call that produces a new document.
 - Do not put raw service account JSON directly in `credentials`; encode it with Base64 first.
-- Field names in the upstream SeaTunnel schema become Firestore document field
-  names.
+- Field names in the upstream SeaTunnel schema become Firestore document field names.
+- The connector works in both `BATCH` and `STREAMING` job modes. In the current implementation `FirestoreSinkWriter.write()` calls the Firestore client's `add(...)` once per row and does not buffer or batch rows, so there is no in-memory write buffer to flush at checkpoint boundaries; checkpoint completion does not imply that all previously written rows have reached Firestore.
 
-## Example
+## Task Example
+
+### Batch write of typed rows
 
 ```hocon
 env {
@@ -148,6 +151,39 @@ sink {
   GoogleFirestore {
     project_id = "dummy-project"
     collection = "dummy-collection"
+    credentials = "base64-service-account-json"
+  }
+}
+```
+
+### Streaming write with checkpoint interval
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+        c_timestamp = timestamp
+      }
+    }
+    plugin_output = "firestore_stream"
+  }
+}
+
+sink {
+  GoogleFirestore {
+    plugin_input = "firestore_stream"
+    project_id = "my-gcp-project"
+    collection = "events"
     credentials = "base64-service-account-json"
   }
 }

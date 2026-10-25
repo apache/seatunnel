@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 # RocketMQ Source Connector
 
-`Source: RocketMQ`
+> RocketMQ source connector
+
+## Description
 
 Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
 
@@ -280,6 +282,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How does RocketMQ source handle multi-topic reads with different schemas?
+
+Use the `tables_configs` configuration array. Each item defines its own `topics`, `schema`, `format`, and optional `tags`, allowing SeaTunnel to deserialize messages from distinct topics into independent table structures.
+
+### Which starting offset modes are supported?
+
+RocketMQ source supports starting from earliest offsets (`CONSUME_FROM_FIRST_OFFSET`), latest offsets (`CONSUME_FROM_LAST_OFFSET`), or timestamp-based offsets (`CONSUME_FROM_TIMESTAMP`) using the `start.mode` parameter.
+
+### How is fault tolerance achieved during job failover?
+
+SeaTunnel checkpoints consumer queue offsets at regular intervals. In case of node or task failure, the source automatically rolls back to the last committed checkpoint offsets to guarantee message delivery integrity.
 
 ## Changelog
 

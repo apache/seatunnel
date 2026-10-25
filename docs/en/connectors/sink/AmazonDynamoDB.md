@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
 # AmazonDynamoDB Sink Connector
 
-`Sink: AmazonDynamoDB`
+> AmazonDynamoDB sink connector
+
+## Description
 
 Write SeaTunnel rows to a DynamoDB table. The target table must already exist; the connector does not create tables or key schemas. Each row is written as a DynamoDB item through a batch write request, so the connector supports single-table writes (by configuring `table`) and multi-table writes (when the upstream row carries a table id, the writer routes each row to that target).
 
@@ -30,8 +32,8 @@ Write SeaTunnel rows to a DynamoDB table. The target table must already exist; t
 | secret_access_key   | String | Yes      | -             | AWS secret access key.                           |
 | table               | String | Yes      | -             | DynamoDB table name to write to. Used as the per-row target only when the upstream row does not carry a table id; otherwise the row's table id is preferred. |
 | batch_size          | Int    | No       | 25            | Records buffered for one DynamoDB batch write request. DynamoDB accepts at most 25 write requests in one batch write call, so do not set this above `25`. |
-| multi_table_sink_replica | Int | No       | -             | Optional common sink option used by multi-table sink jobs. For details, see [Sink Common Options](../common-options/sink-common-options.md). |
-| max_retries         | Int    | No       | 10            | Retries for unprocessed items returned by DynamoDB. |
+| multi_table_sink_replica | Int | No | 1 | Optional common sink option used by multi-table sink jobs. For details, see [Sink Common Options](../common-options/sink-common-options.md). |
+| max_retries         | Int    | No       | 10            | Retries for unprocessed items returned by DynamoDB. Must be at least `0`. |
 | retry_base_delay_ms | Long   | No       | 100           | Initial retry backoff delay in milliseconds.     |
 | retry_max_delay_ms  | Long   | No       | 5000          | Maximum retry backoff delay in milliseconds (exponential).    |
 | common-options      | object | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md). |
@@ -74,6 +76,7 @@ Optional common sink option used by multi-table sink jobs. For details, see [Sin
 ### max_retries [int]
 
 The maximum number of retries when DynamoDB returns unprocessed items from a batch write request.
+A value of `0` disables retries. The value must not be negative.
 
 ### retry_base_delay_ms [long]
 

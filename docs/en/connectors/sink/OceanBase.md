@@ -53,7 +53,7 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
 ### Oracle Mode
@@ -255,6 +255,58 @@ sink {
     table = "${table_name}_sink"
     primary_keys = ["id"]
     multi_table_sink_replica = 2
+  }
+}
+```
+
+### EXACTLY_ONCE With XA Transactions
+
+Enable XA-backed exactly-once semantics by setting `is_exactly_once = true`, providing `xa_data_source_class_name` from the OceanBase JDBC driver, and keeping `max_retries = 0`. The writer wraps each checkpoint batch in an XA transaction so the write either commits atomically with the source checkpoint or is rolled back on failure.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    is_exactly_once = true
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseDataSource"
+    max_retries = 0
+    batch_size = 1000
+  }
+}
+```
+
+### Timer Flush + Batch Combined
+
+For streaming jobs, set `batch_interval_ms` to flush buffered rows based on elapsed time since the previous flush. The flush is **write-triggered**: each incoming write checks the elapsed time and flushes synchronously when the interval is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a wall-clock latency bound for low-throughput streams. Combined with `batch_size`, it gives both throughput and reasonable per-record latency, but do not treat it as a strict real-time timer.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
   }
 }
 ```

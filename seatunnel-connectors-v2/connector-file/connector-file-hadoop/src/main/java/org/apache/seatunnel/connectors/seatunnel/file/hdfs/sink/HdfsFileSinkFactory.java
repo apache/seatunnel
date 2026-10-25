@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -28,13 +27,9 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -144,16 +139,6 @@ public class HdfsFileSinkFactory extends BaseMultipleTableFileSinkFactory {
 
     public HadoopConf initHadoopConf(ReadonlyConfig readonlyConfig) {
         Config pluginConfig = readonlyConfig.toConfig();
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(readonlyConfig.toConfig(), FS_DEFAULT_NAME_KEY);
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            factoryIdentifier(), PluginType.SINK, result.getMsg()));
-        }
-
         HadoopConf hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
 
         if (pluginConfig.hasPath(HdfsFileSinkOptions.HDFS_SITE_PATH.key())) {

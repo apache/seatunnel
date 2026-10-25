@@ -2,7 +2,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Kingbase 目标连接器
 
-`Sink: Kingbase` (via the JDBC plugin)
+> Kingbase 目标连接器（通过 JDBC 插件）
+
+## 描述
 
 通过 JDBC 连接器向 KingbaseES 数据库写入数据。Kingbase 只需将 JDBC 插件的 `driver` 设置为 `com.kingbase8.Driver`，`url` 配置为 `jdbc:kingbase8://` 地址。写入侧提供批量刷写，以及基于 XA 事务的可选精确一次模式；但精确一次仅在 Kingbase JDBC 驱动暴露 XA `DataSource` 时才能正常工作；如果不支持，请保持 `is_exactly_once=false`。
 
@@ -63,8 +65,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                                      | String  | 否   | -       | 连接实例用户名。旧配置名 `user` 仍可作为兼容写法使用。                                                                                                                                                                                                                |
 | password                                  | String  | 否   | -       | 连接实例密码                                                                                                                                                                                                                 |
 | query                                     | String  | 否   | -       | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                       |
-| database                                  | String  | 否   | -       | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                     |
-| table                                     | String  | 否   | -       | 使用数据库和此 table-name 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                         |
+| database                                  | String  | 否   | -       | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                     |
+| table                                     | String  | 否   | -       | 使用数据库和此 table-name 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                         |
 | primary_keys                              | Array   | 否   | -       | 此选项用于在自动生成 sql 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                          |
 | connection_check_timeout_sec              | Int     | 否   | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                          |
 | max_retries                               | Int     | 否   | 0       | 提交失败的重试次数 (executeBatch)                                                                                                                                                                                        |

@@ -16,37 +16,47 @@
  */
 package org.apache.seatunnel.e2e.connector.fluss;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.alibaba.fluss.client.Connection;
 import com.alibaba.fluss.client.ConnectionFactory;
 import com.alibaba.fluss.client.admin.Admin;
+import com.alibaba.fluss.client.admin.OffsetSpec;
 import com.alibaba.fluss.config.Configuration;
 import com.alibaba.fluss.metadata.DatabaseDescriptor;
 import com.alibaba.fluss.metadata.Schema;
 import com.alibaba.fluss.metadata.TableDescriptor;
+import com.alibaba.fluss.metadata.TableInfo;
 import com.alibaba.fluss.metadata.TablePath;
 import com.alibaba.fluss.types.DataTypes;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
+// A Fluss table without a bucket leader makes the SeaTunnel job wait forever. Fail the case instead
+// of blocking the whole CI job; the slowest case waits at most about 8 minutes when healthy.
+@Timeout(value = 15, unit = TimeUnit.MINUTES)
 @Slf4j
 public abstract class FlussTestBase extends TestSuiteBase implements TestResource {
 
@@ -61,6 +71,7 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
     protected static final int FLUSS_TABLET_PORT = 9124;
     protected static final int FLUSS_COORDINATOR_LOCAL_PORT = 8123;
     protected static final int FLUSS_TABLET_LOCAL_PORT = 8124;
+    private static final int TABLE_CREATE_ATTEMPTS = 3;
 
     private GenericContainer<?> zookeeperServer;
     private GenericContainer<?> coordinatorServer;
@@ -77,35 +88,19 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
 
     private void createFlussContainer() {
         log.info("Starting FlussServer container...");
-        String coordinatorEnv =
-                String.format(
-                        "zookeeper.address: %s:%d\n"
-                                + "bind.listeners: INTERNAL://%s:%d, LOCALCLIENT://%s:%d \n"
-                                + "advertised.listeners: INTERNAL://%s:%d, LOCALCLIENT://localhost:%d\n"
-                                + "internal.listener.name: INTERNAL",
-                        ZK_HOST,
-                        ZK_PORT,
-                        FLUSS_COORDINATOR_HOST,
-                        FLUSS_COORDINATOR_PORT,
-                        FLUSS_COORDINATOR_HOST,
-                        FLUSS_COORDINATOR_LOCAL_PORT,
-                        FLUSS_COORDINATOR_HOST,
-                        FLUSS_COORDINATOR_PORT,
-                        FLUSS_COORDINATOR_LOCAL_PORT);
+        String coordinatorEnv = String.format("zookeeper.address: %s:%d", ZK_HOST, ZK_PORT);
         coordinatorServer =
-                new GenericContainer<>(DOCKER_IMAGE)
+                new DynamicFlussContainer(
+                                FLUSS_COORDINATOR_HOST,
+                                FLUSS_COORDINATOR_PORT,
+                                FLUSS_COORDINATOR_LOCAL_PORT,
+                                "coordinator-server.sh")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(FLUSS_COORDINATOR_HOST)
                         .withEnv("FLUSS_PROPERTIES", coordinatorEnv)
-                        .withCommand("coordinatorServer")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("coordinatorServer")));
-        coordinatorServer.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s",
-                                FLUSS_COORDINATOR_LOCAL_PORT, FLUSS_COORDINATOR_LOCAL_PORT)));
         Startables.deepStart(Stream.of(coordinatorServer)).join();
         given().ignoreExceptions()
                 .await()
@@ -115,41 +110,31 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
                         () ->
                                 checkPort(
                                         coordinatorServer.getHost(),
-                                        FLUSS_COORDINATOR_LOCAL_PORT,
+                                        coordinatorServer.getMappedPort(
+                                                FLUSS_COORDINATOR_LOCAL_PORT),
                                         1000));
         log.info("coordinatorServer container start success");
 
         String tabletEnv =
                 String.format(
                         "zookeeper.address: %s:%d\n"
-                                + "bind.listeners: INTERNAL://%s:%d, LOCALCLIENT://%s:%d\n"
-                                + "advertised.listeners: INTERNAL://%s:%d, LOCALCLIENT://localhost:%d\n"
-                                + "internal.listener.name: INTERNAL\n"
                                 + "tablet-server.id: 0\n"
                                 + "kv.snapshot.interval: 0s\n"
                                 + "data.dir: /tmp/fluss/data\n"
                                 + "remote.data.dir: /tmp/fluss/remote-data",
-                        ZK_HOST,
-                        ZK_PORT,
-                        FLUSS_TABLET_HOST,
-                        FLUSS_TABLET_PORT,
-                        FLUSS_TABLET_HOST,
-                        FLUSS_TABLET_LOCAL_PORT,
-                        FLUSS_TABLET_HOST,
-                        FLUSS_TABLET_PORT,
-                        FLUSS_TABLET_LOCAL_PORT);
+                        ZK_HOST, ZK_PORT);
         tabletServer =
-                new GenericContainer<>(DOCKER_IMAGE)
+                new DynamicFlussContainer(
+                                FLUSS_TABLET_HOST,
+                                FLUSS_TABLET_PORT,
+                                FLUSS_TABLET_LOCAL_PORT,
+                                "tablet-server.sh")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(FLUSS_TABLET_HOST)
                         .withEnv("FLUSS_PROPERTIES", tabletEnv)
-                        .withCommand("tabletServer")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("tabletServer")));
-        tabletServer.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", FLUSS_TABLET_LOCAL_PORT, FLUSS_TABLET_LOCAL_PORT)));
         Startables.deepStart(Stream.of(tabletServer)).join();
         given().ignoreExceptions()
                 .await()
@@ -166,29 +151,39 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
                 new GenericContainer<>(DOCKER_ZK_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(ZK_HOST)
+                        .withExposedPorts(ZK_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(DOCKER_ZK_IMAGE)));
-        zookeeperServer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ZK_PORT, ZK_PORT)));
         Startables.deepStart(Stream.of(zookeeperServer)).join();
         given().ignoreExceptions()
                 .await()
                 .atMost(60, TimeUnit.SECONDS)
                 .pollInterval(5, TimeUnit.SECONDS)
-                .until(() -> checkPort(zookeeperServer.getHost(), ZK_PORT, 1000));
+                .until(
+                        () ->
+                                checkPort(
+                                        zookeeperServer.getHost(),
+                                        zookeeperServer.getMappedPort(ZK_PORT),
+                                        1000));
         log.info("ZookeeperServer Containers are started");
     }
 
     private void initializeConnection() throws ExecutionException, InterruptedException {
-        Configuration flussConfig = new Configuration();
-        flussConfig.setString(
-                "bootstrap.servers",
-                coordinatorServer.getHost() + ":" + FLUSS_COORDINATOR_LOCAL_PORT);
-        flussConnection = ConnectionFactory.createConnection(flussConfig);
+        flussConnection = ConnectionFactory.createConnection(flussConfig());
         // Perform a real admin RPC so the readiness await only passes once the tablet server
         // actually answers, not merely when the (lazy) client object is constructed.
         flussConnection.getAdmin().listDatabases().get();
+    }
+
+    private Configuration flussConfig() {
+        Configuration flussConfig = new Configuration();
+        flussConfig.setString(
+                "bootstrap.servers",
+                coordinatorServer.getHost()
+                        + ":"
+                        + coordinatorServer.getMappedPort(FLUSS_COORDINATOR_LOCAL_PORT));
+        return flussConfig;
     }
 
     protected void createDb(Connection connection, String dbName)
@@ -221,12 +216,57 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
 
     protected void createTable(
             Connection connection, String dbName, String tableName, Schema schema)
-            throws ExecutionException, InterruptedException {
+            throws Exception {
         Admin admin = connection.getAdmin();
         TableDescriptor tableDescriptor = TableDescriptor.builder().schema(schema).build();
         TablePath tablePath = TablePath.of(dbName, tableName);
-        admin.dropTable(tablePath, true).get();
-        admin.createTable(tablePath, tableDescriptor, true).get(); // blocking call
+        // Fluss 0.7.0 can miss a table creation event (apache/fluss#1018). The table is then
+        // registered but its buckets never get a leader, so recreate it.
+        ConditionTimeoutException lastFailure = null;
+        for (int attempt = 1; attempt <= TABLE_CREATE_ATTEMPTS; attempt++) {
+            admin.dropTable(tablePath, true).get();
+            admin.createTable(tablePath, tableDescriptor, true).get(); // blocking call
+            try {
+                waitForBucketLeaders(tablePath);
+                return;
+            } catch (ConditionTimeoutException e) {
+                lastFailure = e;
+                log.warn(
+                        "Fluss table {} has no bucket leader (attempt {} of {})",
+                        tablePath,
+                        attempt,
+                        TABLE_CREATE_ATTEMPTS,
+                        e);
+            }
+        }
+        throw new IllegalStateException(
+                String.format(
+                        "Fluss table %s has no bucket leader after %d attempts, see apache/fluss#1018",
+                        tablePath, TABLE_CREATE_ATTEMPTS),
+                lastFailure);
+    }
+
+    private void waitForBucketLeaders(TablePath tablePath) throws Exception {
+        // Use a new connection so no metadata cached for an earlier table at this path is used.
+        try (Connection connection = ConnectionFactory.createConnection(flussConfig())) {
+            Admin admin = connection.getAdmin();
+            TableInfo tableInfo = admin.getTableInfo(tablePath).get();
+            List<Integer> buckets =
+                    IntStream.range(0, tableInfo.getNumBuckets())
+                            .boxed()
+                            .collect(Collectors.toList());
+            // Listing offsets fails while a bucket has no leader.
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    admin.listOffsets(
+                                                    tablePath, buckets, new OffsetSpec.LatestSpec())
+                                            .all()
+                                            .get(10, TimeUnit.SECONDS));
+        }
     }
 
     protected static boolean checkPort(String host, int port, int timeoutMs) throws IOException {
@@ -250,6 +290,53 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
         }
         if (zookeeperServer != null) {
             zookeeperServer.close();
+        }
+    }
+
+    private static final class DynamicFlussContainer
+            extends GenericContainer<DynamicFlussContainer> {
+
+        private static final String DYNAMIC_CONFIG_PATH = "/tmp/fluss-dynamic.properties";
+
+        private final String internalHost;
+        private final int internalPort;
+        private final int localClientPort;
+
+        private DynamicFlussContainer(
+                String internalHost, int internalPort, int localClientPort, String serverScript) {
+            super(DOCKER_IMAGE);
+            this.internalHost = internalHost;
+            this.internalPort = internalPort;
+            this.localClientPort = localClientPort;
+            withExposedPorts(localClientPort);
+            withCommand(
+                    "bash",
+                    "-c",
+                    "while [ ! -f "
+                            + DYNAMIC_CONFIG_PATH
+                            + " ]; do sleep 0.1; done; "
+                            + "cat "
+                            + DYNAMIC_CONFIG_PATH
+                            + " >> \"$FLUSS_HOME/conf/server.yaml\"; "
+                            + "exec \"$FLUSS_HOME/bin/"
+                            + serverScript
+                            + "\" start-foreground");
+        }
+
+        @Override
+        protected void containerIsStarting(InspectContainerResponse containerInfo) {
+            String dynamicConfig =
+                    String.format(
+                            "bind.listeners: INTERNAL://0.0.0.0:%d, LOCALCLIENT://0.0.0.0:%d\n"
+                                    + "advertised.listeners: INTERNAL://%s:%d, LOCALCLIENT://%s:%d\n"
+                                    + "internal.listener.name: INTERNAL\n",
+                            internalPort,
+                            localClientPort,
+                            internalHost,
+                            internalPort,
+                            getHost(),
+                            getMappedPort(localClientPort));
+            copyFileToContainer(Transferable.of(dynamicConfig), DYNAMIC_CONFIG_PATH);
         }
     }
 }
