@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读写任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
@@ -66,7 +66,8 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
 | endpoint                  | string  | 是  | -                           | OSS 文件系统的端点                                                                   |
 | read_columns              | list    | 否  | -                           | 数据源的读取列列表                                                                     |
-| delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                                                         |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
+| delimiter/field_delimiter | string  | 否  | \001                        | 字段分隔符                                                                         |
 | row_delimiter             | string  | 否  | \n                          | 行分隔符                                                                          |
 | parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                                                              |
 | date_format               | string  | 否  | yyyy-MM-dd                  | 日期类型格式                                                                        |
@@ -86,6 +87,8 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | archive_compress_codec    | string  | 否  | none                        | 读取归档文件时使用的归档压缩格式。 |
 | encoding                  | string  | 否  | UTF-8                       | 读取 `json`、`text`、`csv` 或 `xml` 文件时使用的字符编码。 |
 | null_format               | string  | 否  | -                           | 仅用于 `text` 格式，指定应解析为 `null` 的字符串。 |
+| binary_chunk_size         | int     | 否  | 1024                        | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
+| binary_complete_file_mode | boolean | 否  | false                       | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。 |
 | common-options            |         | 否  | -                           | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
 | file_filter_modified_start | string | 否  | -                           | 按文件最后修改时间筛选文件的起始时间（包含该时间）。 |
 | file_filter_modified_end  | string  | 否  | -                           | 按文件最后修改时间筛选文件的结束时间（不包含该时间）。 |
@@ -123,7 +126,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
 
 当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI

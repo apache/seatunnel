@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -102,6 +104,29 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testConfigDesensitizationMasksConnectionStrings() {
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put(
+                "connection_string",
+                "Endpoint=sb://example/;SharedAccessKeyName=name;SharedAccessKey=secret;");
+        source.put("event_hub_name", "events");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+
+        Assertions.assertEquals("******", desensitizedSource.get("connection_string"));
+        Assertions.assertEquals("events", desensitizedSource.get("event_hub_name"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("connection_string"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksSnmpCommunity() {
         Map<String, Object> sink = new LinkedHashMap<>();
         sink.put("host", "127.0.0.1");
@@ -118,6 +143,30 @@ public class ConfigBuilderTest {
 
         Assertions.assertEquals("******", desensitizedSink.get("community"));
         Assertions.assertEquals("127.0.0.1", desensitizedSink.get("host"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksSalesforceSecretsWithoutAddingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("client_secret", "private-secret");
+        connector.put("security_token", "private-token");
+        connector.put("object_name", "Account");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(connector));
+        config.put("sink", Arrays.asList(connector));
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        for (String role : Arrays.asList("source", "sink")) {
+            Map<?, ?> entry = (Map<?, ?>) ((List<?>) masked.get(role)).get(0);
+            Assertions.assertEquals("******", entry.get("client_secret"));
+            Assertions.assertEquals("******", entry.get("security_token"));
+            Assertions.assertEquals("Account", entry.get("object_name"));
+        }
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("client_secret"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("security_token"));
     }
 
     @Test
@@ -185,5 +234,31 @@ public class ConfigBuilderTest {
 
         Assertions.assertEquals("string", desensitizedFields.get("access_token"));
         Assertions.assertEquals("string", desensitizedFields.get("user-password"));
+    }
+
+    @Test
+    void testDuplicateKeyThrowsException() {
+        List<String> variables = Arrays.asList("jobName=value1", "jobName=value2");
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
+    }
+
+    @Test
+    void testUserKeyValueTrimmed() {
+        List<String> variables = Arrays.asList("k1= , k2=v2".split(","));
+        Map<String, String> userConfigMap = ConfigBuilder.extractUserVariables(variables);
+
+        Assertions.assertTrue(userConfigMap.get("k1").isEmpty());
+        Assertions.assertTrue(userConfigMap.containsKey("k2"));
+        Assertions.assertFalse(userConfigMap.containsKey(" k2"));
+    }
+
+    @Test
+    void testUserEmptyKeyThrowsConfigCheckException() {
+        List<String> variables = Arrays.asList(" =v1 , k2=v2".split(","));
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
     }
 }
