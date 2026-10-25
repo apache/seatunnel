@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -191,9 +191,10 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | bucket                     | string  | yes      | -                   | The bucket address of oss file system, for example: `oss://seatunnel-test`.                                                                                                                                                                                                                                                         |
 | endpoint                   | string  | yes      | -                   | fs oss endpoint                                                                                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured. |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | access_key                 | string  | no       | -                   |                                                                                                                                                                                                                                                                                                                                     |
 | access_secret              | string  | no       | -                   |                                                                                                                                                                                                                                                                                                                                     |
-| delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. Default `\001`, the same as hive's default delimiter.                                                                                                                                                                                 |
+| delimiter/field_delimiter  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. Default `\001`, the same as hive's default delimiter. **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.                                                                              |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default `\n`.                                                                                                                                                                                                                             |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`. Every record data from file will be added these two fields: name="tyrantlucifer", age=16                                                       |
 | date_format                | string  | no       | yyyy-MM-dd          | Date type format, used to tell connector how to convert string to date, supported as the following formats:`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`. default `yyyy-MM-dd`                                                                                                                                                             |
@@ -209,6 +210,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | xml_use_attr_format        | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                |
 | csv_use_header_line        | boolean | no       | false               | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                 |
 | compress_codec             | string  | no       | none                | Which compress codec the files used.                                                                                                                                                                                                                                                                                                |
+| archive_compress_codec     | string  | no       | none                | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`.                                                                                                                                                                                                                                           |
 | encoding                   | string  | no       | UTF-8               | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`.                                                                                                                                                                                                                                                |
 | null_format                | string  | no       | -                   | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                  |
 | binary_chunk_size          | int     | no       | 1024                | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                    |
@@ -253,7 +255,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -265,6 +267,19 @@ When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set
 When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
@@ -279,6 +294,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### compress_codec [string]
 

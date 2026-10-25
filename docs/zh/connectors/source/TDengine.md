@@ -90,6 +90,8 @@ TDengine 子表名称列表。不配置时读取该超级表下的所有子表�
 
 Source 插件通用参数，请参考 [Source Common Options](../common-options/source-common-options.md)。
 
+上述必填字符串选项均不能为空字符串或仅包含空白字符。此项校验不检查服务器连接或时间戳格式。
+
 ## 输出 Schema
 
 输出表的第一列固定为预留字段 `subtable_name`，用来标识该行来自哪个 TDengine 子表。后续字段为 `read_columns` 中声明的列（未设置时为所有列），顺序与 `read_columns` 保持一致；TAGS 列请按声明的顺序排在普通列之后。

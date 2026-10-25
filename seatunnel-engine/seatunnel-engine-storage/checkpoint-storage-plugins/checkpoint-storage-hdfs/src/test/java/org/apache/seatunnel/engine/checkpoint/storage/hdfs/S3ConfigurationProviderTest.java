@@ -26,12 +26,15 @@ import org.apache.hadoop.conf.Configuration;
 
 import org.junit.jupiter.api.Test;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/** Verifies S3A provider configuration and the packaged IRSA credential provider contract. */
 public class S3ConfigurationProviderTest {
 
     @Test
@@ -51,9 +54,10 @@ public class S3ConfigurationProviderTest {
     }
 
     @Test
-    void testWebIdentityProviderClassAvailable() {
-        // ClassNotFoundException indicates aws-java-sdk-bundle version is too old (< 1.12.x)
-        assertDoesNotThrow(
-                () -> Class.forName("com.amazonaws.auth.WebIdentityTokenCredentialsProvider"));
+    void testWebIdentityProviderClassAvailable() throws ClassNotFoundException {
+        // Hadoop S3A requires the configured class to implement the AWS v1 provider contract.
+        assertTrue(
+                AWSCredentialsProvider.class.isAssignableFrom(
+                        Class.forName("com.amazonaws.auth.WebIdentityTokenCredentialsProvider")));
     }
 }

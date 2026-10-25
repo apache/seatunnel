@@ -28,6 +28,10 @@ import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Exercises checkpoint storage with externally configured IRSA credentials in a real S3
+ * environment. This suite requires AWS access and does not establish IRSA runtime coverage in CI.
+ */
 @Disabled(
         "S3 with IRSA is not available in CI, if you want to run this test, please set up your own S3 environment with DefaultAWSCredentialsProviderChain (environment variables, EC2 instance profile, or Kubernetes IRSA)")
 public class S3FileCheckpointWithIRSATest extends AbstractFileCheckPointTest {

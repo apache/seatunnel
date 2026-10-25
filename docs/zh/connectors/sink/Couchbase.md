@@ -73,12 +73,25 @@ sh bin/install-plugin.sh ${version}
 | bucket                 | String         | 是       | -          | 目标 Bucket 名称。 |
 | scope                  | String         | 否       | `_default` | Bucket 中的目标 Scope 名称。 |
 | collection             | String         | 是       | -          | 目标 Collection 名称。 |
+| ready.timeout          | Integer        | 否       | `30`       | 写入器初始化时等待目标 bucket 就绪的最长时间（秒），必须大于零。 |
 | primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（长度前缀编码：`<长度>:<值>` 分量以 `#` 分隔）。未设置时使用随机 UUID。 |
 | upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。 |
 | buffer-flush.max-rows  | Integer        | 否       | `1000`     | 触发批量写入的最大缓冲行数。设为 `-1` 禁用。 |
-| buffer-flush.interval  | Long           | 否       | `30000`    | 批量写入之间的最大间隔（毫秒）。设为 `-1` 禁用。 |
 | retry.max              | Integer        | 否       | `3`        | 写入失败时的最大重试次数。 |
 | retry.interval         | Long           | 否       | `1000`     | 线性退避基础间隔（毫秒）。第 n 次重试等待 `retry.interval × n` 毫秒。 |
+
+### 启动就绪等待
+
+`ready.timeout` 控制写入器初始化时等待目标 bucket 就绪的时间，默认仍为 30 秒。
+对于需要更长时间才能恢复可用的集群，可配置更大的正数，例如 `ready.timeout = 60`。
+
+该值的单位是秒，而不是毫秒。连接器不额外限制上限，应根据集群实际恢复时间选择足够的最小值。
+当 bucket 持续不可用时，过大的值会延迟写入器初始化失败的报告。
+
+Couchbase SDK 在此等待期间处理连接尝试，连接器不会额外添加启动重试循环。
+`retry.max` 和 `retry.interval` 仍仅用于写入重试。此选项不会修改 SDK 单次操作的超时时间，
+也不会修改引擎的作业启动超时时间。等待超时后，写入器初始化仍会失败并断开客户端连接。
+增加等待时间不能修复无效凭据、错误地址或不存在的 bucket。
 
 ## 安全性
 
@@ -154,11 +167,29 @@ sink {
     primary-key            = ["user_id", "order_id"]
     upsert-enable          = true
     buffer-flush.max-rows  = 500
-    buffer-flush.interval  = 10000
     retry.max              = 5
     retry.interval         = 2000
   }
 }
 ```
+
+### 定时刷新
+
+该连接器支持在空闲时按计时器刷新缓冲区，即使尚未达到 `buffer-flush.max-rows`，也能定期发送已缓冲的记录。  
+此定时器由**引擎**驱动，而非连接器本身，目前仅 **SeaTunnel Zeta** 支持。
+
+在 Job 的 `env` 块中设置 `sink.flush.interval`（毫秒）即可启用：
+
+```hocon  
+env {  
+  sink.flush.interval = 10000  
+}
+
+```
+> 在 Spark 和 Flink 上没有检查点之间的定时刷新：`sink.flush.interval` 是 Zeta 引擎的能力，  
+> Spark/Flink 的 Sink 写入器上下文并未实现它。在这两个引擎上，缓存会在达到  
+> `buffer-flush.max-rows`、检查点时（`CouchbaseWriter` 在 `prepareCommit()` 中刷新）  
+> 以及写入器关闭时被刷新。如需降低 Spark 或 Flink 上检查点之间的延迟，  
+> 请相应调整 `buffer-flush.max-rows`。
 
 <ChangeLog />

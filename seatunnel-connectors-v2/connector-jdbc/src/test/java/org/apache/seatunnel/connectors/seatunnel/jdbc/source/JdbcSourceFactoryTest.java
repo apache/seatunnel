@@ -65,6 +65,28 @@ class JdbcSourceFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(cfg));
     }
 
+    /**
+     * The strict unknown-key check used by {@code --check} and {@code --dry-run} only accepts keys
+     * declared in the option rule, so every option the source reads must be declared there.
+     */
+    @Test
+    void testDocumentedSourceOptionsAreNotUnknownKeys() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table_path", "test.users");
+        cfg.put("connect_timeout_ms", 30000);
+        cfg.put("socket_timeout_ms", 60000);
+        cfg.put("handle_blob_as_string", false);
+        cfg.put("use_kerberos", true);
+        cfg.put("kerberos_principal", "seatunnel@EXAMPLE.COM");
+        cfg.put("kerberos_keytab_path", "/etc/seatunnel.keytab");
+        cfg.put("krb5_path", "/etc/krb5.conf");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+    }
+
     @Test
     void testValidConfigWithQuery() {
         Map<String, Object> cfg = baseConfig();

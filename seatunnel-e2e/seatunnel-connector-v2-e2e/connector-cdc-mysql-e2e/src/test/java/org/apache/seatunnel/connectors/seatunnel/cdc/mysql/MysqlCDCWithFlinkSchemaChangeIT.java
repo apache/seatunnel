@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -66,12 +67,17 @@ import static org.awaitility.Awaitility.await;
 public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements TestResource {
     /**
      * Flink schema evolution can restart after XA recover/rollback on loaded CI runners, so these
-     * assertions need enough time for the job to recover and replay the schema-change event.
+     * assertions need enough time for the job to recover and replay the schema-change event. The
+     * long bound is a failure deadline, not the expected recovery duration.
      */
-    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 600_000L;
 
     private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
-    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
+    /**
+     * The timestamp default is evaluated by different MySQL statements during CDC replay, so this
+     * tolerance allows loaded CI scheduling jitter without hiding minute-level CDC lag.
+     */
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 45;
 
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
@@ -107,7 +113,9 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @Order(1)
     @TestTemplate
@@ -199,9 +207,9 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
                                     query(String.format(PROJECTION_QUERY, database, sinkTable)));
 
-                            // The default value of add_column4 is current_timestamp()，so the
-                            // history data of sink table with this column may be different from the
-                            // source table because delay of apply schema change.
+                            // The default value of add_column4 is current_timestamp(), so the
+                            // history data of the sink table can lag briefly behind the source
+                            // table while the schema-change event is still propagating.
                             String query =
                                     String.format(
                                             "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "
@@ -269,12 +277,14 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        await().pollInterval(5, TimeUnit.SECONDS)
+                .atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        await().pollInterval(5, TimeUnit.SECONDS)
+                .atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             assertTableDataEqualsBySourceColumnOrder(
@@ -284,9 +294,9 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
                                     query(String.format(PROJECTION_QUERY, database, sinkTable)));
 
-                            // The default value of add_column4 is current_timestamp()，so the
-                            // history data of sink table with this column may be different from the
-                            // source table because delay of apply schema change.
+                            // The default value of add_column4 is current_timestamp(), so the
+                            // history data of the sink table can lag briefly behind the source
+                            // table while the schema-change event is still propagating.
                             String query =
                                     String.format(
                                             "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "

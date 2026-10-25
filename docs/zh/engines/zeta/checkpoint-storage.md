@@ -12,7 +12,7 @@ sidebar_position: 7
 
 SeaTunnel Engine支持以下检查点存储类型:
 
-- HDFS (OSS,COS,S3,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
 - LocalFile (本地)，(已弃用: 使用HDFS(LocalFile)替代).
 
 我们使用微内核设计模式将检查点存储模块从引擎中分离出来。这允许用户实现他们自己的检查点存储模块。
@@ -109,6 +109,53 @@ seatunnel:
 - [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
 - [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
 
+#### GCS
+
+Google Cloud Storage基于hdfs-file，使用[Hadoop GCS connector](https://github.com/GoogleCloudDataproc/hadoop-connectors/tree/master/gcs)。`gcs.bucket`为必填项，且必须是`gs://your-bucket`形式的bucket URI。所有`fs.gs.*`配置项都会原样传递给connector。
+
+如果您使用服务账号密钥文件，可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+          fs.gs.project.id: your-project-id
+          fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+如果未配置密钥文件，connector会使用Application Default Credentials，因此在启用Workload Identity的GKE上（或绑定了服务账号的GCE虚拟机上）只需要配置bucket:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+```
+
+所使用的身份需要对bucket中的对象具有读、写和删除权限，例如在bucket上授予`roles/storage.objectAdmin`角色。
+
+使用前请将如下jar添加到lib目录下：
+- [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
+
+注意：默认情况下重命名操作使用GCS对象move API。对于未实现该API的服务（例如`fake-gcs-server`模拟器），需要配置`fs.gs.operation.move.enable: false`，connector会改为先复制再删除。
+
 #### S3
 
 S3基于hdfs-file，所以你可以参考[Hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
@@ -131,7 +178,7 @@ seatunnel:
                 plugin-config:
                   namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
                   storage.type: s3
-                  s3.bucket: your-bucket
+                  s3.bucket: s3a://your-bucket
                   fs.s3a.access.key: your-access-key
                   fs.s3a.secret.key: your-secret-key
                   fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -155,9 +202,9 @@ seatunnel:
         plugin-config:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
 
 如果您想使用支持S3协议的MinIO作为检查点存储，您应该这样配置：
@@ -183,6 +230,36 @@ seatunnel:
        # 重要：此密钥的用户需要对bucket具有写权限，否则将返回403异常
 ```
 
+
+Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File 选项校验限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
+
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
+对于基于 EC2 的 Kubernetes 或 EKS 节点，可按上面的示例使用 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，并仅向节点角色授予所需 bucket/prefix 的最小权限。
+
+Checkpoint 存储与发行包使用 AWS SDK v1.12.770，使 `WebIdentityTokenCredentialsProvider` 可以被加载。使用 IRSA 时，还需要在 Kubernetes 中配置服务账号角色、Web Identity token 和相应的 AWS 环境变量。
+
+如果遇到 `Factory initialize failed` 或 `ClassNotFoundException`，请检查 provider 类名，并确认所有访问 checkpoint 存储的 master/worker 都已加载所需的 Hadoop/AWS jar。
+
+**容器环境**：检查点存储将 `fs.s3a.*` 配置键直接传递给 Hadoop，没有连接器级别的枚举限制，因此可以使用 classpath 上任何可用的 S3A 凭据提供程序类。这包括面向容器的提供程序，如 `com.amazonaws.auth.ContainerCredentialsProvider`（ECS 任务角色）和 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`。对于 EKS 部署，推荐使用 EC2 节点实例角色。内置的 AWS SDK v1.12.770 包含 EKS IRSA 使用的 `WebIdentityTokenCredentialsProvider`；所有访问检查点存储的节点必须使用相同的依赖版本。
+
+
 如果您在 **Kubernetes 上使用 IRSA（IAM Roles for Service Accounts）** 运行 SeaTunnel，可以使用 `WebIdentityTokenCredentialsProvider`。
 您可以这样配置:
 
@@ -198,7 +275,7 @@ seatunnel:
         plugin-config:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
 ```
 
