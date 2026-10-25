@@ -184,6 +184,157 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case verifies Zeta automatic checkpoint recovery after a sink failure.")
+    public void testMysqlCdcContinuesAfterSinkFailure(TestContainer container) throws Exception {
+        // Regression guard for restored-split reassignment after a sink failure. With
+        // parallelism = 1 (see the conf), this clean full-pipeline restart drives the
+        // pre-existing handleSplitRequest() dispatch path: the restored split lands in the
+        // assigner while the enumerator is not yet running, and the reader picks it up via
+        // its requestSplit() -> handleSplitRequest() call. The new running == true branch in
+        // IncrementalSourceEnumerator.addSplitsBack() is covered deterministically by the unit
+        // test IncrementalSourceEnumeratorTest#shouldAssignRestoredSplitsToWaitingReader; this
+        // e2e proves the end-to-end recovery path through the real engine.
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+        Long jobId = JobIdGenerator.newJobId();
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        CompletableFuture<Container.ExecResult> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mysqlcdc_to_mysql_with_sink_failure_recovery.conf",
+                                        String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+
+        // The test config checkpoints every five seconds. Wait until the snapshot state is
+        // durably checkpointed before failing the incremental CDC stream.
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(String.valueOf(jobId))
+                                                > 0));
+        String triggerName = "fail_cdc_sink_once";
+        executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+        executeSql(
+                "CREATE TRIGGER "
+                        + MYSQL_DATABASE
+                        + "."
+                        + triggerName
+                        + " BEFORE INSERT ON "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SINK_TABLE
+                        + " FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected sink failure'");
+        try {
+            int logOffset = container.getServerLogs().length();
+            executeSql(
+                    "UPDATE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " SET f_bigint = 20000 WHERE id = 5");
+            // The injected trigger makes the JDBC sink's insert fail, so the engine detects
+            // the sink failure and enters the restart cycle (job.retry.interval.seconds = 15).
+            // Wait for a positive signal in the engine log that the injected failure actually
+            // fired instead of a fixed sleep, so the test cannot silently pass without
+            // exercising the recovery path. The job status cannot be used here because on dev
+            // it stays RUNNING throughout the restart window. Once the failure is observed the
+            // finally block removes the trigger, so the post-restart replay of the
+            // f_bigint=20000 binlog event normally does not hit the trigger a second time. If
+            // the restart still wins that race, the replay fails once more and consumes one of
+            // the extra retries granted by job.retry.times in the conf; the trigger is gone by
+            // the next cycle, so the job recovers anyway. The two-minute budget matches the
+            // other waits in this test.
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                String serverLogs = container.getServerLogs();
+                                // The engine log can be truncated or rotated while the job
+                                // restarts; clamp the offset so a shorter log is treated as
+                                // "no match yet" instead of throwing
+                                // StringIndexOutOfBoundsException and aborting the wait.
+                                Assertions.assertTrue(
+                                        serverLogs
+                                                .substring(Math.min(logOffset, serverLogs.length()))
+                                                .contains("injected sink failure"),
+                                        "injected sink failure was not observed in the "
+                                                + "engine logs after the f_bigint=20000 update");
+                            });
+        } finally {
+            executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+        }
+
+        // The job restarts from the last checkpoint and replays the binlog events written
+        // after it (including the f_bigint=20000 update). The trigger must be gone before
+        // that replay reaches the sink, otherwise the restored job fails again. Verify the
+        // trigger was actually dropped, then confirm the job is still RUNNING; this status
+        // check only confirms that the job is alive during recovery. The source-to-sink
+        // equality assertion below is the actual signal that recovery has converged.
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0L,
+                                        ((Number)
+                                                        query(
+                                                                        "SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema = '"
+                                                                                + MYSQL_DATABASE
+                                                                                + "' AND trigger_name = '"
+                                                                                + triggerName
+                                                                                + "'")
+                                                                .get(0)
+                                                                .get(0))
+                                                .longValue()));
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
+
+        executeSql(
+                "UPDATE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " SET f_bigint = 30000 WHERE id = 5");
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+        Assertions.assertEquals("RUNNING", container.getJobStatus(String.valueOf(jobId)));
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "CANCELED", container.getJobStatus(String.valueOf(jobId))));
+        Assertions.assertEquals(0, executeJobFuture.get(60, TimeUnit.SECONDS).getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMysqlCdcCheckDataE2eWithHeartbeat(TestContainer container)
             throws InterruptedException {
@@ -375,15 +526,165 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // Compare every column except code: NULL codes are emitted as 0 by the MySQL schema
-        // parsing, a separate issue (#12599) from the skipped rows.
-        String rowQuery = "select id, name from " + MYSQL_DATABASE + ".%s order by id";
+        // Compare complete rows: the NULL codes must also reach the sink as NULL, not as 0
+        String rowQuery = "select id, code, name from " + MYSQL_DATABASE + ".%s order by id";
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(rowQuery, "nullable_uk_src")),
                                         query(String.format(rowQuery, "nullable_uk_sink"))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Currently SPARK do not support cdc; the DDL parser fix is engine-independent, "
+                            + "so FLINK is skipped to keep the job within its time budget")
+    public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
+        // Tables without a primary key whose unique key (single, and composite with one nullable
+        // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
+        // Controls: a table with a real primary key, and a table whose unique key is NOT NULL.
+        // uk_added_null gets its unique key in the binlog phase, parsed from the binlog DDL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+
+        // binlog phase
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testMysqlCdcNullInNullableUniqueKeyAfterRestore(TestContainer container)
+            throws Exception {
+        // The schema of uk_added_null changes in the binlog phase, so the restored job rebuilds it
+        // from the table history saved in the savepoint: NULL must still reach the sink as NULL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+        String conf = "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf";
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "SAVEPOINT_DONE", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get().getExitCode());
+
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+        insertNullableUniqueKeyRows(6, 7);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(4));
+
+        container.stopJob(jobId);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /** Inserts one row with NULL in the key column and one row with a value into each table. */
+    private void insertNullableUniqueKeyRows(int nullId, int codedId) {
+        for (String table : new String[] {"uk_added_null", "uk_null_single", "pk_null_control"}) {
+            executeSql(
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (%d, NULL, 'binlog-null'), (%d, %d, 'binlog-coded')",
+                            MYSQL_DATABASE, table, nullId, codedId, codedId));
+        }
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_null_composite VALUES (%d, 3, NULL, 'binlog-null'), (%d, 3, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, codedId, codedId));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_notnull_control VALUES (%d, %d, 'binlog-coded'), (%d, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, nullId, codedId, codedId));
+    }
+
+    private void assertNullableUniqueKeyTablesSynced(int expectedNullRows) {
+        String sinkDatabase = "mysql_cdc_null_sink";
+        String[][] tables = {
+            {"uk_null_single", "id, code, name", "code"},
+            {"uk_null_composite", "id, a, b, name", "b"},
+            {"pk_null_control", "id, code, name", "code"},
+            {"uk_notnull_control", "id, code, name", null},
+            {"uk_added_null", "id, code, name", "code"}
+        };
+        for (String[] table : tables) {
+            String rowQuery = "select " + table[1] + " from %s." + table[0] + " order by id";
+            Assertions.assertIterableEquals(
+                    query(String.format(rowQuery, MYSQL_DATABASE)),
+                    query(String.format(rowQuery, sinkDatabase)),
+                    table[0]);
+            if (table[2] != null) {
+                // NULL must stay SQL NULL in the sink, not become the type default 0
+                String nullCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " is null";
+                String zeroCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " = 0";
+                Assertions.assertEquals(
+                        expectedNullRows,
+                        ((Number) query(String.format(nullCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " NULL rows in sink");
+                Assertions.assertEquals(
+                        0,
+                        ((Number) query(String.format(zeroCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " rows with 0 in sink");
+            }
+        }
     }
 
     @TestTemplate
