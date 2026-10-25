@@ -27,8 +27,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PlaceholderUtilsTest {
 
@@ -63,8 +65,10 @@ public class PlaceholderUtilsTest {
 
     @Test
     void testJsonWithPlaceholdersInsideNotSupported() {
-        String input =
-                "${table_list:[{\"table_path\":\"${mysql_db}.*_test\",\"use_regex\":\"${use_regex_flag}\"},{\"table_path\":\"${mysql_db}.tags_test2\"}]}";
+        String defaultValueString =
+                "[{\"table_path\":\"${mysql_db}.*_test\",\"use_regex\":\"${use_regex_flag}\"},{\"table_path\":\"${mysql_db}.tags_test2\"}]";
+
+        String input = String.format("${table_list:%s}", defaultValueString);
 
         Map<String, String> userConfigMap = new LinkedHashMap<>();
         userConfigMap.put("mysql_db", "seatunnel_test");
@@ -73,9 +77,14 @@ public class PlaceholderUtilsTest {
         String result =
                 PlaceholderUtils.processPlaceholders(
                         input, key -> false, userConfigMap, new LinkedHashMap<String, String>());
-        assertNotEquals(
-                "[{\"table_path\":\"seatunnel_test.*_test\",\"use_regex\":\"true\"},{\"table_path\":\"seatunnel_test.tags_test2\"}]",
-                result);
+
+        String expected = defaultValueString;
+        for (String key : userConfigMap.keySet()) {
+            expected = expected.replace("${" + key + "}", userConfigMap.get(key));
+        }
+
+        assertNotEquals(expected, result);
+        assertEquals(defaultValueString, result);
     }
 
     @Test
@@ -205,5 +214,13 @@ public class PlaceholderUtilsTest {
                 "default",
                 PlaceholderUtils.processPlaceholders(
                         "${k:default}", userVars::containsKey, userVars, new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testHasOnlyOnePlaceholder() {
+        assertTrue(PlaceholderUtils.hasOnlyOnePlaceholder("${k}"));
+        assertTrue(PlaceholderUtils.hasOnlyOnePlaceholder("${k:v}"));
+        assertFalse(PlaceholderUtils.hasOnlyOnePlaceholder("prefix_${k}_suffix"));
+        assertFalse(PlaceholderUtils.hasOnlyOnePlaceholder("${k1},${k2}"));
     }
 }
