@@ -1,0 +1,712 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.transform.sql.zeta.functions;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.transform.sql.SQLTransform;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+public class SystemFunctionTest {
+
+    private SeaTunnelRow runSql(String query, SeaTunnelRowType rowType, Object... values) {
+        CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("query", query));
+        SQLTransform transform = new SQLTransform(config, table);
+        List<SeaTunnelRow> out = transform.transformRow(new SeaTunnelRow(values));
+        Assertions.assertNotNull(out);
+        Assertions.assertFalse(out.isEmpty());
+        return out.get(0);
+    }
+
+    @Test
+    public void testCoalesceAndIfNull() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "stringField", "intField"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                        });
+
+        SeaTunnelRow row1 =
+                runSql(
+                        "select id, COALESCE(stringField, intField) as result from dual",
+                        rowType,
+                        1,
+                        "test",
+                        123);
+        Assertions.assertEquals("test", row1.getField(1));
+
+        SeaTunnelRow row2 =
+                runSql(
+                        "select id, COALESCE(stringField, intField) as result from dual",
+                        rowType,
+                        1,
+                        null,
+                        123);
+        Assertions.assertEquals("123", row2.getField(1));
+
+        SeaTunnelRow row3 =
+                runSql(
+                        "select id, IFNULL(stringField, intField) as result from dual",
+                        rowType,
+                        1,
+                        null,
+                        123);
+        Assertions.assertEquals("123", row3.getField(1));
+    }
+
+    @Test
+    public void testNullIf() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+
+        SeaTunnelRow row1 = runSql("select NULLIF(a, b) as r from dual", rowType, 1, 1);
+        Assertions.assertNull(row1.getField(0));
+
+        SeaTunnelRow row2 = runSql("select NULLIF(a, b) as r from dual", rowType, 2, 1);
+        Assertions.assertEquals(2, row2.getField(0));
+    }
+
+    @Test
+    public void testMultiIf() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"age"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+
+        SeaTunnelRow r1 =
+                runSql(
+                        "select MULTI_IF(age < 18, 'Minor', age < 30, 'Young', 'Adult') as category from dual",
+                        rowType,
+                        16);
+        SeaTunnelRow r2 =
+                runSql(
+                        "select MULTI_IF(age < 18, 'Minor', age < 30, 'Young', 'Adult') as category from dual",
+                        rowType,
+                        25);
+        SeaTunnelRow r3 =
+                runSql(
+                        "select MULTI_IF(age < 18, 'Minor', age < 30, 'Young', 'Adult') as category from dual",
+                        rowType,
+                        40);
+
+        Assertions.assertEquals("Minor", r1.getField(0));
+        Assertions.assertEquals("Young", r2.getField(0));
+        Assertions.assertEquals("Adult", r3.getField(0));
+    }
+
+    @Test
+    public void testUuidFormat() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+
+        SeaTunnelRow outRow = runSql("select UUID() as uuid from dual", rowType, 1);
+
+        Object uuidObj = outRow.getField(0);
+        Assertions.assertNotNull(uuidObj);
+        Assertions.assertTrue(uuidObj instanceof String);
+        String uuid = (String) uuidObj;
+        Assertions.assertEquals(36, uuid.length());
+        Assertions.assertEquals(4, uuid.chars().filter(ch -> ch == '-').count());
+    }
+
+    @Test
+    public void testCastAsFromVariousTypes() {
+        // INT -> STRING
+        List<Object> args = new ArrayList<>();
+        args.add(123);
+        args.add(SqlType.STRING.toString());
+        Assertions.assertEquals("123", SystemFunction.castAs(args));
+
+        // STRING -> INT
+        args.clear();
+        args.add("456");
+        args.add(SqlType.INT.toString());
+        Assertions.assertEquals(456, SystemFunction.castAs(args));
+
+        // STRING -> BIGINT
+        args.clear();
+        args.add("789");
+        args.add(SqlType.BIGINT.toString());
+        Assertions.assertEquals(789L, SystemFunction.castAs(args));
+
+        // LONG -> DATETIME
+        args.clear();
+        long epochMillis = 1672545600000L;
+        args.add(epochMillis);
+        args.add("DATETIME");
+        Object dt = SystemFunction.castAs(args);
+        Assertions.assertTrue(dt instanceof LocalDateTime);
+    }
+
+    @Test
+    public void testCastAsDateAndTimeFromEncodedInt() {
+        // DATE from 20240615
+        List<Object> args = new ArrayList<>();
+        args.add(20240615);
+        args.add("DATE");
+        Object d = SystemFunction.castAs(args);
+        Assertions.assertEquals(LocalDate.of(2024, 6, 15), d);
+
+        // TIME from 123045
+        args.clear();
+        args.add(123045);
+        args.add("TIME");
+        Object t = SystemFunction.castAs(args);
+        Assertions.assertEquals(LocalTime.of(12, 30, 45), t);
+    }
+
+    @Test
+    public void testCastAsDoesNotReturnNullWhenValueEqualsTypeName() {
+        Object result = SystemFunction.castAs(Arrays.asList("VARCHAR", "VARCHAR"));
+        Assertions.assertEquals("VARCHAR", result);
+    }
+
+    @Test
+    public void testCastAsDecimalRounding() {
+        List<Object> args = new ArrayList<>();
+        args.add("1.234");
+        args.add("DECIMAL");
+        args.add(5);
+        args.add(2);
+
+        Object result = SystemFunction.castAs(args);
+        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertEquals(new BigDecimal("1.24"), result);
+    }
+
+    @Test
+    public void testCastAsDecimalKeepsExactBinaryValueOfFloats() {
+        // The binary value of 126.752251f is 126.75225067138671875. Going through
+        // Float.toString() first would lose the hidden binary digits ("126.75225")
+        // and yield 126.7522500000, while MySQL's CAST(float AS DECIMAL(20,10))
+        // converts the exact binary value and yields 126.7522506714 (issue #10198).
+        List<Object> args = new ArrayList<>();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+
+        // Scaling to the 6 digits of a numeric(10,6) sink column must round the
+        // exact binary value to 126.752251 instead of 126.752250.
+        args.clear();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(6);
+        Assertions.assertEquals(new BigDecimal("126.752251"), SystemFunction.castAs(args));
+
+        // Double inputs must not be stringified either.
+        args.clear();
+        args.add(44.916103d);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("44.9161030000"), SystemFunction.castAs(args));
+
+        // BigDecimal inputs are passed through without re-parsing.
+        args.clear();
+        args.add(new BigDecimal("126.7522506714"));
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsDecimalRoundsCommonFloatsHalfAwayFromZero() {
+        // The exact binary value of 0.1f is 0.10000000149011612..., and the exact
+        // binary value of 0.1d is 0.10000000000000000555.... Combined with the
+        // legacy CEILING rounding, these would both round up to 0.11 at scale 2
+        // and silently corrupt ordinary DECIMAL casts. Round half away from
+        // zero (the contract used by MySQL's CAST(float AS DECIMAL(...))) so the
+        // common positive tail is preserved.
+        List<Object> args = new ArrayList<>();
+        args.add(0.1f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("0.10"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(0.1d);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("0.10"), SystemFunction.castAs(args));
+
+        // Negative tails round symmetrically: -0.1f is -0.10000000149... which
+        // rounds to -0.10 at scale 2 because the absolute value's tail is below
+        // the next half-step at the second decimal digit.
+        args.clear();
+        args.add(-0.1f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("-0.10"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(-0.1d);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("-0.10"), SystemFunction.castAs(args));
+
+        // Half-rounding boundary: 0.5f is exactly representable as 0.5 and
+        // rounds up to 1 at scale 0; -0.5d is exactly -0.5 and HALF_UP pushes
+        // it away from zero to -1 (CEILING would have stayed at 0).
+        args.clear();
+        args.add(0.5f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("1"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(-0.5d);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("-1"), SystemFunction.castAs(args));
+
+        // Below-half rounding: 0.49f rounds down to 0 at scale 0 (CEILING
+        // would have wrongly raised it to 1).
+        args.clear();
+        args.add(0.49f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("0"), SystemFunction.castAs(args));
+
+        // Above-half rounding: 0.51f rounds up to 1 at scale 0.
+        args.clear();
+        args.add(0.51f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("1"), SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsDecimalThroughParsedSqlCast() {
+        // Exercise the parsed SQL CAST(... AS DECIMAL(...)) path end-to-end so
+        // the SystemFunction.castAs helper is reached through ZetaSQLEngine,
+        // not only through the direct unit-test helper call.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.FLOAT_TYPE});
+
+        // 0.1f is the regression case: it must stay 0.10 instead of becoming
+        // 0.11 after going through Float -> BigDecimal -> setScale(2).
+        SeaTunnelRow floatRow =
+                runSql("SELECT CAST(value AS DECIMAL(10,2)) AS out_value FROM dual", rowType, 0.1f);
+        Assertions.assertEquals(new BigDecimal("0.10"), floatRow.getField(0));
+
+        // 126.752251f -> DECIMAL(10,6) must round to 126.752251 (issue #10198).
+        SeaTunnelRow issueRow =
+                runSql(
+                        "SELECT CAST(value AS DECIMAL(10,6)) AS out_value FROM dual",
+                        rowType,
+                        126.752251f);
+        Assertions.assertEquals(new BigDecimal("126.752251"), issueRow.getField(0));
+    }
+
+    @Test
+    public void testCoalesceRespectsTargetType() {
+        SeaTunnelDataType<?> targetType = BasicType.INT_TYPE;
+        Object result = SystemFunction.coalesce(Arrays.asList(null, "123"), targetType);
+
+        Assertions.assertEquals(123, result);
+    }
+
+    @Test
+    public void testCoalesceIfNullAndArrayHelpers() {
+        List<Object> values = new ArrayList<>();
+        values.add(null);
+        values.add("first");
+        values.add("second");
+
+        Object result = SystemFunction.coalesce(values, BasicType.STRING_TYPE);
+        Assertions.assertEquals("first", result);
+
+        List<Object> ifNullArgs = new ArrayList<>();
+        ifNullArgs.add(null);
+        ifNullArgs.add("fallback");
+        Object ifNullResult = SystemFunction.ifnull(ifNullArgs, BasicType.STRING_TYPE);
+        Assertions.assertEquals("fallback", ifNullResult);
+
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () ->
+                        SystemFunction.ifnull(
+                                Collections.singletonList("onlyOneArg"), BasicType.STRING_TYPE));
+
+        List<Object> arrayArgs = new ArrayList<>();
+        arrayArgs.add("a");
+        arrayArgs.add(null);
+        arrayArgs.add(1);
+        String[] array = SystemFunction.array(arrayArgs);
+        Assertions.assertArrayEquals(new String[] {"a", null, "1"}, array);
+
+        Assertions.assertEquals(0, SystemFunction.array(Collections.emptyList()).length);
+    }
+
+    @Test
+    public void testNullIfFunctionDirectly() {
+        List<Object> args = new ArrayList<>();
+        args.add(1);
+        args.add(1);
+        Assertions.assertNull(SystemFunction.nullif(args));
+
+        args.clear();
+        args.add(1);
+        args.add(2);
+        Assertions.assertEquals(1, SystemFunction.nullif(args));
+
+        args.clear();
+        args.add(null);
+        args.add(2);
+        Assertions.assertNull(SystemFunction.nullif(args));
+    }
+
+    @Test
+    public void testCastAsPrimitiveAndBinaryTypes() {
+        List<Object> args = new ArrayList<>();
+
+        args.add("1");
+        args.add("TINYINT");
+        Assertions.assertEquals((byte) 1, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("2");
+        args.add("SMALLINT");
+        Assertions.assertEquals((short) 2, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("3");
+        args.add("INT");
+        Assertions.assertEquals(3, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("4");
+        args.add("BIGINT");
+        Assertions.assertEquals(4L, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("5");
+        args.add("BYTE");
+        Assertions.assertEquals((byte) 5, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("hello");
+        args.add("BYTES");
+        Object bytesResult = SystemFunction.castAs(args);
+        Assertions.assertTrue(bytesResult instanceof byte[]);
+        Assertions.assertArrayEquals(
+                "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8), (byte[]) bytesResult);
+
+        args.clear();
+        args.add("3.14");
+        args.add("DOUBLE");
+        Assertions.assertEquals(3.14d, (Double) SystemFunction.castAs(args), 1e-9);
+
+        args.clear();
+        args.add("1.5");
+        args.add("FLOAT");
+        Assertions.assertEquals(1.5f, (Float) SystemFunction.castAs(args), 1e-6);
+    }
+
+    @Test
+    public void testCastAsTimestampAndDateTimeVariants() {
+        List<Object> args = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        args.add(now);
+        args.add("TIMESTAMP");
+        Assertions.assertEquals(now, SystemFunction.castAs(args));
+
+        args.clear();
+        long epochMillis = 1700000000000L;
+        args.add(epochMillis);
+        args.add("TIMESTAMP");
+        Object ts = SystemFunction.castAs(args);
+        Assertions.assertTrue(ts instanceof LocalDateTime);
+
+        args.clear();
+        args.add(now);
+        args.add("DATE");
+        Object date = SystemFunction.castAs(args);
+        Assertions.assertEquals(now.toLocalDate(), date);
+
+        args.clear();
+        args.add(now);
+        args.add("TIME");
+        Object time = SystemFunction.castAs(args);
+        Assertions.assertEquals(now.toLocalTime(), time);
+    }
+
+    @Test
+    public void testCastAsFromOffsetDateTime() {
+        OffsetDateTime odt = OffsetDateTime.of(2024, 3, 15, 10, 30, 0, 0, ZoneOffset.ofHours(9));
+
+        // CAST(odt AS TIMESTAMP) → wall-clock LocalDateTime
+        List<Object> args = new ArrayList<>();
+        args.add(odt);
+        args.add("TIMESTAMP");
+        Object ts = SystemFunction.castAs(args);
+        Assertions.assertTrue(ts instanceof LocalDateTime);
+        Assertions.assertEquals(odt.toLocalDateTime(), ts);
+
+        // CAST(odt AS DATE) → wall-clock LocalDate
+        args.clear();
+        args.add(odt);
+        args.add("DATE");
+        Object date = SystemFunction.castAs(args);
+        Assertions.assertEquals(odt.toLocalDate(), date);
+
+        // CAST(odt AS TIME) → wall-clock LocalTime
+        args.clear();
+        args.add(odt);
+        args.add("TIME");
+        Object time = SystemFunction.castAs(args);
+        Assertions.assertEquals(odt.toLocalTime(), time);
+
+        // CAST(odt AS BIGINT) → epoch millis (UTC)
+        args.clear();
+        args.add(odt);
+        args.add("BIGINT");
+        Object epochMillis = SystemFunction.castAs(args);
+        Assertions.assertTrue(epochMillis instanceof Long);
+        Assertions.assertEquals(odt.toInstant().toEpochMilli(), epochMillis);
+    }
+
+    @Test
+    public void testCastAsBooleanFromNumberStringAndBoolean() {
+        List<Object> args = new ArrayList<>();
+
+        args.add(1);
+        args.add("BOOLEAN");
+        Assertions.assertEquals(true, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(0);
+        args.add("BOOLEAN");
+        Assertions.assertEquals(false, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("true");
+        args.add("BOOLEAN");
+        Assertions.assertEquals(true, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("FALSE");
+        args.add("BOOLEAN");
+        Assertions.assertEquals(false, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(true);
+        args.add("BOOLEAN");
+        Assertions.assertEquals(true, SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(2);
+        args.add("BOOLEAN");
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> SystemFunction.castAs(args));
+
+        args.clear();
+        args.add("notBool");
+        args.add("BOOLEAN");
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsIntRejectsOutOfRangeNumericInput() {
+        // The defect this covers: Number.intValue() keeps only the low-order 32 bits, so these
+        // used to come back wrapped, and with a flipped sign at the low end.
+        for (long out :
+                new long[] {
+                    Integer.MIN_VALUE - 1L, Integer.MAX_VALUE + 1L, 3000000000L, Long.MAX_VALUE
+                }) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INT")),
+                    "INT should reject " + out);
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INTEGER")),
+                    "INTEGER should reject " + out);
+        }
+
+        // The exact boundaries and an ordinary value still convert.
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MIN_VALUE, "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MAX_VALUE, "INT")));
+        Assertions.assertEquals(0, SystemFunction.castAs(Arrays.asList(0L, "INT")));
+    }
+
+    @Test
+    public void testCastAsTinyintAndSmallintAlreadyRejectOutOfRangeNumericInput() {
+        // Direct coverage for the numeric path into TINYINT and SMALLINT, which the planner does
+        // not route a narrowing source to today. These targets convert with Byte.parseByte and
+        // Short.parseShort, which already reject an out-of-range value, which is why the INT fix
+        // is not extended to them: doing so would have to go through Number.longValue() and would
+        // start accepting fractional input that is rejected today.
+        for (Object out : new Object[] {300L, -300L, 70000, Long.MAX_VALUE}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "TINYINT")),
+                    "TINYINT should reject " + out);
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "BYTE")),
+                    "BYTE should reject " + out);
+        }
+        for (Object out : new Object[] {70000L, -70000L, 2147483647}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "SMALLINT")),
+                    "SMALLINT should reject " + out);
+        }
+
+        // In-range numeric input is unaffected, and so is fractional input, which these targets
+        // reject today and must keep rejecting.
+        Assertions.assertEquals((byte) 5, SystemFunction.castAs(Arrays.asList(5L, "TINYINT")));
+        Assertions.assertEquals(
+                (short) 5000, SystemFunction.castAs(Arrays.asList(5000L, "SMALLINT")));
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "TINYINT")),
+                "TINYINT must keep rejecting a fractional source");
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "SMALLINT")),
+                "SMALLINT must keep rejecting a fractional source");
+    }
+
+    @Test
+    public void testCastAsIntRejectsWideAndNonFiniteNumericSources() {
+        // Number.longValue() is lossy for these, so a range check done after widening would have
+        // inspected an already-corrupted value: BigDecimal and BigInteger keep only the low-order
+        // 64 bits, and NaN maps to zero. Each family is therefore checked before narrowing.
+        // Reachable through COALESCE/IFNULL, which infer their type from the first non-null
+        // argument and do not constrain the remaining ones.
+        Object[] rejected = {
+            new BigDecimal("18446744073709551621"), // 2^64 + 5, low 64 bits are 5
+            new BigDecimal("18446744073709551616"), // 2^64, low 64 bits are 0
+            new BigDecimal("-18446744073709551621"),
+            new BigInteger("18446744073709551621"),
+            new BigInteger("-18446744073709551621"),
+            Double.NaN,
+            Double.POSITIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+            Float.NaN,
+            1.0e20d,
+            -1.0e20d
+        };
+        for (Object v : rejected) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
+                    "INT should reject " + v);
+        }
+
+        // In range for each family, and the exact boundaries.
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigDecimal("5"), "INT")));
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigInteger("5"), "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(
+                        Arrays.asList(new BigDecimal(String.valueOf(Integer.MAX_VALUE)), "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(
+                        Arrays.asList(new BigDecimal(String.valueOf(Integer.MIN_VALUE)), "INT")));
+
+        // A fractional source is still truncated rather than rejected, which is what this
+        // conversion has always done. Only the range behaviour changed.
+        Assertions.assertEquals(5, SystemFunction.castAs(Arrays.asList(5.7d, "INT")));
+        Assertions.assertEquals(5, SystemFunction.castAs(Arrays.asList(5.7f, "INT")));
+        Assertions.assertEquals(
+                5, SystemFunction.castAs(Arrays.asList(new BigDecimal("5.7"), "INT")));
+        Assertions.assertEquals(-5, SystemFunction.castAs(Arrays.asList(-5.7d, "INT")));
+    }
+
+    @Test
+    public void testCastAsIntTruncatesBeforeRangeCheckingAFractionalSource() {
+        // The range check has to run on the truncated value, not the raw one. A naive comparison
+        // against the bounds would reject these, which convert successfully today: their
+        // truncation is exactly the boundary and therefore in range.
+        Assertions.assertEquals(
+                Integer.MAX_VALUE, SystemFunction.castAs(Arrays.asList(2147483647.5d, "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE, SystemFunction.castAs(Arrays.asList(-2147483648.5d, "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(Arrays.asList(new BigDecimal("2147483647.5"), "INT")));
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(Arrays.asList(new BigDecimal("-2147483648.5"), "INT")));
+
+        // One step beyond the boundary is genuinely out of range and must still fail, including
+        // the cases that previously saturated or wrapped instead.
+        for (Object v :
+                new Object[] {
+                    2147483648.0d,
+                    -2147483649.0d,
+                    new BigDecimal("2147483648"),
+                    new BigDecimal("-2147483649")
+                }) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(v, "INT")),
+                    "INT should reject " + v);
+        }
+    }
+}

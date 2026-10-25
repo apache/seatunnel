@@ -21,19 +21,40 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationContext;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.ProviderAdapter;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
+
+import org.apache.http.conn.ConnectTimeoutException;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClientBuilder;
+import software.amazon.awssdk.services.bedrockruntime.model.AccessDeniedException;
+import software.amazon.awssdk.services.bedrockruntime.model.BedrockRuntimeException;
+import software.amazon.awssdk.services.bedrockruntime.model.ConflictException;
+import software.amazon.awssdk.services.bedrockruntime.model.InternalServerException;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.ModelErrorException;
+import software.amazon.awssdk.services.bedrockruntime.model.ModelNotReadyException;
+import software.amazon.awssdk.services.bedrockruntime.model.ModelTimeoutException;
+import software.amazon.awssdk.services.bedrockruntime.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.bedrockruntime.model.ServiceQuotaExceededException;
+import software.amazon.awssdk.services.bedrockruntime.model.ServiceUnavailableException;
+import software.amazon.awssdk.services.bedrockruntime.model.ThrottlingException;
+import software.amazon.awssdk.services.bedrockruntime.model.ValidationException;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -126,7 +147,32 @@ public class BedrockModel extends AbstractModel {
                 modelId,
                 dimension,
                 batchSize,
-                modelId.startsWith("cohere.") ? "search_document" : null);
+                modelId.startsWith("cohere.") ? "search_document" : null,
+                ModelInvocationOptions.defaults());
+    }
+
+    /**
+     * Create a BedrockModel instance with an existing BedrockRuntimeClient and invocation options.
+     *
+     * @param client BedrockRuntimeClient instance
+     * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     * @param invocationOptions Runtime options for retry, timeout, and backoff
+     */
+    public BedrockModel(
+            BedrockRuntimeClient client,
+            String modelId,
+            int dimension,
+            int batchSize,
+            ModelInvocationOptions invocationOptions) {
+        this(
+                client,
+                modelId,
+                dimension,
+                batchSize,
+                modelId.startsWith("cohere.") ? "search_document" : null,
+                invocationOptions);
     }
 
     /**
@@ -144,7 +190,28 @@ public class BedrockModel extends AbstractModel {
             int dimension,
             int batchSize,
             String inputType) {
-        super(batchSize);
+        this(client, modelId, dimension, batchSize, inputType, ModelInvocationOptions.defaults());
+    }
+
+    /**
+     * Create a BedrockModel instance with an existing BedrockRuntimeClient, input type, and
+     * invocation options.
+     *
+     * @param client BedrockRuntimeClient instance
+     * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     * @param inputType Input type for Cohere models (e.g., "search_document", "search_query")
+     * @param invocationOptions Runtime options for retry, timeout, and backoff
+     */
+    public BedrockModel(
+            BedrockRuntimeClient client,
+            String modelId,
+            int dimension,
+            int batchSize,
+            String inputType,
+            ModelInvocationOptions invocationOptions) {
+        super(batchSize, invocationOptions);
         this.client = Objects.requireNonNull(client, "BedrockRuntimeClient cannot be null");
         this.modelId = Objects.requireNonNull(modelId, "Model ID cannot be null");
         this.dimension = dimension;
@@ -191,6 +258,38 @@ public class BedrockModel extends AbstractModel {
             return new ArrayList<>();
         }
 
+        return invocationRuntime.invoke(
+                fields,
+                new ProviderAdapter<List<List<Float>>>() {
+                    @Override
+                    public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                            throws IOException {
+                        return vectorGeneration(inputs);
+                    }
+
+                    @Override
+                    public int getOutputCount(List<List<Float>> output) {
+                        return output == null ? 0 : output.size();
+                    }
+
+                    @Override
+                    public String getProvider() {
+                        return "BEDROCK";
+                    }
+
+                    @Override
+                    public String getModel() {
+                        return modelId;
+                    }
+
+                    @Override
+                    public Integer getDimension() {
+                        return dimension;
+                    }
+                });
+    }
+
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
         if (fields.length == 1) {
             ObjectNode requestBody = createRequestForSingleInput(fields[0]);
             String responseBody = invokeModel(requestBody);
@@ -274,7 +373,12 @@ public class BedrockModel extends AbstractModel {
 
             return result;
         } catch (IOException e) {
-            throw new IOException("Failed to parse single response: " + responseBody, e);
+            throw ModelInvocationException.nonRetryable(
+                    ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                    "BEDROCK",
+                    modelId,
+                    "Failed to parse Bedrock single response",
+                    e);
         }
     }
 
@@ -305,11 +409,16 @@ public class BedrockModel extends AbstractModel {
             }
             return result;
         } catch (IOException e) {
-            throw new IOException("Failed to parse batch response: " + responseBody, e);
+            throw ModelInvocationException.nonRetryable(
+                    ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                    "BEDROCK",
+                    modelId,
+                    "Failed to parse Bedrock batch response",
+                    e);
         }
     }
 
-    private String invokeModel(ObjectNode requestBody) {
+    private String invokeModel(ObjectNode requestBody) throws IOException {
         String requestString = requestBody.toString();
         InvokeModelRequest request =
                 InvokeModelRequest.builder()
@@ -317,8 +426,93 @@ public class BedrockModel extends AbstractModel {
                         .body(SdkBytes.fromString(requestString, StandardCharsets.UTF_8))
                         .build();
 
-        InvokeModelResponse response = client.invokeModel(request);
-        return response.body().asString(StandardCharsets.UTF_8);
+        try {
+            InvokeModelResponse response = client.invokeModel(request);
+            return response.body().asString(StandardCharsets.UTF_8);
+        } catch (RuntimeException e) {
+            throw mapAwsException(e);
+        }
+    }
+
+    private ModelInvocationException mapAwsException(RuntimeException exception) {
+        if (exception instanceof ThrottlingException
+                || exception instanceof ServiceQuotaExceededException) {
+            return ModelInvocationException.retryable(
+                    ModelInvocationErrorType.RATE_LIMIT,
+                    "BEDROCK",
+                    modelId,
+                    exception.getMessage(),
+                    statusCode(exception),
+                    exception);
+        }
+        if (exception instanceof ModelTimeoutException || isTimeoutCause(exception)) {
+            return ModelInvocationException.retryable(
+                    ModelInvocationErrorType.TIMEOUT,
+                    "BEDROCK",
+                    modelId,
+                    exception.getMessage(),
+                    statusCode(exception),
+                    exception);
+        }
+        if (exception instanceof InternalServerException
+                || exception instanceof ServiceUnavailableException
+                || exception instanceof ModelNotReadyException
+                || exception instanceof ModelErrorException
+                || exception instanceof SdkClientException) {
+            return ModelInvocationException.retryable(
+                    ModelInvocationErrorType.TEMPORARY_REMOTE_ERROR,
+                    "BEDROCK",
+                    modelId,
+                    exception.getMessage(),
+                    statusCode(exception),
+                    exception);
+        }
+        if (exception instanceof AccessDeniedException) {
+            return ModelInvocationException.nonRetryable(
+                    ModelInvocationErrorType.AUTHENTICATION_ERROR,
+                    "BEDROCK",
+                    modelId,
+                    exception.getMessage(),
+                    statusCode(exception),
+                    exception);
+        }
+        if (exception instanceof ValidationException
+                || exception instanceof ResourceNotFoundException
+                || exception instanceof ConflictException) {
+            return ModelInvocationException.nonRetryable(
+                    ModelInvocationErrorType.CONFIGURATION_ERROR,
+                    "BEDROCK",
+                    modelId,
+                    exception.getMessage(),
+                    statusCode(exception),
+                    exception);
+        }
+        return ModelInvocationException.nonRetryable(
+                ModelInvocationErrorType.UNKNOWN_REMOTE_ERROR,
+                "BEDROCK",
+                modelId,
+                exception.getMessage(),
+                statusCode(exception),
+                exception);
+    }
+
+    private Integer statusCode(RuntimeException exception) {
+        if (exception instanceof BedrockRuntimeException) {
+            return ((BedrockRuntimeException) exception).statusCode();
+        }
+        return null;
+    }
+
+    private boolean isTimeoutCause(RuntimeException exception) {
+        Throwable cause = exception.getCause();
+        while (cause != null) {
+            if (cause instanceof SocketTimeoutException
+                    || cause instanceof ConnectTimeoutException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Override

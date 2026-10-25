@@ -24,7 +24,9 @@ import lombok.NonNull;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_ATTACHMENT_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_AUTHORIZATION_CODE;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FROM_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_HOST;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_MESSAGE_CONTENT;
@@ -45,6 +47,8 @@ public class EmailSinkConfig implements Serializable {
     private String emailTransportProtocol;
     private Boolean emailSmtpAuth;
     private Integer emailSmtpPort;
+    private String emailAttachmentName;
+    private String emailFieldDelimiter;
 
     public EmailSinkConfig(@NonNull ReadonlyConfig pluginConfig) {
         super();
@@ -57,5 +61,7 @@ public class EmailSinkConfig implements Serializable {
         this.emailTransportProtocol = pluginConfig.get(EMAIL_TRANSPORT_PROTOCOL);
         this.emailSmtpAuth = pluginConfig.get(EMAIL_SMTP_AUTH);
         this.emailSmtpPort = pluginConfig.get(EMAIL_SMTP_PORT);
+        this.emailAttachmentName = pluginConfig.get(EMAIL_ATTACHMENT_NAME);
+        this.emailFieldDelimiter = pluginConfig.get(EMAIL_FIELD_DELIMITER);
     }
 }

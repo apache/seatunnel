@@ -47,7 +47,8 @@ public class AllFileSpecificationCheckTest {
     public static void beforeAll() throws IOException {
         List<String> fileTypesCanNotRead =
                 Arrays.asList(
-                        "parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico", "jks");
+                        "parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico", "jks",
+                        "pdf");
         List<String> fileCanNotRead =
                 Arrays.asList(
                         "seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/encoding/gbk.json",
@@ -105,14 +106,14 @@ public class AllFileSpecificationCheckTest {
         List<String> whiteList =
                 Arrays.asList(
                         "seatunnel-dist/src/test/java/org/apache/seatunnel/api/file/AllFileSpecificationCheckTest.java",
-                        "docs/zh/connector-v2/source-common-options.md",
-                        "docs/zh/connector-v2/sink-common-options.md",
-                        "docs/zh/transform-v2/common-options.md",
-                        "docs/zh/concept/config.md",
-                        "docs/en/connector-v2/source-common-options.md",
-                        "docs/en/connector-v2/sink-common-options.md",
-                        "docs/en/transform-v2/common-options.md",
-                        "docs/en/concept/config.md",
+                        "docs/zh/connectors/common-options/source-common-options.md",
+                        "docs/zh/connectors/common-options/sink-common-options.md",
+                        "docs/zh/transforms/common-options/common-options.md",
+                        "docs/zh/introduction/concepts/config.md",
+                        "docs/en/connectors/common-options/source-common-options.md",
+                        "docs/en/connectors/common-options/sink-common-options.md",
+                        "docs/en/transforms/common-options/common-options.md",
+                        "docs/en/introduction/concepts/config.md",
                         "seatunnel-api/src/main/java/org/apache/seatunnel/api/options/ConnectorCommonOptions.java",
                         "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fake-e2e/src/test/resources/fake_to_assert_with_compatible_source_and_result_table_name.conf",
                         "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fake-e2e/src/test/java/org/apache/seatunnel/e2e/connector/fake/FakeIT.java",

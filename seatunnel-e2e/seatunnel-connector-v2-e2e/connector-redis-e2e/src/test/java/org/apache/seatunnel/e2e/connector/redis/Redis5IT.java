@@ -16,6 +16,11 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
+
+import org.junit.jupiter.api.parallel.ResourceLock;
+
+@ResourceLock("redis-standalone-e2e")
 public class Redis5IT extends RedisTestCaseTemplateIT {
 
     @Override

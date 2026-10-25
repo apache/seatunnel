@@ -56,13 +56,16 @@ public class KuduInputFormat implements Serializable {
     /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
+    private transient KuduClientResource kuduClientResource;
+
     public KuduInputFormat(@NonNull KuduSourceConfig kuduSourceConfig) {
         this.kuduSourceConfig = kuduSourceConfig;
     }
 
     public void openInputFormat() {
         if (kuduClient == null) {
-            kuduClient = KuduUtil.getKuduClient(kuduSourceConfig);
+            kuduClientResource = KuduUtil.getKuduClientResource(kuduSourceConfig);
+            kuduClient = kuduClientResource.getClient();
         }
     }
 
@@ -84,12 +87,17 @@ public class KuduInputFormat implements Serializable {
     public void closeInputFormat() {
         if (kuduClient != null) {
             try {
-                kuduClient.close();
+                if (kuduClientResource != null) {
+                    kuduClientResource.close();
+                } else {
+                    kuduClient.close();
+                }
             } catch (KuduException e) {
                 throw new KuduConnectorException(
                         KuduConnectorErrorCode.CLOSE_KUDU_CLIENT_FAILED, e);
             } finally {
                 kuduClient = null;
+                kuduClientResource = null;
             }
         }
     }

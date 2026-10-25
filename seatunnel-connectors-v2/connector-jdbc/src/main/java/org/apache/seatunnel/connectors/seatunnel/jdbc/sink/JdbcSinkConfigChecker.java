@@ -17,27 +17,52 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 
-import lombok.extern.slf4j.Slf4j;
+import java.util.Locale;
 
-@Slf4j
-public class JdbcSinkConfigChecker {
+/**
+ * Validates the insert-only SQL Server bulk-copy contract before writer creation.
+ *
+ * <p>Other JDBC configurations retain their existing validation and execution paths.
+ */
+public final class JdbcSinkConfigChecker {
+    private JdbcSinkConfigChecker() {}
 
-    public static void check(ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.get(JdbcSinkOptions.USE_SQLSERVER_BULK_COPY)) {
-            if (readonlyConfig.get(JdbcSinkOptions.AUTO_COMMIT)) {
-                log.warn(
-                        "When use_sqlserver_bulk_copy is enabled, auto_commit is true and does not take effect.");
-            }
-            if (readonlyConfig.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
-                log.warn(
-                        "When use_sqlserver_bulk_copy is enabled, is_exactly_once is true and does not take effect.");
-            }
-            if (readonlyConfig.get(JdbcSinkOptions.ENABLE_UPSERT)) {
-                log.warn(
-                        "When use_sqlserver_bulk_copy is enabled, enable_upsert is true and does not take effect.");
-            }
+    /**
+     * Rejects incompatible options before the writer allocates a connection or buffers rows.
+     *
+     * <p>Bulk copy cannot execute custom SQL, updates, deletes, or XA transactions.
+     */
+    public static void check(ReadonlyConfig config) {
+        if (!config.get(JdbcSinkOptions.USE_SQLSERVER_BULK_COPY)) {
+            return;
+        }
+        if (!config.get(JdbcSinkOptions.URL)
+                .toLowerCase(Locale.ROOT)
+                .startsWith("jdbc:sqlserver:")) {
+            throw new OptionValidationException(
+                    "use_sqlserver_bulk_copy requires a SQL Server JDBC URL.");
+        }
+        if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
+            throw new OptionValidationException(
+                    "use_sqlserver_bulk_copy does not support is_exactly_once=true.");
+        }
+        if (config.get(JdbcSinkOptions.ENABLE_UPSERT)) {
+            throw new OptionValidationException(
+                    "use_sqlserver_bulk_copy requires enable_upsert=false.");
+        }
+        if (config.get(JdbcSinkOptions.USE_COPY_STATEMENT)) {
+            throw new OptionValidationException(
+                    "use_sqlserver_bulk_copy cannot be combined with use_copy_statement.");
+        }
+        if (!config.get(JdbcSinkOptions.GENERATE_SINK_SQL)
+                || config.getOptional(JdbcSinkOptions.QUERY)
+                        .filter(query -> !query.trim().isEmpty())
+                        .isPresent()) {
+            throw new OptionValidationException(
+                    "use_sqlserver_bulk_copy requires generated insert mode without a custom query.");
         }
     }
 }

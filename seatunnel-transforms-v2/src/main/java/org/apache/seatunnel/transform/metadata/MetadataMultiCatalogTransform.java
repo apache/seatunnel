@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
 import java.util.List;
 
@@ -41,5 +42,16 @@ public class MetadataMultiCatalogTransform extends AbstractMultiCatalogMapTransf
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new MetadataTransform(config, inputCatalogTable);
+    }
+
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, MetadataTransformConfig.METADATA_FIELDS);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityMapTransform(catalogTable);
     }
 }

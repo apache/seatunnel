@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -46,15 +48,20 @@ public class PaimonSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonSourceOptions.WAREHOUSE)
+                .required(
+                        PaimonSourceOptions.WAREHOUSE,
+                        Conditions.notBlank(PaimonSourceOptions.WAREHOUSE))
                 .optional(
+                        PaimonSourceOptions.CATALOG_NAME,
                         PaimonSourceOptions.DATABASE,
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonSourceOptions.HDFS_SITE_PATH,
                         PaimonSourceOptions.QUERY_SQL,
                         PaimonSourceOptions.HADOOP_CONF,
-                        PaimonSourceOptions.HADOOP_CONF_PATH)
-                .exclusive(PaimonSourceOptions.TABLE, PaimonSourceOptions.TABLE_LIST)
+                        PaimonSourceOptions.HADOOP_CONF_PATH,
+                        PaimonSourceOptions.USER,
+                        PaimonSourceOptions.PASSWORD)
+                .exclusive(PaimonSourceOptions.TABLE, CatalogOptions.TABLE_LIST)
                 .conditional(
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

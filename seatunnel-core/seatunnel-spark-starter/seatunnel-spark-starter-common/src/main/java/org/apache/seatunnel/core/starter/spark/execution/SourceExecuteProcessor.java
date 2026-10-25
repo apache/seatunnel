@@ -137,6 +137,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                             classLoader,
                             pluginIdentifier.getPluginName(),
                             fallbackCreateSource,
+                            null,
                             null);
 
             source._1().setJobContext(jobContext);

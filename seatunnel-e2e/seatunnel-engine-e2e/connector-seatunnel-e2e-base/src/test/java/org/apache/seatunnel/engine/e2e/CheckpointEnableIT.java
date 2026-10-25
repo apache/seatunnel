@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
@@ -111,9 +110,15 @@ public class CheckpointEnableIT extends TestSuiteBase {
                             }
                         });
 
-        // wait obtain job id
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        // wait obtain job id; poll for the log line instead of a fixed sleep, since the
+        // job may take longer to reach RUNNING under CI load
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
         Assertions.assertEquals(0, startFuture.get().getExitCode());
         // restore job
@@ -165,8 +170,13 @@ public class CheckpointEnableIT extends TestSuiteBase {
                     }
                 });
 
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // restore job
@@ -208,9 +218,10 @@ public class CheckpointEnableIT extends TestSuiteBase {
     public void testFlinkCheckpointEnable(AbstractTestFlinkContainer container)
             throws IOException, InterruptedException {
         /**
-         * In flink execution environment, checkpoint is not supported and not needed when executing
-         * jobs in BATCH mode. So it is only necessary to determine whether flink has enabled
-         * checkpoint by configuring tasks with 'checkpoint.interval'.
+         * In Flink execution environment, batch jobs normally do not enable checkpointing. When
+         * 'checkpoint.interval' is configured for a batch job, SeaTunnel will submit it in
+         * streaming runtime with the same checkpoint interval. This test verifies that Flink has
+         * enabled checkpointing and uses the configured interval.
          */
         Container.ExecResult enableExecResult =
                 container.executeJob(
@@ -228,19 +239,12 @@ public class CheckpointEnableIT extends TestSuiteBase {
                                         jobId)),
                         String.class,
                         Object.class);
-        /**
-         * when the checkpoint interval is 0x7fffffffffffffff, indicates that checkpoint is
-         * disabled. reference {@link
-         * org.apache.flink.runtime.jobgraph.JobGraph#isCheckpointingEnabled()}
-         */
-        if (container.identifier().equals(TestContainerId.FLINK_1_13)
-                || container.identifier().equals(TestContainerId.FLINK_1_14)
-                || container.identifier().equals(TestContainerId.FLINK_1_15)
-                || container.identifier().equals(TestContainerId.FLINK_1_16)) {
-            Assertions.assertEquals(Long.MAX_VALUE, jobConfig.getOrDefault("interval", 0L));
-        } else {
-            Assertions.assertEquals(0, jobConfig.getOrDefault("interval", 0));
-        }
+        Object intervalObject = jobConfig.get("interval");
+        Assertions.assertNotNull(intervalObject);
+        long interval = ((Number) intervalObject).longValue();
+        // the value here should be consistent with `checkpoint.interval` in
+        // batch_fakesource_to_localfile_checkpoint_enable.conf
+        Assertions.assertEquals(1000L, interval);
     }
 
     @TestTemplate

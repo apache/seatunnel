@@ -104,7 +104,13 @@ public class HbaseCatalog implements Catalog {
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         checkNotNull(tablePath);
-        return hbaseClient.tableExists(tablePath.getTableName());
+        String databaseName = tablePath.getDatabaseName();
+        String tableName = tablePath.getTableName();
+        String fullTableName =
+                (databaseName == null || databaseName.isEmpty())
+                        ? tableName
+                        : databaseName + ":" + tableName;
+        return hbaseClient.tableExists(fullTableName);
     }
 
     @Override

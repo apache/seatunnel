@@ -1,0 +1,428 @@
+import ChangeLog from '../changelog/connector-hive.md';
+
+# Hive
+
+> Hive 源连接器
+
+## 描述
+
+从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
+
+:::tip 提示
+
+为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
+
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+:::
+
+## 关键特性
+
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+
+在 `pollNext` 调用中读取分片中的所有数据。读取的分片将保存在快照中。
+
+- [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
+    - [x] 文本
+    - [x] Parquet
+    - [x] ORC
+
+## 选项
+
+|         名称          |  类型  | 必需 | 默认值  | 描述 |
+|-----------------------|--------|------|---------|------|
+| table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
+| table_list            | array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `tables_configs`。仅为向后兼容保留，未来版本将移除。 |
+| tables_configs        | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
+| use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
+| metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
+| krb5_path             | string | 否   | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 文件路径。 |
+| kerberos_principal    | string | 否   | -       | 访问 Hive Metastore / HDFS 的 Kerberos principal。 |
+| kerberos_keytab_path  | string | 否   | -       | 与 `kerberos_principal` 配套的 keytab 文件路径。 |
+| hdfs_site_path        | string | 否   | -       | `hdfs-site.xml` 的本地路径，用于加载 HDFS HA 配置。新作业不建议使用，请改用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
+| hive_site_path        | string | 否   | -       | `hive-site.xml` 的本地路径。 |
+| hive.hadoop.conf      | Map    | 否   | -       | 内联的 Hadoop 配置项（等价于 `core-site.xml` / `hdfs-site.xml` / `hive-site.xml` 中的条目）。 |
+| hive.hadoop.conf-path | string | 否   | -       | 包含 `core-site.xml`、`hdfs-site.xml` 和 `hive-site.xml` 的目录。 |
+| remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
+| read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
+| read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
+| compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
+
+### table_name [string]
+
+目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
+
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `tables_configs`。`table_list` 仍可作为向后兼容的旧配置，但新作业建议使用 `tables_configs`。
+
+### table_list [array]
+
+已废弃的多表读取配置列表，仅为向后兼容保留。新作业请使用 `tables_configs`。
+
+### tables_configs [array]
+
+Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+
+### use_regex [boolean]
+
+是否将 `table_name` 视为正则表达式进行匹配。开启后，`table_name` 可用于整库/多表同步；同样也支持在 `table_list` / `tables_configs` 的每个表配置里单独开启。
+
+语法说明：
+- 点号（`.`）被视为数据库与表之间的分隔符（Hive 仅支持 `database.table`）。
+- 只允许出现 1 个未转义的点号（`.`）（作为数据库/表分隔符）。如果需要在正则表达式中使用点号（`.`）（例如 `.*`），必须写成 `\.`（HOCON 字符串里需要写成 `\\.`）。
+- 例如：`db0.\.*`、`db1.user_table_[0-9]+`、`db[1-2].(app|web)order_\.*`。
+- 在 SeaTunnel 作业配置（HOCON 字符串）中，反斜杠需要再次转义。例如正则 `db0.\.*` 在配置中应写成 `db0.\\.*`。
+- `db0.\.*` 表示同步 `db0` 库下的所有表（整库同步）。
+- `\.*.\.*` 表示同步所有库下的所有表（整 Hive 同步）。
+
+### metastore_uri [string]
+
+Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
+
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
+
+### hdfs_site_path [string]
+
+`hdfs-site.xml` 的路径，用于加载 Namenode 的高可用配置
+
+### hive.hadoop.conf [map]
+
+Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`）
+
+### hive.hadoop.conf-path [string]
+
+指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径
+
+### read_partitions [list]
+
+用户希望从 Hive 表中读取的目标分区，如果用户未设置此参数，将读取 Hive 表中的所有数据。
+
+**提示：分区列表中的每个分区应具有相同的目录层级。例如，一个 Hive 表有两个分区：`par1` 和 `par2`，如果用户设置如下：**
+**`read_partitions = [par1=xxx, par1=yyy/par2=zzz]`，这是不合法的**
+
+### krb5_path [string]
+
+`krb5.conf` 的路径，用于 Kerberos 认证
+
+### kerberos_principal [string]
+
+Kerberos 认证的主体
+
+### kerberos_keytab_path [string]
+
+Kerberos 认证的 keytab 文件路径
+
+### read_columns [list]
+
+数据源的读取列列表，用户可以使用它来实现字段投影。
+
+### compress_codec [string]
+
+文件的压缩编解码器，支持的详细信息如下所示：
+
+- txt: `lzo` `none`
+- orc/parquet:  
+  自动识别压缩类型，无需额外设置。
+
+### 通用选项
+
+源插件的通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md) 了解详细信息。
+
+## 示例
+
+### 示例 1：单表
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://namenode001:9083"
+  }
+```
+
+### 示例 2：metastore_uri 故障切换（多 URI）
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+  }
+```
+
+### 示例 3：多表
+> 注意：Hive 是结构化数据源，应使用 `tables_configs`，`table_list` 已在新的 API 中废弃，并将在未来移除。
+> 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
+
+```bash
+  Hive {
+    tables_configs = [
+        {
+          table_name = "default.seatunnel_orc_1"
+          metastore_uri = "thrift://namenode001:9083"
+        },
+        {
+          table_name = "default.seatunnel_orc_2"
+          metastore_uri = "thrift://namenode001:9083"
+        }
+    ]
+  }
+```
+
+### 示例 4：正则匹配多表（整库/整库子集）
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 1) 整库同步：同步 `a` 库下的所有表
+    table_name = "a.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 2) 整 Hive 同步：同步所有库下的所有表
+    table_name = "\\.*.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 3) 整库子集：同步 `a` 库下，表名匹配 `tmp_.*` 的表
+    #    注意：`.*` 里的点号（`.`）必须写成 `\.`（HOCON 字符串里写 `\\.`），因为未转义的点号会被当作分隔符
+    table_name = "a.tmp_\\.*"
+    use_regex = true
+  }
+```
+
+### 示例 5：Kerberos
+
+```bash
+source {
+  Hive {
+    table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
+    metastore_uri = "thrift://metastore:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    plugin_output = hive_source
+    hive_site_path = "/tmp/hive-site.xml"
+    kerberos_principal = "hive/metastore.seatunnel@EXAMPLE.COM"
+    kerberos_keytab_path = "/tmp/hive.keytab"
+    krb5_path = "/tmp/krb5.conf"
+  }
+}
+```
+
+描述：
+
+- `hive_site_path`：`hive-site.xml` 文件的路径。
+- `kerberos_principal`：Kerberos 认证的主体。
+- `kerberos_keytab_path`：Kerberos 认证的 keytab 文件路径。
+- `krb5_path`：用于 Kerberos 认证的 `krb5.conf` 文件路径。
+
+运行案例：
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Hive {
+    table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
+    metastore_uri = "thrift://metastore:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    plugin_output = hive_source
+    hive_site_path = "/tmp/hive-site.xml"
+    kerberos_principal = "hive/metastore.seatunnel@EXAMPLE.COM"
+    kerberos_keytab_path = "/tmp/hive.keytab"
+    krb5_path = "/tmp/krb5.conf"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = hive_source
+    rules {
+      row_rules = [
+        {
+          rule_type = MAX_ROW
+          rule_value = 3
+        }
+      ],
+      field_rules = [
+        {
+          field_name = pk_id
+          field_type = bigint
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = name
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = score
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+## Hive on s3
+
+### 步骤 1
+
+为 EMR 的 Hive 创建 lib 目录。
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### 步骤 2
+
+从 Maven 中心获取 jar 文件到 lib。
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### 步骤 3
+
+从您的 EMR 环境中复制 jar 文件到 lib 目录。
+
+```shell
+cp /usr/share/aws/emr/emrfs/lib/emrfs-hadoop-assembly-2.60.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/hadoop-common-3.3.6-amzn-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/javax.inject-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/aopalliance-1.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### 步骤 4
+
+运行案例。
+
+```shell
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_s3"
+    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
+    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
+    hive.hadoop.conf = {
+       bucket="s3://ws-package"
+       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+    }
+    read_columns = ["pk_id", "name", "score"]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_s3_sink"
+    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
+    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
+    hive.hadoop.conf = {
+       bucket="s3://ws-package"
+       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+    }
+  }
+}
+```
+
+## Hive on oss
+
+### 步骤 1
+
+为 EMR 的 Hive 创建 lib 目录。
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### 步骤 2
+
+从 Maven 中心获取 jar 文件到 lib。
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### 步骤 3
+
+从您的 EMR 环境中复制 jar 文件到 lib 目录并删除冲突的 jar。
+
+```shell
+cp -r /opt/apps/JINDOSDK/jindosdk-current/lib/jindo-*.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+rm -f ${SEATUNNEL_HOME}/lib/hadoop-aliyun-*.jar
+```
+
+### 步骤 4
+
+运行案例。
+
+```shell
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_oss"
+    metastore_uri = "thrift://master-1-1.c-1009b01725b501f2.cn-wulanchabu.emr.aliyuncs.com:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    hive.hadoop.conf = {
+        bucket="oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
+    }
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_oss_sink"
+    metastore_uri = "thrift://master-1-1.c-1009b01725b501f2.cn-wulanchabu.emr.aliyuncs.com:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    hive.hadoop.conf = {
+        bucket="oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
+    }
+  }
+}
+```
+
+## 变更日志
+
+<ChangeLog />

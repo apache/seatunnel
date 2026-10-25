@@ -46,12 +46,12 @@ public class StarRocksStreamLoadVisitor {
 
     private final HttpHelper httpHelper;
     private static final int MAX_SLEEP_TIME = 5;
+    private static final long DEFAULT_LABEL_STATE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(3);
 
     private final SinkConfig sinkConfig;
     private long pos;
     private static final String RESULT_FAILED = "Fail";
     private static final String RESULT_SUCCESS = "Success";
-    private static final String RESULT_LABEL_EXISTED = "Label Already Exists";
     private static final String LABEL_STATE_VISIBLE = "VISIBLE";
     private static final String LABEL_STATE_COMMITTED = "COMMITTED";
     private static final String RESULT_LABEL_PREPARE = "PREPARE";
@@ -60,10 +60,49 @@ public class StarRocksStreamLoadVisitor {
 
     private final TableSchema tableSchema;
 
+    /**
+     * Maximum total time spent waiting for one reused label to leave the PREPARE state. The bound
+     * prevents a checkpoint flush from waiting forever on an unresolved transaction.
+     */
+    private final long labelStateTimeoutMs;
+
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, TableSchema tableSchema) {
+        this(sinkConfig, tableSchema, new HttpHelper(sinkConfig), 0L);
+    }
+
+    /**
+     * Creates a visitor with an explicit HTTP helper so response handling can be verified without a
+     * live StarRocks cluster.
+     */
+    StarRocksStreamLoadVisitor(
+            SinkConfig sinkConfig, TableSchema tableSchema, HttpHelper httpHelper) {
+        this(sinkConfig, tableSchema, httpHelper, 0L);
+    }
+
+    /**
+     * Creates a visitor with explicit HTTP transport and label-state timeout for deterministic
+     * boundary tests.
+     *
+     * <p>A non-positive {@code labelStateTimeoutMs} falls back to {@code
+     * sink_config.label_state_timeout_ms} and finally to the built-in default, so production
+     * behaviour stays configurable while tests keep an explicit override.
+     */
+    StarRocksStreamLoadVisitor(
+            SinkConfig sinkConfig,
+            TableSchema tableSchema,
+            HttpHelper httpHelper,
+            long labelStateTimeoutMs) {
         this.sinkConfig = sinkConfig;
         this.tableSchema = tableSchema;
-        this.httpHelper = new HttpHelper(sinkConfig);
+        this.httpHelper = httpHelper;
+        long configuredTimeoutMs = labelStateTimeoutMs;
+        if (configuredTimeoutMs <= 0) {
+            configuredTimeoutMs =
+                    sinkConfig.getLabelStateTimeoutMs() > 0
+                            ? sinkConfig.getLabelStateTimeoutMs()
+                            : DEFAULT_LABEL_STATE_TIMEOUT_MS;
+        }
+        this.labelStateTimeoutMs = Math.max(1, configuredTimeoutMs);
         checkBatchMaxBytes(sinkConfig.getBatchMaxBytes(), sinkConfig.getBatchMaxSize());
     }
 
@@ -105,7 +144,12 @@ public class StarRocksStreamLoadVisitor {
         if (LOG.isDebugEnabled()) {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
         }
-        if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
+        Object resultStatus = loadResult.get(keyStatus);
+        if (RESULT_SUCCESS.equals(resultStatus)) {
+            return true;
+        }
+        if (RESULT_FAILED.equals(resultStatus)
+                && !isLabelAlreadyUsed(loadResult, flushData.getLabel())) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks \n");
             errorBuilder
                     .append(sinkConfig.getDatabase())
@@ -131,12 +175,22 @@ public class StarRocksStreamLoadVisitor {
             }
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
-        } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
-            // has to block-checking the state to get the final result
-            checkLabelState(host, flushData.getLabel());
         }
-        return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
+        // Publish Timeout, Label Already Exists, a Fail response blaming a reused label, or any
+        // other non-terminal status: StarRocks received the request but the transaction outcome is
+        // NOT confirmed. A publish that timed out can still be aborted (for example when the
+        // cluster was just restarted), so the batch may only be released after the label state is
+        // explicitly confirmed VISIBLE/COMMITTED; an ABORTED label authorizes a resend under a new
+        // label, and an unresolved label fails closed so the job replays from its checkpoint.
+        LOG.warn(
+                "StreamLoad for label[{}] on table[{}.{}] returned non-final status[{}];"
+                        + " resolving the label state before releasing the batch.",
+                flushData.getLabel(),
+                sinkConfig.getDatabase(),
+                sinkConfig.getTable(),
+                resultStatus);
+        checkLabelState(host, flushData.getLabel(), loadResult);
+        return true;
     }
 
     private String getAvailableHost() {
@@ -189,15 +243,27 @@ public class StarRocksStreamLoadVisitor {
                 "Failed to join rows data, unsupported `format` from stream load properties:");
     }
 
+    /**
+     * Resolves a non-final stream load outcome (Publish Timeout, Label Already Exists, reused-label
+     * failure, unrecognized status) to a terminal label state within one total deadline.
+     *
+     * <p>Only {@code VISIBLE}/{@code COMMITTED} releases the batch, only an explicit {@code
+     * ABORTED} authorizes the caller to retry under a new label, and everything else — {@code
+     * PREPARE}, {@code UNKNOWN}, or an unreadable response — keeps polling until the deadline and
+     * then fails closed. {@code UNKNOWN} is polled rather than failed immediately because a
+     * front-end that is still recovering from a restart may report {@code UNKNOWN} for a label
+     * whose transaction is in fact committed.
+     *
+     * @param host StarRocks front-end host that answered the stream load
+     * @param label label used by the current batch
+     * @param loadResult stream load response whose non-final outcome is being resolved
+     */
     @SuppressWarnings("unchecked")
-    private void checkLabelState(String host, String label) throws IOException {
+    private void checkLabelState(String host, String label, Map<String, Object> loadResult)
+            throws IOException {
         int idx = 0;
-        while (true) {
-            try {
-                TimeUnit.SECONDS.sleep(Math.min(++idx, MAX_SLEEP_TIME));
-            } catch (InterruptedException ex) {
-                break;
-            }
+        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(labelStateTimeoutMs);
+        while (System.nanoTime() < deadlineNanos) {
             try {
                 String queryLoadStateUrl =
                         new StringBuilder(host)
@@ -207,25 +273,18 @@ public class StarRocksStreamLoadVisitor {
                                 .append(label)
                                 .toString();
                 Map<String, Object> result =
-                        httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
-                if (result == null) {
-                    throw new StarRocksConnectorException(
-                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Failed to flush data to StarRocks, Error "
-                                            + "could not get the final state of label[%s].\n",
-                                    label),
-                            null);
-                }
-                String labelState = (String) result.get("state");
+                        httpHelper.doHttpGet(
+                                queryLoadStateUrl,
+                                getLoadStateHttpHeader(label),
+                                remainingTimeoutMs(deadlineNanos));
+                String labelState = result == null ? null : (String) result.get("state");
                 if (null == labelState) {
-                    throw new StarRocksConnectorException(
-                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Failed to flush data to StarRocks, Error "
-                                            + "could not get the final state of label[%s]. response[%s]\n",
-                                    label, JsonUtils.toJsonString(result)),
-                            null);
+                    LOG.warn(
+                            "Could not read the state of label[{}], response[{}]; will retry before deadline.",
+                            label,
+                            result);
+                    sleepBeforeNextLabelCheck(++idx, deadlineNanos, label);
+                    continue;
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
@@ -233,6 +292,7 @@ public class StarRocksStreamLoadVisitor {
                     case LABEL_STATE_COMMITTED:
                         return;
                     case RESULT_LABEL_PREPARE:
+                        sleepBeforeNextLabelCheck(++idx, deadlineNanos, label);
                         continue;
                     case RESULT_LABEL_ABORTED:
                         throw new StarRocksConnectorException(
@@ -244,18 +304,82 @@ public class StarRocksStreamLoadVisitor {
                                 true);
                     case RESULT_LABEL_UNKNOWN:
                     default:
-                        throw new StarRocksConnectorException(
-                                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                                String.format(
-                                        "Failed to flush data to StarRocks, Error "
-                                                + "label[%s] state[%s]\n",
-                                        label, labelState));
+                        LOG.warn(
+                                "Label[{}] state[{}] is not terminal; will retry before deadline.",
+                                label,
+                                labelState);
+                        sleepBeforeNextLabelCheck(++idx, deadlineNanos, label);
+                        continue;
                 }
             } catch (IOException e) {
-                throw new StarRocksConnectorException(
-                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
+                LOG.warn(
+                        "Failed to check StarRocks label [{}] state, will retry before deadline.",
+                        label,
+                        e);
+                sleepBeforeNextLabelCheck(++idx, deadlineNanos, label);
             }
         }
+        throw new StarRocksConnectorException(
+                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                String.format(
+                        "Timed out after %d ms while checking the final state of label[%s]"
+                                + " returned for non-final stream load response Status[%s]"
+                                + " Message[%s].",
+                        labelStateTimeoutMs,
+                        label,
+                        loadResult.get("Status"),
+                        loadResult.get("Message")));
+    }
+
+    /**
+     * Converts the remaining label-state deadline into a positive HTTP timeout.
+     *
+     * @param deadlineNanos absolute deadline based on {@link System#nanoTime()}
+     * @return bounded timeout accepted by the Apache HTTP client
+     */
+    private int remainingTimeoutMs(long deadlineNanos) {
+        long remainingNanos = Math.max(1, deadlineNanos - System.nanoTime());
+        long remainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+        return (int) Math.min(Integer.MAX_VALUE, remainingMillis);
+    }
+
+    /**
+     * Waits before polling a PREPARE label again without exceeding the total state deadline. An
+     * interrupted wait fails the flush while preserving the thread interruption signal.
+     */
+    private void sleepBeforeNextLabelCheck(int attempt, long deadlineNanos, String label) {
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            return;
+        }
+        long sleepNanos =
+                Math.min(
+                        TimeUnit.SECONDS.toNanos(Math.min(attempt, MAX_SLEEP_TIME)),
+                        remainingNanos);
+        try {
+            TimeUnit.NANOSECONDS.sleep(sleepNanos);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    String.format(
+                            "Interrupted while checking the final state of label[%s].", label),
+                    ex);
+        }
+    }
+
+    /**
+     * Detects the legacy failure response used by some StarRocks versions for a reused label.
+     *
+     * @param loadResult Stream Load response body
+     * @param label label used by the current batch
+     * @return true when the message identifies the current label as already used
+     */
+    private boolean isLabelAlreadyUsed(Map<String, Object> loadResult, String label) {
+        Object message = loadResult.get("Message");
+        return message != null
+                && message.toString()
+                        .contains(String.format("Label [%s] has already been used", label));
     }
 
     private String getBasicAuthHeader(String username, String password) {

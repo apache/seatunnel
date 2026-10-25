@@ -26,8 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.TestConnection;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverJdbcRowConverter;
 
@@ -37,8 +40,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -128,5 +136,130 @@ public class JdbcOutputFormatBuilderTest {
 
         Assertions.assertEquals("databasewith.dot", database.getValue());
         Assertions.assertEquals("dbo.tableName", table.getValue());
+    }
+
+    @Test
+    public void testBulkCopyResolvesExplicitAndDefaultSchema() throws Exception {
+        for (String table : Arrays.asList("target", "dbo.target")) {
+            Connection connection = Mockito.mock(Connection.class);
+            Statement statement = Mockito.mock(Statement.class);
+            ResultSet result = Mockito.mock(ResultSet.class);
+            ResultSetMetaData metadata = Mockito.mock(ResultSetMetaData.class);
+            Mockito.when(connection.createStatement()).thenReturn(statement);
+            Mockito.when(statement.executeQuery(Mockito.anyString())).thenReturn(result);
+            Mockito.when(result.getMetaData()).thenReturn(metadata);
+            Mockito.when(metadata.getColumnName(1)).thenReturn("ID");
+            SimpleJdbcConnectionProvider provider =
+                    Mockito.mock(SimpleJdbcConnectionProvider.class);
+            Mockito.when(provider.getConnection()).thenReturn(connection);
+            JdbcSinkConfig config =
+                    JdbcSinkConfig.builder()
+                            .database("databasewith.dot")
+                            .table(table)
+                            .useSqlserverBulkCopy(true)
+                            .jdbcConnectionConfig(JdbcConnectionConfig.builder().build())
+                            .build();
+            JdbcOutputFormat format =
+                    new JdbcOutputFormatBuilder(
+                                    new SqlServerDialect(),
+                                    provider,
+                                    config,
+                                    oracleAppendValuesTableSchema(),
+                                    null)
+                            .build();
+            format.open();
+            String expectedTable =
+                    table.contains(".")
+                            ? "[databasewith.dot].[dbo].[target]"
+                            : "[databasewith.dot]..[target]";
+            Mockito.verify(statement)
+                    .executeQuery("SELECT [ID] FROM " + expectedTable + " WHERE 1=0");
+            Mockito.verify(result).close();
+            Mockito.verify(statement).close();
+            format.close();
+        }
+    }
+
+    @Test
+    public void testOracleAppendValuesKeepsConventionalInsertSql() {
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .oracleInsertMode(JdbcSinkConfig.OracleInsertMode.CONVENTIONAL)
+                        .build();
+
+        String sql =
+                JdbcOutputFormatBuilder.applyOracleAppendValuesHintIfNeeded(
+                        config, "INSERT INTO TEST_TABLE (ID) VALUES (:ID)");
+
+        Assertions.assertEquals("INSERT INTO TEST_TABLE (ID) VALUES (:ID)", sql);
+    }
+
+    @Test
+    public void testOracleAppendValuesAddsHintToGeneratedInsertSql() {
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .oracleInsertMode(JdbcSinkConfig.OracleInsertMode.APPEND_VALUES)
+                        .build();
+
+        String sql =
+                JdbcOutputFormatBuilder.applyOracleAppendValuesHintIfNeeded(
+                        config, "INSERT INTO TEST_TABLE (ID) VALUES (:ID)");
+
+        Assertions.assertEquals(
+                "INSERT /*+ APPEND_VALUES */ INTO TEST_TABLE (ID) VALUES (:ID)", sql);
+    }
+
+    @Test
+    public void testOracleAppendValuesRejectsNonOracleDialect() {
+        JdbcSinkConfig config = appendValuesConfigBuilder().build();
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> newBuilder(new MysqlDialect(), config).build());
+
+        Assertions.assertEquals(
+                "oracle_insert_mode=APPEND_VALUES only supports Oracle JDBC sink.",
+                exception.getMessage());
+    }
+
+    @Test
+    public void testOracleAppendValuesRejectsPrimaryKeys() {
+        JdbcSinkConfig config =
+                appendValuesConfigBuilder().primaryKeys(Collections.singletonList("ID")).build();
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> newBuilder(new OracleDialect(), config).build());
+
+        Assertions.assertEquals(
+                "oracle_insert_mode=APPEND_VALUES only supports insert-only writes without primary keys.",
+                exception.getMessage());
+    }
+
+    private static JdbcSinkConfig.JdbcSinkConfigBuilder appendValuesConfigBuilder() {
+        return JdbcSinkConfig.builder()
+                .database("TEST_SCHEMA")
+                .table("TEST_TABLE")
+                .jdbcConnectionConfig(JdbcConnectionConfig.builder().autoCommit(true).build())
+                .oracleInsertMode(JdbcSinkConfig.OracleInsertMode.APPEND_VALUES);
+    }
+
+    private static JdbcOutputFormatBuilder newBuilder(
+            org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect dialect,
+            JdbcSinkConfig config) {
+        return new JdbcOutputFormatBuilder(
+                dialect,
+                Mockito.mock(SimpleJdbcConnectionProvider.class),
+                config,
+                oracleAppendValuesTableSchema(),
+                null);
+    }
+
+    private static TableSchema oracleAppendValuesTableSchema() {
+        return TableSchema.builder()
+                .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 22L, false, null, "ID"))
+                .build();
     }
 }

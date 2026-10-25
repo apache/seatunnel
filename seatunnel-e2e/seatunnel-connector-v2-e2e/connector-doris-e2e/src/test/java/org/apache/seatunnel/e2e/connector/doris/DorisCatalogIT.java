@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -95,12 +96,11 @@ public class DorisCatalogIT extends AbstractDorisIT {
 
     private void initCatalog() {
         String catalogName = "doris";
-        String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
         factory = new DorisCatalogFactory();
 
         Map<String, Object> map = new HashMap<>();
-        map.put(DorisBaseOptions.FENODES.key(), frontEndNodes);
-        map.put(DorisBaseOptions.QUERY_PORT.key(), QUERY_PORT);
+        map.put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+        map.put(DorisBaseOptions.QUERY_PORT.key(), container.getMappedPort(QUERY_PORT));
         map.put(DorisBaseOptions.USERNAME.key(), USERNAME);
         map.put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
 
@@ -162,9 +162,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
@@ -175,9 +176,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test2");
                                 put(DorisBaseOptions.TABLE.key(), "test2");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -190,9 +192,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisSinkOptions.TABLE_IDENTIFIER.key(), "test3.test3");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
@@ -204,9 +207,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test5");
                                 put(DorisBaseOptions.TABLE.key(), "${table_name}");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -219,9 +223,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test4");
                                 put(DorisBaseOptions.TABLE.key(), "test4");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -252,6 +257,55 @@ public class DorisCatalogIT extends AbstractDorisIT {
         CatalogTable newTable = assertCreateTable(upstreamTable, config5, "test4.test4");
         Assertions.assertEquals(
                 BasicType.DOUBLE_TYPE, newTable.getTableSchema().getColumns().get(4).getDataType());
+    }
+
+    @Test
+    void testCreateTableWithUnboundedStringColumn() {
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10L, false, 0, "k1"));
+        // Simulate upstream catalog (such as KuduCatalog) where string column has no logical
+        // length, so Doris should create it as STRING instead of CHAR(16).
+        builder.column(
+                PhysicalColumn.of(
+                        "k2",
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        "k2 without length"));
+        builder.primaryKey(PrimaryKey.of("pk_k1", Collections.singletonList("k1")));
+
+        CatalogTable upstreamTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", TablePath.of("test.unbounded_string")),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
+                                put(DorisBaseOptions.DATABASE.key(), "test");
+                                put(DorisBaseOptions.TABLE.key(), "unbounded_string");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+
+        CatalogTable createdTable =
+                assertCreateTable(upstreamTable, config, "test.unbounded_string");
+        Column createdStringColumn = createdTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals("k2", createdStringColumn.getName());
+        // Ensure that the target column is mapped to Doris STRING type
+        Assertions.assertEquals(BasicType.STRING_TYPE, createdStringColumn.getDataType());
+        Assertions.assertEquals(
+                "string", createdStringColumn.getSourceType().toLowerCase(Locale.ROOT));
     }
 
     private CatalogTable assertCreateTable(
@@ -313,12 +367,11 @@ public class DorisCatalogIT extends AbstractDorisIT {
                                                                 "k1,k2");
                                                         put(
                                                                 DorisBaseOptions.FENODES.key(),
-                                                                container.getHost()
-                                                                        + ":"
-                                                                        + HTTP_PORT);
+                                                                getFrontendNodes());
                                                         put(
                                                                 DorisBaseOptions.QUERY_PORT.key(),
-                                                                QUERY_PORT);
+                                                                container.getMappedPort(
+                                                                        QUERY_PORT));
                                                     }
                                                 }),
                                         Thread.currentThread().getContextClassLoader()))
@@ -328,6 +381,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 Arrays.asList("k1", "k2"), table.getTableSchema().getPrimaryKey().getColumnNames());
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
+    }
+
+    private String getFrontendNodes() {
+        return container.getHost() + ":" + container.getMappedPort(HTTP_PORT);
     }
 
     @AfterAll

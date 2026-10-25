@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.CommonOptions;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -112,6 +114,7 @@ public class NativeKafkaConnectDeserializationSchema
 
         SeaTunnelRow row = convertJsonNode(record);
         row.setRowKind(rowKind);
+        attachEventTime(row, msg.timestamp());
         if (tablePath.isPresent()) {
             row.setTableId(tablePath.toString());
         }
@@ -197,6 +200,16 @@ public class NativeKafkaConnectDeserializationSchema
                                     .get();
                 }
             }
+        }
+    }
+
+    private void attachEventTime(SeaTunnelRow row, long timestamp) {
+        if (row == null || timestamp < 0) {
+            return;
+        }
+        Object existing = row.getOptions().get(CommonOptions.EVENT_TIME.getName());
+        if (existing == null) {
+            MetadataUtil.setEventTime(row, timestamp);
         }
     }
 }

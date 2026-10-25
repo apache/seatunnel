@@ -1,0 +1,17 @@
+{
+  "env": {
+    "parallelism": 1,
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "schema": {
+        "fields": {
+          "id": "int"
+        }
+      }
+    }
+  ],
+  "sink": []
+}

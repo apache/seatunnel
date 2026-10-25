@@ -55,58 +55,93 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     private final LinkedHashMap<String, Writer> beingWrittenWriter;
+    private final LinkedHashMap<String, VectorizedRowBatch> vectorizedRowBatches;
 
     public OrcWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenWriter = new LinkedHashMap<>();
+        this.vectorizedRowBatches = new LinkedHashMap<>();
     }
 
     @Override
-    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         Writer writer = getOrCreateOutputStream(filePath);
-        TypeDescription schema = buildSchemaWithRowType();
-        VectorizedRowBatch rowBatch = schema.createRowBatch();
+        VectorizedRowBatch rowBatch = getOrCreateVectorizedRowBatch(filePath);
+
         int i = 0;
         int row = rowBatch.size++;
         for (Integer index : sinkColumnsIndexInRow) {
-            Object value = seaTunnelRow.getField(index);
+            Object value = getFieldSafe(seaTunnelRow, index);
             ColumnVector vector = rowBatch.cols[i];
             setColumn(value, vector, row);
             i++;
         }
         try {
-            writer.addRowBatch(rowBatch);
-            rowBatch.reset();
+            if (rowBatch.size == rowBatch.getMaxSize()) {
+                writer.addRowBatch(rowBatch);
+                rowBatch.reset();
+            }
+
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("OrcFile", "write", filePath, e);
         }
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void newFilePart() {
+        finishAndCloseFile();
+        super.newFilePart();
+    }
+
+    @Override
+    public synchronized void finishAndCloseFile() {
+        List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
+                        VectorizedRowBatch rowBatch = getOrCreateVectorizedRowBatch(k);
+                        if (rowBatch.size > 0) {
+                            v.addRowBatch(rowBatch);
+                            rowBatch.reset();
+                        }
                         v.close();
+                        needMoveFiles.put(k, getTargetLocation(k));
                     } catch (IOException e) {
-                        String errorMsg =
-                                String.format(
-                                        "Close file [%s] orc writer failed, error msg: [%s]",
-                                        k, e.getMessage());
-                        throw new FileConnectorException(
-                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        closeErrors.add(
+                                new FileConnectorException(
+                                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                                        String.format(
+                                                "Close file [%s] orc writer failed, error"
+                                                        + " msg: [%s]",
+                                                k, e.getMessage()),
+                                        e));
                     }
-                    needMoveFiles.put(k, getTargetLocation(k));
                 });
+        this.vectorizedRowBatches.clear();
         this.beingWrittenWriter.clear();
+        if (!closeErrors.isEmpty()) {
+            throw closeErrors.get(0);
+        }
+    }
+
+    private VectorizedRowBatch getOrCreateVectorizedRowBatch(@NonNull String filePath) {
+        VectorizedRowBatch vectorizedRowBatch = this.vectorizedRowBatches.get(filePath);
+        if (vectorizedRowBatch == null) {
+            TypeDescription schema = buildSchemaWithRowType();
+            VectorizedRowBatch rowBatch = schema.createRowBatch();
+            this.vectorizedRowBatches.put(filePath, rowBatch);
+            return rowBatch;
+        }
+        return vectorizedRowBatch;
     }
 
     @Override
@@ -178,7 +213,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
                 for (int i = 0; i < fieldTypes.length; i++) {
                     struct.addField(
-                            ((SeaTunnelRowType) type).getFieldName(i).toLowerCase(),
+                            ((SeaTunnelRowType) type).getFieldName(i),
                             buildFieldWithRowType(fieldTypes[i]));
                 }
                 return struct;

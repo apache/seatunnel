@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.reader;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.RootAllocator;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.FieldVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -79,6 +81,27 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
         initFieldIndexMap(seaTunnelRowType);
         initArrowReader(byteArray);
+    }
+
+    /**
+     * Creates a reader with prebuilt Arrow resources.
+     *
+     * <p>The constructor keeps close-order regression tests focused on resource ownership while
+     * preserving the production byte-array constructor as the normal entry point. It skips
+     * initArrowReader(byte[]) on purpose, so it must never be promoted to a production entry point:
+     * hasNext()/next() are only safe after readArrow() ran against real stream state.
+     */
+    @VisibleForTesting
+    ArrowToSeatunnelRowReader(
+            ArrowStreamReader arrowStreamReader,
+            RootAllocator rootAllocator,
+            SeaTunnelRowType seaTunnelRowType) {
+        // Take ownership of the caller-supplied resources before any schema processing that
+        // can throw, so close() stays able to release them even if initialization fails.
+        this.arrowStreamReader = arrowStreamReader;
+        this.rootAllocator = rootAllocator;
+        this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
+        initFieldIndexMap(seaTunnelRowType);
     }
 
     private void initFieldIndexMap(SeaTunnelRowType seaTunnelRowType) {
@@ -262,8 +285,8 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     private Object convertMap(
             int rowIndex, Converter converter, FieldVector fieldVector, MapType mapType) {
-        SqlType keyType = mapType.getKeyType().getSqlType();
-        SqlType valueType = mapType.getValueType().getSqlType();
+        SeaTunnelDataType keyType = mapType.getKeyType();
+        SeaTunnelDataType valueType = mapType.getValueType();
         Map<String, Function> fieldConverters = new HashMap<>();
         fieldConverters.put(Converter.MAP_KEY, genericsConvert(keyType));
         fieldConverters.put(Converter.MAP_VALUE, genericsConvert(valueType));
@@ -272,10 +295,20 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     private Object convertArray(
             int rowIndex, Converter converter, FieldVector fieldVector, ArrayType arrayType) {
-        SqlType elementType = arrayType.getElementType().getSqlType();
+        SeaTunnelDataType elementType = arrayType.getElementType();
         Map<String, Function> fieldConverters = new HashMap<>();
         fieldConverters.put(Converter.ARRAY_KEY, genericsConvert(elementType));
-        return converter.convert(rowIndex, fieldVector, fieldConverters);
+        Object convertedValue = converter.convert(rowIndex, fieldVector, fieldConverters);
+        if (convertedValue instanceof List) {
+            List<?> list = (List<?>) convertedValue;
+            Class<?> componentType = arrayType.getElementType().getTypeClass();
+            Object array = Array.newInstance(componentType, list.size());
+            for (int i = 0; i < list.size(); i++) {
+                Array.set(array, i, list.get(i));
+            }
+            return array;
+        }
+        return convertedValue;
     }
 
     private Object convertRow(
@@ -284,29 +317,64 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         List<SeaTunnelDataType<?>> fieldTypes = rowType.getChildren();
         Map<String, Function> fieldConverters = new HashMap<>();
         for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldConverters.put(fieldNames[i], genericsConvert(fieldTypes.get(i).getSqlType()));
+            fieldConverters.put(fieldNames[i], genericsConvert(fieldTypes.get(i)));
         }
         return converter.convert(rowIndex, fieldVector, fieldConverters);
     }
 
-    private Function<Object, Object> genericsConvert(SqlType sqlType) {
-        return value -> convertSeatunnelRowValue(sqlType, null, value);
+    private Function<Object, Object> genericsConvert(SeaTunnelDataType dataType) {
+        return value -> {
+            if (dataType instanceof ArrayType) {
+                if (value instanceof List) {
+                    List<?> list = (List<?>) value;
+                    Class<?> componentType = ((ArrayType) dataType).getElementType().getTypeClass();
+                    Object array = Array.newInstance(componentType, list.size());
+                    for (int i = 0; i < list.size(); i++) {
+                        Array.set(array, i, list.get(i));
+                    }
+                    return array;
+                }
+            }
+            return convertSeatunnelRowValue(dataType.getSqlType(), null, value);
+        };
     }
 
     @Override
     public void close() {
+        RuntimeException closeException = null;
         try {
-            if (root != null) {
-                root.close();
-            }
-            if (rootAllocator != null) {
-                rootAllocator.close();
-            }
+            // ArrowStreamReader must be closed before RootAllocator.
+            // ArrowStreamReader internally closes VectorSchemaRoot and releases all Arrow
+            // buffer allocations back to the allocator. If the allocator is closed first,
+            // it detects unreleased memory and throws IllegalStateException ("Memory was
+            // leaked by query"), which is the root cause of issue #9863.
             if (arrowStreamReader != null) {
                 arrowStreamReader.close();
             }
         } catch (IOException e) {
-            throw new RuntimeException("failed to close arrow stream reader.", e);
+            closeException = new RuntimeException("failed to close arrow stream reader.", e);
+        } catch (RuntimeException e) {
+            // Arrow's ArrowReader.close() can also fail with unchecked exceptions (for example
+            // from VectorSchemaRoot or dictionary vector cleanup). Route them through the same
+            // aggregation as IOException; otherwise they would propagate directly and any
+            // allocator close failure below would be dropped without a suppressed link, losing
+            // the leak diagnostic this close path exists to preserve.
+            closeException = e;
+        } finally {
+            try {
+                if (rootAllocator != null) {
+                    rootAllocator.close();
+                }
+            } catch (RuntimeException e) {
+                if (closeException == null) {
+                    closeException = e;
+                } else {
+                    closeException.addSuppressed(e);
+                }
+            }
+        }
+        if (closeException != null) {
+            throw closeException;
         }
     }
 }

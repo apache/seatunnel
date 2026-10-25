@@ -22,27 +22,29 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(Factory.class)
 public class MongodbCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         return new MongodbCatalog(
-                catalogName, options.get(MongodbConfig.URI), options.get(MongodbConfig.DATABASE));
+                catalogName,
+                options.get(MongodbBaseOptions.URI),
+                options.get(MongodbBaseOptions.DATABASE));
     }
 
     @Override
     public String factoryIdentifier() {
-        return CONNECTOR_IDENTITY;
+        return MongodbBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(MongodbConfig.URI, MongodbConfig.DATABASE).build();
+        return OptionRule.builder()
+                .required(MongodbBaseOptions.URI, MongodbBaseOptions.DATABASE)
+                .build();
     }
 }

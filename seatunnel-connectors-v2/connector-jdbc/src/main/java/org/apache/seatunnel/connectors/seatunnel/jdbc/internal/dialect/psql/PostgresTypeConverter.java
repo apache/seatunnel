@@ -34,6 +34,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+import java.util.regex.Pattern;
+
 // reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -95,8 +98,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_JSONB = "jsonb";
     public static final String PG_XML = "xml";
     public static final String PG_UUID = "uuid";
-    private static final String PG_GEOMETRY = "geometry";
-    private static final String PG_GEOGRAPHY = "geography";
+    public static final String PG_GEOMETRY = "geometry";
+    public static final String PG_GEOGRAPHY = "geography";
     public static final String PG_DATE = "date";
     public static final String PG_INTERVAL = "interval";
 
@@ -117,6 +120,11 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final int MAX_VARCHAR_LENGTH = 10485760;
     public static final PostgresTypeConverter INSTANCE = new PostgresTypeConverter();
+
+    private static final String TYPE_NAME_PART =
+            "(\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*)";
+    private static final Pattern USER_DEFINED_TYPE_NAME =
+            Pattern.compile(TYPE_NAME_PART + "(\\." + TYPE_NAME_PART + ")?");
 
     @Override
     public String identifier() {
@@ -262,7 +270,6 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case PG_TIMESTAMP:
-            case PG_TIMESTAMP_TZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 if (typeDefine.getScale() != null && typeDefine.getScale() > MAX_TIMESTAMP_SCALE) {
                     builder.scale(MAX_TIMESTAMP_SCALE);
@@ -274,11 +281,45 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.scale(typeDefine.getScale());
                 }
                 break;
+            case PG_TIMESTAMP_TZ:
+                // timestamptz -> TIMESTAMP_TZ
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                if (typeDefine.getScale() != null && typeDefine.getScale() > MAX_TIMESTAMP_SCALE) {
+                    builder.scale(MAX_TIMESTAMP_SCALE);
+                } else {
+                    builder.scale(typeDefine.getScale());
+                }
+                break;
             default:
+                if (isUserDefinedStringType(typeDefine.getSqlType())) {
+                    builder.dataType(BasicType.STRING_TYPE);
+                    builder.sourceType(userDefinedSourceType(typeDefine.getColumnType()));
+                    break;
+                }
                 throw CommonError.convertToSeaTunnelTypeError(
                         identifier(), typeDefine.getDataType(), typeDefine.getName());
         }
         return builder.build();
+    }
+
+    /**
+     * Whether a type name not handled above is read as STRING. The PostgreSQL JDBC driver and
+     * Debezium report user-defined types as {@link Types#OTHER}, and enum types and the built-in
+     * {@code name} type as {@link Types#VARCHAR}.
+     */
+    protected boolean isUserDefinedStringType(int sqlType) {
+        return sqlType == Types.OTHER || sqlType == Types.VARCHAR;
+    }
+
+    /**
+     * The reported name of a user-defined type is not escaped and may be copied into sink DDL, so
+     * it is kept only when it is a plain or quoted identifier, optionally schema-qualified.
+     */
+    private static String userDefinedSourceType(String typeName) {
+        if (typeName != null && USER_DEFINED_TYPE_NAME.matcher(typeName).matches()) {
+            return typeName;
+        }
+        return PG_TEXT;
     }
 
     @Override
@@ -443,6 +484,19 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 builder.dataType(PG_TIMESTAMP);
                 builder.scale(timestampScale);
+                break;
+            case TIMESTAMP_TZ:
+                Integer timestampTzScale = column.getScale();
+                if (timestampTzScale != null && timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                    timestampTzScale = MAX_TIMESTAMP_SCALE;
+                }
+                String timestampTzColumnType =
+                        (timestampTzScale != null && timestampTzScale > 0)
+                                ? String.format("%s(%s)", PG_TIMESTAMP_TZ, timestampTzScale)
+                                : PG_TIMESTAMP_TZ;
+                builder.columnType(timestampTzColumnType);
+                builder.dataType(PG_TIMESTAMP_TZ);
+                builder.scale(timestampTzScale);
                 break;
             case ARRAY:
                 ArrayType arrayType = (ArrayType) column.getDataType();

@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -39,6 +41,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
+@ResourceLock("redis-master-slave-e2e")
 public class RedisMasterAndSlaveIT extends TestSuiteBase implements TestResource {
     private static RedisContainerInfo masterContainerInfo;
     private static RedisContainerInfo slaveContainerInfo;

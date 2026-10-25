@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -183,5 +184,34 @@ public class ElasticsearchRowSerializerTest {
 
         String upsertStr = serializer.serializeRow(row);
         Assertions.assertEquals(expected, upsertStr);
+    }
+
+    @Test
+    public void testSerializeLocalDateTimeFieldFormat() {
+        String index = "st_index";
+        Map<String, Object> confMap = new HashMap<>();
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
+
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
+        ElasticsearchClusterInfo clusterInfo =
+                ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"id", "ts"},
+                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE});
+
+        final ElasticsearchRowSerializer serializer =
+                new ElasticsearchRowSerializer(clusterInfo, indexInfo, schema);
+
+        String id = "0001";
+        LocalDateTime ts = LocalDateTime.of(2023, 1, 2, 3, 4, 5);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, ts});
+        row.setRowKind(RowKind.UPDATE_AFTER);
+
+        String result = serializer.serializeRow(row);
+        Assertions.assertTrue(
+                result.contains("\"ts\":\"2023-01-02T03:04:05\""),
+                "LocalDateTime field should be formatted with ISO-8601 'T' separator");
     }
 }

@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.graphql.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -26,7 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.graphql.source.reader.GraphQLSourceHttpReader;
 import org.apache.seatunnel.connectors.seatunnel.graphql.source.reader.GraphQLSourceSocketReader;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,7 +55,17 @@ public class GraphQLSource extends HttpSource {
 
     @Override
     protected void buildSchemaWithConfig(ReadonlyConfig pluginConfig) {
-        super.buildSchemaWithConfig(pluginConfig);
+        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+            this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+            Config config = pluginConfig.toConfig();
+            if (config.hasPath(HttpSourceOptions.JSON_FIELD.key())) {
+                jsonField = getJsonField(config.getConfig(HttpSourceOptions.JSON_FIELD.key()));
+            }
+            if (config.hasPath(HttpSourceOptions.CONTENT_FIELD.key())) {
+                contentField = config.getString(HttpSourceOptions.CONTENT_FIELD.key());
+            }
+        }
     }
 
     @Override

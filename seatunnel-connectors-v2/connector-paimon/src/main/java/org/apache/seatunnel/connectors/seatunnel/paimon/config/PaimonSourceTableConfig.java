@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
@@ -50,8 +51,8 @@ public class PaimonSourceTableConfig implements Serializable {
     }
 
     public static List<PaimonSourceTableConfig> of(ReadonlyConfig config) {
-        if (config.getOptional(PaimonSourceOptions.TABLE_LIST).isPresent()) {
-            List<Map<String, Object>> maps = config.get(PaimonSourceOptions.TABLE_LIST);
+        if (config.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
+            List<Map<String, Object>> maps = config.get(CatalogOptions.TABLE_LIST);
             return maps.stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(PaimonSourceTableConfig::parsePaimonSourceConfig)

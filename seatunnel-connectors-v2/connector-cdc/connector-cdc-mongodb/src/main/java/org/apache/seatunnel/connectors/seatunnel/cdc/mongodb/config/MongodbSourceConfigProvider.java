@@ -22,18 +22,14 @@ import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
 import java.util.List;
 import java.util.Objects;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.EXACTLY_ONCE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.POLL_MAX_BATCH_SIZE;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -46,21 +42,22 @@ public class MongodbSourceConfigProvider {
     }
 
     public static class Builder implements SourceConfig.Factory<MongodbSourceConfig> {
+        private static final long serialVersionUID = 1L;
+
         private String hosts;
         private String username;
         private String password;
         private List<String> databaseList;
         private List<String> collectionList;
         private String connectionOptions;
-        private int batchSize = BATCH_SIZE.defaultValue();
-        private int pollAwaitTimeMillis = POLL_AWAIT_TIME_MILLIS.defaultValue();
-        private int pollMaxBatchSize = POLL_MAX_BATCH_SIZE.defaultValue();
+        private int batchSize;
+        private int pollAwaitTimeMillis;
+        private int pollMaxBatchSize;
         private StartupConfig startupOptions;
         private StopConfig stopOptions;
-        private int heartbeatIntervalMillis = HEARTBEAT_INTERVAL_MILLIS.defaultValue();
-        private int splitMetaGroupSize = 2;
-        private boolean exactlyOnce = EXACTLY_ONCE.defaultValue();
-        private int splitSizeMB = INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.defaultValue();
+        private int heartbeatIntervalMillis;
+        private boolean exactlyOnce;
+        private int splitSizeMB;
 
         public Builder hosts(String hosts) {
             this.hosts = hosts;
@@ -118,6 +115,7 @@ public class MongodbSourceConfigProvider {
         public Builder startupOptions(StartupConfig startupOptions) {
             this.startupOptions = Objects.requireNonNull(startupOptions);
             if (startupOptions.getStartupMode() != StartupMode.INITIAL
+                    && startupOptions.getStartupMode() != StartupMode.LATEST
                     && startupOptions.getStartupMode() != StartupMode.TIMESTAMP) {
                 throw new MongodbConnectorException(
                         ILLEGAL_ARGUMENT,
@@ -128,7 +126,8 @@ public class MongodbSourceConfigProvider {
 
         public Builder stopOptions(StopConfig stopOptions) {
             this.stopOptions = Objects.requireNonNull(stopOptions);
-            if (stopOptions.getStopMode() != StopMode.NEVER) {
+            if (stopOptions.getStopMode() != StopMode.NEVER
+                    && stopOptions.getStopMode() != StopMode.TIMESTAMP) {
                 throw new MongodbConnectorException(
                         ILLEGAL_ARGUMENT,
                         String.format("The %s mode is not supported.", stopOptions.getStopMode()));
@@ -148,13 +147,31 @@ public class MongodbSourceConfigProvider {
             return this;
         }
 
-        public Builder splitMetaGroupSize(int splitMetaGroupSize) {
-            this.splitMetaGroupSize = splitMetaGroupSize;
-            return this;
-        }
-
         public Builder validate() {
             checkNotNull(hosts, "hosts must be provided");
+            if (startupOptions != null
+                    && stopOptions != null
+                    && startupOptions.getStartupMode() == StartupMode.TIMESTAMP
+                    && stopOptions.getStopMode() == StopMode.TIMESTAMP) {
+                // Compare the derived offsets because MongoDB change-stream timestamps have second
+                // precision and two different millisecond values can resolve to the same position.
+                ChangeStreamOffsetFactory offsetFactory = new ChangeStreamOffsetFactory();
+                Offset startupOffset = startupOptions.getStartupOffset(offsetFactory);
+                Offset stopOffset = stopOptions.getStopOffset(offsetFactory);
+                if (stopOffset.compareTo(startupOffset) <= 0) {
+                    throw new MongodbConnectorException(
+                            ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Invalid timestamp range: stop.timestamp (%d) resolves to "
+                                            + "MongoDB position %s, which must be after "
+                                            + "startup.timestamp (%d) at position %s. MongoDB "
+                                            + "change-stream timestamps have second precision.",
+                                    stopOptions.getTimestamp(),
+                                    stopOffset,
+                                    startupOptions.getTimestamp(),
+                                    startupOffset));
+                }
+            }
             return this;
         }
 
@@ -175,7 +192,6 @@ public class MongodbSourceConfigProvider {
                     startupOptions,
                     stopOptions,
                     heartbeatIntervalMillis,
-                    splitMetaGroupSize,
                     splitSizeMB,
                     exactlyOnce);
         }

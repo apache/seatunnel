@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
@@ -46,6 +48,24 @@ public class HbaseSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HbaseSourceOptions.ZOOKEEPER_QUORUM)
                 .required(HbaseSourceOptions.TABLE)
+                .optional(
+                        HbaseBaseOptions.HBASE_EXTRA_CONFIG,
+                        HbaseSourceOptions.HBASE_CACHING_CONFIG,
+                        HbaseSourceOptions.HBASE_BATCH_CONFIG,
+                        HbaseSourceOptions.HBASE_CACHE_BLOCKS_CONFIG,
+                        HbaseSourceOptions.IS_BINARY_ROW_KEY,
+                        HbaseSourceOptions.START_ROW_KEY,
+                        HbaseSourceOptions.END_ROW_KEY,
+                        HbaseSourceOptions.START_ROW_INCLUSIVE,
+                        HbaseSourceOptions.END_ROW_INCLUSIVE)
+                .optional(
+                        HbaseSourceOptions.START_TIMESTAMP,
+                        HbaseSourceOptions.END_TIMESTAMP,
+                        Conditions.greaterOrEqual(HbaseSourceOptions.START_TIMESTAMP, 0L),
+                        Conditions.greaterThan(HbaseSourceOptions.END_TIMESTAMP, 0L),
+                        Conditions.lessThanField(
+                                HbaseSourceOptions.START_TIMESTAMP,
+                                HbaseSourceOptions.END_TIMESTAMP))
                 .build();
     }
 

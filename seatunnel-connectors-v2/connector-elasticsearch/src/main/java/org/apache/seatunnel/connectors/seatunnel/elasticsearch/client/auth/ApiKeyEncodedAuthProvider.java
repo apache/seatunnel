@@ -24,8 +24,6 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Optional;
 
 @Slf4j
@@ -66,34 +64,6 @@ public class ApiKeyEncodedAuthProvider extends AbstractAuthenticationProvider {
 
     @Override
     public void validate(ReadonlyConfig config) {
-        Optional<String> apiKeyEncoded =
-                config.getOptional(ElasticsearchBaseOptions.API_KEY_ENCODED);
-        if (!apiKeyEncoded.isPresent()) {
-            throw new IllegalArgumentException(
-                    "API key authentication with auth_type='api_key_encoded' requires api_key_encoded");
-        }
-        validateEncodedApiKey(apiKeyEncoded.get());
-
-        log.debug("Encoded API key authentication configuration validated");
-    }
-
-    /** Validate encoded API key. */
-    private void validateEncodedApiKey(String apiKeyEncoded) {
-        if (apiKeyEncoded == null || apiKeyEncoded.trim().isEmpty()) {
-            throw new IllegalArgumentException("Encoded API key cannot be null or empty");
-        }
-
-        try {
-            byte[] decoded = Base64.getDecoder().decode(apiKeyEncoded);
-            String decodedStr = new String(decoded, StandardCharsets.UTF_8);
-
-            if (!decodedStr.contains(":")) {
-                throw new IllegalArgumentException(
-                        "Encoded API key must be Base64 encoded 'id:key' format");
-            }
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "Invalid encoded API key format: " + e.getMessage(), e);
-        }
+        // intentionally empty - validation handled by OptionRule
     }
 }

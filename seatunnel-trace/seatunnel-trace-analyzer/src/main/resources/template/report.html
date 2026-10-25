@@ -1,0 +1,1996 @@
+<!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one or more
+  ~ contributor license agreements.  See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache License, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License.  You may obtain a copy of the License at
+  ~
+  ~    http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<!doctype html>
+<html lang="zh-CN" id="htmlRoot">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title id="pageTitle">SeaTunnel StainTrace 分析报告</title>
+  <style>
+    :root {
+      /* light theme (default) */
+      --bg: #f5f7fa;
+      --panel: rgba(0, 0, 0, 0.04);
+      --panel2: rgba(0, 0, 0, 0.06);
+      --border: rgba(0, 0, 0, 0.09);
+      --text: rgba(0, 0, 0, 0.88);
+      --muted: rgba(0, 0, 0, 0.60);
+      --muted2: rgba(0, 0, 0, 0.42);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      --surface-a: rgba(0, 0, 0, 0.05);
+      --surface-b: rgba(0, 0, 0, 0.08);
+      --surface-c: rgba(0, 0, 0, 0.03);
+      --surface-d: rgba(0, 0, 0, 0.05);
+      --surface-e: rgba(0, 0, 0, 0.02);
+      --inset-bg: rgba(0, 0, 0, 0.04);
+      --header-bg: rgba(248, 249, 252, 0.92);
+      --tooltip-bg: rgba(255, 255, 255, 0.98);
+      --select-glow: rgba(0, 0, 0, 0.22);
+      /* category colors and fonts — shared */
+      --source: #4da3ff;
+      --transform: #b48bff;
+      --queue: #ff8a4a;
+      --sink: #34d399;
+      --flow: #f472b6;
+      --other: #a3a3a3;
+      --danger: #ff3b6a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0b1020;
+      --panel: var(--surface-a);
+      --panel2: rgba(255, 255, 255, 0.09);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: rgba(255, 255, 255, 0.92);
+      --muted: rgba(255, 255, 255, 0.72);
+      --muted2: rgba(255, 255, 255, 0.54);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --surface-a: var(--surface-a);
+      --surface-b: var(--surface-b);
+      --surface-c: var(--surface-c);
+      --surface-d: var(--surface-d);
+      --surface-e: rgba(255, 255, 255, 0.02);
+      --inset-bg: var(--inset-bg);
+      --header-bg: rgba(11, 16, 32, 0.85);
+      --tooltip-bg: rgba(20, 25, 40, 0.98);
+      --select-glow: rgba(255, 255, 255, 0.55);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      color: var(--text);
+      background: radial-gradient(900px 500px at 40% 0%, rgba(77, 163, 255, 0.10), transparent 60%),
+        radial-gradient(900px 500px at 80% 10%, rgba(180, 139, 255, 0.08), transparent 60%),
+        radial-gradient(900px 500px at 20% 30%, rgba(52, 211, 153, 0.07), transparent 60%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    html[data-theme="dark"] body {
+      background: radial-gradient(900px 500px at 40% 0%, rgba(77, 163, 255, 0.20), transparent 60%),
+        radial-gradient(900px 500px at 80% 10%, rgba(180, 139, 255, 0.16), transparent 60%),
+        radial-gradient(900px 500px at 20% 30%, rgba(52, 211, 153, 0.14), transparent 60%),
+        var(--bg);
+    }
+
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: var(--header-bg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 650;
+      margin-bottom: 4px;
+    }
+
+    header .meta {
+      font-size: 12px;
+      color: var(--muted2);
+      font-family: var(--mono);
+    }
+
+    .toolbar {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar .spacer {
+      flex: 1 1 auto;
+      min-width: 20px;
+    }
+
+    .toolbar .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .toolbar .control-group label {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .toolbar select,
+    .toolbar input {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .toolbar select {
+      min-width: 220px;
+    }
+
+    .toolbar input {
+      min-width: 220px;
+    }
+
+    .toolbar input[type="number"] {
+      min-width: 140px;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface-a);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--surface-b);
+    }
+
+    .navLink {
+      text-decoration: none;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: var(--surface-c);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .navLink:hover {
+      color: var(--text);
+      background: var(--surface-d);
+    }
+
+    .container {
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .stat-card .label {
+      font-size: 11px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 24px;
+      font-weight: 650;
+      font-family: var(--mono);
+      color: var(--text);
+    }
+
+    .stat-card .unit {
+      font-size: 14px;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .panel .hd {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .panel .hd .left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .panel .hd .title {
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .panel .bd {
+      padding: 12px 14px 14px;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-a);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .pill {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--surface-d);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .timelineWrap {
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--inset-bg);
+    }
+
+    .timeline {
+      width: 100%;
+      min-width: 900px;
+      display: block;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .legend .item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .tableWrap {
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--inset-bg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--surface-d);
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted2);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--surface-c);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    tr:hover td {
+      background: var(--surface-c);
+      cursor: pointer;
+    }
+
+    .mono {
+      font-family: var(--mono);
+    }
+
+    .stage-pill {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .traceViewer {
+      display: grid;
+      grid-template-columns: 520px 1fr;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--inset-bg);
+    }
+
+    .traceCol {
+      overflow: auto;
+      max-height: 520px;
+    }
+
+    .traceColLeft {
+      border-right: 1px solid var(--border);
+      background: var(--surface-e);
+    }
+
+    .traceHeaderRow {
+      display: grid;
+      grid-template-columns: 1fr 90px;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-a);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      font-size: 11px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .traceHeaderRight {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-a);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      font-size: 11px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .axis {
+      position: relative;
+      height: 18px;
+      width: 1000px;
+      flex: 0 0 auto;
+    }
+
+    .axisTick {
+      position: absolute;
+      top: 0;
+      height: 18px;
+      border-left: 1px solid var(--surface-b);
+    }
+
+    .axisTick span {
+      position: absolute;
+      top: 0;
+      left: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted2);
+      white-space: nowrap;
+    }
+
+    .traceRowLeft {
+      display: grid;
+      grid-template-columns: 1fr 90px;
+      gap: 10px;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--surface-c);
+      font-size: 12px;
+      align-items: center;
+    }
+
+    .traceName {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .traceNameText {
+      font-family: var(--mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .traceDur {
+      font-family: var(--mono);
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .traceRowRight {
+      position: relative;
+      height: 30px;
+      border-bottom: 1px solid var(--surface-c);
+      width: 1000px;
+      flex: 0 0 auto;
+    }
+
+    .traceBar {
+      position: absolute;
+      top: 7px;
+      height: 16px;
+      border-radius: 3px;
+      opacity: 0.75;
+    }
+
+    .traceMarker {
+      position: absolute;
+      top: 5px;
+      width: 2px;
+      height: 20px;
+      border-radius: 2px;
+      opacity: 0.9;
+    }
+
+    .traceRightScroll {
+      overflow: auto;
+      max-height: 520px;
+    }
+
+    .traceRowLeft.isSelected {
+      background: var(--surface-a);
+    }
+
+    .traceRowRight.isSelected {
+      background: var(--surface-c);
+    }
+
+    .traceBar,
+    .traceMarker,
+    #timeline .tlInteractive {
+      cursor: pointer;
+    }
+
+    .traceBar.isSelected,
+    .traceMarker.isSelected {
+      opacity: 1;
+      box-shadow: 0 0 0 2px var(--select-glow), 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    tbody tr.isSelected td {
+      background: var(--surface-d);
+    }
+
+    .tooltip {
+      position: fixed;
+      background: var(--tooltip-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 12px;
+      font-family: var(--mono);
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      max-width: 520px;
+    }
+
+    .tooltip.show {
+      display: block;
+    }
+
+    .tooltipTitle {
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--surface-b);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tooltipGrid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 14px;
+      align-items: baseline;
+    }
+
+    .tooltipKey {
+      color: var(--muted2);
+      white-space: nowrap;
+    }
+
+    .tooltipVal {
+      color: var(--text);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 1200px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="h1">SeaTunnel StainTrace 性能分析报告</h1>
+    <div class="meta"><span data-i18n="generatedAt">生成时间：</span>{{TIMESTAMP}} <span id="activeTraceMeta"></span></div>
+    <div class="toolbar">
+      <div class="control-group">
+        <label>Trace</label>
+        <select id="traceFilter">
+          <option value="" data-i18n="optAllTrace">全部 Trace（图展示默认取第一条）</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label data-i18n="labelView">视图</label>
+        <select id="viewMode">
+          <option value="waterfall" data-i18n="optWaterfall">图展示（树 + 瀑布）</option>
+          <option value="timeline" data-i18n="optTimeline">泳道展示（多 Trace）</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Category</label>
+        <select id="categoryFilter">
+          <option value="" data-i18n="optAll">全部</option>
+          <option value="SOURCE">SOURCE</option>
+          <option value="TRANSFORM">TRANSFORM</option>
+          <option value="QUEUE">QUEUE</option>
+          <option value="SINK">SINK</option>
+          <option value="FLOW_CONTROL">FLOW_CONTROL</option>
+          <option value="OTHER">OTHER</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label data-i18n="labelStageKeyword">Stage 关键词</label>
+        <input id="keywordFilter" type="text" placeholder="例如：SINK_WRITE / 110 / taskId" data-i18n-ph="phKeyword" />
+      </div>
+      <div class="control-group">
+        <label data-i18n="labelMinDuration">最小间隔(ms)</label>
+        <input id="minDuration" type="number" min="0" step="1" placeholder="0" />
+      </div>
+      <div class="control-group">
+        <label data-i18n="labelCatalogScope">Stage 统计范围</label>
+        <select id="catalogScope">
+          <option value="all" data-i18n="optScopeAll">按当前筛选范围</option>
+          <option value="active" data-i18n="optScopeActive">仅当前图展示 Trace</option>
+        </select>
+      </div>
+      <button class="btn" id="resetFilters" type="button" data-i18n="btnReset">重置</button>
+      <button class="btn" id="exportJson" type="button" data-i18n="btnExport">导出当前 Trace JSON</button>
+      <button class="btn" id="themeBtn" type="button">◐</button>
+      <button class="btn" id="langBtn" type="button">EN</button>
+      <div class="spacer"></div>
+      <a class="navLink" href="#section-trace" data-i18n="navTrace">链路追踪</a>
+      <a class="navLink" href="#section-stage" data-i18n="navStage">Stage 字典</a>
+      <a class="navLink" href="#section-table" data-i18n="navTable">明细表</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label" data-i18n="statTotal">总 Trace 数</div>
+        <div class="value">{{TOTAL_COUNT}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label" data-i18n="statAvg">平均端到端延迟</div>
+        <div class="value">{{AVG_LATENCY}}<span class="unit">ms</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="label" data-i18n="statMax">最大延迟</div>
+        <div class="value">{{MAX_LATENCY}}<span class="unit">ms</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="label" data-i18n="statMin">最小延迟</div>
+        <div class="value">{{MIN_LATENCY}}<span class="unit">ms</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="label" data-i18n="statP95">P95 延迟</div>
+        <div class="value">{{P95_LATENCY}}<span class="unit">ms</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="label" data-i18n="statP99">P99 延迟</div>
+        <div class="value">{{P99_LATENCY}}<span class="unit">ms</span></div>
+      </div>
+    </div>
+
+    <div class="panel" id="section-stage">
+      <div class="hd">
+        <div class="left">
+          <div class="title" data-i18n="stageCatalogTitle">Stage 字典（核心 28 阶段）</div>
+          <div id="stageCatalogMeta" class="badge">0/28 已出现</div>
+        </div>
+        <div class="pill" data-i18n="stageCatalogPill">未出现的阶段会置灰；出现次数按事件点统计</div>
+      </div>
+      <div class="bd">
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Stage</th>
+                <th>Category</th>
+                <th data-i18n="colDesc">说明</th>
+                <th data-i18n="colCount">出现次数</th>
+              </tr>
+            </thead>
+            <tbody id="stageCatalogBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="section-trace">
+      <div class="hd">
+        <div class="left">
+          <div class="title" data-i18n="tracePanelTitle">链路追踪</div>
+          <div class="badge" data-i18n="tracePanelBadge">图展示=树+瀑布；泳道展示=多 Trace 对比</div>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="legend">
+          <div class="item"><span class="dot" style="background: var(--source)"></span>SOURCE</div>
+          <div class="item"><span class="dot" style="background: var(--transform)"></span>TRANSFORM</div>
+          <div class="item"><span class="dot" style="background: var(--queue)"></span>QUEUE</div>
+          <div class="item"><span class="dot" style="background: var(--sink)"></span>SINK</div>
+          <div class="item"><span class="dot" style="background: var(--flow)"></span>FLOW_CONTROL</div>
+          <div class="item"><span class="dot" style="background: var(--other)"></span>OTHER</div>
+        </div>
+        <div id="tab-waterfall">
+          <div class="traceViewer">
+            <div class="traceCol traceColLeft">
+              <div class="traceHeaderRow">
+                <div>Span / Event</div>
+                <div style="text-align:right">Duration</div>
+              </div>
+              <div id="traceTreeLeft"></div>
+            </div>
+            <div class="traceCol traceRightScroll">
+              <div class="traceHeaderRight">
+                <div>Waterfall</div>
+                <div class="axis" id="waterfallAxis"></div>
+              </div>
+              <div id="traceTreeRight"></div>
+            </div>
+          </div>
+        </div>
+        <div id="tab-timeline" style="display:none">
+          <div class="timelineWrap">
+            <svg id="timeline" class="timeline" viewBox="0 0 1200 260" preserveAspectRatio="xMinYMin meet"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="section-table">
+      <div class="hd">
+        <div class="left">
+          <div class="title" data-i18n="detailTitle">明细表</div>
+          <div id="rowCount" class="badge">0 行</div>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trace ID</th>
+                <th>Sink Task ID</th>
+                <th>Stage Name</th>
+                <th>Stage Code</th>
+                <th>Task ID</th>
+                <th>Timestamp (ms)</th>
+                <th>Duration (ms)</th>
+                <th>Category</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip" aria-hidden="true"></div>
+
+  <script id="traceData" type="application/json">__TRACE_DATA_JSON__</script>
+  <script>
+    // ===== theme =====
+    let currentTheme = 'light';
+    function applyTheme(theme) {
+      currentTheme = theme;
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀' : '◐';
+    }
+
+    // ===== i18n =====
+    let currentLang = (navigator.language || navigator.userLanguage || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    const I18N = {
+      zh: {
+        title: 'SeaTunnel StainTrace 分析报告',
+        h1: 'SeaTunnel StainTrace 性能分析报告',
+        generatedAt: '生成时间：',
+        optAllTrace: '全部 Trace（图展示默认取第一条）',
+        optWaterfall: '图展示（树 + 瀑布）',
+        optTimeline: '泳道展示（多 Trace）',
+        optAll: '全部',
+        labelView: '视图',
+        labelStageKeyword: 'Stage 关键词',
+        labelMinDuration: '最小间隔(ms)',
+        labelCatalogScope: 'Stage 统计范围',
+        optScopeAll: '按当前筛选范围',
+        optScopeActive: '仅当前图展示 Trace',
+        phKeyword: '例如：SINK_WRITE / 110 / taskId',
+        btnReset: '重置',
+        btnExport: '导出当前 Trace JSON',
+        navTrace: '链路追踪',
+        navStage: 'Stage 字典',
+        navTable: '明细表',
+        statTotal: '总 Trace 数',
+        statAvg: '平均端到端延迟',
+        statMax: '最大延迟',
+        statMin: '最小延迟',
+        statP95: 'P95 延迟',
+        statP99: 'P99 延迟',
+        stageCatalogTitle: 'Stage 字典（核心 28 阶段）',
+        stageCatalogPill: '未出现的阶段会置灰；出现次数按事件点统计',
+        colDesc: '说明',
+        colCount: '出现次数',
+        tracePanelTitle: '链路追踪',
+        tracePanelBadge: '图展示=树+瀑布；泳道展示=多 Trace 对比',
+        detailTitle: '明细表',
+        fmtAppeared: (n, total) => `${n}/${total} 已出现`,
+        fmtRows: (n) => `${n} 行`,
+        fmtActiveTraceMeta: (traceId, sinkTaskId, no) => `当前图 Trace=${traceId} / SinkTask=${sinkTaskId} #${no}`,
+        fmtAllMode: '（当前选择=全部，图展示取第一条）',
+      },
+      en: {
+        title: 'SeaTunnel StainTrace Analysis Report',
+        h1: 'SeaTunnel StainTrace Performance Report',
+        generatedAt: 'Generated: ',
+        optAllTrace: 'All Traces (waterfall defaults to first)',
+        optWaterfall: 'Waterfall (tree + bars)',
+        optTimeline: 'Timeline (multi-trace)',
+        optAll: 'All',
+        labelView: 'View',
+        labelStageKeyword: 'Stage Keyword',
+        labelMinDuration: 'Min Gap (ms)',
+        labelCatalogScope: 'Stage Scope',
+        optScopeAll: 'Current filter scope',
+        optScopeActive: 'Active trace only',
+        phKeyword: 'e.g. SINK_WRITE / 110 / taskId',
+        btnReset: 'Reset',
+        btnExport: 'Export Current Trace JSON',
+        navTrace: 'Trace View',
+        navStage: 'Stage Catalog',
+        navTable: 'Detail Table',
+        statTotal: 'Total Traces',
+        statAvg: 'Avg End-to-End Latency',
+        statMax: 'Max Latency',
+        statMin: 'Min Latency',
+        statP95: 'P95 Latency',
+        statP99: 'P99 Latency',
+        stageCatalogTitle: 'Stage Catalog (28 core stages)',
+        stageCatalogPill: 'Absent stages are greyed out; counts are per event point',
+        colDesc: 'Description',
+        colCount: 'Count',
+        tracePanelTitle: 'Trace View',
+        tracePanelBadge: 'Waterfall = tree + bars; Timeline = multi-trace comparison',
+        detailTitle: 'Detail Table',
+        fmtAppeared: (n, total) => `${n}/${total} appeared`,
+        fmtRows: (n) => `${n} rows`,
+        fmtActiveTraceMeta: (traceId, sinkTaskId, no) => `Active Trace=${traceId} / SinkTask=${sinkTaskId} #${no}`,
+        fmtAllMode: '(selection=all, waterfall shows first)',
+      }
+    };
+
+    function applyLang(lang) {
+      currentLang = lang;
+      document.getElementById('htmlRoot').setAttribute('lang', lang === 'zh' ? 'zh-CN' : 'en');
+      document.getElementById('pageTitle').textContent = I18N[lang].title;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (typeof I18N[lang][key] === 'string') el.textContent = I18N[lang][key];
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const key = el.getAttribute('data-i18n-ph');
+        if (typeof I18N[lang][key] === 'string') el.setAttribute('placeholder', I18N[lang][key]);
+      });
+      document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
+      renderAll();
+    }
+
+    const traceData = JSON.parse(document.getElementById('traceData').textContent);
+    const traceByKey = new Map();
+    traceData.forEach((t, idx) => {
+      const traceId = String(t.traceId);
+      const sinkTaskId = String(t.sinkTaskId || '');
+      t.__key = `${traceId}:${sinkTaskId}`;
+      t.__no = idx + 1;
+      traceByKey.set(t.__key, t);
+    });
+
+    function getTraceByKey(key) {
+      if (!key) return null;
+      return traceByKey.get(String(key)) || null;
+    }
+
+    const CATEGORY_COLORS = {
+      SOURCE: '#4da3ff',
+      TRANSFORM: '#b48bff',
+      QUEUE: '#ff8a4a',
+      SINK: '#34d399',
+      FLOW_CONTROL: '#f472b6',
+      OTHER: '#a3a3a3'
+    };
+
+    const CORE_STAGE_CATALOG = [
+      { code: 201, name: 'SOURCE_READ_START', category: 'SOURCE', desc: 'Source 开始读取输入', descEn: 'Source starts reading input' },
+      { code: 101, name: 'SOURCE_READ_END', category: 'SOURCE', desc: 'Source 完成读取输入', descEn: 'Source finishes reading input' },
+      { code: 202, name: 'SOURCE_SERIALIZE_START', category: 'SOURCE', desc: 'Source 序列化开始（跨节点/跨线程场景可能出现）', descEn: 'Source serialization started (cross-node/thread)' },
+      { code: 203, name: 'SOURCE_SERIALIZE_END', category: 'SOURCE', desc: 'Source 序列化结束', descEn: 'Source serialization ended' },
+      { code: 1, name: 'SOURCE_EMIT', category: 'SOURCE', desc: 'Source 发射记录进入下游', descEn: 'Source emits record downstream' },
+
+      { code: 102, name: 'QUEUE_OFFER_START', category: 'QUEUE', desc: '开始入队（观测背压/排队）', descEn: 'Queue enqueue started (backpressure observation)' },
+      { code: 2, name: 'QUEUE_IN', category: 'QUEUE', desc: '入队成功（进入中间队列）', descEn: 'Entered intermediate queue' },
+      { code: 3, name: 'QUEUE_OUT', category: 'QUEUE', desc: '出队成功（离开中间队列）', descEn: 'Left intermediate queue' },
+      { code: 204, name: 'QUEUE_DESERIALIZE_START', category: 'QUEUE', desc: '出队后反序列化开始（跨节点/跨线程场景可能出现）', descEn: 'Deserialization after dequeue started (cross-node/thread)' },
+      { code: 103, name: 'QUEUE_DESERIALIZE_END', category: 'QUEUE', desc: '出队后反序列化结束', descEn: 'Deserialization after dequeue ended' },
+
+      { code: 4, name: 'TRANSFORM_IN', category: 'TRANSFORM', desc: 'Transform 接收输入', descEn: 'Transform receives input' },
+      { code: 205, name: 'TRANSFORM_PARSE_START', category: 'TRANSFORM', desc: 'Transform 解析开始（如 SQL parse）', descEn: 'Transform parsing started (e.g. SQL parse)' },
+      { code: 206, name: 'TRANSFORM_PARSE_END', category: 'TRANSFORM', desc: 'Transform 解析结束', descEn: 'Transform parsing ended' },
+      { code: 104, name: 'TRANSFORM_EXECUTE_START', category: 'TRANSFORM', desc: 'Transform 执行开始（如 SQL execute）', descEn: 'Transform execution started (e.g. SQL execute)' },
+      { code: 105, name: 'TRANSFORM_EXECUTE_END', category: 'TRANSFORM', desc: 'Transform 执行结束', descEn: 'Transform execution ended' },
+      { code: 207, name: 'TRANSFORM_BUILD_START', category: 'TRANSFORM', desc: 'Transform 构建输出开始（如构造 Row）', descEn: 'Transform output build started (e.g. build Row)' },
+      { code: 208, name: 'TRANSFORM_BUILD_END', category: 'TRANSFORM', desc: 'Transform 构建输出结束', descEn: 'Transform output build ended' },
+      { code: 5, name: 'TRANSFORM_OUT', category: 'TRANSFORM', desc: 'Transform 输出到下游', descEn: 'Transform outputs downstream' },
+
+      { code: 209, name: 'SINK_RECEIVE', category: 'SINK', desc: 'Sink 接收输入', descEn: 'Sink receives input' },
+      { code: 210, name: 'SINK_BATCH_AGGREGATE_START', category: 'SINK', desc: 'Sink 批量聚合开始（batch/buffer）', descEn: 'Sink batch aggregation started (batch/buffer)' },
+      { code: 106, name: 'SINK_BATCH_AGGREGATE_END', category: 'SINK', desc: 'Sink 批量聚合结束', descEn: 'Sink batch aggregation ended' },
+      { code: 211, name: 'SINK_FORMAT_START', category: 'SINK', desc: 'Sink 格式化开始（encode/convert）', descEn: 'Sink formatting started (encode/convert)' },
+      { code: 107, name: 'SINK_FORMAT_END', category: 'SINK', desc: 'Sink 格式化结束', descEn: 'Sink formatting ended' },
+      { code: 108, name: 'SINK_WRITE_START', category: 'SINK', desc: 'Sink I/O 写入开始', descEn: 'Sink I/O write started' },
+      { code: 109, name: 'SINK_WRITE_END', category: 'SINK', desc: 'Sink I/O 写入结束', descEn: 'Sink I/O write ended' },
+      { code: 212, name: 'SINK_COMMIT_START', category: 'SINK', desc: 'Sink commit 开始（两阶段提交/flush）', descEn: 'Sink commit started (two-phase commit/flush)' },
+      { code: 110, name: 'SINK_COMMIT_END', category: 'SINK', desc: 'Sink commit 结束', descEn: 'Sink commit ended' },
+      { code: 6, name: 'SINK_WRITE_DONE', category: 'SINK', desc: 'Sink 写入完成（端到端完成点）', descEn: 'Sink write completed (end-to-end completion point)' }
+    ];
+
+    function guessCategory(stageName) {
+      const upper = stageName.toUpperCase();
+      if (upper.includes('SOURCE')) return 'SOURCE';
+      if (upper.includes('TRANSFORM')) return 'TRANSFORM';
+      if (upper.includes('QUEUE')) return 'QUEUE';
+      if (upper.includes('SINK')) return 'SINK';
+      if (upper.includes('FLOW')) return 'FLOW_CONTROL';
+      return 'OTHER';
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function compareNumericId(a, b) {
+      const sa = String(a);
+      const sb = String(b);
+      if (sa.length !== sb.length) return sa.length - sb.length;
+      return sa.localeCompare(sb);
+    }
+
+    function compareTraceKey(a, b) {
+      const [aTraceId, aSinkTaskId] = String(a).split(':');
+      const [bTraceId, bSinkTaskId] = String(b).split(':');
+      const c1 = compareNumericId(aTraceId || '', bTraceId || '');
+      if (c1 !== 0) return c1;
+      return compareNumericId(aSinkTaskId || '', bSinkTaskId || '');
+    }
+
+    function formatDuration(ms) {
+      if (ms == null) return '-';
+      if (ms < 1) return (ms * 1000).toFixed(0) + 'μs';
+      if (ms < 1000) return ms.toFixed(2) + 'ms';
+      return (ms / 1000).toFixed(2) + 's';
+    }
+
+    function formatTimeOfDay(tsMs) {
+      if (tsMs == null) return '-';
+      const d = new Date(tsMs);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      const ms = String(d.getMilliseconds()).padStart(3, '0');
+      return `${hh}:${mm}:${ss}.${ms}`;
+    }
+
+    const tooltipEl = document.getElementById('tooltip');
+    let tooltipPinned = false;
+    let selectedKey = null;
+    let selectedTableKey = null;
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function showTooltipHtml(html, x, y) {
+      tooltipEl.innerHTML = html;
+      tooltipEl.classList.add('show');
+      tooltipEl.setAttribute('aria-hidden', 'false');
+
+      const margin = 12;
+      const rect = tooltipEl.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width - margin;
+      const maxY = window.innerHeight - rect.height - margin;
+      const left = clamp(x + 12, margin, maxX);
+      const top = clamp(y + 12, margin, maxY);
+      tooltipEl.style.left = `${left}px`;
+      tooltipEl.style.top = `${top}px`;
+    }
+
+    function hideTooltip() {
+      tooltipEl.classList.remove('show');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+    }
+
+    function buildTooltipHtml(info) {
+      const title = escapeHtml(info.title || info.stageName || info.name || info.kind || '');
+      const rows = [];
+      function add(key, val) {
+        if (val == null || val === '') return;
+        rows.push(
+          `<div class="tooltipKey">${escapeHtml(key)}</div><div class="tooltipVal">${escapeHtml(val)}</div>`
+        );
+      }
+
+      add('Kind', info.kind);
+      add('Trace ID', info.traceId);
+      add('Trace No', info.traceNo);
+      add('Sink Task ID', info.sinkTaskId);
+      add('Task ID', info.taskId);
+      add('Category', info.category);
+      add('Stage', info.stageName);
+      add('Stage Code', info.stageCode);
+      if (info.kind === 'span') {
+        add('Duration', info.durationMs != null ? `${info.durationMs}ms` : null);
+        add('Start', info.startMs != null ? `${formatTimeOfDay(info.startMs)} (+${info.offsetStartMs}ms)` : null);
+        add('End', info.endMs != null ? `${formatTimeOfDay(info.endMs)} (+${info.offsetEndMs}ms)` : null);
+        add('Start Index', info.startIndex);
+        add('End Index', info.endIndex);
+      } else if (info.kind === 'event') {
+        add('At', info.timestampMs != null ? `${formatTimeOfDay(info.timestampMs)} (+${info.offsetMs}ms)` : null);
+        add('Entry Index', info.entryIndex);
+      } else {
+        add('Start', info.startMs != null ? formatTimeOfDay(info.startMs) : null);
+        add('End', info.endMs != null ? formatTimeOfDay(info.endMs) : null);
+        add('Duration', info.durationMs != null ? `${info.durationMs}ms` : null);
+      }
+
+      return `<div class="tooltipTitle">${title}</div><div class="tooltipGrid">${rows.join('')}</div>`;
+    }
+
+    function clearSelection() {
+      tooltipPinned = false;
+      hideTooltip();
+      if (selectedKey) {
+        document.querySelectorAll('[data-sel-key]').forEach(el => {
+          if (el.dataset.selKey === selectedKey) el.classList.remove('isSelected');
+        });
+      }
+      selectedKey = null;
+      if (selectedTableKey) {
+        const tbody = document.getElementById('tbody');
+        if (tbody) {
+          tbody.querySelectorAll('tr').forEach(tr => {
+            if (tr.getAttribute('data-row-key') === selectedTableKey) tr.classList.remove('isSelected');
+          });
+        }
+      }
+      selectedTableKey = null;
+    }
+
+    window.addEventListener('click', () => {
+      if (tooltipPinned) {
+        clearSelection();
+      }
+    });
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        clearSelection();
+      }
+    });
+
+    function selectTableRow(traceKey, entryIndex) {
+      const key = `${traceKey}:${entryIndex}`;
+      if (selectedTableKey && selectedTableKey !== key) {
+        const tbody = document.getElementById('tbody');
+        if (tbody) {
+          tbody.querySelectorAll('tr').forEach(tr => {
+            if (tr.getAttribute('data-row-key') === selectedTableKey) tr.classList.remove('isSelected');
+          });
+        }
+      }
+      selectedTableKey = key;
+      const tbody = document.getElementById('tbody');
+      if (tbody) {
+        tbody.querySelectorAll('tr').forEach(tr => {
+          if (tr.getAttribute('data-row-key') === key) {
+            tr.classList.add('isSelected');
+            tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        });
+      }
+    }
+
+    function setSelectedKey(nextKey) {
+      if (selectedKey && selectedKey !== nextKey) {
+        document.querySelectorAll('[data-sel-key]').forEach(el => {
+          if (el.dataset.selKey === selectedKey) el.classList.remove('isSelected');
+        });
+      }
+      selectedKey = nextKey;
+      document.querySelectorAll('[data-sel-key]').forEach(el => {
+        if (el.dataset.selKey === selectedKey) el.classList.add('isSelected');
+      });
+    }
+
+    function bindInteractive(el, info, onSelect) {
+      const builtHtml = buildTooltipHtml(info);
+
+      el.addEventListener('mouseenter', e => {
+        if (tooltipPinned) return;
+        showTooltipHtml(builtHtml, e.clientX, e.clientY);
+      });
+      el.addEventListener('mousemove', e => {
+        if (tooltipPinned) return;
+        showTooltipHtml(builtHtml, e.clientX, e.clientY);
+      });
+      el.addEventListener('mouseleave', () => {
+        if (tooltipPinned) return;
+        hideTooltip();
+      });
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        tooltipPinned = true;
+        showTooltipHtml(builtHtml, e.clientX, e.clientY);
+        if (onSelect) onSelect();
+      });
+    }
+
+    function getActiveTrace() {
+      const selectedKey = document.getElementById('traceFilter').value;
+      if (selectedKey) {
+        return getTraceByKey(selectedKey);
+      }
+      return traceData.length > 0 ? traceData[0] : null;
+    }
+
+    function buildStageIndex(entries) {
+      const byName = new Map();
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const name = e.stageName || '';
+        if (!byName.has(name)) byName.set(name, []);
+        byName.get(name).push(i);
+      }
+      return byName;
+    }
+
+    function buildVirtualTree(trace) {
+      const entries = (trace && trace.entries) ? trace.entries.slice() : [];
+      if (entries.length === 0) return null;
+
+      const t0 = Math.min(...entries.map(e => e.timestampMs));
+      const t1 = Math.max(...entries.map(e => e.timestampMs));
+      const traceId = trace.traceId;
+      const traceKey = String(trace.__key);
+      const traceNo = trace.__no;
+      const sinkTaskId = trace.sinkTaskId;
+
+      const root = {
+        id: 'root',
+        name: 'seatunnel.record',
+        category: 'OTHER',
+        kind: 'span',
+        traceKey: traceKey,
+        traceId: traceId,
+        traceNo: traceNo,
+        sinkTaskId: sinkTaskId,
+        startMs: t0,
+        endMs: t1,
+        children: []
+      };
+
+      const groups = [
+        { key: 'SOURCE', match: e => guessCategory(e.stageName) === 'SOURCE' },
+        { key: 'FLOW_CONTROL', match: e => guessCategory(e.stageName) === 'FLOW_CONTROL' },
+        { key: 'TRANSFORM', match: e => guessCategory(e.stageName) === 'TRANSFORM' },
+        { key: 'QUEUE', match: e => guessCategory(e.stageName) === 'QUEUE' },
+        { key: 'SINK', match: e => guessCategory(e.stageName) === 'SINK' },
+        { key: 'OTHER', match: e => guessCategory(e.stageName) === 'OTHER' }
+      ];
+
+      const consumedEndIdx = new Set();
+      const byName = buildStageIndex(entries);
+
+      function pickPair(startIdx) {
+        const start = entries[startIdx];
+        const endName = (start.stageName || '').replace('_START', '_END');
+        const list = byName.get(endName) || [];
+        for (const endIdx of list) {
+          if (
+            endIdx > startIdx
+            && !consumedEndIdx.has(endIdx)
+            && String(entries[endIdx].taskId) === String(start.taskId)
+          ) {
+            return endIdx;
+          }
+        }
+        return -1;
+      }
+
+      for (const g of groups) {
+        const groupEntries = entries
+          .map((e, idx) => ({ e, idx }))
+          .filter(x => g.match(x.e));
+        if (groupEntries.length === 0) continue;
+
+        const gStart = Math.min(...groupEntries.map(x => x.e.timestampMs));
+        const gEnd = Math.max(...groupEntries.map(x => x.e.timestampMs));
+
+        const groupNode = {
+          id: `group:${g.key}`,
+          name: g.key,
+          category: g.key,
+          kind: 'span',
+          traceKey: traceKey,
+          traceId: traceId,
+          traceNo: traceNo,
+          sinkTaskId: sinkTaskId,
+          startMs: gStart,
+          endMs: gEnd,
+          children: []
+        };
+
+        for (const { e, idx } of groupEntries) {
+          const name = e.stageName || '';
+          if (name.includes('_START')) {
+            const endIdx = pickPair(idx);
+            if (endIdx > idx) {
+              consumedEndIdx.add(endIdx);
+              const endE = entries[endIdx];
+              groupNode.children.push({
+                id: `span:${idx}-${endIdx}`,
+                name: `${name}`,
+                category: g.key,
+                kind: 'span',
+                traceKey: traceKey,
+                traceId: traceId,
+                traceNo: traceNo,
+                sinkTaskId: sinkTaskId,
+                stageName: name,
+                stageCode: e.stage,
+                taskId: e.taskId,
+                startIndex: idx,
+                endIndex: endIdx,
+                startMs: e.timestampMs,
+                endMs: endE.timestampMs,
+                children: []
+              });
+            }
+          }
+        }
+
+        for (const { e, idx } of groupEntries) {
+          groupNode.children.push({
+            id: `evt:${idx}`,
+            name: `${e.stageName}`,
+            category: g.key,
+            kind: 'event',
+            traceKey: traceKey,
+            traceId: traceId,
+            traceNo: traceNo,
+            sinkTaskId: sinkTaskId,
+            stageName: e.stageName,
+            stageCode: e.stage,
+            taskId: e.taskId,
+            entryIndex: idx,
+            startMs: e.timestampMs,
+            endMs: e.timestampMs,
+            children: []
+          });
+        }
+
+        groupNode.children.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+        root.children.push(groupNode);
+      }
+
+      root.children.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+      return root;
+    }
+
+    function flattenTree(node, depth = 0, out = []) {
+      if (!node) return out;
+      out.push({ node, depth });
+      for (const c of (node.children || [])) flattenTree(c, depth + 1, out);
+      return out;
+    }
+
+    function pruneVirtualTree(node, state) {
+      if (!node) return null;
+      const children = (node.children || []).map(c => pruneVirtualTree(c, state)).filter(Boolean);
+
+      if (node.id === 'root' || String(node.id).startsWith('group:')) {
+        return children.length > 0 ? { ...node, children } : null;
+      }
+
+      if (!matchesCategory(node.category, state.category)) return null;
+      if (state.keyword && !matchesKeyword({ stageName: node.stageName || node.name, stage: node.stageCode, taskId: node.taskId }, state.keyword)) return null;
+      if (node.kind === 'span' && state.minDuration > 0) {
+        const dur = (node.endMs - node.startMs);
+        if (dur < state.minDuration) return null;
+      }
+
+      return { ...node, children };
+    }
+
+    function renderWaterfall() {
+      const state = getUIState();
+      const trace = getActiveTrace();
+      const left = document.getElementById('traceTreeLeft');
+      const right = document.getElementById('traceTreeRight');
+      const axis = document.getElementById('waterfallAxis');
+
+      left.innerHTML = '';
+      right.innerHTML = '';
+      axis.innerHTML = '';
+
+      if (!trace || !trace.entries || trace.entries.length === 0) {
+        return;
+      }
+
+      const tree = buildVirtualTree(trace);
+      if (!tree) return;
+
+      const filteredTree = pruneVirtualTree(tree, state) || null;
+      if (!filteredTree) {
+        return;
+      }
+
+      const total = filteredTree.endMs - filteredTree.startMs;
+      const width = 1000;
+      const scale = total > 0 ? (width / total) : 1;
+
+      const tickCount = 5;
+      for (let i = 0; i <= tickCount; i++) {
+        const x = Math.round((width / tickCount) * i);
+        const tick = document.createElement('div');
+        tick.className = 'axisTick';
+        tick.style.left = `${x}px`;
+        const label = document.createElement('span');
+        const offset = total > 0 ? (total / tickCount) * i : 0;
+        label.textContent = `${offset.toFixed(0)}ms`;
+        tick.appendChild(label);
+        axis.appendChild(tick);
+      }
+
+      const rows = flattenTree(filteredTree);
+      for (const { node, depth } of rows) {
+        const dur = node.endMs - node.startMs;
+        const catColor = CATEGORY_COLORS[node.category] || CATEGORY_COLORS.OTHER;
+
+        const rowL = document.createElement('div');
+        rowL.className = 'traceRowLeft';
+        rowL.dataset.selKey = node.id;
+        const nameCell = document.createElement('div');
+        nameCell.className = 'traceName';
+        const indent = document.createElement('span');
+        indent.style.display = 'inline-block';
+        indent.style.width = `${depth * 14}px`;
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = catColor;
+        dot.style.width = '8px';
+        dot.style.height = '8px';
+        const nameText = document.createElement('span');
+        nameText.className = 'traceNameText';
+        nameText.textContent = node.name;
+        nameCell.appendChild(indent);
+        nameCell.appendChild(dot);
+        nameCell.appendChild(nameText);
+
+        const durCell = document.createElement('div');
+        durCell.className = 'traceDur';
+        durCell.textContent = node.kind === 'event' ? '-' : formatDuration(dur);
+
+        rowL.appendChild(nameCell);
+        rowL.appendChild(durCell);
+        left.appendChild(rowL);
+
+        const rowR = document.createElement('div');
+        rowR.className = 'traceRowRight';
+        rowR.dataset.selKey = node.id;
+        const x1 = Math.max(0, Math.round((node.startMs - filteredTree.startMs) * scale));
+        const x2 = Math.max(0, Math.round((node.endMs - filteredTree.startMs) * scale));
+
+        const infoBase = {
+          kind: node.kind,
+          traceKey: node.traceKey,
+          traceId: node.traceId,
+          traceNo: node.traceNo,
+          sinkTaskId: node.sinkTaskId,
+          taskId: node.taskId,
+          category: node.category,
+          stageName: node.stageName,
+          stageCode: node.stageCode,
+          entryIndex: node.entryIndex,
+          startIndex: node.startIndex,
+          endIndex: node.endIndex,
+          startMs: node.startMs,
+          endMs: node.endMs,
+          durationMs: node.endMs - node.startMs,
+          offsetMs: node.startMs - filteredTree.startMs,
+          offsetStartMs: node.startMs - filteredTree.startMs,
+          offsetEndMs: node.endMs - filteredTree.startMs,
+          timestampMs: node.kind === 'event' ? node.startMs : null,
+          title: node.name
+        };
+
+        if (node.kind === 'event') {
+          const m = document.createElement('div');
+          m.className = 'traceMarker';
+          m.dataset.selKey = node.id;
+          m.style.left = `${x1}px`;
+          m.style.background = catColor;
+          rowR.appendChild(m);
+          bindInteractive(m, infoBase, () => {
+            setSelectedKey(node.id);
+            if (typeof infoBase.entryIndex === 'number') {
+              locateEntry(String(infoBase.traceKey), Number(infoBase.entryIndex));
+              selectTableRow(String(infoBase.traceKey), Number(infoBase.entryIndex));
+            }
+          });
+        } else {
+          const b = document.createElement('div');
+          b.className = 'traceBar';
+          b.dataset.selKey = node.id;
+          b.style.left = `${x1}px`;
+          b.style.width = `${Math.max(2, x2 - x1)}px`;
+          b.style.background = catColor;
+          rowR.appendChild(b);
+          bindInteractive(b, infoBase, () => {
+            setSelectedKey(node.id);
+            if (typeof infoBase.startIndex === 'number') {
+              locateEntry(String(infoBase.traceKey), Number(infoBase.startIndex));
+              selectTableRow(String(infoBase.traceKey), Number(infoBase.startIndex));
+            }
+          });
+        }
+
+        right.appendChild(rowR);
+
+        if (!String(node.id).startsWith('group:') && node.id !== 'root') {
+          bindInteractive(rowL, infoBase, () => {
+            setSelectedKey(node.id);
+            if (node.kind === 'event' && typeof infoBase.entryIndex === 'number') {
+              locateEntry(String(infoBase.traceKey), Number(infoBase.entryIndex));
+              selectTableRow(String(infoBase.traceKey), Number(infoBase.entryIndex));
+            } else if (node.kind === 'span' && typeof infoBase.startIndex === 'number') {
+              locateEntry(String(infoBase.traceKey), Number(infoBase.startIndex));
+              selectTableRow(String(infoBase.traceKey), Number(infoBase.startIndex));
+            }
+          });
+        }
+      }
+    }
+
+    function getUIState() {
+      const selectedTrace = document.getElementById('traceFilter').value;
+      const viewMode = document.getElementById('viewMode').value;
+      const category = document.getElementById('categoryFilter').value;
+      const keyword = (document.getElementById('keywordFilter').value || '').trim().toLowerCase();
+      const minDuration = Number(document.getElementById('minDuration').value || 0);
+      const catalogScope = document.getElementById('catalogScope').value;
+      return { selectedTrace, viewMode, category, keyword, minDuration, catalogScope };
+    }
+
+    function matchesKeyword(rowOrSeg, keyword) {
+      if (!keyword) return true;
+      const s1 = String(rowOrSeg.stageName || '').toLowerCase();
+      const s2 = String(rowOrSeg.stage || '').toLowerCase();
+      const s3 = String(rowOrSeg.taskId || '').toLowerCase();
+      return s1.includes(keyword) || s2.includes(keyword) || s3.includes(keyword);
+    }
+
+    function matchesCategory(category, expected) {
+      if (!expected) return true;
+      return category === expected;
+    }
+
+    function filterRow(row, state) {
+      if (!matchesCategory(row.category, state.category)) return false;
+      if (!matchesKeyword(row, state.keyword)) return false;
+      if (state.minDuration > 0 && row.duration < state.minDuration) return false;
+      return true;
+    }
+
+    function filterSegment(seg, state) {
+      if (!matchesCategory(seg.category, state.category)) return false;
+      if (!matchesKeyword(seg, state.keyword)) return false;
+      if (state.minDuration > 0 && seg.durationMs < state.minDuration) return false;
+      return true;
+    }
+
+    function setViewMode(viewMode) {
+      const tabWaterfall = document.getElementById('tab-waterfall');
+      const tabTimeline = document.getElementById('tab-timeline');
+      tabWaterfall.style.display = viewMode === 'timeline' ? 'none' : '';
+      tabTimeline.style.display = viewMode === 'timeline' ? '' : 'none';
+    }
+
+    function initToolbar() {
+      const onChange = () => renderAll();
+
+      document.getElementById('traceFilter').addEventListener('change', onChange);
+      document.getElementById('viewMode').addEventListener('change', onChange);
+      document.getElementById('categoryFilter').addEventListener('change', onChange);
+      document.getElementById('catalogScope').addEventListener('change', onChange);
+
+      document.getElementById('keywordFilter').addEventListener('input', () => {
+        window.clearTimeout(window.__stTraceKwTimer);
+        window.__stTraceKwTimer = window.setTimeout(onChange, 120);
+      });
+
+      document.getElementById('minDuration').addEventListener('input', () => {
+        window.clearTimeout(window.__stTraceDurTimer);
+        window.__stTraceDurTimer = window.setTimeout(onChange, 120);
+      });
+
+      document.getElementById('resetFilters').addEventListener('click', () => {
+        document.getElementById('traceFilter').value = '';
+        document.getElementById('viewMode').value = 'waterfall';
+        document.getElementById('categoryFilter').value = '';
+        document.getElementById('keywordFilter').value = '';
+        document.getElementById('minDuration').value = '';
+        document.getElementById('catalogScope').value = 'all';
+        renderAll();
+      });
+
+      document.getElementById('themeBtn').addEventListener('click', () => {
+        applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+      });
+
+      document.getElementById('langBtn').addEventListener('click', () => {
+        applyLang(currentLang === 'zh' ? 'en' : 'zh');
+      });
+
+      document.getElementById('exportJson').addEventListener('click', () => {
+        const state = getUIState();
+        const trace = state.selectedTrace
+          ? getTraceByKey(state.selectedTrace)
+          : getActiveTrace();
+        if (!trace) return;
+        const blob = new Blob([JSON.stringify(trace, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `trace-${trace.traceId}-${trace.sinkTaskId}-${trace.__no}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    let allRows = [];
+    let segments = [];
+    let events = [];
+
+    function computeSegments() {
+      allRows = [];
+      segments = [];
+      events = [];
+
+      traceData.forEach(trace => {
+        const entries = trace.entries;
+        if (!entries || entries.length === 0) return;
+
+        const startTime = Math.min(...entries.map(e => e.timestampMs));
+        const traceKey = String(trace.__key);
+        const traceNo = trace.__no;
+        const sinkTaskId = trace.sinkTaskId;
+
+        // Track consumed END indices to prevent the same _END from being paired twice
+        const consumedEndIdx = new Set();
+
+        entries.forEach((entry, idx) => {
+          const prevEntry = idx > 0 ? entries[idx - 1] : null;
+          const duration = prevEntry ? (entry.timestampMs - prevEntry.timestampMs) : 0;
+          const category = guessCategory(entry.stageName);
+
+          const row = {
+            traceKey: traceKey,
+            traceId: trace.traceId,
+            traceNo: traceNo,
+            sinkTaskId: sinkTaskId,
+            entryIndex: idx,
+            stage: entry.stage,
+            stageName: entry.stageName,
+            taskId: entry.taskId,
+            timestampMs: entry.timestampMs,
+            duration: duration,
+            category: category,
+            offsetMs: entry.timestampMs - startTime
+          };
+
+          allRows.push(row);
+
+          if (entry.stageName.includes('_START')) {
+            const endStageName = entry.stageName.replace('_START', '_END');
+            let endIndex = -1;
+            for (let i = idx + 1; i < entries.length; i++) {
+              if (
+                entries[i].stageName === endStageName
+                && String(entries[i].taskId) === String(entry.taskId)
+                && !consumedEndIdx.has(i)
+              ) {
+                endIndex = i;
+                break;
+              }
+            }
+            if (endIndex >= 0) {
+              consumedEndIdx.add(endIndex);
+              const endEntry = entries[endIndex];
+              segments.push({
+                traceKey: traceKey,
+                traceId: trace.traceId,
+                traceNo: traceNo,
+                sinkTaskId: sinkTaskId,
+                startIndex: idx,
+                endIndex: endIndex,
+                stageName: entry.stageName,
+                taskId: entry.taskId,
+                stageStart: entry.stage,
+                stageEnd: endEntry.stage,
+                startMs: entry.timestampMs,
+                endMs: endEntry.timestampMs,
+                durationMs: endEntry.timestampMs - entry.timestampMs,
+                category: category,
+                offsetStart: entry.timestampMs - startTime,
+                offsetEnd: endEntry.timestampMs - startTime
+              });
+            }
+          }
+          events.push(row);
+        });
+      });
+    }
+
+    function renderTraceFilter() {
+      const select = document.getElementById('traceFilter');
+      traceData.forEach(trace => {
+        const option = document.createElement('option');
+        option.value = String(trace.__key);
+        const entries = trace.entries || [];
+        const t0 = entries.length > 0 ? Math.min(...entries.map(e => e.timestampMs)) : null;
+        const at = t0 != null ? ` @ ${formatTimeOfDay(t0)}` : '';
+        const sinkTaskId = trace.sinkTaskId != null ? String(trace.sinkTaskId) : '-';
+        option.textContent = `Trace ${trace.traceId} / SinkTask ${sinkTaskId} #${trace.__no}${at}`;
+        select.appendChild(option);
+      });
+    }
+
+    function renderTimeline() {
+      const state = getUIState();
+      const selectedTrace = state.selectedTrace;
+
+      const baseRows = selectedTrace ?
+        allRows.filter(r => r.traceKey == selectedTrace) :
+        allRows;
+
+      const visibleSegments = (selectedTrace ?
+        segments.filter(s => s.traceKey == selectedTrace) :
+        segments).filter(s => filterSegment(s, state));
+
+      const visibleEvents = (selectedTrace ?
+        events.filter(e => e.traceKey == selectedTrace) :
+        events).filter(e => filterRow(e, state));
+
+      const uniqueTraceIds =
+        Array.from(new Set(baseRows.map(r => r.traceKey))).sort(compareTraceKey);
+      const maxOffset = Math.max(1, baseRows.reduce((m, r) => r.offsetMs > m ? r.offsetMs : m, 0));
+
+      const W = 1200;
+      const marginTop = 30;
+      const marginBottom = 20;
+
+      function scaleX(offsetMs) {
+        return 60 + (offsetMs / maxOffset) * (W - 120);
+      }
+
+      const LANE_MIN_H = 44;
+      const SEG_Y_OFFSET = 6;
+      const SEG_H = 12;
+      const EVENTS_Y_OFFSET = 26;
+      const EVENT_GAP = 7;
+
+      function bucketX(x) {
+        return Math.round(x / 3) * 3;
+      }
+
+      const maxStackByTrace = new Map();
+      const bucketCountByTrace = new Map();
+      visibleEvents.forEach(evt => {
+        const x = scaleX(evt.offsetMs);
+        const b = bucketX(x);
+        const traceKey = String(evt.traceKey);
+        let m = bucketCountByTrace.get(traceKey);
+        if (!m) {
+          m = new Map();
+          bucketCountByTrace.set(traceKey, m);
+        }
+        const next = (m.get(b) || 0) + 1;
+        m.set(b, next);
+        const curMax = maxStackByTrace.get(traceKey) || 0;
+        if (next > curMax) maxStackByTrace.set(traceKey, next);
+      });
+
+      const laneLayout = [];
+      let yCursor = marginTop;
+      uniqueTraceIds.forEach(traceKey => {
+        const maxStack = maxStackByTrace.get(String(traceKey)) || 1;
+        const needH = EVENTS_Y_OFFSET + Math.max(0, maxStack - 1) * EVENT_GAP + 18;
+        const h = Math.max(LANE_MIN_H, needH);
+        laneLayout.push({ traceKey: String(traceKey), yTop: yCursor, height: h });
+        yCursor += h;
+      });
+
+      const height = yCursor + marginBottom;
+
+      const svg = [];
+      const infoByKey = new Map();
+
+      svg.push(`<rect x="0" y="0" width="${W}" height="${height}" fill="rgba(0,0,0,0.15)" />`);
+
+      laneLayout.forEach(lane => {
+        const trace = getTraceByKey(lane.traceKey);
+        const traceLabel = trace
+          ? `Trace ${trace.traceId} / SinkTask ${trace.sinkTaskId} #${trace.__no}`
+          : `Trace ${lane.traceKey}`;
+        svg.push(`<line x1="50" y1="${lane.yTop}" x2="${W - 50}" y2="${lane.yTop}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />`);
+        svg.push(`<text x="10" y="${lane.yTop + 16}" fill="rgba(255,255,255,0.54)" font-size="11" font-family="monospace">${traceLabel}</text>`);
+        svg.push(`<line x1="50" y1="${lane.yTop + lane.height}" x2="${W - 50}" y2="${lane.yTop + lane.height}" stroke="rgba(255,255,255,0.06)" stroke-width="1" />`);
+      });
+
+      const tickCount = 5;
+      for (let i = 0; i <= tickCount; i++) {
+        const offsetMs = (maxOffset / tickCount) * i;
+        const x = scaleX(offsetMs);
+        svg.push(`<line x1="${x}" y1="${marginTop}" x2="${x}" y2="${height - marginBottom}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />`);
+        svg.push(`<text x="${x}" y="18" fill="rgba(255,255,255,0.54)" font-size="10" text-anchor="middle">${offsetMs.toFixed(0)}ms</text>`);
+      }
+
+      visibleSegments.forEach(seg => {
+        const lane = laneLayout.find(l => l.traceKey === String(seg.traceKey));
+        if (!lane) return;
+        const y = lane.yTop + SEG_Y_OFFSET;
+        const x1 = scaleX(seg.offsetStart);
+        const x2 = scaleX(seg.offsetEnd);
+        const w = x2 - x1;
+        const color = CATEGORY_COLORS[seg.category] || CATEGORY_COLORS.OTHER;
+
+        const segKey = `seg:${seg.traceKey}:${seg.startIndex}:${seg.endIndex}`;
+        infoByKey.set(segKey, {
+          kind: 'span',
+          traceKey: seg.traceKey,
+          traceId: seg.traceId,
+          traceNo: seg.traceNo,
+          sinkTaskId: seg.sinkTaskId,
+          taskId: seg.taskId,
+          category: seg.category,
+          stageName: seg.stageName,
+          stageCode: seg.stageStart,
+          startIndex: seg.startIndex,
+          endIndex: seg.endIndex,
+          startMs: seg.startMs,
+          endMs: seg.endMs,
+          durationMs: seg.durationMs,
+          offsetStartMs: seg.offsetStart,
+          offsetEndMs: seg.offsetEnd,
+          title: seg.stageName
+        });
+
+        svg.push(`<rect class="tlInteractive" data-key="${segKey}" x="${x1}" y="${y}" width="${Math.max(w, 2)}" height="${SEG_H}" fill="${color}" opacity="0.6" rx="2" />`);
+        if (w > 30) {
+          svg.push(`<text x="${x1 + w/2}" y="${y + 10}" fill="white" font-size="10" text-anchor="middle" opacity="0.9">${seg.durationMs}ms</text>`);
+        }
+      });
+
+      const bucketIndexByTrace = new Map();
+      visibleEvents.forEach(evt => {
+        const x = scaleX(evt.offsetMs);
+        const traceKey = String(evt.traceKey);
+        const lane = laneLayout.find(l => l.traceKey === traceKey);
+        if (!lane) return;
+        const b = bucketX(x);
+        let m = bucketIndexByTrace.get(traceKey);
+        if (!m) {
+          m = new Map();
+          bucketIndexByTrace.set(traceKey, m);
+        }
+        const idx = m.get(b) || 0;
+        m.set(b, idx + 1);
+
+        const y0 = lane.yTop + EVENTS_Y_OFFSET + idx * EVENT_GAP;
+        const y1 = y0 + 10;
+        const color = CATEGORY_COLORS[evt.category] || CATEGORY_COLORS.OTHER;
+
+        const evtKey = `evt:${evt.traceKey}:${evt.entryIndex}`;
+        infoByKey.set(evtKey, {
+          kind: 'event',
+          traceKey: evt.traceKey,
+          traceId: evt.traceId,
+          traceNo: evt.traceNo,
+          sinkTaskId: evt.sinkTaskId,
+          taskId: evt.taskId,
+          category: evt.category,
+          stageName: evt.stageName,
+          stageCode: evt.stage,
+          entryIndex: evt.entryIndex,
+          timestampMs: evt.timestampMs,
+          offsetMs: evt.offsetMs,
+          title: evt.stageName
+        });
+        svg.push(`<g class="tlInteractive" data-key="${evtKey}"><line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="${color}" stroke-width="1.4" /><circle cx="${x}" cy="${y0}" r="2.6" fill="${color}" /></g>`);
+      });
+
+      svg.push(`<g id="focusMarker" style="display:none">
+        <line id="focusLine" x1="0" y1="${marginTop}" x2="0" y2="${height - marginBottom}" stroke="rgba(255,255,255,0.75)" stroke-width="1.5" stroke-dasharray="5 6" />
+      </g>`);
+
+      document.getElementById('timeline').setAttribute('viewBox', `0 0 ${W} ${height}`);
+      const timelineEl = document.getElementById('timeline');
+      timelineEl.innerHTML = svg.join('');
+
+      function locateEntryFn(traceKey, entryIndex) {
+        const row = allRows.find(r => r.traceKey == traceKey && r.entryIndex === entryIndex);
+        if (!row) return;
+        const x = scaleX(row.offsetMs);
+        const g = document.getElementById('focusMarker');
+        const line = document.getElementById('focusLine');
+        line.setAttribute('x1', x);
+        line.setAttribute('x2', x);
+        g.style.display = 'block';
+      }
+
+      timelineEl.querySelectorAll('.tlInteractive').forEach(el => {
+        const key = el.getAttribute('data-key');
+        const info = infoByKey.get(key);
+        if (!info) return;
+        bindInteractive(el, info, () => {
+          if (info.kind === 'event' && typeof info.entryIndex === 'number') {
+            locateEntryFn(String(info.traceKey), Number(info.entryIndex));
+            selectTableRow(String(info.traceKey), Number(info.entryIndex));
+          } else if (info.kind === 'span' && typeof info.startIndex === 'number') {
+            locateEntryFn(String(info.traceKey), Number(info.startIndex));
+            selectTableRow(String(info.traceKey), Number(info.startIndex));
+          }
+        });
+      });
+
+      return locateEntryFn;
+    }
+
+    function renderTable() {
+      const state = getUIState();
+      const selectedTrace = state.selectedTrace;
+      const visibleRows = (selectedTrace ?
+        allRows.filter(r => r.traceKey == selectedTrace) :
+        allRows).filter(r => filterRow(r, state));
+
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = visibleRows.map(row => {
+        const catColor = CATEGORY_COLORS[row.category] || CATEGORY_COLORS.OTHER;
+        return `<tr data-trace-key="${row.traceKey}" data-entry="${row.entryIndex}" data-row-key="${row.traceKey}:${row.entryIndex}">
+          <td class="mono">${row.traceId}</td>
+          <td class="mono">${row.sinkTaskId}</td>
+          <td>${escapeHtml(row.stageName)}</td>
+          <td class="mono">${row.stage}</td>
+          <td class="mono">${row.taskId}</td>
+          <td class="mono">${row.timestampMs}</td>
+          <td class="mono">${row.duration}</td>
+          <td><span class="stage-pill" style="border: 1px solid ${catColor}55; background: ${catColor}14; color: ${catColor}">${row.category}</span></td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('rowCount').textContent = I18N[currentLang].fmtRows(visibleRows.length);
+
+      tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const traceKey = tr.getAttribute('data-trace-key');
+          const entryIndex = Number(tr.getAttribute('data-entry'));
+          locateEntry(traceKey, entryIndex);
+          selectTableRow(String(traceKey), Number(entryIndex));
+        });
+      });
+    }
+
+    function renderStageCatalog() {
+      const state = getUIState();
+      const counts = new Map();
+
+      const selectedTrace = state.selectedTrace;
+      const activeTrace = getActiveTrace();
+      let rows = allRows;
+      if (state.catalogScope === 'active') {
+        rows = activeTrace ? allRows.filter(r => r.traceKey == String(activeTrace.__key)) : [];
+      } else if (selectedTrace) {
+        rows = allRows.filter(r => r.traceKey == selectedTrace);
+      }
+
+      rows.filter(r => filterRow(r, state)).forEach(r => {
+        if (typeof r.stage === 'number') {
+          counts.set(r.stage, (counts.get(r.stage) || 0) + 1);
+        }
+      });
+
+      let present = 0;
+      const tbody = document.getElementById('stageCatalogBody');
+      tbody.innerHTML = CORE_STAGE_CATALOG.map(def => {
+        const count = counts.get(def.code) || 0;
+        if (count > 0) present++;
+        const catColor = CATEGORY_COLORS[def.category] || CATEGORY_COLORS.OTHER;
+        const opacity = count > 0 ? 1 : 0.45;
+        return `<tr style="opacity:${opacity}">
+          <td class="mono">${def.code}</td>
+          <td class="mono">${escapeHtml(def.name)}</td>
+          <td><span class="stage-pill" style="border: 1px solid ${catColor}55; background: ${catColor}14; color: ${catColor}">${def.category}</span></td>
+          <td>${escapeHtml(currentLang === 'en' && def.descEn ? def.descEn : def.desc)}</td>
+          <td class="mono">${count}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('stageCatalogMeta').textContent = I18N[currentLang].fmtAppeared(present, CORE_STAGE_CATALOG.length);
+    }
+
+    let locateEntry = () => {};
+
+    function renderAll() {
+      const state = getUIState();
+      setViewMode(state.viewMode);
+      computeSegments();
+      renderStageCatalog();
+      locateEntry = renderTimeline();
+      renderWaterfall();
+      renderTable();
+
+      const activeTrace = getActiveTrace();
+      const meta = document.getElementById('activeTraceMeta');
+      if (activeTrace) {
+        const modeTip = state.selectedTrace ? '' : I18N[currentLang].fmtAllMode;
+        meta.textContent = ` | ${I18N[currentLang].fmtActiveTraceMeta(activeTrace.traceId, activeTrace.sinkTaskId, activeTrace.__no)} ${modeTip}`;
+      } else {
+        meta.textContent = '';
+      }
+    }
+
+    renderTraceFilter();
+    initToolbar();
+    renderAll();
+  </script>
+</body>
+</html>

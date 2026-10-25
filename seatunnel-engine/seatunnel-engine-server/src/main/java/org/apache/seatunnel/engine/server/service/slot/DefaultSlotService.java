@@ -35,7 +35,6 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import lombok.SneakyThrows;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.HardwareAbstractionLayer;
@@ -75,6 +74,9 @@ public class DefaultSlotService implements SlotService {
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
     private String slotServiceSequence;
+
+    private volatile CentralProcessor processor;
+    private volatile long[] previousCpuTicks;
 
     public DefaultSlotService(
             NodeEngineImpl nodeEngine,
@@ -171,7 +173,9 @@ public class DefaultSlotService implements SlotService {
         initStatus = false;
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
-            profile.assign(jobId);
+            // A fixed slot can return to the same job after release, so every assignment needs a
+            // new identity instead of reusing the worker-service sequence.
+            profile.assign(jobId, UUID.randomUUID().toString());
             assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
             unassignedResource.accumulateAndGet(
                     profile.getResourceProfile(), ResourceProfile::subtract);
@@ -202,31 +206,32 @@ public class DefaultSlotService implements SlotService {
         LOGGER.info(
                 String.format(
                         "received slot release request, jobID: %d, slot: %s", jobId, profile));
-        if (!assignedSlots.containsKey(profile.getSlotID())) {
+        SlotProfile assignedSlot = assignedSlots.get(profile.getSlotID());
+        if (assignedSlot == null) {
             throw new WrongTargetSlotException(
                     "Not exist this slot in slot service, slot profile: " + profile);
         }
 
-        if (!assignedSlots.get(profile.getSlotID()).getSequence().equals(profile.getSequence())) {
+        if (!assignedSlot.getSequence().equals(profile.getSequence())) {
             throw new WrongTargetSlotException(
                     "Wrong slot sequence in profile, slot profile: " + profile);
         }
 
-        if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
+        if (assignedSlot.getOwnerJobID() != jobId) {
             throw new WrongTargetSlotException(
-                    String.format(
-                            "The profile %s not belong with job %d",
-                            assignedSlots.get(profile.getSlotID()), jobId));
+                    String.format("The profile %s not belong with job %d", assignedSlot, jobId));
         }
 
-        assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
-        unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
-        profile.unassigned();
+        assignedResource.accumulateAndGet(
+                assignedSlot.getResourceProfile(), ResourceProfile::subtract);
+        unassignedResource.accumulateAndGet(
+                assignedSlot.getResourceProfile(), ResourceProfile::merge);
+        assignedSlot.unassigned();
         if (!config.isDynamicSlot()) {
-            unassignedSlots.put(profile.getSlotID(), profile);
+            unassignedSlots.put(assignedSlot.getSlotID(), assignedSlot);
         }
-        assignedSlots.remove(profile.getSlotID());
-        contexts.remove(profile.getSlotID());
+        assignedSlots.remove(assignedSlot.getSlotID());
+        contexts.remove(assignedSlot.getSlotID());
     }
 
     @Override
@@ -291,7 +296,8 @@ public class DefaultSlotService implements SlotService {
                             nodeEngine.getThisAddress(),
                             i,
                             new ResourceProfile(
-                                    CPU.of(0), Memory.of(maxMemory / config.getSlotNum())),
+                                    CPU.of(0),
+                                    Memory.of(maxMemory / Math.max(1, config.getSlotNum()))),
                             slotServiceSequence));
         }
     }
@@ -322,38 +328,37 @@ public class DefaultSlotService implements SlotService {
         return ((double) heapMemoryUsage.getUsed() / (double) heapMemoryUsage.getMax());
     }
 
-    @SneakyThrows
     public double getCpuPercentage() {
-        // Create a SystemInfo object to access hardware information
-        SystemInfo si = new SystemInfo();
-        // Get the hardware abstraction layer
-        HardwareAbstractionLayer hal = si.getHardware();
-        // Get the central processor
-        CentralProcessor processor = hal.getProcessor();
-        // Get the previous CPU load ticks
-        long[] prevTicks = processor.getSystemCpuLoadTicks();
-        // Sleep for 1 second to measure the CPU load over time
-        Thread.sleep(1000);
-        // Get the current CPU load ticks
-        long[] ticks = processor.getSystemCpuLoadTicks();
+        try {
+            CentralProcessor p = getProcessor();
+            long[] prev = previousCpuTicks;
+            if (prev == null) {
+                previousCpuTicks = p.getSystemCpuLoadTicks();
+                return 0D;
+            }
+            double load = p.getSystemCpuLoadBetweenTicks(prev);
+            previousCpuTicks = p.getSystemCpuLoadTicks();
+            if (Double.isNaN(load) || Double.isInfinite(load)) {
+                return 0D;
+            }
+            return Math.max(0D, Math.min(1D, load));
+        } catch (Throwable ignored) {
+            return 0D;
+        }
+    }
 
-        // Calculate the difference in CPU ticks for each type
-        long user =
-                ticks[CentralProcessor.TickType.USER.getIndex()]
-                        - prevTicks[CentralProcessor.TickType.USER.getIndex()];
-        long nice =
-                ticks[CentralProcessor.TickType.NICE.getIndex()]
-                        - prevTicks[CentralProcessor.TickType.NICE.getIndex()];
-        long sys =
-                ticks[CentralProcessor.TickType.SYSTEM.getIndex()]
-                        - prevTicks[CentralProcessor.TickType.SYSTEM.getIndex()];
-        long idle =
-                ticks[CentralProcessor.TickType.IDLE.getIndex()]
-                        - prevTicks[CentralProcessor.TickType.IDLE.getIndex()];
-        // Calculate the total CPU ticks
-        long totalCpu = user + nice + sys + idle;
-
-        // Calculate and return the CPU usage percentage
-        return ((double) (totalCpu - idle) / (double) totalCpu);
+    private CentralProcessor getProcessor() {
+        CentralProcessor local = processor;
+        if (local != null) {
+            return local;
+        }
+        synchronized (this) {
+            if (processor == null) {
+                SystemInfo si = new SystemInfo();
+                HardwareAbstractionLayer hal = si.getHardware();
+                processor = hal.getProcessor();
+            }
+            return processor;
+        }
     }
 }

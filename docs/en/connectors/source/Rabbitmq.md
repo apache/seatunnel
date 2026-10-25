@@ -1,0 +1,373 @@
+import ChangeLog from '../changelog/connector-rabbitmq.md';
+
+# RabbitMQ
+
+> RabbitMQ source connector
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Description
+
+Used to read data from RabbitMQ queues.
+
+## Key features
+
+- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
+
+:::tip
+
+The source must be non-parallel (parallelism set to 1) in order to achieve exactly-once. This limitation is mainly due to RabbitMQ’s approach to dispatching messages from a single queue to multiple consumers.
+
+:::
+
+## Connectivity dry-run
+
+Run `bin/seatunnel.sh --config <your-job.conf> --dry-run connect` with your own job configuration.
+
+This source supports connection/authentication and existing-queue metadata checks. It uses the same URI precedence, virtual host, TLS configuration and configured single-table or `tables_configs` schemas as the normal source, without creating a reader.
+
+- Each configured queue is checked with a passive declaration. No queue is created or deleted, no consumer is registered, and no message is read, acknowledged or published.
+- Queues must already exist, even when `passive = false`. A normal job may create a missing queue, but this dry-run deliberately cannot. Exclusive queues owned by another connection cannot be checked.
+- A successful check does **not** prove consumer/read permissions, queue declaration compatibility, payload format/schema compatibility, or runtime delivery guarantees. Passive declarations may refresh a queue's expiration timer.
+- Socket connection, AMQP handshake and channel RPC waits are capped at 10 seconds each; a smaller positive `connection_timeout` is retained. Zero is bounded for this preflight. Queue checks are sequential, so this is not a 10-second limit for the entire command. DNS resolution follows the JVM resolver.
+- Automatic/topology recovery is disabled only on the temporary connection. Cleanup aborts that connection with a one-second wait limit, including after failure. Normal source settings and behavior are unchanged.
+- Validation errors do not include raw connection strings, broker text or secret-bearing exception causes. Sink connectivity remains unsupported.
+
+## Options
+
+| name                       | type    | required | default value |
+| -------------------------- | ------- | -------- | ------------- |
+| host                       | string  | yes      | -             |
+| port                       | int     | yes      | -             |
+| virtual_host               | string  | no       | -             |
+| username                   | string  | no       | -             |
+| password                   | string  | no       | -             |
+| queue_name                 | string  | no       | -             |
+| schema                     | config  | no       | -             |
+| tables_configs             | array   | no       | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
+| url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
+| routing_key                | string  | no       | -             |
+| exchange                   | string  | no       | -             |
+| network_recovery_interval  | int     | no       | -             |
+| topology_recovery_enabled  | boolean | no       | -             |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
+| connection_timeout         | int     | no       | -             |
+| requested_channel_max      | int     | no       | -             |
+| requested_frame_max        | int     | no       | -             |
+| requested_heartbeat        | int     | no       | -             |
+| prefetch_count             | int     | no       | -             |
+| delivery_timeout           | int     | no       | -             |
+| use_correlation_id         | boolean | no       | -             |
+| common-options             |         | no       | -             |
+| durable                    | boolean | no       | true          |
+| exclusive                  | boolean | no       | false         |
+| auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
+
+### host [string]
+
+the default host to use for connections
+
+### port [int]
+
+the default port to use for connections
+
+### virtual_host [string]
+
+virtual host – the virtual host to use when connecting to the broker
+
+### username [string]
+
+the AMQP user name to use when connecting to the broker
+
+### password [string]
+
+the password to use when connecting to the broker
+
+`username` and `password` should be configured together.
+
+### url [string]
+
+convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
+
+### queue_name [string]
+
+the queue to consume messages from. *Note: Required if `tables_configs` is not configured.*
+
+### routing_key [string]
+
+Optional RabbitMQ routing key inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
+
+### exchange [string]
+
+Optional RabbitMQ exchange inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
+
+### schema [Config]
+
+#### fields [Config]
+
+the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `tables_configs` is not configured.*
+
+### tables_configs [array]
+
+Used to read from multiple queues simultaneously. Each object in the array must contain `queue_name` and `schema`.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to deserialize the RabbitMQ message payload.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to deserialize.
+
+### network_recovery_interval [int]
+
+how long will automatic recovery wait before attempting to reconnect, in ms
+
+### topology_recovery_enabled [boolean]
+
+if true, enables topology recovery
+
+### AUTOMATIC_RECOVERY_ENABLED [boolean]
+
+If true, enables connection recovery.
+
+The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
+
+### connection_timeout [int]
+
+connection tcp establishment timeout in milliseconds; zero for infinite
+
+### requested_channel_max [int]
+
+initially requested maximum channel number; zero for unlimited
+**Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
+
+### requested_frame_max [int]
+
+the requested maximum frame size
+
+### requested_heartbeat [int]
+
+Set the requested heartbeat timeout
+**Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
+
+### prefetch_count [int]
+
+prefetchCount the max number of messages to receive without acknowledgement
+
+### delivery_timeout [int]
+
+deliveryTimeout maximum wait time, in milliseconds, for the next message delivery
+
+### use_correlation_id [boolean]
+
+Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail.
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
+
+### durable
+
+- true: The queue will survive on server restart.
+- false: The queue will be deleted on server restart.
+
+### exclusive
+
+- true: The queue is used only by the current connection and will be deleted when the connection closes.
+- false: The queue can be used by multiple connections.
+
+### auto_delete
+
+- true: The queue will be deleted automatically when the last consumer unsubscribes.
+- false: The queue will not be automatically deleted.
+
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for consumer accounts without queue-declaration permission.
+
+## Migration Guide & Configuration Rules
+
+If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
+
+**Configuration Priority:**
+- You cannot configure both `tables_configs` and the root-level `queue_name` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
+- Use `tables_configs` for multi-table mode.
+- Use root-level `queue_name` and `schema` for single-queue mode.
+- In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
+- If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
+- `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
+
+## Example
+
+### Single-table Read Example
+
+```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        virtual_host = "/"
+        username = "guest"
+        password = "guest"
+        queue_name = "test"
+        durable = true
+        exclusive = false
+        auto_delete = false
+        schema = {
+            fields {
+                id = bigint
+                c_map = "map<string, smallint>"
+                c_array = "array<tinyint>"
+                c_string = string
+                c_boolean = boolean
+            }
+        }
+    }
+}
+
+sink {
+    Console {}
+}
+```
+
+### Multi-table Read Example
+
+You can use the `tables_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `plugin_input`.
+
+```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+  RabbitMQ {
+    host = "rabbitmq-e2e"
+    port = 5672
+    virtual_host = "/"
+    username = "guest"
+    password = "guest"
+
+    # Use tables_configs to read from multiple queues
+    tables_configs = [
+      {
+        queue_name = "users_queue"
+        schema = {
+          table = "users_table" # Defines the table name for routing
+          fields {
+            user_id = bigint
+            name = string
+          }
+        }
+      },
+      {
+        queue_name = "orders_queue"
+        schema = {
+          table = "orders_table" # Defines the table name for routing
+          fields {
+            order_id = bigint
+            amount = double
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  # The first sink will only receive data from users_table
+  Console {
+    plugin_input = "users_table"
+  }
+
+  # The second sink will only receive data from orders_table
+  Console {
+    plugin_input = "orders_table"
+  }
+}
+```
+
+### Protobuf Read Example
+
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        queue_name = "protobuf_queue"
+        format = protobuf
+        protobuf_message_name = Person
+        protobuf_schema = """
+            syntax = "proto3";
+            message Person {
+              int64 id = 1;
+              string name = 2;
+            }
+        """
+        schema = {
+            fields {
+                id = bigint
+                name = string
+            }
+        }
+    }
+}
+```
+
+## FAQ
+
+### Why must parallelism be set to 1 to achieve exactly-once?
+
+RabbitMQ dispatches messages among multiple active consumers on the same queue in a round-robin manner. When multiple parallel readers consume from the same queue, message ordering and deterministic offset/acknowledgement coordination across distributed workers cannot be guaranteed. Therefore, setting parallelism to 1 is required for deterministic exactly-once delivery.
+
+### What message formats are supported by RabbitMQ source?
+
+RabbitMQ source supports JSON by default and Protobuf when `format` is set to `protobuf`. The connector deserializes each RabbitMQ message payload into one SeaTunnel row according to the configured `schema`.
+
+### How does the source handle unacknowledged messages when a failure occurs?
+
+When a SeaTunnel task fails or crashes, the RabbitMQ connection drops, and RabbitMQ automatically requeues any unacknowledged messages. Upon job restoration from a checkpoint, the reader resumes processing without message loss.
+
+## Changelog
+
+<ChangeLog />

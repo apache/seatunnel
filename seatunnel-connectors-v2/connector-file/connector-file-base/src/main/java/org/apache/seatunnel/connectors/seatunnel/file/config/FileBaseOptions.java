@@ -23,7 +23,10 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+
 public class FileBaseOptions extends ConnectorCommonOptions {
+    public static final long DEFAULT_POI_EXCEL_MAX_FILE_SIZE = 50L * 1024L * 1024L;
 
     public static final Option<String> FILENAME_EXTENSION =
             Options.key("filename_extension")
@@ -116,7 +119,14 @@ public class FileBaseOptions extends ConnectorCommonOptions {
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
                     .defaultValue(ExcelEngine.POI)
-                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
+                    .withDescription("To switch excel read engine, e.g. POI, EasyExcel");
+
+    public static final Option<Long> POI_EXCEL_MAX_FILE_SIZE =
+            Options.key("poi_excel_max_file_size")
+                    .longType()
+                    .defaultValue(DEFAULT_POI_EXCEL_MAX_FILE_SIZE)
+                    .withDescription(
+                            "Maximum Excel file size in bytes allowed by POI engine. Use EasyExcel for larger Excel files.");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")
@@ -150,4 +160,25 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                     .enumType(ArchiveCompressFormat.class)
                     .defaultValue(ArchiveCompressFormat.NONE)
                     .withDescription("Archive compression codec");
+
+    public static final Option<Boolean> ENABLE_FILE_SPLIT =
+            Options.key("enable_file_split")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Turn on the file splitting function, the default is false");
+
+    public static final Option<Long> FILE_SPLIT_SIZE =
+            Options.key("file_split_size")
+                    .longType()
+                    .defaultValue(128 * 1024 * 1024L)
+                    .withDescription(
+                            "File split size in bytes when enable_file_split=true. Must be greater than 0. "
+                                    + "For text-like formats, the split end will be aligned to the next row_delimiter. "
+                                    + "Default is 128MB (128*1024*1024).");
+
+    public static final Option<String> DEFAULT_FS =
+            Options.key(FS_DEFAULT_NAME_KEY)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HDFS namenode host");
 }

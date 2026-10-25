@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import org.bson.BsonArray;
@@ -54,7 +55,6 @@ import java.util.Objects;
 
 import static org.apache.seatunnel.api.table.type.SqlType.NULL;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.ENCODE_VALUE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.serde.BsonToRowDataConverters.fromBigDecimal;
 
 public class RowDataToBsonConverters implements Serializable {
@@ -171,11 +171,11 @@ public class RowDataToBsonConverters implements Serializable {
                         // try to parse out the mongodb specific data type from extend-json.
                         if (val.startsWith("{")
                                 && val.endsWith("}")
-                                && val.contains(ENCODE_VALUE_FIELD)) {
+                                && val.contains(MongodbBaseOptions.ENCODE_VALUE_FIELD)) {
                             try {
                                 BsonDocument doc = BsonDocument.parse(val);
-                                if (doc.containsKey(ENCODE_VALUE_FIELD)) {
-                                    return doc.get(ENCODE_VALUE_FIELD);
+                                if (doc.containsKey(MongodbBaseOptions.ENCODE_VALUE_FIELD)) {
+                                    return doc.get(MongodbBaseOptions.ENCODE_VALUE_FIELD);
                                 }
                             } catch (JsonParseException e) {
                                 // invalid json format, fallback to store as a bson string.

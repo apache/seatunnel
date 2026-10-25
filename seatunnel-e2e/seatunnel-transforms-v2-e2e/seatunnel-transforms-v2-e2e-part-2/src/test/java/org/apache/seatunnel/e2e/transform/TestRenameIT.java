@@ -34,4 +34,11 @@ public class TestRenameIT extends TestSuiteBase {
                 container.executeJob("/table_field_rename_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testFieldRenameRegexDefault(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/field_rename_regex_default.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

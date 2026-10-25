@@ -29,15 +29,15 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.metastore.HiveMetaHookLoader;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -51,6 +51,8 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -60,8 +62,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * HiveMetaStoreCatalog implements the SeaTunnel Catalog interface. Provides Hive Metastore database
@@ -70,10 +75,16 @@ import java.util.Objects;
 @Slf4j
 public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
+    private static final String RETRYING_METASTORE_CLIENT_CLASS_NAME =
+            "org.apache.hadoop.hive.metastore.RetryingMetaStoreClient";
+    static final String METASTORE_CLIENT_FACTORY_CLASS = "hive.metastore.client.factory.class";
+    private static final String RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE =
+            "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient";
 
     private final String metastoreUri;
     private final String hadoopConfDir;
     private final String hiveSitePath;
+    private final Map<String, String> hadoopProperties;
     private final boolean kerberosEnabled;
     private final boolean remoteUserEnabled;
 
@@ -82,20 +93,23 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String keytabPath;
     private final String remoteUser;
 
-    private transient HiveMetaStoreClient hiveClient;
+    private transient IMetaStoreClient hiveClient;
     private transient HiveConf hiveConf;
     private transient UserGroupInformation userGroupInformation;
 
     public HiveMetaStoreCatalog(ReadonlyConfig config) {
-        this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
-        this.hadoopConfDir = config.get(HiveConfig.HADOOP_CONF_PATH);
-        this.hiveSitePath = config.get(HiveConfig.HIVE_SITE_PATH);
+        this.metastoreUri = config.get(HiveBaseOptions.METASTORE_URI);
+        this.hadoopConfDir = config.get(HiveBaseOptions.HADOOP_CONF_PATH);
+        this.hiveSitePath = config.get(HiveBaseOptions.HIVE_SITE_PATH);
+        Map<String, String> configuredProperties = config.get(HiveBaseOptions.HADOOP_CONF);
+        this.hadoopProperties =
+                configuredProperties == null ? Collections.emptyMap() : configuredProperties;
         this.kerberosEnabled = HiveMetaStoreProxyUtils.enableKerberos(config);
         this.remoteUserEnabled = HiveMetaStoreProxyUtils.enableRemoteUser(config);
-        this.krb5Path = config.get(HdfsSourceConfigOptions.KRB5_PATH);
-        this.principal = config.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL);
-        this.keytabPath = config.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH);
-        this.remoteUser = config.get(HdfsSourceConfigOptions.REMOTE_USER);
+        this.krb5Path = config.get(HiveBaseOptions.KRB5_PATH);
+        this.principal = config.get(HiveBaseOptions.KERBEROS_PRINCIPAL);
+        this.keytabPath = config.get(HiveBaseOptions.KERBEROS_KEYTAB_PATH);
+        this.remoteUser = config.get(HiveBaseOptions.REMOTE_USER);
     }
 
     public static HiveMetaStoreCatalog create(ReadonlyConfig config) {
@@ -106,7 +120,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return create(config);
     }
 
-    private synchronized HiveMetaStoreClient getClient() {
+    private synchronized IMetaStoreClient getClient() {
         if (hiveClient == null) {
             hiveClient = initializeClient();
         }
@@ -116,7 +130,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveClient;
     }
 
-    private HiveMetaStoreClient initializeClient() {
+    private IMetaStoreClient initializeClient() {
         this.hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
@@ -125,7 +139,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             if (remoteUserEnabled) {
                 return loginWithRemoteUser(hiveConf);
             }
-            return new HiveMetaStoreClient(hiveConf);
+            return createClient(hiveConf);
         } catch (Exception e) {
             String errMsg =
                     String.format(
@@ -134,6 +148,133 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
+    }
+
+    private IMetaStoreClient createClient(HiveConf hiveConf) throws Exception {
+        String clientFactoryClassName = hiveConf.getTrimmed(METASTORE_CLIENT_FACTORY_CLASS);
+        if (StringUtils.isNotBlank(clientFactoryClassName)) {
+            return createClientFromFactory(hiveConf, clientFactoryClassName);
+        }
+        if (StringUtils.isBlank(hiveConf.getTrimmed("hive.metastore.uris"))) {
+            throw new IllegalArgumentException(
+                    "Either metastore_uri or hive.metastore.client.factory.class must be configured");
+        }
+        IMetaStoreClient retryingClient = tryCreateRetryingClient(hiveConf);
+        if (retryingClient != null) {
+            return retryingClient;
+        }
+        return new HiveMetaStoreClient(hiveConf);
+    }
+
+    /**
+     * Creates a metastore client through the Hive 3 factory contract used by AWS Glue Data Catalog.
+     */
+    private IMetaStoreClient createClientFromFactory(
+            HiveConf hiveConf, String clientFactoryClassName) {
+        try {
+            Class<?> factoryClass = loadClass(clientFactoryClassName, hiveConf);
+            Object factory = factoryClass.getDeclaredConstructor().newInstance();
+            Method createClientMethod =
+                    factoryClass.getMethod(
+                            "createMetaStoreClient",
+                            HiveConf.class,
+                            HiveMetaHookLoader.class,
+                            boolean.class,
+                            ConcurrentHashMap.class);
+            HiveMetaHookLoader hookLoader = tableName -> null;
+            Object client =
+                    createClientMethod.invoke(
+                            factory,
+                            hiveConf,
+                            hookLoader,
+                            false,
+                            new ConcurrentHashMap<String, Long>());
+            if (!(client instanceof IMetaStoreClient)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Hive metastore client factory %s returned an incompatible client",
+                                clientFactoryClassName));
+            }
+            log.info("Using Hive metastore client factory {}", clientFactoryClassName);
+            return (IMetaStoreClient) client;
+        } catch (InvocationTargetException e) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Hive metastore client factory %s failed to create a client",
+                            clientFactoryClassName),
+                    e.getCause());
+        } catch (ReflectiveOperationException | LinkageError e) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Unable to load Hive metastore client factory %s. Make sure the factory and compatible Hive classes are available on the runtime classpath",
+                            clientFactoryClassName),
+                    e);
+        }
+    }
+
+    /**
+     * Resolves an optional metastore factory from the runtime context before falling back to Hive's
+     * configured class loader.
+     */
+    private static Class<?> loadClass(String className, HiveConf hiveConf)
+            throws ClassNotFoundException {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        if (contextClassLoader != null) {
+            try {
+                return Class.forName(className, true, contextClassLoader);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return hiveConf.getClassByName(className);
+    }
+
+    private IMetaStoreClient tryCreateRetryingClient(HiveConf hiveConf) {
+        try {
+            Class<?> clazz = Class.forName(RETRYING_METASTORE_CLIENT_CLASS_NAME);
+            Method getProxyMethod = getProxyMethod(clazz);
+            if (getProxyMethod == null) {
+                log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
+                return null;
+            }
+
+            Object proxy = getProxyMethod.invoke(null, hiveConf, true);
+            if (proxy instanceof IMetaStoreClient) {
+                log.info(
+                        "Using RetryingMetaStoreClient for Hive metastore connection [uris={}]",
+                        hiveConf.get("hive.metastore.uris"));
+                return (IMetaStoreClient) proxy;
+            }
+            log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
+            return null;
+        } catch (ClassNotFoundException e) {
+            log.debug("RetryingMetaStoreClient not found, falling back to HiveMetaStoreClient", e);
+            return null;
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to create RetryingMetaStoreClient proxy, falling back to HiveMetaStoreClient",
+                    e);
+            return null;
+        }
+    }
+
+    private static Method getProxyMethod(Class<?> clazz) {
+        // Hive 2.x: getProxy(HiveConf, boolean)
+        // Hive 3.x: getProxy(Configuration, boolean)
+        Method method = null;
+        try {
+            method = clazz.getDeclaredMethod("getProxy", HiveConf.class, boolean.class);
+        } catch (NoSuchMethodException ignored) {
+        }
+        if (method == null) {
+            try {
+                method = clazz.getDeclaredMethod("getProxy", Configuration.class, boolean.class);
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+        if (method != null) {
+            method.setAccessible(true);
+        }
+        return method;
     }
 
     /**
@@ -197,9 +338,13 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         // Try to derive from metastore URI
         // metastore URI format: thrift://host:9083
         // HiveServer2 JDBC URL format: jdbc:hive2://host:10000/default
+        if (StringUtils.isBlank(metastoreUri)) {
+            return null;
+        }
         try {
-            if (metastoreUri != null && metastoreUri.startsWith("thrift://")) {
-                URI uri = new URI(metastoreUri);
+            String firstUri = getFirstMetastoreUri(metastoreUri);
+            if (firstUri.startsWith("thrift://")) {
+                URI uri = new URI(firstUri);
                 String host = uri.getHost();
                 if (host != null) {
                     return String.format("jdbc:hive2://%s:10000/default", host);
@@ -214,7 +359,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
 
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", metastoreUri);
+        if (StringUtils.isNotBlank(metastoreUri)) {
+            String normalizedMetastoreUris = normalizeMetastoreUris(metastoreUri);
+            if (StringUtils.isNotBlank(normalizedMetastoreUris)) {
+                hiveConf.set("hive.metastore.uris", normalizedMetastoreUris);
+            }
+        }
         hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
         hiveConf.setBoolean("hive.metastore.client.capability.check", false);
         hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
@@ -241,11 +391,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 log.warn("Invalid hiveSitePath {}", hiveSitePath, e);
             }
         }
+        hadoopProperties.forEach(hiveConf::set);
         log.debug("Hive client configuration initialized");
         return hiveConf;
     }
 
-    private HiveMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
         Configuration authConf = new Configuration();
         authConf.set("hadoop.security.authentication", "kerberos");
         return HadoopLoginFactory.loginWithKerberos(
@@ -255,13 +406,36 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 keytabPath,
                 (conf, ugi) -> {
                     this.userGroupInformation = ugi;
-                    return new HiveMetaStoreClient(hiveConf);
+                    return createClient(hiveConf);
                 });
     }
 
-    private HiveMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
         return HadoopLoginFactory.loginWithRemoteUser(
-                new Configuration(), remoteUser, (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
+                new Configuration(), remoteUser, (conf, ugi) -> createClient(hiveConf));
+    }
+
+    private static String normalizeMetastoreUris(@NonNull String metastoreUri) {
+        String[] uris = metastoreUri.split(",");
+        List<String> cleaned = new ArrayList<>(uris.length);
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                cleaned.add(trimmed);
+            }
+        }
+        return String.join(",", cleaned);
+    }
+
+    private static String getFirstMetastoreUri(@NonNull String metastoreUri) {
+        String[] uris = metastoreUri.split(",");
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                return trimmed;
+            }
+        }
+        return "";
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {

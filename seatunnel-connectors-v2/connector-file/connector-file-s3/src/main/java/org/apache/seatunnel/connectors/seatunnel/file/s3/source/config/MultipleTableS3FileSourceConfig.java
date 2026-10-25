@@ -18,17 +18,22 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
+import java.util.List;
+
 public class MultipleTableS3FileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
-    public MultipleTableS3FileSourceConfig(ReadonlyConfig s3FileSourceRootConfig) {
-        super(s3FileSourceRootConfig);
+    public MultipleTableS3FileSourceConfig(
+            ReadonlyConfig s3FileSourceRootConfig, List<CatalogTable> catalogTablesFromConfig) {
+        super(s3FileSourceRootConfig, catalogTablesFromConfig);
     }
 
     @Override
-    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
-        return new S3FileSourceConfig(readonlyConfig);
+    public BaseFileSourceConfig getBaseSourceConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
+        return new S3FileSourceConfig(readonlyConfig, catalogTableFromConfig);
     }
 }

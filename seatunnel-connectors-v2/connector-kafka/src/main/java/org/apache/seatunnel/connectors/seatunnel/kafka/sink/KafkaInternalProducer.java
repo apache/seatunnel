@@ -74,6 +74,13 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         super.abortTransaction();
     }
 
+    public void initTransactionId(String transactionalId) {
+        if (!transactionalId.equals(this.transactionalId)) {
+            setTransactionalId(transactionalId);
+            super.initTransactions();
+        }
+    }
+
     public void setTransactionalId(String transactionalId) {
         if (log.isDebugEnabled()) {
             log.debug(

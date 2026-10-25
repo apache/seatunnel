@@ -71,7 +71,8 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
                 stringToList(readonlyConfig.get(IcebergSinkOptions.TABLE_PRIMARY_KEYS), ",");
         this.partitionKeys =
                 stringToList(
-                        readonlyConfig.get(IcebergSinkOptions.TABLE_DEFAULT_PARTITION_KEYS), ",");
+                        readonlyConfig.get(IcebergSinkOptions.TABLE_DEFAULT_PARTITION_KEYS),
+                        COMMA_NO_PARENS_REGEX);
         this.upsertModeEnabled =
                 readonlyConfig.get(IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP);
         this.tableSchemaEvolutionEnabled =

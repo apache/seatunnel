@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -33,7 +34,9 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbTimestampRangeCondition;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -55,27 +58,63 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return MongodbSourceOptions.getBaseRule()
+        return MongodbIncrementalSourceOptions.getBaseRule()
                 .required(
-                        MongodbSourceOptions.HOSTS,
-                        MongodbSourceOptions.DATABASE,
-                        MongodbSourceOptions.COLLECTION)
-                .exclusive(ConnectorCommonOptions.SCHEMA, ConnectorCommonOptions.TABLE_CONFIGS)
+                        MongodbIncrementalSourceOptions.HOSTS,
+                        MongodbIncrementalSourceOptions.DATABASE,
+                        MongodbIncrementalSourceOptions.COLLECTION)
+                .exclusive(
+                        MongodbIncrementalSourceOptions.SCHEMA,
+                        MongodbIncrementalSourceOptions.TABLE_CONFIGS)
                 .optional(
-                        MongodbSourceOptions.USERNAME,
-                        MongodbSourceOptions.PASSWORD,
-                        MongodbSourceOptions.CONNECTION_OPTIONS,
-                        MongodbSourceOptions.BATCH_SIZE,
-                        MongodbSourceOptions.POLL_MAX_BATCH_SIZE,
-                        MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS,
-                        MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
-                        MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
-                        MongodbSourceOptions.STARTUP_MODE,
-                        MongodbSourceOptions.STOP_MODE)
+                        MongodbIncrementalSourceOptions.USERNAME,
+                        MongodbIncrementalSourceOptions.PASSWORD,
+                        MongodbIncrementalSourceOptions.CONNECTION_OPTIONS,
+                        MongodbIncrementalSourceOptions.STARTUP_MODE,
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        MongodbIncrementalSourceOptions.DEBEZIUM_PROPERTIES)
+                // The value domains below mirror the checks the source applies while the job is
+                // built, so an invalid value fails the validation of the job configuration instead
+                // of the job startup.
+                .optional(
+                        MongodbIncrementalSourceOptions.SCHEMA,
+                        Conditions.mapNotEmpty(MongodbIncrementalSourceOptions.SCHEMA))
+                .optional(
+                        MongodbIncrementalSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.TABLE_CONFIGS))
+                .optional(
+                        MongodbIncrementalSourceOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MongodbIncrementalSourceOptions.BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
+                        Conditions.greaterOrEqual(
+                                MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                                0))
                 .conditional(
-                        MongodbSourceOptions.STARTUP_MODE,
+                        MongodbIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
+                        MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        SourceOptions.STOP_TIMESTAMP)
+                .conditional(
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        Conditions.extension(
+                                SourceOptions.STOP_TIMESTAMP, new MongodbTimestampRangeCondition()))
                 .build();
     }
 
@@ -90,7 +129,8 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
             List<CatalogTable> catalogTables = buildWithConfig(context.getOptions());
-            List<String> collections = context.getOptions().get(MongodbSourceOptions.COLLECTION);
+            List<String> collections =
+                    context.getOptions().get(MongodbIncrementalSourceOptions.COLLECTION);
             validateCatalogTablesAndCollections(catalogTables, collections);
             catalogTables = updateAndValidateCatalogTableId(catalogTables, collections);
             return (SeaTunnelSource<T, SplitT, StateT>)

@@ -1,0 +1,337 @@
+---
+sidebar_position: 7
+---
+
+# 检查点存储
+
+## 简介
+
+检查点是一种容错恢复机制。这种机制确保程序在运行时，即使突然遇到异常，也能自行恢复。
+
+### 检查点存储
+
+SeaTunnel Engine支持以下检查点存储类型:
+
+- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
+- LocalFile (本地)，(已弃用: 使用HDFS(LocalFile)替代).
+
+我们使用微内核设计模式将检查点存储模块从引擎中分离出来。这允许用户实现他们自己的检查点存储模块。
+
+`checkpoint-storage-api`是检查点   存储模块API，它定义了检查点存储模块的接口。
+
+如果你想实现你自己的检查点存储模块，你需要实现`CheckpointStorage`并提供相应的`CheckpointStorageFactory`实现。
+
+### 检查点存储配置
+
+`seatunnel-server`模块的配置在`seatunnel.yaml`文件中。
+
+```yaml
+
+seatunnel:
+    engine:
+        checkpoint:
+            storage:
+                type: hdfs # 检查点存储的插件名称，支持hdfs(S3, local, hdfs), 默认为localfile (本地文件), 但这种方式已弃用
+                # 插件配置
+                plugin-config: 
+                  namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+                  K1: V1 # 插件其它配置
+                  K2: V2 # 插件其它配置  
+```
+
+注意: namespace必须以"/"结尾。
+
+#### OSS
+
+阿里云OSS是基于hdfs-file，所以你可以参考[Hadoop OSS文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
+
+OSS buckets交互外，oss客户端需要与buckets交互所需的凭据。
+客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用of org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider的自定义实现。
+如果您使用AliyunCredentialsProvider(可以从阿里云访问密钥管理中获得)，它们包括一个access key和一个secret key。
+你可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: oss
+          oss.bucket: oss://your-bucket
+          fs.oss.accessKeyId: your-access-key
+          fs.oss.accessKeySecret: your-secret-key
+          fs.oss.endpoint: endpoint address
+```
+
+有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+
+阿里云OSS凭证提供程序实现见: [验证凭证提供](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+
+#### COS
+
+腾讯云COS基于hdfs-file，所以你可以参考[Hadoop COS文档](https://hadoop.apache.org/docs/stable/hadoop-cos/cloud-storage/)来配置COS.
+
+除了与公共COS buckets交互之外，COS客户端需要与buckets交互所需的凭据。
+客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.qcloud.cos.auth.COSCredentialsProvider的自定义实现。
+如果您使用SimpleCredentialsProvider(可以从腾讯云API密钥管理中获得)，它们包括一个secretId和一个secretKey。
+您可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: cos
+          cos.bucket: cosn://your-bucket
+          fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.SimpleCredentialsProvider
+          fs.cosn.userinfo.secretId: your-secretId
+          fs.cosn.userinfo.secretKey: your-secretKey
+          fs.cosn.bucket.region: your-region
+```
+
+有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+
+腾讯云COS相关配置可参考：[Tencent Hadoop-COS文档](https://doc.fincloud.tencent.cn/tcloud/Storage/COS/846365/hadoop)
+
+使用前请将如下jar添加到lib目录下：
+- [hadoop-cos-3.4.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-cos/3.4.1)
+- [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
+- [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
+
+#### GCS
+
+Google Cloud Storage基于hdfs-file，使用[Hadoop GCS connector](https://github.com/GoogleCloudDataproc/hadoop-connectors/tree/master/gcs)。`gcs.bucket`为必填项，且必须是`gs://your-bucket`形式的bucket URI。所有`fs.gs.*`配置项都会原样传递给connector。
+
+如果您使用服务账号密钥文件，可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+          fs.gs.project.id: your-project-id
+          fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+如果未配置密钥文件，connector会使用Application Default Credentials，因此在启用Workload Identity的GKE上（或绑定了服务账号的GCE虚拟机上）只需要配置bucket:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+```
+
+所使用的身份需要对bucket中的对象具有读、写和删除权限，例如在bucket上授予`roles/storage.objectAdmin`角色。
+
+使用前请将如下jar添加到lib目录下：
+- [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
+
+注意：默认情况下重命名操作使用GCS对象move API。对于未实现该API的服务（例如`fake-gcs-server`模拟器），需要配置`fs.gs.operation.move.enable: false`，connector会改为先复制再删除。
+
+#### S3
+
+S3基于hdfs-file，所以你可以参考[Hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
+
+除了与公共S3 buckets交互之外，S3A客户端需要与buckets交互所需的凭据。
+客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.amazonaws.auth.AWSCredentialsProvider的自定义实现。
+如果您使用SimpleAWSCredentialsProvider(可以从Amazon Security Token服务中获得)，它们包括一个access key和一个secret key。
+您可以这样配置:
+
+```yaml
+
+seatunnel:
+    engine:
+        checkpoint:
+            interval: 6000
+            timeout: 7000
+            storage:
+                type: hdfs
+                max-retained: 3
+                plugin-config:
+                  namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+                  storage.type: s3
+                  s3.bucket: s3a://your-bucket
+                  fs.s3a.access.key: your-access-key
+                  fs.s3a.secret.key: your-secret-key
+                  fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+                    
+
+```
+
+如果您使用`InstanceProfileCredentialsProvider`，它支持在EC2 VM中运行时使用实例配置文件凭据，您可以检查[iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
+您可以这样配置:
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
+```
+
+
+Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File 选项校验限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
+对于基于 EC2 的 Kubernetes 或 EKS 节点，可按上面的示例使用 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，并仅向节点角色授予所需 bucket/prefix 的最小权限。
+
+当前 checkpoint-storage 依赖内置的 AWS SDK v1 版本不包含 `WebIdentityTokenCredentialsProvider`，因此不支持 EKS IRSA。除非运行时依赖已经整体升级并完成验证，否则不要配置 IRSA provider。
+
+如果遇到 `Factory initialize failed` 或 `ClassNotFoundException`，请检查 provider 类名，并确认所有访问 checkpoint 存储的 master/worker 都已加载所需的 Hadoop/AWS jar。
+
+**容器环境**：检查点存储将 `fs.s3a.*` 配置键直接传递给 Hadoop，没有连接器级别的枚举限制，因此可以使用 classpath 上任何可用的 S3A 凭据提供程序类。这包括面向容器的提供程序，如 `com.amazonaws.auth.ContainerCredentialsProvider`（ECS 任务角色）和 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`。对于 EKS 部署，推荐使用 EC2 节点实例角色。EKS IRSA（`WebIdentityTokenCredentialsProvider`）在捆绑的 AWS SDK v1.x（1.11.271）中不可用，需要在所有节点的 `${SEATUNNEL_HOME}/lib` 中添加较新的 AWS SDK v1.x JAR。
+
+有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+
+#### HDFS
+
+如果您使用HDFS，您可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: hdfs
+          fs.defaultFS: hdfs://localhost:9000
+          // 如果您使用kerberos，您可以这样配置:
+          kerberosPrincipal: your-kerberos-principal
+          kerberosKeytabFilePath: your-kerberos-keytab
+```
+
+如果HDFS是HA模式，您可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: hdfs
+          fs.defaultFS: hdfs://usdp-bing
+          seatunnel.hadoop.dfs.nameservices: usdp-bing
+          seatunnel.hadoop.dfs.ha.namenodes.usdp-bing: nn1,nn2
+          seatunnel.hadoop.dfs.namenode.rpc-address.usdp-bing.nn1: usdp-bing-nn1:8020
+          seatunnel.hadoop.dfs.namenode.rpc-address.usdp-bing.nn2: usdp-bing-nn2:8020
+          seatunnel.hadoop.dfs.client.failover.proxy.provider.usdp-bing: org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider
+
+```
+
+如果HDFS在`hdfs-site.xml`或`core-site.xml`中有其他配置，只需使用`seatunnel.hadoop.`前缀设置HDFS配置即可。
+
+#### 本地文件
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: hdfs
+          fs.defaultFS: file:/// # 请确保该目录具有写权限
+
+```
+
+### 开启高速缓存
+
+当storage:type为hdfs时，默认关闭cache。如果您想启用它，请设置为`disable.cache: false`。
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: hdfs:/// # Ensure that the directory has written permission
+```
+
+or
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: file:/// 
+```

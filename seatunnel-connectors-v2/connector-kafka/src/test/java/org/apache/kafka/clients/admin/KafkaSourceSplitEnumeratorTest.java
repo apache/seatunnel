@@ -17,9 +17,10 @@
 
 package org.apache.kafka.clients.admin;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.ConsumerMetadata;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplitEnumerator;
@@ -34,6 +35,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,28 +56,34 @@ class KafkaSourceSplitEnumeratorTest {
 
     @BeforeEach
     void init() {
+        Mockito.when(kafkaSourceConfig.getMapMetadata()).thenReturn(Collections.emptyMap());
+        Mockito.when(kafkaSourceConfig.isIgnoreNoLeaderPartition()).thenReturn(false);
 
         Mockito.when(adminClient.listOffsets(Mockito.any(java.util.Map.class)))
-                .thenReturn(
-                        new ListOffsetsResult(
-                                new HashMap<
-                                        TopicPartition,
-                                        KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>() {
-                                    {
-                                        put(
-                                                partition0,
-                                                KafkaFuture.completedFuture(
-                                                        new ListOffsetsResult.ListOffsetsResultInfo(
-                                                                0, 0, Optional.of(0))));
-                                        put(
-                                                partition2,
-                                                KafkaFuture.completedFuture(
-                                                        new ListOffsetsResult.ListOffsetsResultInfo(
-                                                                0, 0, Optional.of(0))));
-                                    }
-                                }));
+                .thenAnswer(
+                        invocation -> {
+                            Map<TopicPartition, OffsetSpec> requestedOffsets =
+                                    invocation.getArgument(0);
+                            Map<
+                                            TopicPartition,
+                                            KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>
+                                    offsets = new HashMap<>();
+                            requestedOffsets
+                                    .keySet()
+                                    .forEach(
+                                            tp ->
+                                                    offsets.put(
+                                                            tp,
+                                                            KafkaFuture.completedFuture(
+                                                                    new ListOffsetsResult
+                                                                            .ListOffsetsResultInfo(
+                                                                            0,
+                                                                            0,
+                                                                            Optional.of(0)))));
+                            return new ListOffsetsResult(offsets);
+                        });
 
-        List<TopicPartitionInfo> mockTopicPartition = Lists.newArrayList();
+        List<TopicPartitionInfo> mockTopicPartition = new ArrayList<>();
         TopicPartitionInfo topicPartitionWithLeader =
                 new TopicPartitionInfo(
                         0,
@@ -102,27 +112,24 @@ class KafkaSourceSplitEnumeratorTest {
     }
 
     @Test
-    void addSplitsBack() {
-        // test
-        Map<TopicPartition, KafkaSourceSplit> assignedSplit =
-                new HashMap<TopicPartition, KafkaSourceSplit>() {
-                    {
-                        put(partition0, new KafkaSourceSplit(null, partition0));
-                    }
-                };
+    void addSplitsBackShouldPreserveCheckpointOffsetsDuringRestore() {
+        Map<TopicPartition, KafkaSourceSplit> assignedSplit = new HashMap<>();
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
-        List<KafkaSourceSplit> splits = Arrays.asList(new KafkaSourceSplit(null, partition0));
+        List<KafkaSourceSplit> splits =
+                Collections.singletonList(
+                        new KafkaSourceSplit(TablePath.DEFAULT, partition0, 123L, Long.MAX_VALUE));
         KafkaSourceSplitEnumerator enumerator =
-                new KafkaSourceSplitEnumerator(adminClient, null, pendingSplit, assignedSplit);
+                new KafkaSourceSplitEnumerator(
+                        adminClient, kafkaSourceConfig, pendingSplit, assignedSplit, true, true);
         enumerator.addSplitsBack(splits, 1);
-        Assertions.assertTrue(pendingSplit.size() == splits.size());
-        Assertions.assertNull(assignedSplit.get(partition0));
-        Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == 0);
+        Assertions.assertEquals(splits.size(), pendingSplit.size());
+        Assertions.assertTrue(assignedSplit.isEmpty());
+        Assertions.assertEquals(123L, pendingSplit.get(partition0).getStartOffset());
+        Assertions.assertEquals(Long.MAX_VALUE, pendingSplit.get(partition0).getEndOffset());
     }
 
     @Test
-    void addStreamingSplitsBack() {
-        // test
+    void addSplitsBackShouldAdvanceOffsetsAfterInitialization() throws Exception {
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>() {
                     {
@@ -131,13 +138,41 @@ class KafkaSourceSplitEnumeratorTest {
                 };
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
         List<KafkaSourceSplit> splits =
-                Collections.singletonList(new KafkaSourceSplit(null, partition0));
+                Collections.singletonList(new KafkaSourceSplit(null, partition0, 10L, 15L));
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, true);
+        setInitialized(enumerator, true);
         enumerator.addSplitsBack(splits, 1);
         Assertions.assertEquals(pendingSplit.size(), splits.size());
         Assertions.assertNull(assignedSplit.get(partition0));
+        Assertions.assertEquals(16L, pendingSplit.get(partition0).getStartOffset());
         Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == Long.MAX_VALUE);
+    }
+
+    @Test
+    void setPartitionStartOffsetShouldNotOverrideRestoredSplits() throws Exception {
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setTopic("test");
+        metadata.setStartMode(StartMode.EARLIEST);
+        Mockito.when(kafkaSourceConfig.getMapMetadata())
+                .thenReturn(Collections.singletonMap(TablePath.DEFAULT, metadata));
+
+        Map<TopicPartition, KafkaSourceSplit> assignedSplit = new HashMap<>();
+        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(
+                        adminClient, kafkaSourceConfig, pendingSplit, assignedSplit, true, true);
+
+        enumerator.addSplitsBack(
+                Collections.singletonList(
+                        new KafkaSourceSplit(TablePath.DEFAULT, partition0, 123L, Long.MAX_VALUE)),
+                0);
+        enumerator.fetchPendingPartitionSplit();
+        invokeSetPartitionStartOffset(enumerator);
+
+        Assertions.assertEquals(123L, pendingSplit.get(partition0).getStartOffset());
+        Assertions.assertEquals(Long.MAX_VALUE, pendingSplit.get(partition0).getEndOffset());
+        Assertions.assertEquals(0L, pendingSplit.get(partition2).getStartOffset());
     }
 
     @Test
@@ -214,7 +249,7 @@ class KafkaSourceSplitEnumeratorTest {
 
         // Test partition restoration: simulate partition2 getting a leader
         // Create new mock topic partition list with partition2 now having a leader
-        List<TopicPartitionInfo> restoredMockTopicPartition = Lists.newArrayList();
+        List<TopicPartitionInfo> restoredMockTopicPartition = new ArrayList<>();
         TopicPartitionInfo topicPartitionWithLeader =
                 new TopicPartitionInfo(
                         0,
@@ -253,5 +288,20 @@ class KafkaSourceSplitEnumeratorTest {
         Assertions.assertEquals(2, pendingSplit.size());
         Assertions.assertNotNull(pendingSplit.get(partition0));
         Assertions.assertNotNull(pendingSplit.get(partition2));
+    }
+
+    private void setInitialized(KafkaSourceSplitEnumerator enumerator, boolean initialized)
+            throws Exception {
+        Field initializedField = KafkaSourceSplitEnumerator.class.getDeclaredField("initialized");
+        initializedField.setAccessible(true);
+        initializedField.set(enumerator, initialized);
+    }
+
+    private void invokeSetPartitionStartOffset(KafkaSourceSplitEnumerator enumerator)
+            throws Exception {
+        Method method =
+                KafkaSourceSplitEnumerator.class.getDeclaredMethod("setPartitionStartOffset");
+        method.setAccessible(true);
+        method.invoke(enumerator);
     }
 }

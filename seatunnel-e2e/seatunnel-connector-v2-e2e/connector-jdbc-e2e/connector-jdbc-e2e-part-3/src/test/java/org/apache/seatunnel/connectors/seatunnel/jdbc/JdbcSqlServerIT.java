@@ -27,9 +27,12 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -38,7 +41,9 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -66,9 +71,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + SQLSERVER_DATABASE;
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList(
-                    "/jdbc_sqlserver_source_to_sink.conf",
-                    "/jdbc_sqlserver_source_to_sink_use_copy.conf");
+            Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
+    private static final String BULK_COPY_COLUMNS =
+            "INT_IDENTITY_TEST, BIGINT_TEST, BINARY_TEST, BIT_TEST, CHAR_TEST, DATE_TEST, DATETIME_TEST, DATETIME2_TEST, DECIMAL_TEST, FLOAT_TEST, INT_TEST, MONEY_TEST, NCHAR_TEST, NUMERIC_TEST, NVARCHAR_TEST, REAL_TEST, SMALLINT_TEST, SMALLMONEY_TEST, TIME_TEST, TINYINT_TEST, VARBINARY_TEST, VARCHAR_TEST, DATETIMEOFFSET_TEST, IMAGE_TEST, NTEXT_TEST, NVARCHAR_MAX_TEST, TEXT_TEST, UNIQUEIDENTIFIER_TEST, VARBINARY_MAX_TEST, VARCHAR_MAX_TEST, XML_TEST, UDT_TEST";
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
                     + "\tINT_IDENTITY_TEST int identity,\n"
@@ -102,7 +107,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_TEST varbinary(255) NULL,\n"
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
                     + "\tUDT_TEST UDTDECIMAL NULL,\n"
                     + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
@@ -141,7 +146,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_TEST varbinary(255) NULL,\n"
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
                     + "\tUDT_TEST UDTDECIMAL NULL\n"
                     + ");";
@@ -201,52 +206,61 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     }
 
     /**
-     * After testing, it was found that using the bulk copy method of sqlserver to write data does
-     * not support the types sql_variant and smalldatetime, so a new table needs to be created.
+     * Verifies the actual bulk-copy destination, including reordered and omitted default columns.
+     *
+     * <p>Comparing all selected values also exercises identity and decimal value preservation.
      */
-    private void createBulkCopySinkTable(Connection connection) throws SQLException {
-        String createSql =
-                "CREATE TABLE \"dbo\".\"test_copy_sink\" (\n"
-                        + "    INT_IDENTITY_TEST int IDENTITY(1,1) NOT NULL,\n"
-                        + "    BIGINT_TEST bigint NOT NULL,\n"
-                        + "    BINARY_TEST binary(255) NULL,\n"
-                        + "    BIT_TEST bit NULL,\n"
-                        + "    CHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    DATE_TEST date NULL,\n"
-                        + "    DATETIME_TEST datetime NULL,\n"
-                        + "    DATETIME2_TEST datetime2 NULL,\n"
-                        + "    DECIMAL_TEST decimal(18,2) NULL,\n"
-                        + "    FLOAT_TEST float NULL,\n"
-                        + "    INT_TEST int NULL,\n"
-                        + "    MONEY_TEST money NULL,\n"
-                        + "    NCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    NUMERIC_TEST numeric(18,2) NULL,\n"
-                        + "    NVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    REAL_TEST real NULL,\n"
-                        + "    SMALLINT_TEST smallint NULL,\n"
-                        + "    SMALLMONEY_TEST smallmoney NULL,\n"
-                        + "    TIME_TEST time NULL,\n"
-                        + "    TINYINT_TEST tinyint NULL,\n"
-                        + "    VARBINARY_TEST varbinary(255) NULL,\n"
-                        + "    VARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    DATETIMEOFFSET_TEST datetimeoffset NULL,\n"
-                        + "    IMAGE_TEST image NULL,\n"
-                        + "    NTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    NVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    TEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    UNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
-                        + "    VARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
-                        + "    VARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                        + "    XML_TEST xml NULL,\n"
-                        + "    UDT_TEST UDTDECIMAL NULL\n"
-                        + "    CONSTRAINT PK_TEST_INDEX2 PRIMARY KEY (INT_IDENTITY_TEST)\n"
-                        + ");";
-        connection.createStatement().execute(createSql);
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
+    @TestTemplate
+    public void testSqlServerBulkCopyWritesByColumnName(TestContainer container) throws Exception {
+        super.clearTable(SQLSERVER_SCHEMA, "test_copy_sink");
+        try {
+            Container.ExecResult result =
+                    container.executeJob("/jdbc_sqlserver_source_to_sink_use_copy.conf");
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+            String[] fields = BULK_COPY_COLUMNS.split(", ");
+            Object[] expected;
+            try (Statement statement = connection.createStatement();
+                    ResultSet rows =
+                            statement.executeQuery(
+                                    "SELECT "
+                                            + BULK_COPY_COLUMNS
+                                            + " FROM dbo.source ORDER BY INT_IDENTITY_TEST")) {
+                expected = toArrayResult(rows, fields);
+            }
+            Assertions.assertEquals(100, expected.length, "source fixture must be populated");
+            Object[] actual;
+            try (Statement statement = connection.createStatement();
+                    ResultSet rows =
+                            statement.executeQuery(
+                                    "SELECT "
+                                            + BULK_COPY_COLUMNS
+                                            + " FROM dbo.test_copy_sink ORDER BY INT_IDENTITY_TEST")) {
+                actual = toArrayResult(rows, fields);
+            }
+            Assertions.assertArrayEquals(
+                    expected, actual, "bulk-copy target must preserve every selected value");
+            try (Statement statement = connection.createStatement();
+                    ResultSet rows =
+                            statement.executeQuery(
+                                    "SELECT DATEPART(TZOFFSET, DATETIMEOFFSET_TEST), "
+                                            + "DATEPART(NANOSECOND, DATETIMEOFFSET_TEST) FROM dbo.test_copy_sink "
+                                            + "WHERE INT_IDENTITY_TEST = 1")) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(345, rows.getInt(1), "non-hour offset must be preserved");
+                Assertions.assertEquals(
+                        123456700, rows.getInt(2), "datetimeoffset(7) fraction must be preserved");
+            }
+            try (Statement statement = connection.createStatement();
+                    ResultSet rows =
+                            statement.executeQuery(
+                                    "SELECT COUNT(*) FROM dbo.test_copy_sink WHERE EXTRA_DEFAULT_TEST = 'bulk-default'")) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(
+                        100, rows.getInt(1), "omitted destination column must use its default");
+            }
+        } finally {
+            super.clearTable(SQLSERVER_SCHEMA, "test_copy_sink");
+        }
     }
 
     @Override
@@ -300,7 +314,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 LocalDate.now(), // DATE_TEST
                                 LocalDateTime.now(), // DATETIME_TEST
                                 LocalDateTime.now(), // DATETIME2_TEST
-                                OffsetDateTime.now(), // DATETIMEOFFSET_TEST
+                                OffsetDateTime.parse("2026-01-02T03:04:05.1234567+05:45")
+                                        .plusSeconds(i), // DATETIMEOFFSET_TEST
                                 new BigDecimal("123.45"), // DECIMAL_TEST
                                 3.14f, // FLOAT_TEST
                                 new byte[255], // IMAGE_TEST
@@ -345,11 +360,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
 
         try {
             Class.forName(container.getDriverClassName());
@@ -430,6 +440,64 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         // drop table
         sqlServerCatalog.dropTable(tablePathSqlserverSink, true);
         Assertions.assertFalse(sqlServerCatalog.tableExists(tablePathSqlserverSink));
+        // database name that must be quoted
+        TablePath specialTablePath = TablePath.of("test-db", "dbo", "sink_lw");
+        sqlServerCatalog.createDatabase(specialTablePath, true);
+        try {
+            sqlServerCatalog.createTable(specialTablePath, catalogTable, true);
+            Assertions.assertTrue(sqlServerCatalog.tableExists(specialTablePath));
+            sqlServerCatalog.dropTable(specialTablePath, true);
+            Assertions.assertFalse(sqlServerCatalog.tableExists(specialTablePath));
+        } finally {
+            sqlServerCatalog.dropDatabase(specialTablePath, true);
+        }
         sqlServerCatalog.close();
+    }
+    /**
+     * Creates the destination for the bulk-copy fixture's selected SQL Server types.
+     *
+     * <p>The leading default column is deliberately absent from the source projection.
+     */
+    private void createBulkCopySinkTable(Connection connection) throws SQLException {
+        String createSql =
+                "CREATE TABLE \"dbo\".\"test_copy_sink\" (\n"
+                        + "    EXTRA_DEFAULT_TEST varchar(20) NOT NULL DEFAULT 'bulk-default',\n"
+                        + "    INT_IDENTITY_TEST int IDENTITY(1,1) NOT NULL,\n"
+                        + "    BIGINT_TEST bigint NOT NULL,\n"
+                        + "    BINARY_TEST binary(255) NULL,\n"
+                        + "    BIT_TEST bit NULL,\n"
+                        + "    CHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    DATE_TEST date NULL,\n"
+                        + "    DATETIME_TEST datetime NULL,\n"
+                        + "    DATETIME2_TEST datetime2 NULL,\n"
+                        + "    DECIMAL_TEST decimal(18,2) NULL,\n"
+                        + "    FLOAT_TEST float NULL,\n"
+                        + "    INT_TEST int NULL,\n"
+                        + "    MONEY_TEST money NULL,\n"
+                        + "    NCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    NUMERIC_TEST numeric(18,2) NULL,\n"
+                        + "    NVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    REAL_TEST real NULL,\n"
+                        + "    SMALLINT_TEST smallint NULL,\n"
+                        + "    SMALLMONEY_TEST smallmoney NULL,\n"
+                        + "    TIME_TEST time NULL,\n"
+                        + "    TINYINT_TEST tinyint NULL,\n"
+                        + "    VARBINARY_TEST varbinary(255) NULL,\n"
+                        + "    VARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    DATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                        + "    IMAGE_TEST image NULL,\n"
+                        + "    NTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    NVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    TEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    UNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                        + "    VARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                        + "    VARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    XML_TEST xml NULL,\n"
+                        + "    UDT_TEST UDTDECIMAL NULL,\n"
+                        + "    CONSTRAINT PK_TEST_INDEX2 PRIMARY KEY (INT_IDENTITY_TEST)\n"
+                        + ");";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+        }
     }
 }

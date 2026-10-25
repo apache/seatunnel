@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import org.apache.hadoop.hbase.NamespaceDescriptor;
+
 import lombok.Builder;
 import lombok.Getter;
 
@@ -29,6 +31,8 @@ import java.util.Map;
 @Builder
 @Getter
 public class HbaseParameters implements Serializable {
+
+    public static final String DEFAULT_NAMESPACE = NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR;
 
     private String zookeeperQuorum;
 
@@ -45,6 +49,10 @@ public class HbaseParameters implements Serializable {
     private String startRowkey;
 
     private String endRowkey;
+
+    private Long startTimestamp;
+
+    private Long endTimestamp;
 
     private Map<String, String> familyNames;
 
@@ -91,7 +99,7 @@ public class HbaseParameters implements Serializable {
             builder.table(table.substring(colonIndex + 1));
         } else {
             builder.table(table);
-            builder.namespace("default");
+            builder.namespace(DEFAULT_NAMESPACE);
         }
 
         // required parameters
@@ -125,6 +133,7 @@ public class HbaseParameters implements Serializable {
             builder.table(table.substring(colonIndex + 1));
         } else {
             builder.table(table);
+            builder.namespace(DEFAULT_NAMESPACE);
         }
 
         if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_EXTRA_CONFIG).isPresent()) {
@@ -155,6 +164,20 @@ public class HbaseParameters implements Serializable {
         if (pluginConfig.getOptional(HbaseSourceOptions.END_ROW_INCLUSIVE).isPresent()) {
             builder.endRowInclusive(pluginConfig.get(HbaseSourceOptions.END_ROW_INCLUSIVE));
         }
+
+        if (pluginConfig.getOptional(HbaseSourceOptions.START_TIMESTAMP).isPresent()) {
+            builder.startTimestamp(pluginConfig.get(HbaseSourceOptions.START_TIMESTAMP));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.END_TIMESTAMP).isPresent()) {
+            builder.endTimestamp(pluginConfig.get(HbaseSourceOptions.END_TIMESTAMP));
+        }
         return builder.build();
+    }
+
+    public String getNamespace() {
+        if (namespace == null || namespace.trim().isEmpty()) {
+            return DEFAULT_NAMESPACE;
+        }
+        return namespace;
     }
 }

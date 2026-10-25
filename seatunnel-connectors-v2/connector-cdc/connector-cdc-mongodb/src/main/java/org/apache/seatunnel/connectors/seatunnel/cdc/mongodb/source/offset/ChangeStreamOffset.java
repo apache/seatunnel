@@ -29,8 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.RESUME_TOKEN_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TIMESTAMP_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.RESUME_TOKEN_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.TIMESTAMP_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.maximumBsonTimestamp;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.ResumeToken.decodeTimestamp;
 
@@ -90,6 +90,11 @@ public class ChangeStreamOffset extends Offset {
         }
         ChangeStreamOffset that = (ChangeStreamOffset) o;
         return offset.equals(that.offset);
+    }
+
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
     }
 
     @Override

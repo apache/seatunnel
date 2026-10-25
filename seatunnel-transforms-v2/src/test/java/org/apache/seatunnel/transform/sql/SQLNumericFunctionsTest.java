@@ -1,0 +1,504 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.transform.sql;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+
+public class SQLNumericFunctionsTest {
+
+    private SeaTunnelRow runSql(String query, SeaTunnelRowType rowType, Object... values) {
+        CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("query", query));
+        SQLTransform transform = new SQLTransform(config, table);
+        List<SeaTunnelRow> out = transform.transformRow(new SeaTunnelRow(values));
+        Assertions.assertNotNull(out);
+        Assertions.assertFalse(out.isEmpty());
+        return out.get(0);
+    }
+
+    @Test
+    public void testBasicNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"i", "d"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.DOUBLE_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ABS(i) as abs_i,"
+                                + " SIGN(i) as sign_i,"
+                                + " CEIL(d) as ceil_d,"
+                                + " FLOOR(d) as floor_d"
+                                + " from dual",
+                        rowType,
+                        -3,
+                        1.2d);
+
+        Assertions.assertEquals(3, outRow.getField(0));
+        Assertions.assertEquals(-1, outRow.getField(1));
+        // CEIL/FLOOR keep the type of their argument, so a DOUBLE column yields a DOUBLE.
+        Assertions.assertEquals(2d, outRow.getField(2));
+        Assertions.assertEquals(1d, outRow.getField(3));
+    }
+
+    @Test
+    public void testSmallIntegerNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ABS(tiny_v) as abs_tiny,"
+                                + " SIGN(small_v) as sign_small,"
+                                + " ROUND(tiny_v, -1) as round_tiny,"
+                                + " CEIL(tiny_v, -1) as ceil_tiny,"
+                                + " FLOOR(tiny_v, -1) as floor_tiny,"
+                                + " TRUNC(tiny_v, -1) as trunc_tiny"
+                                + " from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -12);
+
+        Assertions.assertEquals((byte) 44, outRow.getField(0));
+        Assertions.assertEquals(-1, outRow.getField(1));
+        Assertions.assertEquals((byte) -40, outRow.getField(2));
+        Assertions.assertEquals((byte) -40, outRow.getField(3));
+        Assertions.assertEquals((byte) -50, outRow.getField(4));
+        Assertions.assertEquals((byte) -40, outRow.getField(5));
+    }
+
+    @Test
+    public void testModAndRound() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql("select MOD(a, b) as m, ROUND(1.234, 2) as r from dual", rowType, 7, 3);
+
+        Assertions.assertEquals(1, outRow.getField(0));
+        Assertions.assertEquals(1.23d, (Double) outRow.getField(1), 1e-9);
+    }
+
+    @Test
+    public void testModWithTinyIntAndSmallIntDivisors() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "tiny", "small"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.BYTE_TYPE, BasicType.SHORT_TYPE
+                        });
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select MOD(a, tiny) as tiny_remainder, MOD(a, small) as small_remainder from dual",
+                        rowType,
+                        100,
+                        (byte) 7,
+                        (short) 30);
+
+        Assertions.assertEquals((byte) 2, outRow.getField(0));
+        Assertions.assertEquals((short) 10, outRow.getField(1));
+    }
+
+    @Test
+    public void testModByZero() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> runSql("select MOD(a, b) as m from dual", rowType, 7, 0));
+    }
+
+    @Test
+    public void testLnLogLog10() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"x"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select LN(x) as ln_x,"
+                                + " LOG(10, x) as log10_x,"
+                                + " LOG10(x) as log10_fn"
+                                + " from dual",
+                        rowType,
+                        10.0d);
+
+        double ln = (Double) outRow.getField(0);
+        double log10ViaLog = (Double) outRow.getField(1);
+        double log10 = (Double) outRow.getField(2);
+
+        Assertions.assertEquals(Math.log(10.0d), ln, 1e-9);
+        Assertions.assertEquals(Math.log10(10.0d), log10ViaLog, 1e-9);
+        Assertions.assertEquals(Math.log10(10.0d), log10, 1e-9);
+    }
+
+    @Test
+    public void testSqrtRadiansAndPi() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"angle"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select SQRT(4.0) as s,"
+                                + " RADIANS(angle) as rad,"
+                                + " PI() as pi"
+                                + " from dual",
+                        rowType,
+                        180.0d);
+
+        Assertions.assertEquals(2.0d, (Double) outRow.getField(0), 1e-9);
+        Assertions.assertEquals(Math.toRadians(180.0d), (Double) outRow.getField(1), 1e-9);
+        Assertions.assertEquals(Math.PI, (Double) outRow.getField(2), 1e-9);
+    }
+
+    @Test
+    public void testRandDeterministicWithSeed() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"seed"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+
+        SeaTunnelRow outRow = runSql("select RAND(1) as r1, RAND(1) as r2 from dual", rowType, 0);
+
+        double r1 = (Double) outRow.getField(0);
+        double r2 = (Double) outRow.getField(1);
+
+        Assertions.assertEquals(r1, r2, 0.0d);
+        Assertions.assertTrue(r1 >= 0.0d && r1 < 1.0d);
+    }
+
+    @Test
+    public void testTruncAndTruncate() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select TRUNC(1.234, 2) as t1,"
+                                + " TRUNCATE(1.234, 1) as t2"
+                                + " from dual",
+                        rowType,
+                        0.0d);
+
+        Assertions.assertEquals(1.23d, (Double) outRow.getField(0), 1e-9);
+        Assertions.assertEquals(1.2d, (Double) outRow.getField(1), 1e-9);
+    }
+
+    @Test
+    public void testArrayMaxAndArrayMin() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"arr_i", "arr_s"},
+                        new SeaTunnelDataType[] {
+                            ArrayType.INT_ARRAY_TYPE, ArrayType.STRING_ARRAY_TYPE
+                        });
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ARRAY_MAX(arr_i) as max_i,"
+                                + " ARRAY_MIN(arr_i) as min_i,"
+                                + " ARRAY_MAX(arr_s) as max_s,"
+                                + " ARRAY_MIN(arr_s) as min_s"
+                                + " from dual",
+                        rowType,
+                        (Object) new Object[] {1, 2, 3},
+                        (Object) new Object[] {"a", "c", "b"});
+
+        Assertions.assertEquals(3, outRow.getField(0));
+        Assertions.assertEquals(1, outRow.getField(1));
+        Assertions.assertEquals("c", outRow.getField(2));
+        Assertions.assertEquals("a", outRow.getField(3));
+    }
+
+    @Test
+    public void testArrayMaxAndArrayMinWithEmptyArray() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"arr"}, new SeaTunnelDataType[] {ArrayType.INT_ARRAY_TYPE});
+
+        // Provide an empty array as column value
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ARRAY_MAX(arr) as max_v,"
+                                + " ARRAY_MIN(arr) as min_v"
+                                + " from dual",
+                        rowType,
+                        (Object) new Object[] {});
+
+        Assertions.assertNull(outRow.getField(0));
+        Assertions.assertNull(outRow.getField(1));
+    }
+
+    @Test
+    public void testArrayExtremaPreserveExactValuesAndSchema() {
+        DecimalType decimalType = new DecimalType(38, 20);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"longs", "decimals"},
+                        new SeaTunnelDataType[] {
+                            ArrayType.LONG_ARRAY_TYPE, ArrayType.of(decimalType)
+                        });
+        CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+        SQLTransform transform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(
+                                        "query",
+                                        "select ARRAY_MAX(longs) as max_l, ARRAY_MIN(longs) as min_l, "
+                                                + "ARRAY_MAX(decimals) as max_d, ARRAY_MIN(decimals) as min_d from dual")),
+                        table);
+        Assertions.assertArrayEquals(
+                new SeaTunnelDataType[] {
+                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, decimalType, decimalType
+                },
+                transform.getProducedCatalogTable().getSeaTunnelRowType().getFieldTypes());
+        Long low = 9007199254740992L;
+        Long high = 9007199254740993L;
+        BigDecimal lowDecimal = new BigDecimal("1.00000000000000000001");
+        BigDecimal highDecimal = new BigDecimal("1.00000000000000000002");
+        for (SeaTunnelRow row :
+                new SeaTunnelRow[] {
+                    new SeaTunnelRow(
+                            new Object[] {
+                                new Long[] {null, low, high},
+                                new BigDecimal[] {highDecimal, lowDecimal, null}
+                            }),
+                    new SeaTunnelRow(
+                            new Object[] {
+                                new Long[] {high, low, null},
+                                new BigDecimal[] {null, lowDecimal, highDecimal}
+                            })
+                }) {
+            SeaTunnelRow result = transform.transformRow(row).get(0);
+            Assertions.assertSame(high, result.getField(0));
+            Assertions.assertSame(low, result.getField(1));
+            Assertions.assertSame(highDecimal, result.getField(2));
+            Assertions.assertSame(lowDecimal, result.getField(3));
+        }
+    }
+
+    @Test
+    public void testTrigonometricFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"x"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        double x = 0.5d;
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ACOS(x) as acos_x,"
+                                + " ASIN(x) as asin_x,"
+                                + " ATAN(x) as atan_x,"
+                                + " COS(x) as cos_x,"
+                                + " COSH(x) as cosh_x,"
+                                + " COT(x) as cot_x,"
+                                + " SIN(x) as sin_x,"
+                                + " SINH(x) as sinh_x,"
+                                + " TAN(x) as tan_x,"
+                                + " TANH(x) as tanh_x,"
+                                + " ATAN2(x, 1.0) as atan2_x"
+                                + " from dual",
+                        rowType,
+                        x);
+
+        Assertions.assertEquals(Math.acos(x), (Double) outRow.getField(0), 1e-9);
+        Assertions.assertEquals(Math.asin(x), (Double) outRow.getField(1), 1e-9);
+        Assertions.assertEquals(Math.atan(x), (Double) outRow.getField(2), 1e-9);
+        Assertions.assertEquals(Math.cos(x), (Double) outRow.getField(3), 1e-9);
+        Assertions.assertEquals(Math.cosh(x), (Double) outRow.getField(4), 1e-9);
+
+        double expectedCot = 1.0d / Math.tan(x);
+        Assertions.assertEquals(expectedCot, (Double) outRow.getField(5), 1e-9);
+
+        Assertions.assertEquals(Math.sin(x), (Double) outRow.getField(6), 1e-9);
+        Assertions.assertEquals(Math.sinh(x), (Double) outRow.getField(7), 1e-9);
+        Assertions.assertEquals(Math.tan(x), (Double) outRow.getField(8), 1e-9);
+        Assertions.assertEquals(Math.tanh(x), (Double) outRow.getField(9), 1e-9);
+        Assertions.assertEquals(Math.atan2(x, 1.0d), (Double) outRow.getField(10), 1e-9);
+    }
+
+    @Test
+    public void testExpPowerAndRandom() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"x"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        double x = 2.0d;
+        SeaTunnelRow outRow =
+                runSql(
+                        "select EXP(x) as e,"
+                                + " POWER(2, 3) as p,"
+                                + " RANDOM(1) as r1,"
+                                + " RANDOM(1) as r2"
+                                + " from dual",
+                        rowType,
+                        x);
+
+        Assertions.assertEquals(Math.exp(x), (Double) outRow.getField(0), 1e-9);
+        Assertions.assertEquals(Math.pow(2.0d, 3.0d), (Double) outRow.getField(1), 1e-9);
+
+        double r1 = (Double) outRow.getField(2);
+        double r2 = (Double) outRow.getField(3);
+        Assertions.assertEquals(r1, r2, 0.0d);
+        Assertions.assertTrue(r1 >= 0.0d && r1 < 1.0d);
+    }
+
+    @Test
+    public void testSignWithZeroAndNaN() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"x"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+
+        // x = 0.0
+        SeaTunnelRow rowZero = runSql("select SIGN(x) as s from dual", rowType, 0.0d);
+        Assertions.assertEquals(0, rowZero.getField(0));
+
+        // x = -0.0
+        SeaTunnelRow rowNegZero = runSql("select SIGN(x) as s from dual", rowType, -0.0d);
+        Assertions.assertEquals(0, rowNegZero.getField(0));
+
+        // x = NaN -> SIGN should return 0
+        SeaTunnelRow rowNaN = runSql("select SIGN(x) as s from dual", rowType, Double.NaN);
+        Assertions.assertEquals(0, rowNaN.getField(0));
+    }
+
+    @Test
+    public void testNestedNumericExpressions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"x", "y"},
+                        new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE, BasicType.DOUBLE_TYPE});
+
+        double x = 30.0d;
+        double y = 60.0d;
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ROUND(SIN(RADIANS(x)) + COS(RADIANS(y)), 4) as v1,"
+                                + " LOG10(ABS(x)) as v2,"
+                                + " TRUNC(POWER(x, 2) / 3, 2) as v3"
+                                + " from dual",
+                        rowType,
+                        x,
+                        y);
+
+        double expectedV1 = Math.sin(Math.toRadians(x)) + Math.cos(Math.toRadians(y));
+        double expectedV2 = Math.log10(Math.abs(x));
+        double expectedV3 = Math.floor((Math.pow(x, 2) / 3) * 100.0d) / 100.0d;
+
+        Assertions.assertEquals(
+                Math.round(expectedV1 * 10000.0d) / 10000.0d, (Double) outRow.getField(0), 1e-4);
+        Assertions.assertEquals(expectedV2, (Double) outRow.getField(1), 1e-9);
+        Assertions.assertEquals(expectedV3, (Double) outRow.getField(2), 1e-9);
+    }
+
+    @Test
+    public void testIntegralOverflowFailsInsteadOfProducingNegativeValues() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"i", "l"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.LONG_TYPE});
+
+        // ROUND(2147483647, -1) is 2147483650, which does not fit in an INT column. It used to
+        // wrap to -2147483646 and be written downstream as an ordinary row.
+        TransformException rounded =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                runSql(
+                                        "select ROUND(i, -1) as r from dual",
+                                        rowType,
+                                        Integer.MAX_VALUE,
+                                        0L));
+        // The SQL engine wraps anything thrown while evaluating an expression, so the range
+        // detail lives on the cause.
+        Assertions.assertTrue(rounded.getMessage().contains("ROUND(i, -1)"), rounded.getMessage());
+        Assertions.assertNotNull(rounded.getCause());
+        Assertions.assertTrue(
+                rounded.getCause().getMessage().contains("2147483650"),
+                rounded.getCause().getMessage());
+
+        // ABS of the minimum BIGINT has no representation, so the row used to keep its sign.
+        TransformException absolute =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> runSql("select ABS(l) as a from dual", rowType, 0, Long.MIN_VALUE));
+        Assertions.assertNotNull(absolute.getCause());
+        Assertions.assertTrue(
+                absolute.getCause().getMessage().contains("BIGINT"),
+                absolute.getCause().getMessage());
+
+        SeaTunnelRow outRow =
+                runSql("select ROUND(i, -1) as r, ABS(l) as a from dual", rowType, 1234, -5L);
+        Assertions.assertEquals(1230, outRow.getField(0));
+        Assertions.assertEquals(5L, outRow.getField(1));
+    }
+
+    @Test
+    public void testTinyIntAndSmallIntFlowThroughNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        // ROUND on a TINYINT column used to fall through the type switch and return the input
+        // unchanged, while the identical expression one type up rounded correctly.
+        SeaTunnelRow rounded =
+                runSql(
+                        "select ROUND(tiny_v, -1) as r_tiny, ROUND(small_v, -2) as r_small from dual",
+                        rowType,
+                        (byte) 44,
+                        (short) 1234);
+        Assertions.assertEquals((byte) 40, rounded.getField(0));
+        Assertions.assertEquals((short) 1200, rounded.getField(1));
+
+        // ABS and SIGN used to reject both column types outright.
+        SeaTunnelRow signed =
+                runSql(
+                        "select ABS(tiny_v) as a, SIGN(small_v) as s from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -1234);
+        Assertions.assertEquals((byte) 44, signed.getField(0));
+        Assertions.assertEquals(-1, signed.getField(1));
+    }
+}

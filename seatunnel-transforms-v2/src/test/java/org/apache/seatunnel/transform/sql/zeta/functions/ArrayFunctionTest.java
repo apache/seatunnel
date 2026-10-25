@@ -17,16 +17,28 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.schema.Column;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 class ArrayFunctionTest {
@@ -71,5 +83,304 @@ class ArrayFunctionTest {
         Assertions.assertEquals(2, ((Number) inner1[1]).intValue());
         Assertions.assertEquals(3, ((Number) inner2[0]).intValue());
         Assertions.assertEquals(4, ((Number) inner2[1]).intValue());
+    }
+
+    @Test
+    void testArrayMaxAndMinWithIntegers() {
+        Object[] values = new Object[] {1, 3, 2};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals(3, max);
+        Assertions.assertEquals(1, min);
+    }
+
+    @Test
+    void testArrayExtremaPreserveLongPrecision() {
+        assertExtremaInBothOrders(9007199254740992L, 9007199254740993L);
+        assertExtremaInBothOrders(-9007199254740993L, -9007199254740992L);
+        assertExtremaInBothOrders(Long.MAX_VALUE - 1, Long.MAX_VALUE);
+        assertExtremaInBothOrders(Long.MIN_VALUE, Long.MIN_VALUE + 1);
+        assertExtremaInBothOrders(Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    @Test
+    void testArrayExtremaPreserveDecimalPrecision() {
+        assertExtremaInBothOrders(
+                new BigDecimal("1.00000000000000000001"), new BigDecimal("1.00000000000000000002"));
+        assertExtremaInBothOrders(
+                new BigDecimal("-1.00000000000000000002"),
+                new BigDecimal("-1.00000000000000000001"));
+        assertExtremaInBothOrders(
+                new BigDecimal("1E+30"), new BigDecimal("1E+30").add(BigDecimal.ONE));
+        assertExtremaInBothOrders(new BigDecimal("1E-400"), new BigDecimal("2E-400"));
+        assertExtremaInBothOrders(new BigDecimal("1E+400"), new BigDecimal("2E+400"));
+    }
+
+    @Test
+    void testArrayExtremaPreserveMixedIntegralDecimalPrecision() {
+        Assertions.assertAll(
+                () -> assertExtremaInBothOrders(1L, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(new BigDecimal("-1.00000000000000000001"), -1L),
+                () ->
+                        assertExtremaInBothOrders(
+                                Long.MAX_VALUE, new BigDecimal("9223372036854775807.1")),
+                () ->
+                        assertExtremaInBothOrders(
+                                new BigDecimal("-9223372036854775808.1"), Long.MIN_VALUE),
+                () -> assertExtremaInBothOrders(0L, new BigDecimal("1E-400")),
+                () -> assertExtremaInBothOrders((byte) 1, new BigDecimal("1.00000000000000000001")),
+                () ->
+                        assertExtremaInBothOrders(
+                                (short) 1, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(1, new BigDecimal("1.00000000000000000001")));
+    }
+
+    @Test
+    void testArrayExtremaKeepFirstEqualElement() {
+        BigDecimal first = new BigDecimal("1.00");
+        BigDecimal second = new BigDecimal("1.0");
+        for (Object[] values :
+                new Object[][] {
+                    {null, first, second},
+                    {second, first, null},
+                    {null, 1L, first, 1},
+                    {first, 1, 1L, null},
+                    {null, (byte) 1, (short) 1, 1, 1L}
+                }) {
+            Object expected = values[0] == null ? values[1] : values[0];
+            Assertions.assertSame(
+                    expected, ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    expected, ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    @Test
+    void testArrayExtremaPreserveFloatingPointOrdering() {
+        assertExtremaInBothOrders(-0.0d, 0.0d);
+        assertExtremaInBothOrders(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+        assertExtremaInBothOrders(Double.POSITIVE_INFINITY, Double.NaN);
+        assertExtremaInBothOrders(-0.0f, 0.0f);
+        assertExtremaInBothOrders(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+        assertExtremaInBothOrders(Float.POSITIVE_INFINITY, Float.NaN);
+    }
+
+    @Test
+    void testArrayExtremaPreserveIntegralWrappers() {
+        assertExtremaInBothOrders(Byte.MIN_VALUE, Byte.MAX_VALUE);
+        assertExtremaInBothOrders(Short.MIN_VALUE, Short.MAX_VALUE);
+        assertExtremaInBothOrders(Integer.MIN_VALUE, Integer.MAX_VALUE);
+        assertExtremaInBothOrders(1, 9007199254740993L);
+    }
+
+    @Test
+    void testArrayExtremaPreserveMixedFloatingPointComparison() {
+        Long first = 9007199254740992L;
+        Long second = 9007199254740993L;
+        Double floating = 9007199254740992d;
+        for (Object[] values :
+                new Object[][] {
+                    {first, second, floating}, {second, floating, first}, {floating, first, second}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+        BigDecimal decimal = new BigDecimal("1.00000000000000000001");
+        for (Object[] values :
+                new Object[][] {
+                    {decimal, 1d}, {1d, decimal}, {1L, decimal, 1d}, {decimal, 1L, 1d}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    @Test
+    void testArrayExtremaPreserveUnknownNumberComparison() {
+        BigInteger integer = new BigInteger("9007199254740993");
+        BigDecimal decimal = new BigDecimal("9007199254740992");
+        Long integral = 9007199254740992L;
+        for (Object[] values :
+                new Object[][] {
+                    {integer, decimal, integral},
+                    {decimal, integral, integer},
+                    {integral, integer, decimal}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    private void assertExtremaInBothOrders(Number min, Number max) {
+        for (Object[] values : new Object[][] {{null, min, max}, {max, min, null}}) {
+            Object[] original = values.clone();
+            Assertions.assertAll(
+                    () ->
+                            Assertions.assertSame(
+                                    max, ArrayFunction.arrayMax(Collections.singletonList(values))),
+                    () ->
+                            Assertions.assertSame(
+                                    min, ArrayFunction.arrayMin(Collections.singletonList(values))),
+                    () -> Assertions.assertArrayEquals(original, values));
+        }
+    }
+
+    @Test
+    void testArrayMaxAndMinWithStrings() {
+        Object[] values = new Object[] {"a", "c", "b"};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals("c", max);
+        Assertions.assertEquals("a", min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithEmptyOrNullArray() {
+        Object[] empty = new Object[] {};
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) null)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) null)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElements() {
+        Object[] values = new Object[] {null, 3, 2, null, 5};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals(5, max);
+        Assertions.assertEquals(2, min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithAllNullElements() {
+        Object[] values = new Object[] {null, null};
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElementsString() {
+        Object[] values = new Object[] {null, "b", null, "a"};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals("b", max);
+        Assertions.assertEquals("a", min);
+    }
+
+    @Test
+    void testArrayMaxUnsupportedElementType() {
+        Object[] values = new Object[] {true, false};
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
+    }
+
+    @Test
+    void testArrayHomogeneousNumeric() {
+        List<Object> args = Arrays.asList(1, 2, 3);
+        Object[] result = ArrayFunction.array(args);
+
+        Assertions.assertEquals(3, result.length);
+        Assertions.assertTrue(result[0] instanceof Integer);
+        Assertions.assertEquals(1, result[0]);
+        Assertions.assertEquals(2, result[1]);
+        Assertions.assertEquals(3, result[2]);
+    }
+
+    @Test
+    void testArrayNumericPromotion() {
+        List<Object> args = Arrays.asList(1, 2L, 3.5f);
+        Object[] result = ArrayFunction.array(args);
+
+        // numeric types should be promoted to the widest type (Double here)
+        Assertions.assertEquals(3, result.length);
+        for (Object o : result) {
+            Assertions.assertTrue(o instanceof Number);
+        }
+        Assertions.assertEquals(1.0d, ((Number) result[0]).doubleValue(), 1e-9);
+        Assertions.assertEquals(2.0d, ((Number) result[1]).doubleValue(), 1e-9);
+        Assertions.assertEquals(3.5d, ((Number) result[2]).doubleValue(), 1e-9);
+    }
+
+    @Test
+    void testArrayMixedStringAndNumeric() {
+        List<Object> args = Arrays.asList(1, "2", 3);
+        Object[] result = ArrayFunction.array(args);
+
+        // mixed non-compatible types should fallback to String representation
+        Assertions.assertEquals(3, result.length);
+        for (Object o : result) {
+            Assertions.assertTrue(o instanceof String);
+        }
+        Assertions.assertArrayEquals(new Object[] {"1", "2", "3"}, result);
+    }
+
+    @Test
+    void testArrayWithEmptyArgsReturnsEmptyArray() {
+        Object[] result = ArrayFunction.array(java.util.Collections.emptyList());
+        Assertions.assertEquals(0, result.length);
+    }
+
+    @Test
+    void testCastArrayTypeMappingWithLiteralArgs() {
+        // ARRAY(1, 2, 3) -> element type INT
+        Function function = new Function();
+        function.setName("ARRAY");
+        function.setParameters(
+                new ExpressionList<Expression>(
+                        Arrays.asList(new LongValue(1), new LongValue(2), new LongValue(3))));
+
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        ArrayType resultType = ArrayFunction.castArrayTypeMapping(function, inputType);
+        Assertions.assertEquals(BasicType.INT_TYPE, resultType.getElementType());
+    }
+
+    @Test
+    void testCastArrayTypeMappingWithEmptyArgsDefaultsToString() {
+        Function function = new Function();
+        function.setName("ARRAY");
+        function.setParameters(new ExpressionList<Expression>(java.util.Collections.emptyList()));
+
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        ArrayType resultType = ArrayFunction.castArrayTypeMapping(function, inputType);
+        Assertions.assertEquals(BasicType.STRING_TYPE, resultType.getElementType());
+    }
+
+    @Test
+    void testGetElementTypeFromRowType() {
+        // column "arr" is ARRAY<INT>
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"arr"}, new SeaTunnelDataType[] {ArrayType.INT_ARRAY_TYPE});
+
+        Function function = new Function();
+        function.setName("ARRAY_MAX");
+        function.setParameters(new ExpressionList<Expression>(Arrays.asList(new Column("arr"))));
+
+        SeaTunnelDataType<?> elementType = ArrayFunction.getElementType(function, inputType);
+        Assertions.assertEquals(BasicType.INT_TYPE, elementType);
     }
 }

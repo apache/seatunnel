@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -47,13 +48,18 @@ import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.xml.XMLConstants;
+
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -67,6 +73,22 @@ import java.util.stream.IntStream;
 /** The XmlReadStrategy class is used to read data from XML files in SeaTunnel. */
 @Slf4j
 public class XmlReadStrategy extends AbstractReadStrategy {
+
+    /** Reject DTD declarations so XML inputs cannot define attacker-controlled entities. */
+    private static final String DISALLOW_DOCTYPE_DECL =
+            "http://apache.org/xml/features/disallow-doctype-decl";
+
+    /** Disable external general entities to prevent local file reads and SSRF. */
+    private static final String EXTERNAL_GENERAL_ENTITIES =
+            "http://xml.org/sax/features/external-general-entities";
+
+    /** Disable external parameter entities to prevent nested external entity expansion. */
+    private static final String EXTERNAL_PARAMETER_ENTITIES =
+            "http://xml.org/sax/features/external-parameter-entities";
+
+    /** Disable external DTD loading even when a parser implementation supports it. */
+    private static final String LOAD_EXTERNAL_DTD =
+            "http://apache.org/xml/features/nonvalidating/load-external-dtd";
 
     private String tableRowName;
     private Boolean useAttrFormat;
@@ -91,25 +113,27 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.XML);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.XML);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        SAXReader saxReader = new SAXReader();
+        SAXReader saxReader = createSecureSaxReader(split.getFilePath());
         Document document;
-        try {
-            document = saxReader.read(new InputStreamReader(inputStream, encoding));
+        try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
+            document = saxReader.read(reader);
         } catch (DocumentException e) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Failed to read xml file: " + split.getFilePath(),
+                    e);
         }
         Element rootElement = document.getRootElement();
 
@@ -161,9 +185,35 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                                 }
                             }
 
-                            seaTunnelRow.setTableId(tableId);
+                            seaTunnelRow.setTableId(split.getTableId());
                             output.collect(seaTunnelRow);
                         });
+    }
+
+    /**
+     * Configure the XML reader with XXE-safe defaults before parsing user-controlled file contents.
+     * The parser-init failure message includes the file path (rather than reusing the bare "Failed
+     * to initialize secure xml parser" text) so operators can tell an environment/classpath problem
+     * (every file on this deployment would fail identically) apart from a per-file issue.
+     */
+    private SAXReader createSecureSaxReader(String filePath) {
+        SAXReader saxReader = new SAXReader();
+        try {
+            // Keep JAXP entity-expansion limits enabled even if Xerces is on the classpath.
+            saxReader.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            saxReader.setFeature(DISALLOW_DOCTYPE_DECL, true);
+            saxReader.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
+            saxReader.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
+            saxReader.setFeature(LOAD_EXTERNAL_DTD, false);
+            saxReader.setEntityResolver(
+                    (publicId, systemId) -> new InputSource(new StringReader("")));
+        } catch (SAXException e) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Failed to initialize secure XML parser while reading file [" + filePath + "]",
+                    e);
+        }
+        return saxReader;
     }
 
     @Override
@@ -183,9 +233,10 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
+        String partitionPath = getPathForPartitionInference(null);
         if (readColumns.isEmpty()) {
             this.seaTunnelRowType = rowType;
-            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), rowType);
+            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(partitionPath, rowType);
         } else {
             if (readColumns.retainAll(Arrays.asList(rowType.getFieldNames()))) {
                 log.warn(
@@ -202,7 +253,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         }
     }
 

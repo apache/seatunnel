@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -27,17 +27,19 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -54,6 +56,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -65,14 +69,8 @@ import java.util.stream.Stream;
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
-    private static final int SQLSERVER_CONTAINER_PORT = 14333;
+    private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String PG_IMAGE = "postgis/postgis";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    private static final String PG_JDBC_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-jdbc/2.5.1/postgis-jdbc-2.5.1.jar";
-    private static final String PG_GEOMETRY_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
@@ -80,7 +78,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     private static final String MYSQL_USERNAME = "root";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 33061;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String USERNAME = "testUser";
 
@@ -88,6 +86,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     private MSSQLServerContainer<?> sqlserver_container;
     private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo sqlParse;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+    private JdbcUrlUtil.UrlInfo pg;
 
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'mysql_auto_create_mysql') AS table_exists";
@@ -103,10 +104,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
-
-    String driverSqlServerUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
 
     private static final String CREATE_SQL_DATABASE =
             "IF NOT EXISTS (\n"
@@ -160,32 +157,17 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR
-                                        + " && curl -O "
-                                        + PG_JDBC_JAR
-                                        + " && curl -O "
-                                        + PG_GEOMETRY_JAR
-                                        + " && curl -O "
-                                        + MYSQL_DRIVER_CLASS
-                                        + " && curl -O "
-                                        + driverSqlserverUrl()
-                                        + " && curl -O "
-                                        + driverMySqlUrl());
-                //                Assertions.assertEquals(0, extraCommands.getExitCode());
+                DependencyJar.ofClassName("org.postgresql.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.DriverWrapper")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.Geometry")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName(MYSQL_DRIVER_CLASS)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
-
-    String driverMySqlUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    String driverSqlserverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
 
     void initContainer() throws ClassNotFoundException {
         DockerImageName imageName = DockerImageName.parse(SQLSERVER_IMAGE);
@@ -198,9 +180,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
-
-        sqlserver_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", SQLSERVER_CONTAINER_PORT, 1433)));
 
         try {
             Class.forName(sqlserver_container.getDriverClassName());
@@ -222,9 +201,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        POSTGRESQL_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", 54323, 5432)));
-
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
@@ -237,15 +213,21 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER, sqlserver_container, mysql_container))
                 .join();
+        sqlParse =
+                SqlServerURLParser.parse(
+                        String.format(
+                                "jdbc:sqlserver://%s:%s;database=testauto",
+                                sqlserver_container.getHost(),
+                                sqlserver_container.getMappedPort(SQLSERVER_CONTAINER_PORT)));
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
+        pg = JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl());
     }
 
     @Override
@@ -256,12 +238,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         initializeJdbcTable();
     }
 
-    static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://localhost:14333;database=testauto");
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:33061/auto?useSSL=false");
-    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:54323/pg");
-
     @Test
     public void testAutoCreateTable() {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
@@ -271,7 +247,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo", null);
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, mysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 
@@ -300,6 +276,174 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         mySqlCatalog.close();
         postgresCatalog.close();
         // delete table
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS mysql_pk_e2e(\n"
+                                + "id int NOT NULL PRIMARY KEY,\n"
+                                + "name varchar(100) NULL\n"
+                                + ");");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            CatalogTable catalogTable =
+                    CatalogUtils.getCatalogTable(
+                            connection,
+                            "select id, name from mysql_pk_e2e where id >= 0",
+                            typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertTrue(primaryKey.getColumnNames().contains("id"));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("name"));
+        }
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromGroupByQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS orders_group_by_e2e("
+                                + "id INT NOT NULL PRIMARY KEY,"
+                                + "order_date DATE,"
+                                + "total_amount DECIMAL(10,2)"
+                                + ")");
+                statement.execute(
+                        "INSERT INTO orders_group_by_e2e(id, order_date, total_amount) VALUES "
+                                + "(1,'2023-01-01',100.00),"
+                                + "(2,'2023-01-02',50.00),"
+                                + "(3,'2023-02-01',30.00)");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            String sql =
+                    "SELECT id, COUNT(*) AS order_cnt "
+                            + "FROM orders_group_by_e2e "
+                            + "WHERE order_date >= '2023-01-01' "
+                            + "GROUP BY id";
+
+            CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, sql, typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertEquals(1, primaryKey.getColumnNames().size());
+            Assertions.assertEquals("id", primaryKey.getColumnNames().get(0));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("order_cnt"));
+        }
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromJoinQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS users_join_e2e("
+                                + "id INT NOT NULL PRIMARY KEY,"
+                                + "user_name VARCHAR(100),"
+                                + "city VARCHAR(100)"
+                                + ")");
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS orders_join_e2e("
+                                + "order_id INT NOT NULL PRIMARY KEY,"
+                                + "user_id INT,"
+                                + "order_date DATE,"
+                                + "total_amount DECIMAL(10,2)"
+                                + ")");
+                statement.execute(
+                        "INSERT INTO users_join_e2e(id, user_name, city) VALUES "
+                                + "(1,'user1','Beijing'),"
+                                + "(2,'user2','Shanghai')");
+                statement.execute(
+                        "INSERT INTO orders_join_e2e(order_id, user_id, order_date, total_amount) VALUES "
+                                + "(100,1,'2023-01-01',100.00)");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            String sql =
+                    "SELECT o.order_id, u.id, u.user_name, u.city "
+                            + "FROM orders_join_e2e o "
+                            + "INNER JOIN users_join_e2e u ON o.user_id = u.id "
+                            + "WHERE o.order_date >= '2023-01-01'";
+
+            CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, sql, typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            // complex join query should still infer primary key from main table
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertEquals(1, primaryKey.getColumnNames().size());
+            Assertions.assertEquals("order_id", primaryKey.getColumnNames().get(0));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("order_id"));
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("user_name"));
+            Assertions.assertTrue(columnNames.contains("city"));
+        }
     }
 
     @Override

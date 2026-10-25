@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorException;
@@ -59,12 +60,15 @@ public class DatabendSinkAggregatedCommitter
 
     private Connection connection;
     private boolean isCdcMode;
+    private volatile boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
+    private SeaTunnelRowType runtimeRowType;
 
     // Add a setter for catalogTable
     public void setCatalogTable(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
+        this.runtimeRowType = catalogTable == null ? null : catalogTable.getSeaTunnelRowType();
     }
 
     public DatabendSinkAggregatedCommitter(
@@ -130,14 +134,21 @@ public class DatabendSinkAggregatedCommitter
             List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         // Perform final merge operation in CDC mode only when necessary
         if (isCdcMode) {
-            performMerge(aggregatedCommitInfos);
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "[Instance {}] Committing aggregatedCommitInfos size: {}",
+                        instanceId,
+                        aggregatedCommitInfos == null ? 0 : aggregatedCommitInfos.size());
+            }
+            performMerge();
         }
 
         // Return empty list as there's no need to retry
         return new ArrayList<>();
     }
 
-    private void performMerge(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) {
+    /** Perform merge from CDC stream to target table. */
+    private void performMerge() {
         // Merge all the data from raw table to target table
         String mergeSql = generateMergeSql();
         log.info("[Instance {}] Executing MERGE INTO statement: {}", instanceId, mergeSql);
@@ -164,8 +175,12 @@ public class DatabendSinkAggregatedCommitter
         sql.append("USING (SELECT ");
 
         // Add all columns from raw_data
-        if (catalogTable != null && catalogTable.getSeaTunnelRowType() != null) {
-            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        SeaTunnelRowType rowType =
+                runtimeRowType != null
+                        ? runtimeRowType
+                        : catalogTable == null ? null : catalogTable.getSeaTunnelRowType();
+        if (rowType != null) {
+            String[] fieldNames = rowType.getFieldNames();
             for (int i = 0; i < fieldNames.length; i++) {
                 if (i > 0) {
                     sql.append(", ");
@@ -206,6 +221,13 @@ public class DatabendSinkAggregatedCommitter
 
     @Override
     public DatabendSinkAggregatedCommitInfo combine(List<DatabendSinkCommitterInfo> commitInfos) {
+        if (commitInfos != null) {
+            commitInfos.stream()
+                    .map(DatabendSinkCommitterInfo::getRuntimeRowType)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce((left, right) -> right)
+                    .ifPresent(rowType -> this.runtimeRowType = rowType);
+        }
         // Just combine all commit infos into one aggregated commit info
         // In the new approach, rawTableName and streamName are not needed here
         return new DatabendSinkAggregatedCommitInfo(commitInfos, null, null);
@@ -214,6 +236,7 @@ public class DatabendSinkAggregatedCommitter
     @Override
     public void abort(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos)
             throws IOException {
+        aborted = true;
         // In case of abort, we might want to clean up the raw table and stream
         log.info("[Instance {}] Aborting Databend sink operations", instanceId);
         try {
@@ -235,16 +258,44 @@ public class DatabendSinkAggregatedCommitter
 
     @Override
     public void close() throws IOException {
+        Exception closeException = null;
         try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
+            if (!aborted && isCdcMode && connection != null && !connection.isClosed()) {
+                try {
+                    log.info("[Instance {}] Performing final merge before closing", instanceId);
+                    performMerge();
+                } catch (Exception mergeEx) {
+                    log.error(
+                            "[Instance {}] Final merge failed, will still close connection: {}",
+                            instanceId,
+                            mergeEx.getMessage(),
+                            mergeEx);
+                }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
+            closeException = e;
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    if (closeException != null) {
+                        closeException.addSuppressed(e);
+                    } else {
+                        closeException = e;
+                    }
+                }
+            }
+        }
+
+        if (closeException != null) {
             throw new DatabendConnectorException(
                     DatabendConnectorErrorCode.CONNECT_FAILED,
-                    "[Instance {}] Failed to close connection in DatabendSinkAggregatedCommitter: "
-                            + e.getMessage(),
-                    e);
+                    "[Instance "
+                            + instanceId
+                            + "] Failed to close connection in DatabendSinkAggregatedCommitter: "
+                            + closeException.getMessage(),
+                    closeException);
         }
     }
 }

@@ -37,13 +37,17 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStra
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MarkdownReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.PdfReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Serializable;
 import java.util.Arrays;
 
+@Slf4j
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
@@ -181,7 +185,17 @@ public enum FileFormat implements Serializable {
             return new MarkdownReadStrategy();
         }
     },
-    ;
+    PDF("pdf") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            throw new UnsupportedOperationException("File format 'pdf' does not support writing.");
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new PdfReadStrategy();
+        }
+    };
 
     private final String[] suffix;
 
@@ -206,5 +220,18 @@ public enum FileFormat implements Serializable {
 
     public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
         return null;
+    }
+
+    public boolean supportFileSplit() {
+        switch (this) {
+            case CSV:
+            case TEXT:
+            case JSON:
+            case PARQUET:
+                return true;
+            default:
+                log.info("The {} file type does not support file split", this);
+                return false;
+        }
     }
 }

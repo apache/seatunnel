@@ -24,8 +24,9 @@
 
     <artifactId>connector-file-s3-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : File S3</name>
+
     <properties>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <s3.aws-java-sdk-bundle.version>1.12.692</s3.aws-java-sdk-bundle.version>
     </properties>
 
     <dependencies>
@@ -42,22 +43,30 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aws</artifactId>
-            <version>${hadoop-aws.version}</version>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-bundle</artifactId>
+            <version>${s3.aws-java-sdk-bundle.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-bundle</artifactId>
-            <version>1.11.271</version>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aws</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>jdk.tools</groupId>
+                    <artifactId>jdk.tools</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -73,5 +82,36 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-s3-e2e-dependency</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.amazonaws</groupId>
+                                    <artifactId>aws-java-sdk-bundle</artifactId>
+                                    <version>${s3.aws-java-sdk-bundle.version}</version>
+                                    <destFileName>aws-java-sdk-bundle.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

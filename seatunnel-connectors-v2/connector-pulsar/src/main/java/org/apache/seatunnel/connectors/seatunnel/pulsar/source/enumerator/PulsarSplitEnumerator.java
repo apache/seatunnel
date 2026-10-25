@@ -19,14 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.PulsarConsumerMetadata;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.SubscriptionStartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.LatestMessageStopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.StopCursor;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.MultiTablePartitionDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicPatternDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
@@ -59,14 +62,10 @@ public class PulsarSplitEnumerator
     private final PulsarAdminConfig adminConfig;
     private final PulsarDiscoverer partitionDiscoverer;
     private final long partitionDiscoveryIntervalMs;
-    private final StartCursor startCursor;
-    private final StopCursor stopCursor;
+    private final Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap;
+    private final Boundedness boundedness;
     private final Object stateLock = new Object();
 
-    /** The consumer group id used for this PulsarSource. */
-    private final String subscriptionName;
-
-    /** Partitions that have been assigned to readers. */
     private final Set<TopicPartition> assignedPartitions;
     /**
      * The discovered and initialized partition splits that are waiting for owner reader to be
@@ -79,6 +78,7 @@ public class PulsarSplitEnumerator
     // This flag will be marked as true if periodically partition discovery is disabled AND the
     // initializing partition discovery has finished.
     private boolean noMoreNewPartitionSplits = false;
+    private volatile boolean initialized = false;
 
     private ScheduledThreadPoolExecutor executor = null;
 
@@ -87,17 +87,15 @@ public class PulsarSplitEnumerator
             PulsarAdminConfig adminConfig,
             PulsarDiscoverer partitionDiscoverer,
             long partitionDiscoveryIntervalMs,
-            StartCursor startCursor,
-            StopCursor stopCursor,
-            String subscriptionName) {
+            Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap,
+            Boundedness boundedness) {
         this(
                 context,
                 adminConfig,
                 partitionDiscoverer,
                 partitionDiscoveryIntervalMs,
-                startCursor,
-                stopCursor,
-                subscriptionName,
+                consumerMetadataMap,
+                boundedness,
                 Collections.emptySet());
     }
 
@@ -106,24 +104,15 @@ public class PulsarSplitEnumerator
             PulsarAdminConfig adminConfig,
             PulsarDiscoverer partitionDiscoverer,
             long partitionDiscoveryIntervalMs,
-            StartCursor startCursor,
-            StopCursor stopCursor,
-            String subscriptionName,
+            Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap,
+            Boundedness boundedness,
             Set<TopicPartition> assignedPartitions) {
-        if (partitionDiscoverer instanceof TopicPatternDiscoverer
-                && partitionDiscoveryIntervalMs > 0
-                && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
-            throw new PulsarConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    "Bounded streams do not support dynamic partition discovery.");
-        }
         this.context = context;
         this.adminConfig = adminConfig;
         this.partitionDiscoverer = partitionDiscoverer;
         this.partitionDiscoveryIntervalMs = partitionDiscoveryIntervalMs;
-        this.startCursor = startCursor;
-        this.stopCursor = stopCursor;
-        this.subscriptionName = subscriptionName;
+        this.consumerMetadataMap = consumerMetadataMap;
+        this.boundedness = boundedness;
         this.assignedPartitions = new HashSet<>(assignedPartitions);
         this.pendingPartitionSplits = new HashMap<>();
     }
@@ -131,10 +120,6 @@ public class PulsarSplitEnumerator
     @Override
     public void open() {
         this.pulsarAdmin = PulsarConfigUtil.createAdmin(adminConfig);
-    }
-
-    @Override
-    public void run() throws Exception {
         if (partitionDiscoveryIntervalMs > 0) {
             executor =
                     new ScheduledThreadPoolExecutor(
@@ -146,10 +131,28 @@ public class PulsarSplitEnumerator
                                 return thread;
                             });
             executor.scheduleAtFixedRate(
-                    this::discoverySplits, 0, partitionDiscoveryIntervalMs, TimeUnit.MILLISECONDS);
-        } else {
-            discoverySplits();
+                    () -> {
+                        if (!initialized) {
+                            return;
+                        }
+                        try {
+                            discoverySplits();
+                        } catch (Exception e) {
+                            LOG.error("Dynamic discovery failure:", e);
+                        }
+                    },
+                    partitionDiscoveryIntervalMs,
+                    partitionDiscoveryIntervalMs,
+                    TimeUnit.MILLISECONDS);
         }
+    }
+
+    @Override
+    public void run() throws Exception {
+        // Run one discovery synchronously so topic-pattern conflicts and initial splits are
+        // resolved on the runtime side before periodic discovery begins.
+        discoverySplits();
+        initialized = true;
     }
 
     private void discoverySplits() {
@@ -161,8 +164,7 @@ public class PulsarSplitEnumerator
     }
 
     private void checkPartitionChanges(Set<TopicPartition> fetchedPartitions) {
-        // Append the partitions into current assignment state.
-        final Set<TopicPartition> newPartitions = getNewPartitions(fetchedPartitions);
+        Set<TopicPartition> newPartitions = getNewPartitions(fetchedPartitions);
         if (partitionDiscoveryIntervalMs <= 0 && !noMoreNewPartitionSplits) {
             LOG.debug("Partition discovery is disabled.");
             noMoreNewPartitionSplits = true;
@@ -179,14 +181,25 @@ public class PulsarSplitEnumerator
     }
 
     private PulsarPartitionSplit createPulsarPartitionSplit(TopicPartition partition) {
-        StopCursor partitionStopCursor = stopCursor.copy();
-        PulsarPartitionSplit split = new PulsarPartitionSplit(partition, partitionStopCursor);
+        TablePath tablePath = resolveTablePath(partition);
+        PulsarConsumerMetadata consumerMetadata = consumerMetadataMap.get(tablePath);
+        if (consumerMetadata == null) {
+            throw new PulsarConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format("No consumer metadata found for table path '%s'", tablePath));
+        }
+        StopCursor partitionStopCursor = consumerMetadata.getStopCursor().copy();
+        PulsarPartitionSplit split =
+                new PulsarPartitionSplit(partition, partitionStopCursor, null, tablePath);
         if (partitionStopCursor instanceof LatestMessageStopCursor) {
             ((LatestMessageStopCursor) partitionStopCursor).prepare(pulsarAdmin, partition);
         }
-        if (startCursor instanceof SubscriptionStartCursor) {
-            ((SubscriptionStartCursor) startCursor)
-                    .ensureSubscription(subscriptionName, partition, pulsarAdmin);
+        if (consumerMetadata.getStartCursor() instanceof SubscriptionStartCursor) {
+            ((SubscriptionStartCursor) consumerMetadata.getStartCursor())
+                    .ensureSubscription(
+                            consumerMetadata.getConsumerConfig().getSubscriptionName(),
+                            partition,
+                            pulsarAdmin);
         }
         return split;
     }
@@ -213,15 +226,11 @@ public class PulsarSplitEnumerator
             int ownerReader = getSplitOwner(split.getPartition(), numReaders);
             pendingPartitionSplits.computeIfAbsent(ownerReader, r -> new HashSet<>()).add(split);
         }
-        LOG.debug(
-                "Assigned {} to {} readers of subscription {}.",
-                newPartitionSplits,
-                numReaders,
-                subscriptionName);
+        LOG.debug("Assigned {} to {} readers.", newPartitionSplits, numReaders);
     }
 
     static int getSplitOwner(TopicPartition tp, int numReaders) {
-        int startIndex = ((tp.getTopic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
+        int startIndex = HashUtils.bucketIndex(tp.getTopic().hashCode() * 31, numReaders);
 
         // here, the assumption is that the id of pulsar partitions are always ascending
         // starting from 0, and therefore can be used directly as the offset clockwise from the
@@ -232,9 +241,7 @@ public class PulsarSplitEnumerator
     private void assignPendingPartitionSplits(Set<Integer> pendingReaders) {
         // Check if there's any pending splits for given readers
         for (int pendingReader : pendingReaders) {
-
-            // Remove pending assignment for the reader
-            final Set<PulsarPartitionSplit> pendingAssignmentForReader =
+            Set<PulsarPartitionSplit> pendingAssignmentForReader =
                     pendingPartitionSplits.remove(pendingReader);
 
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
@@ -251,23 +258,26 @@ public class PulsarSplitEnumerator
 
         // If periodically partition discovery is disabled and the initializing discovery has done,
         // signal NoMoreSplitsEvent to pending readers
-        if (noMoreNewPartitionSplits && stopCursor.getBoundedness() == Boundedness.BOUNDED) {
+        if (noMoreNewPartitionSplits && boundedness == Boundedness.BOUNDED) {
             LOG.debug(
-                    "No more PulsarPartitionSplits to assign. Sending NoMoreSplitsEvent to reader {}"
-                            + " in subscription {}.",
-                    pendingReaders,
-                    subscriptionName);
+                    "No more PulsarPartitionSplits to assign. Sending NoMoreSplitsEvent to reader {}.",
+                    pendingReaders);
             pendingReaders.forEach(context::signalNoMoreSplits);
         }
     }
 
     @Override
     public void close() throws IOException {
-        if (pulsarAdmin != null) {
-            pulsarAdmin.close();
-        }
         if (executor != null) {
-            executor.shutdown();
+            // Stop periodic discovery before closing the shared admin client it uses.
+            executor.shutdownNow();
+        }
+        if (pulsarAdmin != null) {
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarAdmin::close);
+            } catch (Exception e) {
+                throw new IOException("Failed to close Pulsar admin.", e);
+            }
         }
     }
 
@@ -293,10 +303,7 @@ public class PulsarSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        LOG.debug(
-                "Adding reader {} to PulsarSourceEnumerator for subscription {}.",
-                subtaskId,
-                subscriptionName);
+        LOG.debug("Adding reader {} to PulsarSourceEnumerator.", subtaskId);
         assignPendingPartitionSplits(Collections.singleton(subtaskId));
     }
 
@@ -310,5 +317,20 @@ public class PulsarSplitEnumerator
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         // nothing
+    }
+
+    private boolean hasTopicPattern(PulsarDiscoverer discoverer) {
+        if (discoverer instanceof TopicPatternDiscoverer) {
+            return true;
+        }
+        return discoverer instanceof MultiTablePartitionDiscoverer
+                && ((MultiTablePartitionDiscoverer) discoverer).hasTopicPattern();
+    }
+
+    private TablePath resolveTablePath(TopicPartition partition) {
+        if (partitionDiscoverer instanceof MultiTablePartitionDiscoverer) {
+            return ((MultiTablePartitionDiscoverer) partitionDiscoverer).getTablePath(partition);
+        }
+        return consumerMetadataMap.keySet().iterator().next();
     }
 }

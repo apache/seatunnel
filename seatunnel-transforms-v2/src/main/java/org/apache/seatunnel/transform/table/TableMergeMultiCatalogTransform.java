@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,6 +52,17 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
         return new TableMergeTransform(TableMergeConfig.of(config), table);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, TableMergeConfig.TABLE);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityMapTransform(catalogTable);
+    }
+
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         List<CatalogTable> outputTables = new ArrayList<>();
@@ -62,7 +74,7 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
 
             String tableId = outputTable.getTablePath().getFullName();
             SeaTunnelTransform<SeaTunnelRow> transform = transformMap.get(tableId);
-            if (transform instanceof IdentityTransform) {
+            if (transform instanceof IdentityMapTransform) {
                 outputTables.add(outputTable);
             } else {
                 if (!mergeTables.containsKey(tableId)) {

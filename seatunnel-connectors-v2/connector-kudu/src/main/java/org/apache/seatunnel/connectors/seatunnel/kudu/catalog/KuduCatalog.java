@@ -34,15 +34,16 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduClientResource;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
+import org.apache.kudu.Type;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.shaded.com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,6 +60,7 @@ public class KuduCatalog implements Catalog {
     private final CommonConfig config;
 
     private KuduClient kuduClient;
+    private KuduClientResource kuduClientResource;
 
     private final String defaultDatabase = "default_database";
 
@@ -71,15 +73,23 @@ public class KuduCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        kuduClient = KuduUtil.getKuduClient(config);
+        kuduClientResource = KuduUtil.getKuduClientResource(config);
+        kuduClient = kuduClientResource.getClient();
     }
 
     @Override
     public void close() throws CatalogException {
         try {
-            kuduClient.close();
+            if (kuduClientResource != null) {
+                kuduClientResource.close();
+            } else if (kuduClient != null) {
+                kuduClient.close();
+            }
         } catch (KuduException e) {
             throw new CatalogException("Failed close kudu client", e);
+        } finally {
+            kuduClient = null;
+            kuduClientResource = null;
         }
     }
 
@@ -100,7 +110,7 @@ public class KuduCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        return Lists.newArrayList(getDefaultDatabase());
+        return Collections.singletonList(getDefaultDatabase());
     }
 
     @Override
@@ -142,19 +152,33 @@ public class KuduCatalog implements Catalog {
             kuduTable.getPartitionSchema();
             List<ColumnSchema> columnSchemaList = schema.getColumns();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(schema.getPrimaryKeyColumns());
+            PrimaryKey primaryKeyRef = primaryKey.orElse(null);
             buildColumnsWithErrorCheck(
                     tablePath,
                     builder,
                     IntStream.range(0, columnSchemaList.size()).iterator(),
                     i -> {
+                        ColumnSchema columnSchema = columnSchemaList.get(i);
                         SeaTunnelDataType<?> type = KuduTypeMapper.mapping(columnSchemaList, i);
+                        Long columnLength = null;
+                        if (Type.STRING.equals(columnSchema.getType())
+                                && PrimaryKey.isPrimaryKeyField(
+                                        primaryKeyRef, columnSchema.getName())) {
+                            // Doris does not allow STRING as key column type. For primary key
+                            // string columns we provide a reasonable logical length
+                            // so that downstream sinks (e.g. Doris) can map them to a supported
+                            // CHAR / VARCHAR type instead of the invalid STRING type.
+                            columnLength = 256L;
+                        } else if (!Type.STRING.equals(columnSchema.getType())) {
+                            columnLength = (long) columnSchema.getTypeSize();
+                        }
                         return PhysicalColumn.of(
-                                columnSchemaList.get(i).getName(),
+                                columnSchema.getName(),
                                 type,
-                                columnSchemaList.get(i).getTypeSize(),
-                                columnSchemaList.get(i).isNullable(),
-                                columnSchemaList.get(i).getDefaultValue(),
-                                columnSchemaList.get(i).getComment());
+                                columnLength,
+                                columnSchema.isNullable(),
+                                columnSchema.getDefaultValue(),
+                                columnSchema.getComment());
                     });
 
             primaryKey.ifPresent(builder::primaryKey);

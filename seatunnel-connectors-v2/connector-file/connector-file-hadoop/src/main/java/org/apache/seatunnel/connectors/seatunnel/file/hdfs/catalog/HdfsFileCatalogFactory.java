@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,7 +37,7 @@ public class HdfsFileCatalogFactory implements CatalogFactory {
                 new HadoopFileSystemProxy(HdfsFileHadoopConfig.buildWithConfig(options));
         return new HdfsFileCatalog(
                 hadoopFileSystemProxy,
-                options.get(HdfsSourceConfigOptions.FILE_PATH),
+                options.get(HdfsFileSourceOptions.FILE_PATH),
                 factoryIdentifier());
     }
 

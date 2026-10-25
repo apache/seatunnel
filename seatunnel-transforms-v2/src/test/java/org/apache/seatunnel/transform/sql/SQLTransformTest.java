@@ -17,18 +17,22 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -91,6 +95,40 @@ public class SQLTransformTest {
     }
 
     @Test
+    void testRestoreSchemaEventRebuildsProducedSchema() {
+        CatalogTable initialTable = getCatalogTable();
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("query", "select * from dual")),
+                        initialTable);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        initialTable.getTableId(),
+                        TableSchema.builder()
+                                .columns(initialTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "email",
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        initialTable.getOptions(),
+                        initialTable.getPartitionKeys(),
+                        initialTable.getComment());
+
+        RestoreTableSchemaEvent event = new RestoreTableSchemaEvent(restoredTable);
+        sqlTransform.mapSchemaChangeEvent(event);
+
+        Assertions.assertEquals(5, event.getChangeAfter().getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                "email", event.getChangeAfter().getTableSchema().getFieldNames()[4]);
+    }
+
+    @Test
     public void testNotLoseSourceTypeAndOptions() {
         SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();
@@ -105,6 +143,43 @@ public class SQLTransformTest {
                                         "testInSQL", column.getOptions().get("context"));
                             }
                         });
+    }
+
+    @Test
+    public void testClassifyRowError() {
+        SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "name", 18, null});
+
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.sqlExpressionError(
+                                "select * from dual", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        new RuntimeException(
+                                TransformCommonError.sqlWhereStatementError(
+                                        "id > 0", new RuntimeException("error"))),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.encryptionError("name", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.sqlWhereStatementError(
+                                "id BETWEEN 1 AND 5",
+                                new TransformException(
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                        "Unsupported SQL Expression")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(new RuntimeException("error"), row));
     }
 
     private CatalogTable getCatalogTable() {
@@ -497,6 +572,30 @@ public class SQLTransformTest {
                         throw e;
                     }
                 });
+    }
+
+    @Test
+    public void testCastStringToIntErrorFromConfig() {
+        String tableName = "test_cast_error";
+        String[] fields = new String[] {"id", "name", "age"};
+        SeaTunnelDataType[] fieldTypes =
+                new SeaTunnelDataType[] {
+                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                };
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName, new SeaTunnelRowType(fields, fieldTypes));
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query", "select cast(name as int) as name, id, age from dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "not_int", 18})));
     }
 
     @Test
@@ -1054,13 +1153,86 @@ public class SQLTransformTest {
 
         SQLTransform sqlTransform = new SQLTransform(config, table);
 
-        // Test with non-null name
         List<SeaTunnelRow> result =
                 sqlTransform.transformRow(new SeaTunnelRow(new Object[] {" John ", "Default"}));
         Assertions.assertEquals("John", result.get(0).getField(0));
 
-        // Test with null name
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {null, " Default "}));
         Assertions.assertEquals("Default", result.get(0).getField(0));
+    }
+
+    @Test
+    public void testNestedNumericAndStringFunctions() {
+        String tableName = "test_nested_functions";
+        String[] fields = new String[] {"id", "score", "name"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.DOUBLE_TYPE, BasicType.STRING_TYPE
+                                }));
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id,"
+                                        + " CONCAT(TO_CHAR(ROUND(ABS(score), 1)), '_', UPPER(TRIM(name))) as formatted"
+                                        + " from dual"
+                                        + " where ROUND(ABS(score), 0) > 0 and REGEXP_LIKE(TRIM(name), '^a', 'i')"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+
+        // should match: score != 0 and name starts with a/A
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, -1.23d, " alice "}));
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals("1.2_ALICE", result.get(0).getField(1));
+
+        // filtered out by score == 0
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {2, 0.0d, " alice "}));
+        Assertions.assertNull(result);
+
+        // filtered out by name not matching regexp
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {3, 2.0d, " Bob "}));
+        Assertions.assertNull(result);
+    }
+
+    @Test
+    public void testNestedArrayFunctions() {
+        String tableName = "test_array_nested";
+        String[] fields = new String[] {"age"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(fields, new SeaTunnelDataType[] {BasicType.INT_TYPE}));
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select ARRAY(age, 1, 2) as ages"
+                                        + " from dual"
+                                        + " where age >= 0"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+
+        // age = 5 -> ARRAY(5,1,2) pass filter
+        List<SeaTunnelRow> result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {5}));
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1, result.size());
+        Object[] ages = (Object[]) result.get(0).getField(0);
+        Assertions.assertEquals(3, ages.length);
+        Assertions.assertEquals(5, ((Number) ages[0]).intValue());
+        Assertions.assertEquals(1, ((Number) ages[1]).intValue());
+        Assertions.assertEquals(2, ((Number) ages[2]).intValue());
+
+        // age = -1 -> ARRAY(-1,1,2) but filtered out by age >= 0
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
+        Assertions.assertNull(result);
     }
 }

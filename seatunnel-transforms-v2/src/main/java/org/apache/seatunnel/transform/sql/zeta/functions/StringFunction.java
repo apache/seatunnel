@@ -19,15 +19,17 @@ package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import org.apache.groovy.parser.antlr4.util.StringUtils;
 
 import java.lang.reflect.Array;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,8 +38,12 @@ import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,7 +56,7 @@ public class StringFunction {
 
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
-        if (arg == null) {
+        if (arg == null || arg.isEmpty()) {
             return null;
         } else {
             return (int) arg.charAt(0);
@@ -145,9 +151,10 @@ public class StringFunction {
         }
         int len = arg.length();
         if (len % 4 != 0) {
-            throw new TransformException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("Unsupported arg for function: %s", ZetaSQLFunction.HEXTORAW));
+            Map<String, String> params = new HashMap<>();
+            params.put("argument", arg);
+            params.put("operation", ZetaSQLFunction.HEXTORAW);
+            throw new TransformException(CommonErrorCode.ILLEGAL_ARGUMENT, params);
         }
         StringBuilder builder = new StringBuilder(len / 4);
         for (int i = 0; i < len; i += 4) {
@@ -186,6 +193,46 @@ public class StringFunction {
         return buff.toString();
     }
 
+    public static String toBase64(List<Object> args) {
+        if (args.size() > 2) {
+            throw new IllegalArgumentException("TO_BASE64 requires one or two arguments");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        if (arg instanceof byte[]) {
+            if (args.size() == 2) {
+                throw new IllegalArgumentException(
+                        "TO_BASE64 does not support charset for bytes input");
+            }
+            return Base64.getEncoder().encodeToString((byte[]) arg);
+        }
+        Charset charset = getBase64Charset(args);
+        return Base64.getEncoder().encodeToString(arg.toString().getBytes(charset));
+    }
+
+    public static String fromBase64(List<Object> args) {
+        if (args.size() > 2) {
+            throw new IllegalArgumentException("FROM_BASE64 requires one or two arguments");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        Charset charset = getBase64Charset(args);
+        try {
+            return new String(Base64.getDecoder().decode(arg.toString()), charset);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid Base64 content", e);
+        }
+    }
+
+    private static Charset getBase64Charset(List<Object> args) {
+        String charsetName = args.size() == 2 ? (String) args.get(1) : null;
+        return EncodingUtils.tryParseCharset(charsetName);
+    }
+
     public static String insert(List<Object> args) {
         String s1 = (String) args.get(0);
         int start = ((Number) args.get(1)).intValue();
@@ -214,7 +261,7 @@ public class StringFunction {
         if (arg == null) {
             return null;
         }
-        return arg.toLowerCase();
+        return arg.toLowerCase(Locale.ROOT);
     }
 
     public static String upper(List<Object> args) {
@@ -222,7 +269,7 @@ public class StringFunction {
         if (arg == null) {
             return null;
         }
-        return arg.toUpperCase();
+        return arg.toUpperCase(Locale.ROOT);
     }
 
     public static String left(List<Object> args) {
@@ -231,6 +278,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         if (count > arg.length()) {
             count = arg.length();
         }
@@ -243,6 +293,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         int length = arg.length();
         if (count > length) {
             count = length;
@@ -412,7 +465,7 @@ public class StringFunction {
             int position,
             int occurrence,
             String regexpMode) {
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_REPLACE);
         Matcher matcher =
                 Pattern.compile(regexp, flags).matcher(input).region(position - 1, input.length());
         if (occurrence == 0) {
@@ -442,11 +495,12 @@ public class StringFunction {
         if (args.size() >= 3) {
             regexpMode = (String) args.get(2);
         }
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_LIKE);
         return Pattern.compile(regexp, flags).matcher(input).find();
     }
 
-    private static int makeRegexpFlags(String stringFlags, boolean ignoreGlobalFlag) {
+    private static int makeRegexpFlags(
+            String stringFlags, boolean ignoreGlobalFlag, String functionName) {
         int flags = Pattern.UNICODE_CASE;
         if (stringFlags != null) {
             for (int i = 0; i < stringFlags.length(); ++i) {
@@ -469,11 +523,10 @@ public class StringFunction {
                         }
                         // $FALL-THROUGH$
                     default:
-                        throw new TransformException(
-                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                                String.format(
-                                        "Unsupported regexpMode arg: %s for function: %s",
-                                        flags, ZetaSQLFunction.HEXTORAW));
+                        Map<String, String> params = new HashMap<>();
+                        params.put("argument", stringFlags);
+                        params.put("operation", functionName);
+                        throw new TransformException(CommonErrorCode.ILLEGAL_ARGUMENT, params);
                 }
             }
         }
@@ -520,7 +573,7 @@ public class StringFunction {
         int position = positionArg != null ? positionArg - 1 : 0;
         int requestedOccurrence = occurrenceArg != null ? occurrenceArg : 1;
         int subexpression = subexpressionArg != null ? subexpressionArg : 0;
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_SUBSTR);
         Matcher m = Pattern.compile(regexp, flags).matcher(input);
 
         boolean found = m.find(position);
@@ -782,5 +835,39 @@ public class StringFunction {
             return null;
         }
         return Hashing.murmur3_128().hashString(arg, StandardCharsets.UTF_8).asLong();
+    }
+
+    /**
+     * Computes the MD5 digest of the input and returns it as a 32-character lowercase hexadecimal
+     * string, matching Hive's {@code md5(string|binary)}.
+     *
+     * <p>String inputs are hashed as UTF-8 bytes; binary (byte[]) inputs are hashed as raw bytes.
+     * Non-string, non-binary scalar values are converted via {@code toString()} and hashed as
+     * UTF-8, mirroring Hive's implicit cast to string. Array values are rejected: SeaTunnel array
+     * columns are boxed arrays (e.g. {@code Byte[]}), which would otherwise be hashed as their JVM
+     * identity string, producing a nondeterministic value unrelated to the data.
+     *
+     * @param args list containing a single string, binary, or implicitly castable value
+     * @return 32-char lowercase hex MD5 digest, or null if the input is null
+     */
+    @SuppressWarnings(
+            "deprecation") // Guava deprecates MD5 (broken for security); Hive parity requires it
+    public static String md5(List<Object> args) {
+        if (args.size() != 1) {
+            throw new IllegalArgumentException("MD5 expects exactly 1 argument");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        if (arg instanceof byte[]) {
+            return Hashing.md5().hashBytes((byte[]) arg).toString();
+        }
+        if (arg.getClass().isArray()) {
+            throw new IllegalArgumentException(
+                    "MD5 expects a scalar string or binary argument, unsupported array type: "
+                            + arg.getClass().getName());
+        }
+        return Hashing.md5().hashString(arg.toString(), StandardCharsets.UTF_8).toString();
     }
 }

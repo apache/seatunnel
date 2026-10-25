@@ -22,9 +22,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
 public class FlinkRuntimeEnvironment extends AbstractFlinkRuntimeEnvironment
         implements RuntimeEnvironment {
 

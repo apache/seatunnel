@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader;
 
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -120,7 +118,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                         .projection(split.getProjection())
                         .batchSize(readOptions.getFetchSize())
                         .noCursorTimeout(readOptions.isNoCursorTimeout())
-                        .maxTime(readOptions.getMaxTimeMS(), TimeUnit.MINUTES)
+                        .maxTime(readOptions.getMaxTimeMin(), TimeUnit.MINUTES)
                         .iterator();
     }
 
@@ -150,7 +148,10 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     public void notifyCheckpointComplete(long checkpointId) {}
 
     private void closeCurrentSplit() {
-        Preconditions.checkNotNull(cursor);
+        if (cursor == null) {
+            // Preserve the original cursor-creation failure from pollNext().
+            return;
+        }
         cursor.close();
         cursor = null;
     }

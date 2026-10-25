@@ -79,7 +79,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -88,7 +87,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
-    private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 60L;
 
     private List<String> testDataset1;
 
@@ -97,6 +96,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private ElasticsearchContainer container;
 
     private EsRestClient esRestClient;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @BeforeEach
     @Override
@@ -136,6 +137,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         createIndexWithNestType();
         createIndexForSqlSearch();
         generateTestSqlDataSet();
+        createTestIndexWithData();
     }
 
     /** create a index,and bulk some documents */
@@ -156,7 +158,54 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         esRestClient.createIndex("st_index_sql", mapping);
     }
 
-    private void generateTestSqlDataSet() throws JsonProcessingException, InterruptedException {
+    private void createTestIndexWithData() throws IOException {
+        String indexName = "st_index_runtime";
+
+        // Create index with explicit mapping for timestamp field
+        String mapping =
+                "{"
+                        + "  \"mappings\": {"
+                        + "    \"properties\": {"
+                        + "      \"c_string\": { \"type\": \"keyword\" },"
+                        + "      \"c_int\": { \"type\": \"integer\" },"
+                        + "      \"c_timestamp\": { \"type\": \"date\" }"
+                        + "    }"
+                        + "  }"
+                        + "}";
+        esRestClient.createIndex(indexName, mapping);
+        log.info("Created index with mapping: {}", indexName);
+
+        // Prepare test data
+        List<String> testData = generateRuntimeTestData();
+
+        // Bulk insert data
+        StringBuilder bulkRequestBody = new StringBuilder();
+        for (String doc : testData) {
+            bulkRequestBody
+                    .append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\"}}\n")
+                    .append(doc)
+                    .append("\n");
+        }
+
+        BulkResponse response = esRestClient.bulk(bulkRequestBody.toString());
+        Assertions.assertFalse(response.isErrors(), "Bulk insert should not have errors");
+        log.info("Inserted {} documents into index: {}", testData.size(), indexName);
+
+        // Poll until the bulk insert is visible, instead of a fixed sleep that
+        // fails when index refresh is slower than expected under CI load.
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () ->
+                                esRestClient.getIndexDocsCount(indexName).get(0).getDocsCount()
+                                        == testData.size());
+    }
+
+    private void generateTestSqlDataSet() throws JsonProcessingException {
         String[] fields =
                 new String[] {
                     "c_string",
@@ -227,10 +276,19 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         }
         BulkResponse response = esRestClient.bulk(requestBody.toString());
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                2, esRestClient.getIndexDocsCount("st_index_sql").get(0).getDocsCount());
+        // poll until the bulked documents are visible
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        esRestClient
+                                                .getIndexDocsCount("st_index_sql")
+                                                .get(0)
+                                                .getDocsCount()));
     }
 
     private void createIndexDocsByName(String indexName, List<String> testDataSet) {
@@ -245,7 +303,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         esRestClient.bulk(requestBody.toString());
     }
 
-    private void createIndexWithNestType() throws IOException, InterruptedException {
+    private void createIndexWithNestType() throws IOException {
         String mapping =
                 IOUtils.toString(
                         ContainerUtil.getResourcesFile("/elasticsearch/st_index_nest_mapping.json")
@@ -264,13 +322,22 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         .replace("\n", "")
                                 + "\n");
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                3, esRestClient.getIndexDocsCount("st_index_nest").get(0).getDocsCount());
+        // poll until the bulked documents are visible
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        3,
+                                        esRestClient
+                                                .getIndexDocsCount("st_index_nest")
+                                                .get(0)
+                                                .getDocsCount()));
     }
 
-    private void createIndexWithFullType() throws IOException, InterruptedException {
+    private void createIndexWithFullType() throws IOException {
         String mapping =
                 IOUtils.toString(
                         ContainerUtil.getResourcesFile(
@@ -289,10 +356,19 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         .replace("\n", "")
                                 + "\n");
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
+        // poll until the bulked documents are visible
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        esRestClient
+                                                .getIndexDocsCount("st_index_full_type")
+                                                .get(0)
+                                                .getDocsCount()));
     }
 
     private void createIndexForResourceNull(String indexName) throws IOException {
@@ -311,9 +387,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithSchema("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index2")));
     }
 
     @TestTemplate
@@ -340,18 +423,30 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         // create index
         esRestClient.createIndex("vector_test", mapping);
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        // poll until the index is queryable before running the job
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(() -> !esRestClient.getIndexDocsCount("vector_test").isEmpty());
 
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/fake-to-elasticsearch-vector.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // Wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-
         // Verify that 10 documents were inserted as specified in the config
-        Assertions.assertEquals(
-                10, esRestClient.getIndexDocsCount("vector_test").get(0).getDocsCount());
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        10,
+                                        esRestClient
+                                                .getIndexDocsCount("vector_test")
+                                                .get(0)
+                                                .getDocsCount()));
 
         // Verify vector field exists in the mapping
         Map<String, BasicTypeDefine<EsType>> fieldTypes =
@@ -365,9 +460,83 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_with_pit.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithSchema("st_index_pit");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_pit")));
+    }
+
+    @TestTemplate
+    public void testElasticsearchSourceWithRuntimeFields(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
+
+        log.info("Runtime fields test completed successfully");
+        log.info("Job output: {}", execResult.getStdout());
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithPITSlice(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_with_pit_slice.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_pit_slice")));
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithPITSliceQueued(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_pit_slice_queued.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // slice_max(4) > parallelism(2) forces queued splits on each reader
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_pit_slice_queued")));
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithScrollSlice(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_with_scroll_slice.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_scroll_slice")));
     }
 
     @TestTemplate
@@ -377,12 +546,19 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink_with_nest.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        List<String> sinkData = readSinkDataWithNestSchema("st_index_nest_copy");
         String data =
                 "{\"address\":[{\"zipcode\":\"10001\",\"city\":\"New York\",\"street\":\"123 Main St\"},"
                         + "{\"zipcode\":\"90001\",\"city\":\"Los Angeles\",\"street\":\"456 Elm St\"}],\"name\":\"John Doe\"}";
 
-        Assertions.assertIterableEquals(Lists.newArrayList(data), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        Lists.newArrayList(data),
+                                        readSinkDataWithNestSchema("st_index_nest_copy")));
     }
 
     @TestTemplate
@@ -419,23 +595,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
-        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
-        Set<String> sinkData1 =
-                new HashSet<>(
-                        getDocsWithTransformDate(
-                                // read all field
-                                Collections.emptyList(),
-                                // read indexName
-                                "read_filter_index1_copy",
-                                // allowed c_null serialized if null
-                                Lists.newArrayList("c_null"),
-                                // query condition
-                                query1,
-                                // transformDate field:c_date
-                                Lists.newArrayList("c_date"),
-                                // order field
-                                "c_int"));
-
         List<String> index1Data =
                 mapTestDatasetForDSL(
                         // use testDataset1
@@ -450,10 +609,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         },
                         // mapping document all field to string
                         JsonNode::toString);
-        Assertions.assertEquals(sinkData1.size(), index1Data.size());
-        index1Data.forEach(sinkData1::remove);
-        // data is completely consistent, and the size is zero after deletion
-        Assertions.assertEquals(0, sinkData1.size());
 
         List<String> index2Data =
                 mapTestDatasetForDSL(
@@ -475,23 +630,50 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             return JsonUtils.toJsonString(map);
                         });
 
-        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
-        Set<String> sinkData2 =
-                new HashSet<>(
-                        getDocsWithTransformDate(
-                                // read three fields from index
-                                Lists.newArrayList("c_int2", "c_null2", "c_date2"),
-                                "read_filter_index2_copy",
-                                //// allowed c_null serialized if null
-                                Lists.newArrayList("c_null2"),
-                                query2,
-                                // // transformDate field:c_date2
-                                Lists.newArrayList("c_date2"),
-                                // order by c_int2
-                                "c_int2"));
-        Assertions.assertEquals(sinkData2.size(), index2Data.size());
-        index2Data.forEach(sinkData2::remove);
-        Assertions.assertEquals(0, sinkData2.size());
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Set<String> sinkData1 =
+                                    new HashSet<>(
+                                            getDocsWithTransformDate(
+                                                    // read all field
+                                                    Collections.emptyList(),
+                                                    // read indexName
+                                                    "read_filter_index1_copy",
+                                                    // allowed c_null serialized if null
+                                                    Lists.newArrayList("c_null"),
+                                                    // query condition
+                                                    query1,
+                                                    // transformDate field:c_date
+                                                    Lists.newArrayList("c_date"),
+                                                    // order field
+                                                    "c_int"));
+                            Assertions.assertEquals(sinkData1.size(), index1Data.size());
+                            index1Data.forEach(sinkData1::remove);
+                            // data is completely consistent, and the size is zero after deletion
+                            Assertions.assertEquals(0, sinkData1.size());
+
+                            Set<String> sinkData2 =
+                                    new HashSet<>(
+                                            getDocsWithTransformDate(
+                                                    // read three fields from index
+                                                    Lists.newArrayList(
+                                                            "c_int2", "c_null2", "c_date2"),
+                                                    "read_filter_index2_copy",
+                                                    //// allowed c_null serialized if null
+                                                    Lists.newArrayList("c_null2"),
+                                                    query2,
+                                                    // // transformDate field:c_date2
+                                                    Lists.newArrayList("c_date2"),
+                                                    // order by c_int2
+                                                    "c_int2"));
+                            Assertions.assertEquals(sinkData2.size(), index2Data.size());
+                            index2Data.forEach(sinkData2::remove);
+                            Assertions.assertEquals(0, sinkData2.size());
+                        });
     }
 
     @TestTemplate
@@ -529,8 +711,19 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 "{\"c_smallint\":2,\"c_string\":\"NEW\",\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
         String stIndex6 =
                 "{\"c_smallint\":2,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
-        Assertions.assertIterableEquals(Lists.newArrayList(stIndex5), sinkIndexData5);
-        Assertions.assertIterableEquals(Lists.newArrayList(stIndex6), sinkIndexData6);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    Lists.newArrayList(stIndex5),
+                                    readMultiSinkData("st_index5", source5));
+                            Assertions.assertIterableEquals(
+                                    Lists.newArrayList(stIndex6),
+                                    readMultiSinkData("st_index6", source6));
+                        });
     }
 
     @TestTemplate
@@ -539,10 +732,18 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink_full_type.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                1,
-                esRestClient.getIndexDocsCount("st_index_full_type_target").get(0).getDocsCount());
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        1,
+                                        esRestClient
+                                                .getIndexDocsCount("st_index_full_type_target")
+                                                .get(0)
+                                                .getDocsCount()));
     }
 
     @TestTemplate
@@ -584,9 +785,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob(
                         "/elasticsearch/elasticsearch_source_without_schema_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithOutSchema("st_index4");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithOutSchema("st_index4")));
     }
 
     private List<String> generateTestDataSet1() throws JsonProcessingException {
@@ -693,30 +901,26 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
-    private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
+    private List<String> readSinkDataWithOutSchema(String indexName) {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName);
     }
 
     // Null values are also a basic use case for testing
     // To ensure consistency in comparisons, we need to explicitly serialize null values.
-    private List<String> readSinkDataWithOutSchema(String indexName, List<String> nullAllowedFields)
-            throws InterruptedException {
+    private List<String> readSinkDataWithOutSchema(
+            String indexName, List<String> nullAllowedFields) {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName, nullAllowedFields);
     }
 
     // The timestamp type in Elasticsearch is incompatible with that in Seatunnel,
     // and we need to handle the conversion here.
-    private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+    private List<String> readSinkDataWithSchema(String index) {
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -737,17 +941,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformTimestamp(source, index);
     }
 
-    private List<String> readSinkDataWithNestSchema(String index) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+    private List<String> readSinkDataWithNestSchema(String index) {
         List<String> source = Lists.newArrayList("name", "address");
         return getDocsWithNestType(source, index);
     }
 
-    private List<String> readMultiSinkData(String index, List<String> source)
-            throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+    private List<String> readMultiSinkData(String index, List<String> source) {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
@@ -992,7 +1191,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testCatalog() throws InterruptedException, JsonProcessingException {
+    public void testCatalog() throws JsonProcessingException {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("username", "elastic");
         configMap.put("password", "elasticsearch");
@@ -1028,24 +1227,42 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             requestBody.append("\n");
         }
         esRestClient.bulk(requestBody.toString());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
 
         // Verify data exists
         List<String> sourceFields = Arrays.asList("field1", "field2");
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<>());
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
-        Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
+        // poll until the bulked data is visible
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        esRestClient
+                                                .searchByScroll(
+                                                        "st_index3", sourceFields, query, "1m", 100)
+                                                .getDocs()
+                                                .isEmpty(),
+                                        "Data should exist in the index"));
 
         // Truncate the table
         elasticSearchCatalog.truncateTable(tablePath, false);
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
-
-        // Verify data is deleted
-        scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
-        Assertions.assertTrue(
-                scrollResult.getDocs().isEmpty(), "Data should be deleted from the index");
+        // poll until the deletion is visible
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        esRestClient
+                                                .searchByScroll(
+                                                        "st_index3", sourceFields, query, "1m", 100)
+                                                .getDocs()
+                                                .isEmpty(),
+                                        "Data should be deleted from the index"));
 
         // Drop the table
         elasticSearchCatalog.dropTable(tablePath, false);
@@ -1081,6 +1298,49 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             data.add(objectMapper.writeValueAsString(record));
         }
         return data;
+    }
+
+    @Test
+    public void testScrollAndSqlCursorResourceCleanup() throws Exception {
+
+        String scrollId = null;
+        try {
+            List<String> source = Arrays.asList("c_string", "c_int");
+            Map<String, Object> query = new HashMap<>();
+            query.put("match_all", Collections.emptyMap());
+
+            ScrollResult result = esRestClient.searchByScroll("st_index", source, query, "1m", 5);
+            scrollId = result.getScrollId();
+            Assertions.assertNotNull(scrollId, "Scroll ID should not be null");
+
+            int totalDocs = result.getDocs().size();
+            while (result.getDocs() != null && !result.getDocs().isEmpty()) {
+                result = esRestClient.searchWithScrollId(scrollId, "1m");
+                scrollId = result.getScrollId();
+                if (result.getDocs() != null) {
+                    totalDocs += result.getDocs().size();
+                }
+            }
+            log.info("Retrieved {} documents via Scroll API", totalDocs);
+
+        } finally {
+            if (scrollId != null) {
+                boolean cleaned = esRestClient.clearScroll(scrollId);
+                Assertions.assertTrue(cleaned, "Scroll context should be successfully cleaned up");
+            }
+        }
+    }
+
+    private List<String> generateRuntimeTestData() throws IOException {
+        List<String> testData = new ArrayList<>();
+
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("c_string", "test_1");
+        doc.put("c_int", 10);
+        doc.put("c_timestamp", "2024-01-15T10:00:00");
+        testData.add(OBJECT_MAPPER.writeValueAsString(doc));
+
+        return testData;
     }
 
     /**

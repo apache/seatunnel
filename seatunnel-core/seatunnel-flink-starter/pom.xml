@@ -35,6 +35,7 @@
     <modules>
         <module>seatunnel-flink-13-starter</module>
         <module>seatunnel-flink-15-starter</module>
+        <module>seatunnel-flink-20-starter</module>
         <module>seatunnel-flink-starter-common</module>
     </modules>
 
@@ -92,7 +93,7 @@
                             <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
                             <exclude>org.apache.logging.log4j:log4j-1.2-api</exclude>
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
-                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
+                            <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
                 </configuration>

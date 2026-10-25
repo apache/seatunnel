@@ -34,10 +34,13 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
+
+import org.apache.commons.io.input.CountingInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
@@ -65,10 +67,12 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private TextLineSplitor textLineSplitor;
     private int[] indexes;
     private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
+    private transient long lastReadBytes = -1L;
 
     /** Custom stream divider for splitting text streams by specified delimiters */
     public static class StreamLineSplitter {
         private final char[] delimiterChars;
+        private final int[] delimiterPrefix;
         private final StringBuilder lineBuffer;
         private int delimiterIndex;
         private int skipCount;
@@ -79,6 +83,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         public StreamLineSplitter(
                 String delimiter, long skipHeaderNumber, LineProcessor lineProcessor) {
             this.delimiterChars = delimiter.toCharArray();
+            this.delimiterPrefix = buildPrefixTable(delimiterChars);
             this.lineBuffer = new StringBuilder();
             this.delimiterIndex = 0;
             this.skipCount = 0;
@@ -133,9 +138,14 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
 
         private void processChar(char currentChar) throws IOException {
+            lineBuffer.append(currentChar);
+            while (delimiterIndex > 0 && currentChar != delimiterChars[delimiterIndex]) {
+                delimiterIndex = delimiterPrefix[delimiterIndex - 1];
+            }
             if (currentChar == delimiterChars[delimiterIndex]) {
                 delimiterIndex++;
                 if (delimiterIndex == delimiterChars.length) {
+                    lineBuffer.setLength(lineBuffer.length() - delimiterChars.length);
                     if (skipCount >= skipHeaderNumber) {
                         String line = lineBuffer.toString();
                         if (!line.trim().isEmpty()) {
@@ -148,15 +158,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     lineBuffer.setLength(0);
                     delimiterIndex = 0;
                 }
-            } else {
-                if (delimiterIndex > 0) {
-                    for (int i = 0; i < delimiterIndex; i++) {
-                        lineBuffer.append(delimiterChars[i]);
-                    }
-                    delimiterIndex = 0;
-                }
-                lineBuffer.append(currentChar);
             }
+        }
+
+        private static int[] buildPrefixTable(char[] delimiter) {
+            int[] prefix = new int[delimiter.length];
+            int matched = 0;
+            for (int i = 1; i < delimiter.length; i++) {
+                while (matched > 0 && delimiter[i] != delimiter[matched]) {
+                    matched = prefix[matched - 1];
+                }
+                if (delimiter[i] == delimiter[matched]) {
+                    matched++;
+                    prefix[i] = matched;
+                }
+            }
+            return prefix;
         }
     }
 
@@ -168,13 +185,20 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.TEXT);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.TEXT);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.TEXT);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -196,23 +220,42 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
+        // rebuild inputStream
+        final boolean useSplitRead = split.getLength() > -1;
+        CountingInputStream countingInputStream = null;
+        if (useSplitRead) {
+            actualInputStream = safeSlice(actualInputStream, split.getStart(), split.getLength());
+            countingInputStream = new CountingInputStream(actualInputStream);
+            actualInputStream = countingInputStream;
+        }
+        lastReadBytes = -1L;
+        try (BufferedReader reader = createBomAwareBufferedReader(actualInputStream, encoding)) {
 
             LineProcessor lineProcessor =
                     line -> {
                         try {
-                            processLineData(line, tableId, output, partitionsMap);
+                            processLineData(line, split.getTableId(), output, partitionsMap);
                         } catch (FileConnectorException e) {
                             throw new IOException(e);
                         }
                     };
-
-            StreamLineSplitter splitter =
-                    new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
+            StreamLineSplitter splitter;
+            if (useSplitRead) {
+                splitter = new StreamLineSplitter(rowDelimiter, 0, lineProcessor);
+            } else {
+                splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
+            }
             splitter.processStream(reader);
+        } finally {
+            if (countingInputStream != null) {
+                lastReadBytes = countingInputStream.getByteCount();
+            }
         }
+    }
+
+    @Override
+    public long getLastReadBytes() {
+        return lastReadBytes;
     }
 
     private void processLineData(
@@ -259,7 +302,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) {
         this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(getPathForPartitionInference(path), seaTunnelRowType);
         initFormatter();
         if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
@@ -288,8 +331,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        String partitionPath = getPathForPartitionInference(null);
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), rowType);
+                mergePartitionTypes(partitionPath, rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         Optional<String> fieldDelimiterOptional =
                 readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
@@ -329,7 +373,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         } else {
             this.seaTunnelRowType = rowType;
             this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;

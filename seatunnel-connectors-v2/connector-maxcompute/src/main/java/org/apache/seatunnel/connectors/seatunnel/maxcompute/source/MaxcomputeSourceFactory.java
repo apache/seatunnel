@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -42,17 +44,27 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
+                        MaxcomputeSourceOptions.ENDPOINT,
+                        Conditions.notBlank(MaxcomputeSourceOptions.ENDPOINT))
+                .optional(
                         MaxcomputeSourceOptions.ACCESS_ID,
                         MaxcomputeSourceOptions.ACCESS_KEY,
-                        MaxcomputeSourceOptions.ENDPOINT)
-                .optional(
+                        MaxcomputeSourceOptions.STS_TOKEN,
                         MaxcomputeSourceOptions.PARTITION_SPEC,
                         MaxcomputeSourceOptions.SPLIT_ROW,
+                        MaxcomputeSourceOptions.SCHEMA_NAME,
                         ConnectorCommonOptions.SCHEMA,
                         MaxcomputeSourceOptions.PROJECT,
                         MaxcomputeSourceOptions.READ_COLUMNS,
-                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT)
-                .exclusive(MaxcomputeSourceOptions.TABLE_LIST, MaxcomputeSourceOptions.TABLE_NAME)
+                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT,
+                        MaxcomputeSourceOptions.TUNNEL_NAME,
+                        MaxcomputeSourceOptions.CONNECT_TIMEOUT_MS,
+                        MaxcomputeSourceOptions.READ_TIMEOUT_MS,
+                        MaxcomputeSourceOptions.RETRY_TIMES,
+                        MaxcomputeSourceOptions.TUNNEL_CONNECT_TIMEOUT_MS,
+                        MaxcomputeSourceOptions.TUNNEL_READ_TIMEOUT_MS,
+                        MaxcomputeSourceOptions.TUNNEL_RETRY_TIMES)
+                .exclusive(CatalogOptions.TABLE_LIST, MaxcomputeSourceOptions.TABLE_NAME)
                 .build();
     }
 

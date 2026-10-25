@@ -37,6 +37,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -139,11 +140,20 @@ public class CopyManagerBatchStatementExecutor implements JdbcBatchStatementExec
                     break;
                 case TIME:
                     LocalTime localTime = (LocalTime) record.getField(fieldIndex);
-                    csvRecord.add((java.sql.Time) java.sql.Time.valueOf(localTime));
+                    csvRecord.add(localTime.toString());
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) record.getField(fieldIndex);
                     csvRecord.add((java.sql.Timestamp) java.sql.Timestamp.valueOf(localDateTime));
+                    break;
+                case TIMESTAMP_TZ:
+                    OffsetDateTime offsetDateTime = (OffsetDateTime) record.getField(fieldIndex);
+                    if (offsetDateTime != null) {
+                        String timestampTzStr = offsetDateTime.toString().replace('T', ' ');
+                        csvRecord.add(timestampTzStr);
+                    } else {
+                        csvRecord.add(null);
+                    }
                     break;
                 case BYTES:
                     csvRecord.add(

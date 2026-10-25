@@ -1,0 +1,16 @@
+{
+  "env": {
+    "parallelism": 1,
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "plugin_name": "NonExistentConnector"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console"
+    }
+  ]
+}
