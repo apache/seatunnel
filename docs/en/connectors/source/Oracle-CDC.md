@@ -97,7 +97,7 @@ GRANT SELECT ANY TRANSACTION TO logminer_user;
 GRANT SELECT ON V_$TRANSACTION TO logminer_user;
 ```
 
-##### Oracle 11g is not supported
+##### The following privilege is not supported on Oracle 11g
 
 ```sql
 GRANT LOGMINING TO logminer_user;
