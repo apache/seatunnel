@@ -9,6 +9,13 @@ You need to check this document before you upgrade to related version.
 
 For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produce multiple ordered snapshots instead of one. This fixes stale rows when a later writer's equality deletes previously shared the same data sequence number as earlier rows. Each group is atomic, but external readers may observe a prefix of the checkpoint between groups, including while a failed commit is recovered. Single-generation checkpoints and append-only rotations without equality-delete dependencies retain one snapshot. Retain snapshot history and pending files until recovery is no longer needed; checkpoint and group numbers alone are not publication identities.
 
+### Zeta: runtime metric counters restart from zero after a pipeline failover restore
+
+- **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
+  - **Description**: When the Zeta engine restores a pipeline after a worker failover (or retries it after a failure), the new attempt's runtime counters (`SourceReceivedCount`, `SinkWriteCount`, queue metrics) now start from zero. Previously the replacement attempt continued from the failed attempt's values, because task locations are stable across retries and the new attempt's counters were seeded from the shared metrics store, so finished-job metrics could include work already done and canceled by earlier attempts.
+  - **Impact**: For batch jobs this removes over-counted finished-job metrics. For streaming jobs resumed after a failover, reported totals now restart at the new attempt's values instead of continuing the pre-failure totals; external dashboards or alerts that aggregate these counters must not read the reset as data loss. The reset is best effort: a worker report already in flight during the restore can still carry a stale value for at most a millisecond-scale window.
+  - **Migration Guide**: No action is required for correctness. If you need lifetime totals that survive failovers, accumulate them outside the running job, for example from the stored metrics of finished jobs in the job history.
+
 ### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
 
 When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
