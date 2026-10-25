@@ -31,6 +31,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 public class LocalModeIT {
 
@@ -63,6 +64,31 @@ public class LocalModeIT {
             if (node1 != null) {
                 node1.shutdown();
             }
+        }
+    }
+
+    @Test
+    public void localModeWithEphemeralPortUsesAdvertisedAddress() {
+        SeaTunnelConfig localConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Config memberConfig = localConfig.getHazelcastConfig();
+        memberConfig.setClusterName("local-ephemeral-" + UUID.randomUUID());
+        memberConfig.getNetworkConfig().setPort(0).setPortAutoIncrement(false);
+        memberConfig.getNetworkConfig().getJoin().getTcpIpConfig().getMembers().clear();
+        memberConfig.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+        HazelcastInstanceImpl member = SeaTunnelServerStarter.createHazelcastInstance(localConfig);
+        try {
+            String address = member.getCluster().getLocalMember().getAddress().toString();
+            Assertions.assertTrue(
+                    member.getCluster().getLocalMember().getSocketAddress().getPort() > 0);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(memberConfig.getClusterName());
+            clientConfig.getNetworkConfig().setAddresses(Collections.singletonList(address));
+            try (SeaTunnelClient client = new SeaTunnelClient(clientConfig)) {
+                Assertions.assertEquals(
+                        Collections.singleton(address), client.getClusterHealthMetrics().keySet());
+            }
+        } finally {
+            member.shutdown();
         }
     }
 

@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.client.job.JobStatusRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -49,6 +51,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.internal.util.ConcurrencyUtil;
@@ -99,19 +102,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                         ? clusterName
                                         : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName, seaTunnelConfig);
-                int port = instance.getCluster().getLocalMember().getSocketAddress().getPort();
-                clientConfig
-                        .getNetworkConfig()
-                        .setAddresses(Collections.singletonList("localhost:" + port));
             }
             if (StringUtils.isNotEmpty(clusterName)) {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
                 clientConfig.setClusterName(clusterName);
             }
             if (isLocalMode) {
-                int localPort = instance.getCluster().getLocalMember().getSocketAddress().getPort();
-                // Use localhost instead of actual IP to avoid network interface issues
-                String memberAddress = "localhost:" + localPort;
+                // The advertised member address supplies both the actual interface and bound port.
+                String memberAddress =
+                        instance.getCluster().getLocalMember().getAddress().toString();
                 clientConfig
                         .getNetworkConfig()
                         .setAddresses(Collections.singletonList(memberAddress));
@@ -192,6 +191,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobConfig jobConfig = new JobConfig();
                 ClientJobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
+                if (clientCommandArgs.getDryRun() == DryRun.SAMPLE) {
+                    DryRunSampleConfig.configure(
+                            jobConfig,
+                            clientCommandArgs.getSampleLimit(),
+                            clientCommandArgs.isSamplePrintData());
+                }
                 if (null != clientCommandArgs.getRestoreJobId()) {
                     jobExecutionEnv =
                             engineClient.restoreExecutionContext(
@@ -200,6 +205,18 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     jobConfig,
                                     seaTunnelConfig,
                                     Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                } else if (null != clientCommandArgs.getRestoreWithCheckpointJobId()) {
+                    jobExecutionEnv =
+                            engineClient.restoreFromCheckpointExecutionContext(
+                                    configFile.toString(),
+                                    clientCommandArgs.getVariables(),
+                                    jobConfig,
+                                    seaTunnelConfig,
+                                    Long.parseLong(
+                                            clientCommandArgs.getRestoreWithCheckpointJobId()),
+                                    clientCommandArgs.getCustomJobId() != null
+                                            ? Long.parseLong(clientCommandArgs.getCustomJobId())
+                                            : null);
                 } else {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(
@@ -330,21 +347,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
         // set local mode
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
-        seaTunnelConfig
-                .getHazelcastConfig()
-                .getNetworkConfig()
-                .getJoin()
-                .getTcpIpConfig()
-                .getMembers()
-                .clear();
-        Integer hazelcastPort = clientCommandArgs.getHazelcastPort();
-        if (hazelcastPort != null) {
-            seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPort(hazelcastPort);
-            log.info(
-                    "Local mode: Hazelcast port configured as {} (0 means random assignment)",
-                    hazelcastPort);
-        }
-        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
+        configureLocalNetwork(seaTunnelConfig.getHazelcastConfig());
 
         // Ensure the local mode can expose REST/UI endpoints by default when users didn't provide
         // a custom seatunnel.yaml. If users explicitly provide a config (system property:
@@ -374,6 +377,26 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         return hazelcastInstance;
     }
 
+    /**
+     * Applies an explicit local port without changing existing users' TCP/IP join members. An
+     * explicit override isolates the member and prevents fallback to a different port.
+     */
+    void configureLocalNetwork(Config hazelcastConfig) {
+        Integer hazelcastPort = clientCommandArgs.getHazelcastPort();
+        hazelcastConfig.getNetworkConfig().setPortAutoIncrement(hazelcastPort == null);
+        if (hazelcastPort != null) {
+            // An explicit local override must not join configured remote members or silently use
+            // another port. Port zero delegates selection to the operating system.
+            hazelcastConfig.getNetworkConfig().getJoin().getTcpIpConfig().getMembers().clear();
+            hazelcastConfig.getNetworkConfig().setPort(hazelcastPort);
+            log.info("Local mode: Hazelcast port configured as {}", hazelcastPort);
+        }
+    }
+
+    /**
+     * Creates the local member. Package access lets command-entry tests observe the effective
+     * network configuration before the member starts.
+     */
     HazelcastInstance createHazelcastInstance(SeaTunnelConfig seaTunnelConfig) {
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),

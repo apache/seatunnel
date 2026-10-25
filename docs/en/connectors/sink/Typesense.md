@@ -2,6 +2,12 @@ import ChangeLog from '../changelog/connector-typesense.md';
 
 # Typesense
 
+> Typesense sink connector
+
+## Support Those Engines
+
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Writes SeaTunnel rows to a Typesense collection. The connector can create the target collection
@@ -13,6 +19,8 @@ or more primary key fields.
 - [ ] [Exactly Once](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [Multiple Table Sink](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -20,45 +28,53 @@ or more primary key fields.
 | Name                     | Type   | Required | Default                      | Description                                                                                          |
 |--------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------|
 | hosts                    | array  | Yes      | -                            | Typesense node addresses in `host:port` format. Multiple hosts are supported.                        |
+| protocol                 | string | No       | http                         | Protocol used to connect to Typesense. Use `https` for Typesense Cloud or other TLS-enabled nodes.   |
 | collection               | string | Yes      | -                            | Target collection name.                                                                              |
 | schema_save_mode         | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target collection schema before writing.                                           |
 | data_save_mode           | string | Yes      | APPEND_DATA                  | How to handle existing documents before writing.                                                     |
 | primary_keys             | array  | No       | -                            | Source fields used to build the Typesense document `id`.                                             |
 | key_delimiter            | string | No       | `_`                          | Delimiter used when `primary_keys` contains more than one field.                                     |
+| key_encoding             | enum   | No       | LEGACY                       | Optional collision-safe encoding for composite document IDs.                                         |
 | api_key                  | string | Yes      | -                            | Typesense API key.                                                                                   |
 | max_retry_count          | int    | No       | 3                            | Maximum retry count for one bulk request.                                                            |
 | max_batch_size           | int    | No       | 10                           | Maximum number of documents sent in one bulk request.                                                |
-| multi_table_sink_replica | int    | No       | -                            | Number of sink replicas used by the common multi-table sink routing mechanism.                       |
+| multi_table_sink_replica | int    | No       | 1                            | Number of sink replicas used by the common multi-table sink routing mechanism.                       |
 | common-options           |        | No       | -                            | Common sink options.                                                                                 |
 
 ### hosts [array]
 
-The access address for Typesense, formatted as `host:port`, e.g., `["typesense-01:8108"]`.
+The access address for Typesense, formatted as `host:port`, e.g., `["typesense-01:8108"]`. When several nodes are configured, the sink keeps a single client per writer and does not balance writes across them.
 
 ### collection [string]
 
-The name of the collection to write to, e.g., "seatunnel".
+The name of the collection to write to, e.g., `"seatunnel"`. In multi-table jobs, every table routes to the same configured collection; configure one sink block per target collection if different tables need different destinations.
 
 ### primary_keys [array]
 
 Primary key fields used to generate the document `id`. When more than one field is configured,
-the connector joins their values with `key_delimiter`.
+the connector joins their values with `key_delimiter`. Without `primary_keys`, Typesense assigns its own document IDs and the connector behaves as an append-only write.
 
 ### key_delimiter [string]
 
 Sets the delimiter for composite keys (default is `_`).
 
+### key_encoding [enum]
+
+`LEGACY` (default) preserves existing IDs, but composite keys can collide when a value contains `key_delimiter`. `LENGTH_PREFIXED` encodes each formatted value as `<length>:<value>`: `["1_1", "2"]` becomes `3:1_11:2`, while `["1", "1_2"]` becomes `1:13:1_2`. It ignores `key_delimiter` and does not change single-key IDs.
+
+Switching an existing composite-key collection changes document IDs. Migrate or recreate existing documents first; otherwise later writes can create duplicates instead of updating them.
+
 ### api_key [string]
 
-The `api_key` for secure access to Typesense.
+The `api_key` for secure access to Typesense. Treat this value as a secret and prefer passing it via a job secret or environment variable when running on shared infrastructure.
 
 ### max_retry_count [int]
 
-The maximum number of retry attempts for one batch request.
+The maximum number of retry attempts for one batch request. The retry predicate is `exception -> true`, so the connector retries on every exception thrown by `typesenseClient.insert(...)` (network errors, timeouts, and Typesense error responses alike) up to `max_retry_count` times with a fixed 200 ms backoff; it does not currently distinguish transient from permanent failures.
 
 ### max_batch_size [int]
 
-The maximum number of documents sent in one batch.
+The maximum number of documents sent in one batch. Typesense caps each request; keep this value below the Typesense server-side `per_page` limit.
 
 ### multi_table_sink_replica [int]
 
@@ -86,11 +102,17 @@ Choose how to handle existing data on the target side before starting the synchr
 - `APPEND_DATA`: Retains both the database structure and the data.
 - `ERROR_WHEN_DATA_EXISTS`: Throws an error if data exists.
 
+:::tip
+
+The connector uses Typesense's bulk import endpoint. `UPDATE` and `DELETE` row kinds are not interpreted as CDC operations — every upstream row is upserted into the target collection based on the generated document `id`. Use `data_save_mode = DROP_DATA` together with a stable `primary_keys` configuration to make repeated jobs behave like upserts rather than appends.
+
+:::
+
 ## Task Example
 
 ### Write Documents With Primary Keys
 
-```bash
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -130,7 +152,7 @@ sink {
 
 ### Read From Typesense And Write To Another Collection
 
-```bash
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -172,6 +194,47 @@ sink {
     max_batch_size = 10
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### Streaming Upsert With Checkpoint Flush
+
+In streaming mode, the writer buffers up to `max_batch_size` rows or until the next checkpoint, then issues one bulk request. Pair `data_save_mode = DROP_DATA` with a stable `primary_keys` to make every checkpoint produce an idempotent upsert.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema {
+      fields {
+        company_name = string
+        num = long
+        id = string
+        num_employees = int
+        flag = boolean
+      }
+    }
+    plugin_output = "typesense_stream"
+  }
+}
+
+sink {
+  Typesense {
+    plugin_input = "typesense_stream"
+    hosts = ["localhost:8108"]
+    collection = "typesense_stream_collection"
+    api_key = "xyz"
+    primary_keys = ["id"]
+    max_batch_size = 100
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode = "DROP_DATA"
   }
 }
 ```

@@ -12,6 +12,8 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 该源连接器使用 scan 请求读取表中当前已有的数据，不读取 DynamoDB Streams 或 CDC 变更事件。
 
+使用 `tables_configs` 可以在一个 source 中读取多张 schema 不同的 DynamoDB 表。
+
 ## 支持的引擎
 
 > Spark<br/>
@@ -26,6 +28,7 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -35,8 +38,9 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 | region                | string | 是   | -      | DynamoDB 所在的 AWS 区域。  |
 | access_key_id         | string | 是   | -      | AWS access key ID。         |
 | secret_access_key     | string | 是   | -      | AWS secret access key。     |
-| table                 | string | 是   | -      | 要扫描的 DynamoDB 表名。    |
-| schema                | config | 是   | -      | 要读取的 SeaTunnel 字段。   |
+| table                 | string | 否   | -      | 单表模式必填，与 `tables_configs` 互斥。 |
+| schema                | config | 否   | -      | 单表模式必填；多表模式需要在每个条目中配置。 |
+| tables_configs        | list   | 否   | -      | 多表模式要读取的表及 schema，详见下文。 |
 | scan_item_limit       | int    | 否   | 1      | 每次 scan 请求返回的最大 item 数。 |
 | parallel_scan_threads | int    | 否   | 2      | parallel scan 的逻辑分片数。 |
 | common-options        | object | 否   | -      | 源插件通用参数。       |
@@ -61,7 +65,7 @@ DynamoDB 所在的 AWS 区域，例如 `us-east-1`。
 
 ### table [string]
 
-要扫描的 DynamoDB 表名。
+单表模式下要扫描的 DynamoDB 表名。
 
 ### schema [config]
 
@@ -90,6 +94,20 @@ schema = {
 ```
 
 更多 schema 写法请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+### tables_configs [list]
+
+用于替代根级别的 `table` 和 `schema`，读取多张表。每个条目需要配置：
+
+- `table`：要扫描的 DynamoDB 表名。
+- `schema`：从该表读取的 SeaTunnel 字段。`schema.table` 用于设置输出表标识；未配置时使用 DynamoDB 表名。表名中的点会被当作 `database.table` 的分隔符，因此当 DynamoDB 表名包含点时请设置 `schema.table`。
+
+每个条目还可以配置 `scan_item_limit` 和 `parallel_scan_threads`。条目中未配置时，使用根级别的值（或其默认值）。
+每张表按自身的 `parallel_scan_threads` 拆分 scan 分片，每行数据都会带上其来源表的标识。
+
+所有条目共享根级别的连接选项 `url`、`region`、`access_key_id` 和 `secret_access_key`，条目内的连接选项会被拒绝。
+根级别的 `table` 或 `schema`、空列表、缺少 `table` 或 `schema` 的条目、不支持的条目选项以及重复的输出表标识，都会在作业启动前报错。
+恢复 checkpoint 时请保持表标识不变；在单表模式和多表模式之间切换需要启动新作业。
 
 ### scan_item_limit [int]
 
@@ -138,6 +156,8 @@ DynamoDB parallel scan 使用的逻辑分片数量。
 | NULL               | NULL              |
 
 ## 任务示例
+
+### 读取单张表
 
 下面的示例从 `source_table` 读取数据，并写入 `sink_table`。
 
@@ -188,6 +208,54 @@ sink {
     table = "sink_table"
     batch_size = 25
   }
+}
+```
+
+### 读取多张表
+
+下面的示例读取 schema 不同的 `orders` 和 `customers` 两张表。`customers` 的数据会以 `crm.customers` 作为表标识发送到下游。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonDynamoDB {
+    url = "http://127.0.0.1:8000"
+    region = "us-east-1"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
+    parallel_scan_threads = 2
+    tables_configs = [
+      {
+        table = "orders"
+        parallel_scan_threads = 4
+        schema = {
+          fields {
+            id = string
+            amount = int
+          }
+        }
+      },
+      {
+        table = "customers"
+        schema = {
+          table = "crm.customers"
+          fields {
+            id = string
+            name = string
+            vip = boolean
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

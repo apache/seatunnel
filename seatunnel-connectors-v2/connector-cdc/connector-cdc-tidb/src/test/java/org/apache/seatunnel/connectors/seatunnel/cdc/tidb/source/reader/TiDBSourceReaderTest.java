@@ -17,12 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.reader;
 
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
+
 import org.junit.jupiter.api.Test;
+import org.tikv.cdc.CDCClient;
 import org.tikv.common.key.RowKey;
 import org.tikv.kvproto.Cdcpb;
+import org.tikv.kvproto.Coprocessor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
@@ -30,6 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class TiDBSourceReaderTest {
 
@@ -38,6 +50,27 @@ class TiDBSourceReaderTest {
     private static final long START_TS = 100L;
     private static final long COMMIT_TS = 200L;
     private static final long RESOLVED_TS = 300L;
+
+    @Test
+    void shouldAdvanceSplitWithTheSlowestRegionResolvedTimestamp() throws Exception {
+        TiDBSourceConfig config =
+                TiDBSourceConfig.builder().startupMode(StartupMode.LATEST).batchSize(1).build();
+        TiDBSourceReader reader =
+                new TiDBSourceReader(
+                        mock(SourceReader.Context.class), config, mock(CatalogTable.class));
+        TiDBSourceSplit split =
+                new TiDBSourceSplit(
+                        "database", "table", mock(Coprocessor.KeyRange.class), 10L, null, true);
+        CDCClient cdcClient = mock(CDCClient.class);
+        when(cdcClient.get()).thenReturn(null);
+        when(cdcClient.getMinResolvedTs()).thenReturn(100L);
+        when(cdcClient.getMaxResolvedTs()).thenReturn(200L);
+        cdcClients(reader).put(split, cdcClient);
+
+        reader.captureStreamingEvents(split, mock(Collector.class));
+
+        assertEquals(100L, split.getResolvedTs());
+    }
 
     @Test
     void flushRowsShouldHoldCommitUntilMatchingPrewriteArrives() throws Exception {
@@ -117,5 +150,13 @@ class TiDBSourceReaderTest {
         Field field = TiDBSourceReader.class.getDeclaredField("committedEvents");
         field.setAccessible(true);
         return (BlockingQueue<Cdcpb.Event.Row>) field.get(reader);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<TiDBSourceSplit, CDCClient> cdcClients(TiDBSourceReader reader)
+            throws ReflectiveOperationException {
+        Field cacheField = TiDBSourceReader.class.getDeclaredField("cacheCDCClient");
+        cacheField.setAccessible(true);
+        return (Map<TiDBSourceSplit, CDCClient>) cacheField.get(reader);
     }
 }

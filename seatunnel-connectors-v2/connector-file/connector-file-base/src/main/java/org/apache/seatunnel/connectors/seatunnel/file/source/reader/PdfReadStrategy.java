@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -63,9 +65,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -81,6 +88,41 @@ import java.util.stream.IntStream;
 @Slf4j
 public class PdfReadStrategy extends AbstractReadStrategy {
 
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+    private static final String[] DEFAULT_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final SeaTunnelDataType[] DEFAULT_FIELD_TYPES = {
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE,
+        ArrayType.STRING_ARRAY_TYPE
+    };
+    private static final String[] RAG_METADATA_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
+    private static final SeaTunnelDataType[] RAG_METADATA_FIELD_TYPES = {
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE
+    };
+
+    private boolean pdfRagMetadataEnabled =
+            FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED.defaultValue();
+
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
@@ -94,14 +136,23 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
             try (PDDocument document = Loader.loadPDF(tempPdfPath.toFile())) {
                 List<DocumentElement> elements = extractPdfDocumentElements(document);
+                String sourceUri = normalizeSourceUri(path);
+                String documentId = buildDocumentId(sourceUri);
 
                 log.info(
                         "PDF file '{}' processed successfully, generated {} elements",
                         path,
                         elements.size());
 
+                int chunkIndex = 1;
                 for (DocumentElement element : elements) {
-                    output.collect(element.toSeaTunnelRow());
+                    output.collect(
+                            toSeaTunnelRow(
+                                    element,
+                                    sourceUri,
+                                    documentId,
+                                    chunkIndex++,
+                                    pdfRagMetadataEnabled));
                 }
             }
         } catch (Exception e) {
@@ -126,27 +177,21 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
-        return new SeaTunnelRowType(
-                new String[] {
-                    "element_id",
-                    "element_type",
-                    "heading_level",
-                    "text",
-                    "page_number",
-                    "position_index",
-                    "parent_id",
-                    "child_ids"
-                },
-                new SeaTunnelDataType[] {
-                    BasicType.STRING_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.STRING_TYPE,
-                    ArrayType.STRING_ARRAY_TYPE
-                });
+        if (pdfRagMetadataEnabled) {
+            return new SeaTunnelRowType(
+                    concat(DEFAULT_FIELD_NAMES, RAG_METADATA_FIELD_NAMES),
+                    concat(DEFAULT_FIELD_TYPES, RAG_METADATA_FIELD_TYPES));
+        }
+        return new SeaTunnelRowType(DEFAULT_FIELD_NAMES, DEFAULT_FIELD_TYPES);
+    }
+
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        if (pluginConfig.hasPath(FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED.key())) {
+            pdfRagMetadataEnabled =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED.key());
+        }
     }
 
     /** Extract all document elements including headings, paragraphs, and images */
@@ -922,6 +967,81 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         public String getText() {
             return text;
         }
+    }
+
+    private SeaTunnelRow toSeaTunnelRow(
+            DocumentElement element,
+            String sourceUri,
+            String documentId,
+            int chunkIndex,
+            boolean appendRagMetadata) {
+        SeaTunnelRow row = element.toSeaTunnelRow();
+        if (!appendRagMetadata) {
+            return row;
+        }
+        return new SeaTunnelRow(
+                appendRagMetadata(row, sourceUri, documentId, chunkIndex, element.getText()));
+    }
+
+    private Object[] appendRagMetadata(
+            SeaTunnelRow row, String sourceUri, String documentId, int chunkIndex, String text) {
+        Object[] enriched = new Object[row.getArity() + RAG_METADATA_FIELD_NAMES.length];
+        for (int i = 0; i < row.getArity(); i++) {
+            enriched[i] = row.getField(i);
+        }
+        String contentHash = sha256Hex(text == null ? "" : text);
+        String chunkId = "chunk_" + sha256Hex(documentId + ":" + chunkIndex + ":" + contentHash);
+        enriched[row.getArity()] = sourceUri;
+        enriched[row.getArity() + 1] = documentId;
+        enriched[row.getArity() + 2] = chunkId;
+        enriched[row.getArity() + 3] = chunkIndex;
+        enriched[row.getArity() + 4] = contentHash;
+        return enriched;
+    }
+
+    private static String buildDocumentId(String sourceUri) {
+        return "doc_" + sha256Hex(sourceUri);
+    }
+
+    private static String normalizeSourceUri(String sourceUri) {
+        if (!sourceUri.startsWith("file:")) {
+            return sourceUri;
+        }
+        try {
+            return Paths.get(URI.create(sourceUri)).toString();
+        } catch (IllegalArgumentException e) {
+            return sourceUri;
+        }
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            char[] chars = new char[bytes.length * 2];
+            for (int i = 0; i < bytes.length; i++) {
+                int unsigned = bytes[i] & 0xFF;
+                chars[i * 2] = HEX_CHARS[unsigned >>> 4];
+                chars[i * 2 + 1] = HEX_CHARS[unsigned & 0x0F];
+            }
+            return new String(chars);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    private static String[] concat(String[] left, String[] right) {
+        String[] result = new String[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
+    }
+
+    private static SeaTunnelDataType[] concat(SeaTunnelDataType[] left, SeaTunnelDataType[] right) {
+        SeaTunnelDataType[] result = new SeaTunnelDataType[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
     }
 
     /** Finds the paragraph boundary below an outline heading based on text position changes. */
