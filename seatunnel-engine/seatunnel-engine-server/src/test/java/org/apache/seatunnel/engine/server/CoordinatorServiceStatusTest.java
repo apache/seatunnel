@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 import org.junit.jupiter.api.Test;
