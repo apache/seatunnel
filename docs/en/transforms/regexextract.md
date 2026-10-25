@@ -31,6 +31,9 @@ The names of the output fields for extracted values. The size must match the num
 
 Default values for output fields when the regex pattern does not match or the source field is null. If provided, the size must match the number of output fields.
 
+### common options [string]
+
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Example
 

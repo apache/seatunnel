@@ -62,27 +62,10 @@ import static org.awaitility.Awaitility.given;
         "HDFS is not available in CI, if you want to run this test, please set up your own HDFS environment in the test case file and the below setup")
 public class PaimonSinkHdfsIT extends TestSuiteBase {
 
-    private String hiveExecUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
-    }
-
-    private String libfb303Url() {
-        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.0/libfb303-0.9.0.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Paimon/lib && cd /tmp/seatunnel/plugins/Paimon/lib && wget "
-                                        + hiveExecUrl()
-                                        + " && wget "
-                                        + libfb303Url());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    PaimonDependencies.copyHiveTo(container, "/tmp/seatunnel/plugins/Paimon/lib");
 
     private Map<String, Object> PAIMON_SINK_PROPERTIES;
 

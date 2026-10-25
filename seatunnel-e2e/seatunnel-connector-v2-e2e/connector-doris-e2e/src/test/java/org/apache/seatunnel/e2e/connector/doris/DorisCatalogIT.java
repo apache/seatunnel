@@ -96,12 +96,11 @@ public class DorisCatalogIT extends AbstractDorisIT {
 
     private void initCatalog() {
         String catalogName = "doris";
-        String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
         factory = new DorisCatalogFactory();
 
         Map<String, Object> map = new HashMap<>();
-        map.put(DorisBaseOptions.FENODES.key(), frontEndNodes);
-        map.put(DorisBaseOptions.QUERY_PORT.key(), QUERY_PORT);
+        map.put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+        map.put(DorisBaseOptions.QUERY_PORT.key(), container.getMappedPort(QUERY_PORT));
         map.put(DorisBaseOptions.USERNAME.key(), USERNAME);
         map.put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
 
@@ -163,9 +162,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
@@ -176,9 +176,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test2");
                                 put(DorisBaseOptions.TABLE.key(), "test2");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -191,9 +192,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisSinkOptions.TABLE_IDENTIFIER.key(), "test3.test3");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
@@ -205,9 +207,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test5");
                                 put(DorisBaseOptions.TABLE.key(), "${table_name}");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -220,9 +223,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test4");
                                 put(DorisBaseOptions.TABLE.key(), "test4");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -283,9 +287,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
+                                put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
                                 put(
-                                        DorisBaseOptions.FENODES.key(),
-                                        container.getHost() + ":" + HTTP_PORT);
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test");
                                 put(DorisBaseOptions.TABLE.key(), "unbounded_string");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -362,12 +367,11 @@ public class DorisCatalogIT extends AbstractDorisIT {
                                                                 "k1,k2");
                                                         put(
                                                                 DorisBaseOptions.FENODES.key(),
-                                                                container.getHost()
-                                                                        + ":"
-                                                                        + HTTP_PORT);
+                                                                getFrontendNodes());
                                                         put(
                                                                 DorisBaseOptions.QUERY_PORT.key(),
-                                                                QUERY_PORT);
+                                                                container.getMappedPort(
+                                                                        QUERY_PORT));
                                                     }
                                                 }),
                                         Thread.currentThread().getContextClassLoader()))
@@ -377,6 +381,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 Arrays.asList("k1", "k2"), table.getTableSchema().getPrimaryKey().getColumnNames());
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
+    }
+
+    private String getFrontendNodes() {
+        return container.getHost() + ":" + container.getMappedPort(HTTP_PORT);
     }
 
     @AfterAll

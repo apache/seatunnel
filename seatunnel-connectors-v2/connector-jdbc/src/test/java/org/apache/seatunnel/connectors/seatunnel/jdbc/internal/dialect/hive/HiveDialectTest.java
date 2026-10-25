@@ -21,18 +21,24 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.stream.Stream;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Verifies Hive dialect metadata behavior for query rewriting and partition discovery. */
+/**
+ * Verifies Hive metadata limiting and partition discovery. Exact query-output cases protect SQL
+ * syntax and column qualification without reflecting into private implementation methods.
+ */
 class HiveDialectTest {
 
     @Test
@@ -103,28 +109,58 @@ class HiveDialectTest {
                 hiveDialect.getPartitionKeys(connection, TablePath.of("test_db.test_table")));
     }
 
-    /** Simple SELECT queries can be wrapped so metadata discovery reads at most one row. */
-    @Test
-    void testModifySqlToLimit1WrapsSimpleSelect() throws Exception {
-        Assertions.assertEquals(
-                "SELECT * FROM (SELECT id FROM users) s LIMIT 1",
-                modifySQLToLimit1("SELECT id FROM users;"));
-    }
-
     /**
-     * Top-level CTE queries must not be wrapped because Hive rejects WITH inside subquery blocks.
+     * Checks metadata limiting against exact SQL outputs for literals, identifiers and comments.
+     * Existing limits and non-query statements remain unchanged so schema discovery preserves the
+     * original statement contract.
      */
-    @Test
-    void testModifySqlToLimit1KeepsTopLevelWithQuery() throws Exception {
-        String withQuery = "WITH t AS (SELECT 1 AS id) SELECT * FROM t";
-
-        Assertions.assertEquals(withQuery, modifySQLToLimit1(withQuery));
+    @ParameterizedTest
+    @MethodSource("metadataQueries")
+    void testLimitMetadataQuery(String query, String expected) {
+        Assertions.assertEquals(expected, HiveDialect.limitMetadataQuery(query));
     }
 
-    /** Invokes the private rewrite helper without requiring a live Hive connection. */
-    private String modifySQLToLimit1(String sql) throws Exception {
-        Method method = HiveDialect.class.getDeclaredMethod("modifySQLToLimit1", String.class);
-        method.setAccessible(true);
-        return (String) method.invoke(new HiveDialect(), sql);
+    private static Stream<Arguments> metadataQueries() {
+        return Stream.of(
+                Arguments.of("SELECT id FROM users;", "SELECT id FROM users\nLIMIT 1\n"),
+                Arguments.of("SELECT id FROM users;; ", "SELECT id FROM users\nLIMIT 1\n "),
+                Arguments.of(
+                        "SELECT id FROM users -- trailing comment",
+                        "SELECT id FROM users\nLIMIT 1\n -- trailing comment"),
+                Arguments.of(
+                        "SELECT id FROM users; -- trailing comment",
+                        "SELECT id FROM users\nLIMIT 1\n -- trailing comment"),
+                Arguments.of(
+                        "/* leading */ WITH t AS (SELECT 1 AS id) SELECT * FROM t",
+                        "/* leading */ WITH t AS (SELECT 1 AS id) SELECT * FROM t\nLIMIT 1\n"),
+                Arguments.of(
+                        "-- leading\nWITH t AS (SELECT 1 AS id) SELECT * FROM t;",
+                        "-- leading\nWITH t AS (SELECT 1 AS id) SELECT * FROM t\nLIMIT 1\n"),
+                Arguments.of(
+                        "SELECT * FROM (SELECT id FROM users LIMIT 5) t",
+                        "SELECT * FROM (SELECT id FROM users LIMIT 5) t\nLIMIT 1\n"),
+                Arguments.of(
+                        "SELECT 'limit;--' AS `limit` FROM users /* LIMIT 5 */",
+                        "SELECT 'limit;--' AS `limit` FROM users\nLIMIT 1\n /* LIMIT 5 */"),
+                Arguments.of(
+                        "SELECT 'it''s a limit' AS name FROM users",
+                        "SELECT 'it''s a limit' AS name FROM users\nLIMIT 1\n"),
+                Arguments.of("SELECT id FROM users LIMIT 5;", "SELECT id FROM users LIMIT 5;"),
+                Arguments.of("SELECT id FROM users LIMIT 2, 5", "SELECT id FROM users LIMIT 2, 5"),
+                Arguments.of(
+                        "SELECT id -- note\rFROM users",
+                        "SELECT id -- note\rFROM users\nLIMIT 1\n"),
+                Arguments.of(
+                        "-- leading\rSELECT id FROM users",
+                        "-- leading\rSELECT id FROM users\nLIMIT 1\n"),
+                Arguments.of(
+                        "WITH t AS (SELECT 1 AS id) INSERT INTO users SELECT id FROM t",
+                        "WITH t AS (SELECT 1 AS id) INSERT INTO users SELECT id FROM t"),
+                Arguments.of("SELECT 1; SELECT 2", "SELECT 1; SELECT 2"),
+                Arguments.of("SELECT 'unterminated", "SELECT 'unterminated"),
+                Arguments.of("SELECT (id FROM users", "SELECT (id FROM users"),
+                Arguments.of("SELECT id /* unterminated", "SELECT id /* unterminated"),
+                Arguments.of("-- comment only", "-- comment only"),
+                Arguments.of("EXPLAIN SELECT id FROM users", "EXPLAIN SELECT id FROM users"));
     }
 }

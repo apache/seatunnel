@@ -103,3 +103,121 @@ def test_colon_separator_still_rejects_env_vars_elsewhere():
     config = _config_with_sink('topic: "${now}"')
     result = validate_hocon(config)
     assert "Unresolved environment variables" in result
+
+
+# ── transform-mediated routing (regression for transform blocks being ──
+# ── invisible to _validate_routing_pairs)                             ──
+
+def test_sink_consuming_transform_output_is_valid():
+    config = """
+env { parallelism = 1
+  job.mode = "BATCH" }
+source { FakeSource {
+    row.num = 5
+    schema { fields { id = "bigint" } }
+    plugin_output = "raw" } }
+transform {
+  Sql {
+    plugin_input = "raw"
+    plugin_output = "filtered"
+    query = "SELECT * FROM raw WHERE id > 1"
+  }
+}
+sink { Console { plugin_input = "filtered" } }
+"""
+    result = validate_hocon(config)
+    assert "has no matching plugin_output" not in result
+
+
+def test_split_via_parallel_transforms_is_valid():
+    config = """
+env { parallelism = 1
+  job.mode = "BATCH" }
+source { FakeSource {
+    row.num = 5
+    schema { fields { id = "bigint" } }
+    plugin_output = "raw" } }
+transform {
+  Sql {
+    plugin_input = "raw"
+    plugin_output = "big"
+    query = "SELECT * FROM raw WHERE id > 100"
+  }
+  Sql {
+    plugin_input = "raw"
+    plugin_output = "small"
+    query = "SELECT * FROM raw WHERE id <= 100"
+  }
+}
+sink {
+  Console { plugin_input = "big" }
+  Console { plugin_input = "small" }
+}
+"""
+    result = validate_hocon(config)
+    assert "has no matching plugin_output" not in result
+
+
+def test_genuinely_unmatched_plugin_input_still_rejected():
+    config = """
+env { parallelism = 1
+  job.mode = "BATCH" }
+source { FakeSource {
+    row.num = 5
+    schema { fields { id = "bigint" } }
+    plugin_output = "raw" } }
+sink { Console { plugin_input = "nonexistent_label" } }
+"""
+    result = validate_hocon(config)
+    assert "nonexistent_label" in result
+    assert "has no matching plugin_output" in result
+
+
+def test_routing_errors_attribute_transform_blocks_correctly():
+    # A dangling plugin_input on a TRANSFORM must be reported against the
+    # transform block, not misattributed to a source or sink.
+    config = """
+env { parallelism = 1
+  job.mode = "BATCH" }
+source { FakeSource {
+    row.num = 5
+    schema { fields { id = "bigint" } }
+    plugin_output = "raw" } }
+transform {
+  Sql {
+    plugin_input = "wrong_label"
+    plugin_output = "filtered"
+    query = "SELECT * FROM wrong_label"
+  }
+}
+sink { Console { plugin_input = "filtered" } }
+"""
+    result = validate_hocon(config)
+    assert 'transform.Sql: plugin_input "wrong_label"' in result
+
+
+def test_duplicate_output_across_transforms_reports_transform_location():
+    config = """
+env { parallelism = 1
+  job.mode = "BATCH" }
+source { FakeSource {
+    row.num = 5
+    schema { fields { id = "bigint" } }
+    plugin_output = "raw" } }
+transform {
+  Sql {
+    plugin_input = "raw"
+    plugin_output = "same_label"
+    query = "SELECT * FROM raw WHERE id > 1"
+  }
+  Sql {
+    plugin_input = "raw"
+    plugin_output = "same_label"
+    query = "SELECT * FROM raw WHERE id <= 1"
+  }
+}
+sink { Console { plugin_input = "same_label" } }
+"""
+    result = validate_hocon(config)
+    assert 'in transform.Sql' in result
+    assert 'already used by transform.Sql' in result

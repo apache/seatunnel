@@ -27,6 +27,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive.HiveDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
@@ -38,6 +39,9 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.HashMap;
@@ -187,11 +191,6 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         return null;
     }
@@ -208,7 +207,6 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));
         return container;
     }
 
@@ -222,6 +220,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
             org.apache.seatunnel.e2e.common.container.TestContainer container,
             org.testcontainers.containers.Container.ExecResult execResult) {
         try {
+            verifyMetadataQueryLabels();
             TablePath partitionTablePath = TablePath.of(HIVE_DATABASE + "." + HIVE_PARTITION_TABLE);
             JdbcSourceTableConfig tableConfig =
                     JdbcSourceTableConfig.builder()
@@ -254,7 +253,40 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                     partitionKeys,
                     "JdbcCatalogUtils should carry Hive partition keys into CatalogTable");
         } catch (Exception e) {
-            Assertions.fail("Failed to load Hive partition keys from JdbcCatalogUtils", e);
+            Assertions.fail("Failed to verify Hive query metadata and catalog partition keys", e);
+        }
+    }
+
+    /**
+     * Compares limited metadata queries with the unchanged query on the real Hive driver. Column
+     * names, labels and JDBC types must survive limiting for ordinary and CTE queries.
+     */
+    private void verifyMetadataQueryLabels() throws Exception {
+        String projection = "SELECT int_column AS metadata_id, string_column FROM " + HIVE_SOURCE;
+        String[] queries = {
+            projection,
+            projection + " -- trailing metadata comment",
+            "/* leading metadata comment */ WITH records AS ("
+                    + projection
+                    + ") SELECT * FROM records",
+            projection + " LIMIT 2"
+        };
+        HiveDialect dialect = new HiveDialect();
+        for (String query : queries) {
+            try (PreparedStatement statement = connection.prepareStatement(query);
+                    ResultSet resultSet = statement.executeQuery()) {
+                ResultSetMetaData original = resultSet.getMetaData();
+                ResultSetMetaData limited = dialect.getResultSetMetaData(connection, query);
+                Assertions.assertEquals(2, limited.getColumnCount(), query);
+                for (int column = 1; column <= original.getColumnCount(); column++) {
+                    Assertions.assertEquals(
+                            original.getColumnLabel(column), limited.getColumnLabel(column), query);
+                    Assertions.assertEquals(
+                            original.getColumnName(column), limited.getColumnName(column), query);
+                    Assertions.assertEquals(
+                            original.getColumnType(column), limited.getColumnType(column), query);
+                }
+            }
         }
     }
 }

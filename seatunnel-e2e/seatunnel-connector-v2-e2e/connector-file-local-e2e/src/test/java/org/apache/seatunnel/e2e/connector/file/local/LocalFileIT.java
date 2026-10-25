@@ -38,6 +38,8 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +47,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
+import org.testcontainers.utility.MountableFile;
 
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import io.airlift.compress.lzo.LzopCodec;
@@ -251,6 +254,18 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
                         container);
 
+                Path headerProjectionFile =
+                        Files.createTempFile("excel-header-projection-", ".xlsx");
+                try {
+                    createExcelHeaderProjectionFile(headerProjectionFile);
+                    // Temporary files can be owner-only; allow the container process to read it.
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(headerProjectionFile, 0644),
+                            "/seatunnel/read/excel_header_projection/e2e.xlsx");
+                } finally {
+                    Files.deleteIfExists(headerProjectionFile);
+                }
+
                 Path xlsxZip =
                         convertToZipFile(
                                 Lists.newArrayList(
@@ -314,6 +329,23 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/csv/header/csv_with_header2.csv",
                         container);
 
+                Path csvWithPreamble = Files.createTempFile("csv-preamble-", ".csv");
+                try {
+                    Files.write(
+                            csvWithPreamble,
+                            ("\uFEFF\"unclosed quote in report preamble\n"
+                                            + "export generated today\n"
+                                            + "name,id,age\n"
+                                            + "\"Alice\nSmith\",1,10\n"
+                                            + "Bob,2,20\n")
+                                    .getBytes(StandardCharsets.UTF_8));
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(csvWithPreamble, 0644),
+                            "/seatunnel/read/csv/preamble/data.csv");
+                } finally {
+                    Files.deleteIfExists(csvWithPreamble);
+                }
+
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_null_format.txt",
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
@@ -322,7 +354,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer(
                         "sh",
                         "-c",
-                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n## Child\\nBody\\n' > /seatunnel/read/markdown/e2e.md");
 
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);
@@ -354,12 +386,22 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileCsvWithPreamble(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/csv_with_preamble_to_assert.conf");
+        helper.execute("/csv/csv_with_header_to_assert.conf");
+    }
+
+    @TestTemplate
     public void testLocalFileExcel(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
+        helper.execute("/excel/local_excel_header_projection_poi_to_assert.conf");
+        helper.execute("/excel/local_excel_header_projection_easyexcel_to_assert.conf");
         helper.execute("/excel/special_excel_to_assert.conf");
         helper.execute("/excel/local_filter_excel_to_assert.conf");
         helper.execute("/excel/local_filter_regex_excel_to_assert.conf");
@@ -607,17 +649,148 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertFalse(
                 isLocalFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
 
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
 
-        Container.ExecResult execResult;
-        try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryPostSyncBackup(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/backup-test.bin", "abc");
 
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_backup.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile(
+                                                "/tmp/seatunnel/continuous/dst/backup-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        localFileExists(
+                                                "/tmp/seatunnel/continuous/src/backup-test.bin"),
+                                        "source file should be moved from source path after backup commit"));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        countLocalFiles(
+                                                        "/tmp/seatunnel/continuous/backup",
+                                                        "backup-test.bin.v*")
+                                                > 0,
+                                        "backup target should contain version-suffixed file"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileContinuousBackupRetentionCleanup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_backup_retention.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(90, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0L,
+                                        countLocalFiles(
+                                                "/tmp/seatunnel/continuous/backup", "*.bin.v*"),
+                                        "retention should remove expired backup files"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryPostSyncDelete(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/delete-test.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_delete.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile(
+                                                "/tmp/seatunnel/continuous/dst/delete-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        localFileExists(
+                                                "/tmp/seatunnel/continuous/src/delete-test.bin"),
+                                        "source file should be deleted after checkpoint-gated post-sync commit"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
         baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
     }
 
@@ -750,7 +923,7 @@ public class LocalFileIT extends TestSuiteBase {
                 baseContainer.execInContainer(
                         "sh",
                         "-c",
-                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp");
+                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp /tmp/seatunnel/continuous/backup");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
@@ -791,6 +964,46 @@ public class LocalFileIT extends TestSuiteBase {
         return Long.parseLong(result.getStdout().trim());
     }
 
+    private boolean localFileExists(String filePath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh", "-c", "[ -f '" + filePath + "' ] && echo 1 || echo 0");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return "1".equals(result.getStdout().trim());
+    }
+
+    private long countLocalFiles(String directoryPath, String fileNamePattern)
+            throws IOException, InterruptedException {
+        String command =
+                "if [ -d '"
+                        + directoryPath
+                        + "' ]; then find '"
+                        + directoryPath
+                        + "' -type f -name '"
+                        + fileNamePattern
+                        + "' | wc -l; else echo 0; fi";
+        Container.ExecResult result = baseContainer.execInContainer("sh", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private void cancelContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture)
+            throws IOException, InterruptedException {
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private Path convertToLzoFile(File file) throws IOException {
         LzopCodec lzo = new LzopCodec();
         Path path = Paths.get(file.getAbsolutePath() + ".lzo");
@@ -798,6 +1011,20 @@ public class LocalFileIT extends TestSuiteBase {
         outputStream.write(Files.readAllBytes(file.toPath()));
         outputStream.close();
         return path;
+    }
+
+    private void createExcelHeaderProjectionFile(Path file) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(file.toFile())) {
+            Sheet sheet = workbook.createSheet();
+            sheet.createRow(0).createCell(0).setCellValue("header-b");
+            sheet.getRow(0).createCell(1).setCellValue("header-a");
+            sheet.getRow(0).createCell(2).setCellValue("header-c");
+            sheet.createRow(1).createCell(0).setCellValue("value-b");
+            sheet.getRow(1).createCell(1).setCellValue("value-a");
+            sheet.getRow(1).createCell(2).setCellValue("value-c");
+            workbook.write(output);
+        }
     }
 
     public Path convertToZipFile(List<File> files, String name) throws IOException {

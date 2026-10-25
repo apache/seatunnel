@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.hasItem;
 class OptionRulesApiTest {
 
     private static final int HTTP_PORT = 18082;
+    private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private static HazelcastInstanceImpl instance;
     private static Config originalHazelcastConfig;
@@ -160,11 +161,13 @@ class OptionRulesApiTest {
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - localhost\n"
+                + "          - 127.0.0.1\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + HAZELCAST_PORT
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"

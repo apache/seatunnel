@@ -48,6 +48,18 @@ public class LogService extends BaseLogService {
         super(nodeEngine);
     }
 
+    /**
+     * Returns the cap in bytes on the content of a single log response, translated from {@code
+     * log-response-max-size-mb}. A value <= 0 means unlimited.
+     */
+    public long maxLogResponseBytes() {
+        return getSeaTunnelServer(false)
+                .getSeaTunnelConfig()
+                .getEngineConfig()
+                .getHttpConfig()
+                .getLogResponseMaxSizeBytes();
+    }
+
     public List<String> allLogName() {
         String logPath = getLogPath();
         List<File> logFileList = FileUtils.listFile(logPath);
@@ -134,7 +146,7 @@ public class LogService extends BaseLogService {
     }
 
     public String allNodeLogFormatHtml(String jobId) {
-        StringBuffer logLink = new StringBuffer();
+        StringBuilder logLink = new StringBuilder();
 
         allLogNameList(jobId)
                 .forEach(tuple -> logLink.append(buildLogLink(tuple._2(), tuple._3())));
@@ -143,7 +155,7 @@ public class LogService extends BaseLogService {
 
     public String currentNodeLog() {
         List<File> logFileList = FileUtils.listFile(getLogPath());
-        StringBuffer logLink = new StringBuffer();
+        StringBuilder logLink = new StringBuilder();
         if (logFileList != null) {
             for (File file : logFileList) {
                 logLink.append(buildLogLink("log/" + file.getName(), file.getName()));

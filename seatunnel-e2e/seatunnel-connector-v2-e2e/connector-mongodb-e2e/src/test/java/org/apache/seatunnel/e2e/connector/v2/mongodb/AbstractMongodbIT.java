@@ -31,9 +31,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -247,14 +244,6 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MONGODB_CONTAINER_HOST)
                         .withExposedPorts(MONGODB_PORT)
-                        .withCreateContainerCmdModifier(
-                                cmd ->
-                                        cmd.getHostConfig()
-                                                .withPortBindings(
-                                                        new PortBinding(
-                                                                Ports.Binding.bindPort(
-                                                                        MONGODB_PORT),
-                                                                new ExposedPort(MONGODB_PORT))))
                         .waitingFor(
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(

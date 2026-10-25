@@ -148,7 +148,7 @@ curl http://<master>:8080/job-info/<jobId>
 |---|---|
 | `jobId` | 作业唯一标识 |
 | `jobName` | 作业名称 |
-| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELLED` |
+| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELED` |
 | `envOptions` | 生效的 env 配置 |
 | `createTime` | 作业创建时间戳 |
 | `jobDag` | DAG 拓扑结构 |
@@ -183,6 +183,10 @@ curl http://<master>:8080/job-info/<jobId>
 | `SinkWriteCount` | 写入 Sink 的总行数 |
 | `SourceReceivedQPS` | 当前读取吞吐量（行/秒）|
 | `SinkWriteQPS` | 当前写入吞吐量（行/秒）|
+
+计数器由每个管道当前一次执行上报。故障转移后管道被恢复（或失败后重试）时，新一次执行会从零开始计数，
+不再累计失败执行残留的数值，批作业和流作业均如此。恢复过程中恰好在途的 worker 上报，最多可能在毫秒级
+窗口内携带一次旧数值。
 
 ---
 
@@ -224,12 +228,9 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 路径会打印在作业日志中，也可通过查询已完成作业获取：
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+Savepoint 会写入所配置的 checkpoint 存储（参见所用集群的 checkpoint 存储配置）。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
+如需稍后恢复，请使用 `restoreMode=SAVEPOINT`（配合 `restoreSourceJobId`）重新提交，引擎会自动
+选取该作业最新的 Savepoint。完整请求示例见 6.2 节。
 
 ### 5.3 强制取消
 
@@ -245,15 +246,70 @@ curl -X POST "http://<master>:8080/stop-job" \
 
 ### 6.1 从最新 Checkpoint 恢复
 
-重新提交作业时携带相同的 `job.id`，引擎会自动从该作业的 Checkpoint 目录恢复状态：
+重新提交作业时，指定 `restoreMode=CHECKPOINT`，并通过 `restoreSourceJobId` 指定需要恢复作业的JobId.
 
 ```bash
-curl -X POST http://<master>:8080/submit-job \
+curl -X POST "http://<master>:8080/submit-job?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248" \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
-      "job.id": "733584788375093248",
-      "job.name": "my-cdc-job",
+      "job.name": "my-cdc-job-restored",
+      "job.mode": "STREAMING",
+      "checkpoint.interval": 30000,
+      "checkpoint.retain-after-job-cancelled": true
+    },
+    "source": [ ... ],
+    "sink": [ ... ]
+  }'
+```
+
+同样的 `restoreMode` 和 `restoreSourceJobId` 查询参数也适用于[上传配置文件的接口](rest-api-v2.md#提交作业来源上传配置文件)——
+如果提交的是配置文件而不是 JSON 请求体，两个接口共享同一套恢复处理逻辑：
+
+```bash
+curl --location 'http://<master>:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248' \
+  --form 'config_file=@"/temp/my-cdc-job.conf"'
+```
+
+如果 `restoreSourceJobId` 对应的 Checkpoint 数据不存在、已被清理或不兼容，提交会直接失败。
+
+如果希望已取消(Canceled)作业仍可从 Checkpoint 恢复，需要通过以下两种方式之一保留作业执行时的Checkpoint 数据。
+
+1. 在 `seatunnel.yaml` 中配置集群默认值, 全局配置，对所有作业生效:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      retain-after-job-cancelled: true
+```
+
+2. 在 REST 请求体中配置作业级 `env` 覆盖, 仅对当前作业生效:
+
+```json
+{
+  "env": {
+    "job.name": "my-cdc-job-restored",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 30000,
+    "checkpoint.retain-after-job-cancelled": true
+  },
+  "source": [ ... ],
+  "sink": [ ... ]
+}
+```
+
+该配置默认值为 `false`。如果集群配置和作业 `env` 都未开启该选项，则已取消作业默认仍会清理
+Checkpoint 数据；如果两者同时存在，则作业级 `env` 配置优先。
+
+### 6.2 从最新 Savepoint 恢复
+
+```bash
+curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "env": {
+      "job.name": "my-cdc-job-restored",
       "job.mode": "STREAMING",
       "checkpoint.interval": 30000
     },
@@ -262,23 +318,12 @@ curl -X POST http://<master>:8080/submit-job \
   }'
 ```
 
-### 6.2 从指定 Savepoint 恢复
+### 6.3 从指定 Savepoint 路径恢复
 
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+REST API 不支持指定具体的 Savepoint 路径进行恢复。不存在 `restore.mode` 或 `savepoint.path` 之类的
+env 选项；恢复行为只由请求参数 `restoreMode` 和 `restoreSourceJobId` 控制，并且
+`restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint（按 pipeline 取 checkpoint id 最高的那
+个）。REST API 没有选择更早 Savepoint 的受支持方式。
 
 ---
 

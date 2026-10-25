@@ -79,11 +79,6 @@ public class GraphQLUtil {
     }
 
     public static void validateSinkOperation(String query) {
-        if (query == null || query.isEmpty()) {
-            throw new GraphQLConnectorException(
-                    GraphQLConnectorErrorCode.GRAPHQL_SOURCE_PARAMETER_ERROR,
-                    "GraphQL Sink query is required.");
-        }
         OperationDefinition.Operation operationType = parseOperationType(query);
         switch (operationType) {
             case MUTATION:
@@ -98,11 +93,6 @@ public class GraphQLUtil {
     }
 
     public static void validateSourceOperation(String query, Boolean enableSubscription) {
-        if (query == null) {
-            throw new GraphQLConnectorException(
-                    GraphQLConnectorErrorCode.GRAPHQL_SOURCE_PARAMETER_ERROR,
-                    "GraphQL Source is required.");
-        }
         OperationDefinition.Operation operationType;
         try {
             operationType = parseOperationType(query);

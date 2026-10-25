@@ -50,6 +50,11 @@ public class HazelcastCounterStateStore<K> implements CounterStateStore<K> {
     }
 
     @Override
+    public Long addAndGet(K key, long delta) {
+        return iMap.compute(key, (ignored, current) -> current == null ? null : current + delta);
+    }
+
+    @Override
     public void set(K key, long value) {
         iMap.put(key, value);
     }
