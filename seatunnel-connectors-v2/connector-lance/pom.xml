@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
+
     Licensed to the Apache Software Foundation (ASF) under one or more
     contributor license agreements.  See the NOTICE file distributed with
     this work for additional information regarding copyright ownership.
@@ -14,6 +15,7 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -130,19 +132,6 @@
             </activation>
             <properties>
                 <surefire.jvm.args>-Dfile.encoding=UTF-8 -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
-            </properties>
-        </profile>
-        <profile>
-            <id>darwin-aarch64-java9+</id>
-            <activation>
-                <jdk>[9,)</jdk>
-                <os>
-                    <family>mac</family>
-                    <arch>aarch64</arch>
-                </os>
-            </activation>
-            <properties>
-                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
             </properties>
         </profile>
     </profiles>

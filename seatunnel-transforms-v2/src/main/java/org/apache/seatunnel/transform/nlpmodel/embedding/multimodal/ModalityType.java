@@ -23,6 +23,7 @@ import lombok.ToString;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /** Enumeration for multimodal modality types supported by embedding models */
 @AllArgsConstructor
@@ -57,7 +58,7 @@ public enum ModalityType {
             return null;
         }
 
-        String trimmedName = name.trim().toLowerCase();
+        String trimmedName = name.trim().toLowerCase(Locale.ROOT);
         for (ModalityType type : ModalityType.values()) {
             if (type.name.equalsIgnoreCase(trimmedName)) {
                 return type;
@@ -75,7 +76,7 @@ public enum ModalityType {
         if (value == null || value.trim().isEmpty()) {
             return null;
         }
-        String trimmedValue = value.trim().toLowerCase();
+        String trimmedValue = value.trim().toLowerCase(Locale.ROOT);
         String extension = "";
         int lastDotIndex = trimmedValue.lastIndexOf('.');
         if (lastDotIndex > 0 && lastDotIndex < trimmedValue.length() - 1) {
@@ -99,7 +100,7 @@ public enum ModalityType {
         if (extension == null) {
             return false;
         }
-        return fileExtensions.contains(extension.toLowerCase());
+        return fileExtensions.contains(extension.toLowerCase(Locale.ROOT));
     }
 
     public enum ModalityGroup {

@@ -85,7 +85,7 @@ ${library.version}-${seatunnel.shade.version}
 
 ### 前置条件
 
-- Java 8+
+- Java 11+
 - Maven 3.x
 
 ### 克隆并构建
@@ -226,7 +226,7 @@ git push origin v3.0.0.fix
 | 声明依赖（新增模块） | 根 `pom.xml` → `<dependencyManagement>` |
 | 更新代码 import | 所有使用该库的 `.java` 文件 |
 
-如果仅变更了 `seatunnel.shade.version`（如 `3.0.0` → `3.0.1`），则会影响到**所有** shade 依赖，每个模块都必须重新发布。
+如果仅变更了 `seatunnel.shade.version`（如 `3.0.0` → `3.0.2`），则会影响到**所有** shade 依赖，每个模块都必须重新发布。
 
 ### Shade 发版到 SeaTunnel CI 通过之间的传播延迟
 

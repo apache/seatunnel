@@ -59,7 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
-| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
 | read_partitions | list | no | - |
@@ -301,7 +301,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
