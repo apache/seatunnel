@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.junit.jupiter.api.Test;
 import org.tikv.common.codec.Codec.IntegerCodec;
 import org.tikv.common.codec.CodecDataOutput;
+import org.tikv.common.key.RowKey;
 import org.tikv.common.meta.CIStr;
 import org.tikv.common.meta.IndexType;
 import org.tikv.common.meta.SchemaState;
@@ -52,11 +53,18 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
+import static org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tikv.common.codec.TableCodec.decodeObjects;
 import static org.tikv.common.codec.TableCodec.encodeRow;
 
+/**
+ * Covers reconstructed clustered primary keys through the real snapshot and CDC deserializers.
+ * Narrow keys, composite alignment, collation originals and exact row kinds defend data identity.
+ */
 class CommonHandleDecoderTest {
 
     private static final String REGION = "east";
@@ -85,7 +93,8 @@ class CommonHandleDecoderTest {
         CommonHandleDecoder.restorePrimaryKeyColumns(
                 recordKey(tableInfo.getId(), primaryKey, new BigDecimal("1001")),
                 values,
-                tableInfo);
+                tableInfo,
+                true);
 
         assertEquals(new BigDecimal("1001"), new BigDecimal(values[0].toString()));
         assertEquals("Alice", values[1]);
@@ -98,7 +107,8 @@ class CommonHandleDecoderTest {
         byte[] value = nonPrimaryKeyRowValue(tableInfo);
 
         SeaTunnelRowSnapshotRecordDeserializer deserializer =
-                new SeaTunnelRowSnapshotRecordDeserializer(tableInfo, compositeCatalogTable());
+                new SeaTunnelRowSnapshotRecordDeserializer(
+                        tableInfo, compositeCatalogTable(), true);
         ListCollector collector = new ListCollector();
         deserializer.deserialize(kvPair(key, value), collector);
 
@@ -115,7 +125,8 @@ class CommonHandleDecoderTest {
         byte[] value = nonPrimaryKeyRowValue(tableInfo);
 
         SeaTunnelRowStreamingRecordDeserializer deserializer =
-                new SeaTunnelRowStreamingRecordDeserializer(tableInfo, compositeCatalogTable());
+                new SeaTunnelRowStreamingRecordDeserializer(
+                        tableInfo, compositeCatalogTable(), true);
         ListCollector collector = new ListCollector();
         Cdcpb.Event.Row put =
                 Cdcpb.Event.Row.newBuilder()
@@ -139,7 +150,8 @@ class CommonHandleDecoderTest {
         byte[] value = nonPrimaryKeyRowValue(tableInfo);
 
         SeaTunnelRowStreamingRecordDeserializer deserializer =
-                new SeaTunnelRowStreamingRecordDeserializer(tableInfo, compositeCatalogTable());
+                new SeaTunnelRowStreamingRecordDeserializer(
+                        tableInfo, compositeCatalogTable(), true);
         ListCollector collector = new ListCollector();
         Cdcpb.Event.Row delete =
                 Cdcpb.Event.Row.newBuilder()
@@ -153,6 +165,154 @@ class CommonHandleDecoderTest {
         SeaTunnelRow row = collector.rows.get(0);
         assertEquals(RowKind.DELETE, row.getRowKind());
         assertCompositeHandleFields(row);
+    }
+
+    @Test
+    void shortDecimalHandlesReachSnapshotAndEveryStreamingRowKind() throws Exception {
+        TiColumnInfo id = new TiColumnInfo(1, "id", 0, new DecimalType(9, 0), true);
+        TiColumnInfo name = new TiColumnInfo(2, "name", 1, StringType.VARCHAR, false);
+        TiTableInfo table = tableInfo(id, name);
+        byte[] key = recordKey(table.getId(), id, new BigDecimal("17"));
+        assertTrue(
+                key.length - 11 < Long.BYTES, "This regression must use a sub-eight-byte handle");
+        byte[] value =
+                encodeRow(Collections.singletonList(name), new Object[] {NAME}, false, false);
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id",
+                                        deserializeSeaTunnelDataType("id", "DECIMAL(9,0)"),
+                                        9L,
+                                        false,
+                                        null,
+                                        ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 64L, true, null, ""))
+                        .primaryKey(PrimaryKey.of("primary", Collections.singletonList("id")))
+                        .build();
+        CatalogTable catalog =
+                CatalogTable.of(
+                        TableIdentifier.of("tidb", "test", "people"),
+                        schema,
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+        ListCollector collector = new ListCollector();
+        new SeaTunnelRowSnapshotRecordDeserializer(table, catalog, true)
+                .deserialize(kvPair(key, value), collector);
+        SeaTunnelRowStreamingRecordDeserializer streaming =
+                new SeaTunnelRowStreamingRecordDeserializer(table, catalog, true);
+        streaming.deserialize(
+                Cdcpb.Event.Row.newBuilder()
+                        .setOpType(Cdcpb.Event.Row.OpType.PUT)
+                        .setKey(ByteString.copyFrom(key))
+                        .setValue(ByteString.copyFrom(value))
+                        .build(),
+                collector);
+        streaming.deserialize(
+                Cdcpb.Event.Row.newBuilder()
+                        .setOpType(Cdcpb.Event.Row.OpType.PUT)
+                        .setKey(ByteString.copyFrom(key))
+                        .setValue(ByteString.copyFrom(value))
+                        .setOldValue(ByteString.copyFrom(value))
+                        .build(),
+                collector);
+        streaming.deserialize(
+                Cdcpb.Event.Row.newBuilder()
+                        .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                        .setKey(ByteString.copyFrom(key))
+                        .setOldValue(ByteString.copyFrom(value))
+                        .build(),
+                collector);
+        assertEquals(4, collector.rows.size());
+        assertEquals(
+                Arrays.asList(RowKind.INSERT, RowKind.INSERT, RowKind.UPDATE_AFTER, RowKind.DELETE),
+                Arrays.asList(
+                        collector.rows.get(0).getRowKind(),
+                        collector.rows.get(1).getRowKind(),
+                        collector.rows.get(2).getRowKind(),
+                        collector.rows.get(3).getRowKind()));
+        for (SeaTunnelRow row : collector.rows) {
+            assertEquals(new BigDecimal("17"), new BigDecimal(row.getField(0).toString()));
+            assertEquals(NAME, row.getField(1));
+        }
+    }
+
+    @Test
+    void preservesRowValueStringWhileRestoringOtherCompositeColumns() throws Exception {
+        TiTableInfo table = compositeHandleTableInfo();
+        Object[] values = {"original collation-sensitive value", null, null, NAME};
+        CommonHandleDecoder.restorePrimaryKeyColumns(
+                compositeRecordKey(table), values, table, true);
+        assertEquals("original collation-sensitive value", values[0]);
+        assertEquals(SEQ, values[1]);
+        assertEquals(AMOUNT, new BigDecimal(values[2].toString()));
+        assertEquals(NAME, values[3]);
+    }
+
+    @Test
+    void doesNotDecodeNonClusteredKeysOrAcceptMalformedRecordPrefixes() {
+        TiColumnInfo id = new TiColumnInfo(1, "id", 0, new DecimalType(9, 0), true);
+        TiColumnInfo name = new TiColumnInfo(2, "name", 1, StringType.VARCHAR, false);
+        TiTableInfo table = tableInfo(id, name);
+        byte[] hiddenRowId = RowKey.toRowKey(table.getId(), 42).toByteString().toByteArray();
+        Object[] values = {null, NAME};
+        CommonHandleDecoder.restorePrimaryKeyColumns(hiddenRowId, values, table, false);
+        assertNull(values[0]);
+        assertEquals(NAME, values[1]);
+        IllegalArgumentException error =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                CommonHandleDecoder.restorePrimaryKeyColumns(
+                                        new byte[] {'i'}, values, table, true));
+        assertTrue(error.getMessage().contains(table.getName()));
+    }
+
+    @Test
+    void keyOnlyCommonHandleDeletePreservesPrimaryKeyAndNullNonKeyImage() throws Exception {
+        TiColumnInfo id = new TiColumnInfo(1, "id", 0, new DecimalType(9, 0), true);
+        TiColumnInfo name = new TiColumnInfo(2, "name", 1, StringType.VARCHAR, false);
+        TiTableInfo table = tableInfo(id, name);
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id",
+                                        deserializeSeaTunnelDataType("id", "DECIMAL(9,0)"),
+                                        9L,
+                                        false,
+                                        null,
+                                        ""))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 64L, true, null, ""))
+                        .primaryKey(PrimaryKey.of("primary", Collections.singletonList("id")))
+                        .build();
+        CatalogTable catalog =
+                CatalogTable.of(
+                        TableIdentifier.of("tidb", "test", "people"),
+                        schema,
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+        ListCollector collector = new ListCollector();
+        new SeaTunnelRowStreamingRecordDeserializer(table, catalog, true)
+                .deserialize(
+                        Cdcpb.Event.Row.newBuilder()
+                                .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                                .setKey(
+                                        ByteString.copyFrom(
+                                                recordKey(table.getId(), id, new BigDecimal("17"))))
+                                .build(),
+                        collector);
+        assertEquals(1, collector.rows.size());
+        assertEquals(RowKind.DELETE, collector.rows.get(0).getRowKind());
+        assertEquals(
+                new BigDecimal("17"), new BigDecimal(collector.rows.get(0).getField(0).toString()));
+        assertNull(collector.rows.get(0).getField(1));
     }
 
     private void assertCompositeHandleFields(SeaTunnelRow row) {
@@ -196,7 +356,7 @@ class CommonHandleDecoderTest {
                         .column(
                                 PhysicalColumn.of(
                                         "amount",
-                                        new org.apache.seatunnel.api.table.type.DecimalType(10, 2),
+                                        deserializeSeaTunnelDataType("amount", "DECIMAL(10,2)"),
                                         10L,
                                         false,
                                         null,
@@ -305,6 +465,10 @@ class CommonHandleDecoderTest {
         return output.toBytes();
     }
 
+    /**
+     * Keeps emitted row images for exact field and row-kind assertions on deserializer entry
+     * points. No mock interaction stands in for the resulting CDC data.
+     */
     private static final class ListCollector implements Collector<SeaTunnelRow> {
         private final List<SeaTunnelRow> rows = new ArrayList<>();
 

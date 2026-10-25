@@ -23,27 +23,53 @@ import org.tikv.common.meta.TiIndexColumn;
 import org.tikv.common.meta.TiIndexInfo;
 import org.tikv.common.meta.TiTableInfo;
 
+/**
+ * Restores omitted clustered primary-key columns after the TiKV row-value decoder has run. Already
+ * restored row values remain authoritative, including original strings under new collations.
+ */
 final class CommonHandleDecoder {
 
+    // TiKV record prefix: one table marker, eight table-ID bytes, and the two-byte "_r" marker.
     private static final int RECORD_KEY_PREFIX_LENGTH = 11;
 
     private CommonHandleDecoder() {}
 
-    static void restorePrimaryKeyColumns(byte[] recordKey, Object[] values, TiTableInfo tableInfo) {
-        if (tableInfo.isPkHandle()) {
+    /**
+     * Decodes every key component to keep composite-key offsets aligned. Only missing value slots
+     * are filled so row-value collation originals are never overwritten.
+     */
+    static void restorePrimaryKeyColumns(
+            byte[] recordKey, Object[] values, TiTableInfo tableInfo, boolean clusteredPrimaryKey) {
+        if (!clusteredPrimaryKey || tableInfo.isPkHandle()) {
             return;
         }
 
         TiIndexInfo primaryIndex = primaryIndex(tableInfo);
-        if (primaryIndex == null || primaryKeyValuesPresent(values, primaryIndex)) {
+        if (primaryIndex == null) {
+            throw new IllegalArgumentException(
+                    "Missing clustered primary index metadata for TiDB table "
+                            + tableInfo.getName());
+        }
+        if (primaryKeyValuesPresent(values, primaryIndex)) {
             return;
         }
 
+        if (recordKey.length <= RECORD_KEY_PREFIX_LENGTH
+                || recordKey[0] != 't'
+                || recordKey[9] != '_'
+                || recordKey[10] != 'r') {
+            throw new IllegalArgumentException(
+                    "Invalid TiDB common-handle record key for table " + tableInfo.getName());
+        }
         CodecDataInput input = new CodecDataInput(recordKey);
         input.skipBytes(RECORD_KEY_PREFIX_LENGTH);
         for (TiIndexColumn indexColumn : primaryIndex.getIndexColumns()) {
             TiColumnInfo column = tableInfo.getColumn(indexColumn.getOffset());
-            values[column.getOffset()] = column.getType().decode(input);
+            Object decoded = column.getType().decode(input);
+            // New-collation string originals may already be restored from the row value.
+            if (values[column.getOffset()] == null) {
+                values[column.getOffset()] = decoded;
+            }
         }
     }
 

@@ -42,4 +42,22 @@ public class TiDBSourceConfig implements Serializable {
     private StartupMode startupMode;
     private TiConfiguration tiConfiguration;
     private Integer batchSize;
+    /**
+     * Explicit table layout discovered by the factory, not a user-facing configuration option.
+     * False is the compatibility default when older serialized configurations omit this field.
+     */
+    private boolean clusteredPrimaryKey;
+
+    /**
+     * Preserves the constructor used by existing integer-handle source configurations. The new
+     * layout flag defaults to false for historical configurations and serialized objects.
+     */
+    public TiDBSourceConfig(
+            String databaseName,
+            String tableName,
+            StartupMode startupMode,
+            TiConfiguration tiConfiguration,
+            Integer batchSize) {
+        this(databaseName, tableName, startupMode, tiConfiguration, batchSize, false);
+    }
 }

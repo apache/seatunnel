@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -92,6 +93,80 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     public void startUp() throws Exception {
         startContainers();
         initializeTidbTable("tidb_cdc");
+    }
+
+    /**
+     * Runs real snapshot and CDC operations with a clustered decimal key shorter than eight bytes.
+     * Exact nonempty data reconciliation detects missing keys, lost transaction rows and wrong
+     * images.
+     */
+    @TestTemplate
+    public void testShortClusteredDecimalPrimaryKey(TestContainer container) throws Exception {
+        String source = "tidb_cdc.tidb_cdc_common_handle_source";
+        String sink = "tidb_cdc.tidb_cdc_common_handle_sink";
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + source
+                        + " (id DECIMAL(9,0) NOT NULL, name VARCHAR(64), PRIMARY KEY(id) CLUSTERED)");
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + sink
+                        + " (id DECIMAL(9,0) NOT NULL PRIMARY KEY, name VARCHAR(64))");
+        executeSql("DELETE FROM " + source);
+        executeSql("DELETE FROM " + sink);
+        executeSql("INSERT INTO " + source + " VALUES (1,'snapshot-one'),(2,'snapshot-two')");
+        CompletableFuture<?> running =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob("/tidb/tidbcdc_common_handle.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (running.isCompletedExceptionally()) {
+                                running.join();
+                            }
+                            Assertions.assertEquals(2, query("SELECT id,name FROM " + sink).size());
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    "SELECT id,name FROM "
+                                                            + source
+                                                            + " ORDER BY id")),
+                                    JsonUtils.toJsonString(
+                                            query("SELECT id,name FROM " + sink + " ORDER BY id")));
+                        });
+        // All keys share one transaction timestamp; the reader must keep every full record key.
+        try (Connection connection = getJdbcConnection()) {
+            connection.setAutoCommit(false);
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        "INSERT INTO " + source + " VALUES (3,'stream-three'),(4,'stream-four')");
+                statement.executeUpdate("UPDATE " + source + " SET name='updated-one' WHERE id=1");
+                statement.executeUpdate("DELETE FROM " + source + " WHERE id=2");
+            }
+            connection.commit();
+        }
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (running.isCompletedExceptionally()) {
+                                running.join();
+                            }
+                            Assertions.assertEquals(3, query("SELECT id,name FROM " + sink).size());
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    "SELECT id,name FROM "
+                                                            + source
+                                                            + " ORDER BY id")),
+                                    JsonUtils.toJsonString(
+                                            query("SELECT id,name FROM " + sink + " ORDER BY id")));
+                        });
     }
 
     @TestTemplate

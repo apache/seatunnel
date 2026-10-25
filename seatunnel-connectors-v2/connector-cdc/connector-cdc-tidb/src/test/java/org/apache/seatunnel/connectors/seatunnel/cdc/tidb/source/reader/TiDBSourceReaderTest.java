@@ -29,9 +29,11 @@ import org.tikv.cdc.CDCClient;
 import org.tikv.common.key.RowKey;
 import org.tikv.kvproto.Cdcpb;
 import org.tikv.kvproto.Coprocessor;
+import org.tikv.shade.com.google.protobuf.ByteString;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
@@ -98,6 +100,44 @@ class TiDBSourceReaderTest {
         assertFalse(committedEvents.isEmpty());
         assertSame(prewrite, committedEvents.poll());
         assertTrue(committedEvents.isEmpty());
+    }
+
+    @Test
+    void transactionBufferRetainsDistinctKeysWithIdenticalIntegerPrefixes() {
+        byte[] first =
+                Arrays.copyOf(
+                        RowKey.toRowKey(TABLE_ID, ROW_HANDLE).toByteString().toByteArray(), 21);
+        byte[] second = first.clone();
+        first[20] = 1;
+        second[20] = 2;
+        Cdcpb.Event.Row firstRow =
+                Cdcpb.Event.Row.newBuilder()
+                        .setStartTs(START_TS)
+                        .setKey(ByteString.copyFrom(first))
+                        .build();
+        Cdcpb.Event.Row secondRow =
+                firstRow.toBuilder().setKey(ByteString.copyFrom(second)).build();
+        TreeMap<RowKeyWithTs, Cdcpb.Event.Row> buffer = new TreeMap<>();
+        buffer.put(RowKeyWithTs.ofStart(firstRow), firstRow);
+        buffer.put(RowKeyWithTs.ofStart(secondRow), secondRow);
+        assertEquals(2, buffer.size());
+        assertEquals(firstRow, buffer.remove(RowKeyWithTs.ofStart(firstRow)));
+        assertEquals(secondRow, buffer.remove(RowKeyWithTs.ofStart(secondRow)));
+        assertTrue(buffer.isEmpty());
+    }
+
+    @Test
+    void transactionBufferMatchesShortOpaqueHandleWithoutIntegerDecoding() {
+        ByteString key =
+                ByteString.copyFrom(new byte[] {'t', 0, 0, 0, 0, 0, 0, 0, 42, '_', 'r', 1, 2});
+        Cdcpb.Event.Row prewrite =
+                Cdcpb.Event.Row.newBuilder().setStartTs(START_TS).setKey(key).build();
+        Cdcpb.Event.Row commit = prewrite.toBuilder().setCommitTs(COMMIT_TS).build();
+        TreeMap<RowKeyWithTs, Cdcpb.Event.Row> buffer = new TreeMap<>();
+        buffer.put(RowKeyWithTs.ofStart(prewrite), prewrite);
+        assertEquals(prewrite, buffer.remove(RowKeyWithTs.ofStart(commit)));
+        assertEquals(0, RowKeyWithTs.ofCommit(commit).compareTo(RowKeyWithTs.ofCommit(commit)));
+        assertTrue(buffer.isEmpty());
     }
 
     private static Cdcpb.Event.Row row(Cdcpb.Event.LogType type, long startTs, long commitTs) {

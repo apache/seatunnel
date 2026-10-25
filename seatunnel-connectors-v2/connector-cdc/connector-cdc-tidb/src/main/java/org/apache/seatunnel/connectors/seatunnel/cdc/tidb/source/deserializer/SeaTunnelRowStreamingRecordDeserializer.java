@@ -36,37 +36,45 @@ public class SeaTunnelRowStreamingRecordDeserializer
         extends AbstractSeaTunnelRowDeserializer<Cdcpb.Event.Row> {
 
     private final DataConverter converter;
+    private final boolean clusteredPrimaryKey;
 
     public SeaTunnelRowStreamingRecordDeserializer(
             TiTableInfo tableInfo, CatalogTable catalogTable) {
+        this(tableInfo, catalogTable, false);
+    }
+
+    /**
+     * Uses explicit table metadata to distinguish common handles from non-clustered row IDs.
+     * Common-handle bytes must never be decoded as an integer before restoring omitted columns.
+     */
+    public SeaTunnelRowStreamingRecordDeserializer(
+            TiTableInfo tableInfo, CatalogTable catalogTable, boolean clusteredPrimaryKey) {
         super(tableInfo, catalogTable);
+        this.clusteredPrimaryKey = clusteredPrimaryKey;
         converter = new DefaultDataConverter();
     }
 
     @Override
     public void deserialize(Cdcpb.Event.Row row, Collector<SeaTunnelRow> output) throws Exception {
 
-        final RowKey rowKey = RowKey.decode(row.getKey().toByteArray());
-        final long handle = rowKey.getHandle();
+        final byte[] key = row.getKey().toByteArray();
+        // Row-value decoding only consumes the integer handle for pk-handle tables.
+        final long handle = tableInfo.isPkHandle() ? RowKey.decode(key).getHandle() : 0L;
         Object[] values;
         switch (row.getOpType()) {
             case DELETE:
                 values = decodeDeleteValues(row, handle);
                 CommonHandleDecoder.restorePrimaryKeyColumns(
-                        row.getKey().toByteArray(), values, tableInfo);
+                        key, values, tableInfo, clusteredPrimaryKey);
                 SeaTunnelRow record = converter.convert(values, tableInfo, rowType);
                 record.setRowKind(RowKind.DELETE);
                 collect(record, output);
                 break;
             case PUT:
                 try {
-                    values =
-                            decodeObjects(
-                                    row.getValue().toByteArray(),
-                                    RowKey.decode(row.getKey().toByteArray()).getHandle(),
-                                    tableInfo);
+                    values = decodeObjects(row.getValue().toByteArray(), handle, tableInfo);
                     CommonHandleDecoder.restorePrimaryKeyColumns(
-                            row.getKey().toByteArray(), values, tableInfo);
+                            key, values, tableInfo, clusteredPrimaryKey);
                     if (row.getOldValue() == null || row.getOldValue().isEmpty()) {
                         SeaTunnelRow insert = converter.convert(values, tableInfo, rowType);
                         insert.setRowKind(RowKind.INSERT);
@@ -103,6 +111,11 @@ public class SeaTunnelRowStreamingRecordDeserializer
     }
 
     private Object[] decodeDeleteValuesFromHandle(Cdcpb.Event.Row row, long handle) {
+        if (clusteredPrimaryKey && !tableInfo.isPkHandle()) {
+            // A key-only common-handle delete can still recover every primary-key column below.
+            // Non-key columns intentionally remain null, as on the integer-handle delete path.
+            return new Object[tableInfo.getColumns().size()];
+        }
         TiColumnInfo handleColumn = tableInfo.getPKIsHandleColumn();
         if (!tableInfo.isPkHandle() || handleColumn == null) {
             throw new IllegalStateException(
