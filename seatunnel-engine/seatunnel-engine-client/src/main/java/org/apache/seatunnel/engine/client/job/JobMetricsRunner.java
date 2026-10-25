@@ -36,7 +36,11 @@ public class JobMetricsRunner implements Runnable {
     private Long lastReadCount = 0L;
     private Long lastWriteCount = 0L;
     private Long lastCommittedCount = 0L;
-    /** Monotonic clock base for the elapsed-time calculation of the average rates. */
+    /**
+     * Monotonic clock base for the elapsed-time calculation of the average rates.
+     *
+     * <p>Wall-clock corrections must not change the interval used for count deltas.
+     */
     private long lastRunTimeNanos = System.nanoTime();
 
     public JobMetricsRunner(SeaTunnelClient seaTunnelClient, Long jobId) {
