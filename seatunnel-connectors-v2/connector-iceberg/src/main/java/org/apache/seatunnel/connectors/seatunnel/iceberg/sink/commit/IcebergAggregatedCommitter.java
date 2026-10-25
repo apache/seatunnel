@@ -101,6 +101,12 @@ public class IcebergAggregatedCommitter
         }
     }
 
+    /**
+     * Combines writers by result-list index, which is each writer's chronological generation,
+     * rather than by writer arrival order. Writers must retain key affinity within a checkpoint:
+     * generations from independent writers do not establish an order for the same key. An equality
+     * delete after accumulated data starts a new publication group so it can see that older data.
+     */
     private List<List<WriteResult>> orderedGroups(List<IcebergCommitInfo> commitInfos) {
         int rounds = 0;
         for (IcebergCommitInfo writer : commitInfos) {

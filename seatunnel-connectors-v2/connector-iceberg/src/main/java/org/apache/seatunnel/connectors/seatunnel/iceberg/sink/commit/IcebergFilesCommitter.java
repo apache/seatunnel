@@ -60,6 +60,7 @@ public class IcebergFilesCommitter implements Serializable {
 
     public static final String SNAPSHOT_PROPERTY_CHECKPOINT_ID = "seatunnel.checkpoint-id";
     static final String SNAPSHOT_PROPERTY_COMMIT_ID = "seatunnel.commit-ids";
+    // Group properties are diagnostics only; file payloads establish publication during replay.
     static final String SNAPSHOT_PROPERTY_COMMIT_GROUP = "seatunnel.commit-group";
     static final String SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT = "seatunnel.commit-group-count";
     private static final String COMMIT_ID_VERSION = "v1:";
@@ -79,10 +80,17 @@ public class IcebergFilesCommitter implements Serializable {
         return new IcebergFilesCommitter(config, icebergTableLoader);
     }
 
+    /** Publishes one group, using its file payload rather than checkpoint ID alone for replay. */
     public void doCommit(List<WriteResult> results, long checkpointId) {
         doCommit(results, checkpointId, 0, 1);
     }
 
+    /**
+     * Publishes one group in the caller's generation order. Groups of the same checkpoint are
+     * separate snapshots, so a failure may expose a committed prefix until replay finishes. The
+     * group ordinal and count are diagnostic snapshot properties, not replay identities; retries
+     * are matched against the committed file payloads.
+     */
     public void doCommit(List<WriteResult> results, long checkpointId, int group, int groupCount) {
         if (group < 0 || group >= groupCount) {
             throw new IllegalArgumentException("Invalid Iceberg commit group");
