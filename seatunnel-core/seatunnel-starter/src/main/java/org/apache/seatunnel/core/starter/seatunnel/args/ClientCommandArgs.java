@@ -256,6 +256,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
     }
 
+    /**
+     * Parses the supported CLI response formats without changing the default text behavior. Invalid
+     * values fail argument parsing before validation or job submission can begin.
+     */
     public static class OutputFormatConverter implements IStringConverter<OutputFormat> {
         @Override
         public OutputFormat convert(String value) {

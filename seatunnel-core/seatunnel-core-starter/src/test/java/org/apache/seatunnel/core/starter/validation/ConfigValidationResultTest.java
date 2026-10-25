@@ -22,6 +22,8 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 public class ConfigValidationResultTest {
 
     @Test
@@ -74,8 +76,7 @@ public class ConfigValidationResultTest {
 
         Assertions.assertEquals(
                 message,
-                JsonUtils.readTree(
-                                result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                JsonUtils.readTree(result.toJson().getBytes(StandardCharsets.UTF_8))
                         .at("/errors/0/message")
                         .asText());
     }

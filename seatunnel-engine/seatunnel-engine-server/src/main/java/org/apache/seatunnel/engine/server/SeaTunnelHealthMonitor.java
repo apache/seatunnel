@@ -27,6 +27,8 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.Getter;
 
+import java.util.Locale;
+
 import static com.hazelcast.internal.diagnostics.HealthMonitorLevel.valueOf;
 import static com.hazelcast.spi.properties.ClusterProperty.HEALTH_MONITORING_THRESHOLD_CPU_PERCENTAGE;
 import static com.hazelcast.spi.properties.ClusterProperty.HEALTH_MONITORING_THRESHOLD_MEMORY_PERCENTAGE;
@@ -72,7 +74,7 @@ public class SeaTunnelHealthMonitor {
      * @return a string of the given number as a format float with two decimal places and a period
      */
     private static String percentageString(double p) {
-        return format("%.2f%%", p);
+        return format(Locale.ROOT, "%.2f%%", p);
     }
 
     private static String numberToUnit(long number) {
@@ -80,7 +82,7 @@ public class SeaTunnelHealthMonitor {
             // 1024 is for 1024 kb is 1 MB etc
             double step = Math.pow(1024, i);
             if (number > step) {
-                return format("%3.1f%s", number / step, UNITS[i]);
+                return format(Locale.ROOT, "%3.1f%s", number / step, UNITS[i]);
             }
         }
         return Long.toString(number);
@@ -252,11 +254,11 @@ public class SeaTunnelHealthMonitor {
         private void renderLoad() {
             sb.append("load.process")
                     .append('=')
-                    .append(format("%.2f", osProcessCpuLoad.read()))
+                    .append(format(Locale.ROOT, "%.2f", osProcessCpuLoad.read()))
                     .append("%, ");
             sb.append("load.system")
                     .append('=')
-                    .append(format("%.2f", osSystemCpuLoad.read()))
+                    .append(format(Locale.ROOT, "%.2f", osSystemCpuLoad.read()))
                     .append("%, ");
 
             double value = osSystemLoadAverage.read();
@@ -265,7 +267,7 @@ public class SeaTunnelHealthMonitor {
             } else {
                 sb.append("load.systemAverage")
                         .append('=')
-                        .append(format("%.2f", osSystemLoadAverage.read()))
+                        .append(format(Locale.ROOT, "%.2f", osSystemLoadAverage.read()))
                         .append(", ");
             }
         }
@@ -412,7 +414,11 @@ public class SeaTunnelHealthMonitor {
                     .append(operationServiceRunningOperationsCount.read())
                     .append(", ");
             sb.append("operations.pending.invocations.percentage=")
-                    .append(format("%.2f", operationServicePendingInvocationsPercentage.read()))
+                    .append(
+                            format(
+                                    Locale.ROOT,
+                                    "%.2f",
+                                    operationServicePendingInvocationsPercentage.read()))
                     .append("%, ");
             sb.append("operations.pending.invocations.count=")
                     .append(operationServicePendingInvocationsCount.read())

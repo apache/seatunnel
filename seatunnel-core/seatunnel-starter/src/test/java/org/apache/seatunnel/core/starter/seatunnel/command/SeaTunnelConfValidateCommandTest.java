@@ -19,8 +19,10 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
@@ -111,13 +113,31 @@ public class SeaTunnelConfValidateCommandTest {
 
         SeaTunnelConfValidateCommand command =
                 new SeaTunnelConfValidateCommand(buildJsonArgsFromPath(configFile.toString()));
-        ConfigCheckException exception =
-                Assertions.assertThrows(ConfigCheckException.class, command::execute);
+        String output =
+                tapSystemOutNormalized(
+                        () -> {
+                            ConfigCheckException exception =
+                                    Assertions.assertThrows(
+                                            ConfigCheckException.class, command::execute);
+                            String stackTrace = ExceptionUtils.getStackTrace(exception);
+                            Assertions.assertFalse(
+                                    stackTrace.contains("secret-password"), stackTrace);
+                            Assertions.assertTrue(
+                                    exception.getMessage().contains("the configured JDBC URL"),
+                                    exception.getMessage());
+                        });
 
+        Assertions.assertFalse(output.contains("secret-password"), output);
         Assertions.assertFalse(
-                exception.getMessage().contains("secret-password"), exception.getMessage());
+                JsonUtils.readTree(output.getBytes(StandardCharsets.UTF_8))
+                        .get("valid")
+                        .asBoolean());
         Assertions.assertTrue(
-                exception.getMessage().contains("the configured JDBC URL"), exception.getMessage());
+                JsonUtils.readTree(output.getBytes(StandardCharsets.UTF_8))
+                        .at("/errors/0/message")
+                        .asText()
+                        .contains("the configured JDBC URL"),
+                output);
     }
 
     @Test

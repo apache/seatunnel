@@ -37,6 +37,7 @@ The Pulsar sink writes SeaTunnel rows to Apache Pulsar topics. It can write to o
 | auth.params              | String | No       | -                   | Parameters for the authentication plugin. Configure it together with `auth.plugin-class`.                         |
 | format                   | String | No       | json                | Data format. The default format is json. Optional text and avro format.                                                                        |
 | field_delimiter          | String | No       | ,                   | Field delimiter used when `format = "text"`.                                                                     |
+| avro_row_nullable        | Boolean | No      | false               | Effective when `format = "avro"`. Set `true` when a ROW field (including a ROW nested in another ROW, an ARRAY or a MAP) may be `null`, so the ROW is written as a nullable Avro union instead of a bare record; the reader must enable the same option. See [Avro format](../formats/avro.md#avro_row_nullable). |
 | semantics                | Enum   | No       | AT_LEAST_ONCE       | Write consistency. Valid values: `NON`, `AT_LEAST_ONCE`, `EXACTLY_ONCE`.                                         |
 | transaction_timeout      | Int    | No       | 600                 | Pulsar transaction timeout in seconds. Used by `EXACTLY_ONCE`.                                                    |
 | pulsar.config            | Map    | No       | -                   | Extra producer properties passed to the Pulsar producer client.                                                   |
@@ -262,6 +263,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How does Pulsar sink achieve exactly-once vs at-least-once delivery?
+
+Configure the `semantics` option: `EXACTLY_ONCE` utilizes Pulsar transaction coordinators to commit messages alongside engine checkpoint barriers, whereas `AT_LEAST_ONCE` relies on producer acknowledgments for higher write throughput.
+
+### Can the Pulsar sink route data to multiple topics dynamically?
+
+Yes. In multi-table synchronization pipelines, omitting a fixed `topic` parameter allows SeaTunnel to dynamically route rows to corresponding Pulsar topics based on the table identifiers carried in each record.
+
+### What serialization formats are supported by Pulsar sink?
+
+The sink supports `json`, `text`, and `avro` serialization formats via the `format` option, enabling seamless integration with downstream systems and schema registries.
 
 ## Changelog
 

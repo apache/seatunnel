@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.core.starter.enums;
 
+/**
+ * Selects the validation command response format. Text remains the default while JSON exposes a
+ * stable result schema for programmatic consumers without changing the validation outcome.
+ */
 public enum OutputFormat {
     TEXT,
     JSON

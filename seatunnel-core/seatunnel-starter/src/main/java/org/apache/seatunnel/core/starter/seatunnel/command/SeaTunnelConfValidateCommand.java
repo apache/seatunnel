@@ -209,17 +209,16 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                                     sanitizedMessage == null
                                             ? "Validation failed"
                                             : sanitizedMessage)));
+            if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+                // The CLI logs the full exception chain; do not retain an unsanitized cause in
+                // the machine-readable mode after emitting the credential-safe result.
+                throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage);
+            }
             throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage, e);
         }
         // Keep serialization outside the validation try/catch so an output failure
         // cannot be reported as a configuration-validation failure.
         printJsonResultIfRequested(successResult);
-    }
-
-    private void printJsonResultIfRequested(ConfigValidationResult result) {
-        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
-            System.out.println(result.toJson());
-        }
     }
 
     /**
@@ -243,6 +242,16 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             return ConfigValidationResult.failure(
                     validationPhase(),
                     toValidationError(message == null ? "Validation failed" : message));
+        }
+    }
+
+    /**
+     * Emits one credential-safe result for the JSON CLI protocol. Text mode retains its existing
+     * diagnostic output and does not write a machine-readable result to standard output.
+     */
+    private void printJsonResultIfRequested(ConfigValidationResult result) {
+        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+            System.out.println(result.toJson());
         }
     }
 

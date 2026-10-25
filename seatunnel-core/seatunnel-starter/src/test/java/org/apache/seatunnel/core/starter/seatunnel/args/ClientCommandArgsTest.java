@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.beust.jcommander.ParameterException;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -88,7 +91,7 @@ public class ClientCommandArgsTest {
                         new ClientCommandArgs(),
                         "seatunnel-client",
                         true);
-        Assertions.assertThrows(com.beust.jcommander.ParameterException.class, args::buildCommand);
+        Assertions.assertThrows(ParameterException.class, args::buildCommand);
     }
 
     @Test
@@ -99,8 +102,7 @@ public class ClientCommandArgsTest {
                         new ClientCommandArgs(),
                         "seatunnel-client",
                         true);
-        Assertions.assertEquals(
-                org.apache.seatunnel.core.starter.enums.OutputFormat.JSON, args.getOutputFormat());
+        Assertions.assertEquals(OutputFormat.JSON, args.getOutputFormat());
     }
 
     @Test
