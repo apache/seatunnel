@@ -126,6 +126,10 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
     }
 
+    /**
+     * Checks an explicitly supplied job file and rejects an application ID for submission.
+     * Deployment configuration remains optional here so complete {@code -D} options can supply it.
+     */
     private void validateSubmitOptions() {
         if (config != null) {
             requireFile(config, "--config");
@@ -135,6 +139,10 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
     }
 
+    /**
+     * Requires a nonblank application ID and rejects submit-only options for status and cancel.
+     * Only status may wait for completion; cancel does not accept {@code --wait}.
+     */
     private void validateStatusOrCancelOptions() {
         if (id == null || id.trim().isEmpty()) {
             throw new ParameterException("status/cancel require --id");
@@ -151,6 +159,10 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
     }
 
+    /**
+     * Requires a nonnegative timeout and a positive poll interval when explicitly supplied. Both
+     * timing options require {@code --wait}; a zero timeout allows indefinite waiting.
+     */
     private void validateWaitOptions() {
         if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
             throw new ParameterException("--wait-timeout must not be negative");
