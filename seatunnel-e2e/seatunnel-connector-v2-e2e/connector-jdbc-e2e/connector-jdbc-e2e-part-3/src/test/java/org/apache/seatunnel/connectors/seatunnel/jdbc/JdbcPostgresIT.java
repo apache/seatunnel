@@ -24,19 +24,25 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -479,6 +485,230 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 statement.close();
             }
         }
+    }
+
+    @Test
+    public void testDeadlockRetryWithRealUpsertExecutor() throws Exception {
+        // Two writers flush the same keys in opposite primary-key order through the production
+        // upsert wiring (JdbcOutputFormatBuilder -> BufferReducedBatchStatementExecutor), so
+        // PostgreSQL reports 40P01 for one flush and the sink must roll back and replay the
+        // whole flush transaction. Writers released from the same barrier normally interleave;
+        // the scenario is retried in the rare case their batches do not overlap.
+        boolean deadlockObserved = false;
+        for (int attempt = 0; attempt < 3 && !deadlockObserved; attempt++) {
+            deadlockObserved = runConcurrentUpsertDeadlockAttempt();
+        }
+        Assertions.assertTrue(
+                deadlockObserved, "PostgreSQL should report a deadlock between the two writers");
+    }
+
+    private boolean runConcurrentUpsertDeadlockAttempt() throws Exception {
+        String table = "jdbc_deadlock_real_upsert_test";
+        int rowCount = 40;
+        executeSQL("DROP TABLE IF EXISTS " + table);
+        executeSQL("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)");
+        executeSQL("INSERT INTO " + table + " (id, value) VALUES " + seedValues(rowCount, 0));
+        long deadlocksBefore = queryDeadlockCount();
+
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url(POSTGRESQL_CONTAINER.getJdbcUrl())
+                        .driverName(POSTGRESQL_CONTAINER.getDriverClassName())
+                        .username(POSTGRESQL_CONTAINER.getUsername())
+                        .password(POSTGRESQL_CONTAINER.getPassword())
+                        .autoCommit(false)
+                        .batchSize(rowCount + 1)
+                        .maxRetries(2)
+                        .build();
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> ascending =
+                createUpsertOutput(connectionConfig, table, false);
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> descending =
+                createUpsertOutput(connectionConfig, table, false);
+        CyclicBarrier startBarrier = new CyclicBarrier(2);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        try {
+            ascending.open();
+            descending.open();
+            for (int i = 1; i <= rowCount; i++) {
+                ascending.writeRecord(new SeaTunnelRow(new Object[] {i, 1}));
+            }
+            for (int i = rowCount; i >= 1; i--) {
+                descending.writeRecord(new SeaTunnelRow(new Object[] {i, 2}));
+            }
+            Future<?> firstFlush =
+                    executorService.submit(
+                            () -> {
+                                startBarrier.await(30, TimeUnit.SECONDS);
+                                ascending.flush();
+                                return null;
+                            });
+            Future<?> secondFlush =
+                    executorService.submit(
+                            () -> {
+                                startBarrier.await(30, TimeUnit.SECONDS);
+                                descending.flush();
+                                return null;
+                            });
+            firstFlush.get(120, TimeUnit.SECONDS);
+            secondFlush.get(120, TimeUnit.SECONDS);
+
+            // A remaining 0 would mean the rolled-back flush lost its buffered rows instead of
+            // replaying them after the conflict.
+            List<List<Object>> rows = querySql("SELECT id, value FROM " + table + " ORDER BY id");
+            Assertions.assertEquals(rowCount, rows.size());
+            for (List<Object> row : rows) {
+                Assertions.assertTrue(
+                        Integer.valueOf(1).equals(row.get(1))
+                                || Integer.valueOf(2).equals(row.get(1)),
+                        "row " + row.get(0) + " was not written by any writer");
+            }
+            return queryDeadlockCount() > deadlocksBefore;
+        } finally {
+            ascending.close();
+            descending.close();
+            executorService.shutdownNow();
+            executeSQL("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testUpsertBatchKeyOrderedMixedUpsertAndDelete() throws Exception {
+        // The key-ordered option must reach the production executor through the builder wiring.
+        // AFTER UPDATE/DELETE triggers record the execution order, so a batch written in
+        // unsorted order must land in primary-key order with one child batch per change-flag
+        // transition: U1, D2, U3, D4, U5.
+        String table = "jdbc_key_ordered_mixed_test";
+        String auditTable = "jdbc_key_ordered_mixed_audit";
+        executeSQL("DROP TABLE IF EXISTS " + table);
+        executeSQL("DROP TABLE IF EXISTS " + auditTable);
+        executeSQL("DROP FUNCTION IF EXISTS jdbc_key_ordered_audit_fn()");
+        executeSQL("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)");
+        executeSQL("CREATE TABLE " + auditTable + " (seq BIGSERIAL, op CHAR(1), id INT)");
+        executeSQL(
+                "CREATE FUNCTION jdbc_key_ordered_audit_fn() RETURNS trigger AS $$ "
+                        + "BEGIN IF TG_OP = 'DELETE' THEN INSERT INTO "
+                        + auditTable
+                        + " (op, id) VALUES ('D', OLD.id); "
+                        + "ELSE INSERT INTO "
+                        + auditTable
+                        + " (op, id) VALUES ('U', NEW.id); "
+                        + "END IF; RETURN NULL; END $$ LANGUAGE plpgsql");
+        executeSQL(
+                "CREATE TRIGGER jdbc_key_ordered_audit_update AFTER UPDATE ON "
+                        + table
+                        + " FOR EACH ROW EXECUTE FUNCTION jdbc_key_ordered_audit_fn()");
+        executeSQL(
+                "CREATE TRIGGER jdbc_key_ordered_audit_delete AFTER DELETE ON "
+                        + table
+                        + " FOR EACH ROW EXECUTE FUNCTION jdbc_key_ordered_audit_fn()");
+        executeSQL("INSERT INTO " + table + " (id, value) VALUES " + seedValues(5, 0));
+
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url(POSTGRESQL_CONTAINER.getJdbcUrl())
+                        .driverName(POSTGRESQL_CONTAINER.getDriverClassName())
+                        .username(POSTGRESQL_CONTAINER.getUsername())
+                        .password(POSTGRESQL_CONTAINER.getPassword())
+                        .autoCommit(false)
+                        .batchSize(100)
+                        .maxRetries(0)
+                        .build();
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> output =
+                createUpsertOutput(connectionConfig, table, true);
+        try {
+            output.open();
+            output.writeRecord(keyOrderedRow(RowKind.INSERT, 5, 51));
+            output.writeRecord(keyOrderedRow(RowKind.DELETE, 2, 0));
+            output.writeRecord(keyOrderedRow(RowKind.INSERT, 1, 11));
+            output.writeRecord(keyOrderedRow(RowKind.DELETE, 4, 0));
+            output.writeRecord(keyOrderedRow(RowKind.INSERT, 3, 33));
+            output.flush();
+
+            Assertions.assertEquals(
+                    Arrays.asList(
+                            Arrays.asList("U", 1),
+                            Arrays.asList("D", 2),
+                            Arrays.asList("U", 3),
+                            Arrays.asList("D", 4),
+                            Arrays.asList("U", 5)),
+                    querySql("SELECT op, id FROM " + auditTable + " ORDER BY seq"));
+            Assertions.assertEquals(
+                    Arrays.asList(Arrays.asList(1, 11), Arrays.asList(3, 33), Arrays.asList(5, 51)),
+                    querySql("SELECT id, value FROM " + table + " ORDER BY id"));
+        } finally {
+            output.close();
+            executeSQL("DROP TABLE IF EXISTS " + table);
+            executeSQL("DROP TABLE IF EXISTS " + auditTable);
+            executeSQL("DROP FUNCTION IF EXISTS jdbc_key_ordered_audit_fn()");
+        }
+    }
+
+    private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+            createUpsertOutput(
+                    JdbcConnectionConfig connectionConfig, String table, boolean keyOrdered) {
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database(POSTGRESQL_CONTAINER.getDatabaseName())
+                        .table(table)
+                        .primaryKeys(Collections.singletonList("id"))
+                        .enableUpsert(true)
+                        .upsertBatchKeyOrdered(keyOrdered)
+                        .build();
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                false,
+                                                null,
+                                                null),
+                                        PhysicalColumn.of(
+                                                "value",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                false,
+                                                null,
+                                                null)))
+                        .build();
+        return new JdbcOutputFormatBuilder(
+                        new PostgresDialect(),
+                        new SimpleJdbcConnectionProvider(connectionConfig),
+                        sinkConfig,
+                        tableSchema,
+                        null)
+                .commitOnFlush(true)
+                .build();
+    }
+
+    private long queryDeadlockCount() {
+        List<List<Object>> result =
+                querySql(
+                        "SELECT deadlocks FROM pg_stat_database WHERE datname ="
+                                + " current_database()");
+        return (Long) result.get(0).get(0);
+    }
+
+    private static String seedValues(int count, int value) {
+        StringBuilder values = new StringBuilder();
+        for (int i = 1; i <= count; i++) {
+            values.append(i > 1 ? ", " : "")
+                    .append("(")
+                    .append(i)
+                    .append(", ")
+                    .append(value)
+                    .append(")");
+        }
+        return values.toString();
+    }
+
+    private static SeaTunnelRow keyOrderedRow(RowKind rowKind, int id, int value) {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, value});
+        row.setRowKind(rowKind);
+        return row;
     }
 
     @Test

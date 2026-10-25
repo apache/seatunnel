@@ -220,6 +220,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         isRetryableTransactionConflict(sqlExceptions);
                 boolean transactionConflict = false;
                 if (retryableTransactionConflict) {
+                    // An auto-commit connection keeps every statement in its own transaction, so
+                    // the failed attempt replayed nothing and the legacy generic retry below is
+                    // safe. Fail fast only when the flush does not own the transaction boundary
+                    // (checkpoint / XA) or the executor cannot retain its records for replay.
                     boolean canRetry;
                     try {
                         canRetry = canRetryTransactionConflict();
