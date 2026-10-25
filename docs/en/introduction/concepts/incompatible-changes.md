@@ -188,7 +188,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     `ConfigCheckException` during connect dry-run validation. An explicit self-reference with
     no previously available input is rejected too, including single-transform jobs.
   - **Migration guide**: Correct `plugin_input` references to match the intended source or
-    transform `plugin_output`, and remove dependency cycles. Reordering transforms is not
+    transform `plugin_output`, and remove dependency cycles. The same validation runs when
+    resubmitting a job from a savepoint, so correct partially resolved or unresolved `plugin_input`
+    before resubmission, apart from the retained legacy fallbacks below. A corrected or valid
+    out-of-order graph now feeds previously dropped configured upstreams to the transform;
+    review the resulting downstream output. Reordering transforms is not
     required for an otherwise valid dependency graph. The existing single-transform mismatch
     fallback and terminal explicit-empty-input fallback are retained. An omitted `plugin_input`
     still resolves the default output ID first; it does not always select the preceding transform.

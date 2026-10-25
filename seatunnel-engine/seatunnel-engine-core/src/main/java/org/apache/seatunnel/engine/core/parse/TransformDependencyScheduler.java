@@ -138,6 +138,8 @@ public final class TransformDependencyScheduler {
             boolean anyInputAvailable =
                     transform.inputIds.stream().anyMatch(availableOutputIds::contains);
             boolean emptyInputFallback = transform.inputIds.isEmpty() || transform.inputOmitted;
+            // A partially matched input list is a dependency mismatch, not the legacy
+            // single-transform fallback; accepting it would silently drop missing inputs.
             boolean singleTransformLegacyFallback = transforms.size() == 1 && !anyInputAvailable;
             if (emptyInputFallback || singleTransformLegacyFallback) {
                 transform.legacyFallback = true;
