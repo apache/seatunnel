@@ -46,11 +46,16 @@ import io.kubernetes.client.util.Yaml;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -206,8 +211,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                 .getSpec()
                                 .getClusterIP();
                 assertNotEquals("None", serviceIp);
-                java.util.concurrent.CompletableFuture<String> persistent =
-                        java.util.concurrent.CompletableFuture.supplyAsync(
+                CompletableFuture<String> persistent =
+                        CompletableFuture.supplyAsync(
                                 () -> {
                                     try {
                                         return probeCommand(
@@ -216,7 +221,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                                 "persistent",
                                                 scenarioDeadline);
                                     } catch (Exception e) {
-                                        throw new java.util.concurrent.CompletionException(e);
+                                        throw new CompletionException(e);
                                     }
                                 });
                 Awaitility.await()
@@ -398,9 +403,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         sequence(0, 120),
                         committedPrefix,
                         "Original committed prefix must be exact");
-                java.nio.file.Files.writeString(
-                        java.nio.file.Paths.get(
-                                "target", "failsafe-reports", "cold-restore-prefix.txt"),
+                Files.writeString(
+                        Paths.get("target", "failsafe-reports", "cold-restore-prefix.txt"),
                         committedPrefix);
                 restoreApplicationRole(rbac, originalRole);
                 awaitHaClean(application);
@@ -439,9 +443,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         sequence(0, 240),
                         committedPrefix + "\n" + committedTail,
                         "Committed IDs across original and restored applications must have no gaps or duplicates");
-                java.nio.file.Files.writeString(
-                        java.nio.file.Paths.get(
-                                "target", "failsafe-reports", "cold-restore-tail.txt"),
+                Files.writeString(
+                        Paths.get("target", "failsafe-reports", "cold-restore-tail.txt"),
                         committedTail);
                 restoreApplicationRole(rbac, originalRole);
                 awaitHaClean(application);
@@ -976,8 +979,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                 .filter(pod -> before[3].equals(pod.getStatus().getPodIP()))
                                 .findFirst()
                                 .get();
-                java.nio.file.Path evidence = java.nio.file.Paths.get("target", "failsafe-reports");
-                java.nio.file.Files.writeString(
+                Path evidence = Paths.get("target", "failsafe-reports");
+                Files.writeString(
                         evidence.resolve(application.getClusterId() + "-before-storage-cut.log"),
                         livePodLogs(application, active.getMetadata().getName()));
                 storageAvailable(false);
@@ -1004,7 +1007,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         "Storage evidence must include the known completed checkpoint");
                 TimeUnit.SECONDS.sleep(8);
                 String laterLogs = livePodLogs(application, active.getMetadata().getName());
-                java.nio.file.Files.writeString(
+                Files.writeString(
                         evidence.resolve(application.getClusterId() + "-storage-paused.log"),
                         laterLogs);
                 assertEquals(
@@ -1410,9 +1413,8 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         failed.contains("HA_CHECKPOINT_READ_FAILED " + source.getJobId())
                                 && failed.contains("CheckpointStorageException"),
                         failed);
-                java.nio.file.Files.writeString(
-                        java.nio.file.Paths.get(
-                                "target", "failsafe-reports", "storage-read-outage.log"),
+                Files.writeString(
+                        Paths.get("target", "failsafe-reports", "storage-read-outage.log"),
                         readable + "\n" + failed);
                 application.cancel();
                 awaitHaClean(application);
@@ -1598,7 +1600,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
             return SeatunnelApplicationConfig.parse(
                     scenarioFile("ha", "job.conf").toPath(), options);
         }
-        String job = java.nio.file.Files.readString(scenarioFile("batch", "job.conf").toPath());
+        String job = Files.readString(scenarioFile("batch", "job.conf").toPath());
         if (sinkMode.equals("failed")) {
             job =
                     job.replace("job.mode = BATCH", "job.mode = BATCH\n  job.retry.times = 0")

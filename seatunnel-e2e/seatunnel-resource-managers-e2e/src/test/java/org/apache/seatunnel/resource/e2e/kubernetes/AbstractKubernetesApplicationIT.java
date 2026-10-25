@@ -85,8 +85,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -129,9 +132,9 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     private static K3sContainer k3s;
     private static Path kubeconfig;
     private static Network clusterNetwork;
-    private static final String CGROUP_PREFIX = "seatunnel-e2e-" + java.util.UUID.randomUUID();
+    private static final String CGROUP_PREFIX = "seatunnel-e2e-" + UUID.randomUUID();
     private static final Map<String, GenericContainer<?>> computeNodes = new HashMap<>();
-    private static final java.util.Set<String> unavailableNodes = new java.util.HashSet<>();
+    private static final Set<String> unavailableNodes = new HashSet<>();
     protected static final boolean MULTI_NODE =
             Boolean.getBoolean("seatunnel.kubernetes.e2e.multinode");
     private static GenericContainer<?> storage;
