@@ -37,6 +37,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | schema_save_mode         | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST   | 写入前如何处理目标表结构。 |
 | data_save_mode           | enum    | 否       | APPEND_DATA                    | 写入前如何处理目标端已有数据。 |
 | hbase_extra_config       | config  | 否       | -                              | 额外的 HBase 或 Hadoop 客户端配置。 |
+| ttl                      | long    | 否       | -1                             | 写入 HBase 单元格的过期时间（毫秒）；`-1` 表示永不过期。 |
 | multi_table_sink_replica | int     | 否       | 1                              | 多表写入时每张表对应的 Sink Writer 副本数。 |
 | common-options           |         | 否       | -                              | Sink 插件通用参数，例如 `plugin_input`。 |
 
@@ -174,6 +175,26 @@ sink {
     }
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### 每次写入前重建目标表
+
+当任务允许在每次运行时删除并重建目标表时，可以使用 `schema_save_mode = "RECREATE_SCHEMA"`。
+配合 `data_save_mode = "DROP_DATA"` 可以同时清空已有数据；如果只想刷新表结构，保留
+`APPEND_DATA` 即可。
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_recreate_schema"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "RECREATE_SCHEMA"
   }
 }
 ```

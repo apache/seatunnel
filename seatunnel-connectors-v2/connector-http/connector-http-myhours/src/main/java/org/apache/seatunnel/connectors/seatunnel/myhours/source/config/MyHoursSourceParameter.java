@@ -35,6 +35,7 @@ public class MyHoursSourceParameter extends HttpParameter {
                 MyHoursSourceOptions.AUTHORIZATION,
                 MyHoursSourceOptions.ACCESS_TOKEN_PREFIX + " " + accessToken);
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 
     public void buildWithLoginConfig(ReadonlyConfig pluginConfig) {

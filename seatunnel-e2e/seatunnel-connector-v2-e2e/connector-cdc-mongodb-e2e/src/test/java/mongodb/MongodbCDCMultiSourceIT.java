@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.bson.Document;
 import org.junit.jupiter.api.AfterAll;
@@ -92,7 +93,9 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override

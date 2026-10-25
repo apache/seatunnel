@@ -161,7 +161,7 @@ class OptionRulesApiTest {
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - localhost\n"
+                + "          - 127.0.0.1\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
