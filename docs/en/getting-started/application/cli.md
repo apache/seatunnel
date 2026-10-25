@@ -106,15 +106,24 @@ often the status is polled. The platform-independent states are:
 | `CANCELED` | The platform reported a cancellation |
 | `UNKNOWN` | A known application has a platform state that cannot yet be mapped |
 
-`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `--wait` also stops at
-`UNKNOWN`, because the platform can no longer report the application. Only `FAILED` makes `status`
-exit non-zero, which turns the command into a failure gate for schedulers and CI; `CANCELED` and
-`UNKNOWN` are reported normally:
+`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. It also stops at
+`UNKNOWN` when the platform cannot determine the application outcome. For both `status --wait`
+and `submit --wait`, `FAILED` exits with code `1`, while `UNKNOWN` exits with code `2`: the result
+is indeterminate, not a confirmed failure or success. `SUCCEEDED` and `CANCELED` still exit `0`.
+A plain `status` prints the snapshot and exits `0`, including for `FAILED` and `UNKNOWN`;
+query errors still exit non-zero. Do not interpret every non-zero exit as a failed application:
 
 ```bash
-if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID failed"
+if bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
+  result=0
+else
+  result=$?
 fi
+case "$result" in
+  0) echo "application status reported; inspect the printed status" ;;
+  2) echo "application $APP_ID outcome is unknown" ;;
+  *) echo "application failed or the command could not complete (exit $result)" ;;
+esac
 ```
 
 ## Cancel

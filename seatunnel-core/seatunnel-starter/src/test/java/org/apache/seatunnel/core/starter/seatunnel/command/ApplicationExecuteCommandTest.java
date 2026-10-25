@@ -316,28 +316,63 @@ class ApplicationExecuteCommandTest {
 
     @Test
     void statusWithoutWaitReportsUnknownWithoutFailing() throws Exception {
-        executeStatus(ApplicationStatus.UNKNOWN, false);
+        assertEquals(0, executeStatus(ApplicationStatus.UNKNOWN, false));
     }
 
     @Test
-    void statusWithWaitReportsUnknownWithoutFailing() throws Exception {
-        executeStatus(ApplicationStatus.UNKNOWN, true);
+    void statusWithWaitReportsUnknownWithDistinctExitCode() throws Exception {
+        assertEquals(
+                ApplicationExecuteCommand.UNKNOWN_STATUS_EXIT_CODE,
+                executeStatus(ApplicationStatus.UNKNOWN, true));
     }
 
     @Test
     void statusWithWaitReportsCanceledWithoutFailing() throws Exception {
-        executeStatus(ApplicationStatus.CANCELED, true);
+        assertEquals(0, executeStatus(ApplicationStatus.CANCELED, true));
     }
 
     @Test
     void statusWithoutWaitReportsFailedWithoutFailing() throws Exception {
-        executeStatus(ApplicationStatus.FAILED, false);
+        assertEquals(0, executeStatus(ApplicationStatus.FAILED, false));
     }
 
     @Test
     void statusWithWaitFailsOnFailed() {
         assertThrows(
                 CommandExecuteException.class, () -> executeStatus(ApplicationStatus.FAILED, true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"status", "submit"})
+    void unknownWaitExitsTwoFromApplicationEntrypoint(String operation) throws Exception {
+        Path application = temporary.resolve("application.config");
+        Files.write(application, "application.name = demo".getBytes(StandardCharsets.UTF_8));
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.create(any())).thenReturn(descriptor);
+        when(factory.parseApplicationId("application_1")).thenReturn("native-id");
+        when(descriptor.deployApplication(any())).thenReturn("application_1");
+        when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.UNKNOWN);
+        String[] arguments =
+                "submit".equals(operation)
+                        ? new String[] {
+                            "submit", "-t", "kubernetes", "-a", application.toString(), "--wait"
+                        }
+                        : new String[] {
+                            "status", "-t", "kubernetes", "--id", "application_1", "--wait"
+                        };
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            assertEquals(2, catchSystemExit(() -> SeaTunnelApplication.main(arguments)));
+        }
+        verify(descriptor).getApplicationStatus("native-id");
+        verify(descriptor, times("submit".equals(operation) ? 2 : 1)).close();
+        verify(descriptor, never()).cancelApplication(any());
     }
 
     @Test
@@ -365,7 +400,7 @@ class ApplicationExecuteCommandTest {
         assertEquals(USAGE_EXIT_CODE, statusCode);
     }
 
-    private void executeStatus(ApplicationStatus status, boolean wait) throws Exception {
+    private int executeStatus(ApplicationStatus status, boolean wait) throws Exception {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         ApplicationClusterDescriptorFactory<String> factory =
                 mock(ApplicationClusterDescriptorFactory.class);
@@ -381,7 +416,10 @@ class ApplicationExecuteCommandTest {
             ApplicationCommandArgs args =
                     parse("status", "-t", "kubernetes", "--id", "application_1");
             args.setWait(wait);
-            args.buildCommand().execute();
+            ApplicationExecuteCommand command = (ApplicationExecuteCommand) args.buildCommand();
+            command.execute();
+            verify(descriptor).close();
+            return command.getExitCode();
         }
     }
 

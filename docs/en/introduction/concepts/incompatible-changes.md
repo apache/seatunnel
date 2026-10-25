@@ -5,6 +5,15 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Application CLI unknown wait outcome
+
+`seatunnel-application.sh status --wait` and `submit --wait` now exit with code `2` when the
+platform reports `UNKNOWN`, distinguishing an indeterminate outcome from success or a generic
+execution failure. The application state remains `UNKNOWN`;
+this does not mean the application failed. Scripts should handle exit `2` as an indeterminate
+outcome and inspect the platform before retrying a submission. Plain `status` and `CANCELED`
+handling are unchanged.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

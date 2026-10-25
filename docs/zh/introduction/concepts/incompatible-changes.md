@@ -4,6 +4,12 @@
 
 ## dev
 
+### Application CLI 等待结果未知
+
+`seatunnel-application.sh status --wait` 和 `submit --wait` 在平台返回 `UNKNOWN` 时，使用独立
+退出码 `2`，以区别于成功或一般执行失败。应用状态仍为 `UNKNOWN`，不代表应用失败。脚本应将退出码 `2` 作为结果不确定
+单独处理，并在重新提交前检查平台状态。不带 `--wait` 的 `status` 和 `CANCELED` 的处理不变。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**

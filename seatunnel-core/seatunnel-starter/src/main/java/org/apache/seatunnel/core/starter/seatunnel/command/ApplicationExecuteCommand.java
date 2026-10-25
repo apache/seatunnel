@@ -40,7 +40,16 @@ import java.util.concurrent.TimeUnit;
  */
 public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs> {
 
+    /** The platform cannot determine whether the application succeeded or failed. */
+    public static final int UNKNOWN_STATUS_EXIT_CODE = 2;
+
     private final ApplicationCommandArgs applicationCommandArgs;
+    private int exitCode;
+
+    /** Returns the CLI outcome after execution without changing the reported application status. */
+    public int getExitCode() {
+        return exitCode;
+    }
 
     public ApplicationExecuteCommand(ApplicationCommandArgs applicationCommandArgs) {
         this.applicationCommandArgs = applicationCommandArgs;
@@ -48,6 +57,7 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
 
     @Override
     public void execute() throws CommandExecuteException {
+        exitCode = 0;
         try {
             Map<String, String> options = resolveOptions();
             ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
@@ -98,6 +108,11 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
             ApplicationStatus status = getStatus(descriptor, applicationId);
             System.out.println("Status: " + status);
+            if (applicationCommandArgs.isWait() && status == ApplicationStatus.UNKNOWN) {
+                exitCode = UNKNOWN_STATUS_EXIT_CODE;
+                System.err.println(
+                        "Application outcome is unknown; success or failure cannot be determined.");
+            }
             if (applicationCommandArgs.isWait() && status.isFailure()) {
                 throw new CommandExecuteException(
                         "Application finished with an unsuccessful status");
