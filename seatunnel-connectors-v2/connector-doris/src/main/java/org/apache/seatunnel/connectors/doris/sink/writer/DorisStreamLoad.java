@@ -257,7 +257,6 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public RespContent stopLoad() throws IOException {
-        loading = false;
         if (pendingLoadFuture != null) {
             log.info("stream load stopped.");
             recordStream.endInput();
@@ -267,6 +266,7 @@ public class DorisStreamLoad implements Serializable {
             } catch (Exception e) {
                 throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
             } finally {
+                loading = false;
                 pendingLoadFuture = null;
             }
         } else {
