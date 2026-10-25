@@ -52,6 +52,7 @@ Engine Supported
 | index                  | string  | yes      | -             |
 | primary_keys           | list    | no       |               |
 | key_delimiter          | string  | no       | `_`           |
+| key_encoding           | enum    | no       | LEGACY        |
 | username               | string  | no       |               |
 | password               | string  | no       |               |
 | max_retry_count        | int     | no       | 3             |
@@ -81,6 +82,12 @@ Primary key fields used to generate the document `_id`. Configure this option wh
 ### key_delimiter [string]
 
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY` (default) keeps existing document IDs. With multiple `primary_keys`, values containing `key_delimiter` can produce the same ID. Set `LENGTH_PREFIXED` to encode each formatted value as `<length>:<value>`; for example, `["1_1", "2"]` becomes `3:1_11:2` and `["1", "1_2"]` becomes `1:13:1_2`. This mode ignores `key_delimiter` and leaves single-key IDs unchanged.
+
+Changing this option for an existing composite-key index changes its document IDs. Reindex or migrate existing documents before switching; otherwise subsequent writes can create duplicates instead of updating the old IDs.
 
 ### username [string]
 
