@@ -18,6 +18,13 @@ Remove any manual offset used to compensate for this defect. Existing stored val
   - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
   - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
 
+### Socket connector: connections now have a 10-second connect timeout by default
+
+- **Behavior change: `connect_timeout_ms` defaults to 10000 instead of leaving the wait to the operating system**
+  - **Description**: The Socket source and sink used to establish a TCP connection with no application-level timeout (`connect(address, 0)` for the source, `new Socket(host, port)` for the sink). A peer that was unreachable, stopped responding, or silently dropped the SYN blocked the connector thread until the OS TCP timeout expired. Both now default to a 10-second connect bound.
+  - **Impact**: Jobs whose target took longer than 10 seconds to accept a connection now fail at startup or on reconnect where they previously succeeded after a longer OS-managed wait. This applies to existing configurations that do not set the option. The source's blocking read behaviour is unchanged: `read_timeout_ms` defaults to `0`, so an idle stream is not treated as a failure.
+  - **Migration Guide**: Set `connect_timeout_ms = 0` on the source or sink to restore the previous OS-governed behaviour, or raise the value above 10000 for a legitimately slow peer. `read_timeout_ms` is source-only; it has no effect on the sink, which never reads from its socket.
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
