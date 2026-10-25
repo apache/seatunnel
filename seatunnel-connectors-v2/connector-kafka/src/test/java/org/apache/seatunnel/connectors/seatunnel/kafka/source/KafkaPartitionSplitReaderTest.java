@@ -132,22 +132,23 @@ public class KafkaPartitionSplitReaderTest {
                         new ConsumerRecords<>(
                                 Collections.singletonMap(
                                         partition, Arrays.asList(first, last, beyondBound))));
-        try (KafkaPartitionSplitReader reader =
-                new KafkaPartitionSplitReader(sourceConfig, context)) {
-            setConsumer(reader, consumer);
-            reader.handleSplitsChanges(
-                    new SplitsAddition<>(
-                            Collections.singletonList(
-                                    new KafkaSourceSplit(null, partition, 0L, 101L))));
-            RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
-            Assertions.assertEquals(
-                    Collections.singleton(partition.toString()), records.finishedSplits());
-            Assertions.assertEquals(partition.toString(), records.nextSplit());
-            Assertions.assertSame(first, records.nextRecordFromSplit());
-            Assertions.assertSame(last, records.nextRecordFromSplit());
-            Assertions.assertNull(records.nextRecordFromSplit());
-            Assertions.assertNull(records.nextSplit());
-        }
+        // SplitReader does not extend AutoCloseable, so the reader must be closed explicitly
+        // like the test above instead of using try-with-resources.
+        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(sourceConfig, context);
+        setConsumer(reader, consumer);
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(
+                                new KafkaSourceSplit(null, partition, 0L, 101L))));
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
+        Assertions.assertEquals(
+                Collections.singleton(partition.toString()), records.finishedSplits());
+        Assertions.assertEquals(partition.toString(), records.nextSplit());
+        Assertions.assertSame(first, records.nextRecordFromSplit());
+        Assertions.assertSame(last, records.nextRecordFromSplit());
+        Assertions.assertNull(records.nextRecordFromSplit());
+        Assertions.assertNull(records.nextSplit());
+        reader.close();
     }
 
     /** Creates the minimum Kafka source config used by the tests. */
