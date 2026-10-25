@@ -32,6 +32,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] markdown
   - [x] pdf
 
+SftpFile is a bounded source. When `discovery_mode = once` (the default) the connector enumerates files once and
+finishes; use `discovery_mode = continuous` together with `sync_mode = update` to keep the job running and stream
+new/changed files into the sink.
+
 ## Description
 
 Read data from sftp file server.
@@ -90,7 +94,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | file_format_type           | String  | Yes      | -                             | Please check #file_format_type below. Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
 | filename_extension         | string  | no       | -                             | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                         |
-| delimiter/field_delimiter  | String  | No       | \001 for text and ',' for csv | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                              |
+| delimiter/field_delimiter  | String  | No       | \001                          | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                              |
 | row_delimiter              | string  | no       | \n                            | Row delimiter, used to tell connector how to slice and dice rows when reading text files. <br/> Default `\n`                                                                                                                                                                                                                                                                    |
 | parse_partition_from_path  | Boolean | No       | true                          | Control whether parse the partition keys and values from file path <br/> For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` <br/> Every record data from file will be added these two fields: <br/>      name       age  <br/> tyrantlucifer  26   <br/> Tips: **Do not define partition fields in schema option** |
 | date_format                | String  | No       | yyyy-MM-dd                    | Date type format, used to tell connector how to convert string to date, supported as the following formats: <br/> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` <br/> default `yyyy-MM-dd`                                                                                                                                                                                             |
@@ -98,6 +102,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | time_format                | String  | No       | HH:mm:ss                      | Time type format, used to tell connector how to convert string to time, supported as the following formats: <br/> `HH:mm:ss` `HH:mm:ss.SSS` <br/> default `HH:mm:ss`                                                                                                                                                                                                            |
 | skip_header_row_number     | Long    | No       | 0                             | Skip the first few lines, but only for the txt and csv. <br/> For example, set like following: <br/> `skip_header_row_number = 2` <br/> then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                            |
 | read_columns               | list    | no       | -                             | The read column list of the data source, user can use it to implement field projection.                                                                                                                                                                                                                                                                                         |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                           |
 | excel_engine               | string  | no       | POI                           | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                                                            |
 | poi_excel_max_file_size    | long    | no       | 52428800                      | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                            |
@@ -106,8 +111,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | csv_use_header_line        | boolean | no       | false                         | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                             |
 | schema                     | Config  | No       | -                             | Please check #schema below                                                                                                                                                                                                                                                                                                                                                      |
 | compress_codec             | String  | No       | None                          | The compress codec of files and the details that supported as the following shown: <br/> - txt: `lzo` `None` <br/> - json: `lzo` `None` <br/> - csv: `lzo` `None` <br/> - orc: `lzo` `snappy` `lz4` `zlib` `None` <br/> - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `None` <br/> Tips: excel type does Not support any compression format                            |
-| archive_compress_codec     | string  | no       | none                          |                                                                                                                                                                                                                                                                                                                                                                                 |
-| encoding                   | string  | no       | UTF-8                         |                                                                                                                                                                                                                                                                                                                                                                                 |
+| archive_compress_codec     | string  | no       | none                          | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
+| encoding                   | string  | no       | UTF-8                         | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`. |
 | null_format                | string  | no       | -                             | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                              |
 | binary_chunk_size          | int     | no       | 1024                          | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                |
 | binary_complete_file_mode  | boolean | no       | false                         | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                      |
@@ -268,7 +273,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -280,6 +285,19 @@ When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set
 When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
@@ -294,6 +312,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### compress_codec [string]
 
@@ -541,6 +565,101 @@ sink {
   }
 }
 ```
+
+### Recursive scan over text files
+
+Set `recursive_file_scan = true` to enumerate files in subdirectories of `path`. The example below reads text files
+under a nested directory and uses an explicit schema so each row maps to typed SeaTunnel columns.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### Public key authentication
+
+When the SFTP server is configured for SSH key authentication, supply the private key path through `keyfile` and omit
+`password`. The connector uses the JSCH library internally, so `keyfile` follows the OpenSSH private-key format and
+must be readable by the engine process.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+`password` and `keyfile` are both loaded into the SSH session when configured. The connector uses the JSCH library,
+whose default authentication order tries `publickey` (via `keyfile`) before `password`. To avoid surprises during
+authentication failures, prefer setting only one of them. The engine process must have permission to read `keyfile`;
+if the key file is passphrase-protected, configure the SSH agent or decrypt it before the job starts.
 ### Multiple Table
 
 ```hocon

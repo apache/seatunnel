@@ -78,6 +78,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
 
     protected String getHazelcastConfig() {
         assertHazelcastJoinPortTryCount(HAZELCAST_PORT_COUNT, HAZELCAST_TCP_JOIN_PORT_TRY_COUNT);
+        // Use the IPv4 loopback address to avoid dual-stack localhost resolution on Windows CI.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -90,7 +91,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - localhost\n"
+                + "          - 127.0.0.1\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: "
@@ -111,6 +112,13 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 + "    hazelcast.operation.generic.thread.count: 200\n";
     }
 
+    /**
+     * Ensures TCP discovery can find a test member on every permitted auto-increment port.
+     *
+     * @param portCount number of candidate member ports
+     * @param joinPortTryCount number of ports probed by TCP discovery
+     * @throws IllegalArgumentException when discovery cannot cover the member port range
+     */
     public static void assertHazelcastJoinPortTryCount(int portCount, int joinPortTryCount) {
         if (joinPortTryCount < portCount) {
             throw new IllegalArgumentException(

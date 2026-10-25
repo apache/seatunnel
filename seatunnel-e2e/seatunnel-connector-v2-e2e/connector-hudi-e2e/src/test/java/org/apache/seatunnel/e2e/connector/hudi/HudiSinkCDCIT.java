@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.hadoop.conf.Configuration;
@@ -47,6 +48,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.mysql.cj.jdbc.Driver;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +65,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
 import static org.awaitility.Awaitility.given;
 
@@ -82,9 +83,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
-
-    private static final String MYSQL_DRIVER =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
@@ -118,13 +116,8 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
             container -> {
                 container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
                 container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + MYSQL_DRIVER);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                DependencyJar.of(Driver.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
             };
 
     @BeforeAll
@@ -290,14 +283,15 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private void insertAndCheckData(TestContainer container) throws InterruptedException {
         // Init table data
         initSourceTableData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
 
+        // The wait below already polls for the CDC data, so the former fixed 30s
+        // pre-wait was folded into the budget (60s + 30s) instead of blocking
+        // unconditionally first.
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Path newestCommitFilePath =
@@ -329,14 +323,15 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private void upsertAndCheckData(TestContainer container)
             throws InterruptedException, IOException {
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
 
+        // The wait below already polls for the CDC data, so the former fixed 30s
+        // pre-wait was folded into the budget (60s + 30s) instead of blocking
+        // unconditionally first.
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Path newestCommitFilePath =

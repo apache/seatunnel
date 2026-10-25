@@ -47,7 +47,7 @@ public class FakeResourceManagerForExternalExceptionTest extends AbstractResourc
     }
 
     private void generateWorker(int port) throws UnknownHostException {
-        Address address = new Address("localhost", port);
+        Address address = new Address("127.0.0.1", port);
         WorkerProfile workerProfile =
                 new WorkerProfile(
                         address,
@@ -63,11 +63,10 @@ public class FakeResourceManagerForExternalExceptionTest extends AbstractResourc
     @Override
     protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         if (operation instanceof RequestSlotOperation) {
-            return (CompletableFuture<E>)
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                throw new IllegalStateException("boom");
-                            });
+            return CompletableFuture.supplyAsync(
+                    () -> {
+                        throw new IllegalStateException("boom");
+                    });
         }
         return super.sendToMember(operation, address);
     }

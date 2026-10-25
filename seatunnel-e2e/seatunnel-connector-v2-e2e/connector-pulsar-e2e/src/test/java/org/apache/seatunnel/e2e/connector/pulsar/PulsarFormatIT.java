@@ -59,8 +59,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -74,6 +77,27 @@ public class PulsarFormatIT extends TestSuiteBase implements TestResource {
     public static final String PULSAR_HOST = "pulsar.e2e.format";
     private static final String FAKE_SOURCE_TOPIC = "test_avro_topic_fake_source";
     private static final String SOURCE_TOPIC = "test_avro_topic";
+
+    /**
+     * Row type of the opt-in nullable ROW round trip: a scalar id, a scalar string, and a ROW field
+     * that itself holds a nested ROW. The nesting lets the test cover a null ROW field and a null
+     * ROW two levels deep, both of which the default Avro layout cannot represent.
+     */
+    private static final SeaTunnelRowType NULLABLE_ROW_AVRO_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "c_string", "c_row"},
+                    new SeaTunnelDataType<?>[] {
+                        BasicType.LONG_TYPE,
+                        BasicType.STRING_TYPE,
+                        new SeaTunnelRowType(
+                                new String[] {"c_int", "c_sub_row"},
+                                new SeaTunnelDataType<?>[] {
+                                    BasicType.INT_TYPE,
+                                    new SeaTunnelRowType(
+                                            new String[] {"c_string"},
+                                            new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE})
+                                })
+                    });
 
     private static final SeaTunnelRowType FAKE_SOURCE_ROW_TYPE =
             new SeaTunnelRowType(
@@ -227,6 +251,94 @@ public class PulsarFormatIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    /**
+     * Round-trips the opt-in nullable ROW layout through the Pulsar source and the Pulsar sink.
+     *
+     * <p>The messages on the source topic are written by the test itself with {@code
+     * avro_row_nullable = true}, one of them with a null ROW field and one with a null ROW nested
+     * two levels deep. Both connectors have to honour the option for the job to succeed: the source
+     * derives its reader schema from the configured {@code schema} block, so it cannot decode the
+     * nullable layout without the option, and the sink cannot re-encode a null ROW without it.
+     *
+     * <p>Both topics carry the engine container name because the engine containers of one run share
+     * the Pulsar cluster: a topic reused across engines would already hold the rows of the previous
+     * engine when the next one starts.
+     */
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testPulsarAvroNullableRowRoundTrip(TestContainer container) throws Exception {
+        String sourceTopic = nullableRowTopic(container, "source");
+        String sinkTopic = nullableRowTopic(container, "sink");
+        produceNullableRowAvroTestData(sourceTopic);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/pulsar_avro_nullable_row_to_pulsar.conf",
+                        Arrays.asList("source_topic=" + sourceTopic, "sink_topic=" + sinkTopic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("", "", "", "test", NULLABLE_ROW_AVRO_ROW_TYPE);
+        AvroDeserializationSchema avroDeserializationSchema =
+                new AvroDeserializationSchema(catalogTable, null, false, true);
+        List<SeaTunnelRow> rows = consumeAvroRows(sinkTopic, avroDeserializationSchema, 3);
+        Assertions.assertEquals(3, rows.size());
+        // Rows are compared by id: the assertions below must not depend on delivery order.
+        rows.sort(Comparator.comparingLong(row -> (Long) row.getField(0)));
+
+        SeaTunnelRow rowWithNullRow = rows.get(0);
+        Assertions.assertEquals(1L, rowWithNullRow.getField(0));
+        Assertions.assertEquals("row-1", rowWithNullRow.getField(1));
+        Assertions.assertNull(rowWithNullRow.getField(2));
+
+        SeaTunnelRow rowWithNullNestedRow = rows.get(1);
+        Assertions.assertEquals(2L, rowWithNullNestedRow.getField(0));
+        SeaTunnelRow nestedRow = (SeaTunnelRow) rowWithNullNestedRow.getField(2);
+        Assertions.assertEquals(2, nestedRow.getField(0));
+        Assertions.assertNull(nestedRow.getField(1));
+
+        SeaTunnelRow rowWithPresentRow = rows.get(2);
+        Assertions.assertEquals(3L, rowWithPresentRow.getField(0));
+        SeaTunnelRow presentRow = (SeaTunnelRow) rowWithPresentRow.getField(2);
+        Assertions.assertEquals(3, presentRow.getField(0));
+        SeaTunnelRow presentNestedRow = (SeaTunnelRow) presentRow.getField(1);
+        Assertions.assertEquals("nested", presentNestedRow.getField(0));
+    }
+
+    private String nullableRowTopic(TestContainer container, String role) {
+        return "test_avro_nullable_row_"
+                + role
+                + "_"
+                + container.identifier().name().toLowerCase(Locale.ROOT);
+    }
+
+    private void produceNullableRowAvroTestData(String sourceTopic) throws Exception {
+        AvroSerializationSchema serializationSchema =
+                new AvroSerializationSchema(NULLABLE_ROW_AVRO_ROW_TYPE, true);
+        try (Producer<byte[]> producer =
+                client.newProducer(Schema.BYTES).topic(sourceTopic).create()) {
+            producer.send(
+                    serializationSchema.serialize(
+                            new SeaTunnelRow(new Object[] {1L, "row-1", null})));
+            producer.send(
+                    serializationSchema.serialize(
+                            new SeaTunnelRow(
+                                    new Object[] {
+                                        2L, "row-2", new SeaTunnelRow(new Object[] {2, null})
+                                    })));
+            producer.send(
+                    serializationSchema.serialize(
+                            new SeaTunnelRow(
+                                    new Object[] {
+                                        3L,
+                                        "row-3",
+                                        new SeaTunnelRow(
+                                                new Object[] {
+                                                    3, new SeaTunnelRow(new Object[] {"nested"})
+                                                })
+                                    })));
+        }
+    }
+
     private void produceAvroTestData(int start, int end) throws Exception {
         AvroSerializationSchema serializationSchema =
                 new AvroSerializationSchema(SEATUNNEL_ROW_TYPE);
@@ -259,6 +371,11 @@ public class PulsarFormatIT extends TestSuiteBase implements TestResource {
 
     private List<SeaTunnelRow> consumeAvroRows(
             String topic, AvroDeserializationSchema deserializationSchema) {
+        return consumeAvroRows(topic, deserializationSchema, 90);
+    }
+
+    private List<SeaTunnelRow> consumeAvroRows(
+            String topic, AvroDeserializationSchema deserializationSchema, int expectedRows) {
         List<SeaTunnelRow> rows = new ArrayList<>();
         try (Consumer<byte[]> consumer =
                 client.newConsumer(Schema.BYTES)
@@ -267,7 +384,7 @@ public class PulsarFormatIT extends TestSuiteBase implements TestResource {
                         .subscriptionType(SubscriptionType.Exclusive)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
-            for (int i = 0; i < 90; i++) {
+            for (int i = 0; i < expectedRows; i++) {
                 Message<byte[]> message = consumer.receive(30, TimeUnit.SECONDS);
                 if (message == null) {
                     break;
