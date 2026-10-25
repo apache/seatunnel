@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sink: XML applies `date_format`, `datetime_format` and `time_format`
+
+- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
+  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
+  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
+  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
 ### Conditional option rules use `Condition` and the deprecated `Expression` API is removed
 
 - **Breaking change: `Expression` and all of its entry points are deleted, and conditional option rules are built, evaluated and rendered with `Condition` only**
@@ -20,12 +27,6 @@ You need to check this document before you upgrade to related version.
     - Build and inspect condition chains with `Condition.of(...)` / `and(...)` / `or(...)`, `ConditionalRequiredOptions.of(Condition, List)`, `new ConditionRule(Condition, OptionRule)`, `ConditionalRequiredOptions.getCondition()` and `ConditionRule.getCondition()`.
     - Review conditional rules that mix AND and OR and decide the intended precedence. If the legacy right-associative meaning is still needed, rewrite the chain into the equivalent OR-of-AND form, for example `A && (B || C)` becomes `(A && B) || (A && C)`.
     - Update tests and tooling that assert on validation messages or exported metadata, because the expression text now follows `Condition` rendering.
-### File sink: XML applies `date_format`, `datetime_format` and `time_format`
-
-- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
-  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
-  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
-  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
 ### CDC: nullable columns are no longer used as the snapshot split column
 

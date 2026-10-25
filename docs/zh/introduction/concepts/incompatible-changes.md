@@ -4,6 +4,13 @@
 
 ## dev
 
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
 ### 条件选项规则统一使用 `Condition`，并删除已废弃的 `Expression` API
 
 - **破坏性变更：删除 `Expression` 及其全部入口，条件选项规则改为完全使用 `Condition` 构建、求值和渲染**
@@ -19,12 +26,6 @@
     - 使用 `Condition.of(...)` / `and(...)` / `or(...)` 构建条件链，并使用 `ConditionalRequiredOptions.of(Condition, List)`、`new ConditionRule(Condition, OptionRule)`、`ConditionalRequiredOptions.getCondition()`、`ConditionRule.getCondition()` 读取条件。
     - 检查混用 AND 和 OR 的条件规则并明确期望的优先级。如果需要保留旧的右结合语义，请改写为等价的“AND 组之间取 OR”形式，例如 `A && (B || C)` 改写为 `(A && B) || (A && C)`。
     - 由于表达式文本现在按 `Condition` 的规则渲染，请同步更新断言校验报错信息或导出元数据的测试与工具。
-### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
-
-- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
-  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
-  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
-  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
 ### CDC：可空列不再用作快照分片列
 
