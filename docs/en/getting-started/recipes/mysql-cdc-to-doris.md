@@ -23,13 +23,13 @@ connector-doris
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(cdc-mysql|doris)'
+ls connectors | grep -E 'connector-(cdc-mysql|doris)'
 ```
 
 3. If you use SeaTunnel Zeta, download the MySQL JDBC driver and place it in `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 If you use Flink or Spark instead of Zeta, put the same driver jar into the engine plugin directory that your runtime loads.
