@@ -34,7 +34,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Verifies S3A provider configuration and the packaged IRSA credential provider contract. */
+/**
+ * Verifies S3A provider configuration and the packaged IRSA credential provider contract.
+ *
+ * <p>These checks do not contact AWS; real IRSA acceptance requires a separately configured EKS
+ * environment.
+ */
 public class S3ConfigurationProviderTest {
 
     @Test
