@@ -186,6 +186,57 @@ def _pipeline(status, restores=3, limit=10, **extra):
     return p
 
 
+def test_a_spent_restore_budget_is_reported_even_when_the_limit_is_one():
+    # `job.retry.times = 1` gives maxRestoreCount 1, so the budget is spent on
+    # the very first restore. The crash-loop threshold used to be applied
+    # first, which made this case produce no finding at all -- the one reading
+    # where the job is certain to die on the next failure.
+    findings = diagnose_job(
+        {
+            "jobStatus": "RUNNING",
+            "diagnostics": {"pipelines": [_pipeline("RUNNING", restores=1, limit=1)]},
+        },
+        now_ms=NOW,
+    )
+
+    spent = _by_rule(findings, "pipeline_restore_exhausted")
+    assert spent.severity == "error"
+    assert "restoreCount=1/1" in spent.evidence
+
+
+def test_one_restore_below_the_limit_is_still_silent():
+    # The threshold still applies when the budget is not spent: a single
+    # recovery from a transient fault is ordinary operation.
+    findings = diagnose_job(
+        {
+            "jobStatus": "RUNNING",
+            "diagnostics": {"pipelines": [_pipeline("RUNNING", restores=1, limit=10)]},
+        },
+        now_ms=NOW,
+    )
+
+    assert findings == []
+
+
+def test_a_tearing_down_pipeline_at_its_limit_is_not_warned_about_a_next_failure():
+    # Ordering: the teardown check has to precede the exhausted check. A
+    # pipeline being cancelled has no "next failure" to warn about, which is
+    # the same mistake the end-state check already avoids.
+    for status in ("CANCELING", "FAILING"):
+        findings = diagnose_job(
+            {
+                "jobStatus": "CANCELING",
+                "diagnostics": {"pipelines": [_pipeline(status, restores=5, limit=5)]},
+            },
+            now_ms=NOW,
+        )
+
+        note = _by_rule(findings, "pipeline_restored_before")
+        assert note.severity == "info", status
+        assert "next failure" not in note.detail
+        assert "pipeline_restore_exhausted" not in _rules(findings)
+
+
 def test_finished_and_cancelled_pipelines_are_not_called_restarting():
     # A restorable pipeline is in an end state for an instant only:
     # prepareRestorePipeline increments the counter and immediately resets

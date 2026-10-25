@@ -213,7 +213,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -322,6 +322,12 @@ For example, set like following:
 `skip_header_row_number = 2`
 
 then SeaTunnel will skip the first 2 lines from source files
+
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
 
 ### schema [config]
 
