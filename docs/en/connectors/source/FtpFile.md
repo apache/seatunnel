@@ -682,8 +682,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
     password = tianchao
     file_format_type = "text"
     schema = {
-      name = string
-      age = int
+      fields {
+        name = string
+        age = int
+      }
     }
     field_delimiter = "#"
   }
@@ -908,11 +910,9 @@ sink {
 }
 ```
 
-### SFTP (SSH File Transfer)
+### Reading from an SFTP server
 
-The `FtpFile` connector only reads from FTP servers (plain FTP, active or passive mode). It cannot connect to SFTP servers: the underlying `SeaTunnelFTPFileSystem` is based on the commons-net FTP client, the URI scheme is fixed to `ftp://<host>:<port>` built from the `host` and `port` options, and options such as `fs.defaultFS` or a `ftp_properties` map are not read by this connector.
-
-To read files over SSH File Transfer Protocol, use the dedicated [SftpFile](SftpFile.md) connector instead.
+The `FtpFile` connector only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To read files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) connector instead, which configures the server through `host`/`port`/`user`/`password` (and optional SSH `keyfile`) options.
 
 ## Changelog
 

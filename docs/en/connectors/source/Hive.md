@@ -42,8 +42,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 |         name          |  type  | required | default value  | description |
 |-----------------------|--------|----------|----------------|-------------|
 | table_name            | string | no       | Required for single-table mode | Target Hive table name in the form `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` to match multiple tables. |
-| table_list            | array  | no       | -              | Multi-table configuration list. This is the recommended way to read multiple Hive tables (Hive is a structured data source). Each item can override any of the root-level options. |
-| tables_configs        | array  | no       | -              | Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `table_list`. |
+| table_list            | array  | no       | -              | Multi-table configuration list. Each item can override any of the root-level options. Takes precedence if both `table_list` and `tables_configs` are set. |
+| tables_configs        | array  | no       | Deprecated, use `table_list` instead | Deprecated multi-table configuration list. Hive is a structured data source, new jobs should use `table_list`. Kept for backward compatibility. |
 | use_regex             | boolean| no       | false          | Treat `table_name` as a regular expression that matches multiple tables. Works at the root level and inside each `table_list` / `tables_configs` entry. |
 | metastore_uri         | string | no       | Required for single-table mode | Hive metastore URI. Comma-separated values enable HA failover; whitespace is ignored. |
 | krb5_path             | string | no       | /etc/krb5.conf | Path of the `krb5.conf` file used for Kerberos authentication. |
@@ -63,15 +63,15 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 Target Hive table name eg: `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` (Hive has no schema) to match multiple tables from Hive metastore.
 
-For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `table_list`. `tables_configs` is still accepted for backward compatibility, but it is deprecated and `table_list` is the current option.
+For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `table_list`. `tables_configs` is still accepted for backward compatibility, but `table_list` is the current option.
 
 ### table_list [array]
 
-Multi-table configuration list. This is the recommended way to read multiple Hive tables; each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
+Multi-table configuration list. Each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
 
 ### tables_configs [array]
 
-Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `table_list`.
+Deprecated multi-table configuration list, kept for backward compatibility; new jobs should use `table_list`. Each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
 
 ### use_regex [boolean]
 
@@ -163,7 +163,8 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 ```
 
 ### Example 3: Multiple tables
-> Note: Hive is a structured data source and should use `table_list`; the older `tables_configs` key is deprecated.
+> Note: Hive is a structured data source and `table_list` is the recommended multi-table option; the older `tables_configs` key is deprecated but still accepted for backward compatibility.
+> You can also set `use_regex = true` in each table config to match multiple tables.
 
 ```hocon
 

@@ -155,7 +155,8 @@ Kerberos 认证的 keytab 文件路径
 ```
 
 ### 示例 3：多表
-> 注意：Hive 是结构化数据源，应使用 `table_list`，旧配置 `tables_configs` 已废弃。
+> 注意：Hive 是结构化数据源，多表读取请使用 `table_list`；`tables_configs` 已废弃，目前仍向后兼容可用。
+> 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
 
 ```bash
   Hive {

@@ -654,8 +654,10 @@ compare_mode = "len_mtime"
     password = tianchao
     file_format_type = "text"
     schema = {
-      name = string
-      age = int
+      fields {
+        name = string
+        age = int
+      }
     }
     field_delimiter = "#"
   }
@@ -879,11 +881,9 @@ sink {
 }
 ```
 
-### SFTP（SSH 文件传输）
+### 从 SFTP 服务器读取
 
-`FtpFile` 连接器只能读取 FTP 服务器（明文 FTP，主动或被动模式），无法连接 SFTP 服务器：底层 `SeaTunnelFTPFileSystem` 基于 commons-net FTP 客户端实现，URI 固定为根据 `host` 和 `port` 选项拼出的 `ftp://<host>:<port>`，本连接器不会读取 `fs.defaultFS` 或 `ftp_properties` 之类的配置。
-
-如需通过 SSH 文件传输协议（SFTP）读取文件，请使用独立的 [SftpFile](SftpFile.md) 连接器。
+`FtpFile` 连接器仅支持标准 FTP 协议——连接始终由 `host`/`port` 选项拼接为 `ftp://<host>:<port>`，不支持 `fs.defaultFS`、`ftp_properties`、`known_hosts` 等选项。如需通过 SFTP（SSH 文件传输协议）读取文件，请改用 [SftpFile](SftpFile.md) 连接器，它通过 `host`/`port`/`user`/`password`（以及可选的 SSH `keyfile`）选项配置服务器。
 
 ## 变更日志
 
