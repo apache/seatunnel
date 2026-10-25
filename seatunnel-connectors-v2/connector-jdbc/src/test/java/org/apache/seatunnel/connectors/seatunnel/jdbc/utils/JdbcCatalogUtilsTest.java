@@ -35,7 +35,10 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.QueryTableMetadataMergeMode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,10 +56,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class JdbcCatalogUtilsTest {
 
@@ -777,6 +785,46 @@ public class JdbcCatalogUtilsTest {
                         QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testTablePathWithQueryIgnoresMetadataMergeMode() throws Exception {
+        // `table_path` + `query` always performs the full merge through the pre-existing
+        // table_path behavior; `query_table_metadata_merge` is not consulted, even when set to
+        // NONE.
+        JdbcSourceTableConfig tableConfig =
+                JdbcSourceTableConfig.builder()
+                        .tablePath("database-x.table-x")
+                        .query("select * from table-x")
+                        .queryTableMetadataMerge(QueryTableMetadataMergeMode.NONE)
+                        .build();
+
+        AbstractJdbcCatalog catalog = mock(AbstractJdbcCatalog.class);
+        JdbcDialect jdbcDialect = mock(JdbcDialect.class);
+        when(jdbcDialect.parse("database-x.table-x"))
+                .thenReturn(TablePath.of("database-x", null, "table-x"));
+        when(catalog.getTable(TablePath.of("database-x", null, "table-x")))
+                .thenReturn(DEFAULT_TABLE);
+        when(catalog.getTable("select * from table-x"))
+                .thenReturn(
+                        buildQueryTable(
+                                TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x")));
+
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.getCatalogTable(tableConfig, catalog, jdbcDialect);
+
+        // The full merge is applied: identity, primary key, constraint keys and partition keys
+        // come from the table_path table.
+        Assertions.assertEquals(DEFAULT_TABLE.getTableId(), mergeTable.getTableId());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getPrimaryKey(),
+                mergeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getConstraintKeys(),
+                mergeTable.getTableSchema().getConstraintKeys());
+        Assertions.assertEquals(DEFAULT_TABLE.getPartitionKeys(), mergeTable.getPartitionKeys());
+        // The query-only resolution path is not used.
+        verify(catalog, never()).resolveQueryTable(anyString());
     }
 
     @Test

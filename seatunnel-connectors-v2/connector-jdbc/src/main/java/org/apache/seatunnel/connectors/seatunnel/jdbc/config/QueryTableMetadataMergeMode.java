@@ -31,14 +31,14 @@ public enum QueryTableMetadataMergeMode {
 
     /**
      * Do not resolve the underlying physical table; use the query-derived schema as-is (the
-     * behavior before the merge feature was introduced).
+     * behavior before the merge feature was introduced). This is the default.
      */
     NONE,
 
     /**
      * Merge only column comments and the table comment. Table options, the primary key, constraint
      * keys and partition keys are not merged, so generated sink DDL, sink insert/upsert semantics
-     * and split planning are unchanged. This is the default.
+     * and split planning are unchanged.
      */
     COMMENT,
 

@@ -293,25 +293,25 @@ or state format migration is required.
 
 ### JDBC Connector
 
-- **Behavior change: query-only JDBC sources merge the underlying table's comments**
+- **New source option: `query_table_metadata_merge` for query-only JDBC sources**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` (source)
   - **Description**: When a source table is defined by `query` only (no `table_path`) and JDBC
-    metadata reports every result column as originating from the same physical table, SeaTunnel
-    now resolves that table and, by default, merges its column comments and table comment into
-    the query-derived schema. Previously the schema was derived from `ResultSetMetaData` only and
-    carried none of this metadata. Table options, the primary key, constraint keys and partition
-    keys are deliberately not merged by default because they can change generated sink DDL,
-    insert/upsert semantics or split planning; set the new source option
-    `query_table_metadata_merge = ALL` to merge them as well (the same result as configuring
-    `table_path` together with `query`), or `NONE` to restore the previous behavior entirely.
+    metadata reports every result column as originating from the same physical table, the new
+    source option `query_table_metadata_merge` controls whether the resolved underlying table's
+    metadata is merged into the query-derived schema. The default `NONE` keeps the behavior of
+    previous versions, where the schema was derived from `ResultSetMetaData` only and carried no
+    column/table comments, keys or partition keys. Set it to `COMMENT` to merge the underlying
+    table's column comments and table comment, or `ALL` to additionally merge table options, the
+    primary key, constraint keys and partition keys (the same result as configuring `table_path`
+    together with `query`). The option only applies when `table_path` is not configured.
     (#11971)
-  - **Impact**: Row shape, column order, table options, primary keys, sink DDL, sink insert/upsert
-    semantics, split planning and checkpoint/savepoint compatibility are unchanged by default.
-    The only default difference is that sinks with automatic table creation (MySQL, Doris,
-    StarRocks, ...) create the target table with the source table's comments on the first run
-    after the upgrade; already-created sink tables are not modified. Multi-table queries and
-    queries whose column origins cannot be verified (for example expression columns) are
-    unaffected — the merge is skipped for them.
+  - **Impact**: Unconfigured jobs are unaffected: row shape, column order, table options, primary
+    keys, sink DDL, sink insert/upsert semantics, split planning and checkpoint/savepoint
+    compatibility are unchanged. Jobs that opt in to `COMMENT` or `ALL` get sinks with automatic
+    table creation (MySQL, Doris, StarRocks, ...) emitting comments (and, with `ALL`, options and
+    keys) on first table creation; already-created sink tables are not modified. Multi-table
+    queries and queries whose column origins cannot be verified (for example expression columns)
+    skip the merge.
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.

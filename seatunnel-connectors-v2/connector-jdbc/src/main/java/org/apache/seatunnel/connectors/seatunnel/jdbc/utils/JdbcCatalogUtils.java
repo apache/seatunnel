@@ -232,7 +232,7 @@ public class JdbcCatalogUtils {
         return new RuntimeException(error);
     }
 
-    private static CatalogTable getCatalogTable(
+    static CatalogTable getCatalogTable(
             JdbcSourceTableConfig tableConfig,
             AbstractJdbcCatalog jdbcCatalog,
             JdbcDialect jdbcDialect)
@@ -537,14 +537,14 @@ public class JdbcCatalogUtils {
      * constraint keys and partition keys. If the query is verified to map to a single physical
      * table (e.g. {@code SELECT * FROM db.table}, resolved from the result set metadata), load
      * exactly that table and merge the missing metadata into the query-derived table. How much is
-     * merged depends on {@code metadataMergeMode}: {@link QueryTableMetadataMergeMode#COMMENT} (the
-     * default) merges only the column comments and table comment, keeping the query-derived
-     * identity, table options, primary key, constraint keys and partition keys untouched so runtime
-     * behavior (sink DDL, insert/upsert semantics, split planning) is unchanged; {@link
+     * merged depends on {@code metadataMergeMode}: {@link QueryTableMetadataMergeMode#NONE} (the
+     * default) skips the merge entirely; {@link QueryTableMetadataMergeMode#COMMENT} merges only
+     * the column comments and table comment, keeping the query-derived identity, table options,
+     * primary key, constraint keys and partition keys untouched so runtime behavior (sink DDL,
+     * insert/upsert semantics, split planning) is unchanged; {@link
      * QueryTableMetadataMergeMode#ALL} merges everything, the same way as configuring {@code
-     * table_path} together with {@code query}; {@link QueryTableMetadataMergeMode#NONE} skips the
-     * merge entirely. Fall back to the query-derived table when the underlying table can not be
-     * resolved or loaded.
+     * table_path} together with {@code query}. Fall back to the query-derived table when the
+     * underlying table can not be resolved or loaded.
      */
     static CatalogTable mergeWithUnderlyingTable(
             CatalogTable tableOfQuery,

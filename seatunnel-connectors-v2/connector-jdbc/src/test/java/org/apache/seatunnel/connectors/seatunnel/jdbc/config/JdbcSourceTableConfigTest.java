@@ -30,7 +30,7 @@ import java.util.Map;
 public class JdbcSourceTableConfigTest {
 
     @Test
-    public void testQueryTableMetadataMergeDefaultsToComment() {
+    public void testQueryTableMetadataMergeDefaultsToNone() {
         Map<String, Object> config = new HashMap<>();
         config.put("query", "select * from t1");
 
@@ -39,7 +39,7 @@ public class JdbcSourceTableConfigTest {
 
         Assertions.assertEquals(1, tables.size());
         Assertions.assertEquals(
-                QueryTableMetadataMergeMode.COMMENT, tables.get(0).getQueryTableMetadataMerge());
+                QueryTableMetadataMergeMode.NONE, tables.get(0).getQueryTableMetadataMerge());
     }
 
     @Test

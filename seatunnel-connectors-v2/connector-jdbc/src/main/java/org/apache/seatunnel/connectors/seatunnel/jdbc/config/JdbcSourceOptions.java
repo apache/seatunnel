@@ -127,17 +127,18 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
     public static final Option<QueryTableMetadataMergeMode> QUERY_TABLE_METADATA_MERGE =
             Options.key("query_table_metadata_merge")
                     .enumType(QueryTableMetadataMergeMode.class)
-                    .defaultValue(QueryTableMetadataMergeMode.COMMENT)
+                    .defaultValue(QueryTableMetadataMergeMode.NONE)
                     .withDescription(
                             "How much metadata of the underlying physical table is merged into the schema"
-                                    + " derived from a query-only source table. Only applies when the query is"
-                                    + " verified to map to a single physical table. COMMENT (default) merges only"
-                                    + " the column comments and table comment; ALL additionally merges the table"
-                                    + " options, primary key, constraint keys and partition keys — the same result"
-                                    + " as configuring table_path together with query, which may change generated"
-                                    + " sink DDL, switch sinks with generate_sink_sql from insert to upsert and"
-                                    + " enable primary-key based split planning; NONE disables resolving the"
-                                    + " underlying table entirely.");
+                                    + " derived from a query-only source table. Only applies when table_path is not"
+                                    + " configured and the query is verified to map to a single physical table."
+                                    + " NONE (default) keeps the query-derived schema and preserves the behavior"
+                                    + " before this option existed; COMMENT merges the column comments and table"
+                                    + " comment; ALL additionally merges the table options, primary key, constraint"
+                                    + " keys and partition keys — the same result as configuring table_path together"
+                                    + " with query, which may change generated sink DDL, switch sinks with"
+                                    + " generate_sink_sql from insert to upsert and enable primary-key based split"
+                                    + " planning.");
 
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch_size")
