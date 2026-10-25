@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 .node {
   display: flex;
   justify-content: space-between;
@@ -26,25 +26,27 @@
   border: 2px solid var(--busy-color, #c2c8d5);
   border-radius: 4px;
   box-shadow: 0 2px 5px 1px rgba(0, 0, 0, 0.06);
-  padding: 6px 8px;
+  padding: 4px 8px;
   transition: box-shadow 0.2s ease;
   .label {
     flex: 1;
     color: #666;
-    font-size: 12px;
+    font-size: 11px;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
   }
 }
 
 .dag-wrapper {
   position: relative;
   width: 100%;
-  height: 600px;
-  margin-bottom: 12px;
+  height: 128px;
+  margin-bottom: 8px;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  background: #f8fafc;
+  overflow: hidden;
 }
 
 .dag-container {
@@ -55,16 +57,16 @@
 .dag-toolbar {
   position: absolute;
   z-index: 10;
-  top: 12px;
-  right: 12px;
+  top: 6px;
+  right: 8px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .dag-btn {
-  height: 28px;
-  min-width: 28px;
-  padding: 0 10px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 8px;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
   background: rgba(255, 255, 255, 0.92);
@@ -86,11 +88,11 @@
   border-radius: 2px;
   box-shadow: 0 0 0 4px #d4e8fe;
 }
-.x6-edge:hover path:nth-child(2){
+.x6-edge:hover path:nth-child(2) {
   stroke-width: 2px;
 }
 
-.x6-edge-selected path:nth-child(2){
+.x6-edge-selected path:nth-child(2) {
   stroke-width: 2px !important;
 }
 
@@ -101,9 +103,9 @@
 }
 @keyframes spin {
   from {
-      transform: rotate(0deg);
+    transform: rotate(0deg);
   }
   to {
-      transform: rotate(360deg);
+    transform: rotate(360deg);
   }
 }

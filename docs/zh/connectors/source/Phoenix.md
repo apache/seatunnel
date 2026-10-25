@@ -44,7 +44,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------|--------|----------|--------|-------------------------------------------------------------------------------------------------|
 | driver         | String | 是       | -      | JDBC 驱动类。thick 驱动使用 `org.apache.phoenix.jdbc.PhoenixDriver`，thin 驱动使用 `org.apache.phoenix.queryserver.client.Driver`。 |
 | url            | String | 是       | -      | JDBC 连接 URL。thick 驱动使用 `jdbc:phoenix:localhost:2182/hbase`，thin 驱动使用 `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`。 |
-| query          | String | 是       | -      | 读取数据时执行的 SELECT 查询，例如 `select age, name from test.source`。SELECT 列表的列顺序需要和 `schema.fields` 一致。 |
+| query          | String | 条件必填    | -      | 读取数据时执行的 SELECT 查询，例如 `select age, name from test.source`。SELECT 列表的列顺序需要和 `schema.fields` 一致。未配置 `table_path` 或 `table_list` 时必填。 |
 | common-options |        | 否       | -      | 源插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。           |
 
 ### driver [string]
@@ -102,6 +102,30 @@ source {
     driver = org.apache.phoenix.queryserver.client.Driver
     url = "jdbc:phoenix:thin:url=http://spark_e2e_phoenix_sink:8765;serialization=PROTOBUF"
     query = "select age, name from test.source"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### 列投影并按条件过滤
+
+可以结合列投影和 `WHERE` 条件提前把不需要的行过滤掉。下面的示例只读取 `name` 以 `A`
+开头的行：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "select name, score from test.source where name like 'A%'"
   }
 }
 

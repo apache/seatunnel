@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -70,6 +71,7 @@ import static org.awaitility.Awaitility.given;
 public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "seatunnelhub/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    private static final String DRIVER_JAR = "mysql-legacy.jar";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
 
@@ -79,8 +81,6 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "test";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -169,15 +169,9 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.staged(DRIVER_JAR)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -295,7 +289,8 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
                     InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(DRIVER_JAR)}, JdbcDorisIT.class.getClassLoader());
+                        new URL[] {DependencyJar.staged(DRIVER_JAR).path().toUri().toURL()},
+                        JdbcDorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();

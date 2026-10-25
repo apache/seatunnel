@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-http.md';
 
 |             名称              |   类型   | 是否必须 |  默认值  |                             描述                             |
 |-----------------------------|--------|------|-------|------------------------------------------------------------|
-| url                         | String | 是    | -     | Http 请求链接                                                  |
+| url                         | String | 是    | -     | HTTP 请求链接，不能为空或仅包含空白字符。                                      |
 | headers                     | Map    | 否    | -     | Http 请求头                                                    |
 | params                      | Map    | 否    | -     | 该参数会通过参数校验。当前 Sink 写入器会把数据作为请求体 POST 到最终 URL，如需查询参数，建议直接写在 `url` 中。 |
 | retry                       | Int    | 否    | -     | 如果请求http返回`IOException`的最大重试次数                             |
@@ -52,6 +52,8 @@ import ChangeLog from '../changelog/connector-http.md';
 ## 示例
 
 Http Sink 固定发送 `POST` 请求。每条上游数据会被转换成 JSON 作为请求体；当 `array_mode = true` 时，会先把多条数据攒成 JSON 数组再发送，`batch_size` 控制单次请求最多包含多少条数据。
+
+当 HTTP 响应不是 200，或请求过程中发生异常时，Sink 会将写入失败上报给引擎；失败批次不会被当作已成功发送。该连接器不提供精确一次投递保证，接收端应保证幂等。
 
 简单示例:
 

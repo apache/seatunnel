@@ -27,6 +27,10 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 The Sql Server CDC connector allows for reading snapshot data and incremental data from SqlServer database. This document
 describes how to setup the Sql Server CDC connector to run SQL queries against SqlServer databases.
 
+When `startup.mode = initial`, the connector first reads the snapshot of each monitored table using parallel splits,
+then switches to incremental streaming from the LSN recorded at the end of the snapshot. Downstream consumers should
+treat the snapshot phase as a one-time bootstrap and not rely on it for steady-state reads.
+
 :::tip
 
 When discovering table columns via JDBC metadata, SeaTunnel filters metadata rows by the exact schema/table identifier to
@@ -81,15 +85,15 @@ case-sensitive databases, make sure the configured identifier case matches the d
 | table-names                               | List     | Yes      | -       | Tables to monitor. Use the full table identifier: `databaseName.schemaName.tableName`. This option is mutually exclusive with `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | table-pattern                             | String   | Yes      | -       | Regular expression for tables to monitor. Use the full table identifier in the pattern, for example `column_type_test\\.dbo\\..*`. This option is mutually exclusive with `table-names`.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| url                                       | String   | Yes      | -       | URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| url                                       | String   | Yes      | -       | Empty or whitespace-only values are rejected during configuration validation. Nonblank values are not trimmed. URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test". SQL Server JDBC connection properties in this URL, such as `encrypt` and `trustServerCertificate`, are forwarded to the CDC connection. An explicitly configured property in `debezium`, such as `database.trustServerCertificate`, takes precedence. |
 | startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for SqlServer CDC consumer. Valid values are `initial`, `earliest`, `latest`, and `timestamp`.<br/>`initial`: read the table snapshot first and then continue with incremental changes.<br/>`earliest`: start from the earliest available CDC LSN.<br/>`latest`: only read changes after the job starts.<br/>`timestamp`: start from the LSN resolved from `startup.timestamp`.                                                                                                                                                                                                                 |
 | startup.timestamp                         | Long     | No       | -       | Start from the specified epoch timestamp (in milliseconds). This timestamp is converted with `server-time-zone` when `startup.mode = timestamp`.<br/> **Note, This option is required when** the **"startup.mode" option used `'timestamp'`.**                                                                                                                                                                                                                                                                                                                                                                  |
 | stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for SqlServer CDC consumer, valid enumerations are "never".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | incremental.parallelism                   | Integer  | No       | 1       | The number of parallel readers in the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | No       | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshotof table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | snapshot.fetch.size                       | Integer  | No       | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| server-time-zone                          | String   | No       | UTC     | The session time zone in database server. This value is also used when converting `startup.timestamp` to LSN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| connect.timeout                           | Duration | No       | 30s     | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | No       | -       | The session time zone in database server. If not set, the JVM system default time zone (`ZoneId.systemDefault()`) is used. This value is also used when converting `startup.timestamp` to LSN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                            |
+| connect.timeout.ms                        | Long     | No       | 30000   | The maximum time in milliseconds that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3       | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No       | 20      | The connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 100     | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
@@ -317,12 +321,72 @@ source {
 }
 ```
 
+### Heartbeat action
+
+Use the `debezium.heartbeat.action.query` option to keep the CDC slot active when there are no upstream changes for a
+long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a regular cadence.
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO column_type_test.dbo.heartbeat (ts) VALUES (GETDATE())"
+    }
+  }
+}
+```
+
+The heartbeat table and insert statement must exist on the target database. Without a heartbeat, the LSN window may be
+recycled by SQL Server when there is no activity, which can break resumable streaming jobs.
+
 ### Schema change event filtering
 
 When `schema-changes.enabled = true`, you can further control which schema change event types are
 propagated downstream using `schema-changes.include` / `schema-changes.exclude`.
 
-Use these SeaTunnel-owned canonical names:
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "products"
+    username = "sa"
+    password = "Password!"
+    database-names = ["schema_change_test"]
+    table-names = ["schema_change_test.dbo.products"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=schema_change_test"
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "products"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=schema_change_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "schema_change_test"
+    table = "dbo.products_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+Use these SeaTunnel-owned canonical names to filter schema events:
 
 | Canonical name   | Operation                                            |
 |------------------|------------------------------------------------------|
@@ -352,6 +416,47 @@ source {
 **Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
+
+### Databases with special characters in the name
+
+The `database-names` list and the `databaseName` parameter in the JDBC URL must use the exact identifier as stored on
+the server. When the database name contains characters such as `-` or `.`, quote the database name in SQL but quote
+the URL parameter literally. The connector does not URL-encode the database name automatically.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["test-db-name"]
+    table-names = ["test-db-name.dbo.simple_table"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name"
+    exactly_once = false
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "test-db-name"
+    table = "dbo.simple_table_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
 
 ## Changelog
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -29,8 +27,6 @@ import lombok.RequiredArgsConstructor;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
 @AllArgsConstructor
@@ -42,8 +38,7 @@ public class ReduceBufferedBatchStatementExecutor implements JdbcBatchStatementE
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
     private boolean ignoreUpdateBefore;
 
-    @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
-            new LinkedHashMap<>();
+    @NonNull private final LinkedHashMap<Object, BufferedRow> buffer = new LinkedHashMap<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
@@ -60,25 +55,39 @@ public class ReduceBufferedBatchStatementExecutor implements JdbcBatchStatementE
         SeaTunnelRow key = keyExtractor.apply(record);
         boolean changeFlag = changeFlag(record.getRowKind());
         SeaTunnelRow value = valueTransform.apply(record);
-        buffer.put(key, Pair.of(changeFlag, value));
+        BufferedRow bufferedRow = new BufferedRow(changeFlag, key, value);
+        // Incomplete keys cannot identify one row, so they must not participate in reduction.
+        Object bufferKey = hasNullField(key) ? bufferedRow : key;
+        buffer.put(bufferKey, bufferedRow);
+    }
+
+    private static boolean hasNullField(SeaTunnelRow key) {
+        if (key == null) {
+            return true;
+        }
+        for (Object field : key.getFields()) {
+            if (field == null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     public void executeBatch() throws SQLException {
         Boolean preChangeFlag = null;
-        Set<Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>>> entrySet = buffer.entrySet();
-        for (Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> entry : entrySet) {
-            Boolean currentChangeFlag = entry.getValue().getKey();
+        for (BufferedRow bufferedRow : buffer.values()) {
+            Boolean currentChangeFlag = bufferedRow.changeFlag;
             if (currentChangeFlag) {
                 if (preChangeFlag != null && !preChangeFlag) {
                     deleteExecutor.executeBatch();
                 }
-                insertOrUpdateExecutor.addToBatch(entry.getValue().getValue());
+                insertOrUpdateExecutor.addToBatch(bufferedRow.value);
             } else {
                 if (preChangeFlag != null && preChangeFlag) {
                     insertOrUpdateExecutor.executeBatch();
                 }
-                deleteExecutor.addToBatch(entry.getKey());
+                deleteExecutor.addToBatch(bufferedRow.key);
             }
             preChangeFlag = currentChangeFlag;
         }
@@ -112,6 +121,18 @@ public class ReduceBufferedBatchStatementExecutor implements JdbcBatchStatementE
                 return false;
             default:
                 throw new UnsupportedOperationException("Unsupported rowKind: " + rowKind);
+        }
+    }
+
+    private static class BufferedRow {
+        private final boolean changeFlag;
+        private final SeaTunnelRow key;
+        private final SeaTunnelRow value;
+
+        private BufferedRow(boolean changeFlag, SeaTunnelRow key, SeaTunnelRow value) {
+            this.changeFlag = changeFlag;
+            this.key = key;
+            this.value = value;
         }
     }
 }

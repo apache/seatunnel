@@ -44,9 +44,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -65,7 +63,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
-            <version>1.19.1</version>
+            <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- MySQL JDBC driver -->

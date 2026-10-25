@@ -23,14 +23,31 @@
 # So, the name was changed to make sense in that context too.
 # See also https://github.community/t/specify-check-suite-when-creating-a-checkrun/118380/10
 name: On pull request update
+# Runs from the default branch after `PR signal` (pr-signal.yml) completes for a
+# pull request, which replaces `pull_request_target`. Everything it needs (head
+# SHA, head repository and branch) comes from the workflow_run payload; no pull
+# request code is checked out or run.
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  workflow_run:
+    workflows: ["PR signal"]
+    types: [completed]
 
+permissions: {}
+
+# `action_required` is a signal run of a first-time contributor that waits for workflow
+# approval. Nothing of theirs has run, and this job only reads API metadata, so it does not
+# wait for the approval. After approval the signal completes again and this job runs again,
+# which is harmless.
 jobs:
   notify:
     name: Notify test workflow
+    if: >-
+      github.event.workflow_run.event == 'pull_request'
+      && (github.event.workflow_run.conclusion == 'success'
+          || github.event.workflow_run.conclusion == 'action_required')
+      && github.event.workflow_run.head_repository != null
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
       checks: write
@@ -40,61 +57,54 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const endpoint = 'GET /repos/:owner/:repo/actions/workflows/:id/runs?&branch=:branch'
-            const check_run_endpoint = 'GET /repos/:owner/:repo/commits/:ref/check-runs?per_page=100'
+            const endpoint = 'GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs'
+            const check_run_endpoint = 'GET /repos/{owner}/{repo}/commits/{ref}/check-runs'
+            const MAX_LOOKUP_DURATION_MS = 60 * 1000
+            const LOOKUP_INTERVAL_MS = 5000
 
             // TODO: Should use pull_request.user and pull_request.user.repos_url?
             // If a different person creates a commit to another forked repo,
             // it wouldn't be able to detect.
+            const signal_run = context.payload.workflow_run
+            const head_sha = signal_run.head_sha
             const params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
-              id: 'build_main.yml',
-              branch: context.payload.pull_request.head.ref,
+              owner: signal_run.head_repository.owner.login,
+              repo: signal_run.head_repository.name,
+              workflow_id: 'build_main.yml',
+              branch: signal_run.head_branch,
+              per_page: 100,
             }
             const check_run_params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
-              ref: context.payload.pull_request.head.ref,
+              owner: signal_run.head_repository.owner.login,
+              repo: signal_run.head_repository.name,
+              ref: signal_run.head_branch,
+              per_page: 100,
             }
 
-            console.log('Ref: ' + context.payload.pull_request.head.ref)
-            console.log('SHA: ' + context.payload.pull_request.head.sha)
-
-            // Wait 3 seconds to make sure the fork repository triggered a workflow.
-            await new Promise(r => setTimeout(r, 3000))
-
-            let runs
-            try {
-              runs = await github.request(endpoint, params)
-            } catch (error) {
-              console.error(error)
-              // Assume that runs were not found.
-            }
+            console.log('Ref: ' + signal_run.head_branch)
+            console.log('SHA: ' + head_sha)
 
             const name = 'Build'
-            const head_sha = context.payload.pull_request.head.sha
-            let status = 'queued'
-            console.log('runs: ' + JSON.stringify(runs))
-            if (!runs || runs.data.workflow_runs.length === 0) {
-              status = 'completed'
-              const conclusion = 'action_required'
-
+            const createDetectionFailedCheck = async () => {
               await github.rest.checks.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 name: name,
                 head_sha: head_sha,
-                status: status,
-                conclusion: conclusion,
+                status: 'completed',
+                conclusion: 'action_required',
                 output: {
                   title: 'Workflow run detection failed',
                   summary: `
-            Unable to detect the workflow run for testing the changes in your PR.
+            Unable to detect the workflow run for testing the changes in your PR. The build for a PR runs in your fork, and no \`Build\` workflow run was found there for the PR head commit.
 
-            1. If you did not enable GitHub Actions in your forked repository, please enable it by clicking the button as shown in the image below. See also [Disabling or limiting GitHub Actions for a repository](https://docs.github.com/en/github/administering-a-repository/disabling-or-limiting-github-actions-for-a-repository) for more details.
-            2. Create and push an empty commit to trigger the workflow.
-            3. It is possible your branch is based on the old \`dev\` branch in Apache SeaTunnel, please sync your branch to the latest dev branch. For example as below:
+            1. Open the **Actions** tab of your fork. If it shows the enable button below (GitHub Actions was never enabled or was disabled, e.g. by a billing or spending-limit hold on the account), enable it, then start a run as in step 2. While Actions is disabled, nothing runs in the fork — including this build. See also [Disabling or limiting GitHub Actions for a repository](https://docs.github.com/en/github/administering-a-repository/disabling-or-limiting-github-actions-for-a-repository) for more details.
+            2. GitHub did not create a run for your push (a lost trigger — nothing is wrong with your changes). Start one by hand: select the **Build** workflow in your fork's **Actions** tab, click **Run workflow** and pick this PR branch. The scheduled \`Update build status workflow\` then adopts the run for this check within 15 minutes. Alternatively, create and push an empty commit:
+                \`\`\`bash
+                git commit --allow-empty -m "Trigger CI"
+                git push
+                \`\`\`
+            3. If your branch is based on the old \`dev\` branch in Apache SeaTunnel, please sync your branch to the latest dev branch and push again. For example as below:
                 \`\`\`bash
                 git fetch upstream
                 git rebase upstream/dev
@@ -108,50 +118,81 @@ jobs:
                   ]
                 }
               })
-            } else {
-              const build_run = runs.data.workflow_runs[0]
-              const run_id = build_run.id
-
-              if (build_run.head_sha != context.payload.pull_request.head.sha) {
-                throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
-              }
-
-              // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
-              const check_runs = await github.request(check_run_endpoint, check_run_params)
-              console.log('check_runs: ' + JSON.stringify(check_runs))
-              const actions_url = 'https://github.com/'
-                + context.payload.pull_request.head.repo.full_name
-                + '/actions/runs/'
-                + run_id
-              const run_url_part = '/actions/runs/' + run_id
-              const check_run_head = check_runs.data.check_runs.find(r =>
-                r.head_sha === build_run.head_sha
-                  && (
-                    (r.details_url && r.details_url.includes(run_url_part))
-                    || (r.html_url && r.html_url.includes(run_url_part))
-                  )
-              )
-
-              console.log('check_run_head: ' + JSON.stringify(check_run_head))
-              const check_run_url = check_run_head
-                ? (check_run_head.html_url || check_run_head.details_url || actions_url)
-                : actions_url
-
-              await github.rest.checks.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: name,
-                head_sha: head_sha,
-                status: status,
-                output: {
-                  title: 'Test results',
-                  summary: '[See test results](' + check_run_url + ')',
-                  text: JSON.stringify({
-                    owner: context.payload.pull_request.head.repo.owner.login,
-                    repo: context.payload.pull_request.head.repo.name,
-                    run_id: run_id
-                  })
-                },
-                details_url: actions_url,
-              })
             }
+
+            async function findBuildWorkflowRun() {
+              const lookupDeadline = Date.now() + MAX_LOOKUP_DURATION_MS
+              let attempt = 1
+
+              while (true) {
+                try {
+                  const runs = await github.request(endpoint, params)
+                  const workflowRuns = runs && runs.data ? runs.data.workflow_runs : []
+                  const buildRun = workflowRuns.find((run) => run.head_sha === head_sha)
+
+                  console.log('runs: ' + JSON.stringify(runs))
+                  if (buildRun) {
+                    return buildRun
+                  }
+                } catch (error) {
+                  console.error(`Failed to find Build workflow run on attempt ${attempt}`, error)
+                }
+
+                const remainingLookupTime = lookupDeadline - Date.now()
+                if (remainingLookupTime <= 0) {
+                  return null
+                }
+
+                await new Promise((resolve) =>
+                  setTimeout(resolve, Math.min(LOOKUP_INTERVAL_MS, remainingLookupTime))
+                )
+                attempt += 1
+              }
+            }
+
+            const build_run = await findBuildWorkflowRun()
+            if (!build_run) {
+              await createDetectionFailedCheck()
+              return
+            }
+
+            const run_id = build_run.id
+
+            // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
+            const check_runs = await github.request(check_run_endpoint, check_run_params)
+            console.log('check_runs: ' + JSON.stringify(check_runs))
+            const actions_url = 'https://github.com/'
+              + signal_run.head_repository.full_name
+              + '/actions/runs/'
+              + run_id
+            const run_url_part = '/actions/runs/' + run_id
+            const check_run_head = check_runs.data.check_runs.find(r =>
+              r.head_sha === build_run.head_sha
+                && (
+                  (r.details_url && r.details_url.includes(run_url_part))
+                  || (r.html_url && r.html_url.includes(run_url_part))
+                )
+            )
+
+            console.log('check_run_head: ' + JSON.stringify(check_run_head))
+            const check_run_url = check_run_head
+              ? (check_run_head.html_url || check_run_head.details_url || actions_url)
+              : actions_url
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: name,
+              head_sha: head_sha,
+              status: 'queued',
+              output: {
+                title: 'Test results',
+                summary: '[See test results](' + check_run_url + ')',
+                text: JSON.stringify({
+                  owner: signal_run.head_repository.owner.login,
+                  repo: signal_run.head_repository.name,
+                  run_id: run_id
+                })
+              },
+              details_url: actions_url,
+            })

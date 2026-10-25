@@ -23,6 +23,14 @@ import ChangeLog from '../changelog/connector-cdc-postgres.md';
 The PostgreSQL CDC connector allows for reading snapshot data and incremental data from PostgreSQL databases. This document
 describes how to set up the PostgreSQL CDC connector.
 
+Some PostgreSQL-compatible databases (for example HighGo) return the same physical table more than
+once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
+qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
+
+On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
+visible on the source connection's `search_path`. This does not change cached names or add source
+type namespaces to downstream `ADD COLUMN` statements.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -94,16 +102,18 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | username                                  | String   | Yes      | -        | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database names to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| schema-name                               | List     | No       | -        | Schema names of the database to monitor, for example: `["inventory"]`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `postgres_cdc.inventory.orders`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | table-pattern                             | String   | Yes, if `table-names` is not used | -        | Regular expression for tables to monitor. Use the fully qualified table name in the pattern, for example: `postgres_cdc\\.inventory\\..*`. `table-names` and `table-pattern` are mutually exclusive.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names-config                        | List     | No       | -       | Per-table config list. Example: `[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use `primaryKeys` for tables without a physical primary key. `snapshotSplitColumn` must be a unique key; otherwise SeaTunnel ignores it and selects a split column internally.                                                                                                                                                                                                                                                                                                                                                                          |
 | startup.mode                              | Enum     | No       | INITIAL  | Optional startup mode for PostgreSQL CDC consumer, valid enumerations are `initial`, `snapshot-only`, `committed-offset`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `snapshot-only`: Synchronize historical data at startup and finish as a bounded job without entering WAL streaming.<br/> `committed-offset`: Skip snapshot data and start WAL streaming from the configured replication slot's committed LSN. This mode requires an explicit `slot.name` and fails if the slot does not exist or has no usable committed LSN.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset. |
+| stop.mode                                 | Enum     | No       | NEVER    | Optional stop mode for PostgreSQL CDC consumer. The only valid enumeration is `never`: the source keeps streaming WAL changes and never stops on its own once it reaches the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | decoding.plugin.name                      | String   | No       | pgoutput | The name of the Postgres logical decoding plug-in installed on the server,Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,wal2json_rds_streaming and pgoutput.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | No       | UTC      | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| connect.timeout.ms                        | Duration | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | No       | -        | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| connect.timeout.ms                        | Long     | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3        | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No       | 20       | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 100      | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
@@ -115,6 +125,9 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | exactly_once                              | Boolean  | No       | false    | Enable exactly-once semantics during the snapshot phase. This option is only available when `startup.mode` is `initial` or `snapshot-only`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | format                                    | Enum     | No       | DEFAULT  | Optional output format for PostgreSQL CDC, valid enumerations are `DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | require-replica-identity-full             | Boolean  | No       | true     | Require the table to have REPLICA IDENTITY FULL. When set to false, allows tables with other replica identity settings, but UPDATE/DELETE events may not contain the previous state. This should only be used for append-only tables (e.g., outbox pattern). Default is true for backward compatibility.                                                                                                                                                                                                                                                                                                             |
+| schema-changes.enabled                    | Boolean  | No       | false    | Enable schema evolution events. PostgreSQL CDC currently supports only `ADD COLUMN`, and this option requires `decoding.plugin.name = "pgoutput"`. The change is observed when PostgreSQL sends the next RELATION message, normally immediately before the first subsequent row change for that table. |
+| schema-changes.include                    | List     | No       | -        | Only the listed schema change event types are sent downstream when schema evolution is enabled. For the currently supported operation, use `add.column` (or the `update.columns` group alias). Empty means all supported types are eligible. |
+| schema-changes.exclude                    | List     | No       | -        | Schema change event types listed here are not sent downstream. Exclude is applied after include and wins when the same type appears in both lists. |
 | debezium                                  | Config   | No       | -        | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) to Debezium Embedded Engine which is used to capture data changes from PostgreSQL server.                                                                                                                                                                                                                                                                                                                                |
 | common-options                            |          | no       | -        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -171,6 +184,29 @@ sink {
 }
 ```
 
+### Schema evolution for ADD COLUMN
+
+PostgreSQL does not put the original `ALTER TABLE` SQL text in the logical replication stream.
+With `pgoutput`, SeaTunnel detects the changed table definition from the RELATION message, emits an
+`ADD COLUMN` event before the following row event, and updates the downstream table schema. A table
+must therefore receive a row change after the DDL before the schema change can be observed.
+
+If a RELATION message contains a row-schema change other than `ADD COLUMN`, the job fails before
+processing rows with that schema. Restoring the same checkpoint will encounter the change again;
+resume only after upgrading to a connector that supports the change or performing a controlled
+schema migration and restart.
+
+```hocon
+source {
+  Postgres-CDC {
+    # ...
+    decoding.plugin.name = "pgoutput"
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column"]
+  }
+}
+```
+
 ### Support custom primary key for table
 
 ```
@@ -205,7 +241,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -224,7 +260,7 @@ Use `startup.mode = "snapshot-only"` when the job must perform an initial snapsh
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
   checkpoint.interval = 5000
 }
@@ -234,7 +270,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -261,7 +297,15 @@ In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `
 
 ### Read tables without a primary key
 
-For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {
@@ -269,11 +313,17 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
-    exactly_once = false
+    table-names-config = [
+      {
+        table = "postgres_cdc.inventory.full_types_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
     slot.name = "seatunnel_postgres_cdc"
   }
 }
@@ -341,6 +391,24 @@ When `startup.mode` is `committed-offset`, the replication slot must already exi
 uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### Why does the job fail with "replication slot ... has been invalidated"?
+
+PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
+`max_slot_wal_keep_size`, stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18),
+or, on a standby, conflicts with recovery. `pg_replication_slots` then shows `wal_status = 'lost'`,
+`conflicting = true` (PostgreSQL 16 and later) or `invalidation_reason` (PostgreSQL 17 and later).
+The changes after the slot's confirmed position are gone, so SeaTunnel fails a job that reads changes from the slot
+with error `POSTGRES-04`; `snapshot-only` jobs do not use the slot and are not affected.
+Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
+again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
+
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
 
 ### Why does PostgreSQL CDC fall behind?
 

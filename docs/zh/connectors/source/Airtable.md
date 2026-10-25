@@ -174,6 +174,64 @@ source {
 }
 ```
 
+### 仅读取某个视图中的记录
+
+使用 `view` 只读取指定视图中可见的记录，配合 `fields` 限制返回的列：
+
+```hocon
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    view = "Pending shipments"
+    fields = ["Name", "Status", "Weight"]
+    format = "json"
+    content_field = "$.records[*].fields"
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        Weight = float
+      }
+    }
+  }
+}
+```
+
+### 按增量批次消费新增记录
+
+Airtable source 只支持 `BATCH` 作业（其它模式在初始化时会被拒绝）。要在多次运行之间持续
+消费新增行，可以固定 `filter_by_formula` 并配合 `sort` 按 `createdTime` 升序排列，同时把
+上一次运行读到的最大 `CreatedAt` 写回公式：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    format = "json"
+    content_field = "$.records[*].fields"
+    filter_by_formula = "IS_AFTER({CreatedAt}, '2026-01-01T00:00:00.000Z')"
+    sort = "[{\"field\":\"CreatedAt\",\"direction\":\"asc\"}]"
+    page_size = 100
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        CreatedAt = string
+      }
+    }
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
