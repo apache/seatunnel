@@ -25,6 +25,11 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
+import com.hazelcast.internal.serialization.impl.defaultserializers.JavaDefaultSerializers.JavaSerializer;
+
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
@@ -37,7 +42,9 @@ import java.util.Base64;
  * <p>The fixtures were serialized from the unmodified pre-UID classes using JDK 8 and JDK 11; both
  * produced identical bytes. The UID and ReadsPreviousWireForm tests guard old-writer/new-reader
  * compatibility; do not regenerate their fixtures when adding fields. This Java serialization proxy
- * applies while these classes remain plain Serializable without a custom Hazelcast serializer.
+ * applies while these classes remain plain Serializable without a custom Hazelcast serializer. The
+ * Hazelcast round-trip test checks that fallback and current field values, not exact archived
+ * bytes.
  */
 class TaskStateSerializationTest {
 
@@ -114,6 +121,51 @@ class TaskStateSerializationTest {
         Assertions.assertFalse(failed.isSuccess());
         Assertions.assertEquals(
                 "java.lang.IllegalStateException: deploy failed", failed.getThrowableMsg());
+    }
+
+    @Test
+    void testCurrentTaskStatesRoundTripThroughHazelcastJavaSerialization() {
+        InternalSerializationService service =
+                (InternalSerializationService) new DefaultSerializationServiceBuilder().build();
+        try {
+            TaskExecutionState originalFailed =
+                    new TaskExecutionState(
+                            LOCATION,
+                            ExecutionState.FAILED,
+                            new IllegalStateException("source failed"));
+            TaskExecutionState failed = roundTrip(service, originalFailed);
+            Assertions.assertEquals(LOCATION, failed.getTaskGroupLocation());
+            Assertions.assertEquals(ExecutionState.FAILED, failed.getExecutionState());
+            Assertions.assertEquals(originalFailed.getThrowableMsg(), failed.getThrowableMsg());
+
+            TaskExecutionState finished =
+                    roundTrip(service, new TaskExecutionState(LOCATION, ExecutionState.FINISHED));
+            Assertions.assertEquals(LOCATION, finished.getTaskGroupLocation());
+            Assertions.assertEquals(ExecutionState.FINISHED, finished.getExecutionState());
+            Assertions.assertNull(finished.getThrowableMsg());
+
+            TaskDeployState success = roundTrip(service, TaskDeployState.success());
+            Assertions.assertTrue(success.isSuccess());
+            Assertions.assertNull(success.getThrowableMsg());
+
+            TaskDeployState originalDeployFailed =
+                    TaskDeployState.failed(new IllegalStateException("deploy failed"));
+            TaskDeployState deployFailed = roundTrip(service, originalDeployFailed);
+            Assertions.assertFalse(deployFailed.isSuccess());
+            Assertions.assertEquals(
+                    originalDeployFailed.getThrowableMsg(), deployFailed.getThrowableMsg());
+        } finally {
+            service.dispose();
+        }
+    }
+
+    private static <T> T roundTrip(InternalSerializationService service, T value) {
+        Data data = service.toData(value);
+        Assertions.assertEquals(
+                new JavaSerializer(false, false, null).getTypeId(),
+                data.getType(),
+                "Archived Java fixtures require the Hazelcast Java serialization fallback");
+        return service.toObject(data);
     }
 
     private static Object deserialize(String base64) throws Exception {
