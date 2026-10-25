@@ -58,6 +58,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | multi_table_sink_replica    | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job.                                                                                                                                                |
 | table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| multi_table_sink_replica    | int     | no       | 1                            | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                            |
 
 ### save_mode_create_template
 

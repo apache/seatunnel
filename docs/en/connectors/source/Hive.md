@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported file formats are text, parquet, and ORC, determined by the target Hive table's `STORED AS` setting. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
+Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported table storage formats are text, parquet and ORC; the format is detected from the Hive table's storage format (`STORED AS`) and tables stored in any other format are rejected. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
 
 :::tip
 
@@ -32,7 +32,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [schema projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-- [x] file format
+- [x] file format (detected from the Hive table's `STORED AS` clause)
   - [x] text
   - [x] parquet
   - [x] orc
@@ -56,7 +56,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | remote_user           | string | no       | -              | Hadoop remote user name used when connecting to HDFS / Hive storage without Kerberos. |
 | read_partitions       | list   | no       | -              | Restrict the read to a subset of partitions. All entries must have the same directory depth. |
 | read_columns          | list   | no       | -              | Column projection list. Only the listed columns are read from the source. |
-| compress_codec        | string | no       | none           | Compression codec for text files. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec        | string | no       | none           | Compression codec for text tables. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
 | common-options        |        | no       | -              | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 ### table_name [string]
