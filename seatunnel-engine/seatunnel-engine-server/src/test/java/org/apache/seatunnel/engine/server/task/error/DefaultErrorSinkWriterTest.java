@@ -76,7 +76,8 @@ public class DefaultErrorSinkWriterTest {
     }
 
     @Test
-    public void testValidateSupportedErrorSinkLifecycleAllowsOptionalWriterState() {
+    public void testValidateSupportedErrorSinkLifecycleAllowsOptionalWriterState()
+            throws Exception {
         SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
                 new TestSink(true, false, false) {
                     @Override
