@@ -349,15 +349,15 @@ public class SnapshotSplitAssignerTest {
                         CdcSnapshotAssignmentStatus.DISCOVERING,
                         report.getSnapshotAssignmentStatus());
             }
-            SnapshotSplit returned = new SnapshotSplit("returned", table, null, null, null);
-            executor.submit(() -> enumerator.addSplitsBack(Collections.singletonList(returned), 0))
-                    .get(5, TimeUnit.SECONDS);
             Assertions.assertEquals(
-                    1, enumerator.getCdcProgress().getPreparedRemainingSplitCount().getValue());
+                    0, enumerator.getCdcProgress().getPreparedRemainingSplitCount().getValue());
             release.countDown();
             assignment.get(5, TimeUnit.SECONDS);
             Assertions.assertEquals(
                     1, enumerator.getCdcProgress().getAssignedSplitCount().getValue());
+            // Add-back shares the run monitor; only progress polling must bypass blocked chunking.
+            SnapshotSplit returned = new SnapshotSplit("returned", table, null, null, null);
+            enumerator.addSplitsBack(Collections.singletonList(returned), 0);
             Assertions.assertEquals(
                     1, enumerator.getCdcProgress().getPreparedRemainingSplitCount().getValue());
             Assertions.assertEquals(0, direct.getAssignedSplitCount().getValue());
