@@ -27,10 +27,10 @@ public class OpenGaussDialect extends PostgresDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String updateClause =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .map(
                                 fieldName ->
                                         quoteIdentifier(fieldName)

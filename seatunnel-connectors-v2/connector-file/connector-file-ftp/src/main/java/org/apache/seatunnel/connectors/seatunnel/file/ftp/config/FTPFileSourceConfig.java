@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -39,7 +40,7 @@ public class FTPFileSourceConfig extends BaseFileSourceConfig {
         return FileSystemType.FTP.getFileSystemPluginName();
     }
 
-    public FTPFileSourceConfig(ReadonlyConfig readonlyConfig) {
-        super(readonlyConfig);
+    public FTPFileSourceConfig(ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
+        super(readonlyConfig, catalogTableFromConfig);
     }
 }

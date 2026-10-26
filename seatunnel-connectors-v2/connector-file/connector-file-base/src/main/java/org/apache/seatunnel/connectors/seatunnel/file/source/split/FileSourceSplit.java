@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.Objects;
 
 public class FileSourceSplit implements SourceSplit {
@@ -30,22 +32,49 @@ public class FileSourceSplit implements SourceSplit {
     @Getter private final String filePath;
     @Getter private long start = 0;
     @Getter private long length = -1;
+    @Getter private final String fileIdentity;
+    @Getter private final String endContentAnchor;
 
     public FileSourceSplit(String splitId) {
         this.filePath = splitId;
         this.tableId = null;
+        this.fileIdentity = null;
+        this.endContentAnchor = null;
     }
 
     public FileSourceSplit(String tableId, String filePath) {
         this.tableId = tableId;
         this.filePath = filePath;
+        this.fileIdentity = null;
+        this.endContentAnchor = null;
     }
 
     public FileSourceSplit(String tableId, String filePath, long start, long length) {
+        this(tableId, filePath, start, length, null, null);
+    }
+
+    public FileSourceSplit(
+            String tableId,
+            String filePath,
+            long start,
+            long length,
+            String fileIdentity,
+            String endContentAnchor) {
         this.tableId = tableId;
         this.filePath = filePath;
         this.start = start;
         this.length = length;
+        this.fileIdentity = fileIdentity;
+        this.endContentAnchor = endContentAnchor;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        // Compatibility: old checkpoints (before file-split fields) deserialize with
+        // start=0/length=0.
+        if (start == 0L && length == 0L) {
+            length = -1L;
+        }
     }
 
     @Override
@@ -55,7 +84,15 @@ public class FileSourceSplit implements SourceSplit {
         if (tableId == null) {
             return filePath;
         }
-        return tableId + "_" + filePath + "_" + start;
+        if (start == 0L && length < 0L) {
+            return tableId + "_" + filePath;
+        }
+        return tableId
+                + "_"
+                + filePath
+                + "_"
+                + start
+                + (fileIdentity == null ? "" : "_" + fileIdentity);
     }
 
     @Override
@@ -70,11 +107,13 @@ public class FileSourceSplit implements SourceSplit {
         return Objects.equals(tableId, that.tableId)
                 && Objects.equals(filePath, that.filePath)
                 && Objects.equals(start, that.start)
-                && Objects.equals(length, that.length);
+                && Objects.equals(length, that.length)
+                && Objects.equals(fileIdentity, that.fileIdentity)
+                && Objects.equals(endContentAnchor, that.endContentAnchor);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tableId, filePath, start, length);
+        return Objects.hash(tableId, filePath, start, length, fileIdentity, endContentAnchor);
     }
 }

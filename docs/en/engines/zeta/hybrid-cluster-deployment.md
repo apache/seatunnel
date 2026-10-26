@@ -93,6 +93,14 @@ The timeout for checkpoints. If the checkpoint cannot be completed within the ti
 
 The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
 
+**monitor-history-size**
+
+How many checkpoint history entries the monitor keeps per pipeline for the `/jobs/checkpoints/{jobId}` REST endpoint, between 1 and 4096, defaulting to 32. Values above 256 are accepted but log a warning at master startup, since the cost below is paid on every checkpoint event. Completed and failed checkpoints share the window.
+
+This is a count rather than a duration, so how much time it covers depends on each job's own `checkpoint.interval` while this option is cluster-wide: 32 entries cover about 2.5 hours at the default interval of 300000ms, but only about 5 minutes at an interval of 10000ms. Raise it if you run jobs with short intervals and want to compare a job against a longer stretch of its own past.
+
+The history is stored in the cluster-wide checkpoint overview map, and every checkpoint event rewrites that whole entry, so a larger window costs master CPU, network and backup traffic as well as heap. The value is read once at master startup, so changing it requires a restart.
+
 Example
 
 ```yaml
@@ -106,6 +114,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            monitor-history-size: 32
 
 ```
 
@@ -127,6 +136,22 @@ Example
 seatunnel:
   engine:
     history-job-expire-minutes: 1440
+```
+
+SeaTunnel also retains terminal job state in distributed maps for a short time before removing it. This retention is controlled by `state-cleanup-delay-ms`, whose default value is `60000` milliseconds. Keeping the terminal tombstone briefly allows late asynchronous callbacks to observe an end state instead of a missing map entry. Setting it to `0` restores more aggressive cleanup but also narrows the protection window for terminal-state races.
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
+The `/system-monitoring-information` REST API asks every cluster member for its health metrics. All members share one deadline controlled by `health-metrics-timeout-seconds`, whose default value is `3` seconds. A member that does not answer within this deadline is reported with its address and a `timeout` marker instead of blocking the whole response, so the total latency of the API no longer grows with the number of unreachable members.
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
 ```
 
 ### 4.5 Class Loader Cache Mode
@@ -172,14 +197,16 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 **max-thread-num**
 
-The max job count can be executed at same time
+The maximum number of threads in the coordinator service executor (the `maximumPoolSize` of its thread pool). The default is `Integer.MAX_VALUE`.
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 Job Metrics Partition Count (This parameter is invalid on the Worker node)
@@ -311,6 +338,11 @@ map:
            fs.defaultFS: file:///
 ```
 
+Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
+intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
+avoids excessive WAL growth for observability-only state. After an engine restart, running-job
+metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+
 If using OSS, you can configure it as follows:
 
 ```yaml
@@ -334,13 +366,15 @@ map:
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
+The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
+
 ```
 aliyun-sdk-oss-3.13.2.jar
 hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
+netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
 It is possible to utilize S3 for IMAP storage. 
@@ -373,11 +407,44 @@ map:
 
 Notice: When using S3, make sure that the following jars are in the lib directory.
 
+Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project:
+- `seatunnel-shade-hadoop3-uber` — shaded Hadoop client with relocated packages
+- `seatunnel-shade-hadoop-aws` — shaded Hadoop AWS connector with relocated packages
+
+The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file names in your SeaTunnel distribution package for the exact version.
+
 ```
-seatunnel-hadoop3-3.1.4-uber.jar
-seatunnel-hadoop-aws.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
+If you use GCS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # optional, Application Default Credentials (e.g. GKE Workload Identity) are used when absent
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+Notice: The IMap WAL writer rewrites its current object on every update (the same as for S3 and OSS), and GCS allows about one write per second to the same object name. GCS IMap persistence is therefore best suited to low or moderate IMap update rates.
+
+Notice: When using GCS, make sure that the following jars are in the lib directory.
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
 
 ## 6. Configure The SeaTunnel Engine Client
 

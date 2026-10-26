@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.table.coordinator.SchemaCoordinator;
-import org.apache.seatunnel.api.table.schema.event.FlushEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public interface SupportSchemaEvolutionSinkWriter {
 
@@ -34,46 +33,17 @@ public interface SupportSchemaEvolutionSinkWriter {
     void applySchemaChange(SchemaChangeEvent event) throws IOException;
 
     /**
-     * handle FlushEvent propagated from upstream
+     * Returns a stable identifier of the physical sink table this writer commits to. Multi-table
+     * sinks that resolve a sink-table template per upstream table can end up with several writers
+     * sharing one physical destination. When that happens, a schema change applied through one
+     * sub-writer mutates the external table immediately while sibling sub-writers keep writing with
+     * their stale in-memory schema unless the coordinator can fan the change out to all of them.
      *
-     * @param event
-     * @throws IOException
+     * <p>Writers that can share one physical destination should expose that resolved identifier
+     * here. The default implementation returns {@link Optional#empty()} so connectors that do not
+     * need shared-sink coordination keep the legacy source-only routing.
      */
-    default void handleFlushEvent(FlushEvent event) throws IOException {
-        flushData();
-        sendFlushSuccessful(event);
+    default Optional<String> getPhysicalSinkTableIdentifier() {
+        return Optional.empty();
     }
-
-    /**
-     * send success event to coordinator upon successful flash
-     *
-     * @param event
-     * @throws IOException
-     */
-    default void sendFlushSuccessful(FlushEvent event) throws IOException {
-        SchemaCoordinator coordinator = getSchemaCoordinator();
-        if (coordinator == null && event != null && event.getJobId() != null) {
-            coordinator = SchemaCoordinator.getOrCreateInstance(event.getJobId());
-        }
-
-        if (coordinator != null) {
-            coordinator.notifyFlushSuccessful(event.getJobId(), event.tableIdentifier());
-        }
-    }
-
-    /**
-     * Get the schema coordinator instance for reporting flush completion
-     *
-     * @return the schema coordinator instance, or null if not available
-     */
-    default SchemaCoordinator getSchemaCoordinator() {
-        return null;
-    }
-
-    /**
-     * flush data to other system
-     *
-     * @throws IOException
-     */
-    default void flushData() throws IOException {}
 }

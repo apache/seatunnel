@@ -52,6 +52,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
+    private static final int SPLIT_COUNT_WARN_THRESHOLD = 512;
+
     protected JdbcSourceConfig config;
     protected final JdbcConnectionProvider connectionProvider;
     protected final JdbcDialect jdbcDialect;
@@ -101,6 +103,15 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();
 
+        // When concurrent read is disabled, skip all split analysis and return a single
+        // full-table split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!config.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split.",
+                    table.getTablePath());
+            return Collections.singletonList(createSingleSplit(table));
+        }
+
         Collection<JdbcSourceSplit> splits;
         Optional<SeaTunnelRowType> splitKeyOptional = findSplitKey(table);
         if (!splitKeyOptional.isPresent()) {
@@ -115,10 +126,20 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
         long end = System.currentTimeMillis();
         log.info(
-                "Split table {} into {} chunks, time cost: {}ms.",
+                "Split table {} into {} chunks, time cost: {}ms. Where condition configured for split metadata queries: {}",
                 table.getTablePath(),
                 splits.size(),
-                end - start);
+                end - start,
+                StringUtils.isNotBlank(config.getWhereConditionClause()));
+        if (splits.size() > SPLIT_COUNT_WARN_THRESHOLD) {
+            log.warn(
+                    "Table {} was split into {} chunks, above the warning threshold {}. "
+                            + "A large number of mostly-empty chunks slows the job down; "
+                            + "check the where condition, split key and chunk size.",
+                    table.getTablePath(),
+                    splits.size(),
+                    SPLIT_COUNT_WARN_THRESHOLD);
+        }
         return splits;
     }
 
@@ -143,11 +164,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connection.getAutoCommit() != autoCommit) {
             connection.setAutoCommit(autoCommit);
         }
-        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
-            sql = String.format("SELECT * FROM (%s) tmp %s", sql, config.getWhereConditionClause());
-        }
-        log.debug("Prepared statement: {}", sql);
+        log.info("Prepared statement: {}", sql);
         return jdbcDialect.creatPreparedStatement(connection, sql, fetchSize);
+    }
+
+    protected String applyUserWhereCondition(String sql) {
+        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+            return SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                    sql, config.getWhereConditionClause(), true);
+        }
+        return sql;
     }
 
     protected Connection getOrEstablishConnection() throws SQLException {
@@ -173,6 +199,51 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 null);
     }
 
+    protected StringSplitStrategy resolveStringSplitStrategy(
+            JdbcSourceTable table, String splitKeyName) throws SQLException {
+        StringSplitStrategy requestedStrategy = config.getStringSplitStrategy();
+        if (requestedStrategy == null
+                || (requestedStrategy != StringSplitStrategy.RANGE
+                        && requestedStrategy != StringSplitStrategy.AUTO)) {
+            return requestedStrategy;
+        }
+
+        if (!jdbcDialect.supportStringRangeSplit()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String split strategy %s requires validated range split support, but dialect %s does not support range/auto string split strategy.",
+                            requestedStrategy, jdbcDialect.dialectName()));
+        }
+
+        StringRangeSplitDecision decision =
+                jdbcDialect.validateStringRangeSplit(
+                        getOrEstablishConnection(), applyWhereCondition(table), splitKeyName, 256);
+        if (decision.isSafe()) {
+            return StringSplitStrategy.RANGE;
+        }
+        if (requestedStrategy == StringSplitStrategy.RANGE) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String range split is unsafe for table %s, split column %s: %s",
+                            table.getTablePath(), splitKeyName, decision.getReason()));
+        }
+
+        StringSplitStrategy fallback =
+                jdbcDialect.supportHashSplitter()
+                        ? StringSplitStrategy.HASH
+                        : StringSplitStrategy.NONE;
+        log.warn(
+                "String range split is unsafe for table {}, split column {}. Requested strategy: {}, fallback strategy: {}, reason: {}",
+                table.getTablePath(),
+                splitKeyName,
+                requestedStrategy,
+                fallback,
+                decision.getReason());
+        return fallback;
+    }
+
     protected PreparedStatement createSingleSplitStatement(JdbcSourceSplit split)
             throws SQLException {
         String splitQuery = split.getSplitQuery();
@@ -181,11 +252,37 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     String.format(
                             "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
         }
+        splitQuery = applyUserWhereCondition(splitQuery);
         return createPreparedStatement(splitQuery);
+    }
+
+    /**
+     * Wraps the table query with the configured where condition so that split metadata queries
+     * (min/max, row count, chunk boundary, sampling) run on the same data scope as the split reads,
+     * which apply the where condition separately in {@link #createPreparedStatement}. Reuses {@link
+     * SqlWhereConditionHelper#applyWhereConditionWithWrap} so where-referenced columns missing from
+     * a narrow custom query projection are auto-added, exactly like the read path. Returns the
+     * table unchanged when no where condition is configured.
+     */
+    protected JdbcSourceTable applyWhereCondition(JdbcSourceTable table) {
+        if (StringUtils.isBlank(config.getWhereConditionClause())) {
+            return table;
+        }
+        String baseQuery =
+                StringUtils.isNotBlank(table.getQuery())
+                        ? table.getQuery()
+                        : String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(table.getTablePath()));
+        String effectiveQuery =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                        baseQuery, config.getWhereConditionClause(), true);
+        return table.withQuery(effectiveQuery);
     }
 
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
             throws SQLException {
+        table = applyWhereCondition(table);
         String minQuery;
         Map<String, Column> columns =
                 table.getCatalogTable().getTableSchema().getColumns().stream()
@@ -225,6 +322,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     protected Pair<Object, Object> queryMinMax(JdbcSourceTable table, String columnName)
             throws SQLException {
+        table = applyWhereCondition(table);
         String sqlQuery;
         Map<String, Column> columns =
                 table.getCatalogTable().getTableSchema().getColumns().stream()

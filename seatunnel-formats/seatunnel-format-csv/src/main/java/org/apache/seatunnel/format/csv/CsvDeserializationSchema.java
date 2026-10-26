@@ -46,6 +46,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
@@ -264,6 +266,8 @@ public class CsvDeserializationSchema implements Serializable {
                         return objectArrayList.toArray(new LocalTime[0]);
                     case TIMESTAMP:
                         return objectArrayList.toArray(new LocalDateTime[0]);
+                    case TIMESTAMP_TZ:
+                        return objectArrayList.toArray(new OffsetDateTime[0]);
                     default:
                         throw new SeaTunnelCsvFormatException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -315,6 +319,8 @@ public class CsvDeserializationSchema implements Serializable {
                 return parseTime(field);
             case TIMESTAMP:
                 return parseTimestamp(field, fieldName);
+            case TIMESTAMP_TZ:
+                return parseTimestampTz(field, fieldName);
             case ROW:
                 Map<Integer, String> splitsMap =
                         splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType, level + 1);
@@ -373,5 +379,22 @@ public class CsvDeserializationSchema implements Serializable {
         return LocalDateTime.of(
                 parsedTimestamp.query(TemporalQueries.localDate()),
                 parsedTimestamp.query(TemporalQueries.localTime()));
+    }
+
+    private OffsetDateTime parseTimestampTz(String field, String fieldName) {
+        try {
+            return OffsetDateTime.parse(field, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        } catch (DateTimeParseException ignored) {
+            // Fallback: data written by old SeaTunnel (wall-clock, no offset).
+            DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(field);
+            if (fallbackFmt == null) {
+                throw CommonError.formatDateTimeError(field, fieldName);
+            }
+            TemporalAccessor ta = fallbackFmt.parse(field);
+            return LocalDateTime.of(
+                            ta.query(TemporalQueries.localDate()),
+                            ta.query(TemporalQueries.localTime()))
+                    .atOffset(ZoneOffset.UTC);
+        }
     }
 }

@@ -19,13 +19,12 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 
-import com.hazelcast.cluster.impl.MemberImpl;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 public class ClusterMetricExports extends AbstractCollector {
@@ -54,40 +53,44 @@ public class ClusterMetricExports extends AbstractCollector {
                         "cluster_time",
                         "Cluster start time",
                         clusterLabelNames("hazelcastVersion"));
-        List<String> labelValues = labelValues(getClusterService().getClusterVersion().toString());
-
-        metricFamily.addMetric(labelValues, getClusterService().getClusterTime());
+        metricFamily.addMetric(
+                labelValues(getClusterService().getClusterVersion().toString()),
+                getClusterService().getClusterTime());
         mfs.add(metricFamily);
     }
 
     private void clusterInfo(final List<MetricFamilySamples> mfs) {
+        // Snapshot once to avoid TOCTOU race during master election.
+        Address masterAddr = getClusterService().getMasterAddress();
+        if (masterAddr == null) {
+            return;
+        }
+        // Keep the historical label format compatible with previous IP:port output.
+        String masterIpPort;
+        try {
+            masterIpPort =
+                    masterAddr.getInetAddress().getHostAddress() + ":" + masterAddr.getPort();
+        } catch (UnknownHostException e) {
+            getLogger(ClusterMetricExports.class)
+                    .warning("Skip cluster_info metric: unable to resolve master address", e);
+            return;
+        }
         GaugeMetricFamily metricFamily =
                 new GaugeMetricFamily(
                         "cluster_info",
                         "Cluster info",
                         clusterLabelNames("hazelcastVersion", "master"));
-        List<String> labelValues = null;
-        try {
-            labelValues =
-                    labelValues(
-                            getClusterService().getClusterVersion().toString(), masterAddress());
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-
+        List<String> labelValues =
+                labelValues(getClusterService().getClusterVersion().toString(), masterIpPort);
         metricFamily.addMetric(labelValues, 1.0);
         mfs.add(metricFamily);
     }
 
     private void nodeCount(final List<MetricFamilySamples> mfs) {
-        Collection<MemberImpl> memberImpls = getClusterService().getMemberImpls();
-
         GaugeMetricFamily metricFamily =
                 new GaugeMetricFamily(
                         "node_count", "Cluster node total count ", clusterLabelNames());
-        List<String> labelValues = labelValues();
-
-        metricFamily.addMetric(labelValues, memberImpls.size());
+        metricFamily.addMetric(labelValues(), getClusterService().getMemberImpls().size());
         mfs.add(metricFamily);
     }
 }

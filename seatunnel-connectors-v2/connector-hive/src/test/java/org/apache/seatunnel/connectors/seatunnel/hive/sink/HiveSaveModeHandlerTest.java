@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -92,8 +92,8 @@ public class HiveSaveModeHandlerTest {
                         "Test user table");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         readonlyConfig = ReadonlyConfig.fromMap(configMap);
@@ -161,8 +161,8 @@ public class HiveSaveModeHandlerTest {
     @Test
     void testTemplateWithPartitionFields() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(
                 HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
                 "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) "
@@ -186,8 +186,8 @@ public class HiveSaveModeHandlerTest {
     @Test
     void testCustomTemplate() throws Exception {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(
                 HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
                 "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) "
@@ -220,8 +220,8 @@ public class HiveSaveModeHandlerTest {
     @Test
     void testTemplateWithPartitionedTable() throws Exception {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(
                 HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
                 "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) "
@@ -246,8 +246,8 @@ public class HiveSaveModeHandlerTest {
     @Test
     void testCustomTemplate_buildsExpectedTable() throws Exception {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         String template =
                 "CREATE EXTERNAL TABLE IF NOT EXISTS `${database}`.`${table}` ("
                         + "  ${rowtype_fields}"

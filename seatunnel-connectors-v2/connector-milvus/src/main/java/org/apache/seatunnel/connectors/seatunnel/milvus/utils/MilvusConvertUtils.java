@@ -252,7 +252,7 @@ public class MilvusConvertUtils {
             }
             list.add(partition);
         }
-        if (CollectionUtils.isEmpty(partitionNamesList)) {
+        if (CollectionUtils.isEmpty(list)) {
             return;
         }
 

@@ -45,6 +45,8 @@ import io.debezium.connector.oracle.OracleTopicSelector;
 import io.debezium.connector.oracle.SourceInfo;
 import io.debezium.connector.oracle.logminer.LogMinerOracleOffsetContextLoader;
 import io.debezium.data.Envelope;
+import io.debezium.heartbeat.DefaultHeartbeatConnectionProvider;
+import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
@@ -54,7 +56,6 @@ import io.debezium.pipeline.spi.Offsets;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
-import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
@@ -62,7 +63,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
@@ -79,7 +79,6 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private SnapshotChangeEventSourceMetrics<OraclePartition> snapshotChangeEventSourceMetrics;
     private OracleStreamingChangeEventSourceMetrics streamingChangeEventSourceMetrics;
 
-    private Collection<TableChanges.TableChange> engineHistory;
     private TopicSelector<TableId> topicSelector;
     private JdbcSourceEventDispatcher<OraclePartition> dispatcher;
     private OraclePartition oraclePartition;
@@ -143,6 +142,12 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         connectorConfig.getTableFilters().dataCollectionFilter(),
                         DataChangeEvent::new,
                         metadataProvider,
+                        new HeartbeatFactory<>(
+                                connectorConfig,
+                                topicSelector,
+                                schemaNameAdjuster,
+                                new DefaultHeartbeatConnectionProvider(connection),
+                                null),
                         schemaNameAdjuster);
 
         final OracleChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =

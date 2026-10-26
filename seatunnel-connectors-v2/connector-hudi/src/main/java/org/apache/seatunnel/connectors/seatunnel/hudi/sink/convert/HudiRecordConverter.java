@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
@@ -39,7 +38,6 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
 public class HudiRecordConverter implements Serializable {
@@ -59,17 +57,11 @@ public class HudiRecordConverter implements Serializable {
             HudiTableConfig hudiTableConfig) {
         GenericRecord rec = new GenericData.Record(schema);
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            String fieldName = seaTunnelRowType.getFieldNames()[i];
             rec.put(
-                    seaTunnelRowType.getFieldNames()[i],
+                    fieldName,
                     createConverter(seaTunnelRowType.getFieldType(i))
-                            .convert(
-                                    convertToSchema(
-                                            seaTunnelRowType.getFieldType(i),
-                                            AvroSchemaUtils.getAvroRecordQualifiedName(
-                                                            hudiTableConfig.getTableName())
-                                                    + "."
-                                                    + seaTunnelRowType.getFieldNames()[i]),
-                                    element.getField(i)));
+                            .convert(schema.getField(fieldName).schema(), element.getField(i)));
         }
         return new HoodieAvroRecord<>(
                 getHoodieKey(element, seaTunnelRowType, hudiTableConfig),

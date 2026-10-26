@@ -41,7 +41,7 @@ If you are adding E2E test cases, maybe refer to https://github.com/apache/seatu
 ### Check list
 
 * [ ] If any new Jar binary package adding in your PR, please add License Notice according
-  [New License Guide](https://github.com/apache/seatunnel/blob/dev/docs/en/contribution/new-license.md)
+  [New License Guide](https://github.com/apache/seatunnel/blob/dev/docs/en/developer/new-license.md)
 * [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/seatunnel/tree/dev/docs
 * [ ] If necessary, please update `incompatible-changes.md` to describe the incompatibility caused by this PR.
 * [ ] If you are contributing the connector code, please check that the following files are updated:

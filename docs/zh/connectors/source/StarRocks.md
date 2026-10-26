@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 `StarRocks`源连接器的内部实现是从`FE`获取查询计划，
 将查询计划作为参数传递给`BE`节点，然后从`BE`节点获取数据结果。
 
-## 主要功能
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
@@ -21,24 +21,24 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ## 配置选项
 
-| 名称                      | 类型        | 是否必须 | 默认值               |
-|-------------------------|-----------|------|-------------------|
-| nodeUrls                | list      | 是    | -                 |
-| username                | string    | 是    | -                 |
-| password                | string    | 是    | -                 |
-| database                | string    | 是    | -                 |
-| table                   | string    | 否    | -                 |
-| scan_filter             | string    | 否    | -                 |
-| schema                  | config    | 是    | -                 |
-| table_list              | array     | 否    | -                 |
-| request_tablet_size     | int       | 否    | Integer.MAX_VALUE |
-| scan_connect_timeout_ms | int       | 否    | 30000             |
-| scan_query_timeout_sec  | int       | 否    | 3600              |
-| scan_keep_alive_min     | int       | 否    | 10                |
-| scan_batch_rows         | int       | 否    | 1024              |
-| scan_mem_limit          | long      | 否    | 2147483648        |
-| max_retries             | int       | 否    | 3                 |
-| scan.params.*           | string    | 否    | -                 |
+| 名称                      | 类型     | 是否必须 | 默认值               | 说明                                                            |
+|-------------------------|--------|------|-------------------|---------------------------------------------------------------|
+| nodeUrls                | list   | 是    | -                 | StarRocks FE HTTP 地址，格式为 `["fe_ip:fe_http_port", ...]`。 |
+| username                | string | 是    | -                 | StarRocks 用户名。                                               |
+| password                | string | 是    | -                 | StarRocks 密码。                                                 |
+| database                | string | 是    | -                 | StarRocks 数据库名。                                             |
+| table                   | string | 否    | -                 | StarRocks 表名。未配置 `table_list` 时必须配置。                    |
+| table_list              | array  | 否    | -                 | 要读取的表列表。未配置 `table` 时必须配置，每个表项可单独配置 `schema` 和过滤条件。 |
+| schema                  | config | 否    | -                 | 输出数据结构。读取单表时配置在顶层，读取多表时配置在每个 `table_list` 表项中。     |
+| scan_filter             | string | 否    | ""                | 下推到 StarRocks 源端执行的过滤表达式。                              |
+| request_tablet_size     | int    | 否    | Integer.MAX_VALUE | 一个 SeaTunnel 分片最多包含的 tablet 数量，值越小通常分片越多。              |
+| scan_connect_timeout_ms | int    | 否    | 1000              | 连接 StarRocks BE 进行扫描时的超时时间，单位毫秒。                       |
+| scan_query_timeout_sec  | int    | 否    | 3600              | 查询超时时间，单位秒，`-1` 表示不限制。                                  |
+| scan_keep_alive_min     | int    | 否    | 10                | 查询任务保持连接时长，单位分钟。                                         |
+| scan_batch_rows         | int    | 否    | 1024              | 每次从 BE 节点读取的最大行数。                                         |
+| scan_mem_limit          | long   | 否    | 1073741824        | 单个 BE 查询允许使用的最大内存，单位字节。                                 |
+| max_retries             | int    | 否    | 3                 | 发送到 StarRocks 的重试请求次数。                                      |
+| scan.params.*           | string | 否    | -                 | 额外 BE 扫描参数，发送到 StarRocks 前会去掉 `scan.params.` 前缀。           |
 
 ### nodeUrls [list]
 
@@ -58,7 +58,9 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ### table [string]
 
-`StarRocks` 表名。
+`StarRocks` 表名。`table` 和 `table_list` 二选一配置。
+
+使用 `table` 时，`schema` 配置在同一层；使用 `table_list` 时，`schema` 配置在每个表项内部。
 
 ### scan_filter [string]
 
@@ -74,7 +76,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 #### fields [Config]
 
-要生成的`starRocks`的`schema`。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+SeaTunnel 输出的 StarRocks 数据结构。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 示例
 
@@ -89,7 +91,8 @@ schema {
 
 ### table_list [array]
 
-`StarRocks` 表名列表，当需要同时读取多表时使用此配置代替 table
+`StarRocks` 表名列表。当一个作业需要同时读取多张 StarRocks 表时，使用此配置代替 `table`。
+每个表项支持配置 `table`、`schema` 和 `scan_filter`。
 
 ### request_tablet_size [int]
 
@@ -122,7 +125,7 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 ### scan_connect_timeout_ms [int]
 
-发送到 `StarRocks` 的请求连接超时。
+连接 StarRocks BE 进行扫描时的超时时间，单位毫秒。默认值以参数表为准。
 
 ### scan_query_timeout_sec [int]
 
@@ -136,7 +139,7 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 一次从 `BE` 节点读取的最大数据行数。增加此值可以减少引擎与 `StarRocks` 之间建立的连接数量，从而减轻由网络延迟引起的开销。
 ### scan_mem_limit [long]
 
-单个查询在 BE 节点上允许的最大内存空间，单位为字节，默认值为 2147483648 字节（即 2 GB）。
+单个查询在 BE 节点上允许的最大内存空间，单位为字节。默认值以参数表为准。
 
 ### max_retries [int]
 

@@ -59,8 +59,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 
     @Override
     public boolean isConnectionValid() throws SQLException {
-        return connection != null
-                && connection.isValid(jdbcConfig.getConnectionCheckTimeoutSeconds());
+        return JdbcConnectionValidationUtils.isConnectionValid(connection, jdbcConfig);
     }
 
     private static Driver loadDriver(String driverName) throws ClassNotFoundException {
@@ -115,7 +114,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
             // caller expectation.
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
-                    "No suitable driver found for " + jdbcConfig.getUrl());
+                    "No suitable driver found for the configured JDBC URL");
         }
 
         connection.setAutoCommit(jdbcConfig.isAutoCommit());

@@ -13,6 +13,10 @@ Seatunnel supports to interpret Debezium JSON messages as INSERT/UPDATE/DELETE m
 
 Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel asDebezium JSON messages, and emit to storage like Kafka.
 
+## Limitations
+
+UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
+
 # Format Options
 
 |              Option               | Default | Required |                                             Description                                              |
@@ -111,4 +115,12 @@ sink {
   }
 }
 ```
+
+# See Also
+
+SeaTunnel supports several other CDC changelog formats with the same INSERT/UPDATE/DELETE interpretation:
+
+- [Canal JSON](canal-json.md)
+- [Maxwell JSON](maxwell-json.md)
+- [OGG JSON](ogg-json.md)
 

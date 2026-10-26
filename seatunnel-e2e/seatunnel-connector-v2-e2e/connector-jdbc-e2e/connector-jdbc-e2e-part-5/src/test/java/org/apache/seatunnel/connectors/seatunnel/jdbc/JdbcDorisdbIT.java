@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -26,6 +24,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -35,6 +34,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
@@ -53,6 +53,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,18 +70,16 @@ import static org.awaitility.Awaitility.given;
 public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "seatunnelhub/doris:v1.1.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    private static final String DRIVER_JAR = "mysql-legacy.jar";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
-    private static final int PORT = 8960;
 
-    private static final String URL = "jdbc:mysql://%s:" + PORT;
+    private static final String URL = "jdbc:mysql://%s:%s";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -168,15 +167,9 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.staged(DRIVER_JAR)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -185,16 +178,17 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(DOCKER_PORT)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(new Slf4jLogConsumer(log));
-        dorisServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
-        // wait to add BE
-        Thread.sleep(600000);
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(600, TimeUnit.SECONDS)
+                .pollInterval(10, TimeUnit.SECONDS)
+                .atMost(1200, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
@@ -290,13 +284,18 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
                     InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(DRIVER_JAR)}, JdbcDorisdbIT.class.getClassLoader());
+                        new URL[] {DependencyJar.staged(DRIVER_JAR).path().toUri().toURL()},
+                        JdbcDorisdbIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, dorisServer.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL, dorisServer.getHost(), dorisServer.getMappedPort(DOCKER_PORT)),
+                        props);
     }
 
     private void initializeJdbcTable() {

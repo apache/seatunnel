@@ -1,8 +1,9 @@
 ---
 sidebar_position: 10
+title: TCP 网络
 ---
 
-# TCP NetWork
+# TCP 网络
 
 如果您的环境中多播不是首选的发现方式，那么您可以将 SeaTunnel 引擎配置为一个完整的 TCP/IP 集群。当您通过 TCP/IP 配置 SeaTunnel 引擎以发现成员时，您必须将所有或一部分成员的主机名和/或 IP 地址列为集群成员。您不必列出所有这些集群成员，但在新成员加入时，至少有一个列出的成员必须是活跃的。
 
@@ -33,4 +34,4 @@ hazelcast:
 
 `<members>192.168.1.0-7,192.168.1.21</members>`
 
-如果您没有为成员提供端口，Hazelcast 会自动尝试端口 `5701`, `5702` 等。
+如果您没有为成员提供端口，Hazelcast 会尝试 `network.port` 中配置的端口（SeaTunnel 默认 `hazelcast.yaml` 为 `5801`，worker 模板为 `5802`）。是否继续尝试后续端口由 `network.port.auto-increment` 控制，SeaTunnel 发行包中该项为 `false`。

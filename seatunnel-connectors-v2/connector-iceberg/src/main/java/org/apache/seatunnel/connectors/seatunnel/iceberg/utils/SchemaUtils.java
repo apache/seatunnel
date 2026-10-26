@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -34,6 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalog;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaAddColumn;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChangeColumn;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChangeWrapper;
@@ -43,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaModif
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -74,6 +78,10 @@ import static java.util.stream.Collectors.toList;
 public class SchemaUtils {
     private static final Pattern TRANSFORM_REGEX = Pattern.compile("(\\w+)\\((.+)\\)");
 
+    private static final int MIN_FORMAT_VERSION = 1;
+    /** Highest table format version whose spec is finalized in the bundled Iceberg release. */
+    private static final int MAX_FORMAT_VERSION = 3;
+
     private SchemaUtils() {}
 
     public static Type.PrimitiveType needsDataTypeUpdate(Type currentIcebergType, Type afterType) {
@@ -102,8 +110,19 @@ public class SchemaUtils {
             Catalog catalog, TablePath tablePath, CatalogTable table, ReadonlyConfig readonlyConfig)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         TableSchema tableSchema = table.getTableSchema();
-        // Convert to iceberg schema
-        Schema schema = toIcebergSchema(tableSchema, readonlyConfig);
+        // Resolve primary keys: explicit config takes precedence; fall back to the CatalogTable's
+        // own PK for this catalog-creation path. This fallback is intentionally absent from the
+        // CDC sink path (toIcebergSchema(tableSchema, readonlyConfig)) where inheriting the source
+        // table PK would silently activate equality-delete semantics (apache/seatunnel#10747).
+        List<String> pkColumns =
+                readonlyConfig
+                        .getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
+                        .map(e -> IcebergSinkConfig.stringToList(e, ","))
+                        .orElseGet(
+                                () ->
+                                        Optional.ofNullable(tableSchema.getPrimaryKey())
+                                                .map(PrimaryKey::getColumnNames)
+                                                .orElse(Collections.emptyList()));
         // Convert sink config
         IcebergSinkConfig config = new IcebergSinkConfig(readonlyConfig);
         // build auto create table
@@ -112,7 +131,11 @@ public class SchemaUtils {
                 .map(e -> options.put(IcebergCatalog.PROPS_TABLE_COMMENT, e));
         // override
         options.putAll(config.getAutoCreateProps());
-        return createTable(catalog, toIcebergTableIdentifier(tablePath), config, schema, options);
+        TableIdentifier tableIdentifier = toIcebergTableIdentifier(tablePath);
+        int formatVersion = requestedFormatVersion(tableIdentifier, options);
+        Schema schema = toIcebergSchema(tableSchema, pkColumns, formatVersion);
+        checkIdentifierFieldsSupported(tableIdentifier, schema, formatVersion);
+        return createTable(catalog, tableIdentifier, config, schema, options);
     }
 
     public static Table autoCreateTable(
@@ -120,9 +143,67 @@ public class SchemaUtils {
             TableIdentifier tableIdentifier,
             IcebergSinkConfig config,
             TableSchema tableSchema) {
+        int formatVersion = requestedFormatVersion(tableIdentifier, config.getAutoCreateProps());
         // Generate struct type
-        Schema schema = toIcebergSchema(tableSchema, config.getReadonlyConfig());
+        Schema schema = toIcebergSchema(tableSchema, config.getReadonlyConfig(), formatVersion);
+        checkIdentifierFieldsSupported(tableIdentifier, schema, formatVersion);
         return createTable(catalog, tableIdentifier, config, schema, config.getAutoCreateProps());
+    }
+
+    /**
+     * Identifier fields make the sink use its delta writer, which cannot write format version 3
+     * tables yet (see IcebergWriterFactory). Fail before the table is created rather than on the
+     * first row, also when the keys come from the primary key of the source table.
+     */
+    private static void checkIdentifierFieldsSupported(
+            TableIdentifier tableIdentifier, Schema schema, int formatVersion) {
+        if (formatVersion >= 3 && !schema.identifierFieldIds().isEmpty()) {
+            throw new IcebergConnectorException(
+                    IcebergConnectorErrorCode.UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION,
+                    String.format(
+                            "Upsert and CDC writes are not supported for Iceberg tables with format"
+                                    + " version %d yet, table: %s. The table would get identifier"
+                                    + " fields %s from %s or from the primary key of the source"
+                                    + " table. Create the table with format version 2.",
+                            formatVersion,
+                            tableIdentifier,
+                            schema.identifierFieldNames(),
+                            IcebergSinkOptions.TABLE_PRIMARY_KEYS.key()));
+        }
+    }
+
+    /**
+     * Returns the format version a table created with the given properties gets, failing fast for
+     * values this connector does not support. Iceberg itself also accepts format version 4, whose
+     * spec is still in development.
+     */
+    @VisibleForTesting
+    static int requestedFormatVersion(
+            TableIdentifier tableIdentifier, Map<String, String> tableProperties) {
+        String value = tableProperties.get(TableProperties.FORMAT_VERSION);
+        if (value == null) {
+            return IcebergTypeMapper.DEFAULT_FORMAT_VERSION;
+        }
+        int formatVersion;
+        try {
+            // no trim: Iceberg parses the property as is
+            formatVersion = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            formatVersion = -1;
+        }
+        if (formatVersion < MIN_FORMAT_VERSION || formatVersion > MAX_FORMAT_VERSION) {
+            throw new IcebergConnectorException(
+                    IcebergConnectorErrorCode.UNSUPPORTED_TABLE_FORMAT_VERSION,
+                    String.format(
+                            "Unsupported Iceberg table format-version '%s' for table %s, set in %s:"
+                                    + " supported versions are %d to %d",
+                            value,
+                            tableIdentifier,
+                            IcebergSinkOptions.AUTO_CREATE_PROPS.key(),
+                            MIN_FORMAT_VERSION,
+                            MAX_FORMAT_VERSION));
+        }
+        return formatVersion;
     }
 
     private static Table createTable(
@@ -161,19 +242,49 @@ public class SchemaUtils {
         return result.get();
     }
 
+    /**
+     * Converts a {@link TableSchema} to an Iceberg {@link Schema} for the CDC sink path.
+     *
+     * <p>Identifier fields are set ONLY when {@code iceberg.table.primary-keys} is explicitly
+     * configured. The source table's primary key is intentionally NOT inherited: silently using the
+     * MySQL PK activates {@code BaseEqualityDeltaWriter}, which emits positional deletes for
+     * repeated keys within the same checkpoint window, causing silent data loss in append-only CDC
+     * pipelines (apache/seatunnel#10747).
+     *
+     * <p>For explicit catalog table creation where the CatalogTable's own PK should be respected,
+     * use {@link #autoCreateTable(Catalog, TablePath, CatalogTable, ReadonlyConfig)} which applies
+     * the CatalogTable PK as a fallback.
+     */
     @VisibleForTesting
     @NotNull protected static Schema toIcebergSchema(
             TableSchema tableSchema, ReadonlyConfig readonlyConfig) {
-        Types.StructType structType = SchemaUtils.toIcebergType(tableSchema);
-        Set<Integer> identifierFieldIds =
-                readonlyConfig.getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
+        return toIcebergSchema(
+                tableSchema, readonlyConfig, IcebergTypeMapper.DEFAULT_FORMAT_VERSION);
+    }
+
+    @VisibleForTesting
+    static Schema toIcebergSchema(
+            TableSchema tableSchema, ReadonlyConfig readonlyConfig, int formatVersion) {
+        List<String> pkColumns =
+                readonlyConfig
+                        .getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
                         .map(e -> IcebergSinkConfig.stringToList(e, ","))
-                        .orElseGet(
-                                () ->
-                                        Optional.ofNullable(tableSchema.getPrimaryKey())
-                                                .map(e -> e.getColumnNames())
-                                                .orElse(Collections.emptyList()))
-                        .stream()
+                        .orElse(Collections.emptyList());
+        return toIcebergSchema(tableSchema, pkColumns, formatVersion);
+    }
+
+    @VisibleForTesting
+    static Schema toIcebergSchema(TableSchema tableSchema, List<String> primaryKeyColumns) {
+        return toIcebergSchema(
+                tableSchema, primaryKeyColumns, IcebergTypeMapper.DEFAULT_FORMAT_VERSION);
+    }
+
+    @VisibleForTesting
+    static Schema toIcebergSchema(
+            TableSchema tableSchema, List<String> primaryKeyColumns, int formatVersion) {
+        Types.StructType structType = SchemaUtils.toIcebergType(tableSchema, formatVersion);
+        Set<Integer> identifierFieldIds =
+                primaryKeyColumns.stream()
                         .map(f -> structType.field(f).fieldId())
                         .collect(Collectors.toSet());
         List<Types.NestedField> fields = new ArrayList<>();
@@ -256,7 +367,15 @@ public class SchemaUtils {
     }
 
     private static boolean typeMatches(Schema schema, SchemaModifyColumn update) {
-        return schema.findType(update.name()).typeId() == update.type().typeId();
+        Type currentType = schema.findType(update.name());
+        if (currentType.typeId() == Type.TypeID.TIMESTAMP_NANO
+                && update.type().typeId() == Type.TypeID.TIMESTAMP) {
+            // SeaTunnel types carry no precision: keep a nanosecond column instead of trying to
+            // narrow it to microseconds, which Iceberg rejects
+            return ((Types.TimestampNanoType) currentType).shouldAdjustToUTC()
+                    == ((Types.TimestampType) update.type()).shouldAdjustToUTC();
+        }
+        return currentType.typeId() == update.type().typeId();
     }
 
     private static boolean findColumns(Schema schema, SchemaDeleteColumn deleteColumn) {
@@ -277,6 +396,10 @@ public class SchemaUtils {
     }
 
     public static Types.StructType toIcebergType(TableSchema tableSchema) {
+        return toIcebergType(tableSchema, IcebergTypeMapper.DEFAULT_FORMAT_VERSION);
+    }
+
+    public static Types.StructType toIcebergType(TableSchema tableSchema, int formatVersion) {
         List<Types.NestedField> structFields = new ArrayList<>();
         AtomicInteger idIncrementer = new AtomicInteger(1);
         for (Column column : tableSchema.getColumns()) {
@@ -285,7 +408,7 @@ public class SchemaUtils {
                             idIncrementer.getAndIncrement(),
                             column.isNullable(),
                             column.getName(),
-                            IcebergTypeMapper.toIcebergType(column, idIncrementer),
+                            IcebergTypeMapper.toIcebergType(column, idIncrementer, formatVersion),
                             column.getComment());
             structFields.add(icebergField);
         }

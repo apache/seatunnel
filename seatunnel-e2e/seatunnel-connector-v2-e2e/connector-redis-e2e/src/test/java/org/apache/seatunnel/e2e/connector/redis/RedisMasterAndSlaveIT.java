@@ -25,6 +25,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -40,6 +41,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
+@ResourceLock("redis-master-slave-e2e")
 public class RedisMasterAndSlaveIT extends TestSuiteBase implements TestResource {
     private static RedisContainerInfo masterContainerInfo;
     private static RedisContainerInfo slaveContainerInfo;

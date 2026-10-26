@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.obs.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.apache.hadoop.fs.obs.Constants;
@@ -43,13 +42,12 @@ public class ObsConf extends HadoopConf {
         super(hdfsNameKey);
     }
 
-    public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new ObsConf(config.getString(ObsFileBaseOptions.BUCKET.key()));
+    public static HadoopConf buildWithReadonlyConfig(ReadonlyConfig readonlyConfig) {
+        HadoopConf hadoopConf = new ObsConf(readonlyConfig.get(ObsFileBaseOptions.BUCKET));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(Constants.ACCESS_KEY, config.getString(ObsFileBaseOptions.ACCESS_KEY.key()));
-        ossOptions.put(
-                Constants.SECRET_KEY, config.getString(ObsFileBaseOptions.ACCESS_SECRET.key()));
-        ossOptions.put(Constants.ENDPOINT, config.getString(ObsFileBaseOptions.ENDPOINT.key()));
+        ossOptions.put(Constants.ACCESS_KEY, readonlyConfig.get(ObsFileBaseOptions.ACCESS_KEY));
+        ossOptions.put(Constants.SECRET_KEY, readonlyConfig.get(ObsFileBaseOptions.ACCESS_SECRET));
+        ossOptions.put(Constants.ENDPOINT, readonlyConfig.get(ObsFileBaseOptions.ENDPOINT));
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;
     }

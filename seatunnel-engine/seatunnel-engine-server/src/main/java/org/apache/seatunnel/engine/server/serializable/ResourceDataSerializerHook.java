@@ -18,8 +18,11 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetPendingJobsOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetWorkerResourcesOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -55,6 +58,12 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
     public static final int REQUEST_SLOT_INFO_TYPE = 9;
 
     public static final int GET_PENDING_JOBS_TYPE = 10;
+
+    public static final int PIPELINE_CLEANUP_RECORD_TYPE = 11;
+
+    public static final int JOB_CLEANUP_RECORD_TYPE = 12;
+
+    public static final int GET_WORKER_RESOURCES_TYPE = 13;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -96,6 +105,12 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
                     return new GetOverviewOperation();
                 case GET_PENDING_JOBS_TYPE:
                     return new GetPendingJobsOperation();
+                case PIPELINE_CLEANUP_RECORD_TYPE:
+                    return new PipelineCleanupRecord();
+                case JOB_CLEANUP_RECORD_TYPE:
+                    return new JobCleanupRecord();
+                case GET_WORKER_RESOURCES_TYPE:
+                    return new GetWorkerResourcesOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

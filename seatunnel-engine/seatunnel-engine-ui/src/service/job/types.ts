@@ -25,6 +25,10 @@ export interface Edge {
   inputVertexId: string
   targetVertexId: string
 }
+export type MetricMapKey = {
+  [K in keyof Metrics]: Metrics[K] extends Record<string, string> ? K : never
+}[keyof Metrics]
+
 export interface Metrics {
   SinkWriteCount: string
   SinkWriteBytesPerSeconds: string
@@ -34,6 +38,18 @@ export interface Metrics {
   SourceReceivedCount: string
   SourceReceivedQPS: string
   SinkWriteBytes: string
+  FlushSignalTotal: string
+  FlushSignalQueueSuccessTotal: string
+  FlushSignalQueueFailureTotal: string
+  FlushSignalSinkSuccessTotal: string
+  FlushSignalSinkFailureTotal: string
+  FlushSignalQPSPerVertex: Record<Path, string>
+  FlushSignalSinkQPSPerVertex: Record<Path, string>
+  FlushSignalTotalPerVertex: Record<Path, string>
+  FlushSignalQueueSuccessTotalPerVertex: Record<Path, string>
+  FlushSignalQueueFailureTotalPerVertex: Record<Path, string>
+  FlushSignalSinkSuccessTotalPerVertex: Record<Path, string>
+  FlushSignalSinkFailureTotalPerVertex: Record<Path, string>
   TableSourceReceivedBytes: Record<Path, string>
   TableSourceReceivedCount: Record<Path, string>
   TableSourceReceivedQPS: Record<Path, string>
@@ -77,4 +93,9 @@ export interface Job {
   }
   metrics: Metrics
   pluginJarsUrls: []
+}
+
+export interface JobPage {
+  total: number
+  data: Job[]
 }

@@ -18,11 +18,13 @@
 package org.apache.seatunnel.transform.fieldmapper;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -36,10 +38,26 @@ public class FieldMapperTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the field mapping to apply.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                FieldMapperTransformConfig.FIELD_MAPPER,
+                                Conditions.mapNotEmpty(FieldMapperTransformConfig.FIELD_MAPPER))
+                        .build();
         return OptionRule.builder()
                 .optional(FieldMapperTransformConfig.FIELD_MAPPER)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

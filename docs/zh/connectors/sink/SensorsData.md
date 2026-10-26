@@ -4,49 +4,61 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 
 > SensorsData Sink 连接器
 
-## 支持这些引擎
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 关键特性
+## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-一个 Sink 插件，使用 SensorsData SDK 发送数据记录。
+SensorsData Sink 使用 SensorsData SDK 把 SeaTunnel 行数据发送为 SensorsData 记录。它支持用户事件、
+用户明细记录和物品记录。调试时可以设置 `consumer = "console"`，把转换后的记录打印到控制台，而不是发送到
+SensorsData 服务端。
 
 ## Sink 选项
 
-| 参数名                      | 类型    | 必须 | 默认值 |
-|---------------------------|---------|------|--------|
-| server_url                | string  | 是   | -      |
-| bulk_size                 | int     | 否   | 50     |
-| max_cache_row_size        | int     | 否   | 0      |
-| consumer                  | string  | 否   | batch  |
-| entity_name               | string  | 是   | users  |
-| record_type               | string  | 是   | users  |
-| schema                    | string  | 是   | users  |
-| distinct_id_column        | string  | 是   | -      |
-| identity_fields           | array   | 是   | -      |
-| property_fields           | array   | 是   | -      |
-| event_name                | string  | 是   | -      |
-| time_column               | string  | 是   | -      |
-| time_free                 | boolean | 否   | false  |
-| detail_id_column          | string  | 否   | -      |
-| item_id_column            | string  | 否   | -      |
-| item_type_column          | string  | 否   | -      |
-| skip_error_record         | boolean | 否   | false  |
-| instant_events            | array   | 否   | -      |
-| distinct_id_by_identities | boolean | 否   | false  |
-| null_as_profile_unset     | boolean | 否   | false  |
-| common-options            |         | 否   | -      |
+| 参数名                      | 类型    | 是否必填 | 默认值 | 说明 |
+|---------------------------|---------|----------|--------|------|
+| server_url                | string  | 是       | -      | SensorsData 数据接收地址，例如 `https://host:8106/sa?project=default`。 |
+| bulk_size                 | int     | 否       | 50     | SensorsData SDK 缓存达到多少条后触发发送。 |
+| max_cache_row_size        | int     | 否       | 0      | 最大缓存条数，超过后立即发送；`0` 表示跟随 `bulk_size`。 |
+| consumer                  | string  | 否       | batch  | 消费方式。`batch` 表示发送到 SensorsData，`console` 表示打印到控制台。 |
+| entity_name               | string  | 是       | users  | 实体名称，支持 `users` 和 `items`。 |
+| record_type               | string  | 是       | users  | 记录类型，常用值为 `events`、`details`、`items`。 |
+| schema                    | string  | 条件必填 | users  | Schema 名称。用户记录（`entity_name = "users"`）需要配置。 |
+| distinct_id_column        | string  | 条件必填 | -      | 作为 SensorsData distinct ID 的输入字段。用户记录需要配置。 |
+| identity_fields           | array   | 条件必填 | -      | 身份字段映射。用户记录需要配置。 |
+| property_fields           | array   | 条件必填 | -      | 属性字段映射和目标类型。用户记录需要配置。 |
+| event_name                | string  | 条件必填 | -      | 事件名或 `${field_name}` 表达式。`record_type = "events"` 时必填。 |
+| time_column               | string  | 条件必填 | -      | 事件时间字段。`record_type = "events"` 时必填；可用 `current_time()` 表示处理时间。 |
+| detail_id_column          | string  | 条件必填 | -      | 明细 ID 字段。`record_type = "details"` 时必填。 |
+| item_id_column            | string  | 条件必填 | -      | 物品 ID 字段。`record_type = "items"` 时必填。 |
+| item_type_column          | string  | 条件必填 | -      | 物品类型字段。`record_type = "items"` 时必填。 |
+| time_free                 | boolean | 否       | false  | 是否启用 SensorsData 历史数据模式。 |
+| skip_error_record         | boolean | 否       | false  | 转换失败时是否跳过该条记录。 |
+| instant_events            | array   | 否       | []     | 标记为即时事件的事件名列表。 |
+| distinct_id_by_identities | boolean | 否       | false  | 当 `distinct_id_column` 为空时，是否从 `identity_fields` 中取 distinct ID。 |
+| null_as_profile_unset     | boolean | 否       | false  | 是否把用户属性中的 null 转成 profile unset 操作。 |
+| common-options            | config  | 否       | -      | Sink 通用选项，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 
 ## 参数解释
+
+### 记录类型要求
+
+- 用户事件：设置 `entity_name = "users"` 和 `record_type = "events"`，并配置 `event_name`、
+  `time_column`、`distinct_id_column`、`identity_fields`、`property_fields`。
+- 用户明细：设置 `entity_name = "users"` 和 `record_type = "details"`，并配置 `detail_id_column`、
+  `distinct_id_column`、`identity_fields`、`property_fields`。
+- 物品记录：设置 `entity_name = "items"` 和 `record_type = "items"`，并配置 `item_id_column`、
+  `item_type_column`、`property_fields`。
+
 ### server_url [string]
 
 SensorsData 数据 Sink 地址，格式为 `https://${host}:8106/sa?project=${project}`
@@ -154,7 +166,7 @@ SensorsData 实体数据模型的模式名称。
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](common-options.md) 详见
+Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。
 
 ## 示例
 
@@ -222,7 +234,7 @@ sink {
     time_free = true
 
     entity_name = users
-    record_type = profile
+    record_type = users
     schema = users
     distinct_id_column = user_id
     identity_fields = [
@@ -288,5 +300,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-
-

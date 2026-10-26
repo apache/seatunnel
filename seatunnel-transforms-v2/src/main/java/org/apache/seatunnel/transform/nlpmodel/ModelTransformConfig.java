@@ -85,6 +85,33 @@ public class ModelTransformConfig implements Serializable {
                     .withFallbackKeys("inference_batch_size")
                     .withDescription("The row batch size of each process");
 
+    public static final Option<Integer> MODEL_RETRY_MAX_ATTEMPTS =
+            Options.key("model_retry_max_attempts")
+                    .intType()
+                    .defaultValue(ModelInvocationOptions.DEFAULT_RETRY_MAX_ATTEMPTS)
+                    .withDescription(
+                            "The maximum attempts for one remote model request. The default value 1 means no automatic retry.");
+
+    public static final Option<Long> MODEL_RETRY_BACKOFF_MS =
+            Options.key("model_retry_backoff_ms")
+                    .longType()
+                    .defaultValue(ModelInvocationOptions.DEFAULT_RETRY_BACKOFF_MS)
+                    .withDescription(
+                            "The initial backoff in milliseconds before retrying a remote model request.");
+
+    public static final Option<Long> MODEL_RETRY_MAX_BACKOFF_MS =
+            Options.key("model_retry_max_backoff_ms")
+                    .longType()
+                    .defaultValue(ModelInvocationOptions.DEFAULT_RETRY_MAX_BACKOFF_MS)
+                    .withDescription(
+                            "The maximum backoff in milliseconds before retrying a remote model request.");
+
+    public static final Option<Integer> MODEL_REQUEST_TIMEOUT_MS =
+            Options.key("model_request_timeout_ms")
+                    .intType()
+                    .defaultValue(ModelInvocationOptions.DEFAULT_REQUEST_TIMEOUT_MS)
+                    .withDescription("The request timeout in milliseconds for remote model calls.");
+
     public static final Option<Integer> DIMENSION =
             Options.key("dimension").intType().defaultValue(2048).withDescription("dimension");
 

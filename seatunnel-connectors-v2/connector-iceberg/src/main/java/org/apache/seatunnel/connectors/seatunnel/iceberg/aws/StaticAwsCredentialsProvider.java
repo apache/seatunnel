@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.aws;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -24,21 +26,20 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 import java.util.Map;
 
+/**
+ * Supplies credentials to Iceberg AWS clients, including Glue and the default S3 fallback. Iceberg
+ * creates the provider reflectively after removing the credentials-provider property prefix.
+ */
 public class StaticAwsCredentialsProvider implements AwsCredentialsProvider {
 
     private final StaticCredentialsProvider delegate;
-
-    // Iceberg's factory looks specifically for this method signature
-    public static StaticAwsCredentialsProvider create(Map<String, String> properties) {
-        return new StaticAwsCredentialsProvider(properties);
-    }
 
     private StaticAwsCredentialsProvider(Map<String, String> properties) {
         // Properties passed here have the prefix "client.credentials-provider." removed
         String accessKey = properties.get("access-key-id");
         String secretKey = properties.get("secret-access-key");
 
-        if (accessKey == null || secretKey == null) {
+        if (StringUtils.isBlank(accessKey) || StringUtils.isBlank(secretKey)) {
             throw new IllegalArgumentException(
                     "Missing credentials. Use 'client.credentials-provider.access-key-id' "
                             + "and 'client.credentials-provider.secret-access-key' in your catalog configuration.");
@@ -47,6 +48,16 @@ public class StaticAwsCredentialsProvider implements AwsCredentialsProvider {
         this.delegate =
                 StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey.trim(), secretKey.trim()));
+    }
+
+    /**
+     * Creates the provider through Iceberg's reflective credentials-provider extension point.
+     *
+     * @param properties provider options after Iceberg removes the credentials-provider prefix
+     * @return a provider with nonblank access and secret keys
+     */
+    public static StaticAwsCredentialsProvider create(Map<String, String> properties) {
+        return new StaticAwsCredentialsProvider(properties);
     }
 
     @Override

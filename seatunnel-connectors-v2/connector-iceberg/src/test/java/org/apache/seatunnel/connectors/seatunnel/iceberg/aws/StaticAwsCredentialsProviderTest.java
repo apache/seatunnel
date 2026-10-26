@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.aws;
 
+import org.apache.iceberg.aws.AwsClientProperties;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +27,10 @@ import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Verifies Iceberg provider credentials and invalid configuration. The reflective path also guards
+ * the static factory and prefixed catalog-property contract used by Iceberg.
+ */
 class StaticAwsCredentialsProviderTest {
 
     @Test
@@ -65,6 +71,48 @@ class StaticAwsCredentialsProviderTest {
                         () -> StaticAwsCredentialsProvider.create(properties));
 
         Assertions.assertTrue(exception.getMessage().contains("Missing credentials"));
+    }
+
+    @Test
+    void testIcebergReflectiveProviderLoadingStripsPropertyPrefix() {
+        Map<String, String> catalogProperties = new HashMap<>();
+        catalogProperties.put(
+                "client.credentials-provider", StaticAwsCredentialsProvider.class.getName());
+        catalogProperties.put("client.credentials-provider.access-key-id", "test-access-key");
+        catalogProperties.put("client.credentials-provider.secret-access-key", "test-secret-key");
+
+        AwsClientProperties clientProperties = new AwsClientProperties(catalogProperties);
+        AwsCredentials credentials =
+                clientProperties.credentialsProvider(null, null, null).resolveCredentials();
+
+        Assertions.assertEquals("test-access-key", credentials.accessKeyId());
+        Assertions.assertEquals("test-secret-key", credentials.secretAccessKey());
+        AwsCredentials explicitS3Credentials =
+                clientProperties
+                        .credentialsProvider("s3-access-key", "s3-secret-key", null)
+                        .resolveCredentials();
+        Assertions.assertEquals("s3-access-key", explicitS3Credentials.accessKeyId());
+        Assertions.assertEquals("s3-secret-key", explicitS3Credentials.secretAccessKey());
+    }
+
+    @Test
+    void testBlankCredentialsRejectedWithoutExposingValues() {
+        for (String key : new String[] {"access-key-id", "secret-access-key"}) {
+            for (String blank : new String[] {"", " ", "\t"}) {
+                Map<String, String> properties = new HashMap<>();
+                properties.put("access-key-id", "test-access-key");
+                properties.put("secret-access-key", "test-secret-key");
+                properties.put(key, blank);
+                IllegalArgumentException exception =
+                        Assertions.assertThrows(
+                                IllegalArgumentException.class,
+                                () -> StaticAwsCredentialsProvider.create(properties));
+                Assertions.assertEquals(
+                        "Missing credentials. Use 'client.credentials-provider.access-key-id' "
+                                + "and 'client.credentials-provider.secret-access-key' in your catalog configuration.",
+                        exception.getMessage());
+            }
+        }
     }
 
     @Test

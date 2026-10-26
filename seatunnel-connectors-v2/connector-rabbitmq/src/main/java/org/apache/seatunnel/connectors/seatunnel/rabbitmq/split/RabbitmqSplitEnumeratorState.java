@@ -18,7 +18,24 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.split;
 
 import java.io.Serializable;
+import java.util.Map;
 
+/** The state of RabbitMQ split enumerator, used for failover recovery. */
 public class RabbitmqSplitEnumeratorState implements Serializable {
     private static final long serialVersionUID = 3490818116676796863L;
+
+    private final Map<String, RabbitmqSplit> assignedSplits;
+
+    /**
+     * Constructor for RabbitmqSplitEnumeratorState.
+     *
+     * @param assignedSplits map of already assigned splits
+     */
+    public RabbitmqSplitEnumeratorState(Map<String, RabbitmqSplit> assignedSplits) {
+        this.assignedSplits = assignedSplits;
+    }
+
+    public Map<String, RabbitmqSplit> getAssignedSplits() {
+        return assignedSplits;
+    }
 }

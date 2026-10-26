@@ -1,10 +1,10 @@
-# RowKindExtractor
+# 行变更类型提取
 
-> RowKindExtractor 转换插件
+> RowKindExtractor：将 CDC 的 RowKind 提取为字段，并转换为 Append-Only 输出
 
 ## 描述
 
-RowKindExtractor 转换插件用于将 CDC（Change Data Capture）数据流转换为 Append-Only（仅追加）模式，同时将原始的 RowKind 信息提取为一个新的字段。
+RowKindExtractor 转换插件用于将 CDC（Change Data Capture）数据流改写为 Append-Only（仅追加）模式，同时把原始的 RowKind 信息提取为一个新的字段。
 
 **核心功能：**
 - 将所有数据行的 RowKind 统一改为 `+I`（INSERT），实现 Append-Only 模式
