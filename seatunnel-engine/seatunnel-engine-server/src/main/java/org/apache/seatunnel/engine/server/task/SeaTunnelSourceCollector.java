@@ -355,6 +355,13 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         }
     }
 
+    /**
+     * Restores only the collector's local row types; this does not replay downstream DDL or emit a
+     * schema change event.
+     *
+     * <p>The source reader must call this on its polling thread before emitting resumed records. It
+     * is not a general concurrent schema mutation API.
+     */
     @Override
     public void restoreSchema(List<CatalogTable> catalogTables) {
         if (rowType instanceof SeaTunnelRowType) {

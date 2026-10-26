@@ -130,6 +130,13 @@ public class JdbcSink
         return createWriter(context, restoredTableSchema, states);
     }
 
+    /**
+     * Selects the single checkpoint schema shared by all restored writer states. Divergent nonnull
+     * schemas cannot safely describe one JDBC destination and therefore reject restoration.
+     *
+     * <p>Legacy states without a schema are ignored; when no state carries a schema, retain the
+     * initially discovered table schema rather than replaying schema changes.
+     */
     static TableSchema resolveRestoredTableSchema(
             TableSchema initialTableSchema, List<JdbcSinkState> states) {
         TableSchema restoredTableSchema = null;
