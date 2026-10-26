@@ -386,7 +386,19 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         if (vectorValue == null) {
                             statement.setObject(statementIndex, null);
                         } else if (vectorValue instanceof ByteBuffer) {
-                            ByteBuffer byteBuffer = (ByteBuffer) vectorValue;
+                            ByteBuffer original = (ByteBuffer) vectorValue;
+                            // VectorUtils uses relative reads over capacity. A bounded view keeps
+                            // the retained row's cursor/mark intact and excludes prefix/suffix
+                            // bytes.
+                            ByteBuffer byteBuffer = original.slice().order(original.order());
+                            if (byteBuffer.remaining() % Float.BYTES != 0) {
+                                throw new JdbcConnectorException(
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                        "Incomplete FLOAT_VECTOR bytes for column "
+                                                + rowType.getFieldNames()[fieldIndex]
+                                                + ": "
+                                                + byteBuffer.remaining());
+                            }
                             Float[] floatArray = VectorUtils.toFloatArray(byteBuffer);
                             StringBuilder vectorBuilder = new StringBuilder("[");
                             for (int i = 0; i < floatArray.length; i++) {

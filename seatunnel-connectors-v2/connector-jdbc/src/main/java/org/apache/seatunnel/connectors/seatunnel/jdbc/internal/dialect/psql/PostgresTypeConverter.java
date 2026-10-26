@@ -273,6 +273,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                             throw new NumberFormatException("Vector dimension must be positive");
                         }
                         builder.scale(dimension);
+                        // Native PostgreSQL DDL reuses sourceType instead of reconverting scale.
+                        builder.sourceType(PG_VECTOR + "(" + dimension + ")");
                     } catch (NumberFormatException e) {
                         throw CommonError.convertToSeaTunnelTypeError(
                                 identifier(), typeDefine.getColumnType(), typeDefine.getName());

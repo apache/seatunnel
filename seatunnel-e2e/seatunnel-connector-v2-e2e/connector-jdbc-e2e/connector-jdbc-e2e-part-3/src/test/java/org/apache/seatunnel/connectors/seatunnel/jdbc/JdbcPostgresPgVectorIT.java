@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -46,8 +51,10 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -247,35 +254,82 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
      */
     @TestTemplate
     public void testPgVectorAutoCreateSink(TestContainer container)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, SQLException {
         // Exercise the real catalog path as well as query metadata: pgvector stores the
         // dimension directly in atttypmod, unlike PostgreSQL varchar's four-byte offset.
         PostgresCatalog catalog =
                 new PostgresCatalog(
-                        "pgvector",
+                        DatabaseIdentifier.POSTGRESQL,
                         PGVECTOR_CONTAINER.getUsername(),
                         PGVECTOR_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(PGVECTOR_CONTAINER.getJdbcUrl()),
                         "public",
                         PGVECTOR_CONTAINER.getDriverClassName());
+        TablePath nativeTarget =
+                TablePath.of(
+                        PGVECTOR_CONTAINER.getDatabaseName(),
+                        "public",
+                        "pgvector_native_copy_" + UUID.randomUUID().toString().replace("-", ""));
         catalog.open();
         try {
+            CatalogTable source =
+                    catalog.getTable(
+                            TablePath.of(
+                                    PGVECTOR_CONTAINER.getDatabaseName(),
+                                    "public",
+                                    "pgvector_e2e_auto_create_source_table"));
+            Assertions.assertEquals(DatabaseIdentifier.POSTGRESQL, source.getCatalogName());
             Column embedding =
-                    catalog
-                            .getTable(
-                                    TablePath.of(
-                                            PGVECTOR_CONTAINER.getDatabaseName(),
-                                            "public",
-                                            "pgvector_e2e_auto_create_source_table"))
-                            .getTableSchema().getColumns().stream()
+                    source.getTableSchema().getColumns().stream()
                             .filter(column -> "embedding".equals(column.getName()))
                             .findFirst()
                             .orElseThrow(
                                     () -> new AssertionError("Catalog omitted embedding column"));
             Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, embedding.getDataType());
             Assertions.assertEquals(Integer.valueOf(3), embedding.getScale());
+            Assertions.assertEquals("vector(3)", embedding.getSourceType());
+            // The native catalog shortcut takes sourceType verbatim rather than reconverting scale.
+            catalog.createTable(nativeTarget, source, false);
+            Column copied =
+                    catalog.getTable(nativeTarget).getTableSchema().getColumns().stream()
+                            .filter(column -> "embedding".equals(column.getName()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Native copy omitted embedding column"));
+            Assertions.assertEquals(Integer.valueOf(3), copied.getScale());
+            Assertions.assertEquals("vector(3)", copied.getSourceType());
+            ByteBuffer vector = VectorUtils.toByteBuffer(new Float[] {1.25f, -2.5f, 3.75f});
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {1001, "rebound", vector});
+            try (Connection connection = getJdbcConnection();
+                    PreparedStatement insert =
+                            connection.prepareStatement(
+                                    "INSERT INTO "
+                                            + nativeTarget.getSchemaAndTableName("\"")
+                                            + " (id, name, embedding) VALUES (?, ?, ?)")) {
+                PostgresJdbcRowConverter converter = new PostgresJdbcRowConverter();
+                converter.toExternal(source.getTableSchema(), null, row, insert);
+                converter.toExternal(source.getTableSchema(), null, row, insert);
+                Assertions.assertEquals(0, vector.position());
+                Assertions.assertEquals(1, insert.executeUpdate());
+                try (Statement statement = connection.createStatement();
+                        ResultSet result =
+                                statement.executeQuery(
+                                        "SELECT embedding::text FROM "
+                                                + nativeTarget.getSchemaAndTableName("\"")
+                                                + " WHERE id = 1001")) {
+                    Assertions.assertTrue(result.next());
+                    assertVectorEquals("[1.25,-2.5,3.75]", result.getString(1));
+                    Assertions.assertFalse(result.next());
+                }
+            }
         } finally {
-            catalog.close();
+            try {
+                catalog.dropTable(nativeTarget, true);
+            } finally {
+                catalog.close();
+            }
         }
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_postgres_pgvector_auto_create_sink.conf");

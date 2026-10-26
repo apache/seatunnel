@@ -1064,7 +1064,7 @@ public class PostgresTypeConverterTest {
         Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
-        Assertions.assertEquals("vector", column.getSourceType());
+        Assertions.assertEquals("vector(1536)", column.getSourceType());
         Assertions.assertEquals(1536, column.getScale());
     }
 
@@ -1142,6 +1142,7 @@ public class PostgresTypeConverterTest {
                                 .dataType("vector")
                                 .build());
         Assertions.assertEquals(Integer.valueOf(3), column.getScale());
+        Assertions.assertEquals("vector(3)", column.getSourceType());
     }
 
     @Test

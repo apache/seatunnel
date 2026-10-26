@@ -26,9 +26,11 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,6 +90,35 @@ class PostgresCreateTableSqlBuilderTest {
                                     Lists.newArrayList(),
                                     postgresCreateTableSqlBuilderSkipIndex.getCreateIndexSqls());
                         });
+    }
+
+    @Test
+    void testNativePostgresVectorDimensionsSurviveSourceTypeShortcut() {
+        for (String type : Arrays.asList("vector(3)", "vector")) {
+            Column vector =
+                    PostgresTypeConverter.INSTANCE.convert(
+                            BasicTypeDefine.builder()
+                                    .name("embedding")
+                                    .dataType("vector")
+                                    .columnType(type)
+                                    .build());
+            CatalogTable source =
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    DatabaseIdentifier.POSTGRESQL, "database", "public", "vectors"),
+                            TableSchema.builder().column(vector).build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "",
+                            DatabaseIdentifier.POSTGRESQL);
+            String ddl =
+                    new PostgresCreateTableSqlBuilder(source, false).build(source.getTablePath());
+            Assertions.assertTrue(ddl.contains("\"embedding\" " + type), ddl);
+            if ("vector".equals(type)) {
+                Assertions.assertFalse(
+                        ddl.contains("vector("), "unconstrained vectors must remain unconstrained");
+            }
+        }
     }
 
     @Test
