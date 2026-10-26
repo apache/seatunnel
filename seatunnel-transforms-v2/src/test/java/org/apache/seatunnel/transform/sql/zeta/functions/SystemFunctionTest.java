@@ -210,9 +210,10 @@ public class SystemFunctionTest {
 
     @Test
     public void testCastAsDecimalRoundsHalfAwayFromZeroForEverySourceType() {
-        // CAST rounds half away from zero, like MySQL, PostgreSQL and H2, whatever the
-        // source type. A DECIMAL or STRING source used to round with CEILING instead, so
-        // 1.21 became 1.3 while the same value from a DOUBLE became 1.2.
+        // CAST rounds half away from zero whatever the source type. A DECIMAL or STRING
+        // source used to round with CEILING instead, so 1.21 became 1.3 while the same value
+        // from a DOUBLE became 1.2. The DOUBLE cases below are not near a rounding boundary
+        // in binary, see testCastAsDecimalRoundsDoubleFromItsExactBinaryValue.
         String[][] cases = {
             {"1.21", "1.2"},
             {"1.25", "1.3"},
@@ -233,6 +234,19 @@ public class SystemFunctionTest {
         }
         Assertions.assertEquals(new BigDecimal("42.00"), castAsDecimal(42, 10, 2));
         Assertions.assertEquals(new BigDecimal("-42.00"), castAsDecimal(-42L, 10, 2));
+    }
+
+    @Test
+    public void testCastAsDecimalRoundsDoubleFromItsExactBinaryValue() {
+        // 1.15d is 1.149999999999999911182158029987... in binary, so at scale 1 it rounds to
+        // 1.1, while the same digits as STRING or DECIMAL round to 1.2.
+        Assertions.assertEquals(new BigDecimal("1.1"), castAsDecimal(1.15d, 10, 1));
+        Assertions.assertEquals(new BigDecimal("-1.1"), castAsDecimal(-1.15d, 10, 1));
+        Assertions.assertEquals(new BigDecimal("1.2"), castAsDecimal("1.15", 10, 1));
+        Assertions.assertEquals(
+                new BigDecimal("1.2"), castAsDecimal(new BigDecimal("1.15"), 10, 1));
+        Assertions.assertEquals(new BigDecimal("2.67"), castAsDecimal(2.675d, 10, 2));
+        Assertions.assertEquals(new BigDecimal("2.68"), castAsDecimal("2.675", 10, 2));
     }
 
     private static Object castAsDecimal(Object value, int precision, int scale) {
@@ -383,8 +397,8 @@ public class SystemFunctionTest {
 
     @Test
     public void testCastDecimalAndStringToDecimalViaSqlEngineRoundsLikeDouble() {
-        // The same value must produce the same DECIMAL whether it arrives as DECIMAL,
-        // STRING or DOUBLE.
+        // These values produce the same DECIMAL whether they arrive as DECIMAL, STRING or
+        // DOUBLE, because 1.21d and -1.25d are not near a rounding boundary in binary.
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"c_dec", "c_str", "c_dbl"},

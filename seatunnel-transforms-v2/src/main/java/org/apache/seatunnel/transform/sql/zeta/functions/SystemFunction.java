@@ -325,8 +325,10 @@ public class SystemFunction {
                     bigDecimal = new BigDecimal(v1.toString());
                 }
                 Integer scale = (Integer) args.get(3);
-                // Round half away from zero for every source type, like CAST in MySQL,
-                // PostgreSQL and H2: 1.21 -> 1.2, 1.25 -> 1.3, -1.25 -> -1.3.
+                // Round half away from zero for every source type: 1.21 -> 1.2,
+                // 1.25 -> 1.3, -1.25 -> -1.3. FLOAT and DOUBLE are rounded from their exact
+                // binary value, so near a boundary they can differ from the same digits as
+                // STRING or DECIMAL (1.15d is 1.1499999..., which gives 1.1 at scale 1).
                 return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
             case "BOOLEAN":
                 if (v1 instanceof Number) {
