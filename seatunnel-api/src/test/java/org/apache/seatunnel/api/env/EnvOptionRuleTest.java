@@ -35,5 +35,9 @@ public class EnvOptionRuleTest {
                 envOptionRules
                         .getOptionalOptions()
                         .contains(EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS));
+        Assertions.assertTrue(
+                envOptionRules
+                        .getOptionalOptions()
+                        .contains(EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT));
     }
 }

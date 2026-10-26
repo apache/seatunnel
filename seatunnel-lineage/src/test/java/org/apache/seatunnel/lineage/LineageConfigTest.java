@@ -31,6 +31,49 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LineageConfigTest {
 
     @Test
+    void resolvesAndPreservesPerOutputJobNaming() {
+        assertFalse(LineageConfig.defaults().jobNamePerOutput());
+        Map<String, Object> cluster =
+                Collections.singletonMap("openlineage.job_name_per_output", true);
+        Map<String, Object> environment =
+                Collections.singletonMap("OPENLINEAGE_JOB_NAME_PER_OUTPUT", "false");
+        assertTrue(
+                LineageConfig.resolve(Collections.emptyMap(), cluster, Collections.emptyMap())
+                        .jobNamePerOutput());
+        assertFalse(
+                LineageConfig.resolve(Collections.emptyMap(), cluster, environment)
+                        .jobNamePerOutput());
+
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.JOB_NAME_PER_OUTPUT, true),
+                        cluster,
+                        environment);
+        assertTrue(config.jobNamePerOutput());
+        assertTrue(config.withAuthToken("test-token").jobNamePerOutput());
+        assertTrue(
+                LineageConfig.resolve(
+                                config.toNonSensitiveMap(),
+                                Collections.emptyMap(),
+                                Collections.emptyMap())
+                        .jobNamePerOutput());
+    }
+
+    @Test
+    void rejectsMalformedPerOutputJobNaming() {
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                LineageConfig.resolve(
+                                        Collections.singletonMap(
+                                                LineageConfig.JOB_NAME_PER_OUTPUT, "tru"),
+                                        Collections.emptyMap(),
+                                        Collections.emptyMap()));
+        assertTrue(failure.getMessage().contains(LineageConfig.JOB_NAME_PER_OUTPUT));
+    }
+
+    @Test
     void resolvesEachOptionByPriority() {
         Map<String, Object> job = new HashMap<>();
         job.put(LineageConfig.ENABLED, true);

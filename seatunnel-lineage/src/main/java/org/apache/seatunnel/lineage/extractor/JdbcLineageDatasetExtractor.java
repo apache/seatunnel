@@ -39,7 +39,9 @@ public final class JdbcLineageDatasetExtractor implements LineageDatasetExtracto
         if (pluginName == null) {
             return false;
         }
-        return LineageDatasetOptionSupport.string(options, "url", "jdbc_url", "jdbc-url") != null
+        return LineageDatasetOptionSupport.string(
+                                options, "url", "base-url", "jdbc_url", "jdbc-url")
+                        != null
                 || pluginName.toLowerCase().contains("jdbc")
                 || pluginName.equalsIgnoreCase("mysql")
                 || pluginName.equalsIgnoreCase("postgresql")
@@ -48,7 +50,9 @@ public final class JdbcLineageDatasetExtractor implements LineageDatasetExtracto
 
     @Override
     public List<LineageDataset> extract(Map<String, ?> options) {
-        String url = LineageDatasetOptionSupport.string(options, "url", "jdbc_url", "jdbc-url");
+        String url =
+                LineageDatasetOptionSupport.string(
+                        options, "url", "base-url", "jdbc_url", "jdbc-url");
         if (url == null || !url.startsWith("jdbc:")) {
             return Collections.emptyList();
         }
