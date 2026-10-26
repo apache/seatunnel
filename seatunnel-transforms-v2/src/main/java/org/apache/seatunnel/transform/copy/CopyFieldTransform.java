@@ -189,6 +189,10 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         }
     }
 
+    /**
+     * Copies the remaining readable bytes into independent storage while preserving byte order and
+     * direct allocation. Duplicating the source leaves its position and limit unchanged.
+     */
     private ByteBuffer cloneByteBuffer(ByteBuffer value) {
         ByteBuffer source = value.duplicate();
         ByteBuffer clone =
@@ -201,6 +205,10 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         return clone;
     }
 
+    /**
+     * Recursively copies fields using the selected schema and retains the row kind and table ID.
+     * The new field array isolates mutable values according to their declared SeaTunnel types.
+     */
     private SeaTunnelRow cloneRow(SeaTunnelRowType rowType, SeaTunnelRow row) {
         Object[] newFields = new Object[rowType.getTotalFields()];
         for (int i = 0; i < rowType.getTotalFields(); i++) {
@@ -212,6 +220,11 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         return newRow;
     }
 
+    /**
+     * Selects the registered nested schema from the row's table ID before copying its fields and
+     * metadata. Missing, empty or unknown table IDs are rejected instead of using a fallback
+     * schema.
+     */
     private SeaTunnelRow cloneMultipleRow(MultipleRowType multipleRowType, SeaTunnelRow row) {
         String tableId = row.getTableId();
         if (tableId == null || tableId.isEmpty()) {
