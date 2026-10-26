@@ -59,9 +59,9 @@ Feishu webhook URLs and custom authentication headers are sensitive. Do not prin
 | url                         | String  | Yes      | -       | Feishu webhook URL. Must not be empty or whitespace-only. The current sink writer sends requests to this fixed URL and does not replace table-name placeholders. |
 | headers                     | Map     | No       | -       | HTTP request headers. Use it when the webhook gateway requires extra headers.                                           |
 | params                      | Map     | No       | -       | Accepted by the option rule, but the current sink writer does not pass it to requests. Put non-sensitive query parameters directly in `url` when needed. |
-| retry                       | Int     | No       | -       | The maximum retry times when the HTTP request fails with an `IOException`.                                              |
-| retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds.                                                                               |
-| retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds.                                                                                  |
+| retry                       | Int     | No       | -       | Accepted by the option rule, but the current sink writer never reads this option, so no retries are performed.          |
+| retry_backoff_multiplier_ms | Int     | No       | 100     | Accepted by the option rule, but not applied by the current sink writer.                                                |
+| retry_backoff_max_ms        | Int     | No       | 10000   | Accepted by the option rule, but not applied by the current sink writer.                                                |
 | array_mode                  | Boolean | No       | false   | Send rows as a JSON array when true, or as one JSON object per request when false.                                      |
 | batch_size                  | Int     | No       | 1       | The maximum number of rows sent in one request. Only works when `array_mode` is true.                                   |
 | request_interval_ms         | Int     | No       | 0       | Interval in milliseconds between two HTTP requests, used to avoid sending requests too frequently.                      |
@@ -74,7 +74,7 @@ Feishu webhook URLs and custom authentication headers are sensitive. Do not prin
 - If the webhook URL needs query parameters, include non-sensitive parameters directly in `url`. Prefer `headers` for authentication material when the gateway supports it, because the full URL, including its query string, may appear in logs or job metadata.
 - Multi-table jobs can use `multi_table_sink_replica`, but the Feishu sink sends every row to the configured fixed `url`. It does not replace `${database_name}`, `${schema_name}`, or `${table_name}` in the URL.
 - `array_mode` is useful when the receiver accepts a JSON array and you want fewer HTTP requests.
-- Feishu webhook delivery is not exactly-once. If a retry happens after the remote service has already handled a request, the receiver may see duplicate messages.
+- Feishu webhook delivery is not exactly-once. If a request is retried by an external gateway after the remote service has already handled it, the receiver may see duplicate messages. Note that the `retry` options of this sink are accepted but not applied by the current sink writer.
 
 ## Task Example
 
@@ -111,7 +111,7 @@ sink {
 }
 ```
 
-### With headers and retry
+### With custom headers
 
 ```hocon
 Feishu {
@@ -119,9 +119,6 @@ Feishu {
   headers {
     Content-Type = "application/json"
   }
-  retry = 3
-  retry_backoff_multiplier_ms = 200
-  retry_backoff_max_ms = 5000
 }
 ```
 
@@ -181,9 +178,6 @@ sink {
     array_mode = true
     batch_size = 20
     request_interval_ms = 1000
-    retry = 5
-    retry_backoff_multiplier_ms = 200
-    retry_backoff_max_ms = 10000
   }
 }
 ```
