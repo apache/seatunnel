@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : File : Base</name>
 
     <properties>
-        <orc.version>1.5.6</orc.version>
+        <orc.version>1.8.7</orc.version>
         <commons.collecton4.version>4.4</commons.collecton4.version>
         <commons.lang3.version>3.18.0</commons.lang3.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
@@ -106,6 +106,14 @@
                 <exclusion>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-hdfs</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-runtime</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
