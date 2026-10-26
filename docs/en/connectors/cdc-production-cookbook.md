@@ -251,7 +251,7 @@ source {
     username = "cdc_user"
     password = "password"
     database-names = ["mydb"]
-    schema-names = ["public"]
+    schema-name = ["public"]
     table-names = ["public.orders", "public.customers"]
     startup.mode = "initial"
     slot.name = "seatunnel_slot"
