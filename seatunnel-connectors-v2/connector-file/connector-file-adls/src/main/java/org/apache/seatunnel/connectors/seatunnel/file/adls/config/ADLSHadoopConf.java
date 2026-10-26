@@ -65,7 +65,8 @@ public class ADLSHadoopConf extends HadoopConf {
         // Add the advanced settings first so connector-derived authentication values always win,
         // even if validation is relaxed or bypassed by a future caller.
         config.getOptional(ADLSFileBaseOptions.HADOOP_PROPERTIES)
-                .ifPresent(values -> values.forEach((key, value) -> options.put(key, value.trim())));
+                .ifPresent(
+                        values -> values.forEach((key, value) -> options.put(key, value.trim())));
         ADLSHadoopConf result =
                 new ADLSHadoopConf(
                         ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));
