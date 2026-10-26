@@ -269,6 +269,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String NUMERIC_SPECIAL_VALUE_SINK_QUERY =
             "select gid, numeric_col from " + NUMERIC_SPECIAL_VALUE_SINK_TABLE + " order by gid";
 
+    /**
+     * Dedicated database created and dropped by the truncate routing test, so truncating a table
+     * path that points to another database never touches the container's default fixture tables.
+     */
+    private static final String TRUNCATE_ROUTE_DATABASE = "pg_e2e_truncate_route_db";
+
+    /** Same table name in both the catalog database and {@link #TRUNCATE_ROUTE_DATABASE}. */
+    private static final String TRUNCATE_ROUTE_TABLE = "pg_e2e_truncate_route_table";
+
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -644,6 +653,88 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     }
 
     /**
+     * Truncating {@code database.schema.table} through a catalog whose own database is the
+     * container default database must truncate the database of the table path, and must leave the
+     * table with the same name in the catalog database untouched.
+     *
+     * <p>Only the dedicated database and table created here are truncated and dropped.
+     */
+    @Test
+    public void testTruncateTableUsesTablePathDatabase() throws SQLException {
+        String schema = "public";
+        String catalogDatabaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        TablePath catalogDatabaseTablePath =
+                TablePath.of(catalogDatabaseName, schema, TRUNCATE_ROUTE_TABLE);
+        TablePath routedDatabaseTablePath =
+                TablePath.of(TRUNCATE_ROUTE_DATABASE, schema, TRUNCATE_ROUTE_TABLE);
+        String createTableSql =
+                "CREATE TABLE " + schema + "." + TRUNCATE_ROUTE_TABLE + " (gid INT)";
+        String insertRowSql = "INSERT INTO " + schema + "." + TRUNCATE_ROUTE_TABLE + " VALUES (1)";
+
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema,
+                        null);
+        postgresCatalog.open();
+        try {
+            postgresCatalog.createDatabase(routedDatabaseTablePath, true);
+            postgresCatalog.executeSql(catalogDatabaseTablePath, createTableSql);
+            postgresCatalog.executeSql(routedDatabaseTablePath, createTableSql);
+            postgresCatalog.executeSql(catalogDatabaseTablePath, insertRowSql);
+            postgresCatalog.executeSql(routedDatabaseTablePath, insertRowSql);
+            Assertions.assertEquals(1, countRows(catalogDatabaseName, TRUNCATE_ROUTE_TABLE));
+            Assertions.assertEquals(1, countRows(TRUNCATE_ROUTE_DATABASE, TRUNCATE_ROUTE_TABLE));
+
+            postgresCatalog.truncateTable(routedDatabaseTablePath, false);
+
+            Assertions.assertEquals(
+                    1,
+                    countRows(catalogDatabaseName, TRUNCATE_ROUTE_TABLE),
+                    "The table in the catalog database must not be truncated");
+            Assertions.assertEquals(
+                    0,
+                    countRows(TRUNCATE_ROUTE_DATABASE, TRUNCATE_ROUTE_TABLE),
+                    "The table in the database of the table path must be truncated");
+        } finally {
+            try {
+                postgresCatalog.dropTable(routedDatabaseTablePath, true);
+                postgresCatalog.dropTable(catalogDatabaseTablePath, true);
+            } finally {
+                try {
+                    postgresCatalog.dropDatabase(routedDatabaseTablePath, true);
+                } finally {
+                    postgresCatalog.close();
+                }
+            }
+        }
+    }
+
+    /**
+     * Counts the rows of a table in the given database on the PostgreSQL container.
+     *
+     * @param databaseName database to connect to
+     * @param tableName table to count rows of, in the {@code public} schema
+     * @return the number of rows in the table
+     */
+    private int countRows(String databaseName, String tableName) throws SQLException {
+        String baseJdbcUrl = POSTGRESQL_CONTAINER.getJdbcUrl();
+        String databaseUrl =
+                baseJdbcUrl.replace(
+                        "/" + POSTGRESQL_CONTAINER.getDatabaseName(), "/" + databaseName);
+        String countSql = "SELECT count(1) FROM public." + tableName;
+        try (Connection connection = getJdbcConnection(databaseUrl);
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(countSql)) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        }
+    }
+
+    /**
      * Verifies PostgreSQL catalog discovery preserves visible column order after a column is
      * dropped.
      */
@@ -799,10 +890,18 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     }
 
     private Connection getJdbcConnection() throws SQLException {
+        return getJdbcConnection(POSTGRESQL_CONTAINER.getJdbcUrl());
+    }
+
+    /**
+     * Opens a connection to the given PostgreSQL URL on the container.
+     *
+     * @param jdbcUrl JDBC URL to connect to, including the database to use
+     * @return an open connection, owned by the caller
+     */
+    private Connection getJdbcConnection(String jdbcUrl) throws SQLException {
         return DriverManager.getConnection(
-                POSTGRESQL_CONTAINER.getJdbcUrl(),
-                POSTGRESQL_CONTAINER.getUsername(),
-                POSTGRESQL_CONTAINER.getPassword());
+                jdbcUrl, POSTGRESQL_CONTAINER.getUsername(), POSTGRESQL_CONTAINER.getPassword());
     }
 
     private List<List<Object>> querySql(String sql) {
