@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -43,7 +44,6 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
-import org.apache.seatunnel.engine.server.task.record.FlushSignal;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
