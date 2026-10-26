@@ -51,6 +51,13 @@ public class ElasticsearchSinkOptions extends ElasticsearchBaseOptions {
                     .withDescription(
                             "Delimiter for composite keys (\"_\" by default), e.g., \"$\" would result in document `_id` \"KEY1$KEY2$KEY3\".");
 
+    public static final Option<KeyEncoding> KEY_ENCODING =
+            Options.key("key_encoding")
+                    .enumType(KeyEncoding.class)
+                    .defaultValue(KeyEncoding.LEGACY)
+                    .withDescription(
+                            "LEGACY preserves existing document IDs; LENGTH_PREFIXED avoids composite-key delimiter collisions.");
+
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")
                     .intType()
