@@ -45,14 +45,7 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
 
     private static final Set<String> SSL_MODES =
             Collections.unmodifiableSet(
-                    new HashSet<>(
-                            Arrays.asList(
-                                    "disable",
-                                    "allow",
-                                    "prefer",
-                                    "require",
-                                    "verify-ca",
-                                    "verify-full")));
+                    new HashSet<>(Arrays.asList("disable", "require", "verify-ca", "verify-full")));
 
     private static final Set<String> PUBLICATION_AUTOCREATE_MODES =
             Collections.unmodifiableSet(
@@ -149,7 +142,7 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
             throw new IllegalArgumentException(
                     "Invalid sslmode '"
                             + sslMode
-                            + "'. Valid values: disable, allow, prefer, require, verify-ca, verify-full.");
+                            + "'. Valid values: disable, require, verify-ca, verify-full.");
         }
         return normalized;
     }

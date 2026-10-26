@@ -278,6 +278,48 @@ public class PostgresSourceConfigFactoryTest {
 
         Assertions.assertTrue(exception.getMessage().contains("sslmode"));
         Assertions.assertTrue(exception.getMessage().contains("foo"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
+    }
+
+    @Test
+    public void shouldRejectAllowSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "allow")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("allow"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
+    }
+
+    @Test
+    public void shouldRejectPreferSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "prefer")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("prefer"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
     }
 
     @Test
