@@ -169,7 +169,7 @@ class ConnectorItShardingTest(unittest.TestCase):
         expected_modules = {
             "connector-assert-e2e",
             "connector-cdc-sqlserver-e2e",
-            "connector-http-e2e",
+            "connector-normal-e2e",
         }
         modules = ",".join(
             ["", *sorted(expected_modules), *ALL_CONNECTORS_DEDICATED_SHARD_MODULES]
