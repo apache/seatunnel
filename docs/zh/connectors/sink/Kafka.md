@@ -66,6 +66,7 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
 |protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                                    |
 |protobuf_schema|String|否|-| format配置为protobuf时生效取Schema名称                                                                                                                                                                                                                                      |
+| avro_row_nullable    | Boolean | 否    | false | 当格式设置为 avro 时生效。当 ROW 字段（含嵌套在另一个 ROW、ARRAY 或 MAP 中的 ROW）可能为 `null` 时设为 `true`，此时 ROW 以可空 Avro union 而非裸 record 写入；读取端必须开启同一选项。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 |
 
 ## 参数解释
 
@@ -501,25 +502,29 @@ sink {
 
 ### 如何配置 SASL/Kerberos 认证？
 
+连接器只会把 `kafka.config` 块中的属性透传给 Kafka 客户端，像 `kafka.security.protocol` 这样的顶层键不会被识别，会被静默忽略。认证相关的配置需要放在 `kafka.config` 中：
+
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
 
 ### Kafka Sink 支持哪些消息格式？
 
-支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
+支持：`json`、`text`、`canal_json`、`debezium_json`、`compatible_debezium_json`、`ogg_json`、`maxwell_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
 
 ## 变更日志
 

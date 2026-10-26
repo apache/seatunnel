@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.cdc.debezium.row;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -36,11 +37,16 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.data.geometry.Geography;
 import io.debezium.data.geometry.Geometry;
+import io.debezium.time.MicroTimestamp;
+import io.debezium.time.NanoTimestamp;
+import io.debezium.time.Timestamp;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -83,6 +89,68 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         SeaTunnelRow row = converters.convert(record, value, schema);
         Assertions.assertEquals(row.getField(0), 1);
         Assertions.assertNull(row.getField(1));
+    }
+
+    @Test
+    void testTimestampConverterBeforeEpoch() throws Exception {
+        // MySQL DATETIME(4-6) arrives as MicroTimestamp; pre-1970 values are negative epoch micros
+        SeaTunnelRowDebeziumDeserializationConverters converters =
+                new SeaTunnelRowDebeziumDeserializationConverters(
+                        new SeaTunnelRowType(
+                                new String[] {"millis", "micros", "nanos"},
+                                new SeaTunnelDataType[] {
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE
+                                }),
+                        new MetadataConverter[] {},
+                        ZoneId.systemDefault(),
+                        DebeziumDeserializationConverterFactory.DEFAULT);
+        Schema schema =
+                SchemaBuilder.struct()
+                        .field("millis", Timestamp.builder().optional().build())
+                        .field("micros", MicroTimestamp.builder().optional().build())
+                        .field("nanos", NanoTimestamp.builder().optional().build())
+                        .build();
+        LocalDateTime[] values = {
+            LocalDateTime.of(2026, 4, 27, 20, 50, 29, 6_733_123),
+            LocalDateTime.of(1970, 1, 1, 0, 0),
+            LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_999),
+            LocalDateTime.of(1969, 12, 31, 12, 0, 0, 500_000_000),
+            LocalDateTime.of(1900, 6, 15, 12, 30, 45, 123_456_789),
+            LocalDateTime.of(1000, 1, 1, 0, 0)
+        };
+        for (LocalDateTime value : values) {
+            Instant instant = value.toInstant(ZoneOffset.UTC);
+            // Debezium floors to the unit, so encode the same way (ChronoUnit.between truncates)
+            long seconds = instant.getEpochSecond();
+            int nano = instant.getNano();
+            // epoch nanos in a long only cover the years 1677 to 2262
+            boolean nanosFit = value.getYear() > 1677 && value.getYear() < 2262;
+            Struct struct = new Struct(schema);
+            struct.put("millis", seconds * 1000L + nano / 1_000_000);
+            struct.put("micros", seconds * 1_000_000L + nano / 1_000);
+            struct.put("nanos", nanosFit ? seconds * 1_000_000_000L + nano : null);
+            SourceRecord record =
+                    new SourceRecord(
+                            new HashMap<>(),
+                            new HashMap<>(),
+                            "topicName",
+                            null,
+                            SchemaBuilder.int32().build(),
+                            1,
+                            schema,
+                            struct,
+                            null,
+                            new ArrayList<>());
+
+            SeaTunnelRow row = converters.convert(record, struct, schema);
+            Assertions.assertEquals(
+                    value.truncatedTo(ChronoUnit.MILLIS), row.getField(0), "millis");
+            Assertions.assertEquals(
+                    value.truncatedTo(ChronoUnit.MICROS), row.getField(1), "micros");
+            Assertions.assertEquals(nanosFit ? value : null, row.getField(2), "nanos");
+        }
     }
 
     @Test
