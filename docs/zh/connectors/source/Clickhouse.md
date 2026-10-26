@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | table_path        | String | 否       | -                      | 单个数据表的完整路径，例如 `default.table`。当未设置 `table_list` 时，在外层 source 中配置 `table_path` 和/或 `sql`（至少需要其一）；若已设置 `table_list`，则 `table_list` 优先，外层展开的 `table_path`/`sql` 会被忽略。                                                                                |
 | table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表。每个表条目可以独立覆盖 `sql`、`filter_query`、`split_size`、`batch_size`、`partition_list`。                                              |
 | sql               | String | 否       | -                      | 通过 ClickHouse 服务查询数据的 SQL 语句。需要表名占位符时使用字面量 `table`，不要使用表别名。                                                                            |
-| filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。SeaTunnel 会将其作为额外的 ClickHouse 侧过滤条件叠加在 `sql` 之上。                          |
+| filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。该条件用于表/分区模式。自定义 SQL 模式下，请将过滤条件写入 SQL 的 `WHERE` 子句，不要依赖 `filter_query` 限制查询。                          |
 | partition_list    | Array  | 否       | -                      | 指定分区列表过滤数据。如果是分区表，该字段可以配置为过滤指定分区的数据。例如 `partition_list = ["20250615", "20250616"]`。                                                                |
 | split.size        | int    | 否       | `Integer.MAX_VALUE`    | 配置在外层 source 时，每个 SeaTunnel split 包含的 ClickHouse part 数量。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。                                                                |
 | batch_size        | int    | 否       | `1024`                 | 每次从 ClickHouse 读取的最大行数。对于大表请谨慎调整，避免 OOM 异常。                                                                                                |
@@ -93,7 +93,7 @@ Clickhouse源连接器支持并行读取数据。
 ## Tips
 当指定`table_path`参数时，如果不想读取整个表，可以指定`partition_list`或`filter_query`参数过滤指定条件或分区的数据。
 * `partition_list`: 过滤指定分区的数据
-* `filter_query`: 根据指定条件对数据进行过滤。它也可以和 `sql` 一起使用，SeaTunnel 会把它作为额外的 ClickHouse 侧过滤条件。
+* `filter_query`: 根据指定条件对数据进行过滤。该选项用于表/分区模式。配置 `sql` 时，请将过滤条件写入其 `WHERE` 子句；自定义 SQL 不能保证应用 `filter_query`。
 * `split.size`: 使用 `table_path` 读取时，控制每个 SeaTunnel split 包含多少个 ClickHouse part
 
 `batch_size`参数可用于控制每次查询读取的数据量，以避免在读取大量数据时出现OOM异常。适当增加这个值将有助于提高读取过程的性能。
