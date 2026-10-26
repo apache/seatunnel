@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -56,6 +57,7 @@ public class PulsarSinkFactory implements TableSinkFactory {
                         PulsarSinkOptions.TRANSACTION_TIMEOUT,
                         PulsarSinkOptions.PULSAR_CONFIG,
                         PulsarSinkOptions.PARTITION_KEY_FIELDS,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         PulsarSinkOptions.FORMAT,
