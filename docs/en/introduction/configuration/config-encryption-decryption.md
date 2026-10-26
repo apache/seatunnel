@@ -29,7 +29,7 @@ decrypt it, add it to `shade.options` explicitly.
 
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
-1. And new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:
+1. Add new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:
 
    ```hocon
    #
