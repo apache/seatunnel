@@ -1424,7 +1424,6 @@ public class CoordinatorService {
         }
     }
 
-
     /** Returns the bounded executor used for OpenLineage HTTP emission. */
     public ExecutorService getLineageEmissionExecutor() {
         return lineageEmissionExecutor;

@@ -171,19 +171,31 @@ public final class ZetaLineageReporter {
         Map<Long, List<Long>> upstreamsByVertex = upstreamIndex(logicalDag);
         List<LineageEvent> events = new ArrayList<>();
         int sinkCount = 0;
+        Map<TablePath, Integer> tableOwners = new HashMap<>();
+        for (LogicalVertex vertex : logicalDag.getLogicalVertexMap().values()) {
+            if (vertex.getAction() instanceof SinkAction) {
+                SinkAction<?, ?, ?, ?> sink = (SinkAction<?, ?, ?, ?>) vertex.getAction();
+                sinkCount++;
+                if (includeStatistics) {
+                    for (TablePath table : metricTablePaths(sink)) {
+                        tableOwners.merge(table, 1, Integer::sum);
+                    }
+                }
+            }
+        }
         for (LogicalVertex vertex : logicalDag.getLogicalVertexMap().values()) {
             Action action = vertex.getAction();
             if (!(action instanceof SinkAction)) {
                 continue;
             }
             SinkAction<?, ?, ?, ?> sinkAction = (SinkAction<?, ?, ?, ?>) action;
-            sinkCount++;
             List<LineageDataset> inputs =
                     sourceDatasets(logicalDag, upstreamsByVertex, vertex.getVertexId());
             List<LineageDataset> outputs = sinkDatasets(sinkAction);
             LineageOutputStatistics statistics =
                     includeStatistics
-                            ? outputStatistics(metrics, sinkAction, outputs.size())
+                            ? outputStatistics(
+                                    metrics, sinkAction, outputs.size(), sinkCount, tableOwners)
                             : null;
             for (LineageDataset output : outputs) {
                 LineageDataset eventOutput = output;
@@ -205,10 +217,13 @@ public final class ZetaLineageReporter {
                                 .eventType(eventType)
                                 .jobNamespace(config.namespace())
                                 .jobName(
-                                        jobMaster
-                                                .getJobImmutableInformation()
-                                                .getJobConfig()
-                                                .getName())
+                                        jobName(
+                                                config,
+                                                jobMaster
+                                                        .getJobImmutableInformation()
+                                                        .getJobConfig()
+                                                        .getName(),
+                                                output))
                                 .producer(config.producer())
                                 .runFacet(config.runFacet())
                                 .runProperties(properties)
@@ -231,6 +246,22 @@ public final class ZetaLineageReporter {
                             + " sink actions, none of which resolved to a supported dataset");
         }
         return events;
+    }
+
+    /**
+     * Returns the OpenLineage job name of the run reporting one output.
+     *
+     * <p>Every output is reported as its own run, and a receiver that keeps one current run per job
+     * then shows only the last one to arrive. With {@link LineageConfig#jobNamePerOutput()} each
+     * output gets a job of its own, named after the output in the OpenLineage {@code
+     * namespace/name} form. The suffix is applied to a single-output job too, so that adding a sink
+     * later does not rename the existing output's job.
+     */
+    static String jobName(LineageConfig config, String jobName, LineageDataset output) {
+        if (!config.jobNamePerOutput()) {
+            return jobName;
+        }
+        return jobName + "::" + output.namespace() + "/" + output.name();
     }
 
     private static void emit(LineageConfig config, List<LineageEvent> events) {
@@ -347,19 +378,27 @@ public final class ZetaLineageReporter {
     }
 
     private static LineageOutputStatistics outputStatistics(
-            JobMetrics metrics, SinkAction<?, ?, ?, ?> sinkAction, int outputCount) {
+            JobMetrics metrics,
+            SinkAction<?, ?, ?, ?> sinkAction,
+            int outputCount,
+            int sinkCount,
+            Map<TablePath, Integer> tableOwners) {
         List<TablePath> tablePaths = metricTablePaths(sinkAction);
+        if (outputCount != 1 || tablePaths.stream().anyMatch(table -> tableOwners.get(table) > 1)) {
+            return null;
+        }
+        boolean allowTotal = sinkCount == 1;
         Long committedCount =
-                metricValue(metrics, MetricNames.SINK_COMMITTED_COUNT, outputCount, tablePaths);
+                metricValue(metrics, MetricNames.SINK_COMMITTED_COUNT, allowTotal, tablePaths);
         Long committedBytes =
-                metricValue(metrics, MetricNames.SINK_COMMITTED_BYTES, outputCount, tablePaths);
+                metricValue(metrics, MetricNames.SINK_COMMITTED_BYTES, allowTotal, tablePaths);
         if (committedCount != null && committedCount > 0) {
             return new LineageOutputStatistics(committedCount, committedBytes, "committed");
         }
         Long writeCount =
-                metricValue(metrics, MetricNames.SINK_WRITE_COUNT, outputCount, tablePaths);
+                metricValue(metrics, MetricNames.SINK_WRITE_COUNT, allowTotal, tablePaths);
         Long writeBytes =
-                metricValue(metrics, MetricNames.SINK_WRITE_BYTES, outputCount, tablePaths);
+                metricValue(metrics, MetricNames.SINK_WRITE_BYTES, allowTotal, tablePaths);
         if (writeCount != null && writeCount > 0) {
             return new LineageOutputStatistics(writeCount, writeBytes, "attempted");
         }
@@ -368,44 +407,32 @@ public final class ZetaLineageReporter {
 
     private static List<TablePath> metricTablePaths(SinkAction<?, ?, ?, ?> action) {
         if (action.getSink() instanceof MultiTableSink) {
+            // Counters use resolved write targets, not the upstream keys of getSinks().
             return ((MultiTableSink) action.getSink())
-                    .getSinks().keySet().stream().collect(Collectors.toList());
-        }
-        if (action.getConfig() != null) {
-            return Collections.singletonList(action.getConfig().getTablePath());
+                    .getSinkTables().stream().distinct().collect(Collectors.toList());
         }
         return Collections.emptyList();
     }
 
-    /**
-     * Reads one counter for a sink output.
-     *
-     * <p>Sink metrics are suffixed with the <em>upstream</em> table identity, while {@code output}
-     * names the write target, so the two cannot be matched by name. When the sink writes a single
-     * target every upstream slice belongs to it and the slices are summed; otherwise the mapping is
-     * ambiguous and the statistic is omitted rather than guessed, because a plausible-looking wrong
-     * row count is worse on a lineage graph than a missing one.
-     *
-     * @param outputCount number of datasets this sink writes to
-     */
+    /** Reads counters for uniquely owned write tables, using job totals only for a single sink. */
     private static Long metricValue(
-            JobMetrics metrics, String metricName, int outputCount, List<TablePath> tablePaths) {
-        if (outputCount > 1) {
+            JobMetrics metrics, String metricName, boolean allowTotal, List<TablePath> tablePaths) {
+        if (metrics == null) {
             return null;
         }
         long total = 0;
-        boolean found = false;
         for (TablePath tablePath : tablePaths) {
             Long value = sum(metrics, metricName + "#" + tablePath.getFullName());
-            if (value != null) {
-                total += value;
-                found = true;
+            if (value == null) {
+                // An incomplete table slice must not turn into another sink's job-wide total.
+                return allowTotal ? sum(metrics, metricName) : null;
             }
+            total += value;
         }
-        if (found) {
+        if (!tablePaths.isEmpty()) {
             return total;
         }
-        return sum(metrics, metricName);
+        return allowTotal ? sum(metrics, metricName) : null;
     }
 
     private static Long sum(JobMetrics metrics, String metricName) {

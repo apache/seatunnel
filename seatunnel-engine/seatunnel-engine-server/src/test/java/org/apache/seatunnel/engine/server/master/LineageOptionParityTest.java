@@ -51,6 +51,9 @@ class LineageOptionParityTest {
                 EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS,
                 LineageConfig.HEARTBEAT_MIN_INTERVAL_MS);
         assertKey(EnvCommonOptions.OPENLINEAGE_PRODUCER, LineageConfig.PRODUCER);
+        assertKey(
+                EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT,
+                LineageConfig.JOB_NAME_PER_OUTPUT);
     }
 
     @Test
@@ -77,6 +80,9 @@ class LineageOptionParityTest {
         Assertions.assertEquals(
                 EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS.defaultValue().longValue(),
                 LineageConfig.DEFAULT_HEARTBEAT_MIN_INTERVAL_MS);
+        Assertions.assertEquals(
+                EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT.defaultValue(),
+                defaults.jobNamePerOutput());
     }
 
     private static void assertKey(Option<?> option, String resolverKey) {

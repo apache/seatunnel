@@ -136,6 +136,12 @@ falling back to attempted write counters when no positive committed counter is a
 records which of the two was used, so a consumer is never told that attempted rows are committed
 ones.
 
+Counters are read from the sink’s resolved write tables, and are only used when those tables
+belong to one sink action. Job-wide counters are a fallback only for a job with a single sink.
+A sink with multiple lineage outputs, overlapping sink tables, or no attributable counters omits
+statistics rather than copying the job total to each output. `FAIL` and `ABORT` carry no output
+statistics.
+
 A job that has not finished reports periodic heartbeat events, so a receiver does not mistake a
 still-running job for one whose producer died. Zeta emits them from its checkpoint completion
 callback, so a Zeta job with checkpointing disabled has no heartbeat. They are throttled by

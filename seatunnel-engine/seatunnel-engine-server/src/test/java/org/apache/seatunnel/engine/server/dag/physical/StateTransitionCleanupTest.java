@@ -324,6 +324,7 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getSerializationService().toData("unused"),
                 nodeEngine,
                 mock(ExecutorService.class),
+                mock(ExecutorService.class),
                 mock(ResourceManager.class),
                 mock(JobHistoryService.class),
                 runningJobState,

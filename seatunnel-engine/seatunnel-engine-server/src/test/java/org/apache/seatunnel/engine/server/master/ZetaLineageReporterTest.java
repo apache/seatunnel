@@ -20,8 +20,11 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.Measurement;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -34,7 +37,9 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.lineage.LineageConfig;
 import org.apache.seatunnel.lineage.LineageDataset;
+import org.apache.seatunnel.lineage.LineageEvent;
 import org.apache.seatunnel.lineage.LineageEventType;
+import org.apache.seatunnel.lineage.LineageOutputStatistics;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -311,9 +316,7 @@ class ZetaLineageReporterTest {
 
             jobMaster.submitLineageEmission(() -> {});
             Assertions.assertEquals(
-                    64,
-                    emissions.size(),
-                    "a full per-job queue must refuse the newest emission");
+                    64, emissions.size(), "a full per-job queue must refuse the newest emission");
         } finally {
             executor.shutdownNow();
         }
@@ -381,6 +384,355 @@ class ZetaLineageReporterTest {
                 Collections.emptyList(),
                 invokeSourceDatasets(dag, null),
                 "a missing vertex id yields no inputs rather than failing");
+    }
+
+    /**
+     * A job whose two sources each feed their own sink reports one run per output. A receiver that
+     * keeps one current run per job name loses all but one of them unless the outputs are told
+     * apart, so the per-output name is opt-in and the default must leave the job name untouched.
+     */
+    @Test
+    void shouldNameTheJobPerOutputOnlyWhenConfigured() throws Exception {
+        JobMaster jobMaster = twoOutputJobMaster("orders_sync");
+
+        Assertions.assertEquals(
+                Arrays.asList("orders_sync", "orders_sync"),
+                jobNames(jobMaster, Collections.emptyMap()));
+
+        Map<String, Object> options = new HashMap<>();
+        options.put(LineageConfig.JOB_NAME_PER_OUTPUT, true);
+        Assertions.assertEquals(
+                Arrays.asList(
+                        "orders_sync::doris://fe:9030/ods.orders",
+                        "orders_sync::doris://fe:9030/ods.refunds"),
+                jobNames(jobMaster, options));
+    }
+
+    private static List<String> jobNames(JobMaster jobMaster, Map<String, Object> options)
+            throws Exception {
+        options = new HashMap<>(options);
+        options.put(LineageConfig.ENABLED, true);
+        LineageConfig config =
+                LineageConfig.resolve(options, Collections.emptyMap(), Collections.emptyMap());
+        Method method =
+                ZetaLineageReporter.class.getDeclaredMethod(
+                        "events", JobMaster.class, LineageConfig.class, LineageEventType.class);
+        method.setAccessible(true);
+        List<String> names = new ArrayList<>();
+        for (Object event :
+                (List<?>) method.invoke(null, jobMaster, config, LineageEventType.START)) {
+            names.add(((LineageEvent) event).jobName());
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    /** Two independent source-to-sink chains, each writing one Doris table. */
+    private static JobMaster twoOutputJobMaster(String jobName) {
+        LogicalDag dag = new LogicalDag();
+        String[][] chains = {{"ods_src.orders", "ods.orders"}, {"ods_src.refunds", "ods.refunds"}};
+        long vertexId = 1L;
+        for (String[] chain : chains) {
+            SourceAction<?, ?, ?> source =
+                    new SourceAction<>(
+                            vertexId,
+                            "source",
+                            mock(SeaTunnelSource.class),
+                            new HashSet<>(),
+                            new HashSet<>());
+            source.setLineageDatasets(
+                    Collections.singletonList(LineageDataset.of("mysql://db:3306", chain[0])));
+            SinkAction<?, ?, ?, ?> sink =
+                    new SinkAction<>(
+                            vertexId + 1,
+                            "sink",
+                            mock(SeaTunnelSink.class),
+                            new HashSet<>(),
+                            new HashSet<>());
+            sink.setLineageDatasets(
+                    Collections.singletonList(LineageDataset.of("doris://fe:9030", chain[1])));
+            dag.addLogicalVertex(new LogicalVertex(vertexId, source, 1));
+            dag.addLogicalVertex(new LogicalVertex(vertexId + 1, sink, 1));
+            dag.addEdge(new LogicalEdge(vertexId, vertexId + 1));
+            vertexId += 2;
+        }
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(jobName);
+        JobImmutableInformation information = mock(JobImmutableInformation.class);
+        doReturn(jobConfig).when(information).getJobConfig();
+        JobMaster jobMaster = mock(JobMaster.class);
+        doReturn(dag).when(jobMaster).getLogicalDag();
+        doReturn(information).when(jobMaster).getJobImmutableInformation();
+        doReturn(7L).when(jobMaster).getJobId();
+        doReturn("attempt").when(jobMaster).getLineageAttempt();
+        return jobMaster;
+    }
+
+    @Test
+    void shouldIsolateEqualCountsAndBytesForTwoOutputs() throws Exception {
+        assertTwoOutputStatistics(1000, 1000, false);
+    }
+
+    @Test
+    void shouldIsolateUnequalCountsAndBytesForBranchedOutputs() throws Exception {
+        assertTwoOutputStatistics(700, 1300, true);
+    }
+
+    private static void assertTwoOutputStatistics(long first, long second, boolean branched)
+            throws Exception {
+        JobMaster master = twoOutputJobMaster("orders_sync");
+        LogicalDag dag = master.getLogicalDag();
+        if (branched) {
+            dag.getEdges().clear();
+            dag.addEdge(new LogicalEdge(1L, 2L));
+            dag.addEdge(new LogicalEdge(1L, 4L));
+        }
+        configureMetricTables(dag, "ods.orders", "ods.refunds");
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, first + second);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES, 11 * first + 29 * second);
+        counter(
+                values,
+                MetricNames.SINK_COMMITTED_COUNT + "#ods.orders",
+                first / 2,
+                first - first / 2);
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#ods.refunds", second);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES + "#ods.orders", 11 * first);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES + "#ods.refunds", 29 * second);
+        // Attempts must not override committed counters, or supply committed bytes.
+        counter(values, MetricNames.SINK_WRITE_COUNT + "#ods.orders", first + 50);
+        counter(values, MetricNames.SINK_WRITE_BYTES + "#ods.orders", 99999L);
+        List<LineageEvent> events = completionEvents(master, JobMetrics.of(values));
+        for (LineageEvent event : events) {
+            LineageDataset output = event.outputs().get(0);
+            boolean orders = output.name().equals("ods.orders");
+            assertStatistics(
+                    output.outputStatistics(),
+                    orders ? first : second,
+                    orders ? 11 * first : 29 * second,
+                    "committed");
+            Assertions.assertEquals(1, event.inputs().size());
+            Assertions.assertEquals(
+                    orders || branched ? "ods_src.orders" : "ods_src.refunds",
+                    event.inputs().get(0).name());
+        }
+        Assertions.assertEquals(2, events.size());
+        Assertions.assertNotEquals(events.get(0).runId(), events.get(1).runId());
+    }
+
+    @Test
+    void shouldUseAttemptedCountersWhenCommittedIsZero() throws Exception {
+        JobMaster master = twoOutputJobMaster("attempts");
+        configureMetricTables(master.getLogicalDag(), "ods.orders", "ods.refunds");
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#ods.orders", 0);
+        counter(values, MetricNames.SINK_WRITE_COUNT + "#ods.orders", 700);
+        counter(values, MetricNames.SINK_WRITE_BYTES + "#ods.orders", 7700);
+        counter(values, MetricNames.SINK_WRITE_COUNT, 2000);
+        for (LineageEvent event : completionEvents(master, JobMetrics.of(values))) {
+            LineageDataset output = event.outputs().get(0);
+            if (output.name().equals("ods.orders")) {
+                assertStatistics(output.outputStatistics(), 700, 7700L, "attempted");
+            } else {
+                Assertions.assertNull(output.outputStatistics());
+            }
+        }
+    }
+
+    @Test
+    void shouldNotUseJobTotalsForMissingTableCountersOrBytes() throws Exception {
+        JobMaster master = twoOutputJobMaster("missing");
+        configureMetricTables(master.getLogicalDag(), "ods.orders", "ods.refunds");
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, 2000);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES, 40000);
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#ods.orders", 700);
+        for (LineageEvent event : completionEvents(master, JobMetrics.of(values))) {
+            LineageDataset output = event.outputs().get(0);
+            if (output.name().equals("ods.orders")) {
+                assertStatistics(output.outputStatistics(), 700, null, "committed");
+            } else {
+                Assertions.assertNull(output.outputStatistics());
+            }
+        }
+        values.put(
+                MetricNames.SINK_COMMITTED_COUNT + "#ods.orders",
+                Collections.singletonList(
+                        Measurement.of("invalid", "unknown", 1L, Collections.emptyMap())));
+        for (LineageEvent event : completionEvents(master, JobMetrics.of(values))) {
+            Assertions.assertNull(event.outputs().get(0).outputStatistics());
+        }
+    }
+
+    @Test
+    void shouldOnlyUseJobTotalsForASingleSink() throws Exception {
+        JobMaster master = twoOutputJobMaster("single");
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, 1000);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES, 13000);
+        // Plain sinks have no per-table counters. Multiple such sinks cannot share the total.
+        for (LineageEvent event : completionEvents(master, JobMetrics.of(values))) {
+            Assertions.assertNull(event.outputs().get(0).outputStatistics());
+        }
+        master.getLogicalDag().getLogicalVertexMap().remove(4L);
+        assertStatistics(
+                completionEvents(master, JobMetrics.of(values))
+                        .get(0)
+                        .outputs()
+                        .get(0)
+                        .outputStatistics(),
+                1000,
+                13000L,
+                "committed");
+        Assertions.assertNull(
+                completionEvents(master, JobMetrics.of(Collections.emptyMap()))
+                        .get(0)
+                        .outputs()
+                        .get(0)
+                        .outputStatistics());
+    }
+
+    @Test
+    void shouldOmitStatisticsForTargetsSharedBySinks() throws Exception {
+        JobMaster master = twoOutputJobMaster("shared");
+        configureMetricTables(master.getLogicalDag(), "same.target", "same.target");
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#same.target", 700, 1300);
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, 2000);
+        for (LineageEvent event : completionEvents(master, JobMetrics.of(values))) {
+            Assertions.assertNull(event.outputs().get(0).outputStatistics());
+            Assertions.assertEquals(1, event.inputs().size());
+        }
+    }
+
+    @Test
+    void shouldSumAllUniqueTablesForOneTargetWithoutDuplicateSlices() throws Exception {
+        JobMaster master = twoOutputJobMaster("tables");
+        configureMetricTables(master.getLogicalDag(), "ods.orders", "ods.refunds");
+        master.getLogicalDag().getLogicalVertexMap().remove(4L);
+        MultiTableSink sink =
+                (MultiTableSink)
+                        ((SinkAction<?, ?, ?, ?>)
+                                        master.getLogicalDag()
+                                                .getLogicalVertexMap()
+                                                .get(2L)
+                                                .getAction())
+                                .getSink();
+        doReturn(
+                        Arrays.asList(
+                                TablePath.of("ods.orders"),
+                                TablePath.of("ods.refunds"),
+                                TablePath.of("ods.orders")))
+                .when(sink)
+                .getSinkTables();
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#ods.orders", 700);
+        counter(values, MetricNames.SINK_COMMITTED_COUNT + "#ods.refunds", 1300);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES + "#ods.orders", 7700);
+        counter(values, MetricNames.SINK_COMMITTED_BYTES + "#ods.refunds", 37700);
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, 9999);
+        assertStatistics(
+                completionEvents(master, JobMetrics.of(values))
+                        .get(0)
+                        .outputs()
+                        .get(0)
+                        .outputStatistics(),
+                2000,
+                45400L,
+                "committed");
+    }
+
+    @Test
+    void shouldKeepMultiOutputSinkConservativeAndFailedOrAbortedRunsUncounted() throws Exception {
+        JobMaster master = twoOutputJobMaster("multi");
+        master.getLogicalDag().getLogicalVertexMap().remove(4L);
+        SinkAction<?, ?, ?, ?> sink =
+                (SinkAction<?, ?, ?, ?>)
+                        master.getLogicalDag().getLogicalVertexMap().get(2L).getAction();
+        sink.setLineageDatasets(
+                Arrays.asList(
+                        LineageDataset.of("doris://fe:9030", "ods.orders"),
+                        LineageDataset.of("doris://fe:9030", "ods.refunds")));
+        Map<String, List<Measurement>> values = new HashMap<>();
+        counter(values, MetricNames.SINK_COMMITTED_COUNT, 2000);
+        for (LineageEventType type :
+                Arrays.asList(
+                        LineageEventType.COMPLETE, LineageEventType.FAIL, LineageEventType.ABORT)) {
+            List<LineageEvent> events =
+                    type == LineageEventType.COMPLETE
+                            ? completionEvents(master, JobMetrics.of(values))
+                            : invokeEvents(master, type);
+            Assertions.assertEquals(2, events.size());
+            Assertions.assertNotEquals(events.get(0).runId(), events.get(1).runId());
+            for (LineageEvent event : events) {
+                Assertions.assertNull(event.outputs().get(0).outputStatistics());
+                Assertions.assertEquals(1, event.inputs().size());
+            }
+        }
+    }
+
+    private static void configureMetricTables(LogicalDag dag, String first, String second) {
+        String[] tables = {first, second};
+        for (int i = 0; i < 2; i++) {
+            SinkAction<?, ?, ?, ?> previous =
+                    (SinkAction<?, ?, ?, ?>) dag.getLogicalVertexMap().get(2L + 2 * i).getAction();
+            MultiTableSink sink = mock(MultiTableSink.class);
+            doReturn(Collections.singletonList(TablePath.of(tables[i]))).when(sink).getSinkTables();
+            doReturn(
+                            Collections.singletonMap(
+                                    TablePath.of("source." + i), mock(SeaTunnelSink.class)))
+                    .when(sink)
+                    .getSinks();
+            SinkAction<?, ?, ?, ?> action =
+                    new SinkAction<>(
+                            previous.getId(), "sink-" + i, sink, new HashSet<>(), new HashSet<>());
+            action.setLineageDatasets(previous.getLineageDatasets());
+            dag.getLogicalVertexMap()
+                    .put(action.getId(), new LogicalVertex(action.getId(), action, 1));
+        }
+    }
+
+    private static void counter(
+            Map<String, List<Measurement>> values, String metric, long... counts) {
+        List<Measurement> measurements = new ArrayList<>();
+        for (long count : counts) {
+            measurements.add(Measurement.of(metric, count, 1L, Collections.emptyMap()));
+        }
+        values.put(metric, measurements);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<LineageEvent> completionEvents(JobMaster master, JobMetrics metrics)
+            throws Exception {
+        JobHistoryService history = mock(JobHistoryService.class);
+        long jobId = master.getJobId();
+        doReturn(metrics).when(history).getJobMetrics(jobId);
+        doReturn(history).when(master).getJobHistoryService();
+        return invokeEvents(master, LineageEventType.COMPLETE);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<LineageEvent> invokeEvents(JobMaster master, LineageEventType type)
+            throws Exception {
+        Method method =
+                ZetaLineageReporter.class.getDeclaredMethod(
+                        "events", JobMaster.class, LineageConfig.class, LineageEventType.class);
+        method.setAccessible(true);
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.ENABLED, true),
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        return (List<LineageEvent>) method.invoke(null, master, config, type);
+    }
+
+    private static void assertStatistics(
+            LineageOutputStatistics statistics, long rows, Long bytes, String semantics) {
+        Assertions.assertNotNull(statistics);
+        Assertions.assertEquals(rows, statistics.rowCount());
+        Assertions.assertEquals(bytes, statistics.size());
+        Assertions.assertEquals(semantics, statistics.semantics());
     }
 
     private static void clearUpstreams(Object action) throws Exception {

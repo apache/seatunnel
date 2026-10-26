@@ -123,6 +123,10 @@ Zeta 从历史作业指标读取终态输出统计，优先使用 committed 计�
 attempted 写入计数。事件中会记录实际采用的是哪一种口径，因此消费方不会把 attempted 行数误认为
 committed 行数。
 
+计数器按 sink 实际解析的写入目标表读取，且只有目标表归属于唯一 sink action 时才使用。
+全作业计数仅在作业只有一个 sink 时作为回退。同一 sink 有多个血缘输出、不同 sink 的目标表重叠，
+或没有可归属的计数器时省略统计，不会将作业总计复制给每个输出。`FAIL` 和 `ABORT` 不携带输出统计。
+
 未结束的作业会周期性发送心跳事件，使接收端不会把仍在运行的作业误判为 producer 已死。Zeta 搭在
 checkpoint 完成回调上发送，因此关闭 checkpoint 的 Zeta 作业没有心跳。心跳受
 `openlineage_heartbeat_min_interval_ms` 节流，设置为 `0` 时不再发送。确实停止上报的 run 受接收端
