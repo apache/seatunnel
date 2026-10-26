@@ -21,7 +21,7 @@ limitations under the License.
 and a locally supplied driver. It does not download a database image, accept a
 commercial license, or add the driver as a Maven dependency.
 
-If you need an instance, Actian offers a [30-day Ingres 12.1 evaluation](https://esd.actian.com/product/Ingres/12.1/Linux_X86_64-bit/Actian_Ingres_12.1_Evaluation_Edition).
+If you need an instance, request an Ingres evaluation from Actian.
 Obtain an evaluation license from Actian before activating the instance.
 
 Prerequisites:
