@@ -496,6 +496,8 @@ Ensure pods have enough time to flush state and leave the cluster:
 terminationGracePeriodSeconds: 60
 ```
 
+The JVM receives SIGTERM only when the container runs `seatunnel-cluster.sh` directly, not through `/bin/sh -c`. See [Health Check and Shutdown](../../getting-started/kubernetes/hybrid-cluster-mode.md#health-check-and-shutdown).
+
 And in `hazelcast.yaml`:
 ```yaml
 hazelcast:
