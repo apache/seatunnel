@@ -398,7 +398,8 @@ public interface JdbcDialect extends Serializable {
      * @param columnName The name of the column to be sampled.
      * @param samplingRate samplingRate The inverse of the fraction of the data to be sampled from
      *     the column. For example, a value of 1000 would mean 1/1000 of the data will be sampled.
-     * @return Returns a List of sampled data from the specified column.
+     * @return Returns a List of sampled data from the specified column, ordered by the database
+     *     collation of the column.
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
     default Object[] sampleDataFromColumn(
@@ -408,17 +409,29 @@ public interface JdbcDialect extends Serializable {
             int samplingRate,
             int fetchSize)
             throws Exception {
+        // The sampled keys MUST be returned in the database collation order, NOT Java
+        // String.compareTo order. Split reads later filter rows with "WHERE key >= chunkStart
+        // AND key < chunkEnd", which the database evaluates using its collation. If the chunk
+        // boundaries were produced from a Java byte-order sort, the two orderings disagree for
+        // mixed-case string keys: chunk ranges overlap (rows read twice) or invert (permanently
+        // empty chunks), and rows can concentrate into a single giant chunk that overloads one
+        // subtask. Ordering in SQL keeps the sample, the chunk boundaries and the split WHERE
+        // filters all in the same (database) order.
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) AS T",
-                            quoteIdentifier(columnName), table.getQuery());
+                            "SELECT %s FROM (%s) AS T ORDER BY %s",
+                            quoteIdentifier(columnName),
+                            table.getQuery(),
+                            quoteIdentifier(columnName));
         } else {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+                            "SELECT %s FROM %s ORDER BY %s",
+                            quoteIdentifier(columnName),
+                            tableIdentifier(table.getTablePath()),
+                            quoteIdentifier(columnName));
         }
 
         try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
@@ -430,15 +443,23 @@ public interface JdbcDialect extends Serializable {
                 while (rs.next()) {
                     count++;
                     if (count % samplingRate == 0) {
-                        results.add(rs.getObject(1));
+                        Object sampleValue = rs.getObject(1);
+                        // NULL must not become a chunk boundary: a null boundary breaks the
+                        // range construction in the caller (and crashed the removed
+                        // Arrays.sort). NULL keys never match any range predicate anyway.
+                        if (sampleValue != null) {
+                            results.add(sampleValue);
+                        }
                     }
                     if (Thread.currentThread().isInterrupted()) {
                         throw new InterruptedException("Thread interrupted");
                     }
                 }
-                Object[] resultsArray = results.toArray();
-                Arrays.sort(resultsArray);
-                return resultsArray;
+                // The sample is already sorted by the database (ORDER BY in sampleQuery), in the
+                // same collation order the split WHERE filters use. Do NOT re-sort here with
+                // Java Arrays.sort: String.compareTo uses UTF-16 code-unit order which disagrees
+                // with the database collation and would misalign the chunk boundaries again.
+                return results.toArray();
             }
         }
     }
