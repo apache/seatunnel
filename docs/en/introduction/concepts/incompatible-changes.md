@@ -29,7 +29,7 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
 ### JDBC MySQL-compatible DECIMAL precision mapping
 
 - **Behavior change: MySQL JDBC and OceanBase MySQL-mode DECIMAL metadata now preserves the declared precision and scale**
-  - **Affected component**: `connector-jdbc` MySQL and OceanBase MySQL-compatible type conversion and automatically generated MySQL/OceanBase sink DDL
+  - **Affected component**: `connector-jdbc` MySQL and OceanBase MySQL-compatible type conversion, the `connector-cdc-mysql` source schema, and automatically generated MySQL/OceanBase sink DDL
   - **Description**: MySQL `DECIMAL(p, s)` columns, and the equivalent columns read in OceanBase MySQL mode, with precision above 38 were previously exposed as
     `DECIMAL(38, 18)`. They now preserve `p` and `s` up to the database limits of precision 65 and scale 30. Values above those limits are clamped; when precision is above 65, scale is reduced as needed to keep the integral digits.
     `UNSIGNED` does not add a digit: `DECIMAL(p, s) UNSIGNED` maps to the same SeaTunnel decimal precision
