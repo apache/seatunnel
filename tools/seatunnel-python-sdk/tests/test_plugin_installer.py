@@ -14,13 +14,20 @@
 #  limitations under the License.
 
 
+import contextlib
 import os
 import subprocess
 import tempfile
 import unittest
 from unittest import mock
 
+from seatunnel import plugin_installer
 from seatunnel.plugin_installer import PluginInstallError, install_plugins, select_plugins
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
 
 
 # Same layout as config/plugin_config in the distribution: license header, a description
@@ -182,8 +189,74 @@ class TestSelectPlugins(_PluginConfigTestCase):
             select_plugins(os.path.join(self.home, "nope"), ["jdbc"])
         self.assertIn("Cannot read plugin config", str(ctx.exception))
 
+    def test_connector_lines_with_stray_whitespace_are_recognized(self):
+        """Connector lines with surrounding whitespace are matched and written without it."""
+        self._write(
+            PLUGIN_CONFIG.replace("connector-jdbc\n", "  connector-jdbc\n")
+            .replace("connector-kafka\n", "connector-kafka  \n")
+        )
+
+        select_plugins(self.config_path, ["jdbc"])
+
+        content = self._read()
+        self.assertEqual(["connector-jdbc"], self._enabled())
+        self.assertIn("\nconnector-jdbc\n", content)
+        self.assertIn("\n#connector-kafka\n", content)
+
+    def test_disabled_connector_with_trailing_whitespace_can_be_enabled(self):
+        """'#connector-kafka  ' is recognized as a disabled connector, not as a comment."""
+        self._write(PLUGIN_CONFIG.replace("connector-kafka\n", "#connector-kafka  \n"))
+
+        self.assertEqual(["connector-kafka"], select_plugins(self.config_path, ["kafka"]))
+        self.assertEqual(["connector-kafka"], self._enabled())
+
+    def test_line_rejected_by_install_script_raises_and_leaves_file_unchanged(self):
+        """A line install-plugin.sh would reject as an artifact ID fails before any rewrite."""
+        for bad_line in ("connector-kafka # keep", "connector kafka", "   ", "  # indented"):
+            with self.subTest(line=bad_line):
+                content = PLUGIN_CONFIG.replace("connector-kafka\n", bad_line + "\n")
+                self._write(content)
+                with self.assertRaises(PluginInstallError) as ctx:
+                    select_plugins(self.config_path, ["jdbc"])
+                self.assertIn("Line 11", str(ctx.exception))
+                self.assertIn("would reject it", str(ctx.exception))
+                self.assertEqual(content, self._read())
+
+    def test_non_utf8_file_raises_plugin_install_error(self):
+        """A plugin_config that is not valid UTF-8 raises PluginInstallError, not UnicodeDecodeError."""
+        with open(self.config_path, "wb") as f:
+            f.write(b"connector-jdbc\n\xff\xfe\n")
+
+        with self.assertRaises(PluginInstallError) as ctx:
+            select_plugins(self.config_path, ["jdbc"])
+        self.assertIsInstance(ctx.exception.__cause__, UnicodeDecodeError)
+
+    def test_invalid_connectors_argument_raises_plugin_install_error(self):
+        """None and non-string names raise PluginInstallError showing the offending value."""
+        with self.assertRaises(PluginInstallError) as ctx:
+            select_plugins(self.config_path, None)
+        self.assertIn("None", str(ctx.exception))
+
+        with self.assertRaises(PluginInstallError) as ctx:
+            select_plugins(self.config_path, ["jdbc", 42])
+        self.assertIn("42", str(ctx.exception))
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
 
 class TestInstallPlugins(_PluginConfigTestCase):
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(plugin_installer, "_is_windows", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        if fcntl is None:
+            # fcntl.flock is POSIX only; the real lock is exercised on Linux and macOS.
+            patcher = mock.patch.object(
+                plugin_installer, "_exclusive_lock", lambda config_dir: contextlib.nullcontext()
+            )
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def _patch_which(self, path="/usr/bin/bash"):
         return mock.patch("seatunnel.plugin_installer.shutil.which", return_value=path)
@@ -342,10 +415,89 @@ class TestInstallPlugins(_PluginConfigTestCase):
         for version in ("", "  ", None):
             with self.subTest(version=version):
                 with self._patch_which(), self._patch_run() as run:
-                    with self.assertRaises(PluginInstallError):
+                    with self.assertRaises(PluginInstallError) as ctx:
                         install_plugins(self.home, ["jdbc"], version)
                 run.assert_not_called()
+                self.assertIn("engine version", str(ctx.exception))
+                self.assertNotIn("3.0.1", str(ctx.exception))
         self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_invalid_version_raises_before_rewriting(self):
+        """Versions install-plugin.sh rejects, or reads as a Maven range, fail up front."""
+        for version in ("3.0.1 beta", "3.0/1", "[3.0,)", "3.0+1", "3.0;rm"):
+            with self.subTest(version=version):
+                with self._patch_which(), self._patch_run() as run:
+                    with self.assertRaises(PluginInstallError) as ctx:
+                        install_plugins(self.home, ["jdbc"], version)
+                run.assert_not_called()
+                self.assertIn("Invalid connector version", str(ctx.exception))
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_relative_home_is_resolved_to_an_absolute_script_path(self):
+        """A relative seatunnel_home still hands bash an absolute script path."""
+        parent, name = os.path.split(self.home)
+        cwd = os.getcwd()
+        os.chdir(parent)
+        self.addCleanup(os.chdir, cwd)
+
+        with self._patch_which(), self._patch_run() as run:
+            install_plugins(name, ["jdbc"], "3.0.0")
+
+        run.assert_called_once_with(
+            ["/usr/bin/bash", self.script_path, "3.0.0"], cwd=self.home, check=False
+        )
+        self.assertTrue(os.path.isabs(run.call_args[0][0][1]))
+
+    def test_windows_is_rejected_before_rewriting(self):
+        """On Windows the call fails up front, without rewriting plugin_config or running bash."""
+        with mock.patch.object(plugin_installer, "_is_windows", return_value=True):
+            with self._patch_which() as which, self._patch_run() as run:
+                with self.assertRaises(PluginInstallError) as ctx:
+                    install_plugins(self.home, ["jdbc"], "3.0.0")
+        self.assertIn("Linux and macOS only", str(ctx.exception))
+        which.assert_not_called()
+        run.assert_not_called()
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_failed_install_does_not_rewrite_an_unchanged_file(self):
+        """If the selection was already in place, a failed install performs no write at all."""
+        select_plugins(self.config_path, ["jdbc"])
+        before = self._read()
+
+        with self._patch_which(), self._patch_run(returncode=1):
+            with mock.patch.object(
+                plugin_installer, "_write_atomically", wraps=plugin_installer._write_atomically
+            ) as write:
+                with self.assertRaises(PluginInstallError):
+                    install_plugins(self.home, ["jdbc"], "3.0.0")
+        write.assert_not_called()
+        self.assertEqual(before, self._read())
+
+    @unittest.skipIf(fcntl is None, "fcntl.flock is POSIX only")
+    def test_lock_is_held_while_the_script_runs(self):
+        """A second process cannot take the plugin_config lock until the install finishes."""
+        lock_path = os.path.join(self.home, "config", ".plugin_config.lock")
+        observed = {}
+
+        def try_lock():
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except BlockingIOError:
+                return False
+            finally:
+                os.close(fd)
+
+        def fake_run(args, cwd, check):
+            observed["lock_free_during_run"] = try_lock()
+            return subprocess.CompletedProcess(args=args, returncode=0)
+
+        with self._patch_which(), self._patch_run(side_effect=fake_run):
+            install_plugins(self.home, ["jdbc"], "3.0.0")
+
+        self.assertFalse(observed["lock_free_during_run"])
+        self.assertTrue(try_lock())
 
 
 if __name__ == "__main__":
