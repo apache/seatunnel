@@ -64,7 +64,8 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.OPENLINEAGE_RUN_FACET,
                         EnvCommonOptions.OPENLINEAGE_RUN_PROPERTIES,
                         EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS,
-                        EnvCommonOptions.OPENLINEAGE_PRODUCER)
+                        EnvCommonOptions.OPENLINEAGE_PRODUCER,
+                        EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT)
                 .build();
     }
 }

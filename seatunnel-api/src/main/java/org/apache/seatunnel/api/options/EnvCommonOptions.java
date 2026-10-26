@@ -225,4 +225,13 @@ public class EnvCommonOptions {
                     .withDescription(
                             "OpenLineage producer identifier. When unset it defaults to "
                                     + "https://seatunnel.apache.org/ followed by the running SeaTunnel version.");
+
+    public static Option<Boolean> OPENLINEAGE_JOB_NAME_PER_OUTPUT =
+            Options.key("openlineage_job_name_per_output")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether each output is reported under its own OpenLineage job name, "
+                                    + "<job name>::<output namespace>/<output name>, instead of "
+                                    + "sharing the job name.");
 }

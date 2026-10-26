@@ -51,11 +51,17 @@ public class OpenLineageOptionSyncTest {
                 LineageConfig.HEARTBEAT_MIN_INTERVAL_MS,
                 EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS.key());
         assertEquals(LineageConfig.PRODUCER, EnvCommonOptions.OPENLINEAGE_PRODUCER.key());
+        assertEquals(
+                LineageConfig.JOB_NAME_PER_OUTPUT,
+                EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT.key());
     }
 
     @Test
     public void openLineageOptionDefaultsMatchLineageConfig() {
         assertEquals(Boolean.FALSE, EnvCommonOptions.OPENLINEAGE_ENABLED.defaultValue());
+        assertEquals(
+                LineageConfig.defaults().jobNamePerOutput(),
+                EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT.defaultValue());
         assertEquals(
                 LineageConfig.DEFAULT_TRANSPORT,
                 EnvCommonOptions.OPENLINEAGE_TRANSPORT.defaultValue());
