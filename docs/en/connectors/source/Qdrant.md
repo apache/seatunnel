@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.
@@ -80,6 +86,7 @@ The gRPC port of the Qdrant instance.
 ### api_key [string]
 
 The API key used to connect to authenticated Qdrant deployments. Leave it empty when the Qdrant service does not require authentication.
+Set `use_tls = true` when sending an API key over an untrusted network; otherwise the key is sent over an unencrypted gRPC connection.
 
 ### use_tls [bool]
 

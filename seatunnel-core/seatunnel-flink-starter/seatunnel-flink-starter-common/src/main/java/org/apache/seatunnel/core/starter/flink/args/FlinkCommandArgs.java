@@ -53,7 +53,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                             + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
 
-    /** restore savepoint/checkpoint path */
+    /**
+     * Restore path forwarded to Flink without interpreting its filesystem or state contents.
+     *
+     * <p>The wrapper accepts one nonblank argument without line separators.
+     */
     @Parameter(
             names = {"-s", "--fromSavepoint", "--fromCheckpoint"},
             description =

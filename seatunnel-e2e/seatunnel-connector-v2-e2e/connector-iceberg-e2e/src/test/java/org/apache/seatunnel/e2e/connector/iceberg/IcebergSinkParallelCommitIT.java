@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.iceberg.Snapshot;
@@ -43,6 +45,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
 
+import com.github.luben.zstd.Zstd;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -85,10 +88,6 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
     private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-parallel-sink/";
 
     private static final int EXPECTED_ROW_COUNT = 100;
-
-    private String zstdUrl() {
-        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-    }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -143,15 +142,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                                 + "seatunnel_namespace/iceberg_parallel_row_delta_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
-                Container.ExecResult zstdResult =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib"
-                                        + " && cd /tmp/seatunnel/plugins/Iceberg/lib"
-                                        + " && wget "
-                                        + zstdUrl());
-                Assertions.assertEquals(0, zstdResult.getExitCode(), zstdResult.getStderr());
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     /**
@@ -497,6 +489,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_row_delta_table");
@@ -514,6 +508,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_batch_table");
@@ -531,6 +527,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_streaming_table");
@@ -548,6 +546,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_recovery_table");

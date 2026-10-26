@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -27,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -36,6 +35,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
@@ -112,6 +112,22 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private CassandraContainer<?> container;
     private CqlSession session;
 
+    @Test
+    public void testUnavailableBootstrapContactPoint() {
+        String available = container.getHost() + ":" + container.getMappedPort(PORT);
+        String unavailable = container.getHost() + ":1";
+        for (String hosts :
+                Arrays.asList(unavailable + "," + available, available + "," + unavailable)) {
+            try (CqlSession connected =
+                    CassandraClient.getCqlSessionBuilder(hosts, KEYSPACE, "", "", DATACENTER)
+                            .build()) {
+                Assertions.assertEquals(KEYSPACE, connected.getKeyspace().get().asInternal());
+                Assertions.assertNotNull(
+                        connected.execute("SELECT * FROM source_table LIMIT 1").one());
+            }
+        }
+    }
+
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CASSANDRA_JOB_CONFIG);
@@ -150,7 +166,6 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CASSANDRA_DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Cassandra container started");
         Awaitility.given()
@@ -190,8 +205,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                     CqlSession.builder()
                             .addContactPoint(
                                     new InetSocketAddress(
-                                            container.getHost(),
-                                            container.getExposedPorts().get(0)))
+                                            container.getHost(), container.getMappedPort(PORT)))
                             .withLocalDatacenter(DATACENTER)
                             .withConfigLoader(DriverConfigLoader.fromFile(file))
                             .build();

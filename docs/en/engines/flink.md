@@ -97,6 +97,8 @@ Use `--fromCheckpoint` (a SeaTunnel wrapper alias) to pass a Flink savepoint or
 externalized-checkpoint path to Flink. The generated Flink command uses its native
 `-s/--fromSavepoint` option.
 
+The restore path must be nonblank and contain no line separators. Quote paths containing spaces in the shell.
+
 ```shell
 bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
 ```

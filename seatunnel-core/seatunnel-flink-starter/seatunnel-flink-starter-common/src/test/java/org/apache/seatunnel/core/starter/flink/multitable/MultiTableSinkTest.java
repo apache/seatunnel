@@ -36,6 +36,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Verifies multi-table sink resource creation, commit and cleanup through the Flink starter.
+ *
+ * <p>The shared fixture retains the original exact lifecycle assertions.
+ */
 @Order(1)
 public class MultiTableSinkTest {
 

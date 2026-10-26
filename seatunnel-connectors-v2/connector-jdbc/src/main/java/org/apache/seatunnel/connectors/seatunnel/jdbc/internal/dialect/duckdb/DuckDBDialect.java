@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
@@ -45,7 +46,8 @@ public class DuckDBDialect implements JdbcDialect {
 
     @Override
     public String hashModForField(String fieldName, int mod) {
-        return String.format("MOD(ABS(HASH(%s)), %d)", quoteIdentifier(fieldName), mod);
+        return String.format(
+                Locale.ROOT, "MOD(ABS(HASH(%s)), %d)", quoteIdentifier(fieldName), mod);
     }
 
     @Override

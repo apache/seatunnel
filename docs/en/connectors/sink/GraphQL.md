@@ -158,6 +158,56 @@ sink {
 }
 ```
 
+### Stream Mutations to a GraphQL Service
+
+Run the same mutation continuously in streaming mode. The sink sends one mutation
+per row and uses `retry` plus exponential backoff to absorb transient HTTP
+failures.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "events"
+    schema = {
+      fields {
+        id = int
+        val_string = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "first"] }
+      { kind = INSERT, fields = [2, "second"] }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "events"
+    url = "http://graphql:8080/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+  }
+}
+```
+
 ### Write Multiple Upstream Tables
 
 ```hocon

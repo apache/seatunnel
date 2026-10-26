@@ -64,7 +64,8 @@ public abstract class AbstractFlinkStarter implements Starter {
         if (Objects.nonNull(fromSavepoint)) {
             validateCheckpointPath(fromSavepoint);
             command.add("-s");
-            command.add(fromSavepoint);
+            // The wrapper joins these tokens into a shell command; keep the path literal.
+            command.add(quoteShellArgument(fromSavepoint));
         }
         // set submitted target master
         if (flinkCommandArgs.getMasterType() != null) {
@@ -122,7 +123,21 @@ public abstract class AbstractFlinkStarter implements Starter {
         return command;
     }
 
+    /**
+     * Keeps a restore path in one literal argument when the wrapper evaluates the Flink command.
+     *
+     * @param value the unquoted path received as one command-line argument
+     * @return a POSIX shell token that preserves spaces and shell metacharacters literally
+     */
+    private static String quoteShellArgument(String value) {
+        return "'" + value.replace("'", "'\"'\"'") + "'";
+    }
+
     private void validateCheckpointPath(String checkpointPath) {
+        // The wrapper reads the generated command from one output line.
+        if (checkpointPath.indexOf('\n') >= 0 || checkpointPath.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("Checkpoint path must not contain line separators");
+        }
         if (StringUtils.isBlank(checkpointPath)) {
             throw new IllegalArgumentException("Checkpoint path must not be blank");
         }

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.amazondynamodb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -70,6 +68,7 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -86,8 +85,11 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     private static final String AMAZONDYNAMODB_CONTAINER_HOST = "dynamodb-host";
     private static final int AMAZONDYNAMODB_CONTAINER_PORT = 8000;
     private static final String AMAZONDYNAMODB_JOB_CONFIG = "/amazondynamodbIT_source_to_sink.conf";
+    private static final String AMAZONDYNAMODB_MULTI_TABLE_JOB_CONFIG =
+            "/amazondynamodbIT_multi_table_source.conf";
     private static final String SINK_TABLE = "sink_table";
     private static final String SOURCE_TABLE = "source_table";
+    private static final String CUSTOMER_TABLE = "customer_table";
     private static final String PARTITION_KEY = "id";
 
     private GenericContainer<?> dynamoDB;
@@ -104,6 +106,13 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
         clearSinkTable();
     }
 
+    @TestTemplate
+    public void testMultiTableSource(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob(AMAZONDYNAMODB_MULTI_TABLE_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -116,11 +125,6 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 AMAZONDYNAMODB_DOCKER_IMAGE)));
-        dynamoDB.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s",
-                                AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(dynamoDB)).join();
         log.info("dynamodb container started");
         given().ignoreExceptions()
@@ -148,7 +152,8 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                                         "http://"
                                                 + dynamoDB.getHost()
                                                 + ":"
-                                                + AMAZONDYNAMODB_CONTAINER_PORT))
+                                                + dynamoDB.getMappedPort(
+                                                        AMAZONDYNAMODB_CONTAINER_PORT)))
                         // The region is meaningless for local DynamoDb but required for client
                         // builder validation
                         .region(Region.US_EAST_1)
@@ -159,11 +164,20 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
         createTable(dynamoDbClient, SOURCE_TABLE);
         createTable(dynamoDbClient, SINK_TABLE);
+        createTable(dynamoDbClient, CUSTOMER_TABLE);
     }
 
     private void batchInsertData() {
         dynamoDbClient.putItem(
                 PutItemRequest.builder().tableName(SOURCE_TABLE).item(randomRow()).build());
+        for (int i = 1; i <= 3; i++) {
+            Map<String, AttributeValue> customer = new HashMap<>();
+            customer.put(PARTITION_KEY, AttributeValue.builder().s("c" + i).build());
+            customer.put("name", AttributeValue.builder().s("customer-" + i).build());
+            customer.put("vip", AttributeValue.builder().bool(i % 2 == 0).build());
+            dynamoDbClient.putItem(
+                    PutItemRequest.builder().tableName(CUSTOMER_TABLE).item(customer).build());
+        }
     }
 
     private void clearSinkTable() {
@@ -255,7 +269,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                             BigDecimal.valueOf(11, 1),
                             "test".getBytes(),
                             LocalDate.now(),
-                            LocalDateTime.now()
+                            LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
                         });
 
         Map<String, AttributeValue> data = new HashMap<>(seatunnelRowType.getTotalFields());

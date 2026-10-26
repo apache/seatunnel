@@ -149,7 +149,7 @@ Response fields:
 |---|---|
 | `jobId` | Unique job identifier |
 | `jobName` | Human-readable job name |
-| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELLED` |
+| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELED` |
 | `envOptions` | Env configuration applied |
 | `createTime` | Job creation timestamp |
 | `jobDag` | DAG structure |
@@ -184,6 +184,12 @@ Key metric fields:
 | `SinkWriteCount` | Total rows written to sink |
 | `SourceReceivedQPS` | Current read throughput (rows/sec) |
 | `SinkWriteQPS` | Current write throughput (rows/sec) |
+
+Counters are reported by the current attempt of each pipeline. When a pipeline is restored after a
+failover (or retried after a failure), the new attempt starts counting from zero instead of
+accumulating the values left behind by the failed attempt, for both batch and streaming jobs. A
+worker report that was in flight during the restore can still carry a stale value for at most a
+millisecond-scale window.
 
 ---
 
@@ -225,12 +231,10 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log and returned in the job final state:
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+The savepoint is written to the configured checkpoint storage (see the checkpoint storage settings of your cluster). The `/job-info/:jobId` response has no
+`savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
+`restoreSourceJobId`), which picks up the latest savepoint of that job. For the full
+request example, see section 6.2.
 
 ### 5.3 Cancel (force)
 
@@ -246,15 +250,77 @@ curl -X POST "http://<master>:8080/stop-job" \
 
 ### 6.1 Restart from the latest checkpoint
 
-Submit the job again with the `jobId` parameter to restore from the last successful checkpoint:
+Submit the job again with `restoreMode=CHECKPOINT`, and use `restoreSourceJobId` to specify the
+job ID to restore from.
 
 ```bash
-curl -X POST http://<master>:8080/submit-job \
+curl -X POST "http://<master>:8080/submit-job?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248" \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
-      "job.id": "733584788375093248",
-      "job.name": "my-cdc-job",
+      "job.name": "my-cdc-job-restored",
+      "job.mode": "STREAMING",
+      "checkpoint.interval": 30000,
+      "checkpoint.retain-after-job-cancelled": true
+    },
+    "source": [ ... ],
+    "sink": [ ... ]
+  }'
+```
+
+The same `restoreMode` and `restoreSourceJobId` query parameters work with the
+[upload endpoint](rest-api-v2.md#submit-a-job-by-upload-config-file) when submitting a config file
+instead of a JSON body -- both endpoints share the same restore handling:
+
+```bash
+curl --location 'http://<master>:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248' \
+  --form 'config_file=@"/temp/my-cdc-job.conf"'
+```
+
+If the checkpoint data for `restoreSourceJobId` is missing, already cleaned up, or incompatible,
+the submission fails fast.
+
+If you want a canceled job to remain resumable from checkpoint, retain the checkpoint data
+generated during job execution in one of the following ways before the job is canceled.
+
+1. Configure the cluster default in `seatunnel.yaml`. This is a global setting and applies to all
+   jobs:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      retain-after-job-cancelled: true
+```
+
+2. Configure a job-level `env` override in the REST request body. This applies only to the current
+   job:
+
+```json
+{
+  "env": {
+    "job.name": "my-cdc-job-restored",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 30000,
+    "checkpoint.retain-after-job-cancelled": true
+  },
+  "source": [ ... ],
+  "sink": [ ... ]
+}
+```
+
+The default value is `false`. If neither the cluster config nor the job `env` enables this option,
+canceled jobs still clean up checkpoint data by default. When both are present, the job-level
+`env` setting takes precedence.
+
+### 6.2 Restart from the latest savepoint
+
+```bash
+curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "env": {
+      "job.name": "my-cdc-job-restored",
       "job.mode": "STREAMING",
       "checkpoint.interval": 30000
     },
@@ -263,26 +329,13 @@ curl -X POST http://<master>:8080/submit-job \
   }'
 ```
 
-Providing the same `job.id` instructs the engine to restore state from the existing checkpoint
-directory for that job.
+### 6.3 Restoring from an explicit savepoint path
 
-### 6.2 Restart from a specific savepoint path
-
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+The REST API does not support pointing at a specific savepoint path. There are no env options such
+as `restore.mode` or `savepoint.path`; restore is driven only by the `restoreMode` and
+`restoreSourceJobId` request parameters, and `restoreMode=SAVEPOINT` always picks up the **latest**
+savepoint of the referenced job (per pipeline, the one with the highest checkpoint id). There is no
+supported way to select an older savepoint through the REST API.
 
 ---
 

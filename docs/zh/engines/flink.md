@@ -97,6 +97,8 @@ sink {
 或外部化 Checkpoint 路径传给 Flink。最终生成的 Flink 命令使用其原生
 `-s/--fromSavepoint` 参数。
 
+恢复路径不能为空，也不能包含换行符。在 Shell 中传入包含空格的路径时，请使用引号。
+
 ```shell
 bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
 ```

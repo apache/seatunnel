@@ -18,20 +18,17 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
-import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.pgbase.config.PgBaseSourceConfigFactory;
 
 import io.debezium.connector.postgresql.PostgresConnector;
 
 import java.util.List;
 import java.util.Properties;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
-public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
+/**
+ * PostgreSQL-specific source config factory built on top of the PG-base Debezium property assembly.
+ */
+public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<PostgresSourceConfig> {
 
     private static final long serialVersionUID = 1L;
 
@@ -47,7 +44,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
     private List<String> schemaList;
 
     @Override
-    public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
+    public PostgresSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         super.fromReadonlyConfig(config);
         this.decodingPluginName = config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME);
         this.slotName = config.get(PostgresIncrementalSourceOptions.SLOT_NAME);
@@ -56,96 +53,55 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
     }
 
     @Override
-    public PostgresSourceConfig create(int subtask) {
-        Properties props = new Properties();
-        props.setProperty("connector.class", PostgresConnector.class.getCanonicalName());
-        // hard code server name, because we don't need to distinguish it, docs:
-        // Logical name that identifies and provides a namespace for the particular PostgreSQL
-        // database server/cluster being monitored. The logical name should be unique across
-        // all other connectors, since it is used as a prefix for all Kafka topic names coming
-        // from this connector. Only alphanumeric characters and underscores should be used.
-        props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.port", String.valueOf(port));
-        props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+    protected String connectorClassName() {
+        return PostgresConnector.class.getCanonicalName();
+    }
+
+    @Override
+    protected String databaseServerName() {
+        return DATABASE_SERVER_NAME;
+    }
+
+    @Override
+    protected String driverClassName() {
+        return DRIVER_CLASS_NAME;
+    }
+
+    @Override
+    protected void configureConnectorProperties(Properties props, int subtask) {
         props.setProperty("plugin.name", decodingPluginName);
         props.setProperty("slot.name", slotName);
-
-        // database history
-        props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
-        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtask);
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.history.refer.ddl", String.valueOf(true));
-
-        props.setProperty("database.tcpKeepAlive", String.valueOf(true));
-        props.setProperty("include.schema.changes", String.valueOf(false));
-
         if (schemaList != null) {
             props.setProperty("schema.include.list", String.join(",", schemaList));
         }
+    }
 
-        if (tableList != null) {
-            // pg identifier is of the form schemaName.tableName
-            props.setProperty(
-                    "table.include.list",
-                    tableList.stream()
-                            .map(
-                                    tableStr -> {
-                                        String[] splits = tableStr.split("\\.");
-                                        if (splits.length == 2) {
-                                            return tableStr;
-                                        }
-                                        if (splits.length == 3) {
-                                            return String.join(".", splits[1], splits[2]);
-                                        }
-                                        throw new IllegalArgumentException(
-                                                "Invalid table name: "
-                                                        + tableStr
-                                                        + " ,Postgres identifier is of the form schemaName.tableName");
-                                    })
-                            .collect(Collectors.joining(",")));
-        }
-
-        if (dbzProperties != null) {
-            props.putAll(dbzProperties);
-        }
-        if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
-            props.setProperty("snapshot.mode", "initial_only");
-        } else if (startupConfig != null
-                && startupConfig.getStartupMode() == StartupMode.COMMITTED_OFFSET) {
-            props.setProperty("snapshot.mode", "never");
-        }
-
-        PostgresSourceConfig config =
-                new PostgresSourceConfig(
-                        startupConfig,
-                        stopConfig,
-                        databaseList,
-                        tableList,
-                        splitSize,
-                        splitColumn,
-                        distributionFactorUpper,
-                        distributionFactorLower,
-                        sampleShardingThreshold,
-                        inverseSamplingRate,
-                        sampleShardingAllow,
-                        props,
-                        DRIVER_CLASS_NAME,
-                        hostname,
-                        port,
-                        username,
-                        password,
-                        originUrl,
-                        fetchSize,
-                        serverTimeZone,
-                        connectTimeoutMillis,
-                        connectMaxRetries,
-                        connectionPoolSize,
-                        exactlyOnce);
-        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
-        config.setEnableConcurrentRead(this.enableConcurrentRead);
-        return config;
+    @Override
+    protected PostgresSourceConfig createSourceConfig(Properties props, String driverClassName) {
+        return new PostgresSourceConfig(
+                startupConfig,
+                stopConfig,
+                databaseList,
+                tableList,
+                splitSize,
+                splitColumn,
+                distributionFactorUpper,
+                distributionFactorLower,
+                sampleShardingThreshold,
+                inverseSamplingRate,
+                sampleShardingAllow,
+                props,
+                driverClassName,
+                hostname,
+                port,
+                username,
+                password,
+                originUrl,
+                fetchSize,
+                serverTimeZone,
+                connectTimeoutMillis,
+                connectMaxRetries,
+                connectionPoolSize,
+                exactlyOnce);
     }
 }

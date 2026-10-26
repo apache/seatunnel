@@ -20,15 +20,19 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
-import org.testcontainers.containers.Container;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
@@ -37,6 +41,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -59,15 +65,9 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName(OCEANBASE_DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Override
     List<String> configFile() {
@@ -290,6 +290,52 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     @Override
     String getFullTableName(String tableName) {
         return buildTableInfoWithSchema(OCEANBASE_DATABASE, tableName);
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>An ENUM value list containing the word "unsigned" used to be read as the UNSIGNED
+     * attribute of the column. The catalog then handed {@code ENUM UNSIGNED} to the type converter,
+     * which has no mapping for it, so discovery of the whole table failed.
+     *
+     * <p>The MySQL variant of this test also covers a SET column. {@code
+     * OceanBaseMySqlTypeConverter} has no SET mapping at all, so a SET column cannot be discovered
+     * on OceanBase either way and only the ENUM shape is exercised here.
+     */
+    @Test
+    public void testEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "enum_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + OCEANBASE_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(OCEANBASE_DATABASE, tableName))
+                                .getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to the ENUM column anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + OCEANBASE_DATABASE + "`.`" + tableName + "`");
+            }
+        }
     }
 
     @Override
