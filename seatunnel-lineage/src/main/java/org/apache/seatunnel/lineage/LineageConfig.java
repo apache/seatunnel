@@ -40,6 +40,7 @@ public final class LineageConfig implements Serializable {
     public static final String RUN_PROPERTIES = "openlineage_run_properties";
     public static final String HEARTBEAT_MIN_INTERVAL_MS = "openlineage_heartbeat_min_interval_ms";
     public static final String PRODUCER = "openlineage_producer";
+    public static final String JOB_NAME_PER_OUTPUT = "openlineage_job_name_per_output";
 
     public static final String DEFAULT_TRANSPORT = "http";
     public static final String DEFAULT_NAMESPACE = "seatunnel";
@@ -59,6 +60,7 @@ public final class LineageConfig implements Serializable {
     private final Map<String, Object> runProperties;
     private final long heartbeatMinIntervalMs;
     private final String producer;
+    private final boolean jobNamePerOutput;
 
     private LineageConfig(
             boolean enabled,
@@ -71,7 +73,8 @@ public final class LineageConfig implements Serializable {
             String runFacet,
             Map<String, Object> runProperties,
             long heartbeatMinIntervalMs,
-            String producer) {
+            String producer,
+            boolean jobNamePerOutput) {
         if (timeoutMs <= 0) {
             throw new IllegalArgumentException(TIMEOUT_MS + " must be greater than zero");
         }
@@ -96,6 +99,7 @@ public final class LineageConfig implements Serializable {
                                 : new LinkedHashMap<>(runProperties));
         this.heartbeatMinIntervalMs = heartbeatMinIntervalMs;
         this.producer = LineageValidation.requireText(producer, PRODUCER);
+        this.jobNamePerOutput = jobNamePerOutput;
     }
 
     /** Returns the default configuration with lineage reporting disabled. */
@@ -111,7 +115,8 @@ public final class LineageConfig implements Serializable {
                 DEFAULT_RUN_FACET,
                 Collections.emptyMap(),
                 DEFAULT_HEARTBEAT_MIN_INTERVAL_MS,
-                defaultProducer());
+                defaultProducer(),
+                false);
     }
 
     /**
@@ -140,7 +145,9 @@ public final class LineageConfig implements Serializable {
                         first(job, env, cluster, HEARTBEAT_MIN_INTERVAL_MS),
                         HEARTBEAT_MIN_INTERVAL_MS,
                         DEFAULT_HEARTBEAT_MIN_INTERVAL_MS),
-                asString(first(job, env, cluster, PRODUCER), PRODUCER, defaultProducer()));
+                asString(first(job, env, cluster, PRODUCER), PRODUCER, defaultProducer()),
+                asBoolean(
+                        first(job, env, cluster, JOB_NAME_PER_OUTPUT), JOB_NAME_PER_OUTPUT, false));
     }
 
     /**
@@ -225,6 +232,14 @@ public final class LineageConfig implements Serializable {
         return producer;
     }
 
+    /**
+     * Returns whether each output is reported under its own job name. Off by default, so every
+     * output of a job shares the job name, as receivers that already consume these events expect.
+     */
+    public boolean jobNamePerOutput() {
+        return jobNamePerOutput;
+    }
+
     /** Returns non-secret values suitable for a serialized callback. */
     public Map<String, Object> toNonSensitiveMap() {
         Map<String, Object> result = toMap();
@@ -245,7 +260,8 @@ public final class LineageConfig implements Serializable {
                 runFacet,
                 runProperties,
                 heartbeatMinIntervalMs,
-                producer);
+                producer,
+                jobNamePerOutput);
     }
 
     /** Returns the option map used by the contract tests and serialized callbacks. */
@@ -268,6 +284,7 @@ public final class LineageConfig implements Serializable {
         }
         result.put(HEARTBEAT_MIN_INTERVAL_MS, heartbeatMinIntervalMs);
         result.put(PRODUCER, producer);
+        result.put(JOB_NAME_PER_OUTPUT, jobNamePerOutput);
         return result;
     }
 

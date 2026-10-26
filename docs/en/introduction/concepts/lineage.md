@@ -26,6 +26,7 @@ The following options are available in a job `env` block unless noted otherwise.
 | `openlineage_run_properties` | Map | None | Custom properties copied to the run facet. |
 | `openlineage_heartbeat_min_interval_ms` | Long | `3600000` | Minimum interval between streaming-job heartbeat events, in milliseconds. `0` disables heartbeat reporting. |
 | `openlineage_producer` | String | `https://seatunnel.apache.org/<version>` | OpenLineage producer identifier. The default is derived from the running SeaTunnel version at runtime. |
+| `openlineage_job_name_per_output` | Boolean | `false` | Zeta only. Reports each output under its own job name, `<job name>::<output namespace>/<output name>`, instead of the shared job name. Enable it for a receiver that keeps one current run per job, where a job with several outputs would otherwise show only one of them. |
 
 Values are resolved independently with this precedence:
 
@@ -34,9 +35,10 @@ job env {} > process environment > cluster configuration > default
 ```
 
 The token is the exception to this rule. `openlineage_auth_token` is resolved as
-`OPENLINEAGE_AUTH_TOKEN` > cluster configuration. A token in a job `env {}` block is rejected at
-job startup. This prevents the token from being persisted in job configuration or serialized into
-the Flink JobGraph.
+`OPENLINEAGE_AUTH_TOKEN` > cluster configuration. `LineageConfig.resolve` rejects a token in a job
+`env {}` block when resolving lineage configuration. Engine integrations must invoke this validation
+before persisting job configuration or serializing it into a Flink JobGraph, even when lineage
+reporting is disabled. The option rule alone does not enforce this validation.
 
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
@@ -59,6 +61,7 @@ The environment variable name is the upper-case option name:
 | `openlineage_run_properties` | `OPENLINEAGE_RUN_PROPERTIES` |
 | `openlineage_heartbeat_min_interval_ms` | `OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS` |
 | `openlineage_producer` | `OPENLINEAGE_PRODUCER` |
+| `openlineage_job_name_per_output` | `OPENLINEAGE_JOB_NAME_PER_OUTPUT` |
 
 For example, set `OPENLINEAGE_URL` and `OPENLINEAGE_AUTH_TOKEN` through the process or service
 manager environment. Do not put a real token in a job file, repository file, command history, or
@@ -74,6 +77,10 @@ each configured table is represented separately.
 | Paimon | `paimon://<catalog_name>/<database>` | `<table>` |
 | Doris | `mysql://<fe_host>:<query_port>` | `<database>.<table>` |
 | JDBC | `<scheme>://<host>:<port>` | `<database>.<table>` |
+
+MySQL-CDC sources resolve `url` (or its `base-url` fallback) and expand each fully qualified
+`table-names` entry into a dataset using the JDBC naming form. `database-names` filters the
+subscription and does not qualify or rewrite the listed table names.
 
 For Paimon, `<catalog_name>` comes from the connector's `catalog_name` option and the dataset name is
 the table name only, not `database.table`. Set `catalog_name` explicitly to keep the namespace stable

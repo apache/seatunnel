@@ -93,6 +93,14 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**monitor-history-size**
+
+监控为 `/jobs/checkpoints/{jobId}` REST 接口按 pipeline 保留的 checkpoint 历史条数，取值 1 到 4096，默认 32。超过 256 的值仍然可用，但 master 启动时会打印一条警告——因为下面提到的开销是每次 checkpoint 事件都要付的。已完成和失败的 checkpoint 共用这个窗口。
+
+它是**条数**而不是时长，因此覆盖多长时间取决于每个作业自己的 `checkpoint.interval`，而本选项是集群级的：按默认 300000ms 的间隔，32 条约覆盖 2.5 小时；若间隔为 10000ms，则只覆盖约 5 分钟。如果集群上有间隔很短的作业，并且希望拿作业和更长一段自身历史做对比，应调大该值。
+
+历史保存在集群级的 checkpoint overview map 中，每次 checkpoint 事件都会重写整条记录，因此窗口越大，除堆内存外还会增加 master 的 CPU、网络与副本复制开销。该值只在 master 启动时读取一次，修改后需要重启。
+
 示例
 
 ```yaml
@@ -106,6 +114,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            monitor-history-size: 32
 ```
 
 **checkpoint storage**
@@ -205,14 +214,16 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-同时可执行的最大作业数量
+CoordinatorService 线程池的最大线程数（即线程池的 `maximumPoolSize`），默认值为 `Integer.MAX_VALUE`。
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 作业指标分区数量（此参数在 Worker 节点上无效）
@@ -369,14 +380,24 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
+如果要通过环境变量提供 OSS 凭据，请删除 `fs.oss.accessKeyId` 和
+`fs.oss.accessKeySecret`，并增加：
+
+```yaml
+           fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+该 Provider 读取 `OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，临时凭据还可使用
+`OSS_SESSION_TOKEN`。
+
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
 其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar

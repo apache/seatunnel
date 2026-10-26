@@ -57,7 +57,7 @@ public final class LineageDatasetOptionSupport {
      * <p>When {@code table_list} / {@code table-list} / {@code tables} is a {@link List}, each
      * element that is a {@link Map} is kept and non-Map entries are silently dropped. If that list
      * yields no maps (absent, empty, or only non-maps), the whole {@code options} map is treated as
-     * a single table entry.
+     * a single table entry. CDC {@code table-names} entries are expanded before that fallback.
      */
     public static List<Map<String, ?>> tables(Map<String, ?> options) {
         Object tableList = first(options, "table_list", "table-list", "tables");
@@ -66,6 +66,19 @@ public final class LineageDatasetOptionSupport {
             for (Object value : (List<?>) tableList) {
                 if (value instanceof Map) {
                     result.add((Map<String, ?>) value);
+                }
+            }
+            if (!result.isEmpty()) {
+                return result;
+            }
+        }
+        // CDC table-names are fully qualified; database-names only filters the subscription.
+        Object tableNames = options.get("table-names");
+        if (tableNames instanceof List) {
+            List<Map<String, ?>> result = new ArrayList<>();
+            for (Object value : (List<?>) tableNames) {
+                if (value != null) {
+                    result.add(Collections.singletonMap("table_path", String.valueOf(value)));
                 }
             }
             if (!result.isEmpty()) {

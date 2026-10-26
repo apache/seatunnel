@@ -23,6 +23,7 @@ import org.apache.seatunnel.lineage.extractor.PaimonLineageDatasetExtractor;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +111,86 @@ class LineageDatasetFactoryTest {
         assertEquals(1, datasets.size());
         assertEquals("postgresql://db.example.com:5432", datasets.get(0).namespace());
         assertEquals("sales.orders", datasets.get(0).name());
+    }
+
+    /**
+     * MySQL-CDC names its tables through {@code table-names} as fully qualified {@code db.table}
+     * entries and keeps the {@code mysql://} scheme, so it merges with JDBC reads of the same
+     * table.
+     */
+    @Test
+    void readsMySqlCdcTableNamesWithUrl() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("url", "jdbc:mysql://192.168.10.131:3306");
+        options.put("table-names", Arrays.asList("ds71.orders"));
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("MySQL-CDC", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+    }
+
+    /** {@code base-url} is the fallback key of the CDC {@code url} option. */
+    @Test
+    void readsMySqlCdcTableNamesWithBaseUrl() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("base-url", "jdbc:mysql://192.168.10.131:3306/ds71");
+        options.put("table-names", Arrays.asList("ds71.orders"));
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("MySQL-CDC", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+    }
+
+    /**
+     * Every {@code table-names} entry becomes its own dataset; {@code database-names} only filters
+     * the binlog subscription and must not requalify the listed tables.
+     */
+    @Test
+    void expandsEveryMySqlCdcTableName() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("base-url", "jdbc:mysql://192.168.10.131:3306");
+        options.put("database-names", Arrays.asList("ds71"));
+        options.put("table-names", Arrays.asList("ds71.orders", "ds72.customers"));
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("MySQL-CDC", options);
+
+        assertEquals(2, datasets.size());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(1).namespace());
+        assertEquals("ds72.customers", datasets.get(1).name());
+    }
+
+    @Test
+    void stillReadsJdbcTablePathAndTableList() {
+        Map<String, Object> single = new LinkedHashMap<>();
+        single.put("url", "jdbc:mysql://192.168.10.131:3306/ds71");
+        single.put("table_path", "ds71.orders");
+
+        List<LineageDataset> datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", single);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("table", "customers");
+        Map<String, Object> multi = new LinkedHashMap<>();
+        multi.put("url", "jdbc:mysql://192.168.10.131:3306/ds72");
+        multi.put("table_list", Arrays.asList(entry));
+
+        datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", multi);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
+        assertEquals("ds72.customers", datasets.get(0).name());
     }
 
     @Test

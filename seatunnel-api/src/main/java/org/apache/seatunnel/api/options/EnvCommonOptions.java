@@ -185,7 +185,7 @@ public class EnvCommonOptions {
                     .withDescription(
                             "Bearer token for the OpenLineage receiver. It may only come from the "
                                     + "OPENLINEAGE_AUTH_TOKEN environment variable or from cluster configuration; "
-                                    + "declaring it in a job env block is rejected at startup.");
+                                    + "declaring it in a job env block is rejected when lineage configuration is resolved.");
 
     public static Option<Integer> OPENLINEAGE_TIMEOUT_MS =
             Options.key("openlineage_timeout_ms")
@@ -225,4 +225,13 @@ public class EnvCommonOptions {
                     .withDescription(
                             "OpenLineage producer identifier. When unset it defaults to "
                                     + "https://seatunnel.apache.org/ followed by the running SeaTunnel version.");
+
+    public static Option<Boolean> OPENLINEAGE_JOB_NAME_PER_OUTPUT =
+            Options.key("openlineage_job_name_per_output")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether each output is reported under its own OpenLineage job name, "
+                                    + "<job name>::<output namespace>/<output name>, instead of "
+                                    + "sharing the job name.");
 }
