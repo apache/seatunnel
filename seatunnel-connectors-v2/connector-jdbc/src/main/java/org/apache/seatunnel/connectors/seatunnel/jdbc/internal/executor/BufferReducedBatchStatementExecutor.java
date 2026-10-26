@@ -129,8 +129,7 @@ public class BufferReducedBatchStatementExecutor
                 sorted.sort(
                         (left, right) ->
                                 compareKeys(
-                                        left.getValue().getMiddle(),
-                                        right.getValue().getMiddle()));
+                                        left.getValue().getMiddle(), right.getValue().getMiddle()));
                 entries = sorted;
             }
             for (Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> entry : entries) {
