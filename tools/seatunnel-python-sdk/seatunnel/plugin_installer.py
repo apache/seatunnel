@@ -276,8 +276,14 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
             f"are allowed. It should match your SeaTunnel engine version."
         )
 
+    if not isinstance(seatunnel_home, (str, os.PathLike)) or not isinstance(
+        os.fspath(seatunnel_home), str
+    ):
+        raise PluginInstallError(
+            f"seatunnel_home must be a path to a SeaTunnel distribution, got {seatunnel_home!r}."
+        )
     # The script path is passed to bash while cwd is seatunnel_home, so it must be absolute.
-    seatunnel_home = os.path.abspath(os.path.expanduser(seatunnel_home))
+    seatunnel_home = os.path.abspath(os.path.expanduser(os.fspath(seatunnel_home)))
     config_dir = os.path.join(seatunnel_home, "config")
     plugin_config = os.path.join(config_dir, "plugin_config")
     script = os.path.join(seatunnel_home, "bin", "install-plugin.sh")
@@ -300,9 +306,9 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
                 f"Cannot read plugin config '{plugin_config}': {exc}"
             ) from exc
 
-        artifact_ids = select_plugins(plugin_config, connectors)
-
         try:
+            # Inside the try, so an interrupt right after the rewrite is rolled back too.
+            artifact_ids = select_plugins(plugin_config, connectors)
             try:
                 result = subprocess.run(
                     [bash, script, version], cwd=seatunnel_home, check=False

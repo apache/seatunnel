@@ -330,10 +330,34 @@ class TestInstallPlugins(_PluginConfigTestCase):
                 install_plugins(self.home, ["jdbc"], "3.0.1")
         self.assertEqual(PLUGIN_CONFIG, self._read())
 
+    def test_interrupt_right_after_the_rewrite_is_rolled_back(self):
+        """Ctrl+C between the rewrite and the script start still restores plugin_config."""
+        real_select = plugin_installer.select_plugins
+
+        def select_then_interrupt(path, connectors):
+            real_select(path, connectors)
+            raise KeyboardInterrupt
+
+        with self._patch_which(), self._patch_run() as run:
+            with mock.patch.object(plugin_installer, "select_plugins", select_then_interrupt):
+                with self.assertRaises(KeyboardInterrupt):
+                    install_plugins(self.home, ["jdbc"], "3.0.1")
+        run.assert_not_called()
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_invalid_seatunnel_home_raises_plugin_install_error(self):
+        """A seatunnel_home that is not a str path raises PluginInstallError, not TypeError."""
+        for home in (None, 42, b"/opt/seatunnel"):
+            with self.subTest(home=home):
+                with self._patch_which(), self._patch_run() as run:
+                    with self.assertRaises(PluginInstallError) as ctx:
+                        install_plugins(home, ["jdbc"], "3.0.0")
+                run.assert_not_called()
+                self.assertIn("seatunnel_home must be a path", str(ctx.exception))
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
     def _patch_failing_restore(self):
         """Let the selection write succeed, then make the restore write fail."""
-        from seatunnel import plugin_installer
-
         real_write = plugin_installer._write_atomically
         calls = []
 
