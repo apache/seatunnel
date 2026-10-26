@@ -392,9 +392,9 @@ source {
 
 当订阅分区 Topic 或使用正则表达式匹配 Topic 时（`topic-pattern`），SeaTunnel 会自动感知分区信息并将分片均匀分配给并发任务。可通过 `topic-discovery.interval` 调整新分区检测的探测频率。
 
-### 支持哪些消费游标（Cursor）位点恢复与订阅模式？
+### 支持哪些消费游标（Cursor）启动模式与重置策略？
 
-通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早未消费位点）、`LATEST`（从最新位点开始消费）、`SUBSCRIPTION`（从指定订阅已提交位点）或 `TIMESTAMP`（从指定位点时间戳）。消费者以配置的订阅类型（如 `Failover` 或 `Exclusive`）注册，并在 Checkpoint 时同步保存消息 ID，确保故障时精准回溯。
+通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早位点）、`LATEST`（从最新位点）、`SUBSCRIPTION`（从订阅已提交的位点恢复）或 `TIMESTAMP`（从指定时间戳开始消费）。使用 `TIMESTAMP` 时必须配置 `cursor.startup.timestamp`；使用 `SUBSCRIPTION` 时必须配置 `cursor.reset.mode`（`EARLIEST` 或 `LATEST`）：如果订阅已存在，则从其已提交的位点继续消费；否则按 `cursor.reset.mode` 在最早或最新消息处创建订阅。订阅类型（Subscription Type）不可配置，连接器只设置订阅名称并使用 Pulsar 客户端默认值。SeaTunnel 会在 Checkpoint 时保存消息 ID，确保故障时精准回溯。
 
 ### 如何在连接受安全防护的 Pulsar 集群时配置身份认证？
 

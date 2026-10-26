@@ -50,7 +50,7 @@ downloaded from Maven Central.
 | key_value                   | String | Yes      | -       | Name of the upstream field that contains the Prometheus sample value. A `double` field is recommended. |
 | key_timestamp               | String | No       | -       | Name of the upstream field that contains the Prometheus sample timestamp. If omitted, the sink uses the current system time. |
 | headers                     | Map    | No       | -       | HTTP request headers. |
-| retry                       | Int    | No       | 3       | Maximum retry attempts for a failed remote-write request. When unset, defaults to 3 retries. Retries transport `IOException`s and retryable HTTP statuses (`5xx` and `429`); other `4xx` responses fail fast. Set to `0` to disable retries. |
+| retry                       | Int    | No       | 3       | Maximum retry attempts for a failed remote-write request. The sink applies an effective default of `3` when the option is omitted; set to `0` to disable retries. Retries transport `IOException`s and retryable HTTP statuses (`5xx` and `429`); other `4xx` responses fail fast. |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
 | batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
