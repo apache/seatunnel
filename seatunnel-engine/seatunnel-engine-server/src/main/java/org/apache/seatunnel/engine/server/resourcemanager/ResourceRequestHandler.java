@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
@@ -74,12 +75,31 @@ public class ResourceRequestHandler {
 
     private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final ResourceShortageListener resourceShortageListener;
+
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
             ConcurrentMap<Address, WorkerProfile> registerWorker,
             AbstractResourceManager resourceManager,
             SlotAllocationStrategy slotAllocationStrategy) {
+        this(
+                jobId,
+                resourceProfile,
+                registerWorker,
+                resourceManager,
+                slotAllocationStrategy,
+                ResourceShortageListener.NOOP);
+    }
+
+    /** Creates a request handler that reports capacity shortages to the supplied listener. */
+    public ResourceRequestHandler(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            ConcurrentMap<Address, WorkerProfile> registerWorker,
+            AbstractResourceManager resourceManager,
+            SlotAllocationStrategy slotAllocationStrategy,
+            ResourceShortageListener resourceShortageListener) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
@@ -89,6 +109,7 @@ public class ResourceRequestHandler {
         this.allocateStrategy =
                 resourceManager.getEngineConfig().getSlotServiceConfig().getAllocateStrategy();
         this.slotAllocationStrategy = slotAllocationStrategy;
+        this.resourceShortageListener = resourceShortageListener;
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
@@ -196,6 +217,7 @@ public class ResourceRequestHandler {
             } else {
                 // if no worker can provide the resource, we should return a failed future
                 LOGGER.fine("pre check worker resource failed, can't apply resource request: " + r);
+                recordShortage(r);
                 allRequestFuture.add(
                         CompletableFuture.supplyAsync(
                                 () -> {
@@ -246,6 +268,7 @@ public class ResourceRequestHandler {
                             } else {
                                 if (slotAndWorkerProfile.getSlotProfile() == null) {
                                     resourceManager.recordRequestSlotOperationNoSlot(elapsedMillis);
+                                    recordShortage(r);
                                 } else {
                                     resourceManager.recordRequestSlotOperationSuccess(
                                             elapsedMillis);
@@ -258,6 +281,25 @@ public class ResourceRequestHandler {
 
     private long elapsedMillisSince(long startNanos) {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+    }
+
+    /**
+     * Records resource shortage encountered while applying a resource request.
+     *
+     * <p>This covers cases where no eligible worker has sufficient resources or an eligible worker
+     * cannot provide the requested slot.
+     *
+     * <p>Tag-filter mismatches are excluded because adding workers does not necessarily resolve a
+     * tag constraint.
+     */
+    private void recordShortage(ResourceProfile resourceProfile) {
+        if (!resourceManager.getEngineConfig().getAutoscalerConfig().isEnabled()) {
+            return;
+        }
+        resourceShortageListener.recordShortage(
+                resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT,
+                this.resourceProfile.size(),
+                String.valueOf(resourceProfile));
     }
 
     @VisibleForTesting
