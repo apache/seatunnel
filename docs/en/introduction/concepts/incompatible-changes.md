@@ -5,6 +5,28 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: runtime metric counters restart from zero after a pipeline failover restore
+
+- **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
+  - **Description**: When the Zeta engine restores a pipeline after a worker failover (or retries it after a failure), the new attempt's runtime counters (`SourceReceivedCount`, `SinkWriteCount`, queue metrics) now start from zero. Previously the replacement attempt continued from the failed attempt's values, because task locations are stable across retries and the new attempt's counters were seeded from the shared metrics store, so finished-job metrics could include work already done and canceled by earlier attempts.
+  - **Impact**: For batch jobs this removes over-counted finished-job metrics. For streaming jobs resumed after a failover, reported totals now restart at the new attempt's values instead of continuing the pre-failure totals; external dashboards or alerts that aggregate these counters must not read the reset as data loss. The reset is best effort: a worker report already in flight during the restore can still carry a stale value for at most a millisecond-scale window.
+  - **Migration Guide**: No action is required for correctness. If you need lifetime totals that survive failovers, accumulate them outside the running job, for example from the stored metrics of finished jobs in the job history.
+
+### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
+
+When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
+
+Such a value now causes a parse error that identifies the field and the expected container type; with `ignore-parse-errors = true` only that container value is set to `null`, and every other value of the row is kept. The same holds for a wrong container type nested inside an array or a map: only the offending nested value becomes `null` while its siblings and the enclosing container are retained, and empty arrays and objects of the declared container type, `null` and missing values, and the conversion of elements and keys are unchanged. To migrate, provide an actual JSON array for an `ARRAY` field and an actual JSON object for a `MAP` field, or set `ignore-parse-errors = true` so that malformed container values become `null` instead of failing the job.
+
+The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
+
+### JDBC Dameng: NVARCHAR and NVARCHAR2 report their declared length
+
+- **Schema change: the Dameng catalog reports `NVARCHAR(n)` and `NVARCHAR2(n)` with length n instead of the byte length**
+  - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
+  - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
+  - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
