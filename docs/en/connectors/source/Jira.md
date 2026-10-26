@@ -44,7 +44,6 @@ The Jira source is a batch-only connector. It throws an error when the job runs 
 | schema                      | Config | No       | -             | Output schema. Required when `format = "json"`. |
 | json_field                  | Config | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
 | content_field               | String | No       | -             | JSONPath used to select the array or object that should be parsed as rows. |
-| pageing                     | Config | No       | -             | Pagination settings. See [Pagination](#pagination). |
 | poll_interval_millis        | int    | No       | -             | Poll interval in milliseconds. Jira source is batch-only, so this option is not useful for Jira streaming jobs. |
 | retry                       | int    | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int    | No       | 100           | Retry backoff multiplier in milliseconds. |
@@ -85,33 +84,25 @@ schema = {
 
 Use `content_field` when the rows are inside a nested JSON node. Use `json_field` when columns need to be extracted from different JSONPath expressions.
 
-### Pagination
+### Pagination limitation
 
-`pageing` can be used when the target API needs paging parameters.
+The current Jira reader does not pass pagination state to `HttpSourceReader`. Each BATCH run reads
+one HTTP response; setting `pageing` does not follow later pages. API-side filters and `maxResults`
+must keep the desired result within that response. A complete multi-page export requires a separately
+implemented and tested pagination path.
 
-| name | type | required | default value | description |
-|------|------|----------|---------------|-------------|
-| total_page_size | long | No | 0 | Total number of pages to request. |
-| batch_size | int | No | 100 | Page size returned by each request. |
-| start_page_number | long | No | 1 | First page number. |
-| page_field | String | No | page | Request parameter name for page number pagination. |
-| page_type | String | No | PageNumber | Pagination type. Supported values are `PageNumber` and `Cursor`. |
-| cursor_field | String | No | - | Request parameter name for cursor pagination. |
-| cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
-| use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
-
-Jira Cloud enhanced search uses `/rest/api/3/search/jql` and `nextPageToken` cursor pagination.
-The removed `/rest/api/3/search` endpoint and its `startAt` pagination must not be used for Cloud.
-See the [Atlassian enhanced search reference](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/).
-For a self-hosted Jira deployment, use the endpoint and pagination contract documented for that version.
+Jira Cloud enhanced search uses `/rest/api/3/search/jql`; its API returns `nextPageToken` when more
+results remain, but this connector does not automatically submit that token. Do not treat the example
+below as a complete export when the response contains a next-page token. See the
+[Atlassian enhanced search reference](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/).
+Self-hosted Jira deployments must use the endpoint documented for their installed version.
 
 ## Example
 
-### Read Jira Cloud issues with cursor pagination
+### Read one Jira Cloud search response
 
-This GET example passes `jql`, `maxResults`, and subsequent `nextPageToken` values as query parameters.
-`keep_page_param_as_http_param = true` lets the reader add the cursor to the request parameters.
-The job reads each returned issue's `id` and `key`, and stops when no new cursor is returned.
+This GET example extracts the returned issues' `id` and `key` from a single response. It does not
+iterate over `nextPageToken`; narrow the JQL filter when the API reports additional results.
 
 ```hocon
 env {
@@ -130,14 +121,8 @@ source {
       jql = "project = DEMO AND created >= -30d ORDER BY created ASC"
       maxResults = "100"
     }
-    keep_page_param_as_http_param = true
     format = "json"
     content_field = "$.issues.*"
-    pageing = {
-      page_type = "Cursor"
-      cursor_field = "nextPageToken"
-      cursor_response_field = "$.nextPageToken"
-    }
     schema = {
       fields {
         id = string

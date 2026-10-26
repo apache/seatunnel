@@ -37,7 +37,6 @@ Used to read data from Persistiq.
 | body                        | String  | No       | -             | HTTP request body. Used together with `POST` when the API expects a JSON payload. |
 | json_field                  | Config  | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
 | content_field               | String  | No       | -             | JSONPath that selects the array or object that should be parsed as rows. |
-| pageing                     | Config  | No       | -             | Pagination settings. See [Pagination](#pagination). |
 | poll_interval_millis        | int     | No       | -             | Poll interval in milliseconds, used in `STREAMING` mode. Persistiq source is primarily batch-oriented, but you can run the job in `STREAMING` mode to repeatedly poll the API. |
 | retry                       | int     | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int     | No       | 100           | Retry backoff multiplier in milliseconds. |
@@ -195,23 +194,23 @@ You can configure `content_field = "$.store.book.*"` and the result returned loo
 ]
 ```
 
+The illustrative mock endpoint below must return the `store.book` fixture above.
+
 Then you can get the desired result with a simpler schema, like:
 
 ```hocon
 source {
   Persistiq {
-    url = "https://api.persistiq.com/v1/users"
+    url = "http://mock-http:8080/books"
     password = "your-api-key"
     format = "json"
-    content_field = "$.users.*"
+    content_field = "$.store.book.*"
     schema = {
       fields {
-        id = string
-        name = string
-        email = string
-        activated = boolean
-        default_mailbox_id = string
-        salesforce_id = string
+        category = string
+        author = string
+        title = string
+        price = double
       }
     }
   }
@@ -250,12 +249,14 @@ If your data looks something like this:
 }
 ```
 
+This illustrative mock endpoint must return the `store.book` JSON fixture above; it is not a Persistiq users response.
+
 You can get the contents of 'book' by configuring the task as follows:
 
 ```hocon
 source {
   Persistiq {
-    url = "https://api.persistiq.com/v1/users"
+    url = "http://mock-http:8080/books"
     password = "your-api-key"
     format = "json"
     json_field = {
@@ -276,23 +277,13 @@ source {
 }
 ```
 
-### Pagination
+### Pagination limitation
 
-Configure `pageing` only when its page-number or cursor semantics match the target API endpoint.
-`PageNumber` increases the configured page field by one; it does not translate page numbers into row offsets
-or configure the API page size automatically. Supply the API's page-size parameter explicitly, and set
-`batch_size` to that same value when using response-row-count termination.
-
-| name | type | required | default value | description |
-|------|------|----------|---------------|-------------|
-| total_page_size | long | No | 0 | Total number of pages to request. |
-| batch_size | int | No | 100 | Page size returned by each request. |
-| start_page_number | long | No | 1 | First page number. |
-| page_field | String | No | page | Request parameter name for page number pagination. |
-| page_type | String | No | PageNumber | Pagination type. Supported values are `PageNumber` and `Cursor`. |
-| cursor_field | String | No | - | Request parameter name for cursor pagination. |
-| cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
-| use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
+The current Persistiq reader does not pass pagination state to `HttpSourceReader`. Each request
+parses one response; `pageing` does not advance a page number or cursor in this connector. Streaming
+polling can repeat that response and does not provide a complete paginated export. Filter the API
+request to the desired response, and do not assume rows from later pages are read. Multi-page support
+requires a separately implemented and tested reader path.
 
 ### common options
 

@@ -42,13 +42,13 @@ SelectDB Cloud 接收器连接器的内部实现是在批量缓存后上传数�
 | username           | String | 是       | -                      | `SelectDB Cloud` 用户名。                                                                                                                                                                                                                                                                                                                    |
 | password           | String | 否 | -                      | `SelectDB Cloud` 用户密码。                                                                                                                                                                                                                                                                                                                  |
 | table.identifier   | String | 是       | -                      | `SelectDB Cloud` 表的名称，格式为 `database.table`。表必须已经存在并且列定义兼容，连接器不会自动建表。                                                                                                                                                                                                                                          |
-| selectdb.config    | Map    | 是       | -                      | 透传给 `Copy Into` 语句的 stream-load 参数，至少需要设置 `file.type`（`json` 或 `csv`）。常用的还有 `file.column_separator`、`file.line_delimiter`、`file.strip_outer_array`、`max_filter_ratio` 等。在 HOCON 中每个键都需要带 `selectdb.config.` 前缀。                                                |
+| selectdb.config    | Map    | 是       | -                      | 透传给 `Copy Into` 语句的 stream-load 参数，至少需要设置 `file.type`（`json` 或 `csv`）。常用的还有 `file.column_separator`、`file.line_delimiter`、`file.strip_outer_array`、`max_filter_ratio` 等。将这些键放入 `selectdb.config` HOCON 块内，不要在块内重复添加该前缀。                                                |
 | sink.enable-2pc    | bool   | 否       | true                   | 是否启用两阶段提交（2pc），默认为 `true` 以保证 Exactly-Once 语义。SelectDB 使用缓存文件加载数据，当数据量较大时缓存可能失效（默认过期时间 1 小时）。如果遇到大量数据写入丢失，请把 `sink.enable-2pc` 配置为 `false` 并接受 At-Least-Once 语义。                                                                  |
 | sink.enable-delete | bool   | 否       | false                  | 是否启用删除功能。该选项要求 `SelectDB Cloud` 表启用批量删除功能，并且仅支持 Unique 模型。                                                                                                                                                                                                                                                  |
 | sink.max-retries   | int    | 否       | 3                      | 写入数据库失败时的最大重试次数。                                                                                                                                                                                                                                                                                                            |
 | sink.buffer-size   | int    | 否       | 10 * 1024 * 1024 (10MB) | 用于流式加载的数据缓存缓冲区大小（字节）。调大可以减少请求次数，但每个 writer 占用的内存也会增加。                                                                                                                                                                                                                                          |
 | sink.buffer-count  | int    | 否       | 10000                  | 用于流式加载的数据缓存缓冲区行数。调大可以减少请求次数，但每个 writer 占用的内存也会增加。                                                                                                                                                                                                                                              |
-| sink.label-prefix  | String | 否       | 随机 UUID              | 每个 stream-load 事务的唯一标签前缀。在需要确定性标签做回放或审计时使用，默认的 UUID 已经是每个 writer 唯一的，除非有明确需求否则不需要修改。                                                                                                                                                                                  |
+| sink.label-prefix  | String | 否       | 随机 UUID              | 配置的标签前缀，默认使用选项定义初始化时生成的 UUID。每个 writer 在生成导入标签前会追加任务 ID 和子任务索引。                                                                                                                                                                                  |
 | sink.flush.queue-size | int  | 否       | 1                      | 异步上传线程把缓存数据上传到对象存储时的队列长度。当 SeaTunnel worker 与 SelectDB 之间的网络较慢时调大该值。                                                                                                                                                                                                                          |
 | common-options     | config | 否       | -                      | Sink 插件通用参数，请参考 [Sink 常用选项](../common-options/sink-common-options.md)。                                                                                                                                                                                                                                            |
 
@@ -82,8 +82,9 @@ SelectDB Cloud 接收器连接器的内部实现是在批量缓存后上传数�
 
 支持的格式包括 CSV 和 JSON。
 
-`HLL`、`BITMAP`、`QUANTILE_STATE` 和 `STRUCT` 是 SelectDB 独有的类型，在 SeaTunnel 运行时 schema 中没有对应
-类型。如果下游需要用到这些字段，请用 JDBC 通道而不是 stream-load 通道单独写入。
+当前 SelectDB Cloud 连接器的类型映射不支持 `HLL`、`BITMAP`、`QUANTILE_STATE` 或 `STRUCT`。
+这是此连接器的限制，SeaTunnel 运行时 schema 本身支持嵌套行类型。
+写入前应将这些字段转换为该连接器支持的类型。
 
 ## CDC 行为说明
 

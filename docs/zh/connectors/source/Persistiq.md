@@ -37,7 +37,6 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 | body                        | String  | 否   | -     | HTTP 请求体。需要发送 JSON payload 时配合 `POST` 一起使用。                                                          |
 | json_field                  | Config  | 否   | -     | 用 JSONPath 把返回字段映射到输出列，必须和 `schema` 一起使用。                                                              |
 | content_field               | String  | 否   | -     | 用 JSONPath 选出需要按行解析的数组或对象。                                                                          |
-| pageing                     | Config  | 否   | -     | 分页配置，见 [分页](#分页)。                                                                                |
 | poll_interval_millis        | int     | 否   | -     | 轮询间隔（毫秒），仅在 `STREAMING` 模式下生效。Persistiq 源主要为批处理设计，但可以以流模式周期性轮询 API。                                       |
 | retry                       | int     | 否   | -     | HTTP 请求返回 `IOException` 时的最大重试次数。                                                                  |
 | retry_backoff_multiplier_ms | int     | 否   | 100   | 请求失败时重试退避时间的倍数（毫秒）。                                                                              |
@@ -194,23 +193,23 @@ schema {
 ]
 ```
 
+下面的模拟端点必须返回上面的 `store.book` 示例响应。
+
 此时可以用一个更简单的 `schema` 拿到目标字段，例如：
 
 ```hocon
 source {
   Persistiq {
-    url = "https://api.persistiq.com/v1/users"
+    url = "http://mock-http:8080/books"
     password = "your-api-key"
     format = "json"
-    content_field = "$.users.*"
+    content_field = "$.store.book.*"
     schema = {
       fields {
-        id = string
-        name = string
-        email = string
-        activated = boolean
-        default_mailbox_id = string
-        salesforce_id = string
+        category = string
+        author = string
+        title = string
+        price = double
       }
     }
   }
@@ -249,12 +248,14 @@ source {
 }
 ```
 
+此模拟端点必须返回上面的 `store.book` JSON 示例；该示例不是 Persistiq 用户接口的响应。
+
 可以通过如下配置提取 `book` 中的内容：
 
 ```hocon
 source {
   Persistiq {
-    url = "https://api.persistiq.com/v1/users"
+    url = "http://mock-http:8080/books"
     password = "your-api-key"
     format = "json"
     json_field = {
@@ -275,22 +276,12 @@ source {
 }
 ```
 
-### 分页
+### 分页限制
 
-仅当目标 API 端点的页码或游标语义与连接器匹配时配置 `pageing`。`PageNumber` 每次把配置的页码字段加一，
-不会把页码换算为行偏移，也不会自动配置 API 的每页大小。请显式设置 API 的每页大小参数；若依据响应行数判断
-分页结束，应将 `batch_size` 设置为相同值。
-
-| 名称 | 类型 | 是否必填 | 默认值 | 说明 |
-|------|------|----------|--------|------|
-| total_page_size | long | 否 | 0 | 请求的总页数。 |
-| batch_size | int | 否 | 100 | 每次请求返回的数据条数。 |
-| start_page_number | long | 否 | 1 | 起始页码。 |
-| page_field | String | 否 | page | 页码分页时，请求参数中的页码字段名。 |
-| page_type | String | 否 | PageNumber | 分页类型，支持 `PageNumber` 和 `Cursor`。 |
-| cursor_field | String | 否 | - | 游标分页时，请求参数中的游标字段名。 |
-| cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
-| use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
+当前 Persistiq reader 没有把分页状态传给 `HttpSourceReader`。每次请求只解析一个响应，
+配置 `pageing` 不会让此连接器递增页码或提交下一页游标。流式轮询可能重复读取相同响应，
+不能据此得到完整的分页导出结果。应通过 API 请求条件限定所需响应，不要假定后续页已经读取。
+支持多页读取需要单独实现 reader 链路并通过多页回归测试。
 
 ### 通用选项
 

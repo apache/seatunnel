@@ -40,10 +40,10 @@ Write data to Clickhouse can also be done using JDBC
 | sharding_key           | string  | no       | -                                      | Field used by the sharding algorithm when picking the shard node. When omitted, the writer picks a shard randomly. |
 | copy_method            | string  | no       | scp                                    | Method used to transfer the staged file from the worker to the ClickHouse node. Supported values: `scp`, `rsync`. |
 | node_free_password     | boolean | no       | false                                  | Set to `true` when every worker can SSH to every ClickHouse shard node without a password (key-based auth or ssh-agent). When `false`, configure `node_pass` so the writer knows how to authenticate. |
-| node_pass              | list    | no       | -                                      | Per-node credentials for `scp`/`rsync`. Required when `node_free_password=false` and SSH key auth is not in place. |
+| node_pass | list | yes | - | Per-node SSH credentials. The current factory always parses this list: use `[]` for passwordless mode; key-auth records still require a non-null `password` (use an empty string). |
 | node_pass.node_address | string  | no       | -                                      | The address of the ClickHouse shard node that receives the file. |
 | node_pass.username     | string  | no       | "root"                                 | The SSH username on the ClickHouse shard node. |
-| node_pass.password     | string  | no       | -                                      | The SSH password on the ClickHouse shard node. Ignored when `key_path` is set and key-based auth succeeds. |
+| node_pass.password | string | yes for each record | - | Per-node SSH password. Use `""` when `key_path` supplies authentication; the factory still requires a non-null value. |
 | compatible_mode        | boolean | no       | false                                  | Set to `true` for older ClickHouse releases where `clickhouse-local` does not understand the `--path` flag. The connector falls back to a path-free invocation that still produces a compatible staging file. |
 | file_fields_delimiter  | string  | no       | "\t"                                   | Field delimiter used inside the staged CSV file. The value must be exactly one character; pick a character that never appears in any column value. |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" | Local directory on each worker where the staged file is written before being copied to ClickHouse. Use a path with enough free disk space for the largest batch the writer produces. |
@@ -177,7 +177,7 @@ sink {
 ### Multi-shard cluster with password-less SSH
 
 When the cluster has multiple shards and SSH trust is already configured cluster-wide, set
-`node_free_password = true` and skip `node_pass` entirely. The connector will pick a shard based on
+`node_free_password = true` and `node_pass = []`. The current factory always parses the list. The connector will pick a shard based on
 `sharding_key` and rely on the SSH config for authentication.
 
 ```hocon
@@ -191,6 +191,7 @@ sink {
     clickhouse_local_path = "/usr/local/bin/clickhouse-local"
     sharding_key = "id"
     node_free_password = true
+    node_pass = []
     copy_method = "rsync"
     file_temp_path = "/data/seatunnel/clickhouse-tmp"
   }
@@ -198,6 +199,9 @@ sink {
 ```
 
 ### SSH key-based authentication
+
+The factory still parses every `node_pass` entry before selecting key authentication, so each entry
+must include a non-null `password`; use `password = ""` for the key-auth examples below.
 
 When `node_free_password=false` but you want to authenticate with an SSH key instead of a plaintext
 password, point `key_path` to the private key file. The key must be authorized on every shard node
@@ -217,9 +221,11 @@ sink {
     node_pass = [{
       node_address = "shard-1"
       username = "clickhouse"
+      password = ""
     }, {
       node_address = "shard-2"
       username = "clickhouse"
+      password = ""
     }]
     key_path = "/etc/seatunnel/id_rsa"
     copy_method = "rsync"
@@ -251,6 +257,7 @@ sink {
     password = ""
     clickhouse_local_path = "/usr/local/bin/clickhouse-local"
     node_free_password = true
+    node_pass = []
     copy_method = "rsync"
   }
 }

@@ -47,7 +47,7 @@ Version Supported
 | sink.max-retries   | int    | No       | 3                      | Max retry times if writing records to the database fails.                                                                                                                                                                                                                                                                                          |
 | sink.buffer-size   | int    | No       | 10 * 1024 * 1024 (10MB) | Buffer size in bytes used to cache data before stream-load. Larger buffers reduce request overhead but use more memory per writer.                                                                                                                                                                                                                  |
 | sink.buffer-count  | int    | No       | 10000                  | Buffer row count used to cache data before stream-load. Larger counts reduce request overhead but use more memory per writer.                                                                                                                                                                                                                       |
-| sink.label-prefix  | String | No       | random UUID            | Unique label prefix attached to each stream-load transaction. Useful when you want deterministic labels for replay or audit. The default UUID is unique per writer, so leave it alone unless you have a specific need.                                                                                                                              |
+| sink.label-prefix  | String | No       | random UUID            | Configured label prefix, defaulting to the UUID initialized by the option definition. Each writer appends its job ID and subtask index before generating load labels.                                                                                                                              |
 | sink.flush.queue-size | int  | No       | 1                      | Queue length for the async upload thread that ships buffered data to object storage. Increase this when the network between SeaTunnel workers and SelectDB is slow.                                                                                                                                                                                |
 | common-options     | config | No       | -                      | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md).                                                                                                                                                                                                                                                |
 
@@ -81,9 +81,9 @@ Version Supported
 
 The supported formats include CSV and JSON.
 
-`HLL`, `BITMAP`, `QUANTILE_STATE`, and `STRUCT` are SelectDB-only types that have no equivalent
-in SeaTunnel's runtime schema. If your downstream pipeline needs them, materialize them out of band
-and ingest via JDBC rather than the stream-load path.
+The current SelectDB Cloud connector mapping does not support `HLL`, `BITMAP`, `QUANTILE_STATE`,
+or `STRUCT`. This is a connector limitation; SeaTunnel's runtime schema supports nested row types.
+Convert these fields to a type supported by this connector before writing.
 
 ## How CDC works
 

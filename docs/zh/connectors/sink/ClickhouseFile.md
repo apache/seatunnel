@@ -38,10 +38,10 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sharding_key           | string  | no   | -                                      | 当需要拆分数据时，指定用于分片算法的字段；不填时由 writer 随机选择分片节点。 |
 | copy_method            | string  | no   | scp                                    | 将暂存文件从 Worker 拷贝到 ClickHouse 节点所使用的方式，可选值：`scp`、`rsync`。 |
 | node_free_password     | boolean | no   | false                                  | 当每个 Worker 到每个 ClickHouse 分片节点都可以免密登录（基于 SSH 密钥或 ssh-agent）时，设置为 `true`；否则需要通过 `node_pass` 配置每个节点的访问凭据。 |
-| node_pass              | list    | no   | -                                      | 用于 `scp`/`rsync` 的逐节点凭据。仅在 `node_free_password=false` 且未配置 SSH 密钥时需要填写。 |
+| node_pass | list | 是 | - | 逐节点 SSH 凭据。当前工厂始终解析此列表：免密模式需设置为 `[]`；密钥认证的每条记录仍需非 null 的 `password`，可使用空字符串。 |
 | node_pass.node_address | string  | no   | -                                      | ClickHouse 分片节点的地址。 |
 | node_pass.username     | string  | no   | "root"                                 | ClickHouse 分片节点上的 SSH 用户名。 |
-| node_pass.password     | string  | no   | -                                      | ClickHouse 分片节点上的 SSH 密码。当 `key_path` 配置且密钥认证成功时该字段被忽略。 |
+| node_pass.password | string | 每条记录必填 | - | 逐节点 SSH 密码。使用 `key_path` 认证时填写 `""`；工厂解析时仍要求非 null 的值。 |
 | compatible_mode        | boolean | no   | false                                  | 当 ClickHouse 版本较旧、`clickhouse-local` 不支持 `--path` 参数时，设置为 `true`，连接器会改用不依赖 `--path` 的调用方式生成暂存文件。 |
 | file_fields_delimiter  | string  | no   | "\t"                                   | 暂存 CSV 文件中的字段分隔符。值必须正好为一个字符，请选择业务字段中不会出现的字符。 |
 | file_temp_path         | string  | no   | "/tmp/seatunnel/clickhouse-local/file" | Worker 本地用于保存暂存文件的目录；请保证磁盘空间足够容纳最大的批次写入量。 |
@@ -167,7 +167,7 @@ sink {
 ### 多分片集群 + SSH 免密登录
 
 集群有多个分片并且已经统一配置了 SSH 免密登录时，可以直接把 `node_free_password` 设置为 `true`，
-不再填写 `node_pass`。连接器会根据 `sharding_key` 选分片，并复用现有的 SSH 配置完成拷贝。
+同时填写 `node_pass = []`，因为当前工厂会始终解析该列表。连接器会根据 `sharding_key` 选分片，并复用现有的 SSH 配置完成拷贝。
 
 ```hocon
 sink {
@@ -180,6 +180,7 @@ sink {
     clickhouse_local_path = "/usr/local/bin/clickhouse-local"
     sharding_key = "id"
     node_free_password = true
+    node_pass = []
     copy_method = "rsync"
     file_temp_path = "/data/seatunnel/clickhouse-tmp"
   }
@@ -205,9 +206,11 @@ sink {
     node_pass = [{
       node_address = "shard-1"
       username = "clickhouse"
+      password = ""
     }, {
       node_address = "shard-2"
       username = "clickhouse"
+      password = ""
     }]
     key_path = "/etc/seatunnel/id_rsa"
     copy_method = "rsync"
@@ -239,6 +242,7 @@ sink {
     password = ""
     clickhouse_local_path = "/usr/local/bin/clickhouse-local"
     node_free_password = true
+    node_pass = []
     copy_method = "rsync"
   }
 }
