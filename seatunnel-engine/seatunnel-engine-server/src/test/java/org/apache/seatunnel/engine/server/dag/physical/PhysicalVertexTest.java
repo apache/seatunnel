@@ -25,7 +25,10 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-/** Tests the failure-message classification in {@link PhysicalVertex}. */
+/**
+ * Tests the failure-message classification in {@link PhysicalVertex}. Covers terminal-state
+ * ownership and preserves transition behavior for restored jobs.
+ */
 public class PhysicalVertexTest {
 
     /**

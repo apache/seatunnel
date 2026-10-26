@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -95,8 +96,15 @@ class DistributedStateTransitionTest {
                         })
                 .when(appender)
                 .append(any(LogEvent.class));
-        logger.addAppender(appender);
+        LoggerContext loggerContext = logger.getContext();
+        boolean contextWasStopped = loggerContext.isStopped();
         try {
+            // Cluster tests close the shared context during teardown to release log files.
+            // Restart it for this capture, then restore its previous lifecycle state below.
+            if (contextWasStopped) {
+                loggerContext.start();
+            }
+            logger.addAppender(appender);
             DistributedStateTransition.Result<ExecutionState> result =
                     transition(stateMap, timestampMap, true);
 
@@ -111,6 +119,9 @@ class DistributedStateTransitionTest {
             verify(timestampMap, never()).set(any(), any());
         } finally {
             logger.removeAppender(appender);
+            if (contextWasStopped) {
+                loggerContext.stop();
+            }
         }
     }
 

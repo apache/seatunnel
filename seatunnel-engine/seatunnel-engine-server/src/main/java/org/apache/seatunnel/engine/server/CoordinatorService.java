@@ -892,20 +892,33 @@ public class CoordinatorService {
      * new generation could recreate the same state keys before the old cleanup deletes them.
      */
     private void processPendingJobCleanup(long jobId) {
+        processPendingJobCleanup(jobId, null, true);
+    }
+
+    /**
+     * Applies the same owner-fenced cleanup with the caller's existing retention semantics.
+     *
+     * <p>Normal scheduled cleanup honors its delay. A newly discovered terminal zombie historically
+     * cleans immediately; its temporary tombstone fences deletion without imposing a new delay.
+     */
+    private void processPendingJobCleanup(
+            long jobId, JobCleanupRecord expectedRecord, boolean respectCleanupDelay) {
         if (pendingJobCleanupIMap == null) {
             return;
         }
         pendingJobCleanupIMap.lock(jobId);
         try {
             JobCleanupRecord record = pendingJobCleanupIMap.get(jobId);
-            if (record == null) {
+            if (record == null
+                    || (expectedRecord != null
+                            && !isSameCleanupGeneration(record, expectedRecord))) {
                 return;
             }
             if (!shouldCleanup(record)) {
                 removePendingJobCleanupRecord(jobId, record);
                 return;
             }
-            if (!isCleanupDelayElapsed(record)) {
+            if (respectCleanupDelay && !isCleanupDelayElapsed(record)) {
                 // The executor can run slightly before the wall-clock cleanup deadline.
                 // Preserve the record by scheduling the remaining delay instead of dropping it.
                 schedulePendingJobCleanup(jobId, record);
@@ -917,7 +930,7 @@ public class CoordinatorService {
                 if (cleanupPendingJobStateMaps(record)) {
                     removePendingJobCleanupRecord(jobId, record);
                 } else {
-                    retryPendingJobStateCleanup(jobId);
+                    retryPendingJobStateCleanup(jobId, record, respectCleanupDelay);
                 }
                 return;
             }
@@ -932,7 +945,7 @@ public class CoordinatorService {
                     if (cleanupPendingJobStateMaps(record)) {
                         removePendingJobCleanupRecord(jobId, record);
                     } else {
-                        retryPendingJobStateCleanup(jobId);
+                        retryPendingJobStateCleanup(jobId, record, respectCleanupDelay);
                     }
                 } else if (!Objects.equals(
                         latestJobInfo.getInitializationTimestamp(),
@@ -945,11 +958,25 @@ public class CoordinatorService {
             if (cleanupPendingJobStateMaps(record)) {
                 removePendingJobCleanupRecord(jobId, record);
             } else {
-                retryPendingJobStateCleanup(jobId);
+                retryPendingJobStateCleanup(jobId, record, respectCleanupDelay);
             }
         } finally {
             pendingJobCleanupIMap.unlock(jobId);
         }
+    }
+
+    /**
+     * Binds a scheduled attempt to the immutable identity of its captured cleanup generation.
+     *
+     * <p>Retrying failed keys may retain the same owner record, but a same-id successor or a new
+     * cleanup record must never inherit an older zombie attempt's immediate-cleanup mode.
+     */
+    private boolean isSameCleanupGeneration(JobCleanupRecord record, JobCleanupRecord expected) {
+        return Objects.equals(
+                        record.getOwnerInitializationTimestamp(),
+                        expected.getOwnerInitializationTimestamp())
+                && record.getCreateTimeMillis() == expected.getCreateTimeMillis()
+                && record.getFinalStatus() == expected.getFinalStatus();
     }
 
     /**
@@ -1064,7 +1091,8 @@ public class CoordinatorService {
      * one derived from the record's (already elapsed) creation time, so a persistently failing key
      * is retried on a steady cadence instead of being resubmitted immediately in a tight loop.
      */
-    private void retryPendingJobStateCleanup(long jobId) {
+    private void retryPendingJobStateCleanup(
+            long jobId, JobCleanupRecord expectedRecord, boolean respectCleanupDelay) {
         ScheduledExecutorService cleanupScheduler = seaTunnelServer.getMonitorService();
         if (cleanupScheduler == null) {
             cleanupScheduler = masterActiveListener;
@@ -1072,7 +1100,7 @@ public class CoordinatorService {
         cleanupScheduler.schedule(
                 () -> {
                     try {
-                        processPendingJobCleanup(jobId);
+                        processPendingJobCleanup(jobId, expectedRecord, respectCleanupDelay);
                     } catch (Exception e) {
                         logger.warning(
                                 String.format(
@@ -1217,7 +1245,8 @@ public class CoordinatorService {
      * Recreates a single {@link JobMaster} from distributed metadata after an active-master switch.
      *
      * <p>A missing state entry is repaired only when no terminal cleanup fence exists. Terminal
-     * zombies replay history/checkpoint finalization and enter delayed cleanup, while active jobs
+     * zombies replay history/checkpoint finalization and clean immediately when a new fence is
+     * required; an already registered terminal cleanup record retains its delay. Active jobs
      * initialize a new {@link JobMaster} in restart mode and reuse the standard {@link
      * PendingSourceState#RESTORE} scheduling flow.
      *
@@ -1570,7 +1599,7 @@ public class CoordinatorService {
      * changing the owner during this sequence. If a side effect fails, the original JobInfo remains
      * recoverable and the next active master can replay the whole operation.
      */
-    private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+    void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
         pendingJobCleanupIMap.lock(jobId);
         try {
             JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
@@ -1596,9 +1625,12 @@ public class CoordinatorService {
                 pendingJobCleanupIMap.remove(jobId, concurrentRecord);
                 concurrentRecord = pendingJobCleanupIMap.putIfAbsent(jobId, cleanupRecord);
             }
-            JobCleanupRecord registeredRecord =
-                    concurrentRecord == null ? cleanupRecord : concurrentRecord;
-            schedulePendingJobCleanup(jobId, registeredRecord);
+            // A new zombie fence preserves immediate cleanup. If normal terminal cleanup
+            // concurrently registered the same owner, retain that existing record's delay.
+            processPendingJobCleanup(
+                    jobId,
+                    concurrentRecord == null ? cleanupRecord : concurrentRecord,
+                    concurrentRecord != null);
         } finally {
             pendingJobCleanupIMap.unlock(jobId);
         }
@@ -1807,7 +1839,8 @@ public class CoordinatorService {
     /**
      * Submits a job after atomically fencing it from cleanup of an older generation.
      *
-     * <p>Pending cleanup always requires a later retry, including savepoint restoration. The
+     * <p>Ordinary submissions retry while terminal cleanup owns the id. Savepoint restoration can
+     * consume the matching old-generation cleanup inline before publishing its new owner. The
      * per-job distributed lock covers both the cleanup-record check and publication of the new
      * {@link JobInfo}, so an old cleanup cannot delete state created by this submission.
      */
@@ -1947,7 +1980,10 @@ public class CoordinatorService {
         }
     }
 
-    /** Resolves cleanup ownership against the currently published generation of the job id. */
+    /**
+     * Resolves cleanup ownership against the currently published generation of the job id so an
+     * obsolete terminal attempt cannot remove state belonging to a resubmitted job.
+     */
     private boolean isCleanupOwnedByCurrentJob(long jobId, JobCleanupRecord record) {
         return isCleanupOwnedByCurrentJob(runningJobInfoIMap.get(jobId), jobId, record);
     }
@@ -1965,7 +2001,10 @@ public class CoordinatorService {
         runningJobInfoIMap.remove(jobId);
     }
 
-    /** Removes a nullable snapshot key set from the given state map. */
+    /**
+     * Removes the nullable snapshot of state keys captured by a cleanup record. Missing snapshots
+     * are tolerated because cleanup can resume after another attempt already removed their keys.
+     */
     private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
         if (map == null || keys == null || keys.isEmpty()) {
             return;

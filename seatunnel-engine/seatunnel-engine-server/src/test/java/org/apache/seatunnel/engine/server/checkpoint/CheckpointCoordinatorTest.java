@@ -145,8 +145,7 @@ public class CheckpointCoordinatorTest
         stateMap.set(checkpointKey, CheckpointCoordinatorStatus.RUNNING);
         stateMap.remove(readyToCloseKey);
         try {
-            ReflectionUtils.invoke(
-                    fencedCoordinator, "updateStatus", CheckpointCoordinatorStatus.CANCELED);
+            fencedCoordinator.updateStatus(CheckpointCoordinatorStatus.CANCELED);
             fencedCoordinator.readyToClose(taskLocation);
 
             Assertions.assertEquals(
@@ -173,8 +172,7 @@ public class CheckpointCoordinatorTest
                             false,
                             null);
             try {
-                ReflectionUtils.invoke(
-                        currentCoordinator, "updateStatus", CheckpointCoordinatorStatus.RUNNING);
+                currentCoordinator.updateStatus(CheckpointCoordinatorStatus.RUNNING);
                 Assertions.assertFalse(
                         stateMap.containsKey(checkpointKey),
                         "A missing checkpoint state must not be recreated by a late update");

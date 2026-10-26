@@ -287,6 +287,9 @@ public class SplitClusterTerminalZombieJobMasterSwitchIT {
 
             JobInfo zombieJobInfo = runningJobInfoIMap.get(jobId);
             JobCleanupRecord tombstone = pendingJobCleanupIMap.get(jobId);
+            long normalCleanupDeadline =
+                    tombstone.getCreateTimeMillis()
+                            + masterNode1Config.getEngineConfig().getStateCleanupDelayMillis();
             Assertions.assertEquals(JobStatus.FAILED, tombstone.getFinalStatus());
             Assertions.assertEquals(
                     zombieJobInfo.getInitializationTimestamp(),
@@ -372,6 +375,9 @@ public class SplitClusterTerminalZombieJobMasterSwitchIT {
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
+                                Assertions.assertTrue(
+                                        System.currentTimeMillis() < normalCleanupDeadline,
+                                        "Zombie cleanup must finish before normal retention expires");
                                 Assertions.assertFalse(
                                         runningJobInfoOnStandby.containsKey(jobId),
                                         "Zombie entry must be removed from runningJobInfoIMap");

@@ -2040,6 +2040,8 @@ public class CoordinatorServiceTest {
                             instance.getSerializationService().toData(jobImmutableInformation));
             IMap<Object, Object> runningJobStateIMap =
                     instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            // Restore operates on a published generation, just as the master-switch scan does.
+            instance.getMap(Constant.IMAP_RUNNING_JOB_INFO).put(jobId, jobInfo);
             runningJobStateIMap.put(jobId, JobStatus.RUNNING);
             ReflectionUtils.setField(
                     coordinatorService, "pendingJobQueue", new AlwaysInterruptedPendingJobQueue());

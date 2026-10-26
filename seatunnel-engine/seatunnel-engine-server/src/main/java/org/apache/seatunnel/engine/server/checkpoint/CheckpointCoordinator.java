@@ -1561,7 +1561,7 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
     }
 
-    private synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
+    synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
         try {
             RetryUtils.retryWithException(
                     () -> {

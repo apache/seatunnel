@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -1020,7 +1021,7 @@ public class SplitClusterFaultToleranceIT {
         HazelcastInstanceImpl masterNode2 = null;
         HazelcastInstanceImpl workerNode = null;
         SeaTunnelClient engineClient = null;
-        ExecutorService masterKillExecutor = Executors.newSingleThreadExecutor();
+        ExecutorService masterKillExecutor = Executors.newFixedThreadPool(2);
 
         SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
         SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
@@ -1069,11 +1070,24 @@ public class SplitClusterFaultToleranceIT {
             // vertex still DEPLOYING, it kills the active master right there, reproducing the exact
             // pre-fix crash window on master failover restore.
             HazelcastInstanceImpl finalActiveMaster = activeMaster;
+            // Observe the restored RUNNING vertices while the old master's blocking shutdown is
+            // still in progress. Otherwise this short batch can finish before observation starts.
+            CountDownLatch shutdownStarted = new CountDownLatch(1);
+            Future<?> recoveryObserved =
+                    masterKillExecutor.submit(
+                            () -> {
+                                Assertions.assertTrue(
+                                        shutdownStarted.await(60, TimeUnit.SECONDS),
+                                        "Deployment watcher did not announce master shutdown");
+                                awaitCoordinatorActive(standbyMaster, 30);
+                                assertRecoveredWithBoundedPipelineRestore(standbyMaster, jobId, 60);
+                                return null;
+                            });
             Future<Boolean> deployingObserved =
                     masterKillExecutor.submit(
                             () ->
                                     killActiveMasterWhileAnyVertexDeploying(
-                                            finalActiveMaster, jobId, 30));
+                                            finalActiveMaster, jobId, 30, shutdownStarted));
             // Wait past the watcher's own 30s deadline on purpose. Sharing that deadline here
             // would race the watcher's normal `false` return and surface a bare TimeoutException
             // instead of the diagnostic message below, which is what tells a future maintainer the
@@ -1085,8 +1099,9 @@ public class SplitClusterFaultToleranceIT {
                             + "missed on this run, so this test did not exercise the fix and needs "
                             + "revisiting rather than being treated as a pass");
 
-            awaitCoordinatorActive(standbyMaster, 30);
-            assertRecoveredWithBoundedPipelineRestore(standbyMaster, jobId, 60);
+            // The observer keeps its original activation/recovery deadlines; this outer bound
+            // lets it report those assertions rather than racing its own completion deadline.
+            recoveryObserved.get(100, TimeUnit.SECONDS);
 
             Awaitility.await()
                     .atMost(180, TimeUnit.SECONDS)
@@ -1125,6 +1140,9 @@ public class SplitClusterFaultToleranceIT {
             if (workerNode != null) {
                 workerNode.shutdown();
             }
+            Assertions.assertTrue(
+                    masterKillExecutor.awaitTermination(30, TimeUnit.SECONDS),
+                    "Deployment watcher and recovery observer must terminate");
         }
     }
 
@@ -1516,7 +1534,10 @@ public class SplitClusterFaultToleranceIT {
      *     no vertex was ever caught DEPLOYING before {@code timeoutSeconds} elapsed
      */
     private static boolean killActiveMasterWhileAnyVertexDeploying(
-            HazelcastInstanceImpl activeMaster, long jobId, long timeoutSeconds)
+            HazelcastInstanceImpl activeMaster,
+            long jobId,
+            long timeoutSeconds,
+            CountDownLatch shutdownStarted)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(timeoutSeconds);
         while (System.currentTimeMillis() < deadline) {
@@ -1525,6 +1546,9 @@ public class SplitClusterFaultToleranceIT {
                 if (jobMaster != null && jobMaster.getPhysicalPlan() != null) {
                     for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
                         if (isAnyVertexDeploying(subPlan)) {
+                            // Start recovery observation budgets at the actual fault boundary,
+                            // not while this watcher is still searching for DEPLOYING.
+                            shutdownStarted.countDown();
                             activeMaster.shutdown();
                             return true;
                         }
