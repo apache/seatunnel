@@ -25,7 +25,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
+import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.io.IOUtils;
 
@@ -39,6 +41,7 @@ import javax.servlet.http.Part;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 @Slf4j
 public class SubmitJobByUploadFileServlet extends BaseServlet {
@@ -53,6 +56,9 @@ public class SubmitJobByUploadFileServlet extends BaseServlet {
     public void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws IOException, ServletException {
 
+        Map<String, String> requestParams = getParameterMap(req);
+        Map<String, String> variables =
+                RestUtil.parseVariables(requestParams.get(RestConstant.VARIABLES));
         Part filePart = req.getPart("config_file");
         String submittedFileName = filePart.getSubmittedFileName();
         String content = IOUtils.toString(filePart.getInputStream(), StandardCharsets.UTF_8);
@@ -76,9 +82,9 @@ public class SubmitJobByUploadFileServlet extends BaseServlet {
                 break;
         }
 
-        config = ConfigShadeUtils.decryptConfig(config);
+        config = ConfigShadeUtils.decryptConfig(RestUtil.applyVariables(config, variables));
 
-        writeJson(resp, jobInfoService.submitJob(getParameterMap(req), config));
+        writeJson(resp, jobInfoService.submitJob(requestParams, config));
     }
 
     private ConfigFormat detectConfigFormat(String fileName) {

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import com.google.gson.Gson;
 import com.hazelcast.internal.json.JsonArray;
@@ -166,6 +167,12 @@ public class BaseServlet extends HttpServlet {
         for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
             String paramName = entry.getKey();
             String[] paramValues = entry.getValue();
+            if (RestConstant.VARIABLES.equals(paramName) && paramValues.length > 1) {
+                throw new IllegalArgumentException(
+                        "Pass all variables in one '"
+                                + RestConstant.VARIABLES
+                                + "' parameter, separated by commas");
+            }
 
             for (String value : paramValues) {
                 reqParameterMap.put(paramName, value);
