@@ -44,9 +44,11 @@ public enum QueryTableMetadataMergeMode {
 
     /**
      * Additionally merge the table options, primary key, constraint keys and partition keys — the
-     * same result as configuring {@code table_path} together with {@code query}. This may change
-     * generated sink DDL, switch sinks with {@code generate_sink_sql} from insert to upsert and
-     * enable primary-key based split planning.
+     * same result as configuring {@code table_path} together with {@code query}. The single-table
+     * verification only compares the reported origin of every selected column and cannot see the
+     * FROM/JOIN shape, so this mode assumes the user asserted that the query preserves the
+     * underlying table's row cardinality: a one-sided join ({@code SELECT t.* FROM t JOIN t2 ...})
+     * is not detected and can produce duplicated rows that a generated-upsert sink collapses.
      */
     ALL;
 

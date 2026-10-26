@@ -536,15 +536,18 @@ public class JdbcCatalogUtils {
      * java.sql.ResultSetMetaData} which carries no metadata such as column/table comments,
      * constraint keys and partition keys. If the query is verified to map to a single physical
      * table (e.g. {@code SELECT * FROM db.table}, resolved from the result set metadata), load
-     * exactly that table and merge the missing metadata into the query-derived table. How much is
-     * merged depends on {@code metadataMergeMode}: {@link QueryTableMetadataMergeMode#NONE} (the
-     * default) skips the merge entirely; {@link QueryTableMetadataMergeMode#COMMENT} merges only
-     * the column comments and table comment, keeping the query-derived identity, table options,
-     * primary key, constraint keys and partition keys untouched so runtime behavior (sink DDL,
-     * insert/upsert semantics, split planning) is unchanged; {@link
-     * QueryTableMetadataMergeMode#ALL} merges everything, the same way as configuring {@code
-     * table_path} together with {@code query}. Fall back to the query-derived table when the
-     * underlying table can not be resolved or loaded.
+     * exactly that table and merge the missing metadata into the query-derived table. The origin
+     * verification only compares the reported origin of every selected column; it cannot see the
+     * FROM/JOIN shape, so a one-sided join ({@code SELECT t.* FROM t JOIN t2 ...}) is accepted and
+     * {@code ALL} merges the underlying table's keys based on the user's assertion that the query
+     * preserves its row cardinality. How much is merged depends on {@code metadataMergeMode}:
+     * {@link QueryTableMetadataMergeMode#NONE} (the default) skips the merge entirely; {@link
+     * QueryTableMetadataMergeMode#COMMENT} merges only the column comments and table comment,
+     * keeping the query-derived identity, table options, primary key, constraint keys and partition
+     * keys untouched so runtime behavior (sink DDL, insert/upsert semantics, split planning) is
+     * unchanged; {@link QueryTableMetadataMergeMode#ALL} merges everything, the same way as
+     * configuring {@code table_path} together with {@code query}. Fall back to the query-derived
+     * table when the underlying table can not be resolved or loaded.
      */
     static CatalogTable mergeWithUnderlyingTable(
             CatalogTable tableOfQuery,
@@ -566,6 +569,18 @@ public class JdbcCatalogUtils {
             CatalogTable tableOfPath = underlyingTableLoader.load(tablePath);
             if (tableOfPath == null || tableOfPath.getTableSchema().getColumns().isEmpty()) {
                 return tableOfQuery;
+            }
+            if (QueryTableMetadataMergeMode.ALL.equals(metadataMergeMode)) {
+                // The origin check only proves that every selected column reports the same table;
+                // it cannot see the FROM/JOIN shape. ALL therefore assumes the user asserted that
+                // the query preserves the underlying table's row cardinality (e.g. no one-sided
+                // join like `SELECT t.* FROM t JOIN t2 ...` that duplicates rows of t).
+                log.warn(
+                        "Merging the primary key and options of underlying table {} with mode ALL: "
+                                + "make sure the query preserves the row cardinality of that table "
+                                + "(a one-sided join such as `SELECT t.* FROM t JOIN t2 ...` can "
+                                + "produce duplicated rows and turn sink inserts into lossy upserts)",
+                        tablePath);
             }
             CatalogTable mergedTable =
                     QueryTableMetadataMergeMode.ALL.equals(metadataMergeMode)

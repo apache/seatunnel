@@ -131,14 +131,18 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .withDescription(
                             "How much metadata of the underlying physical table is merged into the schema"
                                     + " derived from a query-only source table. Only applies when table_path is not"
-                                    + " configured and the query is verified to map to a single physical table."
-                                    + " NONE (default) keeps the query-derived schema and preserves the behavior"
-                                    + " before this option existed; COMMENT merges the column comments and table"
-                                    + " comment; ALL additionally merges the table options, primary key, constraint"
-                                    + " keys and partition keys — the same result as configuring table_path together"
-                                    + " with query, which may change generated sink DDL, switch sinks with"
-                                    + " generate_sink_sql from insert to upsert and enable primary-key based split"
-                                    + " planning.");
+                                    + " configured and the query is verified to map to a single physical table, which"
+                                    + " requires the driver to report the origin table of every result column (works"
+                                    + " for MySQL-family drivers; PostgreSQL, Oracle, SQL Server, DuckDB and SAP HANA"
+                                    + " do not report a usable origin, so use table_path there). NONE (default) keeps"
+                                    + " the query-derived schema and preserves the behavior before this option existed;"
+                                    + " COMMENT merges the column comments and table comment; ALL additionally merges"
+                                    + " the table options, primary key, constraint keys and partition keys — the same"
+                                    + " result as configuring table_path together with query. ALL assumes the query"
+                                    + " preserves the underlying table's row cardinality: a one-sided join such as"
+                                    + " `SELECT t.* FROM t JOIN t2 ...` is not detected as multi-table and can produce"
+                                    + " duplicated rows that a generated-upsert sink collapses, so verify the join"
+                                    + " shape before enabling it.");
 
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch_size")

@@ -828,6 +828,33 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
+    public void testAllModeMergesOneSidedJoinOriginPerUserAssertion() {
+        // A one-sided join (`SELECT t.* FROM t JOIN t2 ...`) reports every result column as
+        // originating from t, which is indistinguishable from a true single-table query in the
+        // ResultSetMetaData. The origin check therefore accepts it; ALL merges t's keys based on
+        // the user's assertion that the query preserves t's row cardinality (documented in the
+        // option description and warned at merge time). This test pins that deliberate boundary.
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            return DEFAULT_TABLE;
+                        },
+                        QueryTableMetadataMergeMode.ALL);
+
+        Assertions.assertTrue(loaderInvoked.get());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getPrimaryKey(),
+                mergeTable.getTableSchema().getPrimaryKey());
+    }
+
+    @Test
     public void testWithDefaultDatabaseAppliedWhenDatabaseNameMissing() {
         // Schema-only dialects report a blank catalog name in the query result metadata, so the
         // database name of the origin table path falls back to the catalog default database.

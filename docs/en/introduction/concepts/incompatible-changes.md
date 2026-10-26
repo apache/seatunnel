@@ -311,7 +311,13 @@ or state format migration is required.
     table creation (MySQL, Doris, StarRocks, ...) emitting comments (and, with `ALL`, options and
     keys) on first table creation; already-created sink tables are not modified. Multi-table
     queries and queries whose column origins cannot be verified (for example expression columns)
-    skip the merge.
+    skip the merge. Note that `ALL` assumes the query preserves the underlying table's row
+    cardinality: a one-sided join (`SELECT t.* FROM t JOIN t2 ...`) is not detected as
+    multi-table and can produce duplicated rows that a generated-upsert sink collapses — verify
+    the join shape before enabling `ALL`. The merge requires the driver to report the origin
+    table of every result column (verified for MySQL-family drivers; PostgreSQL, Oracle, SQL
+    Server, DuckDB and SAP HANA do not report a usable origin, so use `table_path` + `query`
+    there).
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.

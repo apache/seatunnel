@@ -369,6 +369,14 @@ public class CatalogUtils {
         }
     }
 
+    /**
+     * Returns the origin table path a single result column is reported as coming from, or {@code
+     * null} when the driver reports no table identity for the column (for example expression
+     * columns, or drivers such as Oracle/SQL Server/DuckDB that leave {@link
+     * ResultSetMetaData#getTableName(int)} blank). Blank catalog/schema values are normalized to
+     * {@code null}; filling them from a dialect default (database or schema) is the caller's
+     * responsibility, since only the caller knows how the target catalog maps namespaces.
+     */
     private static TablePath getPhysicalTablePath(ResultSetMetaData metadata, int columnIndex)
             throws SQLException {
         String tableName = metadata.getTableName(columnIndex);
