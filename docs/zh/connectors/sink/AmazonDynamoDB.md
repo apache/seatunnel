@@ -1,12 +1,14 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB 目标连接器
+# AmazonDynamoDB
 
-> AmazonDynamoDB 目标连接器
+> Amazon DynamoDB 写入连接器
 
 ## 描述
 
-将 SeaTunnel 行写入 DynamoDB 表。目标表必须已经存在，连接器不会自动建表或创建键结构。连接器通过 batch write 请求将每一行作为 DynamoDB item 写入，因此既支持单表写入（在 `table` 里配置目标表），也支持多表写入——当上游行带有 table id 时，每一行会被路由到对应表。
+Amazon DynamoDB 写入连接器用于将 SeaTunnel 数据行写入 DynamoDB 表。
+
+目标表必须提前创建。连接器会把每一行写成一个 DynamoDB item，并使用批量写入请求。它支持单表写入，也支持上游数据行携带表名时的多表写入。
 
 ## 支持的引擎
 
@@ -30,7 +32,7 @@ import ChangeLog from '../changelog/connector-amazondynamodb.md';
 | secret_access_key   | string | 是   | -      | AWS secret access key。       |
 | table               | string | 是   | -      | 要写入的 DynamoDB 表名。      |
 | batch_size          | int    | 否   | 25     | 一次批量写入请求缓存的记录数。 |
-| multi_table_sink_replica | int | 否 | 1 | 每张表对应的 Sink Writer 副本数。 |
+| multi_table_sink_replica | int | 否   | 1      | 每张表对应的 Sink Writer 副本数。 |
 | max_retries         | int    | 否   | 10     | 未处理 item 的最大重试次数，必须大于等于 `0`。 |
 | retry_base_delay_ms | long   | 否   | 100    | 初始重试等待时间，单位毫秒。  |
 | retry_max_delay_ms  | long   | 否   | 5000   | 最大重试等待时间，单位毫秒。  |
