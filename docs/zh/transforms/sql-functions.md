@@ -1277,6 +1277,8 @@ TRY_CAST(NAME AS INT)
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`COALESCE(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
+
 示例:
 
 COALESCE(A, B, C)
@@ -1291,9 +1293,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
+
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`IFNULL(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `IFNULL(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
 
 示例:
 

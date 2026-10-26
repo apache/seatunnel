@@ -147,7 +147,12 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     changes.
   - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error where the source is a
     string, widen the target type so the value fits, or compute a truncating conversion explicitly
-    rather than relying on the inferred narrowing in `COALESCE` and `IFNULL`.
+    rather than relying on the inferred narrowing in `COALESCE` and `IFNULL`. To keep the widest
+    type rather than the type of the first argument, write the cast yourself:
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`.
+    That works for an integral source only: a `DECIMAL` or `DOUBLE` has no cast to `BIGINT`, so
+    put it first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in
+    change though: it also changes which argument wins when both are non-null.
 
 ### DuckDB BIT and ENUM automatic DDL
 

@@ -1280,6 +1280,8 @@ TRY_CAST(NAME AS INT)
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `COALESCE(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
+
 Example:
 
 COALESCE(A, B, C)
@@ -1294,9 +1296,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
+
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `IFNULL(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `IFNULL(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
 
 Example:
 

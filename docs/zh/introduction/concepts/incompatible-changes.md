@@ -127,6 +127,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     而不是被拒绝。本次只改变范围相关的行为。
   - **迁移指南**：来源为字符串时，若希望得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型扩宽到
     足以容纳该值；如果确实需要截断语义，请显式计算，而不要依赖 `COALESCE` 与 `IFNULL` 推断出的收窄。
+    如果希望结果使用最宽的类型，而不是第一个参数的类型，请自己写出转换：
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`。
+    该写法仅适用于整型来源：`DECIMAL` 或 `DOUBLE` 没有到 `BIGINT` 的转换，请改为把它放在第一个参数，
+    例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，
+    返回哪一个也会随之改变。
 
 ### DuckDB BIT 和 ENUM 自动建表
 
