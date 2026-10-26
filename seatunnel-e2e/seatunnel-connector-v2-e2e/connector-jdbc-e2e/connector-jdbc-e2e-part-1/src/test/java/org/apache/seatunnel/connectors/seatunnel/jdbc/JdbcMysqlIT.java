@@ -39,9 +39,16 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -910,6 +917,24 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
     }
 
+    /**
+     * Exercises the production row buffer and actual MySQL statements across a failed liveness
+     * probe. Losing or replaying the pending batch makes the database assertions fail.
+     */
+    @Test
+    public void testPendingBatchSurvivesConnectionValidationFailure() throws Exception {
+        assertPendingBatchAfterValidationFailure(1);
+    }
+
+    /**
+     * A failed liveness probe must not grant an extra attempt when retries are disabled. The failed
+     * pending batch must also remain unwritten during writer cleanup.
+     */
+    @Test
+    public void testConnectionValidationFailureHonorsZeroRetries() throws Exception {
+        assertPendingBatchAfterValidationFailure(0);
+    }
+
     @NotNull private Map<String, Object> getDefaultConfigMap() {
         Map<String, Object> map = new HashMap<>();
         map.put("driver", "com.mysql.cj.jdbc.Driver");
@@ -1015,6 +1040,143 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     dropStatement.execute("DROP TABLE IF EXISTS " + tableName);
                 }
             }
+        }
+    }
+    /**
+     * Forces only the failure signals while keeping buffering, reconnect, SQL binding and database
+     * writes on the production path. No connection or statement is replaced with a mock.
+     */
+    private void assertPendingBatchAfterValidationFailure(int maxRetries) throws Exception {
+        String tableName = "jdbc_validation_failure_" + maxRetries;
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "payload", BasicType.STRING_TYPE, 32, false, null, null))
+                        .build();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .url(getUrl())
+                        .driverName(DRIVER_CLASS)
+                        .username(MYSQL_USERNAME)
+                        .password(MYSQL_PASSWORD)
+                        .properties(Collections.emptyMap())
+                        .autoCommit(true)
+                        .maxRetries(maxRetries)
+                        .batchSize(1024)
+                        .batchIntervalMs(0)
+                        .build();
+        ValidationFailureConnectionProvider provider =
+                new ValidationFailureConnectionProvider(config);
+        try (Connection observer =
+                        DriverManager.getConnection(getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD);
+                Statement statement = observer.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + tableName
+                            + " (id INT PRIMARY KEY, payload VARCHAR(32) NOT NULL)");
+            try {
+                BufferedBatchStatementExecutor executor =
+                        new BufferedBatchStatementExecutor(
+                                new FailOnceBatchStatementExecutor(
+                                        "INSERT INTO " + tableName + " VALUES (?, ?)", schema),
+                                row -> row);
+                JdbcOutputFormat<SeaTunnelRow, BufferedBatchStatementExecutor> output =
+                        new JdbcOutputFormat<>(provider, config, () -> executor);
+                output.open();
+                Connection originalConnection = provider.getConnection();
+                output.writeRecord(new SeaTunnelRow(new Object[] {1, "first"}));
+                output.writeRecord(new SeaTunnelRow(new Object[] {2, "second"}));
+                provider.failNextValidation = true;
+
+                if (maxRetries == 0) {
+                    Assertions.assertThrows(JdbcConnectorException.class, output::flush);
+                    Assertions.assertFalse(provider.failNextValidation);
+                    Assertions.assertEquals(0, provider.reconnects);
+                    Assertions.assertSame(originalConnection, provider.getConnection());
+                    Assertions.assertThrows(JdbcConnectorException.class, output::close);
+                } else {
+                    output.flush();
+                    Assertions.assertEquals(1, provider.reconnects);
+                    Assertions.assertNotSame(originalConnection, provider.getConnection());
+                    Assertions.assertTrue(originalConnection.isClosed());
+                    output.flush();
+                    output.close();
+                }
+                Assertions.assertFalse(provider.failNextValidation);
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT id, payload FROM " + tableName + " ORDER BY id")) {
+                    if (maxRetries > 0) {
+                        Assertions.assertTrue(rows.next());
+                        Assertions.assertEquals(1, rows.getInt(1));
+                        Assertions.assertEquals("first", rows.getString(2));
+                        Assertions.assertTrue(rows.next());
+                        Assertions.assertEquals(2, rows.getInt(1));
+                        Assertions.assertEquals("second", rows.getString(2));
+                    }
+                    Assertions.assertFalse(rows.next());
+                }
+            } finally {
+                provider.failNextValidation = false;
+                provider.closeConnection();
+                statement.execute("DROP TABLE " + tableName);
+            }
+        }
+    }
+
+    /**
+     * Uses real MySQL connections and injects a single failed liveness probe after rows have been
+     * buffered. Subsequent validation and reconnect use the standard provider implementation.
+     */
+    private static final class ValidationFailureConnectionProvider
+            extends SimpleJdbcConnectionProvider {
+        private boolean failNextValidation;
+        private int reconnects;
+
+        private ValidationFailureConnectionProvider(JdbcConnectionConfig config) {
+            super(config);
+        }
+
+        @Override
+        public boolean isConnectionValid() throws SQLException {
+            if (failNextValidation) {
+                failNextValidation = false;
+                throw new SQLException("Injected liveness probe failure", "08006");
+            }
+            return super.isConnectionValid();
+        }
+
+        @Override
+        public Connection reestablishConnection() throws SQLException, ClassNotFoundException {
+            reconnects++;
+            return super.reestablishConnection();
+        }
+    }
+
+    /**
+     * Fails the first flush before any wire writes, then binds and executes real MySQL statements.
+     * The surrounding production buffer must preserve both rows for the second attempt.
+     */
+    private static final class FailOnceBatchStatementExecutor extends SimpleBatchStatementExecutor {
+        private boolean failed;
+
+        private FailOnceBatchStatementExecutor(String sql, TableSchema schema) {
+            super(
+                    connection -> connection.prepareStatement(sql),
+                    schema,
+                    null,
+                    new MysqlJdbcRowConverter());
+        }
+
+        @Override
+        public void executeBatch() throws SQLException {
+            if (!failed) {
+                failed = true;
+                throw new SQLException("Injected batch failure", "HY000");
+            }
+            super.executeBatch();
         }
     }
 }
