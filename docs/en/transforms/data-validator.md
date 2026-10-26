@@ -12,7 +12,7 @@ The DataValidator transform validates field values according to configured rules
 |-----------------|--------|----------|---------------|
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
-| field_rules     | array  | no       |               |
+| field_rules     | array  | yes (single-table mode) |               |
 
 ### row_error_handle_way [enum]
 
@@ -89,6 +89,11 @@ Parameters:
 
 ##### LENGTH
 Validates the length of string, array, or collection values.
+
+Array length is the number of elements, including null elements. Nested arrays
+are measured by their outer length, and binary values by their number of bytes.
+String length uses Java UTF-16 code units; collection length uses its size.
+Null values pass this rule; combine it with `NOT_NULL` to reject nulls.
 
 Parameters:
 - `rule_type`: "LENGTH"
