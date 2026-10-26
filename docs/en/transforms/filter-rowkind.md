@@ -23,7 +23,7 @@ The row kinds to include
 
 The row kinds to exclude.
 
-You can only config one of `include_kinds` and `exclude_kinds`.
+You must configure exactly one of `include_kinds` and `exclude_kinds`; configuring both is not allowed.
 
 ### common options [string]
 
