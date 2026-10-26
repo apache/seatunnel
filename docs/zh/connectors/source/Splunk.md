@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-http-splunk.md';
 | method | String | 否 | `POST` | HTTP 请求方法 |
 | keep_params_as_form | Boolean | 否 | `true` | 以表单编码（form urlencoded）形式传递参数 |
 | max_response_size_bytes | Long | 否 | `20971520` | 允许的最大 HTTP 响应大小（字节），超过后快速失败，以避免大数据量导出时内存无限增长。 |
-| params | Map | 是 | - | 请求参数，包括 `search` 和 `output_mode` |
+| params | Map | 否 | - | 请求参数，例如 `search` 和 `output_mode`。该选项不会被校验为必填，但要得到有意义的导出结果需要提供 `search` 参数；`output_mode` 未配置时默认为 `json`。 |
 
 ## 示例配置
 
