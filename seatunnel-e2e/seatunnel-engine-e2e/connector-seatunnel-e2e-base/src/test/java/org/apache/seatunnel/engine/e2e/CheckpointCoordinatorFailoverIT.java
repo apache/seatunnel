@@ -915,9 +915,10 @@ public class CheckpointCoordinatorFailoverIT {
     }
 
     /**
-     * Regression test for a checkpoint-barrier-dispatch dead-letter bug in {@code
-     * CheckpointCoordinator#startTriggerPendingCheckpoint} (see {@code
-     * seatunnel-engine-server/.../checkpoint/CheckpointCoordinator.java} around lines 942-958):
+     * Worker-loss recovery test near checkpoint-barrier dispatch. The following nested-future
+     * behavior is background context in {@code CheckpointCoordinator#startTriggerPendingCheckpoint}
+     * (see {@code seatunnel-engine-server/.../checkpoint/CheckpointCoordinator.java} around lines
+     * 942-958):
      *
      * <pre>
      * CompletableFuture&lt;InvocationFuture&lt;?&gt;[]&gt; completableFutureArray =
@@ -940,28 +941,17 @@ public class CheckpointCoordinatorFailoverIT {
      * <p>Net effect: if the worker hosting the checkpoint's target task becomes unreachable in the
      * window between the coordinator sending a {@code CheckpointBarrierTriggerOperation} and that
      * RPC landing, this dispatch-wait code does not notice -- it has already moved on by the time
-     * the failure would show up. The only backstop is the scheduled per-pending-checkpoint timeout
-     * a little further down the same method (lines ~972-1001): once {@code checkpoint.timeout}
+     * the failure would show up. A backstop is the scheduled per-pending-checkpoint timeout a
+     * little further down the same method (lines ~972-1001): once {@code checkpoint.timeout}
      * elapses without the checkpoint becoming fully acknowledged, it fires {@code
      * CheckpointCloseReason#CHECKPOINT_EXPIRED}, which cancels and restarts the pipeline the same
      * way a hard task failure would.
      *
-     * <p>Neither existing worker-kill test in this module exercises that specific window: {@link
-     * #testBatchJobCompletesAfterMasterFailover} and {@link
-     * #testStreamJobContinuesAfterMasterFailover} above kill a MASTER node (the checkpoint
-     * coordinator itself), not a worker; the various {@code ClusterFaultToleranceIT}/{@code
-     * SplitClusterFaultToleranceIT} worker-kill tests elsewhere kill a worker at an arbitrary point
-     * during execution, never deliberately inside a barrier dispatch. This test terminates the
-     * worker hosting the barrier's target task with {@code HazelcastInstance.getLifecycleService()
-     * .terminate()} rather than a graceful {@code shutdown()}: per Hazelcast's own {@code
-     * Node#shutdown(boolean terminate)} that skips the explicit cluster-leave notice, so the
-     * coordinator's barrier RPC is genuinely fired at a member that vanished without saying
-     * goodbye. (The per-task {@code InvocationFuture}s the bug discards do eventually complete
-     * exceptionally on their own, per Hazelcast's separate {@code
-     * hazelcast.operation.call.timeout.millis} default of 60 seconds -- but since nothing in {@code
-     * startTriggerPendingCheckpoint} ever attaches a callback to those discarded array elements,
-     * that eventual completion has no observable effect on the coordinator; it is a true dead
-     * letter, not merely delayed handling.)
+     * <p>This case selects the worker hosting the actual task and observes checkpoint-counter
+     * progress before terminating that worker. Using {@code HazelcastInstance.getLifecycleService()
+     * .terminate()} skips the graceful leave notice, but it does not establish that a barrier RPC
+     * was sent or remained unacknowledged at termination. The counter is an observation near the
+     * trigger, not a latch on the inner RPC futures described above.
      *
      * <p><b>How recovery actually arrives, per CI evidence (fork run 34349062938, both JDK
      * legs):</b> skipping the leave notice does not keep the terminated member in the cluster.
@@ -980,23 +970,15 @@ public class CheckpointCoordinatorFailoverIT {
      * WITHOUT its connection being refused (a genuine network partition), which an in-JVM {@code
      * terminate()} on localhost cannot simulate.
      *
-     * <p>To land the termination inside the intended window with high probability (rather than by
-     * blind timing), this test tightly polls the same checkpoint-id counter state store used by
-     * {@link #testStreamJobContinuesAfterMasterFailover} above, and terminates the target worker in
-     * the same loop iteration that first observes the id advance -- i.e. as soon as a new
-     * checkpoint's barrier dispatch is imminent or just starting. A termination that lands only
-     * after that barrier was already acknowledged still yields a valid worker-loss recovery run
-     * (the assertions below hold either way); it just does not exercise the dead-letter window,
-     * which is why the poll is as tight as it is.
+     * <p>The test tightly polls the checkpoint-id counter state store and terminates the target
+     * after observing an advance. A barrier may already be acknowledged, or not yet dispatched,
+     * when termination occurs. The counter does not identify the precise RPC failure window.
      *
-     * <p><b>What this test proves:</b> the job recovers -- the killed task is redeployed onto the
-     * surviving worker and resumes producing output -- within the bounded wait below, even though
-     * the barrier-dispatch RPC to the lost worker was silently dropped by the bug above: the
-     * discarded {@code InvocationFuture}s and the pending checkpoint they belong to do not wedge
-     * the coordinator, the restore or the redeploy. <b>What it does NOT prove:</b> that the
-     * barrier-dispatch RPC failure is caught immediately (per the bug above it is not, and this
-     * test does not assert instant detection), nor that the checkpoint-timeout backstop alone would
-     * recover a worker that stays silently unreachable, since membership removal fires first here.
+     * <p><b>What this test proves:</b> the killed task is redeployed onto the surviving worker and
+     * resumes producing output within the bounded recovery wait. <b>What it does NOT prove:</b>
+     * that a barrier RPC was silently dropped, that discarded inner futures caused the observed
+     * recovery, or that checkpoint timeout alone recovers a silently unreachable worker. Membership
+     * removal can trigger the recovery first, as the cited CI evidence demonstrates.
      */
     @Test
     public void testStreamJobRecoversAfterWorkerUnreachableDuringCheckpointBarrierDispatch()
@@ -1078,10 +1060,9 @@ public class CheckpointCoordinatorFailoverIT {
                                     + ", so the surviving worker could never host the redeploy"
                                     + " alone");
 
-            // Tight white-box poll on the checkpoint-id counter: the moment a NEW checkpoint id
-            // appears, barrier dispatch for it is imminent or already underway, so terminate the
-            // target worker immediately in this same iteration. See the class javadoc above for
-            // why even an imperfect hit still exercises the same code path on the next cycle.
+            // Observe a checkpoint-counter advance before terminating the task's worker. This
+            // does not reveal whether an inner barrier RPC is pending or already acknowledged;
+            // membership removal can independently recover the worker loss.
             CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(masterNode);
             String checkpointIdKey = StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1);
             Long baselineCheckpointId = checkpointCounterStore.get(checkpointIdKey);
@@ -1105,8 +1086,8 @@ public class CheckpointCoordinatorFailoverIT {
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             log.info(
                     "Job {} checkpoint id just advanced to {}; terminating worker {} ungracefully"
-                            + " (not shutdown(), to simulate becoming unreachable rather than"
-                            + " gracefully leaving) to land inside the barrier-dispatch window.",
+                            + " after counter progress; the barrier RPC acknowledgement state is"
+                            + " not observed by this test.",
                     jobId,
                     observedCheckpointId,
                     targetWorker.getCluster().getLocalMember().getAddress());
