@@ -53,8 +53,6 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -98,17 +96,17 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         false,
                         new CompletableFuture<>(),
                         new SeaTunnelMetricsContext());
-        Method initialize =
-                SinkFlowLifeCycle.class.getDeclaredMethod("initRowErrorCollectorIfNeed");
-        initialize.setAccessible(true);
-        InvocationTargetException error =
+        Mockito.when(sink.getCommitInfoSerializer()).thenReturn(Optional.empty());
+        Mockito.when(sink.getWriterStateSerializer()).thenReturn(Optional.empty());
+        Mockito.when(sink.createCommitter()).thenReturn(Optional.empty());
+        flow.init();
+        IllegalArgumentException error =
                 Assertions.assertThrows(
-                        InvocationTargetException.class, () -> initialize.invoke(flow));
-        Assertions.assertInstanceOf(IllegalArgumentException.class, error.getCause());
-        Assertions.assertTrue(error.getCause().getMessage().contains("cannot be combined"));
-        Assertions.assertEquals(1, error.getCause().getSuppressed().length);
-        Assertions.assertEquals(
-                "collector-close", error.getCause().getSuppressed()[0].getMessage());
+                        IllegalArgumentException.class,
+                        () -> flow.restoreState(Collections.emptyList()));
+        Assertions.assertTrue(error.getMessage().contains("cannot be combined"));
+        Assertions.assertEquals(1, error.getSuppressed().length);
+        Assertions.assertEquals("collector-close", error.getSuppressed()[0].getMessage());
         Mockito.verify(collector).close();
         Mockito.verify(sink, Mockito.never()).createWriter(Mockito.any());
         Mockito.verify(sink, Mockito.never()).restoreWriter(Mockito.any(), Mockito.anyList());

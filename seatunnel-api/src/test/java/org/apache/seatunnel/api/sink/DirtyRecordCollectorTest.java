@@ -31,6 +31,15 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -40,12 +49,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -108,19 +118,45 @@ public class DirtyRecordCollectorTest {
     @Test
     void testPayloadMaskingIsIndependentOfDefaultLocale() throws Exception {
         Locale previousLocale = Locale.getDefault();
+        Logger logger = (Logger) LogManager.getLogger(LogDirtyRecordCollector.class);
+        Level previousLevel = logger.getLevel();
+        List<String> messages = new CopyOnWriteArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "dirty-locale-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        true,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        messages.add(event.getMessage().getFormattedMessage());
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.ERROR);
         try {
             Locale.setDefault(new Locale("tr", "TR"));
             LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
             collector.init(ConfigFactory.parseString("log_payload=FULL\nmask_fields=[FIELD_0]"));
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {"private-value"});
-            Method summarizeRecord =
-                    LogDirtyRecordCollector.class.getDeclaredMethod(
-                            "summarizeRecord", Object.class, CatalogTable.class);
-            summarizeRecord.setAccessible(true);
-            String output = (String) summarizeRecord.invoke(collector, row, null);
-            Assertions.assertEquals("[field_0=***]", output);
-            Assertions.assertFalse(output.contains("private-value"));
+            collector.collectFromUserRule(0, row, "locale-mask", null);
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 1, Record: [field_0=***], Reason: locale-mask"),
+                                        messages);
+                                Assertions.assertFalse(messages.get(0).contains("private-value"));
+                            });
+            Assertions.assertEquals(1L, collector.getDirtyRecordCount());
         } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+            logger.setLevel(previousLevel);
             Locale.setDefault(previousLocale);
         }
     }
