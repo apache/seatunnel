@@ -49,6 +49,7 @@ Apache Pulsar 的源连接器。
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
 | format                   | String  | 否    | json   | 数据格式。默认为 json。支持 json、canal_json、avro 和 text 格式。**text 仅支持单表模式；多表模式支持 JSON、CANAL_JSON 和 AVRO**                      |
 | field_delimiter          | String  | 否    | ,      | `text` 格式使用的字段分隔符。                                                                             |
+| avro_row_nullable        | Boolean | 否    | false  | 当 `format` 为 `avro` 时生效。当生产端按可空 Avro union 写入 ROW 字段时设为 `true`；Pulsar 没有 writer schema 选项，读取 schema 由 `schema` 推导，必须与写入端布局一致。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -162,7 +163,7 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 ### format [String]
 
-数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。
+数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
 
 ### field_delimiter [String]
 
