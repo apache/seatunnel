@@ -290,6 +290,11 @@ public abstract class AbstractTestContainer implements TestContainer {
         return executeJob(container, confFile, jobId, variables, null);
     }
 
+    /**
+     * Builds a single job command with optional per-command environment variables. Null or empty
+     * maps preserve the default environment; callers retain their usual completion/resource checks.
+     * Each environment entry is a separate argument rather than shell-interpolated text.
+     */
     protected Container.ExecResult executeJob(
             GenericContainer<?> container,
             String confFile,

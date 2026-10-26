@@ -45,6 +45,12 @@ public interface TestContainer extends TestResource {
     Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException;
 
+    /**
+     * Executes a job with environment variables scoped to that command, retaining the
+     * implementation's normal completion and resource checks. Null or empty maps use the normal
+     * environment. Zeta and Flink support this entry; other implementations reject it unless
+     * explicitly overridden.
+     */
     default Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
             throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");

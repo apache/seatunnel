@@ -207,6 +207,14 @@ public class MetalakeIT extends TestSuiteBase {
     private void startGravitinoContainer() throws Exception {
         gravitinoContainer =
                 new GenericContainer<>(GRAVITINO_IMAGE)
+                        // The pinned image defaults to daemonizing "start", which exits PID 1.
+                        // Keep the supported foreground server alive and expose its diagnostics.
+                        .withCreateContainerCmdModifier(
+                                command ->
+                                        command.withEntrypoint(
+                                                "/bin/bash",
+                                                "/root/gravitino/bin/gravitino.sh",
+                                                "run"))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("gravitino")
                         .withExposedPorts(GRAVITINO_PORT)
@@ -224,8 +232,8 @@ public class MetalakeIT extends TestSuiteBase {
                 gravitinoContainer.execInContainer(
                         "bash",
                         "-c",
-                        "curl -L 'http://localhost:8090/api/metalakes' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_metalake\",\"comment\":\"for metalake test\",\"properties\":{}}'"
-                                + " && curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
+                        "curl --fail --silent --show-error -L 'http://localhost:8090/api/metalakes' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_metalake\",\"comment\":\"for metalake test\",\"properties\":{}}'"
+                                + " && curl --fail --silent --show-error -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
         Assertions.assertEquals(0, createResult.getExitCode(), createResult.getStderr());
     }
 

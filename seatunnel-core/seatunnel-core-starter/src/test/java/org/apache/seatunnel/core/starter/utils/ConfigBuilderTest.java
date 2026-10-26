@@ -20,6 +20,16 @@ package org.apache.seatunnel.core.starter.utils;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.apache.logging.log4j.core.impl.Log4jContextFactory;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,9 +39,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ConfigBuilderTest {
 
@@ -160,6 +174,76 @@ public class ConfigBuilderTest {
             } else {
                 System.setProperty("SEATUNNEL_HOME", originalHome);
             }
+        }
+    }
+
+    /**
+     * Malformed YAML must keep metadata disabled and diagnosable without exposing
+     * credential-bearing source snippets or exception causes through the production logger.
+     */
+    @Test
+    @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
+    public void testMalformedMetadataYamlDoesNotLogSecretOrException(@TempDir Path tempDir)
+            throws Exception {
+        Path configDir = tempDir.resolve("config");
+        Files.createDirectories(configDir);
+        String sentinel = "DO-NOT-LOG-METADATA-CREDENTIAL";
+        Files.write(
+                configDir.resolve("seatunnel.yaml"),
+                Arrays.asList("seatunnel:", "  password: [" + sentinel + ", }"));
+        List<LogEvent> events = new ArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "metadata-config-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        true,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        events.add(event.toImmutable());
+                    }
+                };
+        // Initialize the SLF4J context before capturing all caller-classloader logging contexts.
+        ConfigBuilder.of(Collections.emptyMap());
+        Set<LoggerContext> contexts =
+                new HashSet<>(
+                        ((Log4jContextFactory) LogManager.getFactory())
+                                .getSelector()
+                                .getLoggerContexts());
+        contexts.add((LoggerContext) LogManager.getContext(false));
+        Map<Logger, Level> loggers = new HashMap<>();
+        String originalHome = System.getProperty("SEATUNNEL_HOME");
+        appender.start();
+        for (LoggerContext context : contexts) {
+            Logger logger = context.getLogger(ConfigBuilder.class.getName());
+            loggers.put(logger, logger.getLevel());
+            logger.addAppender(appender);
+            logger.setLevel(Level.WARN);
+        }
+        System.setProperty("SEATUNNEL_HOME", tempDir.toString());
+        try {
+            Assertions.assertFalse(
+                    ConfigBuilder.parseMetadataConfigFromSeatunnelYaml().isEnabled());
+            Assertions.assertFalse(events.isEmpty(), "The parse failure must remain diagnosable");
+            for (LogEvent event : events) {
+                String message = event.getMessage().getFormattedMessage();
+                Assertions.assertTrue(message.contains("Failed to parse seatunnel.yaml"), message);
+                Assertions.assertFalse(message.contains(sentinel), message);
+                Assertions.assertNull(event.getThrown(), "Do not log a raw YAML exception cause");
+            }
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("SEATUNNEL_HOME");
+            } else {
+                System.setProperty("SEATUNNEL_HOME", originalHome);
+            }
+            loggers.forEach(
+                    (logger, level) -> {
+                        logger.removeAppender(appender);
+                        logger.setLevel(level);
+                    });
+            appender.stop();
         }
     }
 

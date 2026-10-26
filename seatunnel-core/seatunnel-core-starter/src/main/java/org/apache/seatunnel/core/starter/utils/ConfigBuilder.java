@@ -485,7 +485,10 @@ public class ConfigBuilder {
         try {
             return parseMetadataConfig(yamlPath);
         } catch (Exception e) {
-            log.warn("Failed to parse seatunnel.yaml for metadata config: {}", e.getMessage());
+            // Parser messages can include raw YAML source lines containing credentials.
+            log.warn(
+                    "Failed to parse seatunnel.yaml for metadata config ({}); metadata provider disabled",
+                    e.getClass().getSimpleName());
             return new MetadataConfig();
         }
     }
