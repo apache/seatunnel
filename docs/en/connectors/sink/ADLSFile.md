@@ -180,6 +180,12 @@ sink {
 }
 ```
 
+## Live ABFS/Gen2 integration test
+
+The opt-in `ADLSFileIT` exercises both the ADLSFile source and sink against a real ADLS Gen2
+account. Follow the [step-by-step live testing guide](../source/ADLSFile.md#live-abfsgen2-integration-test)
+for Azure prerequisites, credential setup, build and test commands, result checks, and cleanup.
+
 ## Changelog
 
 Initial ADLS Gen2 file sink documentation.

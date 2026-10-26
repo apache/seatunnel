@@ -187,6 +187,115 @@ sink {
 }
 ```
 
+## Live ABFS/Gen2 integration test
+
+`ADLSFileIT` in `seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-adls-e2e` tests both
+the ADLSFile source and sink against real ADLS Gen2 storage over secure ABFS (`abfss://`).
+Default CI uses the separate WASB/Azurite test; the live test is opt-in because it needs Azure
+resources and credentials. An Azurite test result does not verify live ABFS/Gen2 I/O.
+
+### 1. Prepare Azure storage and the local environment
+
+- Use a dedicated [ADLS Gen2 storage account with hierarchical namespace enabled](https://learn.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)
+  and create a filesystem (container) for testing.
+- Obtain a [storage account access key](https://learn.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage).
+  Use the key value, not a connection string or SAS token. Shared Key authorization must be
+  allowed on this test account. The existing live test uses `SHARED_KEY`; it does not exercise
+  OAuth client credentials.
+- The fixtures use `dfs.core.windows.net`. This procedure targets Azure public cloud.
+  Both the host running Maven and the Docker containers must be able to reach the storage
+  endpoints; account firewall rules must permit that access.
+- Install JDK 11 or 17, set `JAVA_HOME`, and start Docker with Linux containers enabled.
+  See the [development setup guide](../../developer/setup.md) for build prerequisites.
+
+Choose a dedicated, absolute container-relative test prefix, such as `/seatunnel-e2e/alice/run-001`.
+The test recursively deletes `<prefix>/file-round-trip-e2e` before setup and during teardown.
+Do not place existing data there, and use different prefixes for concurrent runs.
+
+### 2. Build the checkout
+
+Run from the repository root. Build before setting the live-test variables:
+
+```bash
+./mvnw clean install -DskipUT=true -DskipIT=true
+```
+
+In Windows PowerShell, use `./mvnw.cmd` instead of `./mvnw` for this and the later Maven command.
+The build prepares the connector, runtime, engine, and E2E dependencies used by the test containers.
+
+### 3. Set the live-test variables
+
+Set these variables in the same terminal that will run Maven:
+
+| Variable | Value |
+|----------|-------|
+| `SEATUNNEL_ADLS_IT` | `true` to enable `ADLSFileIT`. |
+| `SEATUNNEL_ADLS_ACCOUNT` | Storage account name, without a URL or endpoint suffix. |
+| `SEATUNNEL_ADLS_CONTAINER` | Name of the existing test filesystem/container. |
+| `SEATUNNEL_ADLS_ACCOUNT_KEY` | Storage account access key. |
+| `SEATUNNEL_ADLS_TEST_PREFIX` | Dedicated absolute path inside the container, without `.` or `..` segments. |
+| `RUN_ENGINES` | `zeta` for this walkthrough. |
+
+Bash (replace the account, container, and prefix examples):
+
+```bash
+export SEATUNNEL_ADLS_IT=true
+export SEATUNNEL_ADLS_ACCOUNT=mystorageaccount
+export SEATUNNEL_ADLS_CONTAINER=seatunnel-tests
+export SEATUNNEL_ADLS_TEST_PREFIX=/seatunnel-e2e/alice/run-001
+export RUN_ENGINES=zeta
+read -r -s -p 'Storage account access key: ' SEATUNNEL_ADLS_ACCOUNT_KEY
+printf '\n'
+export SEATUNNEL_ADLS_ACCOUNT_KEY
+```
+
+Windows PowerShell:
+
+```powershell
+$env:SEATUNNEL_ADLS_IT = 'true'
+$env:SEATUNNEL_ADLS_ACCOUNT = 'mystorageaccount'
+$env:SEATUNNEL_ADLS_CONTAINER = 'seatunnel-tests'
+$env:SEATUNNEL_ADLS_TEST_PREFIX = '/seatunnel-e2e/alice/run-001'
+$env:RUN_ENGINES = 'zeta'
+$adlsTestKey = Read-Host 'Storage account access key' -AsSecureString
+$env:SEATUNNEL_ADLS_ACCOUNT_KEY = [System.Net.NetworkCredential]::new('', $adlsTestKey).Password
+Remove-Variable adlsTestKey
+```
+
+The prompts avoid putting the key in command history. For CI, inject it from a secret store.
+The test forwards the account, container, key, and generated test root to the engine containers;
+no interactive Azure Portal login is needed during execution.
+
+### 4. Run the live test
+
+From the repository root, in the same terminal:
+
+```bash
+./mvnw -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-adls-e2e -DskipUT=true -DskipIT=false -Dit.test=ADLSFileIT verify
+```
+
+Use `RUN_ENGINES=spark` for the eligible Spark containers, or `all` for all eligible containers.
+The test excludes Spark 2.4 and Flink containers because their Hadoop runtime is incompatible
+with this connector's Hadoop 3 Azure runtime.
+
+### 5. Check the result and clean up
+
+The test creates two input CSV files containing four records, runs the ADLSFile source-to-sink
+job, verifies output creation and removal of a stale output file, checks that no temporary
+files remain, and reads the output back through ADLSFile into an Assert sink. The Assert sink
+checks four records, non-null fields, and ID bounds. Teardown deletes the generated test root.
+
+Inspect `seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-adls-e2e/target/failsafe-reports/`
+for the `ADLSFileIT` text/XML report. Confirm that the test actually ran with no failures or errors;
+a skipped test or build success alone does not establish live ABFS coverage.
+If skipped, check `SEATUNNEL_ADLS_IT` and `-DskipIT=false`. For authentication or connection
+failures, check the account/key, Shared Key authorization, container name, and network access.
+
+If the process is interrupted, inspect and remove only your dedicated
+`<prefix>/file-round-trip-e2e` directory if cleanup did not finish. Close the terminal or remove
+the test environment variables afterward, especially `SEATUNNEL_ADLS_ACCOUNT_KEY` and
+`SEATUNNEL_ADLS_IT`.
+
 ## Changelog
 
 Initial ADLS Gen2 file source documentation.

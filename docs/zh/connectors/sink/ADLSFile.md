@@ -147,6 +147,12 @@ sink {
 }
 ```
 
+## 实时集成测试
+
+显式启用的 `ADLSFileIT` 会使用真实 ADLS Gen2 账户测试 ADLSFile Source 和 Sink。
+有关 Azure 前提条件、凭据设置、构建与测试命令、结果检查和清理步骤，
+请参见[实时测试分步指南](../source/ADLSFile.md#实时集成测试)。
+
 ## 变更日志
 
 ADLS Gen2 文件 Sink 初始文档。
