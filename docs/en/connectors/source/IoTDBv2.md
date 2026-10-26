@@ -10,7 +10,7 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 
 The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). It executes the configured SQL query against IoTDB and produces rows whose schema is defined by the `schema` option.
 
-For the tree model the connector relies on the IoTDB `align by device` clause (the example queries below use it). For the table model, queries are plain `SELECT` statements against an IoTDB table; if the SQL itself names the database, `database` does not need to be configured.
+For the tree model, the examples below use `align by device` to include device identity. The configured schema must match the returned column order and field count, with the timestamp first. For the table model, queries are plain `SELECT` statements against an IoTDB table; if the SQL itself names the database, `database` does not need to be configured.
 
 ## Supported Engines
 
@@ -88,7 +88,7 @@ The IoTDB password used to authenticate against the cluster.
 
 ### sql_dialect [String]
 
-The IoTDB model the connector talks to. The default value is `"tree"`, which uses the IoTDB tree model and expects queries like `SELECT ... FROM root.x.y align by device`. Set it to `"table"` to query the IoTDB table model with plain `SELECT` statements.
+The IoTDB model the connector talks to. The default value is `"tree"`, which uses the IoTDB tree model. The examples use queries like `SELECT ... FROM root.x.y align by device`. Set it to `"table"` to query the IoTDB table model with plain `SELECT` statements.
 
 ### database [String]
 
@@ -98,7 +98,7 @@ The IoTDB database (catalog) used by table-model queries. Only valid when `sql_d
 
 The SQL query to execute against IoTDB.
 
-For the tree model, the query must include `align by device` so the connector can read each device's measurements as separate rows. For the table model, plain `SELECT ... FROM <table>` queries are used.
+For the tree model, the examples use `align by device` to return a Device column alongside measurements. Queries without this clause are also supported when the configured schema matches their returned column order and field count, with the timestamp first. For the table model, plain `SELECT ... FROM <table>` queries are used.
 
 ### schema [Config]
 

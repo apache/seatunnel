@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 连接器同时支持 IoTDB 树模型（`sql_dialect = "tree"`，默认）和表模型（`sql_dialect = "table"`）。它会根据配置的 SQL 语句向 IoTDB 发起查询，并把结果按 `schema` 选项定义的字段结构输出成 SeaTunnel 行。
 
-树模型下查询必须使用 `align by device` 子句（下面示例中即采用这种写法），这样读取器才能把每个设备的测点作为独立的行输出。表模型下使用普通的 `SELECT` 语句；如果 SQL 本身已经写明了数据库名，可以不填写 `database` 选项。
+树模型的下方示例使用 `align by device` 子句来返回设备标识。配置的 schema 必须匹配实际返回的列顺序和字段数量，并将时间戳放在首列。表模型下使用普通的 `SELECT` 语句；如果 SQL 本身已经写明了数据库名，可以不填写 `database` 选项。
 
 ## 支持的引擎
 
@@ -88,7 +88,7 @@ IoTDB 集群地址列表，每个元素必须是 `host:port` 形式，例如 `["
 
 ### sql_dialect [String]
 
-IoTDB 模型类型，默认值为 `tree`，表示 IoTDB 树模型，查询语句形如 `SELECT ... FROM root.x.y align by device`。如果需要使用 IoTDB 表模型，请设置为 `table`，并使用普通的 `SELECT ... FROM <表名>` 语句。
+IoTDB 模型类型，默认值为 `tree`，表示 IoTDB 树模型，下方示例的查询语句形如 `SELECT ... FROM root.x.y align by device`。如果需要使用 IoTDB 表模型，请设置为 `table`，并使用普通的 `SELECT ... FROM <表名>` 语句。
 
 ### database [String]
 
@@ -98,7 +98,7 @@ IoTDB 模型类型，默认值为 `tree`，表示 IoTDB 树模型，查询语句
 
 要执行的 SQL 查询语句。
 
-树模型下，查询必须包含 `align by device` 子句，否则读取器无法把每个设备的测点作为独立行输出。表模型下使用普通的 `SELECT` 语句即可。
+树模型的示例使用 `align by device` 子句，在测点之外返回 Device 列。不使用该子句的查询也受支持，但配置的 schema 必须匹配实际返回的列顺序和字段数量，并将时间戳放在首列。表模型下使用普通的 `SELECT` 语句即可。
 
 ### schema [Config]
 
