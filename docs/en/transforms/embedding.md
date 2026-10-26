@@ -48,11 +48,13 @@ you can choose `CUSTOM` to implement requests and retrievals for custom embeddin
 ### api_key
 
 The API key for authenticating requests to the embedding service. This is typically provided by the model provider when
-you register for their service.
+you register for their service. For `AMAZON` this is the IAM access key. This option is required when `model_provider`
+is `AMAZON`, `OPENAI`, `DOUBAO` or `QIANFAN`, and not required for other providers.
 
 ### secret_key
 
 The secret key used for additional authentication. Some providers may require this for secure API requests.
+This option is required when `model_provider` is `AMAZON` or `QIANFAN`.
 
 ### single_vectorized_input_number
 

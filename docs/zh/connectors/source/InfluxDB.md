@@ -143,7 +143,7 @@ InfluxDB 密码。必须和 `username` 一起配置。
 `split_column` 列的下界。启用并行范围读取时使用。
 
 连接器会把 `split_column` 范围切成 `partition_num` 份；若 `partition_num = 1`，则使用整段范围；若
-`partition_num` 小于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
+`partition_num` 大于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
 
 例如 `lower_bound = 1`、`upper_bound = 10`、`partition_num = 2`、
 `sql = "select * from test where age > 0 and age < 10"` 会被切分成：
