@@ -106,8 +106,7 @@ final class FlinkLineageHooks {
                             LineageConfig.resolveToken(
                                     FlinkClusterOptions.load(), System.getenv()));
             for (LineageEvent event : events) {
-                LineageRuntime.emit(
-                        runtimeConfig, event.withEventType(LineageEventType.ABORT));
+                LineageRuntime.emit(runtimeConfig, event.withEventType(LineageEventType.ABORT));
             }
         } catch (Throwable error) {
             LOGGER.warn("Failed to abort Flink lineage runs after hook registration failed", error);

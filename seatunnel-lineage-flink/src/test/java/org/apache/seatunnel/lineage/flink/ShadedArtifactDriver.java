@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Emits one event, run by {@link TestShadedArtifactIT} in a JVM whose only class path entries are the
- * shaded artifact and slf4j-api. It stands in for the JobManager, which has exactly that.
+ * Emits one event, run by {@link TestShadedArtifactIT} in a JVM whose only class path entries are
+ * the shaded artifact and slf4j-api. It stands in for the JobManager, which has exactly that.
  */
 public final class ShadedArtifactDriver {
 
