@@ -33,8 +33,6 @@ import java.util.Set;
 
 class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
-    private static final long serialVersionUID = 8769738606872706499L;
-
     private final List<SeaTunnelTransform<SeaTunnelRow>> transforms;
 
     /** Extra table paths of every rule, rebuilt only by {@link #refreshExtraTablePaths()}. */

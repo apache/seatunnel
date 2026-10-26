@@ -161,7 +161,7 @@ class AbstractMultiCatalogTransformTest {
     }
 
     @Test
-    void chainedMapTransformKeepsLegacySerialVersionUid() {
+    void chainedMapTransformComputesLegacySerialVersionUid() {
         Assertions.assertEquals(
                 8769738606872706499L,
                 ObjectStreamClass.lookup(ChainedMapTransform.class).getSerialVersionUID());
@@ -215,6 +215,8 @@ class AbstractMultiCatalogTransformTest {
         try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
             restored = (ChainedMapTransform) input.readObject();
         }
+
+        restored.setInputCatalogTables(Collections.singletonList(table));
 
         Assertions.assertEquals(
                 tablePath(extraTable), restored.map(row(tablePath(table))).getTableId());
