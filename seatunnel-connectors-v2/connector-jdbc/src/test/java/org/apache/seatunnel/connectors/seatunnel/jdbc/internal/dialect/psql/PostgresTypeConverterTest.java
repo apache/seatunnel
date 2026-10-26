@@ -31,6 +31,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.postgresql.PGResultSetMetaData;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class PostgresTypeConverterTest {
     @Test
@@ -1143,6 +1145,40 @@ public class PostgresTypeConverterTest {
     }
 
     @Test
+    public void testQualifiedVectorMetadataRetainsUnconstrainedFallback() throws SQLException {
+        for (String type :
+                new String[] {"extensions.vector", "\"extensions\".\"vector\"", "\"vector\""}) {
+            ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+            Connection connection = mock(Connection.class);
+            when(metadata.getColumnTypeName(1)).thenReturn(type);
+            when(metadata.getColumnLabel(1)).thenReturn("projected_vector");
+            when(metadata.getTableName(1)).thenReturn("");
+            Column column =
+                    new PostgresTypeMapper()
+                            .mappingColumn(
+                                    metadata,
+                                    1,
+                                    connection,
+                                    "SELECT embedding FROM (SELECT embedding FROM items) t");
+            Assertions.assertEquals("projected_vector", column.getName());
+            Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+            Assertions.assertNull(column.getScale());
+            verifyNoInteractions(connection);
+        }
+    }
+
+    @Test
+    public void testQuotedNonVectorMetadataRemainsString() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnTypeName(1)).thenReturn("\"extensions\".\"not.vector\"");
+        when(metadata.getColumnLabel(1)).thenReturn("custom");
+        when(metadata.getColumnType(1)).thenReturn(Types.OTHER);
+        Column column = new PostgresTypeMapper().mappingColumn(metadata, 1);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, column.getSourceType());
+    }
+
+    @Test
     public void testVectorDimensionDoesNotGuessTableFromSql() throws SQLException {
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
         Connection connection = mock(Connection.class);
@@ -1164,15 +1200,22 @@ public class PostgresTypeConverterTest {
 
     @Test
     public void testVectorDimensionUsesPhysicalColumnMetadata() throws SQLException {
-        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        ResultSetMetaData metadata =
+                mock(
+                        ResultSetMetaData.class,
+                        withSettings().extraInterfaces(PGResultSetMetaData.class));
+        PGResultSetMetaData postgres = (PGResultSetMetaData) metadata;
         Connection connection = mock(Connection.class);
         PreparedStatement statement = mock(PreparedStatement.class);
         ResultSet result = mock(ResultSet.class);
-        when(metadata.getColumnTypeName(1)).thenReturn("vector");
+        when(metadata.getColumnTypeName(1)).thenReturn("\"extensions\".\"vector\"");
         when(metadata.getColumnLabel(1)).thenReturn("aliased_embedding");
-        when(metadata.getColumnName(1)).thenReturn("embedding");
+        when(metadata.getColumnName(1)).thenReturn("aliased_embedding");
+        when(postgres.getBaseColumnName(1)).thenReturn("embedding");
+        when(postgres.getBaseTableName(1)).thenReturn("items");
+        when(postgres.getBaseSchemaName(1)).thenReturn("vector_data");
         when(metadata.getTableName(1)).thenReturn("items");
-        when(metadata.getSchemaName(1)).thenReturn("public");
+        when(metadata.getSchemaName(1)).thenReturn("");
         when(connection.prepareStatement(anyString())).thenReturn(statement);
         when(statement.executeQuery()).thenReturn(result);
         when(result.next()).thenReturn(true);
@@ -1185,7 +1228,7 @@ public class PostgresTypeConverterTest {
                                 connection,
                                 "SELECT b.embedding AS aliased_embedding FROM a JOIN b USING (id)");
         verify(statement).setString(1, "items");
-        verify(statement).setString(2, "public");
+        verify(statement).setString(2, "vector_data");
         verify(statement).setString(3, "embedding");
         Assertions.assertEquals("aliased_embedding", column.getName());
         Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());

@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import org.postgresql.PGResultSetMetaData;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -47,6 +49,9 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     public Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnName = metadata.getColumnLabel(colIndex);
         String nativeType = metadata.getColumnTypeName(colIndex);
+        if (isVectorTypeName(nativeType)) {
+            nativeType = PostgresTypeConverter.PG_VECTOR;
+        }
         int isNullable = metadata.isNullable(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -77,12 +82,12 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             throws SQLException {
         String nativeType = metadata.getColumnTypeName(colIndex);
 
-        if (PostgresTypeConverter.PG_VECTOR.equalsIgnoreCase(nativeType) && connection != null) {
+        if (isVectorTypeName(nativeType) && connection != null) {
             String[] tableInfo = resolveTableInfo(metadata, colIndex);
             if (tableInfo != null && tableInfo[1] != null && !tableInfo[1].isEmpty()) {
-                // Use getColumnName (physical column name) for pg_attribute lookup,
-                // as pg_attribute.attname stores the original column name, not the SELECT alias.
-                String physicalColumnName = metadata.getColumnName(colIndex);
+                // PostgreSQL's standard getColumnName returns the SELECT alias. Its base-column
+                // metadata supplies the physical name required by pg_attribute.attname.
+                String physicalColumnName = tableInfo[2];
                 String vectorType =
                         queryVectorTypeFromPgAttribute(
                                 connection, tableInfo[0], tableInfo[1], physicalColumnName);
@@ -93,7 +98,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
                             BasicTypeDefine.builder()
                                     .name(outputColumnName)
                                     .columnType(vectorType)
-                                    .dataType(nativeType)
+                                    .dataType(PostgresTypeConverter.PG_VECTOR)
                                     .sqlType(metadata.getColumnType(colIndex))
                                     .nullable(
                                             metadata.isNullable(colIndex)
@@ -119,10 +124,19 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     private String[] resolveTableInfo(ResultSetMetaData metadata, int colIndex) {
         // Try ResultSetMetaData first - the PostgreSQL JDBC driver often populates this.
         try {
+            if (metadata instanceof PGResultSetMetaData) {
+                PGResultSetMetaData postgres = (PGResultSetMetaData) metadata;
+                String table = postgres.getBaseTableName(colIndex);
+                String column = postgres.getBaseColumnName(colIndex);
+                if (table != null && !table.isEmpty() && column != null && !column.isEmpty()) {
+                    return new String[] {postgres.getBaseSchemaName(colIndex), table, column};
+                }
+                return null;
+            }
             String tableName = metadata.getTableName(colIndex);
             if (tableName != null && !tableName.isEmpty()) {
                 String schemaName = metadata.getSchemaName(colIndex);
-                return new String[] {schemaName, tableName};
+                return new String[] {schemaName, tableName, metadata.getColumnName(colIndex)};
             }
         } catch (SQLException e) {
             log.debug("JDBC driver cannot resolve the physical table for column {}", colIndex, e);
@@ -148,7 +162,8 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
                         + "FROM pg_attribute a "
                         + "JOIN pg_class c ON a.attrelid = c.oid "
                         + "JOIN pg_namespace n ON c.relnamespace = n.oid "
-                        + "WHERE c.relname = ? AND n.nspname = COALESCE(NULLIF(?, ''), current_schema()) AND a.attname = ? AND a.attnum > 0";
+                        + "JOIN pg_type t ON a.atttypid = t.oid "
+                        + "WHERE t.typname = 'vector' AND c.relname = ? AND n.nspname = COALESCE(NULLIF(?, ''), current_schema()) AND a.attname = ? AND a.attnum > 0";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, tableName);
             ps.setString(2, schemaName);
@@ -156,8 +171,10 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     int dimension = rs.getInt(1);
-                    if (!rs.wasNull() && dimension > 0) {
-                        return PostgresTypeConverter.PG_VECTOR + "(" + dimension + ")";
+                    if (!rs.wasNull()) {
+                        return dimension > 0
+                                ? PostgresTypeConverter.PG_VECTOR + "(" + dimension + ")"
+                                : PostgresTypeConverter.PG_VECTOR;
                     }
                 }
             }
@@ -170,5 +187,18 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
                     e);
         }
         return null;
+    }
+    /**
+     * Recognizes the native vector names rendered by PostgreSQL JDBC metadata.
+     *
+     * <p>A type outside search_path is schema-qualified. Match the terminal type identifier,
+     * including its quoted form, rather than treating the qualified name as an unknown string.
+     */
+    private boolean isVectorTypeName(String nativeType) {
+        return nativeType != null
+                && (PostgresTypeConverter.PG_VECTOR.equalsIgnoreCase(nativeType)
+                        || "\"vector\"".equals(nativeType)
+                        || nativeType.endsWith(".vector")
+                        || nativeType.endsWith(".\"vector\""));
     }
 }

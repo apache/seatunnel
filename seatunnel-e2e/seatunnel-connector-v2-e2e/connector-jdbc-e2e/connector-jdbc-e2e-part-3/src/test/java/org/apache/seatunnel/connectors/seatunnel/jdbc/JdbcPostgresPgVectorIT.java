@@ -185,19 +185,34 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
                                 PGVECTOR_CONTAINER.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute("CREATE SCHEMA extensions");
+            statement.execute("CREATE SCHEMA vector_data");
             statement.execute("CREATE EXTENSION vector WITH SCHEMA extensions");
             statement.execute(
-                    "CREATE TABLE public.vector_dimensions (embedding extensions.vector(3))");
+                    "CREATE TABLE vector_data.vector_dimensions (embedding extensions.vector(3))");
             // extensions is intentionally absent from the default search_path.
             try (ResultSet result =
-                    statement.executeQuery("SELECT embedding FROM public.vector_dimensions")) {
+                    statement.executeQuery("SELECT embedding FROM vector_data.vector_dimensions")) {
                 Column column =
                         new PostgresTypeMapper()
                                 .mappingColumn(
                                         result.getMetaData(),
                                         1,
                                         connection,
-                                        "SELECT embedding FROM public.vector_dimensions");
+                                        "SELECT embedding FROM vector_data.vector_dimensions");
+                Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+                Assertions.assertEquals(Integer.valueOf(3), column.getScale());
+            }
+            try (ResultSet result =
+                    statement.executeQuery(
+                            "SELECT embedding AS aliased_embedding FROM vector_data.vector_dimensions")) {
+                Column column =
+                        new PostgresTypeMapper()
+                                .mappingColumn(
+                                        result.getMetaData(),
+                                        1,
+                                        connection,
+                                        "SELECT embedding AS aliased_embedding FROM vector_data.vector_dimensions");
+                Assertions.assertEquals("aliased_embedding", column.getName());
                 Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
                 Assertions.assertEquals(Integer.valueOf(3), column.getScale());
             }
@@ -213,7 +228,7 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
         catalog.open();
         try {
             Column column =
-                    catalog.getTable(TablePath.of(database, "public", "vector_dimensions"))
+                    catalog.getTable(TablePath.of(database, "vector_data", "vector_dimensions"))
                             .getTableSchema()
                             .getColumns()
                             .get(0);
