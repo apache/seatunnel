@@ -24,6 +24,9 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -39,7 +42,11 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
@@ -84,6 +91,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -93,6 +101,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.awaitility.Awaitility.given;
 
@@ -475,6 +484,167 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
         defaultMultiSinkParametersTest();
+    }
+
+    /**
+     * Exercises raw public JDBC writer batching against MySQL without misattributing its failures.
+     * Ordinary engine planning wraps JDBC in MultiTableSink even for one table, so that separate
+     * path must retain the documented startup restriction instead of bypassing its safety guard.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The explicit final job-status assertion uses the Zeta status API")
+    public void testDirtyCollectorDoesNotDivertJdbcBatchFailure(TestContainer container)
+            throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE IF NOT EXISTS dirty_batch_source (id INT PRIMARY KEY, payload VARCHAR(64))");
+            statement.execute(
+                    "CREATE TABLE IF NOT EXISTS dirty_batch_sink (id INT PRIMARY KEY, payload VARCHAR(4))");
+            statement.execute("TRUNCATE TABLE dirty_batch_source");
+            statement.execute("TRUNCATE TABLE dirty_batch_sink");
+            statement.execute(
+                    "INSERT INTO dirty_batch_source VALUES (1, 'earlier-row-is-too-long'), (2, 'ok')");
+            connection.commit();
+            Map<String, String> jdbcProperties = new HashMap<>();
+            jdbcProperties.put("useSSL", "false");
+            jdbcProperties.put("rewriteBatchedStatements", "false");
+            jdbcProperties.put("sessionVariables", "sql_mode='STRICT_ALL_TABLES'");
+            JdbcConnectionConfig jdbcConfig =
+                    JdbcConnectionConfig.builder()
+                            .driverName(DRIVER_CLASS)
+                            .url(getUrl())
+                            .username(MYSQL_USERNAME)
+                            .password(MYSQL_PASSWORD)
+                            .autoCommit(false)
+                            .batchSize(2)
+                            .batchIntervalMs(0)
+                            .maxRetries(0)
+                            .properties(jdbcProperties)
+                            .build();
+            TableSchema schema =
+                    TableSchema.builder()
+                            .column(
+                                    PhysicalColumn.of(
+                                            "id", BasicType.INT_TYPE, 10L, false, null, ""))
+                            .column(
+                                    PhysicalColumn.of(
+                                            "payload", BasicType.STRING_TYPE, 64L, true, null, ""))
+                            .build();
+            DefaultSinkWriterContext writerContext = new DefaultSinkWriterContext(0, 1);
+            JdbcSinkWriter rawWriter =
+                    new JdbcSinkWriter(
+                            TablePath.of(MYSQL_DATABASE, "dirty_batch_sink"),
+                            writerContext,
+                            JdbcDialectLoader.load(getUrl(), null, null, null),
+                            JdbcSinkConfig.builder()
+                                    .jdbcConnectionConfig(jdbcConfig)
+                                    .simpleSql(
+                                            "INSERT INTO dirty_batch_sink (id, payload) VALUES (?, ?)")
+                                    .build(),
+                            schema,
+                            schema,
+                            null,
+                            true);
+            AtomicInteger collected = new AtomicInteger();
+            DirtyRecordCollector collector =
+                    (subtask, row, error, message, table) -> collected.incrementAndGet();
+            SinkWriter<SeaTunnelRow, ?, ?> wrapped =
+                    DirtyDataAwareSinkWriter.wrap(rawWriter, collector, 0, null, writerContext);
+            try {
+                wrapped.write(new SeaTunnelRow(new Object[] {1, "earlier-row-is-too-long"}));
+                JdbcConnectorException batchFailure =
+                        Assertions.assertThrows(
+                                JdbcConnectorException.class,
+                                () -> wrapped.write(new SeaTunnelRow(new Object[] {2, "ok"})));
+                Throwable sqlCause = batchFailure;
+                while (!(sqlCause instanceof SQLException) && sqlCause.getCause() != null) {
+                    sqlCause = sqlCause.getCause();
+                }
+                Assertions.assertTrue(
+                        sqlCause instanceof SQLException,
+                        "Expected actual SQL data failure: " + batchFailure);
+                Assertions.assertTrue(((SQLException) sqlCause).getSQLState().startsWith("22"));
+                Assertions.assertEquals(0, collected.get());
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> wrapped.write(new SeaTunnelRow(new Object[] {3, "good"})));
+                Assertions.assertEquals(
+                        0,
+                        collected.get(),
+                        "The latched batch failure cannot identify later healthy rows as dirty");
+            } finally {
+                Assertions.assertThrows(JdbcConnectorException.class, wrapped::close);
+            }
+
+            String previousServerLogs = container.getServerLogs();
+            String jobId = String.valueOf(System.nanoTime());
+            Container.ExecResult result =
+                    container.executeJob("/jdbc_mysql_dirty_batch_failure.conf", jobId);
+            String serverLogs = container.getServerLogs();
+            // The engine container is reused. Only this execution can establish its SQL cause;
+            // historical dirty-threshold or database errors must not satisfy these assertions.
+            Map<String, Integer> previousLines = new HashMap<>();
+            Arrays.stream(previousServerLogs.split("\\R"))
+                    .forEach(line -> previousLines.merge(line, 1, Integer::sum));
+            StringBuilder currentServerLogs = new StringBuilder();
+            Arrays.stream(serverLogs.split("\\R"))
+                    .forEach(
+                            line -> {
+                                int remaining = previousLines.getOrDefault(line, 0);
+                                if (remaining > 0) {
+                                    previousLines.put(line, remaining - 1);
+                                } else {
+                                    currentServerLogs.append(line).append('\n');
+                                }
+                            });
+            String failureLogs =
+                    result.getStdout() + "\n" + result.getStderr() + "\n" + currentServerLogs;
+            Assertions.assertNotEquals(
+                    0,
+                    result.getExitCode(),
+                    "The ordinary JDBC engine path must reject unsupported multi-table wrapping: "
+                            + failureLogs);
+            Assertions.assertEquals("FAILED", container.getJobStatus(jobId));
+            Assertions.assertTrue(
+                    failureLogs.contains(
+                                    "dirty.collector/dirty.validator requires a synchronous single-table writer")
+                            && failureLogs.contains(
+                                    "without row-error routing or deferred terminal outcomes"),
+                    "Expected the exact documented writer startup restriction: " + failureLogs);
+            Assertions.assertFalse(
+                    failureLogs.contains("Dirty record collected (exception)"),
+                    "Unsupported engine startup must not create dirty entries: " + failureLogs);
+            Assertions.assertFalse(
+                    failureLogs.contains("Dirty record threshold exceeded"),
+                    "The original JDBC failure must not be replaced by a false dirty threshold");
+            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM dirty_batch_sink")) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(
+                        0,
+                        rows.getInt(1),
+                        "The failed transaction must not commit its healthy row");
+            }
+            try (ResultSet rows =
+                    statement.executeQuery(
+                            "SELECT id, payload FROM dirty_batch_source ORDER BY id")) {
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(1, rows.getInt(1));
+                Assertions.assertEquals("earlier-row-is-too-long", rows.getString(2));
+                Assertions.assertTrue(rows.next());
+                Assertions.assertEquals(2, rows.getInt(1));
+                Assertions.assertEquals("ok", rows.getString(2));
+                Assertions.assertFalse(rows.next());
+            }
+        } finally {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE IF EXISTS dirty_batch_source");
+                statement.execute("DROP TABLE IF EXISTS dirty_batch_sink");
+                connection.commit();
+            }
+        }
     }
 
     @Test

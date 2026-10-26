@@ -60,9 +60,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Verifies collector thresholds, serialization, lifecycle and safe writer-failure classification.
+ * Verifies collector thresholds, serialization, lifecycle and unchanged writer-failure propagation.
  *
  * <p>Real delegated rows and capabilities are reconciled so collection cannot hide fatal failures
  * or count rejected rows as successful writes.
@@ -168,13 +169,147 @@ public class DirtyRecordCollectorTest {
     }
 
     @Test
-    void testDecoratorCollectsNonRowPayload() throws Exception {
+    void testDecoratorPropagatesEvenClassifiedRowFailuresUnchanged() throws Exception {
         CountingDirtyRecordCollector collector = new CountingDirtyRecordCollector();
+        ClassifiedFailingWriter delegate = Mockito.spy(new ClassifiedFailingWriter());
+        IOException failure = new IOException("buffered earlier row failed");
+        Mockito.doThrow(failure).when(delegate).write("healthy current row");
         DirtyDataAwareSinkWriter<String, Void, Void> writer =
-                new DirtyDataAwareSinkWriter<>(new ClassifiedFailingWriter(), collector, 1);
+                new DirtyDataAwareSinkWriter<>(delegate, collector, 1);
 
-        Assertions.assertDoesNotThrow(() -> writer.write("payload"));
-        Assertions.assertEquals(1L, collector.getDirtyRecordCount());
+        Assertions.assertSame(
+                failure,
+                Assertions.assertThrows(
+                        IOException.class, () -> writer.write("healthy current row")));
+        Assertions.assertEquals(0L, collector.getDirtyRecordCount());
+        Mockito.verify(delegate, Mockito.never()).classifyRowError(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void testCountingCollectorNeverFormatsPayloadAndWarnsOnce() throws Exception {
+        Logger logger = (Logger) LogManager.getLogger(CountingDirtyRecordCollector.class);
+        Level previousLevel = logger.getLevel();
+        List<String> messages = new CopyOnWriteArrayList<>();
+        List<Level> levels = new CopyOnWriteArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "counting-privacy-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        true,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        messages.add(event.getMessage().getFormattedMessage());
+                        levels.add(event.getLevel());
+                    }
+                };
+        AtomicInteger formatted = new AtomicInteger();
+        Object privatePayload =
+                new Object() {
+                    @Override
+                    public String toString() {
+                        formatted.incrementAndGet();
+                        throw new AssertionError("private-payload-sentinel");
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.DEBUG);
+        try {
+            CountingDirtyRecordCollector collector = new CountingDirtyRecordCollector();
+            collector.init(ConfigFactory.parseString("threshold=2\nfail_on_threshold=false"));
+            for (int i = 0; i < 4; i++) {
+                collector.collect(0, privatePayload, null, "private-error-sentinel", null);
+            }
+            collector.checkThreshold();
+            collector.close();
+            collector.close();
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        1L, levels.stream().filter(Level.WARN::equals).count());
+                                Assertions.assertEquals(
+                                        1L,
+                                        messages.stream()
+                                                .filter(
+                                                        "[CountingCollector] total dirty records=4"
+                                                                ::equals)
+                                                .count());
+                            });
+            Assertions.assertEquals(4L, collector.getDirtyRecordCount());
+            Assertions.assertEquals(0, formatted.get());
+            Assertions.assertTrue(messages.stream().noneMatch(value -> value.contains("private-")));
+            Assertions.assertFalse(levels.contains(Level.ERROR));
+        } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+            logger.setLevel(previousLevel);
+        }
+    }
+
+    @Test
+    void testDecoratorPreservesRuntimeWriteFailure() throws Exception {
+        CountingDirtyRecordCollector collector = new CountingDirtyRecordCollector();
+        NoOpWriter delegate = Mockito.mock(NoOpWriter.class);
+        IllegalStateException failure = new IllegalStateException("latched failure");
+        Mockito.doThrow(failure).when(delegate).write("healthy row");
+        DirtyDataAwareSinkWriter<String, Void, Void> writer =
+                new DirtyDataAwareSinkWriter<>(delegate, collector, 0);
+        Assertions.assertSame(
+                failure,
+                Assertions.assertThrows(
+                        IllegalStateException.class, () -> writer.write("healthy row")));
+        Assertions.assertEquals(0L, collector.getDirtyRecordCount());
+    }
+
+    @Test
+    void testLogCollectorNonfatalThresholdWarnsOnce() throws Exception {
+        Logger logger = (Logger) LogManager.getLogger(LogDirtyRecordCollector.class);
+        Level previousLevel = logger.getLevel();
+        List<String> messages = new CopyOnWriteArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "log-threshold-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        true,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        if (event.getLevel() == Level.WARN) {
+                            messages.add(event.getMessage().getFormattedMessage());
+                        }
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try {
+            LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+            collector.init(
+                    ConfigFactory.parseString(
+                            "threshold=2\nfail_on_threshold=false\nlog_level=DEBUG"));
+            for (int i = 0; i < 4; i++) {
+                collector.collectFromUserRule(0, new SeaTunnelRow(new Object[] {i}), "rule", null);
+            }
+            collector.checkThreshold();
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            Collections.singletonList(
+                                                    "Dirty record threshold exceeded: 2 >= 2 - Threshold reached but task continues"),
+                                            messages));
+            Assertions.assertEquals(4L, collector.getDirtyRecordCount());
+        } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+            logger.setLevel(previousLevel);
+        }
     }
 
     @Test

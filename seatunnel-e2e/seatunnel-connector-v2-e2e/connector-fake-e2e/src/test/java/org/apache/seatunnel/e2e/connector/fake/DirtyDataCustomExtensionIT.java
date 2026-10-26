@@ -27,6 +27,7 @@ import org.testcontainers.containers.Container;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * Integration tests for dirty data extension points:
@@ -62,11 +63,11 @@ public class DirtyDataCustomExtensionIT extends TestSuiteBase {
         Assertions.assertEquals(
                 0, result.getExitCode(), "Job should complete successfully: stderr=" + stderr);
 
-        for (int count = 1; count <= 50; count++) {
-            Assertions.assertTrue(
-                    allLogs.contains("[CountingCollector] dirty record #" + count + ":"),
-                    "Missing actual SPI collection " + count + " from this execution: " + allLogs);
-        }
+        Assertions.assertTrue(
+                Pattern.compile("\\[CountingCollector\\] total dirty records=50(?!\\d)")
+                        .matcher(allLogs)
+                        .find(),
+                "Missing actual SPI collection count from this execution: " + allLogs);
     }
 
     @TestTemplate

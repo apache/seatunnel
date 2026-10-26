@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -86,6 +87,7 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     private boolean includeStackTrace = true;
     private long threshold = -1;
     private boolean failOnThreshold = false;
+    private final AtomicBoolean thresholdNoticeLogged = new AtomicBoolean();
     private String logPayload = "false";
     private Set<String> maskFields = new HashSet<>();
     private DistributedCounter dirtyRecordCounter = new LocalAtomicCounter();
@@ -206,7 +208,7 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             if (failOnThreshold) {
                 log.error(message + " - Task will be failed!");
                 throw new RuntimeException(message);
-            } else {
+            } else if (thresholdNoticeLogged.compareAndSet(false, true)) {
                 log.warn(message + " - Threshold reached but task continues");
             }
         }

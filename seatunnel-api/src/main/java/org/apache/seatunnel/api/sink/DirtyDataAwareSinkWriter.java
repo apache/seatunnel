@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.common.error.RowErrorClassification;
-import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -29,8 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Applies explicit dirty validation and collects classified row errors while preserving fatal
- * writer failures, checkpoint state and commit boundaries.
+ * Applies explicit pre-write validation while preserving every delegate write failure, checkpoint
+ * state and commit boundary. A delegate may buffer rows, so its exceptions cannot identify the
+ * currently submitted record as dirty.
  */
 public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
         implements SinkWriter<T, CommitInfoT, StateT> {
@@ -105,10 +104,12 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
     }
 
     /**
-     * Writes one record and returns whether it reached the delegate successfully.
+     * Writes one record and reports whether the delegate accepted this call.
      *
-     * <p>A false result means explicit validation or row-error collection rejected this record;
-     * engines must count that terminal outcome as dropped rather than successfully written.
+     * <p>A false result means this wrapper rejected the record through explicit pre-write
+     * validation. A normal delegate return does not establish durability; later flush or commit may
+     * still fail. Explicit collector callbacks inside a delegate do not establish its per-record
+     * disposition.
      */
     public boolean writeAndReport(T element) throws IOException {
         if (element instanceof SeaTunnelRow
@@ -116,18 +117,8 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
                         subtaskIndex, (SeaTunnelRow) element, catalogTable)) {
             return false;
         }
-        try {
-            delegate.write(element);
-            return true;
-        } catch (Exception e) {
-            if (!tryCollect(element, e)) {
-                if (e instanceof IOException) {
-                    throw (IOException) e;
-                }
-                throw new IOException(e);
-            }
-            return false;
-        }
+        delegate.write(element);
+        return true;
     }
 
     @Override
@@ -174,25 +165,6 @@ public class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
                 }
             }
         }
-    }
-
-    private boolean tryCollect(T element, Exception e) {
-        if (collector == null || collector instanceof NoOpDirtyRecordCollector) {
-            return false;
-        }
-        // Unclassified transport, authentication and transaction failures must still fail
-        // the job. A successful collector call cannot make those records durably written.
-        if (!(delegate instanceof SupportRowLevelErrorClassifier)) {
-            return false;
-        }
-        @SuppressWarnings("unchecked")
-        SupportRowLevelErrorClassifier<T> classifier = (SupportRowLevelErrorClassifier<T>) delegate;
-        if (classifier.classifyRowError(e, element) != RowErrorClassification.ROW_ERROR) {
-            return false;
-        }
-        collector.collect(
-                subtaskIndex, element, e, "Write failed: " + e.getMessage(), catalogTable);
-        return true;
     }
 
     /**

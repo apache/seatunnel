@@ -23,10 +23,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
- * A sample custom dirty record collector discovered via SPI. Logs each dirty record with a
- * distinctive {@code [CountingCollector]} prefix so integration tests can verify that the custom
- * SPI-based collector is actually being used.
+ * An explicitly selected SPI demonstration collector that counts records without formatting their
+ * payloads. It emits one payload-free count summary when closed and at most one nonfatal threshold
+ * notice per collector instance.
  */
 @Slf4j
 public class CountingDirtyRecordCollector implements DirtyRecordCollector {
@@ -36,6 +38,8 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
     private DistributedCounter dirtyRecordCounter = new LocalAtomicCounter();
     private long threshold = -1;
     private boolean failOnThreshold = false;
+    private final AtomicBoolean thresholdNoticeLogged = new AtomicBoolean();
+    private final AtomicBoolean closeSummaryLogged = new AtomicBoolean();
 
     @Override
     public void init(Config config) {
@@ -73,13 +77,6 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
             String errorMessage,
             CatalogTable catalogTable) {
         incrementDistributedCounter();
-        long n = dirtyRecordCounter.value();
-        log.error(
-                "[CountingCollector] dirty record #{}: SubTask={}, Record={}, Error={}",
-                n,
-                subTaskIndex,
-                dirtyRecord != null ? dirtyRecord.toString() : "null",
-                errorMessage != null ? errorMessage : "");
         checkThresholdRuntime();
     }
 
@@ -101,9 +98,22 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
                             "[CountingCollector] threshold exceeded: %d >= %d", count, threshold);
             if (failOnThreshold) {
                 throw new RuntimeException(message);
-            } else {
+            } else if (thresholdNoticeLogged.compareAndSet(false, true)) {
                 log.warn(message);
             }
+        }
+    }
+
+    /**
+     * Emits a payload-free count once when this collector instance closes.
+     *
+     * <p>The summary reflects this instance's counter; it is not a durable job-wide total across
+     * worker restarts or separate planning instances.
+     */
+    @Override
+    public void close() {
+        if (closeSummaryLogged.compareAndSet(false, true)) {
+            log.info("[CountingCollector] total dirty records={}", getDirtyRecordCount());
         }
     }
 
