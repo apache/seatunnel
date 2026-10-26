@@ -56,9 +56,12 @@ Used to read data from Apache Doris.
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` and `IPV6` are read as their text form, for example `192.168.0.1` and `2001:db8::1`. They are recognized only when the Doris version reports them in `information_schema.columns` (verified on Doris 4.0.6; Doris 2.1.0 reports these columns as `unknown`).
 
 ## Source Options
 

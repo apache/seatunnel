@@ -153,6 +153,17 @@
     </files>
 
     <dependencySets>
+        <!-- Kubernetes resource manager provider. -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>false</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/resource-managers/kubernetes</outputDirectory>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-resource-manager-kubernetes:jar</include>
+            </includes>
+            <scope>provided</scope>
+        </dependencySet>
         <!-- ============ Logging Jars ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
