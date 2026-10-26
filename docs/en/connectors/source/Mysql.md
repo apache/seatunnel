@@ -75,7 +75,7 @@ semantics, prefer the MySQL-CDC connector.
 
 ## Source Options
 
-The MySQL source connector uses the same options as the [Jdbc source connector](./Jdbc.md#source-options).
+The MySQL source connector uses the same options as the [Jdbc source connector](./Jdbc.md#options).
 The options below describe every option exposed by this connector; anything not listed follows the
 generic JDBC source behaviour.
 
@@ -87,7 +87,7 @@ generic JDBC source behaviour.
 | password                                   | String     | No | -               | Connection instance password.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | query                                      | String     | No       | -               | Query statement. Required when neither `table_path` nor `table_list` is configured.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | connection_check_timeout_sec               | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| partition_column                           | String     | No       | -               | The column name for parallelism's partition. Only numeric primary key columns are supported, and only one column can be configured.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| partition_column                           | String     | No       | -               | One existing column used to split reads; it need not be a primary key. Numeric, STRING and DATE types are supported. When omitted, table reads select a supported primary-key or unique-index column; a query remains a single split. See [split-key rules](#parallel-reader).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | partition_lower_bound                      | BigDecimal | No       | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | partition_upper_bound                      | BigDecimal | No       | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | partition_num                              | Int        | No       | job parallelism | The number of partitions, only positive integers are supported. The default value matches the job parallelism.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -125,11 +125,12 @@ determined by the `parallelism` option.
 
 1. If `partition_column` is not null, it is used to calculate the split. The column must be in the
    **Supported split data type** list.
-2. If `partition_column` is null, SeaTunnel reads the schema from the table and picks the Primary Key
+2. If `partition_column` is null and no `query` is configured, SeaTunnel reads the table schema and picks the Primary Key
    or Unique Index. When there are multiple columns in the Primary Key and Unique Index, the first
    column that is in the **supported split data type** list is used. For example, if a table has
    `Primary Key(guid, name varchar)`, `guid` is not in the supported split data type list, so the
    column `name` is used to split the data.
+3. A configured `query` without `partition_column` is read as a single split; primary-key or unique-index discovery is not applied.
 
 **Supported split data type:**
 
@@ -186,6 +187,9 @@ sink {
 
 ### Parallel by `partition_column`
 
+This top-level `query` with `partition_column` uses fixed splitting. Set `partition_num` to control
+the split count; `split.size` does not control this fixed-mode split count.
+
 ```hocon
 env {
   parallelism = 4
@@ -201,7 +205,7 @@ source {
     password = "123456"
     query = "select * from type_bin"
     partition_column = "id"
-    split.size = 10000
+    partition_num = 4
     # Read start boundary; if omitted SeaTunnel queries the database for the minimum
     # partition_lower_bound = ...
     # Read end boundary; if omitted SeaTunnel queries the database for the maximum
@@ -216,7 +220,8 @@ sink {
 
 ### Parallel by Primary Key or Unique Index
 
-> Configuring `table_path` turns on automatic split. Adjust the strategy with the `split.*` options.
+> Configuring `table_path` without `query` enables automatic split-key discovery. Use `split.*`
+> options to tune dynamic splitting.
 
 ```hocon
 env {
@@ -232,7 +237,6 @@ source {
     username = "root"
     password = "123456"
     table_path = "testdb.table1"
-    query = "select * from testdb.table1"
     split.size = 10000
   }
 }
@@ -278,7 +282,9 @@ sink {
 
 ### Multiple Table Read
 
-> Configuring `table_list` turns on automatic split. Adjust the strategy with the `split.*` options.
+> Entries without `query` can use automatic split-key discovery and the `split.*` options. An entry
+> with `query` but no `partition_column` remains single-split, as shown for the filtered second table
+> below.
 
 ```hocon
 env {
@@ -300,7 +306,7 @@ source {
       },
       {
         table_path = "testdb.table2"
-        # Use query to filter rows and columns
+        # Filter rows and columns; without partition_column this entry uses one split.
         query = "select id, name from testdb.table2 where id > 100"
       }
     ]

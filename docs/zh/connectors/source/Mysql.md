@@ -65,7 +65,7 @@ MySQL 驱动（`com.mysql.cj.jdbc.Driver`）。
 | DECIMAL UNSIGNED                                                                              | DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数))                                    |
 | FLOAT<br/>FLOAT UNSIGNED                                                                      | FLOAT                                                                                              |
 | DOUBLE<br/>DOUBLE UNSIGNED                                                                    | DOUBLE                                                                                             |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM          | STRING                                                                                             |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM<br/>SET          | STRING                                                                                             |
 | DATE                                                                                          | DATE                                                                                               |
 | TIME(s)                                                                                       | TIME(s)                                                                                            |
 | DATETIME<br/>TIMESTAMP(s)                                                                     | TIMESTAMP(s)                                                                                       |
@@ -73,7 +73,7 @@ MySQL 驱动（`com.mysql.cj.jdbc.Driver`）。
 
 ## 源选项
 
-本连接器使用的选项与 [Jdbc 源连接器](./Jdbc.md#source-options) 相同。下表给出了本连接器
+本连接器使用的选项与 [Jdbc 源连接器](./Jdbc.md#选项) 相同。下表给出了本连接器
 暴露的全部选项；未列出项请参考通用 JDBC 源的说明。
 
 | 名称                                          | 类型       | 是否必填 | 默认值         | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -84,7 +84,7 @@ MySQL 驱动（`com.mysql.cj.jdbc.Driver`）。
 | password                                      | String     | 否 | -              | 连接实例的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | query                                         | String     | 否       | -              | 查询语句。当未配置 `table_path` 和 `table_list` 时必填。                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | connection_check_timeout_sec                  | Int        | 否       | 30             | 验证数据库连接完成所需等待的秒数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| partition_column                              | String     | 否       | -              | 用于并行度分区的列名，仅支持数字类型的主键，且只能配置一列。                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| partition_column                              | String     | 否       | -              | 用于读取分片的单个现有列，无需为主键；支持数值、STRING 和 DATE 类型。未配置时，表读取会选取支持类型的主键或唯一索引列，自定义 `query` 读取保持单分片。详见[拆分键规则](#并行读取)。                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | partition_lower_bound                         | BigDecimal | 否       | -              | 扫描时 `partition_column` 的最小值；未设置时 SeaTunnel 会查询数据库获取最小值。                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | partition_upper_bound                         | BigDecimal | 否       | -              | 扫描时 `partition_column` 的最大值；未设置时 SeaTunnel 会查询数据库获取最大值。                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | partition_num                                 | Int        | 否       | 作业并行度      | 分区数量，仅支持正整数；默认与作业并行度一致。                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -120,9 +120,10 @@ JDBC 源连接器支持并行读取表数据。SeaTunnel 按照一定规则拆�
 **拆分键规则：**
 
 1. 如果 `partition_column` 不为空，则使用该列进行拆分；该列必须属于下面的**支持拆分数据类型**。
-2. 如果 `partition_column` 为空，SeaTunnel 会读取表结构并选取主键或唯一索引。当主键或唯一索引
+2. 如果 `partition_column` 为空且未配置 `query`，SeaTunnel 会读取表结构并选取主键或唯一索引。当主键或唯一索引
    包含多列时，按顺序选取第一列属于**支持拆分数据类型**的列进行拆分。例如表的主键为
    `(guid, name varchar)`，其中 `guid` 不属于支持拆分数据类型，则使用 `name` 列进行拆分。
+3. 配置了 `query` 但未配置 `partition_column` 时，只创建一个分片，不使用主键或唯一索引进行自动拆分。
 
 **支持拆分数据类型：**
 
@@ -175,6 +176,9 @@ sink {
 
 ### 按 `partition_column` 并行
 
+顶层 `query` 配合 `partition_column` 使用固定拆分。通过 `partition_num` 控制分片数；
+`split.size` 不控制此固定模式的分片数。
+
 ```hocon
 env {
   parallelism = 4
@@ -190,7 +194,7 @@ source {
     password = "123456"
     query = "select * from type_bin"
     partition_column = "id"
-    split.size = 10000
+    partition_num = 4
     # 起始边界；不填则由 SeaTunnel 查询数据库获取最小值
     # partition_lower_bound = ...
     # 结束边界；不填则由 SeaTunnel 查询数据库获取最大值
@@ -205,7 +209,7 @@ sink {
 
 ### 按主键或唯一索引并行
 
-> 配置 `table_path` 会自动开启拆分。可通过 `split.*` 选项调整拆分策略。
+> 配置 `table_path` 且不配置 `query` 时，会自动发现可用的拆分键；`split.*` 选项用于调整动态拆分策略。
 
 ```hocon
 env {
@@ -221,7 +225,6 @@ source {
     username = "root"
     password = "123456"
     table_path = "testdb.table1"
-    query = "select * from testdb.table1"
     split.size = 10000
   }
 }
@@ -266,7 +269,8 @@ sink {
 
 ### 多表读取
 
-> 配置 `table_list` 会自动开启拆分。可通过 `split.*` 选项调整拆分策略。
+> 未配置 `query` 的表项可自动发现拆分键，并使用 `split.*` 选项调整动态拆分。带 `query` 但未配置
+> `partition_column` 的表项保持单分片，下面的第二张表即为此模式。
 
 ```hocon
 env {
@@ -288,7 +292,7 @@ source {
       },
       {
         table_path = "testdb.table2"
-        # 使用 query 过滤行和列
+        # 使用 query 过滤行和列；未配置 partition_column 时，此表项只生成一个分片。
         query = "select id, name from testdb.table2 where id > 100"
       }
     ]
