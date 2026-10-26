@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class ZetaSQLEngineTest {
 
@@ -150,6 +151,41 @@ public class ZetaSQLEngineTest {
         Assertions.assertEquals(1, firstUdf.getCloseCount());
         Assertions.assertEquals(1, failedUdf.getOpenCount());
         Assertions.assertEquals(1, failedUdf.getCloseCount());
+    }
+
+    @Test
+    public void testDirectColumnProjection() {
+        SeaTunnelRowType rowType = simpleRowType();
+        ZetaSQLEngine engine = new ZetaSQLEngine();
+        engine.init("test", "test", rowType, "select id as id2, name as name2 from test");
+
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+        Assertions.assertArrayEquals(new String[] {"id2", "name2"}, outType.getFieldNames());
+
+        List<SeaTunnelRow> outRows =
+                engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+
+        Assertions.assertNotNull(outRows);
+        Assertions.assertEquals(1, outRows.size());
+        Assertions.assertArrayEquals(new Object[] {1, "Alice"}, outRows.get(0).getFields());
+        engine.close();
+    }
+
+    @Test
+    public void testDirectColumnProjectionReordersAndQuotesColumns() {
+        SeaTunnelRowType rowType = simpleRowType();
+        ZetaSQLEngine engine = new ZetaSQLEngine();
+        engine.init("test", "test", rowType, "select `name`, id from test");
+
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        List<SeaTunnelRow> outRows =
+                engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+
+        Assertions.assertNotNull(outRows);
+        Assertions.assertEquals(1, outRows.size());
+        Assertions.assertArrayEquals(new Object[] {"Alice", 1}, outRows.get(0).getFields());
+        engine.close();
     }
 
     private static final class TestableZetaSQLEngine extends ZetaSQLEngine {
@@ -568,6 +604,78 @@ public class ZetaSQLEngineTest {
                             .get(0)
                             .getField(0),
                     sql + " should widen to BIGINT and keep the value");
+        }
+    }
+
+    @Test
+    public void testUpperCaseSqlIsUnaffectedByTheDefaultLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            // The counterpart of the test below, and the control behind this PR's claim that an
+            // all-uppercase spelling is safe on every locale: Turkish uppercasing only moves
+            // lowercase "i" to "İ", so a keyword that is already uppercase is unchanged.
+            // Pinned because the natural way to regress these sites is to compare
+            // toLowerCase() against lowercase constants, which keeps lowercase SQL working while
+            // breaking uppercase SQL, so the test below would stay green on its own.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            SeaTunnelRowType rowType = simpleRowType();
+            ZetaSQLEngine engine = new ZetaSQLEngine();
+            engine.init(
+                    "test",
+                    "test",
+                    rowType,
+                    "SELECT SIGN(age) AS s, CAST(age AS INT) AS c,"
+                            + " CURRENT_TIMESTAMP AS ts FROM test");
+
+            SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+            Assertions.assertArrayEquals(new String[] {"s", "c", "ts"}, outType.getFieldNames());
+
+            List<SeaTunnelRow> outRows =
+                    engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+            Assertions.assertNotNull(outRows);
+            Assertions.assertEquals(1, outRows.size());
+
+            SeaTunnelRow outRow = outRows.get(0);
+            Assertions.assertEquals(1, ((Number) outRow.getField(0)).intValue());
+            Assertions.assertEquals(20, outRow.getField(1));
+            Assertions.assertNotNull(outRow.getField(2));
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
+
+    @Test
+    public void testLowerCaseSqlResolvesUnderAnyDefaultLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "sin".toUpperCase() is "S\u0130N" and "int".toUpperCase() is "\u0130NT",
+            // so a default-locale conversion no longer matches the dispatch keywords.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            SeaTunnelRowType rowType = simpleRowType();
+            ZetaSQLEngine engine = new ZetaSQLEngine();
+            engine.init(
+                    "test",
+                    "test",
+                    rowType,
+                    "select sign(age) as s, cast(age as int) as c,"
+                            + " current_timestamp as ts from test");
+
+            SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+            Assertions.assertArrayEquals(new String[] {"s", "c", "ts"}, outType.getFieldNames());
+
+            List<SeaTunnelRow> outRows =
+                    engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+            Assertions.assertNotNull(outRows);
+            Assertions.assertEquals(1, outRows.size());
+
+            SeaTunnelRow outRow = outRows.get(0);
+            Assertions.assertEquals(1, ((Number) outRow.getField(0)).intValue());
+            Assertions.assertEquals(20, outRow.getField(1));
+            Assertions.assertNotNull(outRow.getField(2));
+        } finally {
+            Locale.setDefault(original);
         }
     }
 
