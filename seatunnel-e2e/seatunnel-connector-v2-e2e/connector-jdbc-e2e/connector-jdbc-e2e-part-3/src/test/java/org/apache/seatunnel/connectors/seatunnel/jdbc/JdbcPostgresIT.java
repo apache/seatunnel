@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfi
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
@@ -68,6 +69,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -504,13 +507,26 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
 
     private boolean runConcurrentUpsertDeadlockAttempt() throws Exception {
         String table = "public.jdbc_deadlock_real_upsert_test";
+        String auditTable = "public.jdbc_deadlock_real_upsert_audit";
         // A large batch keeps both writers executing server-side long enough that the opposite
         // traversal orders reliably interleave row locks.
         int rowCount = 200;
+        executeSQL("DROP TABLE IF EXISTS " + auditTable);
         executeSQL("DROP TABLE IF EXISTS " + table);
+        executeSQL("DROP FUNCTION IF EXISTS jdbc_deadlock_real_upsert_audit_fn()");
         executeSQL("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)");
         executeSQL("INSERT INTO " + table + " (id, value) VALUES " + seedValues(rowCount, 0));
-        long deadlocksBefore = queryDeadlockCount();
+        executeSQL("CREATE TABLE " + auditTable + " (seq BIGSERIAL, value INT)");
+        executeSQL(
+                "CREATE FUNCTION jdbc_deadlock_real_upsert_audit_fn() RETURNS trigger AS $$ "
+                        + "BEGIN INSERT INTO "
+                        + auditTable
+                        + " (value) VALUES (NEW.value); RETURN NULL; END $$ LANGUAGE plpgsql");
+        // Created after the seed INSERT, so the audit table records exactly the sink writes.
+        executeSQL(
+                "CREATE TRIGGER jdbc_deadlock_real_upsert_audit AFTER INSERT OR UPDATE ON "
+                        + table
+                        + " FOR EACH ROW EXECUTE FUNCTION jdbc_deadlock_real_upsert_audit_fn()");
 
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder()
@@ -522,10 +538,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         .batchSize(rowCount + 1)
                         .maxRetries(2)
                         .build();
+        RollbackCountingProvider ascendingProvider =
+                new RollbackCountingProvider(new SimpleJdbcConnectionProvider(connectionConfig));
+        RollbackCountingProvider descendingProvider =
+                new RollbackCountingProvider(new SimpleJdbcConnectionProvider(connectionConfig));
         JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> ascending =
-                createUpsertOutput(connectionConfig, table, false);
+                createUpsertOutput(connectionConfig, table, false, ascendingProvider);
         JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> descending =
-                createUpsertOutput(connectionConfig, table, false);
+                createUpsertOutput(connectionConfig, table, false, descendingProvider);
         CyclicBarrier startBarrier = new CyclicBarrier(2);
         ExecutorService executorService = Executors.newFixedThreadPool(2);
         try {
@@ -554,22 +574,38 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             firstFlush.get(120, TimeUnit.SECONDS);
             secondFlush.get(120, TimeUnit.SECONDS);
 
-            // A remaining 0 would mean the rolled-back flush lost its buffered rows instead of
-            // replaying them after the conflict.
+            // rollback() on these connections is only called by the transaction-conflict retry
+            // path, so a rollback proves the database reported a real 40P01 without relying on
+            // the asynchronously published pg_stat_database counters.
+            int rollbacks = ascendingProvider.rollbackCount() + descendingProvider.rollbackCount();
+            if (rollbacks == 0) {
+                return false;
+            }
+
+            // Both flushes write every row: the winner's rowCount audit entries plus the
+            // victim's replayed rowCount entries. A replay that lost the buffered rows (the
+            // regression this test guards against) would leave only rowCount entries.
+            List<List<Object>> auditCounts =
+                    querySql(
+                            "SELECT value, count(*) FROM "
+                                    + auditTable
+                                    + " GROUP BY value ORDER BY value");
+            Assertions.assertEquals(
+                    Arrays.asList(
+                            Arrays.asList(1, (long) rowCount), Arrays.asList(2, (long) rowCount)),
+                    auditCounts,
+                    "the rolled-back flush must replay every buffered row");
+
             List<List<Object>> rows = querySql("SELECT id, value FROM " + table + " ORDER BY id");
             Assertions.assertEquals(rowCount, rows.size());
-            for (List<Object> row : rows) {
-                Assertions.assertTrue(
-                        Integer.valueOf(1).equals(row.get(1))
-                                || Integer.valueOf(2).equals(row.get(1)),
-                        "row " + row.get(0) + " was not written by any writer");
-            }
-            return queryDeadlockCount() > deadlocksBefore;
+            return true;
         } finally {
             ascending.close();
             descending.close();
             executorService.shutdownNow();
             executeSQL("DROP TABLE IF EXISTS " + table);
+            executeSQL("DROP TABLE IF EXISTS " + auditTable);
+            executeSQL("DROP FUNCTION IF EXISTS jdbc_deadlock_real_upsert_audit_fn()");
         }
     }
 
@@ -616,7 +652,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         .maxRetries(0)
                         .build();
         JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> output =
-                createUpsertOutput(connectionConfig, table, true);
+                createUpsertOutput(
+                        connectionConfig,
+                        table,
+                        true,
+                        new SimpleJdbcConnectionProvider(connectionConfig));
         try {
             output.open();
             output.writeRecord(keyOrderedRow(RowKind.INSERT, 5, 51));
@@ -647,7 +687,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
 
     private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
             createUpsertOutput(
-                    JdbcConnectionConfig connectionConfig, String table, boolean keyOrdered) {
+                    JdbcConnectionConfig connectionConfig,
+                    String table,
+                    boolean keyOrdered,
+                    JdbcConnectionProvider connectionProvider) {
         // The schema-qualified table keeps the generated upsert/delete SQL and the test DDL in
         // the same schema, independent of the connection's search_path.
         String schema = table.substring(0, table.indexOf('.'));
@@ -681,21 +724,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                                 null)))
                         .build();
         return new JdbcOutputFormatBuilder(
-                        new PostgresDialect(),
-                        new SimpleJdbcConnectionProvider(connectionConfig),
-                        sinkConfig,
-                        tableSchema,
-                        null)
+                        new PostgresDialect(), connectionProvider, sinkConfig, tableSchema, null)
                 .commitOnFlush(true)
                 .build();
-    }
-
-    private long queryDeadlockCount() {
-        List<List<Object>> result =
-                querySql(
-                        "SELECT deadlocks FROM pg_stat_database WHERE datname ="
-                                + " current_database()");
-        return (Long) result.get(0).get(0);
     }
 
     private static String seedValues(int count, int value) {
@@ -715,6 +746,69 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, value});
         row.setRowKind(rowKind);
         return row;
+    }
+
+    /**
+     * Counts {@link Connection#rollback()} calls made through the returned connections. The sink
+     * only rolls back after a detected transaction conflict, so this is a deterministic deadlock
+     * signal, unlike the asynchronously published pg_stat_database counters.
+     */
+    private static final class RollbackCountingProvider implements JdbcConnectionProvider {
+        private final JdbcConnectionProvider delegate;
+        private final AtomicInteger rollbackCount = new AtomicInteger();
+
+        private RollbackCountingProvider(JdbcConnectionProvider delegate) {
+            this.delegate = delegate;
+        }
+
+        private int rollbackCount() {
+            return rollbackCount.get();
+        }
+
+        private Connection countRollbacks(Connection real) {
+            if (real == null) {
+                return null;
+            }
+            return (Connection)
+                    Proxy.newProxyInstance(
+                            Connection.class.getClassLoader(),
+                            new Class<?>[] {Connection.class},
+                            (proxy, method, args) -> {
+                                if ("rollback".equals(method.getName())) {
+                                    rollbackCount.incrementAndGet();
+                                }
+                                try {
+                                    return method.invoke(real, args);
+                                } catch (InvocationTargetException e) {
+                                    throw e.getCause();
+                                }
+                            });
+        }
+
+        @Override
+        public Connection getConnection() {
+            return countRollbacks(delegate.getConnection());
+        }
+
+        @Override
+        public boolean isConnectionValid() throws SQLException {
+            return delegate.isConnectionValid();
+        }
+
+        @Override
+        public Connection getOrEstablishConnection() throws SQLException, ClassNotFoundException {
+            return countRollbacks(delegate.getOrEstablishConnection());
+        }
+
+        @Override
+        public void closeConnection() {
+            delegate.closeConnection();
+        }
+
+        @Override
+        public Connection reestablishConnection() throws SQLException, ClassNotFoundException {
+            return countRollbacks(delegate.reestablishConnection());
+        }
     }
 
     @Test
