@@ -28,7 +28,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -93,7 +92,12 @@ public class SqlserverBulkCopyBatchStatementExecutor
                     rowData[i] = field == null ? null : Date.valueOf((LocalDate) field);
                     break;
                 case TIME:
-                    rowData[i] = field == null ? null : Time.valueOf((LocalTime) field);
+                    // The native bulk TIME writer expects Timestamp, preserving fractional seconds.
+                    rowData[i] =
+                            field == null
+                                    ? null
+                                    : Timestamp.valueOf(
+                                            LocalDate.of(1970, 1, 1).atTime((LocalTime) field));
                     break;
                 case TIMESTAMP:
                     rowData[i] = field == null ? null : Timestamp.valueOf((LocalDateTime) field);
@@ -138,6 +142,12 @@ public class SqlserverBulkCopyBatchStatementExecutor
         // pending batch for replay, and never execute data merely because statements are closing.
     }
 
+    /**
+     * Copies selected destination metadata before closing the discovery statement and result set.
+     *
+     * <p>Precision and scale remain destination-owned; TIMESTAMP_TZ uses the JDBC 4.2 type matching
+     * SeaTunnel's OffsetDateTime values instead of the vendor-specific value-object type.
+     */
     private List<ColumnMetadata> readColumnMetadata() throws SQLException {
         String selectedColumns =
                 columns.stream()

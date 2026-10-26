@@ -141,6 +141,12 @@ final class SqlserverBulkCopyProxy implements AutoCloseable {
         }
     }
 
+    /**
+     * Finds vendor types in the connection's loader, falling back to the task context loader.
+     *
+     * <p>This also supports wrapped connections without binding optional driver types to the
+     * connector's loader.
+     */
     private static Class<?> loadConnectionType(Connection connection)
             throws ClassNotFoundException {
         try {
@@ -156,6 +162,12 @@ final class SqlserverBulkCopyProxy implements AutoCloseable {
         }
     }
 
+    /**
+     * Preserves vendor SQLExceptions so the JDBC writer can classify their SQLState for retries.
+     *
+     * <p>Reflection failures instead report an unsupported installed-driver contract with the
+     * original cause; wrapping a vendor SQLException would obscure the reconnect decision.
+     */
     private static SQLException failure(ReflectiveOperationException error) {
         Throwable cause = error instanceof InvocationTargetException ? error.getCause() : error;
         if (cause instanceof SQLException) {

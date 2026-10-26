@@ -41,6 +41,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -50,6 +51,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -212,8 +214,23 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
      */
     @TestTemplate
     public void testSqlServerBulkCopyWritesByColumnName(TestContainer container) throws Exception {
+        Map<Integer, String> originalTimes = new LinkedHashMap<>();
+        try (Statement statement = connection.createStatement();
+                ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT INT_IDENTITY_TEST, CAST(TIME_TEST AS VARCHAR(16)) FROM dbo.source")) {
+            while (rows.next()) {
+                originalTimes.put(rows.getInt(1), rows.getString(2));
+            }
+        }
         super.clearTable(SQLSERVER_SCHEMA, "test_copy_sink");
         try {
+            // Seed native TIME(7) directly: ordinary JDBC fixture insertion uses second-only Time.
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        "UPDATE dbo.source SET TIME_TEST = CAST('03:04:05.1234567' AS TIME(7))");
+                connection.commit();
+            }
             Container.ExecResult result =
                     container.executeJob("/jdbc_sqlserver_source_to_sink_use_copy.conf");
             Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
@@ -243,12 +260,14 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     ResultSet rows =
                             statement.executeQuery(
                                     "SELECT DATEPART(TZOFFSET, DATETIMEOFFSET_TEST), "
-                                            + "DATEPART(NANOSECOND, DATETIMEOFFSET_TEST) FROM dbo.test_copy_sink "
+                                            + "DATEPART(NANOSECOND, DATETIMEOFFSET_TEST), DATEPART(NANOSECOND, TIME_TEST) FROM dbo.test_copy_sink "
                                             + "WHERE INT_IDENTITY_TEST = 1")) {
                 Assertions.assertTrue(rows.next());
                 Assertions.assertEquals(345, rows.getInt(1), "non-hour offset must be preserved");
                 Assertions.assertEquals(
                         123456700, rows.getInt(2), "datetimeoffset(7) fraction must be preserved");
+                Assertions.assertEquals(
+                        123456700, rows.getInt(3), "time(7) fraction must be preserved");
             }
             try (Statement statement = connection.createStatement();
                     ResultSet rows =
@@ -259,7 +278,24 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                         100, rows.getInt(1), "omitted destination column must use its default");
             }
         } finally {
-            super.clearTable(SQLSERVER_SCHEMA, "test_copy_sink");
+            // Restore exact source values even when seeding, execution, or assertions fail. Text
+            // CAST avoids losing fractions through java.sql.Time and isolates other templates.
+            try (PreparedStatement restore =
+                    connection.prepareStatement(
+                            "UPDATE dbo.source SET TIME_TEST = CAST(? AS TIME(7)) WHERE INT_IDENTITY_TEST = ?")) {
+                for (Map.Entry<Integer, String> original : originalTimes.entrySet()) {
+                    restore.setString(1, original.getValue());
+                    restore.setInt(2, original.getKey());
+                    restore.addBatch();
+                }
+                restore.executeBatch();
+                connection.commit();
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                super.clearTable(SQLSERVER_SCHEMA, "test_copy_sink");
+            }
         }
     }
 

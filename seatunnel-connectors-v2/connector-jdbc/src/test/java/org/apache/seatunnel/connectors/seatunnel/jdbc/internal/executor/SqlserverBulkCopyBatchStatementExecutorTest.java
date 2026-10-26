@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -37,7 +38,9 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -211,6 +214,71 @@ class SqlserverBulkCopyBatchStatementExecutorTest {
                                             null)));
             executor.prepareStatements(connection);
             executor.addToBatch(new SeaTunnelRow(new Object[] {value}));
+            executor.executeBatch();
+            Assertions.assertEquals(1, observed.get());
+            Mockito.verify(mocked.constructed().get(0)).close();
+        }
+    }
+
+    @Test
+    void testNativeTimeUsesTimestampWithoutLosingFractionalSeconds() throws Exception {
+        SQLServerConnection connection = Mockito.mock(SQLServerConnection.class);
+        Statement statement = Mockito.mock(Statement.class);
+        ResultSet result = Mockito.mock(ResultSet.class);
+        ResultSetMetaData metadata = Mockito.mock(ResultSetMetaData.class);
+        Mockito.when(connection.createStatement()).thenReturn(statement);
+        Mockito.when(statement.executeQuery(Mockito.anyString())).thenReturn(result);
+        Mockito.when(result.getMetaData()).thenReturn(metadata);
+        Mockito.when(metadata.getColumnName(1)).thenReturn("time_value");
+        Mockito.when(metadata.getColumnType(1)).thenReturn(Types.TIME);
+        Mockito.when(metadata.getPrecision(1)).thenReturn(16);
+        Mockito.when(metadata.getScale(1)).thenReturn(7);
+        LocalTime value = LocalTime.parse("03:04:05.1234567");
+        AtomicInteger observed = new AtomicInteger();
+        try (MockedConstruction<SQLServerBulkCopy> mocked =
+                Mockito.mockConstruction(
+                        SQLServerBulkCopy.class,
+                        (bulk, context) ->
+                                Mockito.doAnswer(
+                                                invocation -> {
+                                                    ISQLServerBulkData data =
+                                                            invocation.getArgument(0);
+                                                    Assertions.assertEquals(
+                                                            Types.TIME, data.getColumnType(1));
+                                                    Assertions.assertEquals(7, data.getScale(1));
+                                                    Assertions.assertTrue(data.next());
+                                                    Timestamp adapted =
+                                                            Assertions.assertInstanceOf(
+                                                                    Timestamp.class,
+                                                                    data.getRowData()[0]);
+                                                    Assertions.assertEquals(
+                                                            value,
+                                                            adapted.toLocalDateTime()
+                                                                    .toLocalTime());
+                                                    Assertions.assertEquals(
+                                                            123456700, adapted.getNanos());
+                                                    Assertions.assertTrue(data.next());
+                                                    Assertions.assertNull(data.getRowData()[0]);
+                                                    Assertions.assertFalse(data.next());
+                                                    observed.incrementAndGet();
+                                                    return null;
+                                                })
+                                        .when(bulk)
+                                        .writeToServer(Mockito.any(ISQLServerBulkData.class)))) {
+            SqlserverBulkCopyBatchStatementExecutor executor =
+                    new SqlserverBulkCopyBatchStatementExecutor(
+                            "dbo.target",
+                            Arrays.asList(
+                                    PhysicalColumn.of(
+                                            "time_value",
+                                            LocalTimeType.LOCAL_TIME_TYPE,
+                                            16L,
+                                            true,
+                                            null,
+                                            null)));
+            executor.prepareStatements(connection);
+            executor.addToBatch(new SeaTunnelRow(new Object[] {value}));
+            executor.addToBatch(new SeaTunnelRow(new Object[] {null}));
             executor.executeBatch();
             Assertions.assertEquals(1, observed.get());
             Mockito.verify(mocked.constructed().get(0)).close();
