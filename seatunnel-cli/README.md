@@ -359,7 +359,7 @@ Job 852 (unnamed) — RUNNING
   [info] Realtime pressure checks unavailable: engine.observability.enabled is false.
 ```
 
-The prototype thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
+The initial thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
 buckets; busy or prepare/commit time ≥ 0.5 supplies the corresponding work
 evidence. Repeated points are not additional samples, the current partial
 bucket is excluded, and endpoints must have matching bucket widths and an
