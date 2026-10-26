@@ -67,7 +67,7 @@ networks:
 Prepare the host-side SeaTunnel installation directory (the official DolphinScheduler image does not bundle SeaTunnel itself — it must be downloaded and extracted manually):
 
 ```bash
-export version="3.0.1"
+export version="3.1.0"
 mkdir -p seatunnel dolphinscheduler/logs
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -zxvf "apache-seatunnel-${version}-bin.tar.gz" -C seatunnel --strip-components=1
@@ -77,7 +77,7 @@ Since 2.2.0-beta, connector plugins are no longer bundled by default. You must i
 :::
 
 ```bash
-sh seatunnel/bin/install-plugin.sh 3.0.1
+sh seatunnel/bin/install-plugin.sh 3.1.0
 ```
 
 After this, `./seatunnel` should contain `bin/`, `config/`, `lib/`, and similar subdirectories, and the same content will be visible inside the container at `/opt/seatunnel` once it starts.

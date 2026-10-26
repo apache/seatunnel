@@ -20,13 +20,15 @@ package org.apache.seatunnel.engine.server.persistence;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.EntryLoader.MetadataAwareValue;
+import com.hazelcast.map.EntryStore;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
-import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,8 +38,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * Persists engine IMaps to {@link IMapStorage}.
+ *
+ * <p>It is an {@link EntryStore} so that Hazelcast passes the expiration time of every stored
+ * entry. Hazelcast does not delete an entry from the map store when it expires, so the expiration
+ * time is stored with the entry and handed back on load; otherwise an entry put with a TTL would be
+ * loaded again after a restart and never expire.
+ */
 @Slf4j
-public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
+public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecycleSupport {
 
     private IMapStorage mapStorage;
 
@@ -78,13 +88,19 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     }
 
     @Override
-    public void store(Object key, Object value) {
-        mapStorage.store(key, value);
+    public void store(Object key, MetadataAwareValue<Object> value) {
+        mapStorage.store(key, value.getValue(), value.getExpirationTime());
     }
 
     @Override
-    public void storeAll(Map<Object, Object> map) {
-        mapStorage.storeAll(map);
+    public void storeAll(Map<Object, MetadataAwareValue<Object>> map) {
+        Map<Object, ExpirableValue> values = new HashMap<>(map.size());
+        map.forEach(
+                (key, value) ->
+                        values.put(
+                                key,
+                                new ExpirableValue(value.getValue(), value.getExpirationTime())));
+        mapStorage.storeAllWithExpirationTime(values);
     }
 
     @Override
@@ -99,16 +115,30 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @SneakyThrows
     @Override
-    public Object load(Object key) {
+    public MetadataAwareValue<Object> load(Object key) {
         return null;
     }
 
+    /**
+     * Loads the requested keys with the expiration times they were stored with, so entries put with
+     * a TTL keep expiring after a restart. Keys that are missing or already expired are left out,
+     * and Hazelcast does not load them.
+     */
     @SneakyThrows
     @Override
-    public Map<Object, Object> loadAll(Collection<Object> keys) {
-        Map<Object, Object> allMap = mapStorage.loadAll();
-        Map<Object, Object> retMap = new HashMap<>();
-        keys.forEach(key -> retMap.put(key, allMap.get(key)));
+    public Map<Object, MetadataAwareValue<Object>> loadAll(Collection<Object> keys) {
+        Map<Object, ExpirableValue> allMap = mapStorage.loadAllWithExpirationTime();
+        Map<Object, MetadataAwareValue<Object>> retMap = new HashMap<>();
+        keys.forEach(
+                key -> {
+                    ExpirableValue value = allMap.get(key);
+                    if (value != null) {
+                        retMap.put(
+                                key,
+                                new MetadataAwareValue<>(
+                                        value.getValue(), value.getExpirationTime()));
+                    }
+                });
 
         return Collections.unmodifiableMap(retMap);
     }
