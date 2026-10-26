@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
 
@@ -63,6 +64,19 @@ class ClientExecuteCommandTest {
 
         Assertions.assertEquals(0, configuredPort.get());
         Assertions.assertTrue(boundPort.get() > 0);
+    }
+
+    @Test
+    void testClientEndpointFormatsHostnameIpv4AndScopedIpv6() throws Exception {
+        Assertions.assertEquals(
+                "localhost:6123",
+                ClientExecuteCommand.formatMemberAddress(new Address("localhost", 6123)));
+        Assertions.assertEquals(
+                "127.0.0.1:6124",
+                ClientExecuteCommand.formatMemberAddress(new Address("127.0.0.1", 6124)));
+        Address ipv6 = new Address("::1", 6125);
+        ipv6.setScopeId("7");
+        Assertions.assertEquals("[::1%7]:6125", ClientExecuteCommand.formatMemberAddress(ipv6));
     }
 
     @Test

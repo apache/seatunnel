@@ -51,6 +51,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -110,7 +111,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (isLocalMode) {
                 // The advertised member address supplies both the actual interface and bound port.
                 String memberAddress =
-                        instance.getCluster().getLocalMember().getAddress().toString();
+                        formatMemberAddress(instance.getCluster().getLocalMember().getAddress());
                 clientConfig
                         .getNetworkConfig()
                         .setAddresses(Collections.singletonList(memberAddress));
@@ -375,6 +376,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 "Local mode: Hazelcast use port {}",
                 hazelcastInstance.getCluster().getLocalMember().getSocketAddress().getPort());
         return hazelcastInstance;
+    }
+
+    /**
+     * Formats the advertised member endpoint for Hazelcast's client address parser. Display strings
+     * bracket hostnames too, while client syntax requires brackets only around IPv6 literals.
+     */
+    static String formatMemberAddress(Address address) {
+        String host = address.getScopedHost();
+        return (host.indexOf(':') >= 0 ? "[" + host + "]" : host) + ":" + address.getPort();
     }
 
     /**
