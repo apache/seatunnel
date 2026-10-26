@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 
 用于从 Lemlist API 读取数据。连接器会把 `password` 当作 Lemlist API Key，通过 Basic 认证生成请求头，然后复用 HTTP Source 的能力解析返回结果。
 
-Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求、重试和分页能力。把 `password` 配置为 Lemlist API Key，再把 `url` 指向要调用的 Lemlist 接口。
+Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求和重试能力。把 `password` 配置为 Lemlist API Key，再把 `url` 指向要调用的 Lemlist 接口。
 
 ## 支持的数据源信息
 
@@ -29,7 +29,7 @@ Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -46,14 +46,13 @@ Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求
 | url                         | String | 是       | -      | Lemlist API 地址。 |
 | password                    | String | 是       | -      | Lemlist API Key。 |
 | method                      | String | 否       | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。 |
-| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。除非需要覆盖自动生成的认证头，否则不要在这里配置 `Authorization`。 |
+| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。此处配置的 `Authorization` 会被连接器自动生成的 Basic 认证头覆盖。 |
 | params                      | Map    | 否       | -      | HTTP 查询参数。 |
 | body                        | String | 否       | -      | HTTP 请求体，通常和 `POST` 一起使用。 |
 | format                      | String | 否       | TEXT   | 返回内容格式。如果要用 `schema`、`json_field` 或 `content_field` 解析 JSON，请设置为 `json`。 |
 | schema                      | Config | 否       | -      | 输出字段结构。`format = "json"` 时必须配置。 |
 | json_field                  | Config | 否       | -      | 用 JSONPath 把返回字段映射到输出列，必须和 `schema` 一起使用。 |
 | content_field               | String | 否       | -      | 用 JSONPath 选出需要按行解析的数组或对象。 |
-| pageing                     | Config | 否       | -      | 分页配置，见 [分页](#分页)。 |
 | poll_interval_millis        | int    | 否       | -      | 流模式下的请求间隔，单位毫秒。 |
 | retry                       | int    | 否       | -      | 请求出现 `IOException` 时的最大重试次数。 |
 | retry_backoff_multiplier_ms | int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
@@ -92,20 +91,11 @@ schema = {
 
 如果行数据在嵌套 JSON 节点里，用 `content_field` 选出对应节点。如果输出列需要从不同 JSONPath 中提取，用 `json_field`。
 
-### 分页
+### 请求范围与轮询限制
 
-目标 API 需要分页参数时，可以配置 `pageing`。
+每次配置的请求只读取一份 HTTP 响应。当前连接器不支持自动分页：`pageing` 不会推进页码，也不会跟随下一页链接或游标。需要多页数据时，请在 API 请求中指定某一页，或在连接器外编排多次请求。
 
-| 名称 | 类型 | 是否必填 | 默认值 | 说明 |
-|------|------|----------|--------|------|
-| total_page_size | long | 否 | 0 | 请求的总页数。 |
-| batch_size | int | 否 | 100 | 每次请求返回的数据条数。 |
-| start_page_number | long | 否 | 1 | 起始页码。 |
-| page_field | String | 否 | page | 页码分页时，请求参数中的页码字段名。 |
-| page_type | String | 否 | PageNumber | 分页类型，支持 `PageNumber` 和 `Cursor`。 |
-| cursor_field | String | 否 | - | 游标分页时，请求参数中的游标字段名。 |
-| cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
-| use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
+流模式会重复发送配置的请求，可能再次输出相同的行。连接器不会把 API 游标保存到 checkpoint 来实现增量恢复，因此重复轮询和重启都可能产生重复数据。
 
 ## 示例
 
@@ -145,48 +135,6 @@ source {
 sink {
   Console {
     plugin_input = "lemlist"
-  }
-}
-```
-
-### 使用页码分页读取
-
-部分 Lemlist 接口使用页码分页。配置 `pageing` 中的 `total_page_size` 和
-`batch_size`，连接器会持续请求下一页，直到达到配置的总页数或响应不再
-返回预期的数据条数。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Lemlist {
-    plugin_output = "lemlist_pages"
-    url = "https://api.lemlist.com/api/campaigns"
-    password = "replace-with-api-key"
-    method = "GET"
-    format = "json"
-    pageing = {
-      total_page_size = 5
-      batch_size = 20
-      page_field = "page"
-      page_type = "PageNumber"
-    }
-    schema = {
-      fields {
-        _id = string
-        name = string
-        createdAt = string
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "lemlist_pages"
   }
 }
 ```

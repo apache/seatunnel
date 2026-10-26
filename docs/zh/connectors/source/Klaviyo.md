@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-http-klaviyo.md';
 
 用于从 Klaviyo API 读取数据。连接器会根据 `private_key` 和 `revision` 生成 Klaviyo 请求头，然后复用 HTTP Source 的能力解析返回结果。
 
-Klaviyo 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求、重试和分页能力。把 `private_key` 配置为 Klaviyo 私有 API Key，把 `revision` 配置为 API 版本日期（例如 `2020-10-17`），再把 `url` 指向要调用的 Klaviyo 接口。
+Klaviyo 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求和重试能力。把 `private_key` 配置为 Klaviyo 私有 API Key，把 `revision` 配置为 API 版本日期（例如 `2026-10-15`），再把 `url` 指向要调用的 Klaviyo 接口。
 
 ## 支持的数据源信息
 
@@ -29,7 +29,7 @@ Klaviyo 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -54,7 +54,6 @@ Klaviyo 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求
 | schema                      | Config | 否       | -      | 输出字段结构。`format = "json"` 时必须配置。 |
 | json_field                  | Config | 否       | -      | 用 JSONPath 把返回字段映射到输出列，必须和 `schema` 一起使用。 |
 | content_field               | String | 否       | -      | 用 JSONPath 选出需要按行解析的数组或对象。 |
-| pageing                     | Config | 否       | -      | 分页配置，见 [分页](#分页)。 |
 | poll_interval_millis        | int    | 否       | -      | 流模式下的请求间隔，单位毫秒。 |
 | retry                       | int    | 否       | -      | 请求出现 `IOException` 时的最大重试次数。 |
 | retry_backoff_multiplier_ms | int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
@@ -80,6 +79,7 @@ revision: <revision>
 
 ```hocon
 format = "json"
+content_field = "$.data.*"
 schema = {
   fields {
     type = string
@@ -98,24 +98,17 @@ schema = {
 
 如果行数据在嵌套 JSON 节点里，用 `content_field` 选出对应节点。如果输出列需要从不同 JSONPath 中提取，用 `json_field`。
 
-### 分页
+### 请求范围与轮询限制
 
-目标 API 需要分页参数时，可以配置 `pageing`。
+每次配置的请求只读取一份 HTTP 响应。当前连接器不支持自动分页：`pageing` 不会推进页码，也不会跟随下一页链接或游标。需要多页数据时，请在 API 请求中指定某一页，或在连接器外编排多次请求。
 
-| 名称 | 类型 | 是否必填 | 默认值 | 说明 |
-|------|------|----------|--------|------|
-| total_page_size | long | 否 | 0 | 请求的总页数。 |
-| batch_size | int | 否 | 100 | 每次请求返回的数据条数。 |
-| start_page_number | long | 否 | 1 | 起始页码。 |
-| page_field | String | 否 | page | 页码分页时，请求参数中的页码字段名。 |
-| page_type | String | 否 | PageNumber | 分页类型，支持 `PageNumber` 和 `Cursor`。 |
-| cursor_field | String | 否 | - | 游标分页时，请求参数中的游标字段名。 |
-| cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
-| use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
+流模式会重复发送配置的请求，可能再次输出相同的行。连接器不会把 API 游标保存到 checkpoint 来实现增量恢复，因此重复轮询和重启都可能产生重复数据。
 
 ## 示例
 
-### 批量读取 Klaviyo 列表
+下面的示例使用 [Get Metrics](https://developers.klaviyo.com/en/reference/get_metrics)，显式设置版本 `2026-10-15`，并通过 `content_field = "$.data.*"` 将 `data` 数组解析为行。API Key 需要具有 `metrics:read` 权限。每次请求只读取这一份响应，不会继续读取后续页面。
+
+### 读取 Klaviyo 指标的一份响应
 
 ```hocon
 env {
@@ -126,11 +119,12 @@ env {
 source {
   Klaviyo {
     plugin_output = "klaviyo"
-    url = "https://a.klaviyo.com/api/lists"
+    url = "https://a.klaviyo.com/api/metrics"
     private_key = "replace-with-private-key"
-    revision = "2020-10-17"
+    revision = "2026-10-15"
     method = "GET"
     format = "json"
+    content_field = "$.data.*"
     schema = {
       fields {
         type = string
@@ -155,52 +149,6 @@ sink {
 }
 ```
 
-### 使用游标分页读取
-
-通过 `pageing` 跟随 Klaviyo 在响应中返回的 `next` 游标。连接器会读取
-`cursor_response_field`，把值写回 `cursor_field`，直到响应不再带下游
-游标为止。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Klaviyo {
-    plugin_output = "klaviyo_cursor"
-    url = "https://a.klaviyo.com/api/events"
-    private_key = "replace-with-private-key"
-    revision = "2020-10-17"
-    method = "GET"
-    format = "json"
-    pageing = {
-      page_type = "Cursor"
-      cursor_field = "page[cursor]"
-      cursor_response_field = "$.links.next"
-    }
-    schema = {
-      fields {
-        type = string
-        id = string
-        attributes = {
-          name = string
-          created = string
-          updated = string
-        }
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "klaviyo_cursor"
-  }
-}
-```
-
 ### 流模式下轮询读取
 
 对于数据随时间增长的接口，使用 `STREAMING` 模式运行连接器，通过
@@ -218,10 +166,11 @@ source {
     plugin_output = "klaviyo_stream"
     url = "https://a.klaviyo.com/api/metrics"
     private_key = "replace-with-private-key"
-    revision = "2020-10-17"
+    revision = "2026-10-15"
     method = "GET"
     poll_interval_millis = 30000
     format = "json"
+    content_field = "$.data.*"
     schema = {
       fields {
         type = string

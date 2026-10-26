@@ -28,6 +28,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
@@ -38,9 +39,12 @@ from prompt_toolkit import prompt as pt_prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
-from . import __version__, get_data_dir
+from . import __version__, get_data_dir, rest
+from .diagnostics import ParsedError, parse_error
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Theme ───
@@ -121,6 +125,28 @@ def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> s
     for placeholder, original in cred_map.items():
         config = config.replace(placeholder, original)
     return config
+
+
+_ERROR_EXCERPT_LIMIT = 3000
+_OMITTED_MARKER = "...(earlier frames omitted)...\n"
+
+
+def _build_failure_report(error_text: str) -> tuple[ParsedError, str]:
+    """Parse a raw job failure and render the excerpt that is sent to the model.
+
+    Two separate things happen here on purpose. The parse runs on the *whole*
+    text, because the structured fields are cheap and we want them even when
+    the trace is far too long to forward. The excerpt keeps the *end* of the
+    text, because a Java trace prints the outer wrapper first and the innermost
+    ``Caused by`` last -- so cutting the front discards the root cause, the one
+    field a repair prompt actually needs. `_run_local` already tail-truncates
+    its captured output for the same reason.
+    """
+    parsed = parse_error(error_text)
+    text = error_text or ""
+    if len(text) <= _ERROR_EXCERPT_LIMIT:
+        return parsed, text
+    return parsed, _OMITTED_MARKER + text[-_ERROR_EXCERPT_LIMIT:]
 
 
 class SeaTunnelCLI:
@@ -336,6 +362,7 @@ class SeaTunnelCLI:
             loaded, last_config = self.session_manager.load_session(session_id)
             self.orchestrator.load_history(loaded)
             self.last_config = last_config
+            self._pending_request = None
             self.console.print(
                 f"  Resumed [bold]{session_id}[/bold] ({len(loaded)} messages)", style="success"
             )
@@ -356,6 +383,7 @@ class SeaTunnelCLI:
                 pass
         self.orchestrator.conversation_history.clear()
         self.last_config = None
+        self._pending_request = None
         sid = self.session_manager.new_session()
         self.console.print(f"  New session: [bold]{sid}[/bold]", style="success")
 
@@ -514,20 +542,23 @@ class SeaTunnelCLI:
         console.print("    [bold]4[/bold]. bedrock-mantle — OpenAI-family models on Bedrock (GPT-5.6 Terra/Sol)")
         console.print("       Requires: AWS credentials + pip install \".[bedrock-mantle]\"")
         console.print("       Note: Responses-API-only models on the bedrock-mantle endpoint\n")
+        console.print("    [bold]5[/bold]. orcarouter — OrcaRouter AI gateway (OpenAI-compatible)")
+        console.print("       Requires: ORCAROUTER_API_KEY + pip install \".[openai]\"")
+        console.print("       Note: many models behind one endpoint, e.g. orcarouter/auto\n")
 
         try:
-            choice = pt_prompt("  Enter your choice (1/2/3/4): ").strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3/4/5): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
         choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
-                      "4": "bedrock-mantle"}
+                      "4": "bedrock-mantle", "5": "orcarouter"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
             console.print(
-                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, or 4.[/error]"
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, 4, or 5.[/error]"
             )
             return
 
@@ -603,6 +634,30 @@ class SeaTunnelCLI:
                     config.setdefault("settings", {})["openai_base_url"] = base_url
                     console.print(f"  Base URL set: [bold]{base_url}[/bold]")
 
+        elif choice == "orcarouter":
+            existing = os.environ.get("ORCAROUTER_API_KEY")
+            if existing:
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  ORCAROUTER_API_KEY: [bold green]detected[/bold green] ({masked})")
+            else:
+                console.print("  ORCAROUTER_API_KEY not found in environment.\n")
+                console.print(
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export ORCAROUTER_API_KEY=orc_...\n"
+                    "  [dim]Get a key: https://www.orcarouter.ai[/dim]\n",
+                )
+                try:
+                    key_input = pt_prompt(
+                        "  Enter API key for this session (or Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["ORCAROUTER_API_KEY"] = key_input
+                    console.print(
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
+                    )
+
         elif choice in ("bedrock", "bedrock-mantle"):
             console.print("  AWS Bedrock requires AWS credentials.\n")
             if choice == "bedrock-mantle":
@@ -665,6 +720,11 @@ class SeaTunnelCLI:
             default_fast = "gpt-4o-mini"
             model_env = "OPENAI_MODEL"
             fast_env = "OPENAI_SMALL_FAST_MODEL"
+        elif choice == "orcarouter":
+            default_model = "orcarouter/auto"
+            default_fast = "orcarouter/auto"
+            model_env = "ORCAROUTER_MODEL"
+            fast_env = "ORCAROUTER_SMALL_FAST_MODEL"
         elif choice == "bedrock-mantle":
             default_model = "openai.gpt-5.6-terra"
             default_fast = "openai.gpt-5.6-terra"
@@ -881,6 +941,15 @@ class SeaTunnelCLI:
             base_url = os.environ.get("OPENAI_BASE_URL")
             if base_url:
                 self.console.print(f"  Base URL: [bold]{base_url}[/bold]", style="info")
+        elif provider_name == "orcarouter":
+            if os.environ.get("ORCAROUTER_API_KEY"):
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
+            else:
+                creds_ok = False
+                self.console.print("[error]ORCAROUTER_API_KEY not set.[/error]")
+            self.console.print(
+                "  Base URL: [bold]https://api.orcarouter.ai/v1[/bold]", style="info"
+            )
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
         self.console.print(f"  Fast model: [bold]{provider.fast_model_id}[/bold]", style="info")
@@ -1061,6 +1130,7 @@ class SeaTunnelCLI:
             )
             self.orchestrator.conversation_history.clear()
             self.last_config = None
+            self._pending_request = None
             self.session_manager.new_session()
             self.console.print("  Cleared. New session started.", style="info")
 
@@ -1264,29 +1334,21 @@ class SeaTunnelCLI:
 
     def _run_via_rest_api(self, api_base: str):
         """Submit job via REST API and poll status."""
-        import json as _json
-        import urllib.request
-        import urllib.error
-
         self.console.print("  Submitting job via REST API...", style="info")
         try:
-            url = f"{api_base}/submit-job?format=hocon"
-            req = urllib.request.Request(
-                url,
+            body = rest.request_json(
+                f"{api_base}/submit-job?format=hocon",
+                method="POST",
                 data=self.last_config.encode("utf-8"),
                 headers={"Content-Type": "text/plain"},
-                method="POST",
+                timeout=30,
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = _json.loads(resp.read().decode("utf-8"))
-
             job_id = body.get("jobId")
             job_name = body.get("jobName", "")
             self.console.print(f"  Job submitted: [bold]{job_id}[/bold] ({job_name})", style="success")
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8", errors="replace")
-            self.console.print(f"  [error]Submit failed ({e.code}):[/error]")
-            self._show_error_and_diagnose(error_body)
+        except rest.RestError as e:
+            self.console.print(f"  [error]Submit failed ({e.status}):[/error]")
+            self._show_error_and_diagnose(e.body)
             return
         except Exception as e:
             self.console.print(f"  [error]Submit failed: {e}[/error]")
@@ -1297,9 +1359,6 @@ class SeaTunnelCLI:
 
     def _poll_job_status(self, api_base: str, job_id: str):
         """Poll job status until terminal state, then show results."""
-        import json as _json
-        import urllib.request
-
         terminal_states = {"FINISHED", "CANCELED", "FAILED"}
         self.console.print("  Waiting for job to complete...", style="info")
 
@@ -1310,10 +1369,7 @@ class SeaTunnelCLI:
         for _ in range(max_polls):
             time.sleep(poll_interval)
             try:
-                url = f"{api_base}/job-info/{job_id}"
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    info = _json.loads(resp.read().decode("utf-8"))
+                info = rest.request_json(f"{api_base}/job-info/{job_id}", timeout=10)
 
                 status = info.get("jobStatus", "UNKNOWN")
                 if status != last_status:
@@ -1367,7 +1423,9 @@ class SeaTunnelCLI:
     def _show_error_and_diagnose(self, error_text: str):
         """Diagnose error and directly patch the existing config, with conversation memory."""
         from .memory import redact_credentials
-        truncated = error_text[:3000]
+        parsed, excerpt = _build_failure_report(error_text)
+        if parsed.code or parsed.exception:
+            self.console.print(f"  Root cause: {parsed.headline()}", style="info")
         self.console.print("  Diagnosing and fixing config...", style="info")
 
         repair_system = (
@@ -1391,9 +1449,22 @@ class SeaTunnelCLI:
         safe_config, cred_map = _replace_creds_with_placeholders(
             self.last_config
         ) if self.last_config else ("", {})
-        safe_error = redact_credentials(truncated)
+        safe_error = redact_credentials(excerpt)
+        # The parsed fields come from the whole trace, so they survive even when
+        # the excerpt below had to drop frames. Stating them separately also stops
+        # the model from having to re-derive the error code from the raw text.
+        # They are redacted as well: they are cut from that same trace, so a
+        # root_cause line can carry a JDBC URL with a password in it. "signature"
+        # is dropped because it is an internal dedupe key, not a diagnosis.
+        facts = "\n".join(
+            f"- {k}: {redact_credentials(str(v))}"
+            for k, v in parsed.as_dict().items()
+            if k != "signature"
+        )
         repair_msg = (
-            f"Job execution failed with this error:\n\n```\n{safe_error}\n```\n\n"
+            f"Job execution failed.\n\n"
+            f"Parsed failure:\n{facts}\n\n"
+            f"Raw error:\n\n```\n{safe_error}\n```\n\n"
             f"The config that failed:\n```hocon\n{safe_config}\n```\n\n"
             f"Fix this config. Only change what's needed to resolve the error."
         )
@@ -1505,6 +1576,208 @@ class SeaTunnelCLI:
             self.console.print(f"  [error]Failed to execute: {e}[/error]")
 
 
+_SEVERITY_STYLE = {"error": "error", "warning": "warning", "info": "info"}
+
+# The engine parses a job id as a decimal long, so anything else can only be a
+# typo or a mangled copy-paste. Catching it here turns "1/2" -- which would
+# otherwise be sent as the URL path `/job-info/1/2` and come back as a 404 --
+# into a message that names the actual problem.
+# `\Z`, not `$`: `$` also matches just before a trailing newline, so a job
+# id pasted with the newline still got interpolated into the URL path.
+_JOB_ID_RE = re.compile(r"-?\d+\Z")
+
+# An engine error body is bounded only by rest.MAX_RESPONSE_BYTES (8 MiB).
+# That is the right limit for a response being parsed; it is the wrong amount
+# of text to print into someone's terminal, so the printed form is clipped.
+_ERROR_BODY_MAX_CHARS = 2000
+
+
+def _clip(text: str, limit: int = _ERROR_BODY_MAX_CHARS) -> str:
+    """Shorten engine-supplied text for display, saying so when it is cut."""
+    return text if len(text) <= limit else f"{text[:limit]}... [{len(text)} chars total]"
+
+
+def run_diagnose(job_id: str, console: Console) -> int:
+    """Explain one job's current state from ``/job-info``. Returns an exit code.
+
+    Deliberately model-free. Every line printed here is derived from a field
+    the engine publishes, so this works with no API key, no provider configured
+    and no network beyond the cluster -- which is exactly the situation someone
+    is in when a job is stuck in production and they want an answer now.
+
+    It is also read-only: two GETs, no submit, no stop, no savepoint. That is
+    what makes it safe to point at a live production job.
+    """
+    from .connectors import _ENGINE_API_BASE
+    from .diagnostics.checkpoints import diagnose_checkpoints
+    from .diagnostics.jobs import as_int, diagnose_job, is_non_terminal, sort_findings
+    from .memory import redact_credentials
+
+    if not _JOB_ID_RE.match(job_id):
+        console.print(
+            f"[error]{escape(job_id)} is not a job id.[/error] A SeaTunnel job id is a "
+            f"decimal number, as printed on submit and listed by /running-jobs."
+        )
+        return 1
+
+    url = f"{_ENGINE_API_BASE}/job-info/{job_id}"
+    try:
+        job_info = rest.request_json(url, timeout=10)
+    except rest.RestError as e:
+        # A 404 here is the single most likely mistake (wrong id, a job old
+        # enough to have been evicted from the finished-job history, or the
+        # base URL pointing at a port that does not serve the v2 REST API), so
+        # it is worth separating from a cluster that is not answering at all.
+        if e.status == 404:
+            console.print(
+                f"[error]No job {escape(job_id)} at {escape(_ENGINE_API_BASE)}.[/error] It may "
+                f"have been evicted from the finished-job history, or the id may be wrong. "
+                f"If the cluster is elsewhere, set SEATUNNEL_API_BASE to its REST address "
+                f"(the Jetty HTTP port, 8080 in the packaged config -- not the member port 5801)."
+            )
+        else:
+            # Redacted and capped for the same reasons the finding lines are:
+            # the engine body can quote a JDBC URL with a password, and
+            # rest.py only bounds it at MAX_RESPONSE_BYTES (8 MiB), which is
+            # far more than anyone wants pasted into a terminal.
+            console.print(
+                f"[error]Could not read job {escape(job_id)} ({e.status}):[/error] "
+                f"{escape(_clip(redact_credentials(str(e.body))))}"
+            )
+        return 1
+    except Exception as e:
+        console.print(
+            f"[error]Could not reach the engine at {escape(_ENGINE_API_BASE)}:[/error] "
+            f"{escape(str(e))}\n"
+            f"Set SEATUNNEL_API_BASE if the REST API is on another host or port."
+        )
+        return 1
+
+    # The engine does not 404 for an id it does not know: JobInfoService falls
+    # through to `{"jobId": "<id>"}` with status 200 when the job is in
+    # neither the running-job map nor the finished-job state. Without this
+    # check that response reaches the rules as a job with no status, nothing
+    # matches, and the output reads "Nothing to report" -- i.e. "your job is
+    # fine" about a job that does not exist. A non-object body (a bare `null`
+    # or a list from a proxy) is the same situation and is caught here too,
+    # before anything calls .get() on it.
+    status = job_info.get("jobStatus") if isinstance(job_info, dict) else None
+    if not isinstance(status, str) or not status.strip():
+        console.print(
+            f"[error]No job {escape(job_id)} on the cluster at "
+            f"{escape(_ENGINE_API_BASE)}.[/error] The engine returned no status for it, "
+            f"which means the id is unknown there: either it is wrong, or the job has "
+            f"been evicted from the finished-job history."
+        )
+        return 1
+    status = status.strip()
+
+    name = job_info.get("jobName") or "(unnamed)"
+    # escape(): the job name is chosen by whoever submitted the job, so a name
+    # like "[prod] sync" would otherwise be read as a style tag and vanish.
+    console.print(
+        f"Job [bold]{escape(job_id)}[/bold] {escape(str(name))} "
+        f"— [bold]{escape(status)}[/bold]"
+    )
+
+    # The `diagnostics` block carries the restore counters and state
+    # timestamps, so the crash-loop and stuck-state rules are built entirely
+    # on it. When it is missing those rules have no input, and saying nothing
+    # would present "no data" as "no problem".
+    #
+    # Only while the job can still move, though: the engine builds the block
+    # for a job the master coordinates, so for a finished or cancelled job its
+    # absence is expected and the notice would be noise.
+    diagnostics_present = isinstance(job_info.get("diagnostics"), dict)
+    live_job = is_non_terminal(status)
+    # `generatedAt` is stamped by the master when it builds the response, so
+    # it is a usable "now" for both rule sets. None means fall back to the
+    # local clock inside each.
+    engine_now_ms = None
+    if diagnostics_present:
+        generated_at = as_int(job_info["diagnostics"].get("generatedAt"))
+        engine_now_ms = generated_at if generated_at and generated_at > 0 else None
+    if live_job and not diagnostics_present:
+        console.print(
+            "  Restart counts and state ages were not available in this response, "
+            "so the crash-loop and stuck-state checks did not run (the master may "
+            "not be serving diagnostics for this job).",
+            style="info",
+        )
+
+    findings = diagnose_job(job_info)
+
+    # Checkpoint history answers "why did it get slower", which job-info alone
+    # cannot. It is fetched best-effort on purpose: an older engine has no
+    # such endpoint and a cluster with the monitor service off returns nothing
+    # useful, and in neither case should a working diagnosis turn into a
+    # failure. Whatever job-info gave us is still worth printing.
+    try:
+        checkpoints = rest.request_json(
+            f"{_ENGINE_API_BASE}/jobs/checkpoints/{job_id}", timeout=10
+        )
+    except Exception as e:
+        checkpoints = None
+        logger.debug("Checkpoint overview for job %s unavailable: %s", job_id, e)
+
+    # A 200 is not the same as data. When the monitor service is off, or has
+    # nothing recorded for the job yet, CheckpointMonitorRestService answers
+    # 200 with only {"jobId": ...} and no `pipelines` -- no exception to catch.
+    # Both that and a failed request leave the slowdown rules with no input,
+    # and staying silent would let the output end on "Nothing to report",
+    # which reads as "the job is fine".
+    checkpoints_usable = isinstance(checkpoints, dict) and isinstance(
+        checkpoints.get("pipelines"), list
+    )
+    if live_job and not checkpoints_usable:
+        console.print(
+            "  No checkpoint history for this job, so the slowdown checks did not run "
+            "(the cluster may predate the endpoint, its monitor service may be off, or "
+            "the job may not have checkpointed yet).",
+            style="info",
+        )
+    if checkpoints_usable:
+        # The engine's own clock, from the /job-info response fetched a moment
+        # ago: diagnostics.generatedAt is stamped at response time, so the
+        # checkpoint ages are computed in the same clock as the timestamps
+        # they are subtracted from.
+        findings = sort_findings(
+            findings + diagnose_checkpoints(checkpoints, now_ms=engine_now_ms)
+        )
+
+    if not findings:
+        # Only claim a clean bill of health when the rules actually had their
+        # input; otherwise the notices above are the whole story.
+        inputs_complete = not live_job or (diagnostics_present and checkpoints_usable)
+        if inputs_complete:
+            console.print("  Nothing to report: no rule matched this job's state.", style="info")
+        return 0
+
+    for finding in findings:
+        # The error message can carry a JDBC URL with a password, and a
+        # finding quotes it, so redact on the way out even though nothing is
+        # being sent anywhere -- terminal output gets pasted into issues.
+        #
+        # markup=False because the finding text is data, not markup. Three
+        # reasons it matters: `render()` prefixes "[error]", and "error" is a
+        # style name in THEME, so rich would consume the prefix as a style tag
+        # and the severity would reach the user by colour alone -- invisible in
+        # a pipe, in CI, or under NO_COLOR. An engine message containing
+        # "ErrorDescription:[master is down]" would lose the bracketed part.
+        # And a fragment that looks like a closing tag, such as a path in
+        # "[/data/x.csv]", raises MarkupError -- crashing the one command
+        # someone runs when a job is already broken.
+        console.print(
+            f"  {redact_credentials(finding.render())}",
+            style=_SEVERITY_STYLE.get(finding.severity, "info"),
+            markup=False,
+        )
+    # Only a terminal failure is an error for the shell. A stuck or
+    # crash-looping job is a live job, and reporting it as a command failure
+    # would break `seatunnel --diagnose x && ...` for a job that is merely slow.
+    return 1 if status == "FAILED" else 0
+
+
 def main():
     """Entry point for seatunnel CLI."""
     parser = argparse.ArgumentParser(
@@ -1527,7 +1800,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "bedrock-mantle", "anthropic", "openai"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1542,6 +1815,13 @@ def main():
         "--init",
         action="store_true",
         help="Interactive first-time setup: choose LLM provider and save config",
+    )
+    parser.add_argument(
+        "--diagnose",
+        metavar="JOB_ID",
+        help="Explain the current state of a job on the cluster and exit. "
+             "Read-only and model-free: needs no API key, only a reachable "
+             "engine REST API (see SEATUNNEL_API_BASE).",
     )
     parser.add_argument(
         "--export-metadata",
@@ -1561,6 +1841,13 @@ def main():
         SeaTunnelCLI.run_init(console)
         sys.exit(0)
 
+    # --diagnose: read-only cluster query. Handled before any provider setup
+    # below, because it must work for a user who has no LLM configured at all.
+    if args.diagnose:
+        console = Console(theme=THEME)
+        _install_secret_log_filter()
+        sys.exit(run_diagnose(args.diagnose, console))
+
     # --export-metadata: run Java exporter, no LLM needed
     if args.export_metadata:
         from .connectors import export_runtime_metadata
@@ -1579,17 +1866,21 @@ def main():
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
     # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
-    # bedrock/anthropic read ANTHROPIC_MODEL*.
+    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter has its own.
     _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider in _OPENAI_FAMILY:
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_MODEL"] = args.model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider in _OPENAI_FAMILY:
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model

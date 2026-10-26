@@ -225,6 +225,25 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
+    /**
+     * Stop every pipeline after a savepoint failure while the job is in {@link
+     * JobStatus#DOING_SAVEPOINT}.
+     *
+     * <p>Some pipelines may already have completed the savepoint and stopped when another pipeline
+     * fails. Reverting only the global job state to {@link JobStatus#RUNNING} would leave those
+     * completed pipelines stopped while the job appears to be running. The same fallback used by a
+     * stop request during {@code DOING_SAVEPOINT} finishes completed pipelines and force-stops the
+     * rest so the job reaches one terminal state.
+     */
+    public synchronized void savepointFailed() {
+        if (getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+            log.warn(
+                    "{} savepoint failed, stop all pipelines with checkpoint fallback",
+                    jobFullName);
+            stopJob();
+        }
+    }
+
     public void stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
@@ -386,6 +405,13 @@ public class PhysicalPlan {
             case FAILING:
             case CANCELING:
                 jobMaster.neverNeedRestore();
+                if (JobStatus.CANCELING.equals(jobStatus)) {
+                    // Mark every pipeline as cancel-requested before any cancelPipeline() can
+                    // block on checkpoint cancellation: CoordinatorService.makeTasksFailed()
+                    // may otherwise complete the remaining RUNNING vertices as FAILED while
+                    // the cancel loop has not reached their pipeline yet (#12353).
+                    getPipelineList().forEach(SubPlan::markCancelRequested);
+                }
                 getPipelineList().forEach(SubPlan::cancelPipeline);
                 break;
             case FAILED:

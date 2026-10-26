@@ -12,7 +12,7 @@ The DataValidator transform validates field values according to configured rules
 |-----------------|--------|----------|---------------|
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
-| field_rules     | array  | yes      |               |
+| field_rules     | array  | yes (single-table mode) |               |
 
 ### row_error_handle_way [enum]
 
@@ -25,7 +25,7 @@ Error handling strategy when validation fails:
 
 ### row_error_handle_way.error_table [string]
 
-Target table name for routing invalid data when `row_error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
+Target table name for routing invalid data when `row_error_handle_way` is set to `ROUTE_TO_TABLE`. This option is not validated by the framework, but if it is not configured in `ROUTE_TO_TABLE` mode, DataValidator cannot route invalid rows and will skip them with a warning instead, so it should always be set when using `ROUTE_TO_TABLE`.
 
 #### Error Table Schema
 
@@ -59,6 +59,8 @@ When using `ROUTE_TO_TABLE` mode, DataValidator automatically creates an error t
 
 Array of field validation rules. Each rule defines validation criteria for a specific field.
 
+A single-table config must set `field_rules`. With `table_transform`, every entry declares its own `field_rules`; the transform level one is optional.
+
 #### Field Rule Structure
 
 Each field rule contains:
@@ -87,6 +89,11 @@ Parameters:
 
 ##### LENGTH
 Validates the length of string, array, or collection values.
+
+Array length is the number of elements, including null elements. Nested arrays
+are measured by their outer length, and binary values by their number of bytes.
+String length uses Java UTF-16 code units; collection length uses its size.
+Null values pass this rule; combine it with `NOT_NULL` to reject nulls.
 
 Parameters:
 - `rule_type`: "LENGTH"

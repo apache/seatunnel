@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Triple;
 
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,9 +29,9 @@ import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
@@ -42,8 +42,20 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
 
-    @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
+    /**
+     * Buffered rows by key, so that only the last change of a key is written. The value holds the
+     * change flag, the key row and the value row. A key with a NULL field is buffered under a
+     * unique identity instead, see {@link #bufferKey(SeaTunnelRow)}.
+     */
+    @NonNull private final LinkedHashMap<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> buffer =
             new LinkedHashMap<>();
+
+    // Whether each buffered key existed before this batch, judged from its first change. Only the
+    // last change per key is kept, so an INSERT followed by an UPDATE must still be written as an
+    // INSERT, and a DELETE followed by an INSERT as an UPDATE.
+    @NonNull private final Map<Object, Boolean> existedBeforeBatch = new HashMap<>();
+
+    private boolean flushFailed;
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
@@ -59,51 +71,89 @@ public class BufferReducedBatchStatementExecutor
         }
 
         SeaTunnelRow key = keyExtractor.apply(record);
+        Object bufferKey = bufferKey(key);
+        existedBeforeBatch.putIfAbsent(bufferKey, !RowKind.INSERT.equals(record.getRowKind()));
         boolean changeFlag = changeFlag(record.getRowKind());
         SeaTunnelRow value = valueTransform.apply(record);
-        buffer.put(key, Pair.of(changeFlag, value));
+        buffer.put(bufferKey, Triple.of(changeFlag, key, value));
+    }
+
+    /**
+     * Returns the key a row is buffered under. In SQL a NULL key value never equals another value,
+     * so the database treats rows with a NULL key field (possible for a key taken from a nullable
+     * unique key) as different rows, and an upsert or delete by that key never matches them. Such
+     * rows get a unique identity so that they are not merged into one row within a batch.
+     */
+    private static Object bufferKey(SeaTunnelRow key) {
+        for (Object field : key.getFields()) {
+            if (field == null) {
+                return new Object();
+            }
+        }
+        return key;
     }
 
     @Override
     public void executeBatch() throws SQLException {
-        Boolean preChangeFlag = null;
-        Set<Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>>> entrySet = buffer.entrySet();
-        for (Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> entry : entrySet) {
-            Boolean currentChangeFlag = entry.getValue().getKey();
-            if (currentChangeFlag) {
-                if (preChangeFlag != null && !preChangeFlag) {
+        try {
+            Boolean preChangeFlag = null;
+            for (Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> entry :
+                    buffer.entrySet()) {
+                Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow = entry.getValue();
+                Boolean currentChangeFlag = bufferedRow.getLeft();
+                if (currentChangeFlag) {
+                    if (preChangeFlag != null && !preChangeFlag) {
+                        deleteExecutor.executeBatch();
+                    }
+                    SeaTunnelRow value = bufferedRow.getRight().copy();
+                    value.setRowKind(
+                            existedBeforeBatch.getOrDefault(entry.getKey(), true)
+                                    ? RowKind.UPDATE_AFTER
+                                    : RowKind.INSERT);
+                    upsertExecutor.addToBatch(value);
+                } else {
+                    if (preChangeFlag != null && preChangeFlag) {
+                        upsertExecutor.executeBatch();
+                    }
+                    deleteExecutor.addToBatch(bufferedRow.getMiddle());
+                }
+                preChangeFlag = currentChangeFlag;
+            }
+
+            if (preChangeFlag != null) {
+                if (preChangeFlag) {
+                    upsertExecutor.executeBatch();
+                } else {
                     deleteExecutor.executeBatch();
                 }
-                upsertExecutor.addToBatch(entry.getValue().getValue());
-            } else {
-                if (preChangeFlag != null && preChangeFlag) {
-                    upsertExecutor.executeBatch();
-                }
-                deleteExecutor.addToBatch(entry.getKey());
             }
-            preChangeFlag = currentChangeFlag;
+            buffer.clear();
+            existedBeforeBatch.clear();
+            flushFailed = false;
+        } catch (SQLException e) {
+            flushFailed = true;
+            throw e;
         }
-
-        if (preChangeFlag != null) {
-            if (preChangeFlag) {
-                upsertExecutor.executeBatch();
-            } else {
-                deleteExecutor.executeBatch();
-            }
-        }
-        buffer.clear();
     }
 
     @Override
     public void closeStatements() throws SQLException {
         try {
-            if (!buffer.isEmpty()) {
+            if (!buffer.isEmpty() && !flushFailed) {
                 executeBatch();
             }
         } finally {
             upsertExecutor.closeStatements();
             deleteExecutor.closeStatements();
         }
+    }
+
+    @Override
+    public void clearBatch() throws SQLException {
+        buffer.clear();
+        existedBeforeBatch.clear();
+        upsertExecutor.clearBatch();
+        deleteExecutor.clearBatch();
     }
 
     private boolean changeFlag(RowKind rowKind) {

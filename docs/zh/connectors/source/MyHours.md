@@ -12,10 +12,13 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 ## 描述
 
-用于通过 My Hours REST API 读取数据。连接器会先使用配置的 `email` 和 `password` 登录获取访问令牌，
-然后在后续请求中自动携带该令牌。
+My Hours Source 提供通过共享 HTTP 请求和重试逻辑读取 My Hours REST 接口的配置。
 
-My Hours 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求、重试和分页能力。把 `email` 和 `password` 配置为 My Hours 账号，再把 `url` 指向要调用的接口。
+:::caution 认证限制
+
+当前邮箱/密码认证会发送配置的数据请求，而不是携带凭据的登录请求。下方数据 URL 模板仅用于说明配置结构，不能完成该登录流程。实际使用前需要单独修复连接器认证并完成验证；当前也不支持自动刷新访问令牌。
+
+:::
 
 ## 关键特性
 
@@ -62,10 +65,9 @@ My Hours 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请�
 | retry_backoff_multiplier_ms   | Int     | 否   | 100    | 重试退避倍数，单位毫秒。                                                                            |
 | retry_backoff_max_ms          | Int     | 否   | 10000  | 最大重试退避时间，单位毫秒。                                                                        |
 | json_filed_missed_return_null | Boolean | 否   | false  | 配置的 JSON 字段缺失时返回 `null`。                                                                |
-| pageing                       | Config  | 否   | -      | 分页设置，用于支持分页的 My Hours 接口，见 [分页](#分页)。                                          |
 | common-options                |         | 否   | -      | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                  |
 
-## 如何创建 My Hours 数据同步作业
+## 配置参考（当前认证流程受限）
 
 ```hocon
 env {
@@ -118,96 +120,17 @@ sink {
 }
 ```
 
-### 流模式下轮询读取
-
-对于数据随时间增长的 My Hours 接口，使用 `STREAMING` 模式运行连接器，并
-通过 `poll_interval_millis` 控制 SeaTunnel 重新发起请求的频率。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 60000
-}
-
-source {
-  MyHours {
-    plugin_output = "myhours_stream"
-    url = "https://api2.myhours.com/api/Projects/getAll"
-    email = "seatunnel@test.com"
-    password = "********"
-    method = "GET"
-    poll_interval_millis = 30000
-    format = "json"
-    schema = {
-      fields {
-        id = string
-        name = string
-        archived = boolean
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "myhours_stream"
-  }
-}
-```
-
-### 分页批量读取
-
-对于支持分页的 My Hours 接口，配置 `pageing` 让连接器持续翻页，直到达到配置的总页数为止。
-
-```hocon
-source {
-  MyHours {
-    plugin_output = "myhours_pages"
-    url = "https://api2.myhours.com/api/Clients/getAll"
-    email = "seatunnel@test.com"
-    password = "********"
-    method = "GET"
-    format = "json"
-    pageing = {
-      total_page_size = 10
-      batch_size = 100
-      page_field = "page"
-      page_type = "PageNumber"
-    }
-    schema = {
-      fields {
-        id = string
-        name = string
-        archived = boolean
-      }
-    }
-  }
-}
-```
-
 ## 参数解释
 
 ### 认证
 
-把 `email` 和 `password` 配置为 My Hours 账号。连接器会先用这两个凭据换取
-访问令牌，然后在后续请求中通过 My Hours `Authorization` 请求头带上该令牌。
-`headers` 字段用于补充接口需要的其他请求头。
+配置要求提供 `email` 和 `password`，但当前实现存在本页开头说明的认证限制，也不支持自动刷新访问令牌。
 
-### 分页
+### 请求范围与轮询限制
 
-对于支持分页的 My Hours 接口，可以使用 `pageing`。
+每次配置的请求只读取一份 HTTP 响应。当前连接器不支持自动分页：`pageing` 不会推进页码，也不会跟随下一页链接或游标。需要多页数据时，请在 API 请求中指定某一页，或在连接器外编排多次请求。
 
-| 名称 | 类型 | 是否必填 | 默认值 | 说明 |
-|------|------|----------|--------|------|
-| total_page_size | long | 否 | 0 | 请求的总页数。 |
-| batch_size | int | 否 | 100 | 每次请求返回的数据条数。 |
-| start_page_number | long | 否 | 1 | 起始页码。 |
-| page_field | String | 否 | page | 页码分页时，请求参数中的页码字段名。 |
-| page_type | String | 否 | PageNumber | 分页类型，支持 `PageNumber` 和 `Cursor`。 |
-| cursor_field | String | 否 | - | 游标分页时，请求参数中的游标字段名。 |
-| cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
-| use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
+流模式会重复发送配置的请求，可能再次输出相同的行。连接器不会把 API 游标保存到 checkpoint 来实现增量恢复，因此重复轮询和重启都可能产生重复数据。
 
 ### format
 

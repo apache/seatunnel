@@ -32,9 +32,9 @@
 
     <properties>
         <!-- Imap storage dependency package  -->
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
+        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
         <json-smart.version>2.4.7</json-smart.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
         <netty-buffer.version>4.1.60.Final</netty-buffer.version>
     </properties>
 
@@ -44,12 +44,19 @@
             <artifactId>serializer-protobuf</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Test-scoped only: production code intentionally references the pre-relocation
+             job model class names as strings; the tests bind those strings to the real
+             engine-common classes so a future rename fails the build. -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-common</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -60,9 +67,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-commons-lang3</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-commons-lang3</artifactId>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.lmax/disruptor -->
         <dependency>
@@ -87,28 +92,30 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
         <dependency>
             <groupId>net.minidev</groupId>
             <artifactId>json-smart</artifactId>
             <version>${json-smart.version}</version>
             <scope>provided</scope>
         </dependency>
-
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aws</artifactId>
             <version>${hadoop-aws.version}</version>
             <scope>provided</scope>
         </dependency>
-
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-buffer</artifactId>
             <version>${netty-buffer.version}</version>
             <scope>provided</scope>
         </dependency>
-
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun.sdk.oss.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 </project>

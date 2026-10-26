@@ -42,12 +42,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMqSourceSplit> {
 
     private static final long THREAD_WAIT_TIME = 500L;
+
+    // Extra headroom added to a single poll timeout when bounding how long close() waits for
+    // every consumer thread to shut down concurrently.
+    private static final long CLOSE_GRACE_MILLIS = 500L;
+
+    // Fallback when the configured poll timeout is unset (ConsumerMetadata#getBaseConfig()'s
+    // pollTimeoutMillis is a boxed Long with no default): close() still needs a concrete, finite
+    // bound to wait for concurrent consumer thread shutdown, so fall back to the connector's own
+    // documented default poll timeout instead of risking an NPE from unboxing a null value.
+    private static final long DEFAULT_POLL_TIMEOUT_MILLIS = 5000L;
 
     private final Context context;
     private final ConsumerMetadata metadata;
@@ -86,8 +97,46 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     @Override
     public void close() throws IOException {
-        if (executorService != null) {
-            executorService.shutdownNow();
+        running = false;
+        // DefaultLitePullConsumer's shutdown() is internally synchronized and can block for up
+        // to one poll cycle behind an in-flight poll(). Close every consumer thread concurrently
+        // instead of one at a time so the calling (task-cancellation) thread waits at most one
+        // poll timeout in total rather than pollTimeoutMillis * partitionCount, and isolate each
+        // thread's failure so one partition's shutdown exception can't abort the rest: a plain
+        // forEach here would stop at the first exception, leaking every remaining consumer
+        // thread and skipping executorService.shutdownNow() below entirely.
+        List<CompletableFuture<Void>> closeFutures =
+                consumerThreads.values().stream()
+                        .map(
+                                thread ->
+                                        CompletableFuture.runAsync(
+                                                () -> closeQuietly(thread), executorService))
+                        .collect(Collectors.toList());
+        try {
+            CompletableFuture.allOf(closeFutures.toArray(new CompletableFuture[0]))
+                    .get(pollTimeoutMillisOrDefault() + CLOSE_GRACE_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.warn("Timed out waiting for RocketMQ consumer threads to close", e);
+        } finally {
+            if (executorService != null) {
+                executorService.shutdownNow();
+            }
+        }
+    }
+
+    private long pollTimeoutMillisOrDefault() {
+        Long pollTimeoutMillis =
+                metadata.getBaseConfig() == null
+                        ? null
+                        : metadata.getBaseConfig().getPollTimeoutMillis();
+        return pollTimeoutMillis == null ? DEFAULT_POLL_TIMEOUT_MILLIS : pollTimeoutMillis;
+    }
+
+    private void closeQuietly(RocketMqConsumerThread thread) {
+        try {
+            thread.close();
+        } catch (Exception e) {
+            log.warn("Failed to close a RocketMQ consumer thread", e);
         }
     }
 

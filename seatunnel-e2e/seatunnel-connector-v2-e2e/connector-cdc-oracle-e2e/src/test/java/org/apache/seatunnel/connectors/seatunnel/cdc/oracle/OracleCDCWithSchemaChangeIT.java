@@ -35,6 +35,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -121,8 +122,9 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                copyOracleDriverToContainer(container);
-                copyMySQLDriverToJdbcContainer(container);
+                DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
+                        .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+                DependencyJar.of(com.mysql.cj.jdbc.Driver.class).copyTo(container, JDBC_PLUGIN_LIB);
             };
 
     @BeforeAll
@@ -160,9 +162,9 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                     }
                 });
 
-        // Waiting to job running for auto create sink table
-        Thread.sleep(10000L);
-
+        // The sink table is auto-created once the job reaches RUNNING; the data wait
+        // inside assertSchemaEvolution tolerates the table not existing yet, so no
+        // fixed pre-wait is needed here.
         assertSchemaEvolution(
                 ORACLE_CONTAINER.getJdbcUrl(),
                 ORACLE_CONTAINER.getJdbcUrl(),
@@ -212,7 +214,10 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             String sinkTableName,
             boolean oracle2Mysql)
             throws Exception {
+        // Tolerate transient SQL errors while the CDC job is still creating the
+        // sink table, instead of relying on a fixed pre-wait before this call.
         await().atMost(300, TimeUnit.SECONDS)
+                .ignoreExceptions()
                 .untilAsserted(
                         () ->
                                 checkData(
