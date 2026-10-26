@@ -40,6 +40,7 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -76,7 +77,9 @@ final class FakeTaskCheckpointManager extends CheckpointManager {
     private final NodeEngine nodeEngine;
     private final CheckpointPlan plan;
     private final AtomicReference<Throwable> failure;
+    private final AtomicLong triggeredCheckpoints;
 
+    /** @param triggeredCheckpoints incremented for every checkpoint barrier a trigger sends */
     FakeTaskCheckpointManager(
             long jobId,
             NodeEngine nodeEngine,
@@ -87,7 +90,8 @@ final class FakeTaskCheckpointManager extends CheckpointManager {
             IMap<Object, Object> runningJobStateIMap,
             SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService,
-            AtomicReference<Throwable> failure) {
+            AtomicReference<Throwable> failure,
+            AtomicLong triggeredCheckpoints) {
         super(
                 jobId,
                 false,
@@ -106,6 +110,7 @@ final class FakeTaskCheckpointManager extends CheckpointManager {
         this.nodeEngine = nodeEngine;
         this.plan = plan;
         this.failure = failure;
+        this.triggeredCheckpoints = triggeredCheckpoints;
     }
 
     /**
@@ -123,6 +128,7 @@ final class FakeTaskCheckpointManager extends CheckpointManager {
     @Override
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         if (operation instanceof CheckpointBarrierTriggerOperation) {
+            triggeredCheckpoints.incrementAndGet();
             acknowledgeBarrier(readBarrier((CheckpointBarrierTriggerOperation) operation));
         }
         return NodeEngineUtil.sendOperationToMemberNode(

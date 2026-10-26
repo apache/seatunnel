@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.iceberg.types.Type;
@@ -38,6 +39,15 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcebergTypeMapper {
+
+    /** Format version Iceberg uses when a table is created without {@code format-version}. */
+    public static final int DEFAULT_FORMAT_VERSION = 2;
+
+    private static final int NANOSECOND_TIMESTAMP_FORMAT_VERSION = 3;
+
+    /** Column scale reported for {@code timestamp_ns} and {@code timestamptz_ns} columns. */
+    public static final int NANOSECOND_SCALE = 9;
+
     public static SeaTunnelDataType<?> mapping(String field, @NonNull Type icebergType) {
         switch (icebergType.typeId()) {
             case BOOLEAN:
@@ -62,6 +72,17 @@ public class IcebergTypeMapper {
                 }
                 // withoutZone() → NTZ → TIMESTAMP
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case TIMESTAMP_NANO:
+                // format version 3: java.time keeps the nanoseconds, the precision is carried as
+                // column scale 9 by IcebergCatalog
+                Types.TimestampNanoType timestampNanoType = (Types.TimestampNanoType) icebergType;
+                if (timestampNanoType.shouldAdjustToUTC()) {
+                    return LocalTimeType.OFFSET_DATE_TIME_TYPE;
+                }
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case UNKNOWN:
+                // format version 3: an unknown column only ever holds null
+                return BasicType.VOID_TYPE;
             case STRING:
                 return BasicType.STRING_TYPE;
             case FIXED:
@@ -77,6 +98,8 @@ public class IcebergTypeMapper {
             case MAP:
                 return mappingMapType(field, (Types.MapType) icebergType);
             default:
+                // includes the format version 3 types variant, geometry and geography, which have
+                // no SeaTunnel counterpart yet
                 throw CommonError.convertToSeaTunnelTypeError(
                         "Iceberg", icebergType.toString(), field);
         }
@@ -123,10 +146,32 @@ public class IcebergTypeMapper {
     }
 
     public static Type toIcebergType(Column column, AtomicInteger nextId) {
+        return toIcebergType(column, nextId, DEFAULT_FORMAT_VERSION);
+    }
+
+    /**
+     * Converts a column for a table created with the given format version. Timestamp columns with
+     * nanosecond precision (scale 9) become {@code timestamp_ns} / {@code timestamptz_ns} on format
+     * version 3. Other scales and older format versions keep the microsecond timestamp types, whose
+     * values are not limited to the years 1677 to 2262.
+     */
+    public static Type toIcebergType(Column column, AtomicInteger nextId, int formatVersion) {
         if (column.getSinkType() != null) {
             return Types.fromPrimitiveString(column.getSinkType());
         }
+        if (formatVersion >= NANOSECOND_TIMESTAMP_FORMAT_VERSION && isNanosecondTimestamp(column)) {
+            return column.getDataType().getSqlType() == SqlType.TIMESTAMP_TZ
+                    ? Types.TimestampNanoType.withZone()
+                    : Types.TimestampNanoType.withoutZone();
+        }
         return toIcebergType(column.getDataType(), nextId);
+    }
+
+    private static boolean isNanosecondTimestamp(Column column) {
+        SqlType sqlType = column.getDataType().getSqlType();
+        return (sqlType == SqlType.TIMESTAMP || sqlType == SqlType.TIMESTAMP_TZ)
+                && column.getScale() != null
+                && column.getScale() >= NANOSECOND_SCALE;
     }
 
     public static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
