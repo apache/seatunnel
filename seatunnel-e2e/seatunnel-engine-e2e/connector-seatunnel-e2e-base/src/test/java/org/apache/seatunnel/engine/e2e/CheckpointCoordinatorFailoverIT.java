@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
@@ -30,8 +31,12 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.DirtyJobEvaluationStatus;
+import org.apache.seatunnel.engine.common.job.DirtyJobState;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
@@ -78,6 +83,9 @@ public class CheckpointCoordinatorFailoverIT {
 
     private static final String TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF =
             "stream_fake_to_localfile_checkpoint_trigger_dispatch_failure_template.conf";
+
+    private static final String DIRTY_RECOVERY_TEMPLATE_CONF =
+            "stream_fake_to_localfile_dirty_recovery_template.conf";
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -777,6 +785,256 @@ public class CheckpointCoordinatorFailoverIT {
             if (node != null) {
                 node.shutdown();
             }
+        }
+    }
+
+    /**
+     * Verifies enabled recovery evidence across real worker and master loss beside a default job.
+     *
+     * <p>A malformed restored job must not block either healthy job, and replay after master
+     * failover must not count the already confirmed worker-loss deployment twice.
+     */
+    @Test
+    public void testDirtyRecoverySurvivesMasterFailoverAndMalformedJob() throws Exception {
+        String testCase = "testDirtyRecoverySurvivesMasterFailoverAndMalformedJob";
+        SeaTunnelConfig config = dirtyRecoveryConfig(testCase);
+        HazelcastInstanceImpl master1 = null;
+        HazelcastInstanceImpl master2 = null;
+        HazelcastInstanceImpl worker1 = null;
+        HazelcastInstanceImpl worker2 = null;
+        SeaTunnelClient client = null;
+        try {
+            master1 = SeaTunnelServerStarter.createMasterHazelcastInstance(config);
+            master2 =
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(
+                            dirtyRecoveryConfig(testCase));
+            worker1 =
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(
+                            dirtyRecoveryConfig(testCase));
+            HazelcastInstanceImpl cluster = master1;
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, cluster.getCluster().getMembers().size()));
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testCase));
+            client = new SeaTunnelClient(clientConfig);
+            ImmutablePair<String, String> enabledResources =
+                    createTestResources(testCase + "_enabled", DIRTY_RECOVERY_TEMPLATE_CONF);
+            ImmutablePair<String, String> defaultResources =
+                    createTestResources(testCase + "_default", DIRTY_RECOVERY_TEMPLATE_CONF);
+            JobConfig enabledConfig = new JobConfig();
+            enabledConfig.setName(testCase + "_enabled");
+            enabledConfig
+                    .getEnvOptions()
+                    .put(EnvCommonOptions.DIRTY_JOB_RESTORE_THRESHOLD.key(), 1);
+            JobConfig defaultConfig = new JobConfig();
+            defaultConfig.setName(testCase + "_default");
+            ClientJobProxy enabled =
+                    client.createExecutionContext(
+                                    enabledResources.getRight(), enabledConfig, config)
+                            .execute();
+            ClientJobProxy defaultJob =
+                    client.createExecutionContext(
+                                    defaultResources.getRight(), defaultConfig, config)
+                            .execute();
+            awaitCommittedRecoveryRows(enabled, enabledResources.getLeft(), 0);
+            awaitCommittedRecoveryRows(defaultJob, defaultResources.getLeft(), 0);
+            IMap<Long, DirtyJobState> states = master1.getMap(Constant.IMAP_DIRTY_JOB_STATE);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                DirtyJobState state = states.get(enabled.getJobId());
+                                Assertions.assertNotNull(state);
+                                Assertions.assertEquals(0, state.getRecoveryAttemptCount());
+                                Assertions.assertFalse(state.isDirty());
+                                Assertions.assertNull(states.get(defaultJob.getJobId()));
+                            });
+
+            // Both jobs initially have no alternative worker. A new worker supplies recovery
+            // capacity before an abrupt member loss, avoiding a resource-wait-only outcome.
+            worker2 =
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(
+                            dirtyRecoveryConfig(testCase));
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            4, cluster.getCluster().getMembers().size()));
+            long enabledBeforeLoss = FileUtils.getFileLineNumberFromDir(enabledResources.getLeft());
+            long defaultBeforeLoss = FileUtils.getFileLineNumberFromDir(defaultResources.getLeft());
+            worker1.getLifecycleService().terminate();
+            worker1 = null;
+            awaitCommittedRecoveryRows(enabled, enabledResources.getLeft(), enabledBeforeLoss);
+            awaitCommittedRecoveryRows(defaultJob, defaultResources.getLeft(), defaultBeforeLoss);
+            awaitSingleDirtyRecovery(states, enabled.getJobId(), defaultJob.getJobId());
+
+            HazelcastInstanceImpl firstMaster = master1;
+            HazelcastInstanceImpl secondMaster = master2;
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isDirtyRecoveryCoordinatorActive(firstMaster)
+                                                    || isDirtyRecoveryCoordinatorActive(
+                                                            secondMaster)));
+            HazelcastInstanceImpl active =
+                    isDirtyRecoveryCoordinatorActive(master1) ? master1 : master2;
+            HazelcastInstanceImpl survivor = active == master1 ? master2 : master1;
+            // Exercise the same persisted metadata restoration used for healthy jobs. This one
+            // deliberately cannot deserialize as JobImmutableInformation after the master switch.
+            long malformedJobId = Long.MAX_VALUE - 11783;
+            IMap<Long, JobInfo> jobInfos = active.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            IMap<Object, Object> jobStatuses = active.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            jobInfos.put(
+                    malformedJobId,
+                    new JobInfo(
+                            System.currentTimeMillis(),
+                            active.getSerializationService().toData("invalid immutable metadata")));
+            jobStatuses.put(malformedJobId, JobStatus.RUNNING);
+            long enabledBeforeMasterLoss =
+                    FileUtils.getFileLineNumberFromDir(enabledResources.getLeft());
+            long defaultBeforeMasterLoss =
+                    FileUtils.getFileLineNumberFromDir(defaultResources.getLeft());
+            active.shutdown();
+            if (active == master1) {
+                master1 = null;
+            } else {
+                master2 = null;
+            }
+            Awaitility.await()
+                    .atMost(1, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isDirtyRecoveryCoordinatorActive(survivor)));
+            awaitCommittedRecoveryRows(
+                    enabled, enabledResources.getLeft(), enabledBeforeMasterLoss);
+            awaitCommittedRecoveryRows(
+                    defaultJob, defaultResources.getLeft(), defaultBeforeMasterLoss);
+            IMap<Long, DirtyJobState> restoredStates =
+                    survivor.getMap(Constant.IMAP_DIRTY_JOB_STATE);
+            awaitSingleDirtyRecovery(restoredStates, enabled.getJobId(), defaultJob.getJobId());
+            SeaTunnelServer restoredServer =
+                    survivor.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            Assertions.assertFalse(
+                    restoredServer
+                            .getCoordinatorService()
+                            .getPendingJobQueue()
+                            .contains(enabled.getJobId()));
+            Assertions.assertFalse(
+                    restoredServer
+                            .getCoordinatorService()
+                            .getPendingJobQueue()
+                            .contains(defaultJob.getJobId()));
+            Assertions.assertNotNull(getJobMaster(survivor, enabled.getJobId()));
+            Assertions.assertNotNull(getJobMaster(survivor, defaultJob.getJobId()));
+            Assertions.assertNull(getJobMaster(survivor, malformedJobId));
+            enabled.cancelJob();
+            defaultJob.cancelJob();
+            Awaitility.await()
+                    .atMost(1, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(JobStatus.CANCELED, enabled.getJobStatus());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, defaultJob.getJobStatus());
+                            });
+        } finally {
+            if (client != null) {
+                client.close();
+            }
+            if (worker1 != null) {
+                worker1.getLifecycleService().terminate();
+            }
+            if (worker2 != null) {
+                worker2.getLifecycleService().terminate();
+            }
+            if (master1 != null) {
+                master1.getLifecycleService().terminate();
+            }
+            if (master2 != null) {
+                master2.getLifecycleService().terminate();
+            }
+        }
+    }
+
+    /**
+     * Gives both jobs fixed worker capacity while keeping masters free of execution slots.
+     *
+     * <p>Each node receives its own mutable configuration and disables the unrelated HTTP server.
+     */
+    private static SeaTunnelConfig dirtyRecoveryConfig(String clusterName) {
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName(clusterName));
+        config.getEngineConfig().getHttpConfig().setEnabled(false);
+        config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        config.getEngineConfig().getSlotServiceConfig().setSlotNum(8);
+        return config;
+    }
+
+    /**
+     * Observes committed output after each fault rather than accepting a transient RUNNING state.
+     *
+     * <p>The transactional sink publishes files only when a checkpoint successfully commits.
+     */
+    private static void awaitCommittedRecoveryRows(
+            ClientJobProxy job, String path, long previousRows) {
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(JobStatus.RUNNING, job.getJobStatus());
+                            Assertions.assertTrue(
+                                    FileUtils.getFileLineNumberFromDir(path) > previousRows);
+                        });
+    }
+
+    /**
+     * Requires one confirmed worker-loss generation and no tracking state for default-off jobs.
+     *
+     * <p>The same assertion runs before and after master restoration to detect duplicate counting.
+     */
+    private static void awaitSingleDirtyRecovery(
+            IMap<Long, DirtyJobState> states, long enabledId, long defaultId) {
+        Awaitility.await()
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            DirtyJobState state = states.get(enabledId);
+                            Assertions.assertNotNull(state);
+                            Assertions.assertEquals(1, state.getRecoveryAttemptCount());
+                            Assertions.assertTrue(state.isDirty());
+                            Assertions.assertEquals(
+                                    DirtyJobEvaluationStatus.DIRTY, state.getEvaluationStatus());
+                            Assertions.assertNull(states.get(defaultId));
+                        });
+    }
+
+    /**
+     * Reads public coordinator ownership after the embedded server has completed initialization.
+     *
+     * <p>Polling waits for service registration before consulting active-master state.
+     */
+    private static boolean isDirtyRecoveryCoordinatorActive(HazelcastInstanceImpl node) {
+        if (node == null || !node.getLifecycleService().isRunning()) {
+            return false;
+        }
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        try {
+            return server != null
+                    && server.isMasterNode()
+                    && server.getCoordinatorService().isCoordinatorActive();
+        } catch (SeaTunnelEngineException initializing) {
+            // Ownership can change between the public role check and coordinator lookup.
+            return false;
         }
     }
 

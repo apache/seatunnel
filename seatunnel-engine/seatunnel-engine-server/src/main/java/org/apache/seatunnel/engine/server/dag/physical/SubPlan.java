@@ -46,7 +46,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -102,6 +101,9 @@ public class SubPlan {
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
     private AtomicInteger pipelineRestoreNum;
+
+    // Stable attempt identity retained across PREPARED and DEPLOYING transitions.
+    private String dirtyJobRecoveryAttemptId;
 
     private final Object restoreLock = new Object();
 
@@ -443,6 +445,9 @@ public class SubPlan {
                             exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                             Constant.OPERATION_RETRY_SLEEP));
             this.currPipelineStatus = targetState;
+            if (targetState == PipelineStatus.DEPLOYING) {
+                jobMaster.confirmDirtyJobRecoveryAttempt(pipelineId, dirtyJobRecoveryAttemptId);
+            }
             log.info(
                     String.format(
                             "%s turned from state %s to %s.",
@@ -560,6 +565,7 @@ public class SubPlan {
         synchronized (restoreLock) {
             try {
                 pipelineRestoreNum.getAndIncrement();
+                dirtyJobRecoveryAttemptId = jobMaster.prepareDirtyJobRecoveryAttempt(pipelineId);
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -647,32 +653,26 @@ public class SubPlan {
                             task.restoreExecutionState();
                         });
 
+        PipelineStatus restoredPipelineState = getPipelineState();
+        boolean allTasksRunning = areAllTasksRunning();
+        boolean recovered = restoredPipelineState == PipelineStatus.RUNNING && allTasksRunning;
+        dirtyJobRecoveryAttemptId =
+                jobMaster.reconcileDirtyJobRecoveryPipeline(
+                        pipelineId,
+                        restoredPipelineState == PipelineStatus.DEPLOYING
+                                || restoredPipelineState == PipelineStatus.RUNNING,
+                        recovered);
+        if (recovered) {
+            dirtyJobRecoveryAttemptId = null;
+        }
+
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             updatePipelineState(PipelineStatus.CANCELING);
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            AtomicBoolean allTaskRunning = new AtomicBoolean(true);
-            getCoordinatorVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
-            getPhysicalVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(), allTasksRunning);
         }
         startSubPlanStateProcess();
     }
@@ -787,7 +787,13 @@ public class SubPlan {
                                 task.makeTaskGroupDeploy();
                             }
                         });
+                boolean recovered = areAllTasksRunning();
                 updatePipelineState(PipelineStatus.RUNNING);
+                if (recovered) {
+                    jobMaster.completeDirtyJobRecoveryPipeline(
+                            pipelineId, dirtyJobRecoveryAttemptId);
+                    dirtyJobRecoveryAttemptId = null;
+                }
                 break;
             case RUNNING:
                 break;
@@ -833,5 +839,12 @@ public class SubPlan {
     public void makePipelineFailing(Throwable e) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
         updatePipelineState(PipelineStatus.FAILING);
+    }
+
+    private boolean areAllTasksRunning() {
+        return coordinatorVertexList.stream()
+                        .allMatch(task -> task.getExecutionState() == ExecutionState.RUNNING)
+                && physicalVertexList.stream()
+                        .allMatch(task -> task.getExecutionState() == ExecutionState.RUNNING);
     }
 }

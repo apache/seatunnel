@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
+import com.hazelcast.config.MapConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
@@ -64,6 +66,8 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
+        configureDirtyJobMaps(seaTunnelConfig);
+
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 
@@ -88,6 +92,34 @@ public class SeaTunnelServerStarter {
         }
 
         return original;
+    }
+
+    /**
+     * Installs synchronous dirty-tracking backups before Hazelcast creates any distributed maps. At
+     * least one synchronous backup is required for member-loss evidence to survive failover.
+     */
+    static void configureDirtyJobMaps(SeaTunnelConfig seaTunnelConfig) {
+        int backupCount = Math.max(1, seaTunnelConfig.getEngineConfig().getBackupCount());
+        configureDirtyJobMap(seaTunnelConfig, Constant.IMAP_DIRTY_JOB_STATE, backupCount);
+        configureDirtyJobMap(
+                seaTunnelConfig, Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE, backupCount);
+        configureDirtyJobMap(
+                seaTunnelConfig, Constant.IMAP_DIRTY_JOB_PENDING_MEMBER_EVENTS, backupCount);
+        configureDirtyJobMap(
+                seaTunnelConfig, Constant.IMAP_DIRTY_JOB_ENABLED_THRESHOLDS, backupCount);
+    }
+
+    private static void configureDirtyJobMap(
+            SeaTunnelConfig seaTunnelConfig, String mapName, int backupCount) {
+        MapConfig mapConfig = seaTunnelConfig.getHazelcastConfig().getMapConfigs().get(mapName);
+        if (mapConfig == null) {
+            mapConfig = new MapConfig(mapName).setBackupCount(backupCount).setAsyncBackupCount(0);
+            seaTunnelConfig.getHazelcastConfig().addMapConfig(mapConfig);
+            return;
+        }
+        if (mapConfig.getBackupCount() != backupCount || mapConfig.getAsyncBackupCount() != 0) {
+            mapConfig.setBackupCount(backupCount).setAsyncBackupCount(0);
+        }
     }
 
     public static HazelcastInstanceImpl createMasterAndWorkerHazelcastInstance(

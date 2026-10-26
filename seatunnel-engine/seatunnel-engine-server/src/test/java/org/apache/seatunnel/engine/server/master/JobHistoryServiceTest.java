@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.common.job.DirtyJobEvaluationStatus;
+import org.apache.seatunnel.engine.common.job.DirtyJobSummary;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -34,9 +39,12 @@ import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -48,6 +56,33 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
     private static final Long JOB_2 = System.currentTimeMillis() + 2L;
     private static final Long JOB_3 = System.currentTimeMillis() + 3L;
+
+    @Test
+    void legacyCliListSchemaRemainsReadableWithTrackingEnabledOrDisabled() throws Exception {
+        ObjectMapper legacyMapper = new ObjectMapper();
+        Set<String> legacyFields =
+                new HashSet<>(
+                        Arrays.asList(
+                                "jobId",
+                                "jobName",
+                                "jobStatus",
+                                "submitTime",
+                                "startTime",
+                                "finishTime"));
+        for (DirtyJobSummary summary :
+                Arrays.asList(null, new DirtyJobSummary(true, DirtyJobEvaluationStatus.DIRTY, 1))) {
+            JobStatusData status =
+                    new JobStatusData(
+                            1L, "legacy-client", JobStatus.RUNNING, 10L, 20L, null, summary);
+            JsonNode wire = legacyMapper.readTree(legacyMapper.writeValueAsString(status));
+            Set<String> actualFields = new HashSet<>();
+            wire.fieldNames().forEachRemaining(actualFields::add);
+            // The released 3.0.0 CLI uses strict Jackson mapping and knows exactly these fields.
+            Assertions.assertEquals(legacyFields, actualFields);
+            Assertions.assertEquals("RUNNING", wire.get("jobStatus").asText());
+            Assertions.assertEquals(1L, wire.get("jobId").asLong());
+        }
+    }
 
     @Test
     public void testlistJobState() throws Exception {

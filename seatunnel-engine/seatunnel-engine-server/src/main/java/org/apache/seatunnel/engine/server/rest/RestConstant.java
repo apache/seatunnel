@@ -58,6 +58,7 @@ public class RestConstant {
 
     public static final String METRICS = "metrics";
 
+    public static final String DIRTY_TASK = "dirtyTask";
     public static final String DIAGNOSTICS = "diagnostics";
 
     public static final String LIMIT = "limit";

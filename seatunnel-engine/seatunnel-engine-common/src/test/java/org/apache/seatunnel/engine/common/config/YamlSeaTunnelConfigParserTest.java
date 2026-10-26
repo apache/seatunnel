@@ -29,6 +29,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
+import java.time.Duration;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
 
@@ -47,6 +48,10 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertNotNull(config);
 
         Assertions.assertEquals(1, config.getEngineConfig().getBackupCount());
+
+        Assertions.assertEquals(12, config.getEngineConfig().getDirtyJobEventHistorySize());
+        Assertions.assertEquals(
+                Duration.ofMinutes(5), config.getEngineConfig().getDirtyJobPendingIncidentTtl());
 
         Assertions.assertEquals(2, config.getEngineConfig().getPrintExecutionInfoInterval());
 

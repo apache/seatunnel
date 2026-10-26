@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.job;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -35,4 +37,16 @@ public final class JobStatusData implements Serializable {
     private long submitTime;
     private Long startTime;
     private Long finishTime;
+    // Legacy CLI readers reject unknown JSON fields; REST projects this state explicitly.
+    @JsonIgnore private DirtyJobSummary dirtyTask;
+
+    public JobStatusData(
+            Long jobId,
+            String jobName,
+            JobStatus jobStatus,
+            long submitTime,
+            Long startTime,
+            Long finishTime) {
+        this(jobId, jobName, jobStatus, submitTime, startTime, finishTime, null);
+    }
 }

@@ -59,6 +59,17 @@ public class Constant {
 
     public static final String IMAP_PENDING_JOB_CLEANUP = "engine_pendingJobCleanup";
 
+    public static final String IMAP_DIRTY_JOB_STATE = "engine_jobDirtyState";
+
+    public static final String IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE =
+            "engine_jobDirtyMemberEventSequence";
+
+    public static final String IMAP_DIRTY_JOB_PENDING_MEMBER_EVENTS =
+            "engine_jobDirtyPendingMemberEvents";
+
+    public static final String IMAP_DIRTY_JOB_ENABLED_THRESHOLDS =
+            "engine_jobDirtyEnabledThresholds";
+
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
     /**

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
 
+import java.time.Duration;
 import java.util.Map;
 
 /** Declares the server-side configuration keys that are exposed through `seatunnel.yaml`. */
@@ -143,6 +144,8 @@ public class ServerConfigOptions {
     /** The options for master. */
     public static class MasterServerConfigOptions {
 
+        public static final String DIRTY_JOB_CONFIG = "dirty-task";
+
         public static final Option<Integer> PRINT_EXECUTION_INFO_INTERVAL =
                 Options.key("print-execution-info-interval")
                         .intType()
@@ -188,6 +191,20 @@ public class ServerConfigOptions {
                         .withDescription(
                                 "How long to retain terminal job/pipeline/task state in distributed maps before removing it. "
                                         + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
+
+        public static final Option<Integer> DIRTY_JOB_EVENT_HISTORY_SIZE =
+                Options.key("event-history-size")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum number of completed member-loss recovery episodes retained per job.");
+
+        public static final Option<Duration> DIRTY_JOB_PENDING_INCIDENT_TTL =
+                Options.key("pending-incident-ttl")
+                        .durationType()
+                        .defaultValue(Duration.ofMinutes(10))
+                        .withDescription(
+                                "The maximum lifetime of an incomplete member-loss recovery episode.");
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 
