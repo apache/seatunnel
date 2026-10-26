@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Iceberg 版本支持
 
-- 1.6.1
+- 1.10.2，支持写入表格式版本（format version）1、2 和 3 的表
 
 ## 引擎支持
 
@@ -53,12 +53,17 @@ libfb303-xxx.jar
 | DATE           | DATE             |
 | TIME           | TIME             |
 | TIMESTAMP      | TIMESTAMP        |
+| TIMESTAMP_TZ   | TIMESTAMPTZ      |
 | STRING         | STRING           |
 | BYTES          | FIXED<br/>BINARY |
 | DECIMAL        | DECIMAL          |
 | ROW            | STRUCT           |
 | ARRAY          | LIST             |
 | MAP            | MAP              |
+
+当 Sink 以 `format-version = 3` 创建表时，纳秒精度（列精度 scale 为 9，例如 Iceberg Source 读取的 `timestamp_ns` 列）的 `TIMESTAMP` 和 `TIMESTAMP_TZ` 列会被创建为 `TIMESTAMP_NS` 和 `TIMESTAMPTZ_NS`。这两种类型只能表示 1677 年到 2262 年之间的值，超出范围的值会导致写入失败。其他精度、嵌套字段、通过 schema evolution 新增的列以及格式版本 1 和 2 的表仍使用微秒精度的时间戳。在 Spark 引擎上，行数据中的 `TIMESTAMP` 为微秒精度、`TIMESTAMP_TZ` 为毫秒精度，多余的精度在到达 Sink 之前就已被截断。
+
+写入已存在的格式版本 3 表时，同样支持 `TIMESTAMP_NS` 和 `TIMESTAMPTZ_NS` 列。`UNKNOWN` 列只接受 null 值。暂不支持 `VARIANT` 列：写入的数据中不能包含该列，且仅适用于 Parquet 数据文件。暂不支持写入包含 `GEOMETRY` 或 `GEOGRAPHY` 列的表。
 
 ## Sink 选项
 
@@ -87,6 +92,18 @@ libfb303-xxx.jar
 | kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
 
 ## Sink 选项说明
+
+### iceberg.table.auto-create-props [map]
+
+Sink 自动建表时使用的表属性。通过 `format-version` 选择 Iceberg 表格式版本，支持 `1`、`2` 和 `3`；未设置时 Iceberg 创建格式版本 2 的表。其他取值会在建表前使作业失败。该属性只作用于 Sink 新建的表：已存在的表保持原有格式版本，如需升级请使用 Iceberg 引擎执行，例如在 Spark 中执行 `ALTER TABLE ... SET TBLPROPERTIES ('format-version' = '3')`。
+
+```hocon
+iceberg.table.auto-create-props = {
+  "format-version" = "3"
+}
+```
+
+格式版本 3 的表支持追加写入。Upsert 和 CDC 写入会在写入任何数据前以错误 `ICEBERG-04` 拒绝，因为 Sink 写出的是 position delete 文件，而格式版本 3 要求使用 deletion vector。这包括配置了 `iceberg.table.primary-keys` 或 `iceberg.table.upsert-mode-enabled`、写入带有 identifier fields 的已有表，以及为带主键的源表创建格式版本 3 的表（源表主键会成为 identifier fields）。Upsert 和 CDC 场景请使用格式版本 2 的表。
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 
