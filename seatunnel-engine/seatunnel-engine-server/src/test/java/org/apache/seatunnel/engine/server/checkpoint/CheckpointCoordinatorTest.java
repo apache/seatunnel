@@ -1232,7 +1232,14 @@ public class CheckpointCoordinatorTest
                             .startingSubtasks(Collections.singleton(taskLocation))
                             .build();
             CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
-            Mockito.doThrow(new CheckpointStorageException("listing failed"))
+            AtomicInteger deleteAttempts = new AtomicInteger();
+            Mockito.doAnswer(
+                            invocation -> {
+                                if (deleteAttempts.getAndIncrement() == 0) {
+                                    throw new CheckpointStorageException("delete failed");
+                                }
+                                throw new IllegalStateException("unexpected delete failure");
+                            })
                     .when(storage)
                     .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
             @SuppressWarnings("unchecked")
@@ -1264,21 +1271,33 @@ public class CheckpointCoordinatorTest
                     new ArrayList<>(completedCheckpointIds(spy)),
                     "failed deletes must leave the ids on the deque");
 
+            Assertions.assertDoesNotThrow(
+                    () -> spy.completePendingCheckpoint(completedCheckpoint(5)),
+                    "unchecked retention delete failure must not fail the checkpoint");
+            Assertions.assertEquals(
+                    2,
+                    deleteAttempts.get(),
+                    "both reported delete failures must reach the cleanup path");
+            Assertions.assertEquals(
+                    Arrays.asList("1", "2", "3", "4", "5"),
+                    new ArrayList<>(completedCheckpointIds(spy)),
+                    "unchecked delete failures must also leave the ids on the deque");
+
             Mockito.doNothing()
                     .when(storage)
                     .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
-            spy.completePendingCheckpoint(completedCheckpoint(5));
+            spy.completePendingCheckpoint(completedCheckpoint(6));
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<String>> deleted = ArgumentCaptor.forClass(List.class);
             Mockito.verify(storage, Mockito.atLeastOnce())
                     .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), deleted.capture());
             List<String> retried = deleted.getAllValues().get(deleted.getAllValues().size() - 1);
             Assertions.assertEquals(
-                    Arrays.asList("1", "2"),
+                    Arrays.asList("1", "2", "3"),
                     retried,
-                    "the next completion must retry the ids the failed delete put back");
+                    "the next completion must retry the ids the failed deletes put back");
             Assertions.assertEquals(
-                    Arrays.asList("3", "4", "5"), new ArrayList<>(completedCheckpointIds(spy)));
+                    Arrays.asList("4", "5", "6"), new ArrayList<>(completedCheckpointIds(spy)));
         } finally {
             executorService.shutdownNow();
         }

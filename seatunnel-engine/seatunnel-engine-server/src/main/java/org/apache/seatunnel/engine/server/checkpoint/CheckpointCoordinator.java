@@ -25,7 +25,6 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -1440,12 +1439,13 @@ public class CheckpointCoordinator {
      * Drop the oldest completed ids once this coordinator's deque exceeds {@code max-retained}.
      *
      * <p>The bound is per coordinator lifetime. A new instance (restore or master switch) starts
-     * with an empty deque and does not reclaim files left by the previous one. A storage delete
-     * failure puts the ids back and retries on the next completion. It does not fail the checkpoint
-     * that was just stored.
+     * with an empty deque and does not reclaim files left by the previous one. A reported storage
+     * delete failure puts the ids back and retries on the next completion. It does not fail the
+     * checkpoint that was just stored.
      */
     private void pruneExcessCompletedCheckpoints(CompletedCheckpoint completedCheckpoint) {
         int maxRetained = coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+        // Skip cleanup when retention is disabled or the queue is within the configured bound.
         if (maxRetained <= 0 || completedCheckpointIds.size() <= maxRetained) {
             return;
         }
@@ -1458,7 +1458,8 @@ public class CheckpointCoordinator {
                     String.valueOf(completedCheckpoint.getJobId()),
                     String.valueOf(completedCheckpoint.getPipelineId()),
                     needDeleteCheckpointId);
-        } catch (CheckpointStorageException e) {
+        } catch (Exception e) {
+            // Retention cleanup is best-effort and must not fail a completed checkpoint.
             for (int i = needDeleteCheckpointId.size() - 1; i >= 0; i--) {
                 completedCheckpointIds.addFirst(needDeleteCheckpointId.get(i));
             }
