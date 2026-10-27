@@ -178,6 +178,28 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /** Verifies source and sink reject trimmed-key collisions after environment substitution. */
+    @TestTemplate
+    public void testAdlsFileRejectsDuplicateTrimmedProperties(TestContainer container)
+            throws Exception {
+        List<String> variables =
+                Arrays.asList(
+                        "ADLS_TEST_AUTHORITY=https://login.example.test",
+                        "ADLS_TEST_DUPLICATE_RETRY_COUNT=9");
+        for (String job :
+                Arrays.asList(
+                        "/adls/adls_invalid_authority_source.conf",
+                        "/adls/adls_invalid_authority_sink.conf")) {
+            Container.ExecResult result = container.executeJob(job, variables);
+            String output = result.getStdout() + "\n" + result.getStderr();
+            Assertions.assertNotEquals(0, result.getExitCode(), job + ": " + output);
+            Assertions.assertTrue(
+                    output.contains("'hadoop_adls_properties' contains duplicate key after trimming"),
+                    job + " must fail in ADLSFile duplicate-key validation: " + output);
+            Assertions.assertTrue(output.contains("fs.azure.io.retry.max.retries"));
+        }
+    }
+
     private void startAzuriteTest() throws Exception {
         DockerImageName image = DockerImageName.parse(AZURITE_IMAGE);
         azurite =

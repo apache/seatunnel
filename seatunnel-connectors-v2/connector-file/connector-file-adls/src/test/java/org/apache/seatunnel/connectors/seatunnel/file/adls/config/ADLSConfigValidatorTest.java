@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -82,6 +83,33 @@ class ADLSConfigValidatorTest {
             Assertions.assertTrue(error.getMessage().contains("hadoop_adls_properties"));
             Assertions.assertTrue(error.getMessage().contains("blank keys"));
             Assertions.assertFalse(error.getMessage().contains("sentinel-sensitive-value"));
+        }
+    }
+
+    @Test
+    void rejectsDuplicateTrimmedAdvancedPropertyKeys() {
+        String key = "fs.azure.io.retry.max.retries";
+        String paddedKey = " \t" + key + " \n";
+        for (String secondValue : new String[] {"sentinel-first", "sentinel-second"}) {
+            for (boolean reverseOrder : new boolean[] {false, true}) {
+                Map<String, Object> values = sharedKeyConfig();
+                Map<String, String> advanced = new LinkedHashMap<>();
+                advanced.put(reverseOrder ? paddedKey : key, "sentinel-first");
+                advanced.put(reverseOrder ? key : paddedKey, secondValue);
+                values.put("hadoop_adls_properties", advanced);
+
+                FileConnectorException error =
+                        Assertions.assertThrows(
+                                FileConnectorException.class,
+                                () ->
+                                        ADLSHadoopConf.buildWithReadOnlyConfig(
+                                                ReadonlyConfig.fromMap(values)));
+                Assertions.assertTrue(error.getMessage().contains("hadoop_adls_properties"));
+                Assertions.assertTrue(error.getMessage().contains("duplicate key after trimming"));
+                Assertions.assertTrue(error.getMessage().contains(key));
+                Assertions.assertFalse(error.getMessage().contains("sentinel-first"));
+                Assertions.assertFalse(error.getMessage().contains("sentinel-second"));
+            }
         }
     }
 

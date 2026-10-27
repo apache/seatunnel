@@ -23,8 +23,10 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -95,13 +97,21 @@ final class ADLSConfigValidator {
     }
 
     private static void validateAdvancedProperties(Map<String, String> properties) {
+        Set<String> trimmedKeys = new HashSet<>();
         properties.forEach(
                 (key, value) -> {
                     if (key == null || key.trim().isEmpty() || value == null) {
                         throw validationFailure(
                                 "'hadoop_adls_properties' cannot contain blank keys or null values");
                     }
-                    String normalized = key.trim().toLowerCase(Locale.ROOT);
+                    String trimmedKey = key.trim();
+                    if (!trimmedKeys.add(trimmedKey)) {
+                        throw validationFailure(
+                                "'hadoop_adls_properties' contains duplicate key after trimming: '"
+                                        + trimmedKey
+                                        + "'");
+                    }
+                    String normalized = trimmedKey.toLowerCase(Locale.ROOT);
                     // Block selected routing, credential, and provider keys by exact key or prefix.
                     // This denylist is not exhaustive; other Hadoop settings can load classes or
                     // select credential/token providers, so this map requires trusted operators.

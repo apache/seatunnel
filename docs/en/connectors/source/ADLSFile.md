@@ -119,6 +119,11 @@ destination host. OAuth sends `client_id` and `client_secret` to the token endpo
 origin. Only trusted operators should set this option, using the Microsoft Entra authority for
 their Azure cloud. Do not accept it from untrusted job input.
 
+Keys in `hadoop_adls_properties` must be unique after trimming leading and trailing whitespace.
+For example, `"k"` and `" k "` cause a validation error, even if their values are identical.
+To resolve the error, keep one entry per trimmed key. Key case is preserved, so keys that differ
+only in case remain distinct.
+
 Leading and trailing whitespace is trimmed from each `hadoop_adls_properties` key and value
 before it is passed to Hadoop. Keys that are empty after trimming are rejected. Key spelling
 and case are otherwise preserved; denylist matching is case-insensitive.
