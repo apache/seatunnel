@@ -92,11 +92,11 @@ Optional JMS selector expression for broker-side filtering. Only messages matchi
 
 ### receive_timeout [int]
 
-Timeout in milliseconds for `consumer.receive()` on the first poll of each batch. Smaller values improve checkpoint responsiveness but increase CPU usage when the queue is idle. This timeout runs inside the reader's checkpoint lock; values close to the checkpoint interval may delay barrier handling and checkpoint completion. Maximum allowed value is 30000. Defaults to 200.
+Timeout in milliseconds for `consumer.receive()` on the first poll of each batch. Smaller values improve checkpoint responsiveness but increase CPU usage when the queue is idle. This timeout holds the reader's monitor — the same lock that guards `snapshotState` and the checkpoint complete/abort callbacks — so values close to the checkpoint interval may delay checkpoint barrier handling and completion. Maximum allowed value is 30000. Defaults to 200.
 
 ### client_id [string]
 
-Sets the JMS clientID for the connection. Some broker authentication and audit policies require a non-empty clientID; it is also required for durable subscriptions (not applicable to queue sources). The source appends the reader's subtask index to the configured value (e.g., `my-client` becomes `my-client-0` for the first reader, `my-client-1` for the second) so parallel readers do not collide. When omitted, each reader uses a broker-generated connection ID.
+Sets the JMS clientID for the connection. Some broker authentication and audit policies require a non-empty clientID; it is also required for durable subscriptions (not applicable to queue sources). The source appends the reader's subtask index to the configured value (e.g., `my-client` becomes `my-client-0` for the first reader, `my-client-1` for the second) so parallel readers do not collide. When omitted, each reader uses a broker-generated connection ID. Because the JMS clientID is fixed for a connection's lifetime, a restart may fail with `javax.jms.InvalidClientIDException` if the broker has not yet released the previous connection's ID. If that happens, either omit `client_id` (let the broker generate one) or wait for the broker's connection-timeout before restarting.
 
 ### close_timeout [int]
 

@@ -81,7 +81,7 @@ public class ActivemqSource
     @Override
     public SourceReader<SeaTunnelRow, Split> createReader(SourceReader.Context context) {
         getBoundedness();
-        int subtaskIndex = context == null ? 0 : context.getIndexOfSubtask();
+        int subtaskIndex = context.getIndexOfSubtask();
         return new ActivemqSourceReader(config, deserializer, subtaskIndex);
     }
 

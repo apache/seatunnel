@@ -92,11 +92,11 @@ limitations under the License.
 
 ### receive_timeout [int]
 
-`consumer.receive()` 在每批首次轮询时的超时时间（毫秒）。值越小检查点响应越快，但队列空闲时 CPU 占用越高。此超时在 reader 的 checkpoint 锁内执行；接近 checkpoint 间隔的值可能延迟 barrier 处理和 checkpoint 完成。最大允许值为 30000。默认为 200。
+`consumer.receive()` 在每批首次轮询时的超时时间（毫秒）。值越小检查点响应越快，但队列空闲时 CPU 占用越高。此超时持有 reader 的 monitor（即守护 `snapshotState` 与 checkpoint 完成/中止回调的同一把锁），因此接近 checkpoint 间隔的值可能延迟 checkpoint barrier 处理与完成。最大允许值为 30000。默认为 200。
 
 ### client_id [string]
 
-设置连接的 JMS 客户端 ID。某些代理认证和审计策略要求设置非空 clientID；持久订阅也要求设置（不适用于队列源）。source 会在配置值后追加 reader 的 subtask 索引（例如 `my-client` 在第一个 reader 变为 `my-client-0`，第二个变为 `my-client-1`），使并行 reader 不会冲突。不设置时每个 reader 使用代理生成的连接 ID。
+设置连接的 JMS 客户端 ID。某些代理认证和审计策略要求设置非空 clientID；持久订阅也要求设置（不适用于队列源）。source 会在配置值后追加 reader 的 subtask 索引（例如 `my-client` 在第一个 reader 变为 `my-client-0`，第二个变为 `my-client-1`），使并行 reader 不会冲突。不设置时每个 reader 使用代理生成的连接 ID。由于 JMS clientID 在连接生命周期内固定，若代理尚未释放前一连接的 ID，重启可能抛出 `javax.jms.InvalidClientIDException`。遇到此情况可省略 `client_id`（由代理生成），或在重启前等待代理的连接超时。
 
 ### close_timeout [int]
 
