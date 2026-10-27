@@ -269,6 +269,32 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   values and previously ran successfully will now fail fast at startup with a validation
   error.
 
+### SQL Numeric Predicate Precision
+
+- **Behavior change: exact numeric operands no longer compare through `double`**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform (`ZETA` and `INTERNAL`).
+  - **Description**: Comparisons and `IN`/`NOT IN` checks preserve precision when both
+    evaluated operands are integral or `DECIMAL`, including comparisons in searched
+    and simple `CASE` expressions. For example, `BIGINT` `9007199254740993` no longer
+    equals the integer literal `9007199254740992`.
+  - **Impact**: Filters can select different rows, and `CASE` expressions can choose
+    different branches. Comparisons involving `FLOAT` or `DOUBLE` retain their existing
+    behavior. Literals containing a decimal point still evaluate as `DOUBLE`. Unary minus
+    preserves `DECIMAL` precision for both `-decimal_col` and
+    `-CAST('...' AS DECIMAL(p, s))`. Each `IN` element independently selects the
+    exact or floating path, so mixing exact and floating operands can still match
+    distinct large values and does not guarantee transitive equality.
+  - **Migration Guide**: Review affected predicates and `CASE` expressions, and reconcile
+    previously written data that relied on rounded comparison results. For exact decimal
+    constants, use quoted strings with sufficient scale, such as
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
+    string/`DECIMAL` inputs use
+    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
+    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
+    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    for examples and limits. No configuration, output schema or state format changes are required.
+
 ### DataValidator Array Length
 
 The `LENGTH` rule now counts array elements rather than characters in the
