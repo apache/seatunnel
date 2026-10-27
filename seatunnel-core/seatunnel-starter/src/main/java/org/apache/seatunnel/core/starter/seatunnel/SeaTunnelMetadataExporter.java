@@ -34,10 +34,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SeaTunnelMetadataExporter {
     private static final String SHELL_NAME = "seatunnel-metadata-export.sh";
+    private static final int HELP_EXIT_CODE = 0;
 
     public static void main(String[] args) {
         MetadataExportCommandArgs commandArgs =
-                CommandLineUtils.parse(args, new MetadataExportCommandArgs(), SHELL_NAME, true);
+                CommandLineUtils.parse(
+                        args,
+                        new MetadataExportCommandArgs(),
+                        SHELL_NAME,
+                        true,
+                        ignored -> {},
+                        HELP_EXIT_CODE);
         SeaTunnel.run(commandArgs.buildCommand());
     }
 }

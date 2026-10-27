@@ -26,10 +26,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SeaTunnelConnector {
     private static final String SHELL_NAME = "seatunnel-connector.sh";
+    private static final int HELP_EXIT_CODE = 0;
 
     public static void main(String[] args) {
         ConnectorCheckCommandArgs clientCommandArgs =
-                CommandLineUtils.parse(args, new ConnectorCheckCommandArgs(), SHELL_NAME, true);
+                CommandLineUtils.parse(
+                        args,
+                        new ConnectorCheckCommandArgs(),
+                        SHELL_NAME,
+                        true,
+                        ignored -> {},
+                        HELP_EXIT_CODE);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 }

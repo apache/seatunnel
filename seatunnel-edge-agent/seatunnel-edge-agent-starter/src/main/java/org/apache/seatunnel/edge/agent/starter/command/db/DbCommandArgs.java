@@ -109,7 +109,7 @@ public class DbCommandArgs extends EdgeAgentCommandArgs {
         @Override
         public void execute() {
             EdgeAgentDbUsage.printUsage(System.out);
-            System.exit(EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+            System.exit(EdgeAgentStarterConstants.HELP_EXIT_CODE);
         }
     }
 }
