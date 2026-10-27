@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorErrorCode;
@@ -50,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
@@ -457,14 +459,26 @@ public class DatabendCatalog implements Catalog {
         }
     }
 
-    private SeaTunnelDataType<?> convertDatabendType(
+    /**
+     * Converts a Databend column type, as reported by the JDBC driver, to the matching SeaTunnel
+     * type. Package private so the mapping can be asserted directly in unit tests.
+     *
+     * @param typeName the Databend type name held in information_schema.columns.data_type
+     * @param sqlType the java.sql.Types code the driver derives from that name
+     * @param columnSize precision for a DECIMAL column
+     * @param decimalDigits scale for a DECIMAL column
+     * @return the SeaTunnel type for the column
+     */
+    static SeaTunnelDataType<?> convertDatabendType(
             String typeName, int sqlType, int columnSize, int decimalDigits) {
-        // This method should convert Databend data types to SeaTunnel data types
-        // This is a simplified version, you'll need to adjust based on Databend's actual type
-        // system
-        typeName = typeName.toUpperCase();
+        // information_schema.columns reports data_type lower cased and keeps the arguments of the
+        // parameterised types, so a DECIMAL(10, 2) column arrives here as "decimal(10, 2)". Match
+        // on the bare upper case name, and uppercase with Locale.ROOT: the default locale turns
+        // the i of int, bigint, timestamp and binary into a dotted capital I under tr-TR and
+        // az-AZ, and each of those columns would then miss its branch and fall through to STRING.
+        String databendType = normalizeTypeName(typeName);
 
-        switch (typeName) {
+        switch (databendType) {
             case "BOOLEAN":
                 return BasicType.BOOLEAN_TYPE;
             case "TINYINT":
@@ -499,11 +513,27 @@ public class DatabendCatalog implements Catalog {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "VARBINARY":
             case "BINARY":
-                return BasicType.BYTE_TYPE;
+                // A Databend BINARY column holds a byte string, so it maps to BYTES. BYTE_TYPE is
+                // a single java.lang.Byte (SqlType.TINYINT), which contradicts both the documented
+                // mapping and toDatabendTypeString, where SeaTunnel BYTES is written as VARBINARY.
+                return PrimitiveByteArrayType.INSTANCE;
             default:
                 log.warn("Unsupported Databend type: {}, fallback to STRING type", typeName);
                 return BasicType.STRING_TYPE;
         }
+    }
+
+    /**
+     * Reduces a Databend type name to the bare upper case name the type switch is keyed on,
+     * dropping any parameter list such as the precision and scale of a DECIMAL.
+     */
+    private static String normalizeTypeName(String typeName) {
+        String bareName = typeName.trim();
+        int parameterStart = bareName.indexOf('(');
+        if (parameterStart >= 0) {
+            bareName = bareName.substring(0, parameterStart).trim();
+        }
+        return bareName.toUpperCase(Locale.ROOT);
     }
 
     private Connection getConnection() throws SQLException {
