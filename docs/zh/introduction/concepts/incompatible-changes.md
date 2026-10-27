@@ -19,6 +19,13 @@
 
 同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
 
+### JDBC 达梦：NVARCHAR 和 NVARCHAR2 按声明长度上报
+
+- **模式变更：达梦 Catalog 现在按声明长度 n 上报 `NVARCHAR(n)` 和 `NVARCHAR2(n)`，不再使用字节长度**
+  - **描述**：`NVARCHAR(n)` 和 `NVARCHAR2(n)` 可容纳 n 个字符，但 Catalog 此前从 `ALL_TAB_COLUMNS.DATA_LENGTH` 读取长度，该字段是字节数：GB18030 库上是 2n，UTF-8 库上是 4n，与 `LENGTH_IN_CHAR` 的取值无关。因此 `NVARCHAR(10)` 会被上报为 `NVARCHAR(20)` 或 `NVARCHAR(40)`。现在长度取自 `SYS.SYSCOLUMNS.LENGTH$`，即声明长度。
+  - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
+  - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
