@@ -212,7 +212,7 @@ sql = """ select * from "table" """
  - `${varName:default}`，如果变量未传值，则使用默认值。
    - 默认值必须是**静态字面量**，不能包含任何未解析的占位符，引号内的占位符会作为字面量原样保留。
    - 相同 key 的占位符默认值必须一致：要么都没有默认值，要么所有默认值相同。
-   - 顶层的source/transform/sink节点和插件所在的节点不允许直接设置JSON默认值，如 `source=${db_source:{...}}` 或者`jdbc=${mysql_source:{...}}`。占位符应放入插件**内部配置项**，如`table_list=${mysql_tables:[{...},{...}]}`
+   - ***顶层的source/transform/sink节点和插件所在的节点不允许直接设置JSON默认值***，如 `source=${db_source:{...}}` 或者`jdbc=${mysql_source:{...}}`。占位符应放入插件**内部配置项**，如`table_list=${mysql_tables:[{...},{...}]}`
    - 带普通默认值的占位符需要写在双引号中，如 `username="${username:root}"`。
    - 如果默认值内容必须包含双引号（如JSON），需要写在三引号中，以JSON为例，如下：
 
@@ -344,7 +344,7 @@ sink {
 
   `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
 - 参数值的json内容中的占位符不会被解析，会作为内容的一部分原样保留。
-- 因为用户变量传参已经支持*List*与*Map*复杂类型，传参前最好详细阅读连接器或插件的配置项参数类型([connectors](../../../zh/connectors),[transforms](../../../zh/transforms))，严格按照相匹配类型的格式传参，避免类型转换带来**参数变形**的问题。
+- 因为用户变量传参已经支持*List*与*Map*复杂类型，传参前最好详细阅读连接器或插件的配置项参数类型([connectors](../../connectors),[transforms](../../transforms))，严格按照相匹配类型的格式传参，避免类型转换带来**参数变形**的问题。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。

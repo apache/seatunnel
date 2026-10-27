@@ -212,7 +212,7 @@ In a config file, we can define variables and replace them at runtime. However, 
 - `${varName:default}`: If the variable is not provided, the default value will be used.
   - Default values must be static literals, any unresolved placeholder contained is disallowed, placeholders inside quotes will be preserved as literal text.
   - Duplicate placeholder keys in the configuration file must have identical default values, either none of the occurrences has a default value, or all default values must be identical.
-  - ***Do not assign a JSON-formatted default value directly to a top-level `source` / `transform` / `sink` node or to a plugin node,such as `source=${db_source:[{...},{...}]}` or `jdbc=${mysql_source:{...}}`. Put the placeholder on an **option inside** the plugin instead, such as `table_list=${mysql_tables:[{...},{...}]}`.
+  - ***Do not assign a JSON-formatted default value directly to a top-level `source` / `transform` / `sink` node or to a plugin node***, such as `source=${db_source:[{...},{...}]}` or `jdbc=${mysql_source:{...}}`. Put the placeholder on an **option inside** the plugin instead, such as `table_list=${mysql_tables:[{...},{...}]}`.
   - Placeholder with a plain default value should be enclosed in double quotes, such as `username="${username:root}"`.
   - If default variable value must contain double quotes as content(like JSON), it needs to be wrapped in triple quotes, JSON example as follows:
 
@@ -341,7 +341,7 @@ sink {
   
   `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
 - Placeholders within the JSON content of parameter values will not be resolved or replaced; they will be preserved as-is as part of the content.
-- Since user variables now support complex types such as *List* and *Map*, it is highly recommended to carefully review the configuration parameter types for connectors or plugins ([connectors](../../../zh/connectors),[transforms](../../../zh/transforms)) before passing parameters. Please ensure that parameters are strictly formatted to match the corresponding types to avoid **parameter malformation** caused by type conversion.
+- Since user variables now support complex types such as *List* and *Map*, it is highly recommended to carefully review the configuration parameter types for connectors or plugins ([connectors](../../connectors),[transforms](../../transforms)) before passing parameters. Please ensure that parameters are strictly formatted to match the corresponding types to avoid **parameter malformation** caused by type conversion.
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
 - The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
