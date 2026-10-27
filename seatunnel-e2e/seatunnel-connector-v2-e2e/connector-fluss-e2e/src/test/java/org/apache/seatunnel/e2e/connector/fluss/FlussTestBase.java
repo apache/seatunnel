@@ -48,7 +48,6 @@ import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -248,12 +247,6 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
     }
 
     private void waitForBucketLeaders(TablePath tablePath) throws Exception {
-        waitForBucketLeaders(tablePath, () -> ConnectionFactory.createConnection(flussConfig()));
-    }
-
-    /** Retries bootstrap, table metadata and bucket readiness with a fresh client on each poll. */
-    static void waitForBucketLeaders(TablePath tablePath, Supplier<Connection> connectionFactory)
-            throws Exception {
         given().ignoreExceptions()
                 .await()
                 .atMost(30, TimeUnit.SECONDS)
@@ -262,7 +255,8 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
                         () -> {
                             // Bootstrap can disconnect too. Retry it with metadata discovery so a
                             // failed client or cached metadata from a dropped table is not reused.
-                            try (Connection connection = connectionFactory.get()) {
+                            try (Connection connection =
+                                    ConnectionFactory.createConnection(flussConfig())) {
                                 Admin admin = connection.getAdmin();
                                 TableInfo tableInfo =
                                         admin.getTableInfo(tablePath).get(10, TimeUnit.SECONDS);
