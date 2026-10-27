@@ -46,6 +46,12 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner;
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
 
+    /**
+     * Creates the classloader service of one node.
+     *
+     * @param cacheMode whether loaders with equal jar identities are shared across jobs
+     * @param nodeEngine owning node for local artifact checks, or null when no node is available
+     */
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
         this(cacheMode, nodeEngine, new ReleasedClassLoaderReferenceCleaner());
     }

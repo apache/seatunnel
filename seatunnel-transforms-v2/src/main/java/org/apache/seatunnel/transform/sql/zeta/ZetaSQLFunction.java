@@ -34,6 +34,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.CryptoFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.JsonFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
@@ -77,6 +78,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static java.util.UUID.randomUUID;
@@ -134,6 +136,9 @@ public class ZetaSQLFunction {
     // -------------------------crypto functions----------------------------
     public static final String AES_ENCRYPT = "AES_ENCRYPT";
     public static final String AES_DECRYPT = "AES_DECRYPT";
+
+    // -------------------------json functions----------------------------
+    public static final String GET_JSON_OBJECT = "GET_JSON_OBJECT";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -283,6 +288,21 @@ public class ZetaSQLFunction {
             SignedExpression signedExpression = (SignedExpression) expression;
             if (signedExpression.getSign() == '-') {
                 Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value == null) {
+                    return null;
+                }
+                if (value instanceof Byte) {
+                    return (byte) -((Byte) value);
+                }
+                if (value instanceof Short) {
+                    return (short) -((Short) value);
+                }
+                if (value instanceof Float) {
+                    return -((Float) value);
+                }
+                if (value instanceof BigDecimal) {
+                    return ((BigDecimal) value).negate();
+                }
                 if (value instanceof Integer) {
                     return -((Integer) value);
                 }
@@ -295,8 +315,8 @@ public class ZetaSQLFunction {
                 if (value instanceof Number) {
                     return -((Number) value).doubleValue();
                 }
-            } else {
-                return computeForValue(signedExpression, inputFields);
+            } else if (signedExpression.getSign() == '+') {
+                return computeForValue(signedExpression.getExpression(), inputFields);
             }
         }
         if (expression instanceof DoubleValue) {
@@ -462,7 +482,7 @@ public class ZetaSQLFunction {
     public Object executeFunctionExpr(
             String functionName, List<Object> args, Expression expression) {
         SeaTunnelDataType<?> targetType = zetaSQLType.getExpressionType(expression);
-        switch (functionName.toUpperCase()) {
+        switch (functionName.toUpperCase(Locale.ROOT)) {
             case ASCII:
                 return StringFunction.ascii(args);
             case BIT_LENGTH:
@@ -544,6 +564,8 @@ public class ZetaSQLFunction {
                 return CryptoFunction.aesEncrypt(args);
             case AES_DECRYPT:
                 return CryptoFunction.aesDecrypt(args);
+            case GET_JSON_OBJECT:
+                return JsonFunction.getJsonObject(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:
@@ -696,7 +718,7 @@ public class ZetaSQLFunction {
     }
 
     public Object executeTimeKeyExpr(String timeKeyExpr) {
-        switch (timeKeyExpr.toUpperCase()) {
+        switch (timeKeyExpr.toUpperCase(Locale.ROOT)) {
             case CURRENT_DATE:
             case CURRENT_DATE_P:
                 return DateTimeFunction.currentDate();
@@ -716,7 +738,7 @@ public class ZetaSQLFunction {
         String dataType = castExpression.getColDataType().getDataType();
         List<Object> args = new ArrayList<>(2);
         args.add(arg);
-        args.add(dataType.toUpperCase());
+        args.add(dataType.toUpperCase(Locale.ROOT));
         if (dataType.equalsIgnoreCase("DECIMAL")) {
             List<String> ps = castExpression.getColDataType().getArgumentsStringList();
             args.add(Integer.parseInt(ps.get(0)));

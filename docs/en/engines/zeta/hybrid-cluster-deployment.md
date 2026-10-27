@@ -93,6 +93,14 @@ The timeout for checkpoints. If the checkpoint cannot be completed within the ti
 
 The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
 
+**monitor-history-size**
+
+How many checkpoint history entries the monitor keeps per pipeline for the `/jobs/checkpoints/{jobId}` REST endpoint, between 1 and 4096, defaulting to 32. Values above 256 are accepted but log a warning at master startup, since the cost below is paid on every checkpoint event. Completed and failed checkpoints share the window.
+
+This is a count rather than a duration, so how much time it covers depends on each job's own `checkpoint.interval` while this option is cluster-wide: 32 entries cover about 2.5 hours at the default interval of 300000ms, but only about 5 minutes at an interval of 10000ms. Raise it if you run jobs with short intervals and want to compare a job against a longer stretch of its own past.
+
+The history is stored in the cluster-wide checkpoint overview map, and every checkpoint event rewrites that whole entry, so a larger window costs master CPU, network and backup traffic as well as heap. The value is read once at master startup, so changing it requires a restart.
+
 Example
 
 ```yaml
@@ -106,6 +114,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            monitor-history-size: 32
 
 ```
 
@@ -188,14 +197,16 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 **max-thread-num**
 
-The max job count can be executed at same time
+The maximum number of threads in the coordinator service executor (the `maximumPoolSize` of its thread pool). The default is `Integer.MAX_VALUE`.
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 Job Metrics Partition Count (This parameter is invalid on the Worker node)
@@ -353,14 +364,24 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
+To use OSS credentials from environment variables, remove `fs.oss.accessKeyId` and
+`fs.oss.accessKeySecret` and add:
+
+```yaml
+           fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+The provider reads `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET`, plus optional
+`OSS_SESSION_TOKEN`.
+
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
 The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
@@ -393,6 +414,11 @@ map:
          fs.s3a.secret.key: YOUR_SECRET_KEY
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
 ```
+
+For environment-variable credentials, remove `fs.s3a.access.key` and `fs.s3a.secret.key` and use
+`fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider`.
+The provider reads `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, plus optional
+`AWS_SESSION_TOKEN`.
 
 Notice: When using S3, make sure that the following jars are in the lib directory.
 
