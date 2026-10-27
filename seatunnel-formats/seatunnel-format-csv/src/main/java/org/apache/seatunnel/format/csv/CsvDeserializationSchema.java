@@ -113,6 +113,10 @@ public class CsvDeserializationSchema implements Serializable {
         }
     }
 
+    /**
+     * Restores the converted defaults, but rebuilds the transient, non-serializable formatter
+     * cache. File-data formats are learned again from incoming values after deserialization.
+     */
     private void readObject(ObjectInputStream input) throws IOException, ClassNotFoundException {
         input.defaultReadObject();
         fieldFormatterMap = new HashMap<>();
@@ -255,6 +259,10 @@ public class CsvDeserializationSchema implements Serializable {
         }
     }
 
+    /**
+     * Copies cached mutable defaults for each output row, including nested bytes, arrays, map keys
+     * and values, and row fields. Immutable scalar and temporal values can be shared.
+     */
     private Object copyDefaultValue(Object value) {
         if (value == null) {
             return null;
@@ -285,6 +293,12 @@ public class CsvDeserializationSchema implements Serializable {
         return value;
     }
 
+    /**
+     * Converts a configured literal once to its declared type. Collections, arrays, maps and rows
+     * are converted recursively; supported typed temporal and byte values avoid string conversion.
+     * Text literals use default parsing without reading or populating the file-data formatter
+     * cache. Conversion failures are reported by {@link #resolveDefaultValue} with column context.
+     */
     private Object convertDefaultValue(
             Object value, SeaTunnelDataType<?> fieldType, String fieldName) {
         if (value == null) {
