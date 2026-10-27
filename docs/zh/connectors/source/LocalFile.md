@@ -49,6 +49,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 :::
 
+## 检查点恢复
+
+对于 Zeta 批处理作业，恢复时会等待读取器注册后再分配未完成的文件分片，并跳过检查点中已经完成的文件。恢复期间，输入文件应保持不变，且仍可通过相同路径访问。最终写入语义仍取决于所选 Sink 及其检查点支持。
+
 ## 选项
 
 | 名称                         | 类型      | 是否必须 | 默认值                 |
@@ -322,6 +326,11 @@ PDF 特有的解析行为如下：
 `skip_header_row_number = 2`
 
 然后 SeaTunnel 将跳过源文件的前 2 行
+
+对于设置了 `enable_file_split = false` 的 CSV 文件，此参数跳过的是 CSV 解析之前的物理行。如果设置了
+`csv_use_header_line = true`，跳过这些行之后的第一条 CSV 记录将作为表头。
+`skip_header_row_number` 只应包含表头之前的说明行，不要将表头本身计入；
+如果表头之前没有说明行，请保持默认值 `0`。
 
 ### schema [config]
 
