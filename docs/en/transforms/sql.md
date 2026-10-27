@@ -47,19 +47,21 @@ and signed zero. Numeric literals containing a decimal point are evaluated as
 `DOUBLE`, not `DECIMAL`: comparing a `DECIMAL` column to
 `123456789012345678.98` can still match `123456789012345678.99`. Integer literals
 evaluated as integral values, such as `-9007199254740993`, use the exact path
-when the other operand is also exact. Unary minus applied to a `DECIMAL` expression currently produces a
-`DOUBLE`, so `-decimal_col` and `-CAST('...' AS DECIMAL(p, s))` do not retain
-exact decimal comparison semantics.
+when the other operand is also exact. Unary minus preserves `DECIMAL` precision,
+so both `-decimal_col` and `-CAST('...' AS DECIMAL(p, s))` retain exact decimal
+comparison semantics when the other operand is also exact.
 
 For an exact decimal constant, use a quoted string with sufficient scale, for
 example `amount = CAST('123456789012345678.99' AS DECIMAL(38, 2))`.
-For a negative constant, put the sign inside the string:
-`CAST('-123456789012345678.99' AS DECIMAL(38, 2))`.
+For a negative constant, either `CAST('-123456789012345678.99' AS DECIMAL(38, 2))`
+or `-CAST('123456789012345678.99' AS DECIMAL(38, 2))` preserves decimal precision.
 Existing CAST rounding is unchanged: converting a string or `DECIMAL` to
 `DECIMAL(p, s)` uses `CEILING` (toward positive infinity) if scale is reduced,
 so `CAST('1.231' AS DECIMAL(10, 2))` is `1.24` and
-`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.23`. Converting `FLOAT` or `DOUBLE`
-uses `HALF_UP`; casting a fractional numeric literal cannot recover precision
+`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.23`. Negating after CAST instead gives
+`-1.24` for `-CAST('1.239' AS DECIMAL(10, 2))`: reducing scale rounds before
+negation, so the two forms are not interchangeable in that case. Converting
+`FLOAT` or `DOUBLE` uses `HALF_UP`; casting a fractional numeric literal cannot recover precision
 already lost during its evaluation as `DOUBLE`.
 
 The exact-or-floating choice is made for each operand pair, including each
