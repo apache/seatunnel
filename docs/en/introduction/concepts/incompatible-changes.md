@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
+
+- **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
+  - **Description**: `ArrowToSeatunnelRowReader`, which the Doris and StarRocks sources read with, sends a MAP column to `MapConverter` and a ROW column to `StructConverter`. Neither checked the Arrow validity bit in the path that converts element types, so a null MAP cell was returned as an empty map and a null ROW cell ended the read with `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null`. Both now return `null`, the same as `ListConverter`, `LargeListConverter` and `FixedSizeListConverter`, which have guarded this since the Arrow reader was added.
+  - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
+  - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
@@ -33,6 +40,12 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### Native CLI help exit code
+
+`seatunnel.sh -h` now exits with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
 
 ### CDC: nullable columns are no longer used as the snapshot split column
 

@@ -154,10 +154,9 @@ sink {
 }
 ```
 
-### 通过 `kv` 格式将 CDC 记录写入 Aerospike
+### 使用 `kv` 格式将 CDC 记录写入 Aerospike
 
-对于流式作业（例如 MySQL CDC），可以使用 `data_format = "kv"` 将每个配置的字段作为独立的
-Aerospike bin 写入。这样每个字段单独存储，而不是打包进单个 JSON 或 map bin，下游查询成本更低。
+对于流式作业（例如 MySQL CDC），使用 `data_format = "kv"` 将每个配置的字段作为独立的 Aerospike bin 写入。这样每个字段单独存储，而不是打包进单个 JSON 或 map bin，可以让下游查询更高效。
 
 ```hocon
 env {

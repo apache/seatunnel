@@ -61,8 +61,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP                       | TIMESTAMP      |
 | TIMESTAMP_TZ                    | TIMESTAMP WITH TIME ZONE |
 | BYTES                           | BLOB           |
-
-> 复杂 SeaTunnel 类型（`ARRAY`、`ROW`、`MAP`）暂不支持写入 DuckDB。
+| ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
