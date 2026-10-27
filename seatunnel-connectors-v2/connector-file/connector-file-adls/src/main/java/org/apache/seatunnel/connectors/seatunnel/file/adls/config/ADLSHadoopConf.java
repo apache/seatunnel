@@ -66,7 +66,9 @@ public class ADLSHadoopConf extends HadoopConf {
         // even if validation is relaxed or bypassed by a future caller.
         config.getOptional(ADLSFileBaseOptions.HADOOP_PROPERTIES)
                 .ifPresent(
-                        values -> values.forEach((key, value) -> options.put(key, value.trim())));
+                        values ->
+                                values.forEach(
+                                        (key, value) -> options.put(key.trim(), value.trim())));
         ADLSHadoopConf result =
                 new ADLSHadoopConf(
                         ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));

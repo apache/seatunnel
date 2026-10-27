@@ -120,7 +120,8 @@ class ADLSHadoopConfTest {
         Map<String, Object> values = baseConfig();
         values.put("account_key", "secret-key");
         Map<String, String> advanced = new HashMap<>();
-        advanced.put("fs.azure.test.emulator", "true");
+        advanced.put("fs.azure.test.emulator", " true ");
+        advanced.put(" \tfs.azure.io.retry.max.retries ", " 8\n");
         values.put("hadoop_adls_properties", advanced);
 
         ADLSHadoopConf conf =
@@ -132,6 +133,9 @@ class ADLSHadoopConfTest {
         Assertions.assertEquals(
                 "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem", conf.getFsHdfsImpl());
         Assertions.assertEquals("true", conf.getExtraOptions().get("fs.azure.test.emulator"));
+        Assertions.assertEquals("8", conf.getExtraOptions().get("fs.azure.io.retry.max.retries"));
+        Assertions.assertFalse(
+                conf.getExtraOptions().containsKey(" \tfs.azure.io.retry.max.retries "));
         Assertions.assertEquals(
                 "secret-key",
                 conf.getExtraOptions()

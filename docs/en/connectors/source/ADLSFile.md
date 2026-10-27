@@ -119,8 +119,9 @@ destination host. OAuth sends `client_id` and `client_secret` to the token endpo
 origin. Only trusted operators should set this option, using the Microsoft Entra authority for
 their Azure cloud. Do not accept it from untrusted job input.
 
-Leading and trailing whitespace is trimmed from each `hadoop_adls_properties` value before it is
-passed to Hadoop.
+Leading and trailing whitespace is trimmed from each `hadoop_adls_properties` key and value
+before it is passed to Hadoop. Keys that are empty after trimming are rejected. Key spelling
+and case are otherwise preserved; denylist matching is case-insensitive.
 
 `hadoop_adls_properties` is for ABFS tuning. It rejects `fs.defaultFS` and keys beginning with
 `fs.abfs`, `fs.azure.account.auth.type`, `fs.azure.account.key`,

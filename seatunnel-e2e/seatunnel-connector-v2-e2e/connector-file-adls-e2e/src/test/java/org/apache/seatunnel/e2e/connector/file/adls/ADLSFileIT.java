@@ -49,6 +49,7 @@ import org.testcontainers.containers.GenericContainer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -124,8 +125,13 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         options.put("account_name", account);
         options.put("container", storageContainer);
         options.put("account_key", accountKey);
+        options.put(
+                "hadoop_adls_properties",
+                Collections.singletonMap(" fs.azure.io.retry.max.retries ", " 8 "));
         ADLSHadoopConf hadoopConf =
                 ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(options));
+        Assertions.assertEquals(
+                "8", hadoopConf.getExtraOptions().get("fs.azure.io.retry.max.retries"));
         Configuration configuration = new Configuration(false);
         configuration.set("fs.defaultFS", hadoopConf.getHdfsNameKey());
         configuration.set("fs." + hadoopConf.getSchema() + ".impl", hadoopConf.getFsHdfsImpl());

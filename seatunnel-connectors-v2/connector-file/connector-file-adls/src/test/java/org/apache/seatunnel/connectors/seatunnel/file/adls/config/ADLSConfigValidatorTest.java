@@ -66,6 +66,26 @@ class ADLSConfigValidatorTest {
     }
 
     @Test
+    void rejectsBlankAdvancedPropertyKeys() {
+        for (String key : new String[] {"", " \t\n"}) {
+            Map<String, Object> values = sharedKeyConfig();
+            Map<String, String> advanced = new HashMap<>();
+            advanced.put(key, "sentinel-sensitive-value");
+            values.put("hadoop_adls_properties", advanced);
+
+            FileConnectorException error =
+                    Assertions.assertThrows(
+                            FileConnectorException.class,
+                            () ->
+                                    ADLSHadoopConf.buildWithReadOnlyConfig(
+                                            ReadonlyConfig.fromMap(values)));
+            Assertions.assertTrue(error.getMessage().contains("hadoop_adls_properties"));
+            Assertions.assertTrue(error.getMessage().contains("blank keys"));
+            Assertions.assertFalse(error.getMessage().contains("sentinel-sensitive-value"));
+        }
+    }
+
+    @Test
     void rejectsCredentialAndClassLoadingAdvancedProperties() {
         String[] keys = {
             "fs.azure.sas.token.provider.type",
