@@ -20,16 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import lombok.Getter;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
 public class TempCollector implements Collector<SeaTunnelRow> {
 
     private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-    public List<SeaTunnelRow> getRows() {
-        return rows;
-    }
 
     @Override
     public void collect(SeaTunnelRow record) {

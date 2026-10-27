@@ -295,27 +295,50 @@ Tips: **Do not define partition fields in schema option**
 
 ### date_format [string]
 
-Date type format, used to tell connector how to convert string to date, supported as the following formats:
+Date type format, used to tell connector how to convert string to date.
 
-`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+When explicitly configured, only the specified format is used. Supported formats:
 
-default `yyyy-MM-dd`
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyy-M-d` `yyyy.M.d` `yyyy/M/d` `M/d/yyyy` `M-d-yyyy`
+
+When not configured, the system auto-detects the format from the following unambiguous candidates:
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd`
+
+> Note: `M/d/yyyy` and `M-d-yyyy` are ambiguous because the month/day order depends on the locale convention, so they are only honored when explicitly configured and are never auto-detected.
 
 ### datetime_format [string]
 
-Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:
+Datetime type format, used to tell connector how to convert string to datetime.
 
-`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+When explicitly configured, only the specified format is used. Supported formats:
 
-default `yyyy-MM-dd HH:mm:ss`
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss` `M/d/yyyy HH:mm:ss` `M-d-yyyy HH:mm:ss`
+
+When not configured, the system auto-detects the format from a wider set of year-first candidates, including:
+
+- Standard: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss`
+- Slash: `yyyy/MM/dd HH:mm:ss`
+- Dot: `yyyy.MM.dd HH:mm:ss`
+- Compact: `yyyyMMddHHmmss`
+- Single-digit month/day: `yyyy-M-d HH:mm`, `yyyy-M-d H:mm:ss`
+- Chinese: `yyyy年MM月dd日HH时mm分ss秒`
+- With milliseconds: `yyyy-MM-dd HH:mm:ss.SSS` (auto-detection also accepts 1–9 fractional digits)
+- With time zone: pattern `yyyy-MM-dd HH:mm:ssXXX` matches e.g. `2024-05-20 12:34:56+09:00` or `2024-05-20 12:34:56Z`. The offset is not preserved when parsed into a `TIMESTAMP` column; use a `TIMESTAMP_TZ` column to keep it.
+
+> `M/d/yyyy HH:mm:ss` and `M-d-yyyy HH:mm:ss` are ambiguous (the month/day order depends on locale), so they are only honored when explicitly configured and are never auto-detected.
 
 ### time_format [string]
 
-Time type format, used to tell connector how to convert string to time, supported as the following formats:
+Time type format, used to tell connector how to convert string to time.
+
+When explicitly configured, only the specified format is used. Supported formats:
 
 `HH:mm:ss` `HH:mm:ss.SSS`
 
-default `HH:mm:ss`
+When not configured, the system auto-detects the format from the following candidates:
+
+`HH:mm:ss` `HH:mm:ss.SSS` `H:mm:ss` `H:mm`
 
 ### skip_header_row_number [long]
 

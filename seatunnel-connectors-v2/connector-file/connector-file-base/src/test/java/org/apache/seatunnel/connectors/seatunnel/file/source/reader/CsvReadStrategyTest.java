@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -43,6 +44,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -282,9 +286,9 @@ public class CsvReadStrategyTest {
                                 new SeaTunnelDataType[] {
                                     BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
                                 })));
-        TestCollector testCollector = new TestCollector();
-        csvReadStrategy.read(path, "", testCollector);
-        final List<SeaTunnelRow> rows = testCollector.getRows();
+        TempCollector TempCollector = new TempCollector();
+        csvReadStrategy.read(path, "", TempCollector);
+        final List<SeaTunnelRow> rows = TempCollector.getRows();
         Assertions.assertEquals(4, rows.size());
         if (isWindows()) {
             Assertions.assertEquals("harry\r\n potter", rows.get(0).getField(1));
@@ -347,6 +351,42 @@ public class CsvReadStrategyTest {
         Assertions.assertEquals("jack", rows.get(1).getField(1));
         Assertions.assertEquals(18, rows.get(1).getField(2));
         Assertions.assertEquals("M", rows.get(1).getField(3));
+    }
+
+    @Test
+    public void testDatetimeStrAutoParse() throws Exception {
+        URL resource = CsvReadStrategyTest.class.getResource("/csv/datetime_format.csv");
+        String path = Paths.get(resource.toURI()).toString();
+        TempCollector TempCollector = new TempCollector();
+        try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            csvReadStrategy.init(localConf);
+            csvReadStrategy.getFileNamesByPath(path);
+            csvReadStrategy.setPluginConfig(
+                    ConfigFactory.parseMap(getOptionsForSpecialQuoteChar()));
+            csvReadStrategy.setCatalogTable(
+                    CatalogTableUtil.getCatalogTable(
+                            "test",
+                            new SeaTunnelRowType(
+                                    new String[] {"date", "datetime", "time"},
+                                    new SeaTunnelDataType[] {
+                                        LocalTimeType.LOCAL_DATE_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                    })));
+            csvReadStrategy.read(path, "", TempCollector);
+        }
+        final List<SeaTunnelRow> rows = TempCollector.getRows();
+        Assertions.assertEquals(10, rows.size());
+        for (SeaTunnelRow row : rows) {
+            LocalDate date = (LocalDate) row.getField(0);
+            LocalDateTime datetime = (LocalDateTime) row.getField(1);
+            LocalTime time = (LocalTime) row.getField(2);
+            Assertions.assertNotNull(date);
+            Assertions.assertNotNull(datetime);
+            Assertions.assertNotNull(time);
+        }
     }
 
     private boolean isWindows() {

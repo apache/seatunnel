@@ -289,6 +289,13 @@ public class CommonError {
         return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATE_ERROR, params);
     }
 
+    public static SeaTunnelRuntimeException formatTimeError(String time, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("time", time);
+        params.put("field", field);
+        return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_TIME_ERROR, params);
+    }
+
     public static SeaTunnelRuntimeException unsupportedMethod(
             String identifier, String methodName) {
         Map<String, String> params = new HashMap<>();

@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeParseHelper;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -60,16 +61,14 @@ import java.util.function.IntFunction;
  * Tool class used to convert from {@link JsonNode} to {@link
  * org.apache.seatunnel.api.table.type.SeaTunnelRow}. *
  */
-public class JsonToRowConverters implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    @SuppressWarnings("MagicNumber")
+public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
     public static final DateTimeFormatter TIME_FORMAT =
             new DateTimeFormatterBuilder()
                     .appendPattern("HH:mm:ss")
                     .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
                     .toFormatter();
+
+    private static final long serialVersionUID = 1L;
 
     public static final String FORMAT = "Common";
 
@@ -141,21 +140,22 @@ public class JsonToRowConverters implements Serializable {
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalDate(jsonNode, fieldName);
+                        return parseDate(jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIME:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalTime(jsonNode);
+                        return parseTime(jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIMESTAMP:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalDateTime(jsonNode, fieldName);
+                        return parseTimestamp(
+                                jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIMESTAMP_TZ:
@@ -288,9 +288,9 @@ public class JsonToRowConverters implements Serializable {
         return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
     }
 
-    private LocalTime convertToLocalTime(JsonNode jsonNode) {
-        TemporalAccessor parsedTime = TIME_FORMAT.parse(jsonNode.asText());
-        return parsedTime.query(TemporalQueries.localTime());
+    private LocalTime convertToLocalTime(JsonNode jsonNode, String fieldName) {
+        String fieldVal = jsonNode.asText();
+        return parseTime(fieldVal, fieldName, null, fieldFormatterMap);
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
@@ -545,7 +545,11 @@ public class JsonToRowConverters implements Serializable {
         Object convert(JsonNode jsonNode, String fieldName);
     }
 
-    /** Exception which refers to parse errors in converters. */
+    /**
+     * Reports invalid JSON container shapes before converting their elements.
+     *
+     * <p>This unchecked exception preserves the converter's existing ARRAY and MAP error contract.
+     */
     private static final class JsonParseException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 

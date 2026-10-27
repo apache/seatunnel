@@ -26,9 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.common.utils.DateTimeParseHelper;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -40,21 +38,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-public class DebeziumRowConverter implements Serializable {
+public class DebeziumRowConverter implements DateTimeParseHelper, Serializable {
     private static final String DECIMAL_SCALE_KEY = "scale";
     private static final String DECIMAL_VALUE_KEY = "value";
 
-    private final Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    private final Map<String, DateTimeFormatter> fieldFormatterMap =
+            new ConcurrentHashMap<String, DateTimeFormatter>() {};
     private final SeaTunnelRowType rowType;
     private final String[] rootFieldNames;
     private final SeaTunnelDataType<?>[] rootFieldTypes;
@@ -122,19 +119,7 @@ public class DebeziumRowConverter implements Serializable {
                 if (value.canConvertToLong()) {
                     return LocalDate.ofEpochDay(Long.parseLong(dateStr));
                 }
-                DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
-                if (dateFormatter == null) {
-                    dateFormatter = DateUtils.matchDateFormatter(dateStr);
-                    fieldFormatterMap.put(fieldName, dateFormatter);
-                }
-                if (dateFormatter == null) {
-                    throw new SeaTunnelJsonFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            String.format(
-                                    "SeaTunnel can not parse this date format [%s] of field [%s]",
-                                    dateStr, fieldName));
-                }
-                return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
+                return parseDate(dateStr, fieldName, null, fieldFormatterMap);
             case TIME:
                 String timeStr = value.asText();
                 if (value.canConvertToLong()) {
@@ -146,22 +131,7 @@ public class DebeziumRowConverter implements Serializable {
                     }
                     return LocalTime.ofNanoOfDay(time);
                 }
-
-                DateTimeFormatter timeFormatter = fieldFormatterMap.get(fieldName);
-                if (timeFormatter == null) {
-                    timeFormatter = DateUtils.matchDateFormatter(timeStr);
-                    fieldFormatterMap.put(fieldName, timeFormatter);
-                }
-                if (timeFormatter == null) {
-                    throw new SeaTunnelJsonFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            String.format(
-                                    "SeaTunnel can not parse this date format [%s] of field [%s]",
-                                    timeStr, fieldName));
-                }
-
-                TemporalAccessor parsedTime = timeFormatter.parse(timeStr);
-                return parsedTime.query(TemporalQueries.localTime());
+                return parseTime(timeStr, fieldName, null, fieldFormatterMap);
             case TIMESTAMP:
                 String timestampStr = value.asText();
                 if (value.canConvertToLong()) {
@@ -177,24 +147,7 @@ public class DebeziumRowConverter implements Serializable {
                     }
                     return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
                 }
-
-                DateTimeFormatter timestampFormatter = fieldFormatterMap.get(fieldName);
-                if (timestampFormatter == null) {
-                    timestampFormatter = DateUtils.matchDateFormatter(timestampStr);
-                    fieldFormatterMap.put(fieldName, timestampFormatter);
-                }
-                if (timestampFormatter == null) {
-                    throw new SeaTunnelJsonFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            String.format(
-                                    "SeaTunnel can not parse this date format [%s] of field [%s]",
-                                    timestampStr, fieldName));
-                }
-
-                TemporalAccessor parsedTimestamp = timestampFormatter.parse(timestampStr);
-                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
-                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
-                return LocalDateTime.of(localDate, localTime);
+                return parseTimestamp(timestampStr, fieldName, null, fieldFormatterMap);
             case ARRAY:
                 {
                     List<Object> arrayValue = new ArrayList<>(value.size());
@@ -209,7 +162,12 @@ public class DebeziumRowConverter implements Serializable {
                 SeaTunnelDataType<?> mapValueType = ((MapType) dataType).getValueType();
                 for (Iterator<Map.Entry<String, JsonNode>> it = value.fields(); it.hasNext(); ) {
                     Map.Entry<String, JsonNode> entry = it.next();
-                    mapValue.put(entry.getKey(), getValue(null, mapValueType, entry.getValue()));
+                    mapValue.put(
+                            entry.getKey(),
+                            getValue(
+                                    fieldName == null ? null : fieldName + ".value",
+                                    mapValueType,
+                                    entry.getValue()));
                 }
                 return mapValue;
             case ROW:

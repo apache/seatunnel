@@ -221,6 +221,15 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/text/temporal_auto.txt",
+                        "/seatunnel/read/temporal/temporal_auto.txt",
+                        container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/temporal_explicit.txt",
+                        "/seatunnel/read/temporal/temporal_explicit.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_time_format.txt",
                         "/seatunnel/read/text_time_format/e2e.txt",
                         container);
@@ -391,6 +400,26 @@ public class LocalFileIT extends TestSuiteBase {
         TestHelper helper = new TestHelper(container);
         helper.execute("/csv/csv_with_preamble_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
+    }
+
+    /**
+     * Verifies file-source inference across rows and preserves strict explicit-format failures.
+     *
+     * @param container the engine runtime used by the existing file-source integration suite
+     * @throws IOException if submitting a test job fails
+     * @throws InterruptedException if waiting for a test job is interrupted
+     */
+    @TestTemplate
+    public void testLocalFileTemporalFormats(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/local_temporal_auto_csv.conf");
+        helper.execute("/text/local_temporal_auto_text.conf");
+        helper.execute("/text/local_temporal_explicit.conf");
+        Container.ExecResult invalid =
+                container.executeJob("/text/local_temporal_strict_reject.conf");
+        Assertions.assertNotEquals(0, invalid.getExitCode());
+        Assertions.assertTrue((invalid.getStdout() + invalid.getStderr()).contains("COMMON-32"));
     }
 
     @TestTemplate

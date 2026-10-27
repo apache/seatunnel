@@ -34,6 +34,7 @@ header:
     - '**/*.md'
     - '**/*.mdx'
     - '**/*.json'
+    - 'seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/*.jsonl'
     - '**/*.iml'
     - '**/*.ini'
     - '**/*.svg'
