@@ -194,7 +194,8 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
             String output = result.getStdout() + "\n" + result.getStderr();
             Assertions.assertNotEquals(0, result.getExitCode(), job + ": " + output);
             Assertions.assertTrue(
-                    output.contains("'hadoop_adls_properties' contains duplicate key after trimming"),
+                    output.contains(
+                            "'hadoop_adls_properties' contains duplicate key after trimming"),
                     job + " must fail in ADLSFile duplicate-key validation: " + output);
             Assertions.assertTrue(output.contains("fs.azure.io.retry.max.retries"));
         }
