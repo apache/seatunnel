@@ -17,27 +17,32 @@ sidebar_position: 4
 
 | 名称           | 类型     | 是否需要 | 默认值 |
 |--------------|--------|------|-----|
-| plugin_input | string | 否    | -   |
+| plugin_input | list   | 否    | -   |
 | metadata_datasource_id | string | 否    | -   |
 
 ### metadata_datasource_id [string]
 
 用于从元数据中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
-### plugin_input [string]
+### plugin_input [list]
 
-当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`
+当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`。
 
-当指定了 `plugin_input` 时，当前插件正在处理该参数对应的数据集
+当指定了 `plugin_input` 时，当前插件处理该参数对应的数据集。该值可以是单个上游数据集名称（字符串），也可以是名称数组；配置多个名称时，Zeta 引擎会将这些上游数据集合并后写入当前 sink。
 
 ## Examples
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       plugin_output = "fake"
-      field_name = "name,age"
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
     }
 }
 
