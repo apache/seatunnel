@@ -420,6 +420,26 @@ public class SystemFunctionTest {
     }
 
     @Test
+    public void testCastOfNumericAndQuotedLiteralsViaSqlEngine() {
+        // A numeric literal with a decimal point is a DOUBLE source and a quoted literal is a
+        // STRING source, as the compatibility note says.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        String query =
+                "SELECT CAST(1.21 AS DECIMAL(10,1)) AS d1, CAST('1.21' AS DECIMAL(10,1)) AS d2,"
+                        + " CAST(1.15 AS DECIMAL(10,1)) AS d3, CAST('1.15' AS DECIMAL(10,1)) AS d4"
+                        + " FROM dual";
+
+        SeaTunnelRow row = runSql(query, rowType, 1);
+
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(0));
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(1));
+        Assertions.assertEquals(new BigDecimal("1.1"), row.getField(2));
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(3));
+    }
+
+    @Test
     public void testCoalesceAndIfNullRoundInferredDecimalLikeCast() {
         // COALESCE and IFNULL convert the result to the type of their first argument that is not
         // a NULL literal, through the same DECIMAL branch as CAST, so a dropped digit rounds half
