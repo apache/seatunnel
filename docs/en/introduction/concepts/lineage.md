@@ -78,6 +78,7 @@ each configured table is represented separately.
 | Doris | `mysql://<fe_host>:<query_port>` | `<database>.<table>` |
 | JDBC | `<scheme>://<host>:<port>` | `<database>.<table>` |
 
+For any connector handled by the JDBC extractor, `base-url` is a fallback for `url` when it contains a JDBC URL.
 MySQL-CDC sources resolve `url` (or its `base-url` fallback) and expand each fully qualified
 `table-names` entry into a dataset using the JDBC naming form. `database-names` filters the
 subscription and does not qualify or rewrite the listed table names.

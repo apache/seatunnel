@@ -185,12 +185,27 @@ class LineageDatasetFactoryTest {
         Map<String, Object> multi = new LinkedHashMap<>();
         multi.put("url", "jdbc:mysql://192.168.10.131:3306/ds72");
         multi.put("table_list", Arrays.asList(entry));
+        multi.put("table-names", Arrays.asList("ignored.other"));
 
         datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", multi);
 
         assertEquals(1, datasets.size());
         assertEquals("mysql://192.168.10.131:3306", datasets.get(0).namespace());
         assertEquals("ds72.customers", datasets.get(0).name());
+    }
+
+    @Test
+    void preservesThreePartCdcTableNames() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("base-url", "jdbc:sqlserver://db.example.com:1433");
+        options.put("table-names", Arrays.asList("seatunnel.dbo.orders"));
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("SqlServer-CDC", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("sqlserver://db.example.com:1433", datasets.get(0).namespace());
+        assertEquals("seatunnel.dbo.orders", datasets.get(0).name());
     }
 
     @Test

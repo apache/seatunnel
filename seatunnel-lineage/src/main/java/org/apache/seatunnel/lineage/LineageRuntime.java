@@ -35,12 +35,12 @@ public final class LineageRuntime {
     /**
      * Emits an event through the configured backend, or returns immediately when disabled.
      *
-     * <p>Never throws. A backend that cannot be resolved (an unknown {@code openlineage_transport},
-     * or a deployment missing the backend's jar/provider file) or one that violates its own
-     * no-throw contract only produces a WARNING log line here. Lineage delivery must not be able to
-     * change the outcome of the job it is describing, and that guarantee has to hold at this shared
-     * entry point rather than depend on every engine call site independently remembering to guard
-     * it.
+     * <p>Except for {@link VirtualMachineError}, a backend that cannot be resolved (an unknown
+     * {@code openlineage_transport}, or a deployment missing the backend's jar/provider file) or
+     * one that violates its own no-throw contract only produces a WARNING log line here. Lineage
+     * delivery must not be able to change the outcome of the job it is describing, and that
+     * guarantee has to hold at this shared entry point rather than depend on every engine call site
+     * independently remembering to guard it.
      */
     public static void emit(LineageConfig config, LineageEvent event) {
         if (!config.enabled()) {
@@ -48,6 +48,8 @@ public final class LineageRuntime {
         }
         try {
             LineageBackendLoader.load(config).emit(config, event);
+        } catch (VirtualMachineError e) {
+            throw e;
         } catch (Throwable e) {
             LOGGER.log(Level.WARNING, "Failed to emit a lineage event", e);
         }

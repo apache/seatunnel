@@ -32,6 +32,7 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -58,7 +59,12 @@ import java.util.stream.StreamSupport;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 class OpenLineageBackendTest {
 
@@ -125,6 +131,39 @@ class OpenLineageBackendTest {
     void disabledBackendDoesNotRequireEndpoint() throws Exception {
         LineageConfig config = LineageConfig.defaults();
         new OpenLineageBackend().emit(config, minimalEvent());
+    }
+
+    @Test
+    void propagatesVirtualMachineErrorsDuringRendering() {
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.ENABLED, true),
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        LineageEvent event = minimalEvent();
+        OutOfMemoryError error = new OutOfMemoryError("test");
+        try (MockedStatic<OpenLineageEventConverter> converter =
+                mockStatic(OpenLineageEventConverter.class)) {
+            converter.when(() -> OpenLineageEventConverter.toJson(event)).thenThrow(error);
+            assertSame(
+                    error,
+                    assertThrows(
+                            OutOfMemoryError.class,
+                            () -> new OpenLineageBackend().emit(config, event)));
+        }
+    }
+
+    @Test
+    void propagatesVirtualMachineErrorsDuringSend() {
+        LineageConfig config = mock(LineageConfig.class);
+        when(config.enabled()).thenReturn(true);
+        OutOfMemoryError error = new OutOfMemoryError("test");
+        when(config.retryTimes()).thenThrow(error);
+        assertSame(
+                error,
+                assertThrows(
+                        OutOfMemoryError.class,
+                        () -> new OpenLineageBackend().emit(config, minimalEvent())));
     }
 
     @Test
