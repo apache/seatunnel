@@ -56,7 +56,7 @@ public class ElasticsearchSinkOptions extends ElasticsearchBaseOptions {
                     .enumType(KeyEncoding.class)
                     .defaultValue(KeyEncoding.LEGACY)
                     .withDescription(
-                            "LEGACY preserves existing document IDs; LENGTH_PREFIXED avoids composite-key delimiter collisions.");
+                            "LEGACY preserves existing document IDs; LENGTH_PREFIXED encodes each composite key value as `<length>:<value>` to avoid delimiter collisions. LENGTH_PREFIXED ignores `key_delimiter` and leaves single-key IDs unchanged.");
 
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")

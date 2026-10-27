@@ -72,6 +72,47 @@ class KeyExtractorTest {
     }
 
     @Test
+    void lengthPrefixedIdsHandleThreeKeys() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"first", "second", "third"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                        });
+        Function<SeaTunnelRow, String> safe =
+                KeyExtractor.createKeyExtractor(
+                        rowType,
+                        new String[] {"first", "second", "third"},
+                        "_",
+                        KeyEncoding.LENGTH_PREFIXED);
+        Assertions.assertEquals(
+                "1:a1:b1:c", safe.apply(new SeaTunnelRow(new Object[] {"a", "b", "c"})));
+    }
+
+    @Test
+    void lengthPrefixedIdsHandleEmptyStringValues() {
+        Function<SeaTunnelRow, String> safe =
+                KeyExtractor.createKeyExtractor(
+                        ROW_TYPE,
+                        new String[] {"first", "second"},
+                        "_",
+                        KeyEncoding.LENGTH_PREFIXED);
+        Assertions.assertEquals("0:1:b", safe.apply(new SeaTunnelRow(new Object[] {"", "b"})));
+    }
+
+    @Test
+    void lengthPrefixedIdsHandleNonStringKeys() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        Function<SeaTunnelRow, String> safe =
+                KeyExtractor.createKeyExtractor(
+                        rowType, new String[] {"id", "name"}, "_", KeyEncoding.LENGTH_PREFIXED);
+        Assertions.assertEquals("1:11:2", safe.apply(new SeaTunnelRow(new Object[] {1, "2"})));
+    }
+
+    @Test
     void nullValuesFailConsistentlyInBothModes() {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {"1_1", null});
         Function<SeaTunnelRow, String> legacy =
