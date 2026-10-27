@@ -40,7 +40,7 @@ public class TestCopyIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
-    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    /** Table-only rules must chain in order while unmatched tables pass through unchanged. */
     @TestTemplate
     public void testCopyTableTransformOnly(TestContainer container)
             throws IOException, InterruptedException {
