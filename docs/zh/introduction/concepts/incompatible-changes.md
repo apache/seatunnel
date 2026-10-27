@@ -4,6 +4,13 @@
 
 ## dev
 
+### Doris 与 StarRocks Source：MAP 或 ROW 列为空值时不再读成空 Map 或导致作业失败
+
+- **行为变更：Arrow 流中为空的复杂类型单元格现在读为 `null`**
+  - **描述**：Doris 和 StarRocks Source 使用的 `ArrowToSeatunnelRowReader` 会把 MAP 列交给 `MapConverter`、ROW 列交给 `StructConverter`。这两个转换器在处理元素类型的分支中没有检查 Arrow 的有效性位，因此为空的 MAP 单元格被返回为空 Map，为空的 ROW 单元格则以 `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null` 结束整个读取。现在两者都返回 `null`，与自 Arrow Reader 引入起就有此判断的 `ListConverter`、`LargeListConverter` 和 `FixedSizeListConverter` 保持一致。
+  - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
+  - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
+
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
 - **行为变更：运行时计数器不再累计失败管道执行的数值**
@@ -32,6 +39,12 @@
   - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### 原生 CLI 帮助退出码
+
+`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
+依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
+对应包装脚本仍将帮助请求转换为退出码 `0`。
 
 ### CDC：可空列不再用作快照分片列
 

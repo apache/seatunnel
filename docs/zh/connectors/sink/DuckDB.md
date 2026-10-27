@@ -52,16 +52,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT                             | INTEGER        |
 | BIGINT                          | BIGINT         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)   | DECIMAL(x,y)   |
-| DECIMAL(x,y)（精度或标度超过 38）        | DECIMAL(min(x,38), min(y,38)) |
+| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,y)  |
 | FLOAT                           | FLOAT          |
 | DOUBLE                          | DOUBLE         |
 | STRING                          | VARCHAR        |
 | DATE                            | DATE           |
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
+| TIMESTAMP_TZ                    | TIMESTAMP WITH TIME ZONE |
 | BYTES                           | BLOB           |
-
-> DuckDB JDBC 方言不支持 SeaTunnel 的 `ARRAY`、`ROW`、`MAP` 类型，写入这些类型的列时会抛出类型转换错误。
+| ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
