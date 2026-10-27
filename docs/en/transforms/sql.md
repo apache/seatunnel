@@ -155,6 +155,12 @@ sink {
 }
 ```
 
+## Collection expressions
+
+ARRAY and MAP arguments may use unary `+`/`-` and parentheses. For example, `ARRAY(-1, +2, (3))` produces `[-1, 2, 3]`, and `MAP('negative', (-1))` produces a map with value `-1`.
+
+Signed collection expressions retain the numeric element type and propagate NULL operands. TINYINT arrays now use `ARRAY<TINYINT>` rather than the previous incorrect `ARRAY<STRING>` schema.
+
 ## Changelog
 
 - Support struct query

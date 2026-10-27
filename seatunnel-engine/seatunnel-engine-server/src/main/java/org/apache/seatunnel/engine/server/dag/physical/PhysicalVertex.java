@@ -322,7 +322,14 @@ public class PhysicalVertex {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
-        updateTaskState(ExecutionState.RUNNING);
+        return finishDeployment(state);
+    }
+
+    @VisibleForTesting
+    TaskDeployState finishDeployment(TaskDeployState state) {
+        if (state.isSuccess()) {
+            updateTaskState(ExecutionState.RUNNING);
+        }
         return state;
     }
 
@@ -406,9 +413,17 @@ public class PhysicalVertex {
         }
     }
 
+    /**
+     * Requests cancellation and publishes any terminal result received while state processing was
+     * stopped for pipeline restore.
+     */
     public synchronized void cancel() {
         if (!getExecutionState().isEndState()) {
             updateTaskState(ExecutionState.CANCELING);
+        } else if (!taskFuture.isDone()) {
+            // A late terminal callback may arrive before this vertex resumes. Its new completion
+            // future still needs to be resolved without changing the terminal state.
+            stateProcess();
         }
     }
 

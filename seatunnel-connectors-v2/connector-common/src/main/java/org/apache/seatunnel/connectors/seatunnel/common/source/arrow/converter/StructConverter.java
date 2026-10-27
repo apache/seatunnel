@@ -39,6 +39,9 @@ public class StructConverter implements Converter<StructVector> {
     @Override
     public Object convert(
             int rowIndex, StructVector fieldVector, Map<String, Function> genericsConverters) {
+        if (fieldVector.isNull(rowIndex)) {
+            return null;
+        }
         Map<String, ?> valueMap = fieldVector.getObject(rowIndex);
         return valueMap.entrySet().stream()
                 .collect(
