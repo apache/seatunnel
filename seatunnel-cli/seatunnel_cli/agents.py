@@ -1270,6 +1270,12 @@ class Orchestrator:
         self.on_stream = on_stream or (lambda *a: None)
         self.memory_store = memory_store
         self.pending_question: str | None = None
+        # The request that started the current exchange. A clarifying question
+        # splits one requirement across two turns, and only the planner reads
+        # the conversation history -- skill matching, slot filling and the
+        # enriched prompt are all built from the latest message alone. Without
+        # this the reply replaces the requirement instead of adding to it.
+        self._original_request: str | None = None
         self._connector_metadata_block: str = ""
 
     # ─── Context window management ───
@@ -1366,6 +1372,34 @@ class Orchestrator:
                 system = system + "\n\n" + block
         return system
 
+    def _effective_request(self, user_input: str) -> str:
+        """The requirement as it now stands, across a clarifying question.
+
+        With no question outstanding this is just the message, which also
+        becomes the requirement the next reply will be added to. While a
+        question is outstanding the reply is appended rather than substituted,
+        and stays appended across further rounds.
+
+        A message sent while a question is outstanding is treated as an answer
+        to it. There is no reliable way to tell an answer from an unrelated new
+        request, and merging is the safer default: the planner reads the whole
+        history regardless, so the alternative loses the requirement outright.
+        """
+        if not self.pending_question:
+            self._original_request = user_input
+            return user_input
+
+        if not self._original_request:
+            self._original_request = user_input
+            return user_input
+
+        self._original_request = (
+            f"{self._original_request}\n\n"
+            f"Additional details, in reply to a clarifying question:\n"
+            f"{user_input}"
+        )
+        return self._original_request
+
     def process_user_input(self, user_input: str) -> dict:
         """Process a user message and return result.
 
@@ -1382,14 +1416,24 @@ class Orchestrator:
             "content": [{"text": user_input}],
         })
 
+        # When this message answers a question we asked, the requirement lives
+        # in the earlier turn, so everything downstream has to see both. A
+        # reply like "use sensible defaults" carries no source, no sink and no
+        # table name, and on its own it produces an empty plan and an empty
+        # connector-metadata block.
+        effective_request = self._effective_request(user_input)
+
         # Phase 1: Planning
         self.on_status("thinking", "Analyzing your request...")
         plan_result = self._run_planner()
 
         if plan_result["type"] == "question":
+            self.pending_question = plan_result.get("content")
             return plan_result
 
         if plan_result["type"] == "chat":
+            self.pending_question = None
+            self._original_request = None
             self.conversation_history.append({
                 "role": "assistant",
                 "content": [{"text": plan_result["content"]}],
@@ -1402,16 +1446,18 @@ class Orchestrator:
         structured_plan = parse_structured_plan(plan_result["content"])
 
         # Trigger-based skill matching: uses plan + user input keywords
-        matched_skills = SkillRouter.match(structured_plan, user_input)
+        matched_skills = SkillRouter.match(structured_plan, effective_request)
         skill = SkillExecutor(structured_plan, matched_skills)
 
         # Fill slots (with pipeline expansion) and check for missing info
-        missing = skill.fill_and_check(user_input, self.memory_store, self.client)
+        missing = skill.fill_and_check(
+            effective_request, self.memory_store, self.client)
         if missing:
             question = (
                 "I need a few more details to generate the config:\n"
                 + "\n".join(f"- {m}" for m in missing)
             )
+            self.pending_question = question
             return {
                 "type": "question",
                 "content": question,
@@ -1422,7 +1468,7 @@ class Orchestrator:
         # Fetch metadata and build enriched prompt
         self._connector_metadata_block = skill.fetch_all_metadata(self.on_status)
         enriched_prompt = skill.build_enriched_prompt(
-            user_input, self.on_status, self.memory_store,
+            effective_request, self.on_status, self.memory_store,
         )
 
         # Phase 2: Config Generation (with enriched prompt from Skill)
@@ -1450,6 +1496,11 @@ class Orchestrator:
                 elif dryrun["valid"]:
                     dryrun_note = "\n\n**Dry-run:** PASSED"
 
+                # The requirement has been served, so the next message starts a
+                # new one rather than adding to this.
+                self.pending_question = None
+                self._original_request = None
+
                 # Add assistant message to history
                 self.conversation_history.append({
                     "role": "assistant",
@@ -1474,6 +1525,8 @@ class Orchestrator:
                 break
 
         # Return best effort after max rounds
+        self.pending_question = None
+        self._original_request = None
         self.conversation_history.append({
             "role": "assistant",
             "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
