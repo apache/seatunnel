@@ -48,6 +48,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -247,26 +248,34 @@ public abstract class FlussTestBase extends TestSuiteBase implements TestResourc
     }
 
     private void waitForBucketLeaders(TablePath tablePath) throws Exception {
-        // Use a new connection so no metadata cached for an earlier table at this path is used.
-        try (Connection connection = ConnectionFactory.createConnection(flussConfig())) {
-            Admin admin = connection.getAdmin();
-            TableInfo tableInfo = admin.getTableInfo(tablePath).get();
-            List<Integer> buckets =
-                    IntStream.range(0, tableInfo.getNumBuckets())
-                            .boxed()
-                            .collect(Collectors.toList());
-            // Listing offsets fails while a bucket has no leader.
-            given().ignoreExceptions()
-                    .await()
-                    .atMost(30, TimeUnit.SECONDS)
-                    .pollInterval(1, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    admin.listOffsets(
-                                                    tablePath, buckets, new OffsetSpec.LatestSpec())
-                                            .all()
-                                            .get(10, TimeUnit.SECONDS));
-        }
+        waitForBucketLeaders(tablePath, () -> ConnectionFactory.createConnection(flussConfig()));
+    }
+
+    /** Retries bootstrap, table metadata and bucket readiness with a fresh client on each poll. */
+    static void waitForBucketLeaders(TablePath tablePath, Supplier<Connection> connectionFactory)
+            throws Exception {
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // Bootstrap can disconnect too. Retry it with metadata discovery so a
+                            // failed client or cached metadata from a dropped table is not reused.
+                            try (Connection connection = connectionFactory.get()) {
+                                Admin admin = connection.getAdmin();
+                                TableInfo tableInfo =
+                                        admin.getTableInfo(tablePath).get(10, TimeUnit.SECONDS);
+                                List<Integer> buckets =
+                                        IntStream.range(0, tableInfo.getNumBuckets())
+                                                .boxed()
+                                                .collect(Collectors.toList());
+                                // Listing offsets fails while a bucket has no leader.
+                                admin.listOffsets(tablePath, buckets, new OffsetSpec.LatestSpec())
+                                        .all()
+                                        .get(10, TimeUnit.SECONDS);
+                            }
+                        });
     }
 
     protected static boolean checkPort(String host, int port, int timeoutMs) throws IOException {
