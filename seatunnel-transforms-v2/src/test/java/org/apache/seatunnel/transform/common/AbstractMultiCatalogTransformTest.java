@@ -161,7 +161,7 @@ class AbstractMultiCatalogTransformTest {
     }
 
     @Test
-    void chainedMapTransformComputesLegacySerialVersionUid() {
+    void chainedMapTransformUsesLegacySerialVersionUid() {
         Assertions.assertEquals(
                 8769738606872706499L,
                 ObjectStreamClass.lookup(ChainedMapTransform.class).getSerialVersionUID());

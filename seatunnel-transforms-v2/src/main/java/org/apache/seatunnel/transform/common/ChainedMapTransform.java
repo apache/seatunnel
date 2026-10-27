@@ -33,6 +33,8 @@ import java.util.Set;
 
 class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
+    private static final long serialVersionUID = 8769738606872706499L;
+
     private final List<SeaTunnelTransform<SeaTunnelRow>> transforms;
 
     /** Extra table paths of every rule, rebuilt only by {@link #refreshExtraTablePaths()}. */
@@ -44,6 +46,10 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
         refreshExtraTablePaths();
     }
 
+    /**
+     * Rebuilds {@code extraTablePaths}, which is derived from {@code transforms} and is therefore
+     * transient. Initialize the list before refreshing it because the refresh method clears it.
+     */
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         extraTablePaths = new ArrayList<>();
