@@ -10,7 +10,7 @@
 
 |   名称   |   类型   | 是否必须 | 默认值 |
 |--------|--------|------|-----|
-| fields | Object | yes  |     |
+| fields | Object | yes（或使用已弃用的 `src_field`+`dest_field` 组合） |     |
 | src_field | String | no  |     |
 | dest_field | String | no  |     |
 

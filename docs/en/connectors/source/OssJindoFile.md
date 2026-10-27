@@ -67,7 +67,7 @@ It only supports hadoop version **2.9.X+**.
 | endpoint                   | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
 | read_partitions | list | no | - |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter  | string  | no       | \001                        |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
 | date_format                | string  | no       | yyyy-MM-dd                  |
@@ -82,10 +82,13 @@ It only supports hadoop version **2.9.X+**.
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
 | file_filter_pattern        | string  | no       |                             |
+| filename_extension         | string  | no       | -                           |
 | compress_codec             | string  | no       | none                        |
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |
 | null_format                | string  | no       | -                           |
+| binary_chunk_size          | int     | no       | 1024                        |
+| binary_complete_file_mode  | boolean | no       | false                       |
 | common-options             |         | no       | -                           |
 | file_filter_modified_start | string  | no       | -                           | 
 | file_filter_modified_end   | string  | no       | -                           | 
@@ -201,7 +204,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI

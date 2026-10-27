@@ -24,10 +24,12 @@ RowKindExtractor 转换插件用于将 CDC（Change Data Capture）数据流改�
   RowKind: -D (DELETE)
   数据: id=1, name="test1", age=20
 
-输出（Append-Only 数据）：
+输出（Append-Only 数据，默认 `transform_type = SHORT`）：
   RowKind: +I (INSERT)
-  数据: id=1, name="test1", age=20, row_kind="DELETE"
+  数据: id=1, name="test1", age=20, row_kind="-D"
 ```
+
+若设置 `transform_type = FULL`，该字段保存完整名称：`row_kind="DELETE"`。
 
 **典型应用场景：**
 - 将 CDC 数据写入只支持 Append 的数据湖

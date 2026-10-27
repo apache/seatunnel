@@ -54,6 +54,7 @@ public class EasysearchSinkFactory implements TableSinkFactory {
                         EasysearchSinkOptions.PASSWORD,
                         EasysearchSinkOptions.PRIMARY_KEYS,
                         EasysearchSinkOptions.KEY_DELIMITER,
+                        EasysearchSinkOptions.KEY_ENCODING,
                         EasysearchSinkOptions.TLS_VERIFY_CERTIFICATE,
                         EasysearchSinkOptions.TLS_VERIFY_HOSTNAME,
                         EasysearchSinkOptions.TLS_KEY_STORE_PATH,

@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-socket.md';
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -26,7 +27,7 @@ Jackson's `MappingIterator`) rather than a line-oriented parser. Tools like `nc 
 concatenated bytes, so they are useful for a quick single-row check but cannot split records on their
 own.
 
-> For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
+> For example, if the data from upstream is [`age: 17, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
 ## Sink Options
 

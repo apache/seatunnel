@@ -8,6 +8,20 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 用于从 `Redis` 读取数据
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配置的凭据。客户端通过与正常作业
+运行相同的连接逻辑创建，因此 `user` 和 `auth` 会按运行时的方式进行验证：配置了 `user` 时发送
+`AUTH user auth`，仅配置了 `auth` 时发送 `AUTH auth`。`SINGLE` 模式下随后发送 `SELECT db_num` 和
+`PING`。`CLUSTER` 模式下会基于 `nodes` 初始化集群 slot 缓存（`CLUSTER SLOTS`），并从一个节点读取
+`INFO`。连接超时和 socket 超时沿用运行时的默认值（2 秒），无论成功或失败都会关闭所有客户端。校验不会
+读取、扫描、写入任何 key，不会设置过期时间或创建 key 空间，也不会修改任何 ACL 条目。正常作业运行保持不变。
+
+输出 schema 通过与正常运行相同的路径，从配置的 `schema` 或 `tables_configs` 中获取，不会读取任何
+Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `data_type` 或 `format` 相符，也不代表
+凭据具备读取这些 key 的权限。`CLUSTER` 模式下只要有一个节点响应即可通过校验，因此无法发现集群中
+部分节点不可达的情况。
+
 ## 支持引擎
 
 > Spark<br/>
@@ -43,6 +57,8 @@ import ChangeLog from '../changelog/connector-redis.md';
 | db_num         | int    | 否                  | 0     | Redis 数据库索引 |
 | mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
+| keys           | string | 未配置 `tables_configs` 时必须 | -     | 要扫描的 Redis key pattern，支持模糊匹配；用户需保证匹配到的 key 类型相同。与 `tables_configs` 互斥。 |
+| data_type      | string | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
 | tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
 
