@@ -442,9 +442,9 @@ spec:
 
 自定义插件不包含在基础 StatefulSet 中。需要额外插件时，请参考 [插件加载](configuration.md#插件加载)，通过自定义镜像、initContainer overlay、PersistentVolume 或对象存储单独管理插件。
 
-## 健康检查和优雅停止
+## 健康检查和停止
 
-Master 和 Worker 都建议添加以下容器片段。`startupProbe` 可以避免启动期误杀；`preStop` 会先调用 SeaTunnel 停止脚本，再等待 `SeaTunnelServer` 进程退出，配合 `terminationGracePeriodSeconds` 可以降低滚动更新和节点驱逐对运行任务的影响。
+Master 和 Worker 都建议添加以下探针。`startupProbe` 可以避免启动期误杀。
 
 ```yaml
 startupProbe:
@@ -466,6 +466,19 @@ livenessProbe:
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 3
+```
+
+删除 Pod 时，Kubernetes 向 PID 1 发送 SIGTERM，并在 `terminationGracePeriodSeconds` 后发送 SIGKILL。上面的 Master 和 Worker StatefulSet 已经包含干净退出所需的两项配置：
+
+- `command` 直接运行 `seatunnel-cluster.sh`，不通过 `/bin/sh -c` 包装。脚本会 `exec` 启动 JVM，使 JVM 成为 PID 1 并收到 SIGTERM。若 PID 1 是 `/bin/sh -c`，SIGTERM 会被忽略，Pod 要等到宽限期结束后才被强制终止。
+- `terminationGracePeriodSeconds` 让 JVM 在 SIGKILL 之前有时间执行关闭钩子。
+
+收到 SIGTERM 后，Hazelcast 会按 `hazelcast.shutdownhook.policy` 执行关闭钩子，节点停止其上运行的任务并在数秒内离开集群，这些任务从最近的 checkpoint 恢复。这是快速、干净地退出集群，而不是优雅地停止运行中的作业。`GRACEFUL` 只会让 Hazelcast 在成员离开前迁移分区数据；若使用 `GRACEFUL`，请确保 `hazelcast.graceful.shutdown.max.wait` 小于 `terminationGracePeriodSeconds`。
+
+:::tip 可选的 preStop
+只有当容器无法直接运行脚本时（例如 `command` 必须保留 `/bin/sh -c`）才需要 `preStop`。`stop-seatunnel-cluster.sh` 会直接向 `SeaTunnelServer` 进程发送 SIGTERM，随后钩子等待该进程退出：
+
+```yaml
 lifecycle:
   preStop:
     exec:
@@ -478,6 +491,7 @@ lifecycle:
             sleep 1
           done
 ```
+:::
 
 ## 应用配置
 
