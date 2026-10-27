@@ -166,6 +166,10 @@ public class PlaceholderUtils {
                 key = input.substring(keyStart, closePos).trim();
             }
 
+            if (isSystemPlaceholder.test(key)) {
+                continue;
+            }
+
             boolean hasDefault = (defaultValue != null);
 
             if (defaultConfigMap.containsKey(key)) {
