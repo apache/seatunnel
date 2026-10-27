@@ -182,6 +182,15 @@ public class CheckpointCoordinator {
 
     private final Object lock = new Object();
 
+    /**
+     * Orders the swap of {@link #checkpointCoordinatorFuture} in {@link
+     * #restoreCoordinator(boolean)} against the failure transition of a checkpoint expiry, so an
+     * expiry decided for one coordinator generation cannot fail the next one. It is not {@link
+     * #lock} because {@code startSavepoint} can hold that lock while it waits for the very
+     * checkpoint that is expiring.
+     */
+    private final Object generationLock = new Object();
+
     /** Flag marking the coordinator as shut down (not accepting any messages anymore). */
     private volatile boolean shutdown;
 
@@ -195,7 +204,7 @@ public class CheckpointCoordinator {
 
     private final ExecutorService executorService;
 
-    private CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
+    private volatile CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
 
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
@@ -359,18 +368,60 @@ public class CheckpointCoordinator {
      * saturated. A dropped expiry would leave the checkpoint pending with nothing left to fail it,
      * so a rejection falls back to running inline: that restores the coupling for this one
      * checkpoint, which is the lesser cost.
+     *
+     * @param expired the pending checkpoint the watchdog found not fully acknowledged
+     * @param owner the coordinator future that was current when {@code expired} was triggered
      */
-    private void expireCheckpoint() {
+    private void expireCheckpoint(
+            PendingCheckpoint expired, CompletableFuture<CheckpointCoordinatorState> owner) {
+        Runnable expiry = () -> failExpiredCheckpoint(expired, owner);
         try {
-            executorService.execute(
-                    () -> handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null));
+            executorService.execute(expiry);
         } catch (RejectedExecutionException e) {
             LOG.warn(
                     "Coordinator executor rejected the expiry of a checkpoint of pipeline {}, handling it on the checkpoint dispatch thread",
                     pipelineId,
                     e);
-            handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
+            expiry.run();
         }
+    }
+
+    /**
+     * Fails the coordinator generation that owned an expired checkpoint, if it still owns it.
+     *
+     * <p>The expiry runs some time after the watchdog decided it, and {@link
+     * #restoreCoordinator(boolean)} can reuse this coordinator in between: it replaces {@link
+     * #checkpointCoordinatorFuture} and then drops the old pending checkpoints. A stale expiry must
+     * not fail the restored generation, so the ownership check and the FAILED transition hold
+     * {@link #generationLock}, which the swap in {@code restoreCoordinator} also holds. The expiry
+     * therefore either fails the old generation before the swap or sees the new one and is dropped.
+     *
+     * <p>{@link CheckpointManager#handleCheckpointError(int, boolean)} runs after the lock is
+     * released, because it takes the pipeline's monitor, and a restoring pipeline holds that
+     * monitor while it calls {@code restoreCoordinator}.
+     */
+    private void failExpiredCheckpoint(
+            PendingCheckpoint expired, CompletableFuture<CheckpointCoordinatorState> owner) {
+        CheckpointCloseReason reason = CheckpointCloseReason.CHECKPOINT_EXPIRED;
+        synchronized (generationLock) {
+            if (owner != checkpointCoordinatorFuture
+                    || owner.isDone()
+                    || pendingCheckpoints.get(expired.getCheckpointId()) != expired) {
+                LOG.info(
+                        "Dropping the expiry of checkpoint {} of pipeline {}, the coordinator generation that triggered it has already ended",
+                        expired.getCheckpointId(),
+                        pipelineId);
+                return;
+            }
+            errorByPhysicalVertex.compareAndSet(
+                    null, ExceptionUtils.getMessage(new CheckpointException(reason, null)));
+            updateStatus(CheckpointCoordinatorStatus.FAILED);
+            owner.complete(
+                    new CheckpointCoordinatorState(
+                            CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
+            cleanPendingCheckpoint(reason);
+        }
+        checkpointManager.handleCheckpointError(pipelineId, false);
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
@@ -725,9 +776,12 @@ public class CheckpointCoordinator {
 
     protected void restoreCoordinator(boolean alreadyStarted) {
         LOG.info("received restore CheckpointCoordinator with alreadyStarted: {}", alreadyStarted);
-        errorByPhysicalVertex = new AtomicReference<>();
-        checkpointCoordinatorFuture = new CompletableFuture<>();
-        updateStatus(CheckpointCoordinatorStatus.RUNNING);
+        // see failExpiredCheckpoint: an expiry of the previous generation must not fail this one
+        synchronized (generationLock) {
+            errorByPhysicalVertex = new AtomicReference<>();
+            checkpointCoordinatorFuture = new CompletableFuture<>();
+            updateStatus(CheckpointCoordinatorStatus.RUNNING);
+        }
 
         Set<TaskLocation> restoredReadyToClose = loadReadyToCloseStartingTask();
 
@@ -1001,6 +1055,9 @@ public class CheckpointCoordinator {
      */
     private void startTriggerPendingCheckpoint(
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
+        // Read while the caller holds the lock, before the checkpoint exists: this is the
+        // generation the checkpoint belongs to, which a later expiry must still find current.
+        CompletableFuture<CheckpointCoordinatorState> owner = checkpointCoordinatorFuture;
         pendingCompletableFuture.thenAcceptAsync(
                 pendingCheckpoint -> {
                     LOG.info(
@@ -1083,7 +1140,7 @@ public class CheckpointCoordinator {
                                                 LOG.info(
                                                         "timeout checkpoint: {}",
                                                         pendingCheckpoint.getInfo());
-                                                expireCheckpoint();
+                                                expireCheckpoint(pendingCheckpoint, owner);
                                             }
                                         },
                                         checkpointTimeout,

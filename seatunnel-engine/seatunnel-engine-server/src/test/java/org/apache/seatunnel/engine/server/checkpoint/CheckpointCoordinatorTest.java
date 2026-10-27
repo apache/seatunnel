@@ -564,6 +564,134 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    /**
+     * The watchdog decides an expiry on a dispatch thread, but the coordinator executor handles it
+     * later, and {@code restoreCoordinator} can reuse the coordinator in between. The held expiry
+     * belongs to the generation before the restore, so it must be dropped rather than fail the
+     * restored one.
+     */
+    @Test
+    void testExpiryHeldAcrossCoordinatorRestoreDoesNotFailTheRestoredGeneration() throws Exception {
+        // one worker, so the expiry queues behind a task the test releases
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch releaseExecutor = new CountDownLatch(1);
+        try {
+            CheckpointManager checkpointManager = mockCheckpointManager();
+            CheckpointCoordinator coordinator =
+                    buildExpiryTestCoordinator(checkpointManager, executor);
+            PendingCheckpoint expired = trackPendingCheckpoint(coordinator, 1L);
+            CompletableFuture<CheckpointCoordinatorState> generationBeforeRestore =
+                    coordinatorFuture(coordinator);
+
+            executor.execute(() -> awaitQuietly(releaseExecutor));
+            expire(coordinator, expired, generationBeforeRestore);
+
+            coordinator.restoreCoordinator(false);
+            CompletableFuture<CheckpointCoordinatorState> restoredGeneration =
+                    coordinatorFuture(coordinator);
+            // Track the same checkpoint again, so only the generation check can drop the expiry.
+            trackPendingCheckpoint(coordinator, expired);
+
+            releaseExecutor.countDown();
+            executor.submit(() -> {}).get(10, TimeUnit.SECONDS);
+
+            Assertions.assertNotSame(generationBeforeRestore, restoredGeneration);
+            Assertions.assertFalse(
+                    restoredGeneration.isDone(),
+                    "an expiry of the generation before the restore must not fail the restored one");
+            Mockito.verify(checkpointManager, Mockito.never())
+                    .handleCheckpointError(Mockito.anyInt(), Mockito.anyBoolean());
+        } finally {
+            releaseExecutor.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    /** The generation fence must not stop a genuine expiry from failing its own generation. */
+    @Test
+    void testExpiryOfTheCurrentGenerationFailsTheCoordinator() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            CheckpointManager checkpointManager = mockCheckpointManager();
+            CheckpointCoordinator coordinator =
+                    buildExpiryTestCoordinator(checkpointManager, executor);
+            PendingCheckpoint expired = trackPendingCheckpoint(coordinator, 1L);
+            CompletableFuture<CheckpointCoordinatorState> generation =
+                    coordinatorFuture(coordinator);
+
+            expire(coordinator, expired, generation);
+
+            CheckpointCoordinatorState state = generation.get(10, TimeUnit.SECONDS);
+            Assertions.assertEquals(
+                    CheckpointCoordinatorStatus.FAILED, state.getCheckpointCoordinatorStatus());
+            Mockito.verify(checkpointManager, Mockito.timeout(10_000))
+                    .handleCheckpointError(1, false);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static CheckpointCoordinator buildExpiryTestCoordinator(
+            CheckpointManager checkpointManager, ExecutorService executor) {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        return new CheckpointCoordinator(
+                checkpointManager,
+                null,
+                checkpointConfig,
+                1L,
+                CheckpointPlan.builder().pipelineId(1).build(),
+                null,
+                null,
+                executor,
+                Mockito.mock(IMap.class),
+                false,
+                null);
+    }
+
+    private static PendingCheckpoint trackPendingCheckpoint(
+            CheckpointCoordinator coordinator, long checkpointId) {
+        PendingCheckpoint pendingCheckpoint = Mockito.mock(PendingCheckpoint.class);
+        Mockito.when(pendingCheckpoint.getCheckpointId()).thenReturn(checkpointId);
+        return trackPendingCheckpoint(coordinator, pendingCheckpoint);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static PendingCheckpoint trackPendingCheckpoint(
+            CheckpointCoordinator coordinator, PendingCheckpoint pendingCheckpoint) {
+        Map<Long, PendingCheckpoint> pendingCheckpoints =
+                (Map<Long, PendingCheckpoint>)
+                        ReflectionUtils.getField(coordinator, "pendingCheckpoints").get();
+        pendingCheckpoints.put(pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
+        return pendingCheckpoint;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static CompletableFuture<CheckpointCoordinatorState> coordinatorFuture(
+            CheckpointCoordinator coordinator) {
+        return (CompletableFuture<CheckpointCoordinatorState>)
+                ReflectionUtils.getField(coordinator, "checkpointCoordinatorFuture").get();
+    }
+
+    private static void expire(
+            CheckpointCoordinator coordinator,
+            PendingCheckpoint expired,
+            CompletableFuture<CheckpointCoordinatorState> owner) {
+        ReflectionUtils.invoke(
+                coordinator,
+                "expireCheckpoint",
+                new Class[] {PendingCheckpoint.class, CompletableFuture.class},
+                new Object[] {expired, owner});
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @Test
     void testReadyToClosePartialProgressPersistedAndRestoredCorrectly() {
         ExecutorService executorService = Executors.newCachedThreadPool();
