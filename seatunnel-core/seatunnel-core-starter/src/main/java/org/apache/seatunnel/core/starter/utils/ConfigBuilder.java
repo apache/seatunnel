@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
@@ -394,7 +395,7 @@ public class ConfigBuilder {
                                             && isStructured(replacedValue)) {
                                         return parseStructured(replacedValue);
                                     } else {
-                                        return replacedValue;
+                                        return StringUtils.unwrap(replacedValue, "\"");
                                     }
                                 }
 
@@ -431,9 +432,10 @@ public class ConfigBuilder {
                         defaultConfigMap);
 
         if (!replacedValue.equals(variableString)) {
-            variableValue = replacedValue;
             if (hasOnlyOnePlaceholder(variableString) && isStructured(replacedValue)) {
                 variableValue = parseStructured(replacedValue);
+            } else {
+                variableValue = StringUtils.unwrap(replacedValue, "\"");
             }
             parentMap.put(variableKey, variableValue);
         }
