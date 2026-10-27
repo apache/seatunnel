@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -48,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
@@ -80,7 +82,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         super(catalogTable);
         this.query = config.get(KEY_QUERY);
         if (config.getOptional(KEY_ENGINE).isPresent()) {
-            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase());
+            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase(Locale.ROOT));
         } else {
             this.engineType = ZETA;
         }
@@ -254,6 +256,9 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
             // produce an ArrayIndexOutOfBoundsException because the cached output size is stale.
             sqlEngine = null;
             outputCatalogTable = null;
+            if (event instanceof RestoreTableSchemaEvent) {
+                event.setChangeAfter(getProducedCatalogTable());
+            }
         }
         return event;
     }

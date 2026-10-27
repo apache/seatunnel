@@ -457,20 +457,15 @@ class PythonSourceTest {
 
     @Test
     void testConcurrentCloseStopsBufferedBatchEmission() throws Exception {
-        String pythonExecutable = requirePythonExecutable();
-        Path scriptPath = copyResource("python/emit_rows.py");
-        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
-        Map<String, Object> scriptConfig = new HashMap<>();
-        scriptConfig.put("count", 3);
-        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
-
-        PythonSourceReader reader = createReader(new PythonSource(ReadonlyConfig.fromMap(config)));
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(baseConfig("python", "/tmp/fake.py"))));
+        enqueueStdoutLines(reader, "1,python_1", "2,python_2", "3,python_3");
         BlockingCollector collector = new BlockingCollector();
         AtomicReference<Throwable> pollFailure = new AtomicReference<>();
         AtomicReference<Throwable> closeFailure = new AtomicReference<>();
-        CountDownLatch closeStarted = new CountDownLatch(1);
 
-        reader.open();
         Thread pollThread =
                 new Thread(
                         () -> {
@@ -481,16 +476,9 @@ class PythonSourceTest {
                             }
                         },
                         "python-source-buffered-poll-test");
-        pollThread.start();
-        // 15s matches the interpreter-startup budget used elsewhere in this file: the wait covers
-        // python cold start plus first-row delivery, and 5s has been observed losing that race on
-        // loaded windows-latest runners (fork run 32041891318).
-        Assertions.assertTrue(collector.collectEntered.await(15, TimeUnit.SECONDS));
-
         Thread closeThread =
                 new Thread(
                         () -> {
-                            closeStarted.countDown();
                             try {
                                 reader.close();
                             } catch (Throwable e) {
@@ -498,18 +486,39 @@ class PythonSourceTest {
                             }
                         },
                         "python-source-buffered-close-test");
-        closeThread.start();
-        Assertions.assertTrue(closeStarted.await(5, TimeUnit.SECONDS));
-        Thread.sleep(50L);
-        collector.releaseCollect.countDown();
+        pollThread.start();
+        try {
+            Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
+            closeThread.start();
+            // close() publishes its cancellation flag before waiting for this blocked poll.
+            // Starting the thread alone does not guarantee it has reached that point.
+            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (closeThread.getState() != Thread.State.WAITING
+                    && closeThread.isAlive()
+                    && System.nanoTime() < deadlineNanos) {
+                Thread.sleep(10L);
+            }
+            Assertions.assertEquals(
+                    Thread.State.WAITING,
+                    closeThread.getState(),
+                    "close must be waiting for the blocked collector before it is released");
+            collector.releaseCollect.countDown();
 
-        pollThread.join(TimeUnit.SECONDS.toMillis(5));
-        closeThread.join(TimeUnit.SECONDS.toMillis(5));
-        Assertions.assertFalse(pollThread.isAlive());
-        Assertions.assertFalse(closeThread.isAlive());
-        Assertions.assertNull(pollFailure.get());
-        Assertions.assertNull(closeFailure.get());
-        Assertions.assertEquals(1, collector.rows.size());
+            pollThread.join(TimeUnit.SECONDS.toMillis(5));
+            closeThread.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(pollThread.isAlive());
+            Assertions.assertFalse(closeThread.isAlive());
+            Assertions.assertNull(pollFailure.get());
+            Assertions.assertNull(closeFailure.get());
+            Assertions.assertEquals(1, collector.rows.size());
+        } finally {
+            collector.releaseCollect.countDown();
+            pollThread.interrupt();
+            closeThread.interrupt();
+            pollThread.join(TimeUnit.SECONDS.toMillis(5));
+            closeThread.join(TimeUnit.SECONDS.toMillis(5));
+            reader.close();
+        }
     }
 
     @Test
@@ -843,6 +852,20 @@ class PythonSourceTest {
             // Keep offering synthetic rows until the bounded queue reports no remaining capacity.
         }
         Assertions.assertEquals(0, stdoutQueue.remainingCapacity(), "stdout queue did not fill");
+    }
+
+    /**
+     * Seeds rows directly into the reader queue so concurrent-close coverage is independent of
+     * Python interpreter startup time on CI runners.
+     */
+    @SuppressWarnings("unchecked")
+    private void enqueueStdoutLines(PythonSourceReader reader, String... lines) throws Exception {
+        Field stdoutLinesField = PythonSourceReader.class.getDeclaredField("stdoutLines");
+        stdoutLinesField.setAccessible(true);
+        BlockingQueue<String> stdoutQueue = (BlockingQueue<String>) stdoutLinesField.get(reader);
+        for (String line : lines) {
+            Assertions.assertTrue(stdoutQueue.offer(line), "stdout queue unexpectedly filled");
+        }
     }
 
     /** Waits until the producer is deterministically backpressured by the bounded stdout queue. */

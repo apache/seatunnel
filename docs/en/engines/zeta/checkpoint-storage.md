@@ -14,7 +14,7 @@ Checkpoint Storage is a storage mechanism for storing checkpoint data.
 
 SeaTunnel Engine supports the following checkpoint storage types:
 
-- HDFS (OSS,COS,S3,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
 We use the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
@@ -43,6 +43,27 @@ seatunnel:
 
 Notice: namespace must end with "/".
 
+#### Credentials from environment variables
+
+Object storage credentials can be supplied by the cloud SDK from environment variables. Set
+the corresponding credential provider key and do not put static access keys or secret keys in
+`seatunnel.yaml`:
+
+| `storage.type` | Credential provider key | Provider class | Environment variables |
+| --- | --- | --- | --- |
+| `s3` | `fs.s3a.aws.credentials.provider` | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN` |
+| `oss` | `fs.oss.credentials.provider` | `com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider` | `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`, optional `OSS_SESSION_TOKEN` |
+| `cos` | `fs.cosn.credentials.provider` | `org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider` | `COSN_SECRET_ID`, `COSN_SECRET_KEY` |
+
+The environment variables and provider implementations are fixed by the underlying Hadoop
+filesystem and cloud SDK. Inject the variables into every SeaTunnel process that accesses
+checkpoint storage. Existing static credential and cloud-native identity configurations remain
+supported.
+
+GCS uses Application Default Credentials instead of a credential provider key. Configure
+`GOOGLE_APPLICATION_CREDENTIALS` with a mounted key file when needed, or rely on Workload Identity
+and other ADC mechanisms.
+
 #### OSS
 
 Aliyun OSS based hdfs-file you can refer [Hadoop OSS Docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
@@ -68,6 +89,24 @@ seatunnel:
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address
+```
+
+To use credentials from environment variables, remove `fs.oss.accessKeyId` and
+`fs.oss.accessKeySecret` and select the environment variable provider. `OSS_ACCESS_KEY_ID` and
+`OSS_ACCESS_KEY_SECRET` must be available to every master and worker:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        plugin-config:
+          namespace: /seatunnel/checkpoint/
+          storage.type: oss
+          oss.bucket: oss://your-bucket
+          fs.oss.endpoint: oss-cn-hangzhou.aliyuncs.com
+          fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
 ```
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
@@ -102,6 +141,18 @@ seatunnel:
           fs.cosn.bucket.region: your-region
 ```
 
+To use credentials from environment variables, remove the static `secretId` and `secretKey`
+entries and configure:
+
+```yaml
+          storage.type: cos
+          cos.bucket: cosn://your-bucket
+          fs.cosn.bucket.region: your-region
+          fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider
+```
+
+`COSN_SECRET_ID` and `COSN_SECRET_KEY` must be available to every master and worker.
+
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 For additional COS configuration, you can see: [Tencent Hadoop-COS Docs](https://doc.fincloud.tencent.cn/tcloud/Storage/COS/846365/hadoop)
@@ -110,6 +161,53 @@ Please add the following jar to the lib directory:
 - [hadoop-cos-3.4.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-cos/3.4.1)
 - [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
 - [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
+
+#### GCS
+
+Google Cloud Storage based hdfs-file uses the [Hadoop GCS connector](https://github.com/GoogleCloudDataproc/hadoop-connectors/tree/master/gcs). `gcs.bucket` is required and must be a bucket URI such as `gs://your-bucket`. All `fs.gs.*` keys are passed to the connector unchanged.
+
+If you use a service account key file, you can config like this:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+          fs.gs.project.id: your-project-id
+          fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+If no key file is configured, the connector uses Application Default Credentials, so on GKE with Workload Identity (or on a GCE VM with an attached service account) only the bucket is needed:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+```
+
+The identity needs read, write and delete permission on the bucket objects, for example the `roles/storage.objectAdmin` role on the bucket.
+
+Please add the following jar to the lib directory:
+- [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
+
+Note: renames use the GCS object move API by default. Services that do not implement it, such as the `fake-gcs-server` emulator, need `fs.gs.operation.move.enable: false`, which makes the connector fall back to copy and delete.
 
 #### S3
 
@@ -133,13 +231,25 @@ seatunnel:
                 plugin-config:
                   namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   storage.type: s3
-                  s3.bucket: your-bucket
+                  s3.bucket: s3a://your-bucket
                   fs.s3a.access.key: your-access-key
                   fs.s3a.secret.key: your-secret-key
                   fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
                     
 
 ```
+
+To read credentials from environment variables instead, remove `fs.s3a.access.key` and
+`fs.s3a.secret.key` and configure:
+
+```yaml
+                  storage.type: s3
+                  s3.bucket: s3a://your-bucket
+                  fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+```
+
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must be available to every master and worker.
+Temporary credentials additionally use `AWS_SESSION_TOKEN`.
 
 If you used `InstanceProfileCredentialsProvider`, which supports use of instance profile credentials if running in an EC2 VM, you can check [iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
 You can config like this:
@@ -157,10 +267,38 @@ seatunnel:
         plugin-config:
           namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
+
+
+Checkpoint storage differs from the S3File source and sink: values under `plugin-config` are passed directly to Hadoop configuration and are not limited by S3File option validation. With the AWS SDK v1 bundled in the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance profile credentials. For an ECS task role, you can also select the container provider explicitly:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
+For Kubernetes or EKS nodes backed by EC2, use `com.amazonaws.auth.InstanceProfileCredentialsProvider` as shown above and grant the node role only the required bucket and prefix permissions.
+
+The AWS SDK v1 bundled with the current checkpoint-storage dependencies does not contain `WebIdentityTokenCredentialsProvider`, so EKS IRSA is not supported. Do not configure an IRSA provider unless the runtime dependencies have been upgraded and validated together.
+
+If `Factory initialize failed` or `ClassNotFoundException` appears, verify the provider class name and confirm that every master and worker accessing checkpoint storage has the required Hadoop/AWS jars.
+
+**Container environments**: Checkpoint storage passes `fs.s3a.*` configuration keys directly to Hadoop without any connector-level enum restriction, so any S3A credential provider class available on the classpath can be used. This includes container-oriented providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS task role) and `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`. For EKS deployments, the EC2 node instance role is recommended. EKS IRSA (`WebIdentityTokenCredentialsProvider`) is not available in the bundled AWS SDK v1.x (1.11.271) and requires adding a newer AWS SDK v1.x JAR to `${SEATUNNEL_HOME}/lib` on all nodes.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 

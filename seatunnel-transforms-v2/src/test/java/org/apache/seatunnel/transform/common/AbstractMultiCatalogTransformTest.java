@@ -32,17 +32,29 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 class AbstractMultiCatalogTransformTest {
@@ -149,6 +161,68 @@ class AbstractMultiCatalogTransformTest {
     }
 
     @Test
+    void chainedMapTransformComputesLegacySerialVersionUid() {
+        Assertions.assertEquals(
+                8769738606872706499L,
+                ObjectStreamClass.lookup(ChainedMapTransform.class).getSerialVersionUID());
+    }
+
+    @Test
+    void chainedMapTransformReadsLegacyStreamAndMapsRows() throws Exception {
+        ChainedMapTransform restored = readLegacyChainedMapTransform();
+        String path = tablePath(catalogTable());
+
+        SeaTunnelRow output = restored.map(row(path));
+
+        Assertions.assertEquals(path, output.getTableId());
+        Assertions.assertEquals(1, output.getField(0));
+    }
+
+    @Test
+    void chainedMapTransformReadsLegacyStreamAndRefreshesInputTables() throws Exception {
+        ChainedMapTransform restored = readLegacyChainedMapTransform();
+        CatalogTable table = catalogTable();
+
+        restored.setInputCatalogTables(Collections.singletonList(table));
+
+        Assertions.assertEquals(tablePath(table), restored.map(row(tablePath(table))).getTableId());
+    }
+
+    @Test
+    void chainedMapTransformReadsLegacyStreamAndMapsSchemaChanges() throws Exception {
+        ChainedMapTransform restored = readLegacyChainedMapTransform();
+        CatalogTable table = catalogTable();
+
+        restored.mapSchemaChangeEvent(addColumnEvent(table));
+
+        Assertions.assertEquals(tablePath(table), restored.map(row(tablePath(table))).getTableId());
+    }
+
+    @Test
+    void chainedMapTransformPreservesExtraTableRoutingAfterCurrentRoundTrip() throws Exception {
+        CatalogTable table = catalogTable();
+        CatalogTable extraTable =
+                CatalogTableUtil.getCatalogTable(
+                        "catalog", "database", "schema", "errors", table.getSeaTunnelRowType());
+        ChainedMapTransform transform =
+                new ChainedMapTransform(
+                        Arrays.asList(
+                                new ExtraTableRoutingTransform(table, extraTable),
+                                new FailOnMapTransform(table)));
+        byte[] bytes = SerializationUtils.serialize(transform);
+
+        ChainedMapTransform restored;
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
+            restored = (ChainedMapTransform) input.readObject();
+        }
+
+        restored.setInputCatalogTables(Collections.singletonList(table));
+
+        Assertions.assertEquals(
+                tablePath(extraTable), restored.map(row(tablePath(table))).getTableId());
+    }
+
+    @Test
     void allMatchModeWorksForFlatMapTransforms() {
         CatalogTable table = catalogTable();
         String tablePath = tablePath(table);
@@ -184,6 +258,24 @@ class AbstractMultiCatalogTransformTest {
         SchemaChangeEvent event = transform.mapSchemaChangeEvent(addColumnEvent(table));
 
         Assertions.assertNull(event);
+    }
+
+    @Test
+    void chainedMapTransformClosesEveryTransformAfterFailure() {
+        AtomicBoolean firstClosed = new AtomicBoolean();
+        AtomicBoolean secondClosed = new AtomicBoolean();
+        ChainedMapTransform transform =
+                new ChainedMapTransform(
+                        Arrays.asList(
+                                new CloseTrackingMapTransform(firstClosed, true),
+                                new CloseTrackingMapTransform(secondClosed, false)));
+
+        RuntimeException closeFailure =
+                Assertions.assertThrows(RuntimeException.class, transform::close);
+
+        Assertions.assertEquals("expected close failure", closeFailure.getMessage());
+        Assertions.assertTrue(firstClosed.get());
+        Assertions.assertTrue(secondClosed.get());
     }
 
     @Test
@@ -269,6 +361,34 @@ class AbstractMultiCatalogTransformTest {
         return CatalogTableUtil.getCatalogTable("catalog", "database", "schema", "orders", rowType);
     }
 
+    // Fixture serialized from commit 02b156e45, before extraTablePaths was added. It verifies
+    // ChainedMapTransform compatibility only; its child transforms use current support classes.
+    private static ChainedMapTransform readLegacyChainedMapTransform()
+            throws IOException, ClassNotFoundException {
+        try (InputStream resource =
+                AbstractMultiCatalogTransformTest.class.getResourceAsStream(
+                        "/serialization/legacy-chained-map.base64")) {
+            Assertions.assertNotNull(resource);
+            BufferedReader reader =
+                    new BufferedReader(new InputStreamReader(resource, StandardCharsets.US_ASCII));
+            String line;
+            while ((line = reader.readLine()) != null && !"-----BEGIN BASE64-----".equals(line)) {
+                // Skip the license header.
+            }
+            Assertions.assertNotNull(line);
+            StringBuilder encoded = new StringBuilder();
+            while ((line = reader.readLine()) != null) {
+                encoded.append(line);
+            }
+            try (ObjectInputStream input =
+                    new ObjectInputStream(
+                            new ByteArrayInputStream(
+                                    Base64.getDecoder().decode(encoded.toString())))) {
+                return (ChainedMapTransform) input.readObject();
+            }
+        }
+    }
+
     private static String tablePath(CatalogTable table) {
         return table.getTableId().toTablePath().toString();
     }
@@ -348,6 +468,106 @@ class AbstractMultiCatalogTransformTest {
         protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
                 CatalogTable catalogTable) {
             return new IdentityMapTransform(catalogTable);
+        }
+    }
+
+    private static class CloseTrackingMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
+
+        private final AtomicBoolean closed;
+        private final boolean failOnClose;
+
+        private CloseTrackingMapTransform(AtomicBoolean closed, boolean failOnClose) {
+            this.closed = closed;
+            this.failOnClose = failOnClose;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "CloseTracking";
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            return row;
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return catalogTable();
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.singletonList(getProducedCatalogTable());
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
+            if (failOnClose) {
+                throw new RuntimeException("expected close failure");
+            }
+        }
+    }
+
+    private static class ExtraTableRoutingTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
+
+        private final CatalogTable table;
+        private final CatalogTable extraTable;
+
+        private ExtraTableRoutingTransform(CatalogTable table, CatalogTable extraTable) {
+            this.table = table;
+            this.extraTable = extraTable;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "ExtraTableRouting";
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            row.setTableId(tablePath(extraTable));
+            return row;
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return table;
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Arrays.asList(table, extraTable);
+        }
+    }
+
+    private static class FailOnMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
+
+        private final CatalogTable table;
+
+        private FailOnMapTransform(CatalogTable table) {
+            this.table = table;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "FailOnMap";
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            throw new AssertionError("Extra-table row must skip the remaining rules");
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return table;
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.singletonList(table);
         }
     }
 

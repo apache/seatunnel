@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -183,7 +184,9 @@ public class VectorFunction {
 
     private static Float[] convertToFloatArray(Object obj) {
         if (obj instanceof ByteBuffer) {
-            return VectorUtils.toFloatArray((ByteBuffer) obj);
+            ByteBuffer buffer = (ByteBuffer) obj;
+            // A vector can be shared by multiple expressions and downstream consumers.
+            return VectorUtils.toFloatArray(buffer.duplicate().order(buffer.order()));
         } else if (obj instanceof Float[]) {
             return (Float[]) obj;
         } else if (obj instanceof float[]) {
@@ -267,7 +270,7 @@ public class VectorFunction {
             return null;
         }
 
-        switch (method.toUpperCase()) {
+        switch (method.toUpperCase(Locale.ROOT)) {
             case "TRUNCATE":
                 return vectorTruncate(vectorData, targetDimension);
             case "RANDOM_PROJECTION":
