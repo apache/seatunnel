@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
@@ -323,7 +324,14 @@ public class PhysicalVertex {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
-        updateTaskState(ExecutionState.RUNNING);
+        return finishDeployment(state);
+    }
+
+    @VisibleForTesting
+    TaskDeployState finishDeployment(TaskDeployState state) {
+        if (state.isSuccess()) {
+            updateTaskState(ExecutionState.RUNNING);
+        }
         return state;
     }
 
@@ -350,21 +358,27 @@ public class PhysicalVertex {
     }
 
     /**
-     * Identifies a source task group that was intentionally closed after an unbounded source reader
-     * became idle. Such a group is terminal during a running-pipeline master restore, but it must
-     * not cause the checkpoint coordinator to restart as if the pipeline were not ready.
+     * Recognizes a FINISHED group containing only unbounded sources (and optional downstream
+     * tasks). During restore of a RUNNING pipeline with RUNNING coordinators, this is the shape of
+     * an idle-closed reader group; it does not prove the original reason for closure.
+     *
+     * @param executionState state already read by the restore decision, avoiding a second IMap read
      */
     @VisibleForTesting
-    boolean isRecoverableFinishedStateForRunningPipelineRestore() {
-        if (!ExecutionState.FINISHED.equals(getExecutionState())) {
+    boolean isRecoverableFinishedStateForRunningPipelineRestore(ExecutionState executionState) {
+        if (!ExecutionState.FINISHED.equals(executionState)) {
             return false;
         }
-        return !taskGroup.getTasks().isEmpty()
-                && taskGroup.getTasks().stream().anyMatch(SourceSeaTunnelTask.class::isInstance)
-                && taskGroup.getTasks().stream()
-                        .filter(SourceSeaTunnelTask.class::isInstance)
-                        .map(SourceSeaTunnelTask.class::cast)
-                        .allMatch(SourceSeaTunnelTask::isUnboundedSourceTask);
+        boolean hasSource = false;
+        for (Task task : taskGroup.getTasks()) {
+            if (task instanceof SourceSeaTunnelTask) {
+                hasSource = true;
+                if (!((SourceSeaTunnelTask<?, ?>) task).isUnboundedSourceTask()) {
+                    return false;
+                }
+            }
+        }
+        return hasSource;
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
@@ -425,9 +439,17 @@ public class PhysicalVertex {
         }
     }
 
+    /**
+     * Requests cancellation and publishes any terminal result received while state processing was
+     * stopped for pipeline restore.
+     */
     public synchronized void cancel() {
         if (!getExecutionState().isEndState()) {
             updateTaskState(ExecutionState.CANCELING);
+        } else if (!taskFuture.isDone()) {
+            // A late terminal callback may arrive before this vertex resumes. Its new completion
+            // future still needs to be resolved without changing the terminal state.
+            stateProcess();
         }
     }
 

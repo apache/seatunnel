@@ -17,13 +17,18 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import org.junit.jupiter.api.Assertions;
@@ -57,7 +62,9 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 newPhysicalVertex(
                         ExecutionState.FINISHED, "idle-source", sourceTask, transformTask);
 
-        Assertions.assertTrue(physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore());
+        Assertions.assertTrue(
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
     }
 
     @Test
@@ -70,7 +77,8 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 newPhysicalVertex(ExecutionState.FINISHED, "bounded-source", sourceTask);
 
         Assertions.assertFalse(
-                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore());
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
     }
 
     @Test
@@ -82,7 +90,8 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 newPhysicalVertex(ExecutionState.FINISHED, "transform", transformTask);
 
         Assertions.assertFalse(
-                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore());
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
     }
 
     @Test
@@ -95,7 +104,56 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 newPhysicalVertex(ExecutionState.RUNNING, "running-source", sourceTask);
 
         Assertions.assertFalse(
-                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore());
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.RUNNING));
+    }
+
+    @Test
+    void shouldRejectEmptyAndMixedBoundedSourceGroups() {
+        Assertions.assertFalse(
+                newPhysicalVertex(ExecutionState.FINISHED, "empty")
+                        .isRecoverableFinishedStateForRunningPipelineRestore(
+                                ExecutionState.FINISHED));
+        SourceSeaTunnelTask<?, ?> unbounded = mock(SourceSeaTunnelTask.class);
+        when(unbounded.getTaskID()).thenReturn(51L);
+        when(unbounded.isUnboundedSourceTask()).thenReturn(true);
+        SourceSeaTunnelTask<?, ?> bounded = mock(SourceSeaTunnelTask.class);
+        when(bounded.getTaskID()).thenReturn(52L);
+        for (Task[] tasks : new Task[][] {{unbounded, bounded}, {bounded, unbounded}}) {
+            Assertions.assertFalse(
+                    newPhysicalVertex(ExecutionState.FINISHED, "mixed", tasks)
+                            .isRecoverableFinishedStateForRunningPipelineRestore(
+                                    ExecutionState.FINISHED));
+        }
+    }
+
+    @Test
+    void shouldClassifyRealSourceMetadataAndRejectUnknownMetadata() {
+        SeaTunnelSource<?, ?, ?> source = mock(SeaTunnelSource.class);
+        SourceAction<?, ?, ?> action = mock(SourceAction.class);
+        when(action.getSource()).thenReturn((SeaTunnelSource) source);
+        PhysicalExecutionFlow flow = new PhysicalExecutionFlow(action);
+        SourceSeaTunnelTask<?, ?> task = newSourceTask(flow);
+        when(source.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        Assertions.assertTrue(task.isUnboundedSourceTask());
+        when(source.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        when(source.getBoundedness()).thenReturn(null);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        when(action.getSource()).thenReturn(null);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        Assertions.assertFalse(
+                newSourceTask(new PhysicalExecutionFlow(null)).isUnboundedSourceTask());
+        Assertions.assertFalse(newSourceTask(null).isUnboundedSourceTask());
+    }
+
+    private SourceSeaTunnelTask<?, ?> newSourceTask(PhysicalExecutionFlow flow) {
+        return new SourceSeaTunnelTask<>(
+                1L,
+                new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0),
+                0,
+                flow,
+                Collections.emptyMap());
     }
 
     private PhysicalVertex newPhysicalVertex(

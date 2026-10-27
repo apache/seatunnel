@@ -43,6 +43,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -548,7 +550,20 @@ public class CheckpointCoordinator {
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
-                () -> tryTriggerPendingCheckpoint(checkpointType),
+                () -> {
+                    try {
+                        tryTriggerPendingCheckpoint(checkpointType);
+                    } catch (Throwable e) {
+                        // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                        // silently; fail the coordinator so the job can handle the error.
+                        handleCoordinatorError(
+                                String.format(
+                                        "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                        checkpointType, jobId, pipelineId),
+                                e,
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                    }
+                },
                 delayMills,
                 TimeUnit.MILLISECONDS);
     }
@@ -711,6 +726,21 @@ public class CheckpointCoordinator {
         }
 
         if (alreadyStarted) {
+            // SubPlan accepts FINISHED physical groups only for unbounded readers while every
+            // coordinator is RUNNING. Rebuild their idle-close bookkeeping before triggering a
+            // checkpoint: those groups no longer run and cannot acknowledge another barrier.
+            Set<TaskGroupLocation> finishedGroups =
+                    plan.getPipelineSubtasks().stream()
+                            .map(TaskLocation::getTaskGroupLocation)
+                            .distinct()
+                            .filter(
+                                    group ->
+                                            ExecutionState.FINISHED.equals(
+                                                    runningJobStateIMap.get(group)))
+                            .collect(Collectors.toSet());
+            plan.getPipelineSubtasks().stream()
+                    .filter(task -> finishedGroups.contains(task.getTaskGroupLocation()))
+                    .forEach(closedIdleTask::add);
             isAllTaskReady.set(true);
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;

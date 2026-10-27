@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,7 +57,9 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         PhysicalVertex coordinator = mockPhysicalVertex(ExecutionState.RUNNING);
         PhysicalVertex incrementalReader = mockPhysicalVertex(ExecutionState.RUNNING);
         PhysicalVertex idleReader = mockPhysicalVertex(ExecutionState.FINISHED);
-        when(idleReader.isRecoverableFinishedStateForRunningPipelineRestore()).thenReturn(true);
+        when(idleReader.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED))
+                .thenReturn(true);
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         try {
@@ -85,7 +88,8 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         PhysicalVertex coordinator = mockPhysicalVertex(ExecutionState.RUNNING);
         PhysicalVertex incrementalReader = mockPhysicalVertex(ExecutionState.RUNNING);
         PhysicalVertex finishedTransform = mockPhysicalVertex(ExecutionState.FINISHED);
-        when(finishedTransform.isRecoverableFinishedStateForRunningPipelineRestore())
+        when(finishedTransform.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED))
                 .thenReturn(false);
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -157,9 +161,12 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     void shouldOnlyTreatRunningOrRecoverableFinishedPhysicalVertexAsReady() {
         PhysicalVertex runningReader = mockPhysicalVertex(ExecutionState.RUNNING);
         PhysicalVertex idleReader = mockPhysicalVertex(ExecutionState.FINISHED);
-        when(idleReader.isRecoverableFinishedStateForRunningPipelineRestore()).thenReturn(true);
+        when(idleReader.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED))
+                .thenReturn(true);
         PhysicalVertex finishedTransform = mockPhysicalVertex(ExecutionState.FINISHED);
-        when(finishedTransform.isRecoverableFinishedStateForRunningPipelineRestore())
+        when(finishedTransform.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED))
                 .thenReturn(false);
         PhysicalVertex failedReader = mockPhysicalVertex(ExecutionState.FAILED);
 
@@ -167,6 +174,31 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         Assertions.assertTrue(SubPlan.isRecoverableRunningState(idleReader));
         Assertions.assertFalse(SubPlan.isRecoverableRunningState(finishedTransform));
         Assertions.assertFalse(SubPlan.isRecoverableRunningState(failedReader));
+    }
+
+    @Test
+    void shouldReadPhysicalStateOnceAndRejectFinishedCoordinator() {
+        PhysicalVertex idleReader = mockPhysicalVertex(ExecutionState.FINISHED);
+        when(idleReader.getExecutionState())
+                .thenReturn(ExecutionState.FINISHED, ExecutionState.FAILED);
+        when(idleReader.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED))
+                .thenReturn(true);
+        Assertions.assertTrue(SubPlan.isRecoverableRunningState(idleReader));
+        verify(idleReader, times(1)).getExecutionState();
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.RUNNING)),
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FINISHED)));
+            Assertions.assertFalse(subPlan.isCheckpointCoordinatorAlreadyStarted());
+        } finally {
+            executorService.shutdownNow();
+        }
+        Assertions.assertFalse(SubPlan.isRecoverableRunningState(mockPhysicalVertex(null)));
     }
 
     private SubPlan newSubPlan(
