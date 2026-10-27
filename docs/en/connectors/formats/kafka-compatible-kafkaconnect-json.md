@@ -6,6 +6,10 @@ Seatunnel connector kafka supports parsing data extracted through kafka connect 
 
 UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
 
+A tombstone, a record that carries a key and a `null` value, produces no row. The source passes it over and the
+offset advances, so it is not treated as a parse error. A record whose value is present but zero length is a
+different case and is still a decode error.
+
 # How To Use
 
 ## Kafka Sink Mysql
