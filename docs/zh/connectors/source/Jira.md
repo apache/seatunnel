@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 
 > Jira 源连接器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 Jira REST API 读取数据。连接器会根据 `email` 和 `api_token` 自动生成 Jira Basic 认证请求头，然后复用 HTTP Source 的能力解析返回结果。
@@ -15,7 +21,7 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -31,14 +37,13 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 | email                       | String | 是       | -      | 用于 Basic 认证的 Jira 账号邮箱。 |
 | api_token                   | String | 是       | -      | 用于 Basic 认证的 Jira API Token。 |
 | method                      | String | 否       | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。 |
-| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。除非需要覆盖自动生成的 Jira 认证头，否则不要在这里配置 `Authorization`。 |
+| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。连接器会用 `email` 和 `api_token` 生成的 Basic 认证头覆盖其中的 `Authorization`。 |
 | params                      | Map    | 否       | -      | HTTP 查询参数。 |
 | body                        | String | 否       | -      | HTTP 请求体，通常和 `POST` 一起使用。 |
 | format                      | String | 否       | TEXT   | 返回内容格式。如果要用 `schema`、`json_field` 或 `content_field` 解析 JSON，请设置为 `json`。 |
 | schema                      | Config | 否       | -      | 输出字段结构。`format = "json"` 时必须配置。 |
 | json_field                  | Config | 否       | -      | 用 JSONPath 把返回字段映射到输出列，必须和 `schema` 一起使用。 |
 | content_field               | String | 否       | -      | 用 JSONPath 选出需要按行解析的数组或对象。 |
-| pageing                     | Config | 否       | -      | 分页配置，见 [分页](#分页)。 |
 | poll_interval_millis        | int    | 否       | -      | 轮询间隔，单位毫秒。Jira Source 只支持批处理，因此这个配置不适用于 Jira 流作业。 |
 | retry                       | int    | 否       | -      | 请求出现 `IOException` 时的最大重试次数。 |
 | retry_backoff_multiplier_ms | int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
@@ -53,7 +58,11 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 - `email`：Jira 账号邮箱。
 - `api_token`：Jira API Token。
 
-连接器会自动生成 Basic 认证请求头。
+连接器根据 `email` 和 `api_token` 自动生成 Basic 认证请求头。如果 `headers` 中也配置了 `Authorization`，
+该值会被连接器生成的 Basic 认证头覆盖。
+
+如果 Jira 站点部署在反向代理之后，请把代理相关的请求头（如 `X-Atlassian-Token`）放到 `headers` 中，不要
+尝试覆盖 Basic 认证头。
 
 ### 返回结果解析
 
@@ -75,22 +84,23 @@ schema = {
 
 如果行数据在嵌套 JSON 节点里，用 `content_field` 选出对应节点。如果输出列需要从不同 JSONPath 中提取，用 `json_field`。
 
-### 分页
+### 分页限制
 
-目标 API 需要分页参数时，可以配置 `pageing`。
+当前 Jira reader 没有把分页状态传给 `HttpSourceReader`。每个 BATCH 任务只读取一个 HTTP 响应，
+配置 `pageing` 不会继续读取后续页。应通过 API 过滤条件及 `maxResults` 将所需结果限定在一个响应内。
+完整的多页导出需要单独实现分页链路并通过相应测试。
 
-| 名称 | 类型 | 是否必填 | 默认值 | 说明 |
-|------|------|----------|--------|------|
-| total_page_size | long | 否 | 0 | 请求的总页数。 |
-| batch_size | int | 否 | 100 | 每次请求返回的数据条数。 |
-| start_page_number | long | 否 | 1 | 起始页码。 |
-| page_field | String | 否 | page | 页码分页时，请求参数中的页码字段名。 |
-| page_type | String | 否 | PageNumber | 分页类型，支持 `PageNumber` 和 `Cursor`。 |
-| cursor_field | String | 否 | - | 游标分页时，请求参数中的游标字段名。 |
-| cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
-| use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
+Jira Cloud 增强搜索使用 `/rest/api/3/search/jql`；还有更多结果时，API 会返回 `nextPageToken`，
+但当前连接器不会自动提交该游标。因此，当响应包含下一页游标时，不能把下面的示例视为完整导出。
+请参阅 [Atlassian 增强搜索参考](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/)。
+自建 Jira 部署应使用其安装版本文档规定的端点。
 
 ## 示例
+
+### 读取一个 Jira Cloud 搜索响应
+
+此 GET 示例从单个响应中提取 Issue 的 `id` 和 `key`，不会遍历 `nextPageToken`。
+如果 API 提示还有更多结果，应缩小 JQL 过滤范围。
 
 ```hocon
 env {
@@ -101,17 +111,20 @@ env {
 source {
   Jira {
     plugin_output = "jira"
-    url = "https://example.atlassian.net/rest/api/3/search"
+    url = "https://example.atlassian.net/rest/api/3/search/jql"
     email = "admin@example.com"
     api_token = "replace-with-token"
     method = "GET"
+    params = {
+      jql = "project = DEMO AND created >= -30d ORDER BY created ASC"
+      maxResults = "100"
+    }
     format = "json"
+    content_field = "$.issues.*"
     schema = {
       fields {
-        expand = string
-        startAt = int
-        maxResults = int
-        total = string
+        id = string
+        key = string
       }
     }
   }

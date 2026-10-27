@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 
 > Persistiq source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from Persistiq.
@@ -19,32 +25,35 @@ Used to read data from Persistiq.
 
 ## Options
 
-|            name             |  type   | required | default value | Description |
+|            name             |  type   | required | default value | description |
 |-----------------------------|---------|----------|---------------|-------------|
-| url                         | String  | Yes      | -             | HTTP request URL |
-| password                    | String  | Yes      | -             | Persistiq API key used for login |
-| method                      | String  | No       | get           | HTTP request method, only supports `GET` and `POST` |
-| schema                      | Config  | No       | -             | HTTP and SeaTunnel data structure mapping. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md). |
-| schema.fields               | Config  | No       | -             | The schema fields of upstream data |
-| format                      | String  | No       | json          | The format of upstream data, now supports `json` and `text`, default `json` |
-| params                      | Map     | No       | -             | HTTP request parameters |
-| body                        | String  | No       | -             | HTTP request body |
-| json_field                  | Config  | No       | -             | JSON field configuration for extracting fields from the response |
-| content_field               | String  | No       | -             | JSONPath expression to extract part of the JSON response before schema parsing |
-| poll_interval_millis        | int     | No       | -             | Request HTTP API interval (millis) in stream mode |
-| retry                       | int     | No       | -             | The max retry times if request HTTP returns `IOException` |
-| retry_backoff_multiplier_ms | int     | No       | 100           | The retry-backoff multiplier (millis) if request HTTP failed |
-| retry_backoff_max_ms        | int     | No       | 10000         | The maximum retry-backoff time (millis) if request HTTP failed |
-| enable_multi_lines          | boolean | No       | false         | Whether to enable multi-line mode |
-| common-options              | config  | No       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
+| url                         | String  | Yes      | -             | Persistiq API endpoint URL. |
+| password                    | String  | Yes      | -             | Persistiq API key. Create one from your Persistiq account page. |
+| method                      | String  | No       | GET           | HTTP request method. Supported values: `GET`, `POST`. |
+| schema                      | Config  | No       | -             | Output schema. Required when `format = "json"`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| schema.fields               | Config  | No       | -             | Field definitions for `schema`. |
+| format                      | String  | No       | TEXT          | Response format. Supported values: `json`, `text`. Default is `TEXT` (whole body as one `content` column). |
+| params                      | Map     | No       | -             | HTTP query parameters appended to the request URL. |
+| body                        | String  | No       | -             | HTTP request body. Used together with `POST` when the API expects a JSON payload. |
+| json_field                  | Config  | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
+| content_field               | String  | No       | -             | JSONPath that selects the array or object that should be parsed as rows. |
+| poll_interval_millis        | int     | No       | -             | Poll interval in milliseconds, used in `STREAMING` mode. Persistiq source is primarily batch-oriented, but you can run the job in `STREAMING` mode to repeatedly poll the API. |
+| retry                       | int     | No       | -             | Maximum retry count when the request throws `IOException`. |
+| retry_backoff_multiplier_ms | int     | No       | 100           | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms        | int     | No       | 10000         | Maximum retry backoff in milliseconds. |
+| enable_multi_lines          | boolean | No       | false         | Whether to split the response into lines before parsing each line using the selected `format`. |
+| connect_timeout_ms          | int     | No       | 12000         | TCP connect timeout in milliseconds. |
+| socket_timeout_ms           | int     | No       | 60000         | Socket read timeout in milliseconds. |
+| json_filed_missed_return_null | boolean | No     | false         | Return `null` when a field configured in `json_field` is missing from the response. |
+| common-options              | config  | No       | -             | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
 ### url [String]
 
-http request url
+The Persistiq API endpoint. For example `https://api.persistiq.com/v1/users`.
 
 ### password [String]
 
-API key for login, you can get it at Persistiq website
+API key for login, you can get it at Persistiq website. The connector sends this API key in the `x-api-key` HTTP header.
 
 ### method [String]
 
@@ -76,7 +85,7 @@ The maximum retry-backoff times(millis) if request http failed
 
 ### format [String]
 
-the format of upstream data, now only support `json` `text`, default `json`.
+the format of upstream data, now only support `json` `text`, default `text`.
 
 when you assign format is `json`, you should also assign schema option, for example:
 
@@ -136,7 +145,7 @@ The schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### content_field [String]
 
-This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
+This parameter can get some json data. If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
 
 If your return data looks something like this.
 
@@ -185,33 +194,32 @@ You can configure `content_field = "$.store.book.*"` and the result returned loo
 ]
 ```
 
-Then you can get the desired result with a simpler schema,like
+The illustrative mock endpoint below must return the `store.book` fixture above.
+
+Then you can get the desired result with a simpler schema, like:
 
 ```hocon
-Http {
-  url = "http://example.com/xyz"
-  method = "GET"
-  format = "json"
-  content_field = "$.store.book.*"
-  schema = {
-    fields {
-      category = string
-      author = string
-      title = string
-      price = string
+source {
+  Persistiq {
+    url = "http://mock-http:8080/books"
+    password = "your-api-key"
+    format = "json"
+    content_field = "$.store.book.*"
+    schema = {
+      fields {
+        category = string
+        author = string
+        title = string
+        price = double
+      }
     }
   }
 }
 ```
 
-Here is an example:
-
-- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-
 ### json_field [Config]
 
-This parameter helps you configure the schema,so this parameter must be used with schema.
+This parameter helps you configure the schema, so this parameter must be used with schema.
 
 If your data looks something like this:
 
@@ -241,13 +249,15 @@ If your data looks something like this:
 }
 ```
 
+This illustrative mock endpoint must return the `store.book` JSON fixture above; it is not a Persistiq users response.
+
 You can get the contents of 'book' by configuring the task as follows:
 
 ```hocon
 source {
-  Http {
-    url = "http://example.com/xyz"
-    method = "GET"
+  Persistiq {
+    url = "http://mock-http:8080/books"
+    password = "your-api-key"
     format = "json"
     json_field = {
       category = "$.store.book[*].category"
@@ -267,8 +277,13 @@ source {
 }
 ```
 
-- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+### Pagination limitation
+
+The current Persistiq reader does not pass pagination state to `HttpSourceReader`. Each request
+parses one response; `pageing` does not advance a page number or cursor in this connector. Streaming
+polling can repeat that response and does not provide a complete paginated export. Filter the API
+request to the desired response, and do not assume rows from later pages are read. Multi-page support
+requires a separately implemented and tested reader path.
 
 ### common options
 
@@ -276,12 +291,21 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Example
 
+### Read users from Persistiq
+
 ```hocon
-Persistiq{
-  url = "https://api.persistiq.com/v1/users"
-  password = "Your password"
-  content_field = "$.users.*"
-  schema = {
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Persistiq {
+    url = "https://api.persistiq.com/v1/users"
+    password = "your-api-key"
+    format = "json"
+    content_field = "$.users.*"
+    schema = {
       fields {
         id = string
         name = string
@@ -290,7 +314,49 @@ Persistiq{
         default_mailbox_id = string
         salesforce_id = string
       }
+    }
   }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Streaming poll against Persistiq
+
+Persistiq does not provide a streaming endpoint, but the connector can still run in `STREAMING` mode
+and poll the API on `poll_interval_millis`. Each poll runs the configured request once and emits the
+resulting rows. The reader does not persist API cursors or consumed-row offsets in checkpoints. Polling
+can emit the same API objects again, and a restarted job begins its requests again; use an idempotent
+downstream sink when repeated records are possible.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Persistiq {
+    url = "https://api.persistiq.com/v1/users"
+    password = "your-api-key"
+    poll_interval_millis = 60000
+    format = "json"
+    content_field = "$.users.*"
+    schema = {
+      fields {
+        id = string
+        name = string
+        email = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

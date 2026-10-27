@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 
 > Jira source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Jira REST APIs. The connector adds the Jira Basic authentication header from `email` and `api_token`, then uses the shared HTTP source runtime to parse the response.
@@ -31,14 +37,13 @@ The Jira source is a batch-only connector. It throws an error when the job runs 
 | email                       | String | Yes      | -             | Jira account email used for Basic authentication. |
 | api_token                   | String | Yes      | -             | Jira API token used for Basic authentication. |
 | method                      | String | No       | GET           | HTTP method. Supported values are `GET` and `POST`. |
-| headers                     | Map    | No       | -             | Extra HTTP request headers. Do not put the Jira `Authorization` header here unless you intentionally want to override the generated header. |
+| headers                     | Map    | No       | -             | Extra HTTP request headers. The connector replaces an `Authorization` entry with the Basic header generated from `email` and `api_token`. |
 | params                      | Map    | No       | -             | HTTP query parameters. |
 | body                        | String | No       | -             | HTTP request body, usually used with `POST`. |
 | format                      | String | No       | TEXT          | Response format. Use `json` when the response should be parsed by `schema`, `json_field`, or `content_field`. |
 | schema                      | Config | No       | -             | Output schema. Required when `format = "json"`. |
 | json_field                  | Config | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
 | content_field               | String | No       | -             | JSONPath used to select the array or object that should be parsed as rows. |
-| pageing                     | Config | No       | -             | Pagination settings. See [Pagination](#pagination). |
 | poll_interval_millis        | int    | No       | -             | Poll interval in milliseconds. Jira source is batch-only, so this option is not useful for Jira streaming jobs. |
 | retry                       | int    | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int    | No       | 100           | Retry backoff multiplier in milliseconds. |
@@ -53,7 +58,11 @@ Create a Jira API token from your Atlassian account and set:
 - `email`: the Jira account email.
 - `api_token`: the Jira API token.
 
-The connector builds the Basic authentication header automatically.
+The connector builds the Basic authentication header automatically from `email` and `api_token`. If
+`headers` also contains `Authorization`, the connector replaces that value with its generated Basic header.
+
+If your Jira site sits behind a proxy, place proxy-specific headers (e.g. `X-Atlassian-Token`)
+in `headers` instead of trying to override the Basic auth header.
 
 ### Response Parsing
 
@@ -75,22 +84,25 @@ schema = {
 
 Use `content_field` when the rows are inside a nested JSON node. Use `json_field` when columns need to be extracted from different JSONPath expressions.
 
-### Pagination
+### Pagination limitation
 
-`pageing` can be used when the target API needs paging parameters.
+The current Jira reader does not pass pagination state to `HttpSourceReader`. Each BATCH run reads
+one HTTP response; setting `pageing` does not follow later pages. API-side filters and `maxResults`
+must keep the desired result within that response. A complete multi-page export requires a separately
+implemented and tested pagination path.
 
-| name | type | required | default value | description |
-|------|------|----------|---------------|-------------|
-| total_page_size | long | No | 0 | Total number of pages to request. |
-| batch_size | int | No | 100 | Page size returned by each request. |
-| start_page_number | long | No | 1 | First page number. |
-| page_field | String | No | page | Request parameter name for page number pagination. |
-| page_type | String | No | PageNumber | Pagination type. Supported values are `PageNumber` and `Cursor`. |
-| cursor_field | String | No | - | Request parameter name for cursor pagination. |
-| cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
-| use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
+Jira Cloud enhanced search uses `/rest/api/3/search/jql`; its API returns `nextPageToken` when more
+results remain, but this connector does not automatically submit that token. Do not treat the example
+below as a complete export when the response contains a next-page token. See the
+[Atlassian enhanced search reference](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/).
+Self-hosted Jira deployments must use the endpoint documented for their installed version.
 
 ## Example
+
+### Read one Jira Cloud search response
+
+This GET example extracts the returned issues' `id` and `key` from a single response. It does not
+iterate over `nextPageToken`; narrow the JQL filter when the API reports additional results.
 
 ```hocon
 env {
@@ -101,17 +113,20 @@ env {
 source {
   Jira {
     plugin_output = "jira"
-    url = "https://example.atlassian.net/rest/api/3/search"
+    url = "https://example.atlassian.net/rest/api/3/search/jql"
     email = "admin@example.com"
     api_token = "replace-with-token"
     method = "GET"
+    params = {
+      jql = "project = DEMO AND created >= -30d ORDER BY created ASC"
+      maxResults = "100"
+    }
     format = "json"
+    content_field = "$.issues.*"
     schema = {
       fields {
-        expand = string
-        startAt = int
-        maxResults = int
-        total = string
+        id = string
+        key = string
       }
     }
   }
