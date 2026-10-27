@@ -106,7 +106,7 @@ public class PlaceholderUtils {
      *     across the entire configuration, must not be null
      * @return the string with placeholders resolved, or the original string if no replacement
      *     occurred
-     * @throws IllegalArgumentException if the same placeholder key has conflicting default values,
+     * @throws ConfigException.BadValue if the same placeholder key has conflicting default values,
      *     or if the same key is used inconsistently (with and without default value)
      */
     public static String processPlaceholders(
@@ -145,8 +145,7 @@ public class PlaceholderUtils {
                         String.format(
                                 "Unterminated placeholder starting at index %d: '%s'. "
                                         + "Please check for unbalanced quotes or missing closing brace.",
-                                start,
-                                input.substring(start, Math.min(start + 30, input.length()))),
+                                start, input.substring(start, Math.min(start + 4, input.length()))),
                         null);
             }
 
@@ -198,9 +197,9 @@ public class PlaceholderUtils {
                                     key,
                                     String.format(
                                             "Duplicate placeholder key '%s' with conflicting default values. "
-                                                    + "Existing: '%s', New: '%s'. The values differ after parsing; "
+                                                    + "The values differ after parsing; "
                                                     + "please ensure the exact same default value is used.",
-                                            key, existingDefault, defaultValue),
+                                            key),
                                     null);
                         }
                     }
@@ -282,6 +281,13 @@ public class PlaceholderUtils {
         return closePos == trimmedInput.length() - 1;
     }
 
+    /**
+     * check placeholder with default value contains placeholder, returns true if it contains
+     * placeholder without quotes wrapped.
+     *
+     * @param key the key part of placeholder: {@code ${key:defaultValue}}
+     * @param defaultValue the default value part inside placeholder
+     */
     public static void checkNotResolvedDefaultValue(String key, String defaultValue) {
         if (defaultValue != null) {
 
@@ -289,26 +295,24 @@ public class PlaceholderUtils {
                 ConfigValue parsedDefaultConfigValue = parseStructured(defaultValue);
                 try {
                     parsedDefaultConfigValue.unwrapped();
-                } catch (Exception e) {
-                    if (e instanceof ConfigException.NotResolved) {
-                        throwBadValueException(key, defaultValue);
-                    }
+                } catch (ConfigException.NotResolved e) {
+                    throwBadValueException(key);
                 }
             } else if (!(defaultValue.startsWith("\"") && defaultValue.endsWith("\""))
                     && defaultValue.contains(PLACEHOLDER_STARTER)) {
-                throwBadValueException(key, defaultValue);
+                throwBadValueException(key);
             }
         }
     }
 
-    private static void throwBadValueException(String key, String defaultValue) {
+    private static void throwBadValueException(String key) {
         throw new ConfigException.BadValue(
                 ConfigOriginFactory.newSimple(),
                 key,
                 String.format(
-                        "Structured default value for '%s' contains a placeholder: '%s'. "
+                        "Default value for '%s' contains a placeholder. "
                                 + "Default values must be static literals; pass the whole value via -i.",
-                        key, defaultValue),
+                        key),
                 null);
     }
 }
