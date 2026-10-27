@@ -42,6 +42,12 @@ public final class SeaTunnelDataContext implements DataContext {
                 rootSchema,
                 typeFactory,
                 TimeZone.getDefault(),
+                // Calcite asks for this value: it is served back as DataContext.Variable.LOCALE,
+                // so it must describe the environment rather than be pinned by us. It is not a
+                // case conversion of our own, so it sits outside the Locale.ROOT contract this
+                // module holds for toUpperCase/toLowerCase. The guard that keeps that contract
+                // honest names this call site as its one deliberate exception; see
+                // TransformsCaseConversionLocaleCheckTest in seatunnel-ci-tools.
                 Locale.getDefault(),
                 System.getProperty("user.name", ""));
     }
