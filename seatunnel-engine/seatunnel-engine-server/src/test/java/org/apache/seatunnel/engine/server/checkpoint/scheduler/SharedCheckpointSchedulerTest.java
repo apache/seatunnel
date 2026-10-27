@@ -277,9 +277,12 @@ class SharedCheckpointSchedulerTest {
      * A failing body is reported through the task's future and must not kill the dispatch thread
      * that ran it.
      *
-     * <p>The worker leaves RUNNABLE either by going back to the dispatch queue or by dying from a
-     * rethrown error, so waiting for it to leave RUNNABLE and then checking which state it reached
-     * needs no fixed sleep.
+     * <p>The future completes before the task logs the failure and unregisters itself, so the test
+     * first waits for the task to settle. After that the worker either parks in the dispatch
+     * queue's timed poll, where it stays for the idle timeout, or dies from a rethrown error. The
+     * timed park is the only TIMED_WAITING state on that path, so waiting for it or TERMINATED
+     * needs no fixed sleep and does not mistake a worker blocked inside the logger for one that has
+     * returned to the queue.
      */
     @Test
     void testFailingBodyCompletesExceptionallyAndKeepsItsDispatchThread() {
@@ -304,12 +307,19 @@ class SharedCheckpointSchedulerTest {
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(AWAIT_SECONDS))
-                .until(() -> worker.get().getState() != Thread.State.RUNNABLE);
-        Assertions.assertNotEquals(
-                Thread.State.TERMINATED,
+                .untilAsserted(() -> Assertions.assertEquals(0, lease.outstandingCount()));
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(AWAIT_SECONDS))
+                .until(
+                        () -> {
+                            Thread.State state = worker.get().getState();
+                            return state == Thread.State.TIMED_WAITING
+                                    || state == Thread.State.TERMINATED;
+                        });
+        Assertions.assertEquals(
+                Thread.State.TIMED_WAITING,
                 worker.get().getState(),
                 "a failing checkpoint body must not kill its dispatch thread");
-        Assertions.assertEquals(0, lease.outstandingCount());
     }
 
     private static Runnable blockUntilReleased(CountDownLatch started, CountDownLatch release) {
