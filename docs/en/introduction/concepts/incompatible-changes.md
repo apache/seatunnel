@@ -26,6 +26,7 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
   - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
   - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
 ### JDBC MySQL-compatible DECIMAL precision mapping
 
 - **Behavior change: MySQL JDBC and OceanBase MySQL-mode DECIMAL metadata now preserves the declared precision and scale**

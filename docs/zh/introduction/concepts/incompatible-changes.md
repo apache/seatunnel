@@ -25,6 +25,7 @@
   - **描述**：`NVARCHAR(n)` 和 `NVARCHAR2(n)` 可容纳 n 个字符，但 Catalog 此前从 `ALL_TAB_COLUMNS.DATA_LENGTH` 读取长度，该字段是字节数：GB18030 库上是 2n，UTF-8 库上是 4n，与 `LENGTH_IN_CHAR` 的取值无关。因此 `NVARCHAR(10)` 会被上报为 `NVARCHAR(20)` 或 `NVARCHAR(40)`。现在长度取自 `SYS.SYSCOLUMNS.LENGTH$`，即声明长度。
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
+
 ### JDBC MySQL 兼容模式 DECIMAL 精度映射
 
 - **行为变更：MySQL JDBC 和 OceanBase MySQL 兼容模式的 DECIMAL 元数据现在保留声明的精度和小数位数**
