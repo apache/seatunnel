@@ -42,6 +42,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -125,10 +126,16 @@ public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourc
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
+            // Debezium passthrough properties override the connector's decoding plugin option.
+            String decodingPlugin =
+                    config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                            .orElse(Collections.emptyMap())
+                            .getOrDefault(
+                                    "plugin.name",
+                                    config.get(
+                                            PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME));
             // pgoutput streams only published columns; snapshot-only jobs never stream
-            if (PGOUTPUT.equalsIgnoreCase(
-                            config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME)
-                                    .trim())
+            if (PGOUTPUT.equalsIgnoreCase(decodingPlugin.trim())
                     && config.get(PostgresSourceOptions.STARTUP_MODE)
                             != StartupMode.SNAPSHOT_ONLY) {
                 catalogTables =
