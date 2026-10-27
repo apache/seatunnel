@@ -58,8 +58,10 @@ a NULL string and `DECIMAL(10,2)` values.
 
 Cleanup drops only the table created by this test. If the process is forcibly
 terminated, use the test logs to identify and remove that test table manually.
-Connection configuration and the driver are copied into the test container only
-for the test.
+Each job uses a complete temporary configuration generated from this test's own
+template, with no includes. It is copied directly into the Zeta container with
+owner-only permissions and deleted after the test, including when job submission
+fails. The driver is copied into the test container only for the test.
 
 This path tests standard JDBC Source reads. It does not validate Ingres JDBC Sink
 execution, native upsert, Ingres-specific types, CDC, catalog or connector-managed

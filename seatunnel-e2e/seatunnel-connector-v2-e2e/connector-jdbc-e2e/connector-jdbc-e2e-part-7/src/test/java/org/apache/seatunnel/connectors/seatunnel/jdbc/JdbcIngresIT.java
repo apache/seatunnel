@@ -23,7 +23,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -48,6 +51,9 @@ import java.util.Properties;
 import java.util.UUID;
 
 @EnabledIfEnvironmentVariable(named = "INGRES_E2E", matches = "(?i)true")
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK})
 public class JdbcIngresIT extends TestSuiteBase {
     private URLClassLoader driverLoader;
     private Connection connection;
@@ -106,11 +112,11 @@ public class JdbcIngresIT extends TestSuiteBase {
         }
         connectionConfig =
                 ConfigFactory.empty()
-                        .withValue("source.Jdbc.url", ConfigValueFactory.fromAnyRef(url))
-                        .withValue("source.Jdbc.username", ConfigValueFactory.fromAnyRef(user))
-                        .withValue("source.Jdbc.password", ConfigValueFactory.fromAnyRef(password))
+                        .withValue("ingres_url", ConfigValueFactory.fromAnyRef(url))
+                        .withValue("ingres_username", ConfigValueFactory.fromAnyRef(user))
+                        .withValue("ingres_password", ConfigValueFactory.fromAnyRef(password))
                         .withValue(
-                                "source.Jdbc.table_path",
+                                "ingres_table_path",
                                 ConfigValueFactory.fromAnyRef(owner + "." + tableName));
     }
 
@@ -118,6 +124,13 @@ public class JdbcIngresIT extends TestSuiteBase {
     void testIngresSource(TestContainer container) throws Exception {
         container.executeExtraCommands(
                 engine -> {
+                    ContainerUtil.copyConnectorJarToContainer(
+                            engine,
+                            "/jdbc_ingres_source_to_assert.conf",
+                            "seatunnel-connectors-v2",
+                            "connector-",
+                            "seatunnel",
+                            "/tmp/seatunnel");
                     Container.ExecResult mkdir =
                             engine.execInContainer(
                                     "mkdir", "-p", "/tmp/seatunnel/plugins/Jdbc/lib");
@@ -126,35 +139,38 @@ public class JdbcIngresIT extends TestSuiteBase {
                             MountableFile.forHostPath(driverJar),
                             "/tmp/seatunnel/plugins/Jdbc/lib/iijdbc.jar");
                 });
+        String jobPath = "/tmp/jdbc_ingres_source_to_assert.json";
         try {
             for (int id = 1; id <= 2; id++) {
                 byte[] config =
-                        connectionConfig
-                                .withValue(
-                                        "source.Jdbc.where_condition",
-                                        ConfigValueFactory.fromAnyRef("where \"id\" = " + id))
-                                .withValue("ingres_expected_id", ConfigValueFactory.fromAnyRef(id))
-                                .withValue(
-                                        "ingres_string_rule",
-                                        ConfigValueFactory.fromAnyRef(
-                                                id == 1 ? "NOT_NULL" : "NULL"))
+                        createJobConfig(connectionConfig, id)
                                 .root()
                                 .render(ConfigRenderOptions.concise())
                                 .getBytes(StandardCharsets.UTF_8);
                 container.executeExtraCommands(
                         engine ->
-                                engine.copyFileToContainer(
-                                        Transferable.of(config, 0600),
-                                        "/tmp/ingres-jdbc-connection.conf"));
+                                engine.copyFileToContainer(Transferable.of(config, 0600), jobPath));
                 Container.ExecResult result =
-                        container.executeJob("/jdbc_ingres_source_to_assert.conf");
+                        container.executeBaseCommand(new String[] {"--config", jobPath});
                 Assertions.assertEquals(0, result.getExitCode());
             }
         } finally {
-            container.executeExtraCommands(
-                    engine ->
-                            engine.execInContainer("rm", "-f", "/tmp/ingres-jdbc-connection.conf"));
+            container.executeExtraCommands(engine -> engine.execInContainer("rm", "-f", jobPath));
         }
+    }
+
+    static Config createJobConfig(Config connectionConfig, int id) {
+        return ConfigFactory.parseResources("jdbc_ingres_source_to_assert.conf")
+                .resolveWith(
+                        connectionConfig
+                                .withValue(
+                                        "ingres_where_condition",
+                                        ConfigValueFactory.fromAnyRef("where \"id\" = " + id))
+                                .withValue("ingres_expected_id", ConfigValueFactory.fromAnyRef(id))
+                                .withValue(
+                                        "ingres_string_rule",
+                                        ConfigValueFactory.fromAnyRef(
+                                                id == 1 ? "NOT_NULL" : "NULL")));
     }
 
     @AfterAll
