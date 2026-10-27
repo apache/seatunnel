@@ -73,6 +73,7 @@ token 写入作业文件、仓库文件、命令历史或日志。
 | Doris | `mysql://<fe_host>:<query_port>` | `<database>.<table>` |
 | JDBC | `<scheme>://<host>:<port>` | `<database>.<table>` |
 
+对于 JDBC extractor 处理的连接器，`base-url` 包含 JDBC URL 时可作为 `url` 的回退配置。
 MySQL-CDC 从 `url`（或回退配置 `base-url`）解析连接地址，并将 `table-names` 中每个完整表名按 JDBC 命名规则展开为 dataset。`database-names` 仅过滤订阅范围，不补全或改写这些表名。
 
 Paimon 的 `<catalog_name>` 来自连接器的 `catalog_name` 配置，数据集的 name 只有表名，不是

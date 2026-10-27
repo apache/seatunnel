@@ -18,6 +18,7 @@
 package org.apache.seatunnel.lineage;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -34,11 +35,14 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
 
 /**
- * {@link LineageRuntime#emit} is the single seam every engine call site relies on to never throw.
- * These assertions cover the case a backend-resolution failure exercises, since a bad {@code
+ * {@link LineageRuntime#emit} contains ordinary lineage failures at the shared engine seam. These
+ * assertions cover the case a backend-resolution failure exercises, since a bad {@code
  * openlineage_transport} value or an incomplete deployment must degrade to a logged warning rather
  * than propagate into the job that lineage reporting is only supposed to observe.
  */
@@ -73,6 +77,37 @@ class LineageRuntimeTest {
         assertEquals(1, handler.records.size());
         assertEquals(Level.WARNING, handler.records.get(0).getLevel());
         assertTrue(handler.records.get(0).getThrown() instanceof IllegalArgumentException);
+    }
+
+    @Test
+    void propagatesVirtualMachineErrors() {
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.ENABLED, true),
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        OutOfMemoryError error = new OutOfMemoryError("test");
+        try (MockedStatic<LineageBackendLoader> loader = mockStatic(LineageBackendLoader.class)) {
+            loader.when(() -> LineageBackendLoader.load(config)).thenThrow(error);
+            assertSame(
+                    error,
+                    assertThrows(
+                            OutOfMemoryError.class, () -> LineageRuntime.emit(config, event())));
+        }
+    }
+
+    @Test
+    void containsLinkageErrors() {
+        LineageConfig config =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.ENABLED, true),
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        try (MockedStatic<LineageBackendLoader> loader = mockStatic(LineageBackendLoader.class)) {
+            loader.when(() -> LineageBackendLoader.load(config))
+                    .thenThrow(new NoClassDefFoundError("test"));
+            assertDoesNotThrow(() -> LineageRuntime.emit(config, event()));
+        }
     }
 
     private static LineageEvent event() {

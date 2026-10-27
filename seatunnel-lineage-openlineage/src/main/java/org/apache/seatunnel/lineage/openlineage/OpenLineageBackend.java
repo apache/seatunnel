@@ -56,8 +56,9 @@ public final class OpenLineageBackend implements LineageBackend {
     /**
      * Sends one event using HTTP on a best-effort basis.
      *
-     * <p>Failures are logged and ignored. Lineage delivery must never change the outcome of the
-     * data-processing job, so this behaviour is not configurable.
+     * <p>Failures other than {@link VirtualMachineError} are logged and ignored. Lineage delivery
+     * must not change the outcome of the data-processing job, so this behaviour is not
+     * configurable.
      *
      * @param config immutable lineage configuration
      * @param event event to send
@@ -70,6 +71,8 @@ public final class OpenLineageBackend implements LineageBackend {
         String payload;
         try {
             payload = OpenLineageEventConverter.toJson(event);
+        } catch (VirtualMachineError failure) {
+            throw failure;
         } catch (Throwable failure) {
             LOGGER.warn("Failed to render an OpenLineage event as JSON", failure);
             return;
@@ -86,6 +89,8 @@ public final class OpenLineageBackend implements LineageBackend {
                             + " ({})",
                     LineageConfig.URL,
                     endpointSummary(config.url()));
+        } catch (VirtualMachineError failure) {
+            throw failure;
         } catch (Throwable failure) {
             // The message carries what the run actually needs: the HTTP status of a rejected
             // request, the TLS or connection failure behind an unreachable one. The cause is
