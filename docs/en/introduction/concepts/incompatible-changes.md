@@ -41,6 +41,12 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Native CLI help exit code
+
+`seatunnel.sh -h` now exits with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**

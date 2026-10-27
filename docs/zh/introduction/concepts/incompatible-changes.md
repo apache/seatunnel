@@ -40,6 +40,12 @@
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
+### 原生 CLI 帮助退出码
+
+`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
+依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
+对应包装脚本仍将帮助请求转换为退出码 `0`。
+
 ### CDC：可空列不再用作快照分片列
 
 - **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
