@@ -74,6 +74,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
     public static final String FS_FTP_REMOTE_VERIFICATION_ENABLED =
             "fs.ftp.remote.verification.enabled";
     public static final String FS_FTP_CONTROL_ENCODING = "fs.ftp.control.encoding";
+    public static final String FS_FTP_CONTROL_TIMEOUT = "fs.ftp.control.timeout";
 
     public static final String E_SAME_DIRECTORY_ONLY = "only same directory renames are supported";
 
@@ -158,10 +159,19 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         String user = conf.get(FS_FTP_USER_PREFIX + host);
         String password = conf.get(FS_FTP_PASSWORD_PREFIX + host);
 
+        // Bound the control channel reads. Without this a server that accepts the TCP connection
+        // but never answers leaves the calling thread blocked forever, because the client default
+        // read timeout is 0 (wait indefinitely).
+        client.setDefaultTimeout(
+                conf.getInt(
+                        FS_FTP_CONTROL_TIMEOUT,
+                        FtpFileBaseOptions.FTP_CONTROL_TIMEOUT.defaultValue()));
+
         // Connect to the FTP server
         client.connect(host, port);
         int reply = client.getReplyCode();
         if (!FTPReply.isPositiveCompletion(reply)) {
+            disconnect(client);
             throw NetUtils.wrapException(
                     host,
                     port,
@@ -172,10 +182,12 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
 
         // Log in to the FTP server
         if (!client.login(user, password)) {
+            int loginReplyCode = client.getReplyCode();
+            disconnect(client);
             throw new IOException(
                     String.format(
                             "Login failed on server - %s, port - %d as user '%s', reply code: %d",
-                            host, port, user, client.getReplyCode()));
+                            host, port, user, loginReplyCode));
         }
 
         // Set the file type to binary and buffer size

@@ -45,6 +45,13 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
 
 The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
 
+### FTP connector: control connection replies are now bounded by a 60 second timeout
+
+- **Behavior change: the FTP source and sink stop waiting for a control-connection reply after 60 seconds**
+  - **Description**: The FTP file system created its client and called `connect(host, port)` without setting a read timeout. The underlying client's read timeout defaults to `0`, which means wait indefinitely, so a server that accepted the TCP connection but never sent a reply — a stalled server, a connection accepted by a firewall or load balancer that is silently dropping traffic, or a server that stopped answering in the middle of a listing — left the reader thread blocked forever. The new `control_timeout` option bounds every control-connection reply, including the greeting, the login exchange, and listings, and defaults to 60000 ms. It applies to both the source and the sink.
+  - **Impact**: Jobs against a server that is reachable but does not answer the control channel now fail with a timeout instead of hanging. A job that previously stayed in `RUNNING` with no progress and no error will now surface a retriable failure whose message names the FTP host and port. Connections that answer within 60 seconds are unaffected. Note that the connect step itself already had a 60 second limit from the underlying client, so this closes the remaining unbounded wait rather than changing how long an unreachable host takes to fail.
+  - **Migration Guide**: No action is required. If a server legitimately needs more than 60 seconds to answer a control command, for example a listing over a very large remote directory on a slow link, raise `control_timeout` on the connector. Set it to `0` to restore the previous wait-indefinitely behavior.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**

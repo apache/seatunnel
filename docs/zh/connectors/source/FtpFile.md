@@ -58,6 +58,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | connection_mode             | string  | 否    | active_local        |
 | remote_verification_enabled | boolean | 否    | true                |
 | control_encoding            | string  | 否    | UTF-8               |
+| control_timeout             | int     | 否    | 60000               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
 | row_delimiter               | string  | 否    | \n                  |
 | read_columns                | list    | 否    | -                   |

@@ -123,6 +123,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
+                .optional(FtpFileSourceOptions.FTP_CONTROL_TIMEOUT)
                 .build();
     }
 

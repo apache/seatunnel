@@ -116,6 +116,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
+                .optional(FtpFileSourceOptions.FTP_CONTROL_TIMEOUT)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
