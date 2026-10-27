@@ -1112,6 +1112,8 @@ Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a
 
 The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
 
+Text pattern letters (such as `MMM`, `EEE`) are interpreted in English, independent of the worker JVM locale.
+
 `timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see  https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
 
 
@@ -1137,7 +1139,7 @@ Convert a datetime to the number of seconds since the UNIX epoch (1970-01-01 00:
 - String argument: parsed with the given `pattern` (default `yyyy-MM-dd HH:mm:ss`). For pattern characters see `java.time.format.DateTimeFormatter`.
 - `dateTime` argument: a TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE column.
 
-`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. A string whose pattern carries a zone offset (for example `yyyy-MM-dd HH:mm:ssXXX`) uses that offset rather than the system time zone. Unparseable string input returns NULL rather than raising an error. An explicit NULL pattern or an invalid pattern string returns NULL for all input types. The `pattern` argument is only consulted for string input; it is ignored for typed datetime arguments. A pattern without a full date (for example `HH:mm:ss` or `yyyy-MM`) causes every row to return NULL, because the parser requires at least a date component. Numeric input is not supported and returns NULL; other non-temporal types (for example TIME, BOOLEAN, BYTES) raise an error. An out-of-range day-of-month (for example `2023-02-30`) is adjusted to the last valid day of that month, consistent with the other date-time functions. Unlike `FROM_UNIXTIME`, `UNIX_TIMESTAMP` does not accept a time zone argument. To convert a datetime in a specific time zone, use `AT TIME ZONE` to obtain a TIMESTAMP_TZ value first. If a user-defined function (UDF) with the same name exists, it is shadowed by this built-in.
+`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. A string whose pattern carries a zone offset (for example `yyyy-MM-dd HH:mm:ssXXX`) uses that offset rather than the system time zone. Unparseable string input returns NULL rather than raising an error. An explicit NULL pattern or an invalid pattern string returns NULL for all input types. The `pattern` argument is only consulted for string input; it is ignored for typed datetime arguments. A pattern without a full date (for example `HH:mm:ss` or `yyyy-MM`) causes every row to return NULL, because the parser requires at least a date component. Numeric input is not supported and returns NULL; other non-temporal types (for example TIME, BOOLEAN, BYTES) raise an error. An out-of-range day-of-month (for example `2023-02-30`) is adjusted to the last valid day of that month, consistent with the other date-time functions. Unlike `FROM_UNIXTIME`, `UNIX_TIMESTAMP` does not accept a time zone argument. To convert a datetime in a specific time zone, use `AT TIME ZONE` to obtain a TIMESTAMP_TZ value first. If a user-defined function (UDF) with the same name exists, it is shadowed by this built-in. Text pattern letters (such as `MMM`, `EEE`) are interpreted in English, independent of the worker JVM locale.
 
 Example:
 

@@ -39,6 +39,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 
 public class SQLDateTimeFunctionsTest {
@@ -648,6 +649,66 @@ public class SQLDateTimeFunctionsTest {
                                     LocalDateTime.of(2023, 1, 1, 0, 0, 0))
                             .getField(0));
         } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
+
+    @Test
+    public void testUnixTimestampTextPatternLocaleIndependent() {
+        // getFormatter previously used DateTimeFormatter.ofPattern(pattern), which
+        // captures the JVM default FORMAT locale. A text pattern like 'dd MMM yyyy'
+        // then failed to parse on a non-English worker (de-DE expects "Okt", not
+        // "Oct") and the catch block returned NULL. With Locale.ENGLISH in
+        // getFormatter, parsing is locale-independent. Under Locale.GERMANY this
+        // test fails without the fix.
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        try {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.GERMANY);
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+            Object field =
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s, 'dd MMM yyyy') as ts from dual",
+                                    strType,
+                                    "23 Oct 2026")
+                            .getField(0);
+            Assertions.assertNotNull(
+                    field, "text pattern must not return NULL under a non-English locale");
+            // 2026-10-23 00:00:00+08:00 (Asia/Shanghai) = 2026-10-22 16:00:00 UTC
+            Assertions.assertEquals(1792684800L, field);
+        } finally {
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
+            TimeZone.setDefault(originalTz);
+        }
+    }
+
+    @Test
+    public void testFromUnixTimeTextPatternLocaleIndependent() {
+        // FROM_UNIXTIME rendered text patterns in the worker's locale (de-DE ->
+        // "Okt"), inconsistent with DAYNAME/MONTHNAME which pin English. With
+        // Locale.ENGLISH in getFormatter, formatting is locale-independent. Under
+        // Locale.GERMANY this test fails without the fix.
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        try {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.GERMANY);
+            long epoch = LocalDate.of(2026, 10, 23).atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+            SeaTunnelRowType numType =
+                    new SeaTunnelRowType(
+                            new String[] {"n"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+            Object field =
+                    runSql("select FROM_UNIXTIME(n, 'dd MMM yyyy') as d from dual", numType, epoch)
+                            .getField(0);
+            Assertions.assertNotNull(field);
+            Assertions.assertTrue(
+                    ((String) field).contains("Oct"),
+                    "FROM_UNIXTIME text pattern must render English month names, got: " + field);
+        } finally {
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
             TimeZone.setDefault(originalTz);
         }
     }

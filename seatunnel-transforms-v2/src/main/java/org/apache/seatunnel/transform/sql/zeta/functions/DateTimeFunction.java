@@ -62,7 +62,7 @@ public class DateTimeFunction {
         if (cached != null) {
             return cached;
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
         if (FORMATTER_CACHE.size() < FORMATTER_CACHE_MAX_SIZE) {
             FORMATTER_CACHE.putIfAbsent(pattern, formatter);
         }
