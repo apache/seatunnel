@@ -88,6 +88,7 @@ import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOp
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.lineage.LineageConfig;
+import org.apache.seatunnel.lineage.LineageEventType;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
@@ -116,11 +117,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -197,16 +200,18 @@ public class JobMaster {
     /** Resolved once on first use; see {@link #resolveLineageConfig()}. */
     private volatile LineageConfig lineageConfig;
 
-    /**
-     * Cap on {@link #lineageEmissions}. Under a low heartbeat interval and a degraded receiver,
-     * heartbeats can outpace the drain; without a bound the deque grows for the life of the job.
-     * New events are refused (and logged) when the queue is full so earlier START/COMPLETE stay
-     * ahead of late heartbeats.
-     */
-    private static final int MAX_LINEAGE_EMISSIONS = 64;
-
     /** Lineage emissions waiting to be sent; see {@link #submitLineageEmission(Runnable)}. */
-    private final Deque<Runnable> lineageEmissions = new ArrayDeque<>();
+    private final Deque<LineageEmission> lineageEmissions = new ArrayDeque<>();
+
+    private static final class LineageEmission {
+        private final Runnable task;
+        private final LineageEventType type;
+
+        private LineageEmission(Runnable task, LineageEventType type) {
+            this.task = task;
+            this.type = type;
+        }
+    }
 
     private final Object lineageEmissionLock = new Object();
 
@@ -1232,41 +1237,81 @@ public class JobMaster {
      * receiver, so the send is handed to the dedicated lineage emission executor instead of the
      * shared coordinator pool.
      *
-     * <p>Emissions are queued and drained by a single task rather than submitted independently
-     * because OpenLineage runs are ordered: a COMPLETE that overtakes its own START, or a heartbeat
-     * that overtakes a COMPLETE, leaves the receiver holding the wrong final state for the run. The
-     * queue keeps one job's events in submission order without serializing different jobs against
-     * each other, and occupies at most one lineage-emission thread per draining job.
+     * <p>Emissions are queued and drained one at a time rather than submitted independently because
+     * OpenLineage runs are ordered: a COMPLETE that overtakes its own START, or a heartbeat that
+     * overtakes a COMPLETE, leaves the receiver holding the wrong final state for the run. The
+     * queue keeps one job's events in submission order. Requeuing after each emission lets other
+     * jobs make progress between sends.
      *
      * @param emission the emission to run; a failure it raises is logged rather than propagated, so
      *     the next queued emission still runs
      */
     public void submitLineageEmission(Runnable emission) {
+        submitLineageEmission(emission, LineageEventType.START);
+    }
+
+    public void submitLineageEmission(Runnable emission, LineageEventType type) {
         synchronized (lineageEmissionLock) {
-            if (lineageEmissions.size() >= MAX_LINEAGE_EMISSIONS) {
-                // Refuse the newest event so earlier START/COMPLETE stay ahead of late heartbeats.
-                LOGGER.warning(
-                        "Dropped a lineage emission for job "
-                                + jobId
-                                + ": the per-job lineage queue is full ("
-                                + MAX_LINEAGE_EMISSIONS
-                                + ")");
-                return;
-            }
-            lineageEmissions.add(emission);
+            lineageEmissions.removeIf(item -> item.type == LineageEventType.RUNNING);
+            lineageEmissions.add(new LineageEmission(emission, type));
             if (drainingLineageEmissions) {
                 return;
             }
             drainingLineageEmissions = true;
         }
+        scheduleLineageDrain();
+    }
+
+    private void scheduleLineageDrain() {
+        LineageDrain task = new LineageDrain();
         try {
-            lineageEmissionExecutor.execute(this::drainLineageEmissions);
+            lineageEmissionExecutor.execute(task);
         } catch (RejectedExecutionException rejected) {
-            int dropped;
+            boolean lifecyclePending;
+            List<LineageEventType> dropped = null;
             synchronized (lineageEmissionLock) {
-                dropped = lineageEmissions.size();
-                lineageEmissions.clear();
-                drainingLineageEmissions = false;
+                lifecyclePending =
+                        lineageEmissions.stream()
+                                .anyMatch(item -> item.type != LineageEventType.RUNNING);
+                if (!lifecyclePending) {
+                    dropped =
+                            lineageEmissions.stream()
+                                    .map(item -> item.type)
+                                    .collect(Collectors.toList());
+                    lineageEmissions.clear();
+                    drainingLineageEmissions = false;
+                }
+            }
+            if (lifecyclePending && lineageEmissionExecutor instanceof ThreadPoolExecutor) {
+                ThreadPoolExecutor executor = (ThreadPoolExecutor) lineageEmissionExecutor;
+                for (Runnable queued : executor.getQueue()) {
+                    if (queued instanceof JobMaster.LineageDrain
+                            && ((LineageDrain) queued).evictHeartbeat(executor.getQueue())) {
+                        try {
+                            executor.execute(task);
+                            return;
+                        } catch (RejectedExecutionException ignored) {
+                            break;
+                        }
+                    }
+                }
+                // A running drain may have freed a slot while the queue was inspected.
+                try {
+                    executor.execute(task);
+                    return;
+                } catch (RejectedExecutionException ignored) {
+                    // The queue is still full or the executor has stopped.
+                }
+            }
+            if (dropped == null) {
+                synchronized (lineageEmissionLock) {
+                    dropped =
+                            lineageEmissions.stream()
+                                    .map(item -> item.type)
+                                    .collect(Collectors.toList());
+                    lineageEmissions.clear();
+                    drainingLineageEmissions = false;
+                }
             }
             // Dropped events have to be visible: reporting is enabled, so silence here is
             // indistinguishable from a job that simply produced no lineage.
@@ -1275,27 +1320,53 @@ public class JobMaster {
                             + dropped
                             + " lineage event(s) for job "
                             + jobId
-                            + ": the lineage emission executor is no longer accepting work");
+                            + ": the lineage emission executor is full or shut down");
         }
     }
 
-    /** Sends queued lineage emissions in order until the queue is empty. */
-    private void drainLineageEmissions() {
-        while (true) {
-            Runnable emission;
+    private final class LineageDrain implements Runnable {
+        @Override
+        public void run() {
+            drainLineageEmissions();
+        }
+
+        private boolean evictHeartbeat(BlockingQueue<Runnable> queue) {
             synchronized (lineageEmissionLock) {
-                emission = lineageEmissions.poll();
-                if (emission == null) {
-                    drainingLineageEmissions = false;
-                    return;
+                if (lineageEmissions.isEmpty()
+                        || lineageEmissions.stream()
+                                .anyMatch(item -> item.type != LineageEventType.RUNNING)
+                        || !queue.remove(this)) {
+                    return false;
                 }
-            }
-            try {
-                emission.run();
-            } catch (Throwable error) {
-                LOGGER.warning("Failed to emit a lineage event for job " + jobId, error);
+                lineageEmissions.clear();
+                drainingLineageEmissions = false;
+                LOGGER.warning(
+                        "Dropped queued RUNNING lineage event for job "
+                                + jobId
+                                + ": the lineage emission executor is full");
+                return true;
             }
         }
+    }
+
+    /** Sends one event and requeues the job if more events remain. */
+    private void drainLineageEmissions() {
+        LineageEmission emission;
+        synchronized (lineageEmissionLock) {
+            emission = lineageEmissions.poll();
+        }
+        try {
+            emission.task.run();
+        } catch (Throwable error) {
+            LOGGER.warning("Failed to emit a lineage event for job " + jobId, error);
+        }
+        synchronized (lineageEmissionLock) {
+            if (lineageEmissions.isEmpty()) {
+                drainingLineageEmissions = false;
+                return;
+            }
+        }
+        scheduleLineageDrain();
     }
 
     public PassiveCompletableFuture<JobResult> getJobMasterCompleteFuture() {

@@ -92,6 +92,8 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    private boolean lineageStartReported;
+
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
             @NonNull ExecutorService executorService,
@@ -438,7 +440,12 @@ public class PhysicalPlan {
             log.warn("Failed to report job {} state event", jobId, e);
         }
         try {
-            ZetaLineageReporter.reportJobState(jobMaster, jobStatus);
+            if (jobStatus != JobStatus.RUNNING || !lineageStartReported) {
+                if (jobStatus == JobStatus.RUNNING) {
+                    lineageStartReported = true;
+                }
+                ZetaLineageReporter.reportJobState(jobMaster, jobStatus);
+            }
         } catch (Throwable e) {
             log.warn("Failed to report lineage for job {}", jobId, e);
         }

@@ -228,10 +228,9 @@ public class CoordinatorService {
     private final ExecutorService metricsFetchExecutor;
 
     /**
-     * Bounded pool dedicated to OpenLineage HTTP emission. Shared by every JobMaster so a slow
+     * Fixed-size pool dedicated to OpenLineage HTTP emission. Shared by every JobMaster so a slow
      * lineage receiver can only stall lineage reporting, never PlanUtils / checkpoint scheduling on
-     * {@link #executorService}. Fixed at 2 threads with a 64-slot queue; overflow is logged and
-     * dropped (see {@link #createLineageEmissionExecutor()}).
+     * {@link #executorService}. At most 64 jobs await a delivery thread.
      */
     private ExecutorService lineageEmissionExecutor;
 
@@ -328,10 +327,8 @@ public class CoordinatorService {
     /**
      * Builds the isolated lineage-emission pool.
      *
-     * <p>Fixed size and a bounded queue keep a stuck OpenLineage receiver from spawning unbounded
-     * native threads on the master. Rejection logs and drops (then throws {@link
-     * java.util.concurrent.RejectedExecutionException}) so {@link JobMaster#submitLineageEmission}
-     * can clear its per-job queue the same way it already does for a shut-down executor.
+     * <p>Each job has at most one queued drain. When full, lifecycle events can replace a queued
+     * heartbeat-only job; see {@link JobMaster#submitLineageEmission(Runnable)}.
      */
     private ExecutorService createLineageEmissionExecutor() {
         return new ThreadPoolExecutor(
@@ -343,14 +340,19 @@ public class CoordinatorService {
                 new ThreadFactoryBuilder()
                         .setNameFormat("seatunnel-lineage-emission-%d")
                         .setDaemon(true)
-                        .build(),
-                (runnable, executor) -> {
+                        .build()) {
+            @Override
+            public List<Runnable> shutdownNow() {
+                List<Runnable> pending = super.shutdownNow();
+                if (!pending.isEmpty()) {
                     logger.warning(
-                            "Dropped a lineage emission task: the lineage emission executor "
-                                    + "queue is full or the executor is shut down");
-                    throw new java.util.concurrent.RejectedExecutionException(
-                            "Lineage emission executor rejected a task");
-                });
+                            "Dropped "
+                                    + pending.size()
+                                    + " pending lineage emission task(s) during shutdown");
+                }
+                return pending;
+            }
+        };
     }
 
     /**

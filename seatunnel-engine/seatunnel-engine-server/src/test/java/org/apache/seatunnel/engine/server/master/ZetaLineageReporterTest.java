@@ -60,9 +60,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -188,7 +190,7 @@ class ZetaLineageReporterTest {
 
         ZetaLineageReporter.reportHeartbeat(disabled);
 
-        verify(disabled, never()).submitLineageEmission(any());
+        verify(disabled, never()).submitLineageEmission(any(), eq(LineageEventType.RUNNING));
 
         // The same wiring with a usable interval must report, so the assertion above cannot pass
         // merely because the mock never reached the throttle.
@@ -196,7 +198,7 @@ class ZetaLineageReporterTest {
 
         ZetaLineageReporter.reportHeartbeat(reporting);
 
-        verify(reporting).submitLineageEmission(any());
+        verify(reporting).submitLineageEmission(any(), eq(LineageEventType.RUNNING));
     }
 
     /**
@@ -211,7 +213,7 @@ class ZetaLineageReporterTest {
         ArgumentCaptor<Runnable> emission = ArgumentCaptor.forClass(Runnable.class);
 
         ZetaLineageReporter.reportHeartbeat(jobMaster);
-        verify(jobMaster).submitLineageEmission(emission.capture());
+        verify(jobMaster).submitLineageEmission(emission.capture(), eq(LineageEventType.RUNNING));
 
         // The plan thread reached the end state after the heartbeat passed its own check.
         doReturn(JobStatus.FINISHED).when(jobMaster).getJobStatus();
@@ -245,7 +247,7 @@ class ZetaLineageReporterTest {
         doReturn(information).when(jobMaster).getJobImmutableInformation();
 
         doReturn(new AtomicLong()).when(jobMaster).getLineageHeartbeatTime();
-        doNothing().when(jobMaster).submitLineageEmission(any());
+        doNothing().when(jobMaster).submitLineageEmission(any(), eq(LineageEventType.RUNNING));
         return jobMaster;
     }
 
@@ -295,29 +297,107 @@ class ZetaLineageReporterTest {
     }
 
     @Test
-    void shouldDropLineageEmissionsWhenPerJobQueueIsFull() throws Exception {
+    void shouldCoalesceHeartbeatsAndKeepTerminalEmission() throws Exception {
         JobMaster jobMaster = mock(JobMaster.class, CALLS_REAL_METHODS);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         setField(jobMaster, "lineageEmissionExecutor", executor);
-        setField(jobMaster, "lineageEmissions", new ArrayDeque<Runnable>());
+        setField(jobMaster, "lineageEmissions", new ArrayDeque<>());
         setField(jobMaster, "lineageEmissionLock", new Object());
         setField(jobMaster, "jobId", 42L);
         // Pretend a drain is already running so submit only enqueues and never calls execute.
         setField(jobMaster, "drainingLineageEmissions", true);
         try {
-            for (int i = 0; i < 64; i++) {
-                jobMaster.submitLineageEmission(() -> {});
+            jobMaster.submitLineageEmission(() -> {});
+            for (int i = 0; i < 63; i++) {
+                jobMaster.submitLineageEmission(() -> {}, LineageEventType.RUNNING);
             }
             Field field = JobMaster.class.getDeclaredField("lineageEmissions");
             field.setAccessible(true);
             @SuppressWarnings("unchecked")
-            Deque<Runnable> emissions = (Deque<Runnable>) field.get(jobMaster);
-            Assertions.assertEquals(64, emissions.size());
+            Deque<?> emissions = (Deque<?>) field.get(jobMaster);
+            Assertions.assertEquals(2, emissions.size());
 
-            jobMaster.submitLineageEmission(() -> {});
-            Assertions.assertEquals(
-                    64, emissions.size(), "a full per-job queue must refuse the newest emission");
+            AtomicBoolean terminalRan = new AtomicBoolean();
+            jobMaster.submitLineageEmission(() -> terminalRan.set(true));
+            Assertions.assertEquals(2, emissions.size());
+            setField(jobMaster, "drainingLineageEmissions", false);
+            CountDownLatch drained = new CountDownLatch(1);
+            jobMaster.submitLineageEmission(drained::countDown);
+            Assertions.assertTrue(drained.await(30, TimeUnit.SECONDS));
+            Assertions.assertTrue(terminalRan.get());
         } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldSendOnlyTheLatestPendingHeartbeat() throws Exception {
+        JobMaster job = mock(JobMaster.class, CALLS_REAL_METHODS);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        setField(job, "lineageEmissionExecutor", executor);
+        setField(job, "lineageEmissions", new ArrayDeque<>());
+        setField(job, "lineageEmissionLock", new Object());
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch heartbeatSent = new CountDownLatch(1);
+        List<String> emitted = Collections.synchronizedList(new ArrayList<>());
+        try {
+            job.submitLineageEmission(
+                    () -> {
+                        started.countDown();
+                        awaitQuietly(release);
+                    });
+            Assertions.assertTrue(started.await(30, TimeUnit.SECONDS));
+            job.submitLineageEmission(() -> emitted.add("old"), LineageEventType.RUNNING);
+            job.submitLineageEmission(
+                    () -> {
+                        emitted.add("latest");
+                        heartbeatSent.countDown();
+                    },
+                    LineageEventType.RUNNING);
+            release.countDown();
+            Assertions.assertTrue(heartbeatSent.await(30, TimeUnit.SECONDS));
+            Assertions.assertEquals(Collections.singletonList("latest"), emitted);
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldLetAnotherJobSendBeforeRequeuingTheFirstJob() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        JobMaster first = mock(JobMaster.class, CALLS_REAL_METHODS);
+        JobMaster second = mock(JobMaster.class, CALLS_REAL_METHODS);
+        for (JobMaster job : Arrays.asList(first, second)) {
+            setField(job, "lineageEmissionExecutor", executor);
+            setField(job, "lineageEmissions", new ArrayDeque<>());
+            setField(job, "lineageEmissionLock", new Object());
+        }
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch complete = new CountDownLatch(1);
+        List<String> emitted = Collections.synchronizedList(new ArrayList<>());
+        try {
+            first.submitLineageEmission(
+                    () -> {
+                        emitted.add("first START");
+                        firstStarted.countDown();
+                        awaitQuietly(release);
+                    });
+            Assertions.assertTrue(firstStarted.await(30, TimeUnit.SECONDS));
+            first.submitLineageEmission(
+                    () -> {
+                        emitted.add("first COMPLETE");
+                        complete.countDown();
+                    });
+            second.submitLineageEmission(() -> emitted.add("second START"));
+            release.countDown();
+            Assertions.assertTrue(complete.await(30, TimeUnit.SECONDS));
+            Assertions.assertEquals(
+                    Arrays.asList("first START", "second START", "first COMPLETE"), emitted);
+        } finally {
+            release.countDown();
             executor.shutdownNow();
         }
     }

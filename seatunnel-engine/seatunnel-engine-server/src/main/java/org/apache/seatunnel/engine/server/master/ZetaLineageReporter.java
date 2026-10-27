@@ -86,7 +86,7 @@ public final class ZetaLineageReporter {
         if (events.isEmpty()) {
             return;
         }
-        jobMaster.submitLineageEmission(() -> emit(config, events));
+        jobMaster.submitLineageEmission(() -> emit(config, events), eventType);
     }
 
     /**
@@ -135,7 +135,8 @@ public final class ZetaLineageReporter {
                         } catch (Throwable error) {
                             LOGGER.warning("Failed to emit Zeta lineage heartbeat", error);
                         }
-                    });
+                    },
+                    LineageEventType.RUNNING);
         } catch (Throwable error) {
             LOGGER.warning("Failed to emit Zeta lineage heartbeat", error);
         }

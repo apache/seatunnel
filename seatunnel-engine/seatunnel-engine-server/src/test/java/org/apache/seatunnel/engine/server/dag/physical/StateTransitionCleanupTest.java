@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.ZetaLineageReporter;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -49,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.InOrder;
+import org.mockito.MockedStatic;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.map.IMap;
@@ -66,6 +68,7 @@ import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderSer
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -177,6 +180,35 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    @Test
+    void testSavepointStartFailureDoesNotRepeatLineageStart() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps plan = createPhysicalPlan(jobId);
+        JobMaster jobMaster = mock(JobMaster.class);
+        plan.physicalPlan.setJobMaster(jobMaster);
+        plan.runningJobState.put(jobId, JobStatus.SCHEDULED);
+        try (MockedStatic<ZetaLineageReporter> reporter = mockStatic(ZetaLineageReporter.class)) {
+            plan.physicalPlan.updateJobState(JobStatus.RUNNING);
+            plan.physicalPlan.updateJobState(JobStatus.DOING_SAVEPOINT);
+            plan.physicalPlan.updateJobState(JobStatus.RUNNING);
+            Assertions.assertEquals(JobStatus.RUNNING, plan.runningJobState.get(jobId));
+            reporter.verify(() -> ZetaLineageReporter.reportJobState(jobMaster, JobStatus.RUNNING));
+        }
+    }
+
+    @Test
+    void testRestoredPlanReportsFirstStartAfterSavepointFailure() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps plan = createPhysicalPlan(jobId);
+        JobMaster jobMaster = mock(JobMaster.class);
+        plan.physicalPlan.setJobMaster(jobMaster);
+        plan.runningJobState.put(jobId, JobStatus.DOING_SAVEPOINT);
+        try (MockedStatic<ZetaLineageReporter> reporter = mockStatic(ZetaLineageReporter.class)) {
+            plan.physicalPlan.updateJobState(JobStatus.RUNNING);
+            reporter.verify(() -> ZetaLineageReporter.reportJobState(jobMaster, JobStatus.RUNNING));
+        }
     }
 
     @Test

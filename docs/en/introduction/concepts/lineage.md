@@ -43,6 +43,10 @@ reporting is disabled. The option rule alone does not enforce this validation.
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
 warning, so it can never change the outcome of the data-processing job.
+Zeta uses two delivery threads, queues at most 64 waiting jobs, and coalesces pending heartbeats per
+job. On saturation, a lifecycle event can replace a queued heartbeat-only job. If no such job is
+available, the new event is dropped and logged. Shutdown and failed delivery after the configured
+retries can also lose events.
 
 ### Environment variable names
 

@@ -49,6 +49,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.restassured.response.Response;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -294,6 +295,12 @@ public class MultiTableMetricsIT {
                             .path("output_statistics_semantics")
                             .asText());
             String runId = entry.getValue().path("run").path("runId").asText();
+            List<String> runStates =
+                    lineageEvents.stream()
+                            .filter(event -> event.path("run").path("runId").asText().equals(runId))
+                            .map(event -> event.path("eventType").asText())
+                            .collect(Collectors.toList());
+            Assertions.assertEquals(Arrays.asList("START", "COMPLETE"), runStates);
             Assertions.assertEquals(
                     1,
                     lineageEvents.stream()
