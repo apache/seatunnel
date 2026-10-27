@@ -322,7 +322,14 @@ public class PhysicalVertex {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
-        updateTaskState(ExecutionState.RUNNING);
+        return finishDeployment(state);
+    }
+
+    @VisibleForTesting
+    TaskDeployState finishDeployment(TaskDeployState state) {
+        if (state.isSuccess()) {
+            updateTaskState(ExecutionState.RUNNING);
+        }
         return state;
     }
 
