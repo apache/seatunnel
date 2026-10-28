@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
+每个上游数据行都会被序列化为一条 RocketMQ 消息。Sink 不会按行类型分支处理，因此 `INSERT`、`UPDATE_AFTER` 和 `DELETE` 行都会按所配置的格式发送（文本格式使用配置的字段分隔符）；目前不执行 tombstone 或空消息体的特殊处理。
+
 ## Sink 参数
 
 | 参数名 | 类型 | 是否必填 | 默认值 | 描述 |

@@ -8,6 +8,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 用于从 Apache Kudu 读取数据。连接器会把表扫描编译成 Kudu 的 scan token，多个 reader 可以并行扫描同一张表的不同 key range，并支持谓词和列裁剪下沉到 Kudu。
 
+连接器为批处理作业提供至少一次（at-least-once）语义，不读取 Kudu 变更日志流。
+
 ## 支持的 Kudu 版本
 
 - 1.11.1/1.12.0/1.13.0/1.14.0/1.15.0
