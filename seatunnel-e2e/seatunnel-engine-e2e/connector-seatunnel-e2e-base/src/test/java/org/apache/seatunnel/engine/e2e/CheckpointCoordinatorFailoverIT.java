@@ -37,11 +37,13 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
@@ -635,7 +637,21 @@ public class CheckpointCoordinatorFailoverIT {
      */
     @Test
     public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
-        String testCaseName = "testStreamJobFailsAfterCheckpointTriggerDispatchFailure";
+        assertCheckpointDispatchFailure(
+                "testStreamJobFailsAfterCheckpointTriggerDispatchFailure", false);
+    }
+
+    /**
+     * A barrier sent to a live task group with a missing task must report the real RPC failure,
+     * before the checkpoint timeout. The worker remains in the cluster throughout the test.
+     */
+    @Test
+    public void testStreamJobFailsAfterCheckpointBarrierRpcFailure() throws Exception {
+        assertCheckpointDispatchFailure("testStreamJobFailsAfterCheckpointBarrierRpcFailure", true);
+    }
+
+    private void assertCheckpointDispatchFailure(String testCaseName, boolean failRpc)
+            throws Exception {
         String testClusterName = "CheckpointCoordinatorFailoverIT_" + testCaseName;
         // Single-pipeline job (one FakeSource, one LocalFile sink): PipelineGenerator assigns
         // pipeline ids starting at 1, so this is the fixed key identifying this job's sole
@@ -725,24 +741,52 @@ public class CheckpointCoordinatorFailoverIT {
                                             pendingCounter.get(),
                                             "waiting for checkpoint completion notifications"
                                                     + " before injecting the dispatch failure");
-                                    Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
-                                            ownedSlotProfilesIMap.remove(pipelineLocation);
-                                    Assertions.assertNotNull(
-                                            removedSlotProfiles,
-                                            "the running task's slot-profile bookkeeping should"
-                                                    + " exist before injection");
-                                    log.info(
-                                            "Job {} has no pending checkpoint; removed pipeline {}'s"
-                                                    + " slot-profile bookkeeping ({} task group(s))"
-                                                    + " before the next checkpoint-barrier dispatch.",
-                                            jobId,
-                                            pipelineId,
-                                            removedSlotProfiles.size());
+                                    if (failRpc) {
+                                        CheckpointPlan plan =
+                                                (CheckpointPlan)
+                                                        ReflectionUtils.getField(
+                                                                        coordinator, "plan")
+                                                                .orElseThrow(
+                                                                        IllegalStateException::new);
+                                        Set<TaskLocation> startingTasks =
+                                                plan.getStartingSubtasks();
+                                        Assertions.assertEquals(1, startingTasks.size());
+                                        TaskLocation originalTask = startingTasks.iterator().next();
+                                        TaskLocation missingTask =
+                                                new TaskLocation(
+                                                        originalTask.getTaskGroupLocation(), 0L, 0);
+                                        // Keep the live group address but use a task ID the
+                                        // worker cannot resolve, failing the actual RPC.
+                                        missingTask.setTaskID(Long.MIN_VALUE);
+                                        Assertions.assertTrue(
+                                                ownedSlotProfilesIMap
+                                                        .get(pipelineLocation)
+                                                        .containsKey(
+                                                                originalTask
+                                                                        .getTaskGroupLocation()));
+                                        startingTasks.add(missingTask);
+                                        startingTasks.remove(originalTask);
+                                    } else {
+                                        Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
+                                                ownedSlotProfilesIMap.remove(pipelineLocation);
+                                        Assertions.assertNotNull(
+                                                removedSlotProfiles,
+                                                "the running task's slot-profile bookkeeping should"
+                                                        + " exist before injection");
+                                        log.info(
+                                                "Job {} has no pending checkpoint; removed pipeline {}'s"
+                                                        + " slot-profile bookkeeping ({} task group(s))"
+                                                        + " before the next checkpoint-barrier dispatch.",
+                                                jobId,
+                                                pipelineId,
+                                                removedSlotProfiles.size());
+                                    }
                                 }
                             });
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    // The RPC case must fail before the template's 30-second timeout backstop.
+                    .atMost(failRpc ? 25 : 60, TimeUnit.SECONDS)
                     .pollInterval(500, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
@@ -762,14 +806,25 @@ public class CheckpointCoordinatorFailoverIT {
                                     + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
                                     + " CheckpointCoordinator#handleCoordinatorError), but got: "
                                     + jobResult.getError());
-            Assertions.assertTrue(
-                    jobResult.getError().contains("can't find task group address"),
-                    () ->
-                            "Expected the injected address lookup failure, but got: "
-                                    + jobResult.getError());
-            Assertions.assertTrue(
-                    jobResult.getError().contains("CheckpointCoordinator.triggerCheckpoint"),
-                    () -> "Expected a barrier-dispatch failure, but got: " + jobResult.getError());
+            if (failRpc) {
+                Assertions.assertTrue(
+                        jobResult.getError().contains("CheckpointBarrierTriggerOperation"),
+                        jobResult.getError());
+                Assertions.assertTrue(
+                        jobResult.getError().contains("NullPointerException"),
+                        jobResult.getError());
+            } else {
+                Assertions.assertTrue(
+                        jobResult.getError().contains("can't find task group address"),
+                        () ->
+                                "Expected the injected address lookup failure, but got: "
+                                        + jobResult.getError());
+                Assertions.assertTrue(
+                        jobResult.getError().contains("CheckpointCoordinator.triggerCheckpoint"),
+                        () ->
+                                "Expected a barrier-dispatch failure, but got: "
+                                        + jobResult.getError());
+            }
         } finally {
             if (engineClient != null) {
                 engineClient.close();
