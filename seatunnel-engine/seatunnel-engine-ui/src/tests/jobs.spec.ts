@@ -44,7 +44,8 @@ vi.mock('vue-router', () => ({
   })
 }))
 
-vi.mock('@/service/service', () => ({
+vi.mock('@/service/service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/service/service')>()),
   get: vi.fn(),
   post: vi.fn(),
   isRequestOutcomeUnknown: () => false

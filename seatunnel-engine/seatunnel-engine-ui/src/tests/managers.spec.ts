@@ -276,13 +276,14 @@ describe('managers', () => {
     expect(wrapper.findComponent(NDataTable).props('columns')).toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'details', fixed: 'right' })])
     )
+    expect(wrapper.findComponent(NDataTable).props('scrollX')).toBe(1200)
   })
   test('worker table scrolls its action column with bounded slot summaries', async () => {
     const { wrapper } = await setup()
     await flushPromises()
     const table = wrapper.findComponent(NDataTable)
     expect(table.props('tableLayout')).toBe('fixed')
-    expect(table.props('scrollX')).toBe(1200)
+    expect(table.props('scrollX')).toBe(1460)
     expect(table.props('columns')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'details', fixed: undefined }),

@@ -238,7 +238,10 @@ export default defineComponent({
       return entries.map(([key, value]) => `${key}=${value}`).join(', ')
     }
 
-    const monitorValue = (row: NodeResources, field: keyof Monitor) => row.monitor?.[field] ?? '—'
+    const monitorValue = (
+      row: NodeResources,
+      field: Exclude<keyof Monitor, 'tags' | 'localMember'>
+    ) => row.monitor?.[field] ?? '—'
     // Monitoring values are flat strings except the member tags, which are a structured map.
     const monitorFieldText = (field: string, value: unknown) =>
       field === 'tags' && value && typeof value === 'object'
@@ -336,7 +339,7 @@ export default defineComponent({
       {
         title: t('managers.details'),
         key: 'details',
-        fixed: isMaster.value ? 'right' : undefined,
+        fixed: isMaster.value ? ('right' as const) : undefined,
         width: 95,
         render: (row) => (
           <NButton
