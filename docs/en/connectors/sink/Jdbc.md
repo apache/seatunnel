@@ -8,6 +8,8 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+For native PostgreSQL targets, `json`, `jsonb`, and `uuid` values use the PostgreSQL driver's native typed binding. PostgreSQL-compatible vendor drivers retain string binding for these types.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:

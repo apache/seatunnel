@@ -35,6 +35,8 @@ sh bin/install-plugin.sh
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
 
+
+写入原生 PostgreSQL 的 `json`、`jsonb`、`uuid` 目标列时，连接器使用 PostgreSQL 驱动的原生类型绑定；使用 PostgreSQL 兼容厂商驱动时，这些类型保持字符串绑定。
 ## 选择写入模式
 
 JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余参数。
