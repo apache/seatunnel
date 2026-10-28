@@ -4,6 +4,13 @@
 
 ## dev
 
+### Lance Sink：TIMESTAMP 值保留微秒
+
+- **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**
+  - **描述**：Lance Sink 按文档以微秒精度声明 `TIMESTAMP` 列，但 `BaseTypeWriter.convertToEpochMicro` 会先把 `LocalDateTime` 和 `java.sql.Timestamp` 值转换为毫秒，因此写入的每个值最后三位微秒都是 `000`。现在直接由时间点（Instant）转换。
+  - **影响**：对同一输入，新写入的值可能与早期版本写入的值在最后三位微秒上不同。数据集中已有的行不会被重写，因此同一个数据集中可能同时存在两种值。毫秒精度的列，以及没有毫秒以下数字的值，不受影响。
+  - **迁移指南**：无需修改配置。如果下游需要把新写入的行与早期版本写入的行进行比较或去重，请按毫秒精度比较，或从数据源重新写入旧数据。
+
 ### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
 
 MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
