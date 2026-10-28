@@ -8,6 +8,12 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+## MySQL 时间值
+
+MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
+
+从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -179,6 +185,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | dialect                                   | String  | 否    | -                            | 
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
+| schema                                    | String  | 否    | -                            |
 | tablePrefix                               | String  | 否    | -                            |
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
@@ -194,8 +201,11 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | max_commit_attempts                       | Int     | 否    | 3                            |
 | transaction_timeout_sec                   | Int     | 否    | -1                           |
 | auto_commit                               | Boolean | 否    | true                         |
-| field_ide                                 | String  | 否    | -                            |
+| field_ide                                 | Enum    | 否    | -                            |
 | properties                                | Map     | 否    | -                            |
+| decimal_type_narrowing                    | Boolean | 否    | true                         |
+| int_type_narrowing                        | Boolean | 否    | true                         |
+| handle_blob_as_string                     | Boolean | 否    | false                        |
 | common-options                            |         | 否    | -                            |
 | schema_save_mode                          | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode                            | Enum    | 否    | APPEND_DATA                  |
@@ -290,6 +300,10 @@ pgsql (Oracle Sqlserver ...) 接收器示例:
 
 Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.xxx`
 
+### schema [string]
+
+目标 schema，适用于支持 schema 的数据库（PostgreSQL、Oracle、SQL Server、Redshift、Kingbase、OpenGauss、达梦、虚谷等）。配置后优先级高于 `table` 中携带的 schema 部分（`schema.table`），同时用于生成的 SQL 以及由 `schema_save_mode` / `data_save_mode` 驱动的 catalog 操作。
+
 ### tablePrefix [string]
 
 已过时。请改用带表占位符的 `table` 参数。例如，使用 `table = "prefix_${table_name}_suffix"` 替代 `tablePrefix` 和 `tableSuffix`。
@@ -362,7 +376,7 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 这样可以保证失败批次的原子性，避免原始数据错误被后续的主键重复错误掩盖。
 关闭 checkpoint 时，每次由 `batch_size` / `batch_interval_ms` 触发并成功的批量写入会立即提交事务，避免已刷出的数据一直停留在同一个未结束的事务中直到 writer 关闭；开启 checkpoint 时，提交边界仍然是 checkpoint。
 
-### field_ide [String]
+### field_ide [Enum]
 
 字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE'
 表示转换为大写，'LOWERCASE' 表示转换为小写
@@ -370,6 +384,18 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 ### properties
 
 附加连接配置参数，当属性和URL具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，属性配置优先于 URL。
+
+### decimal_type_narrowing [boolean]
+
+仅在 Oracle catalog 执行建表或读取目标表结构（`schema_save_mode`）时生效。为 `true` 时，精度和小数位可以放入整型的 Oracle `NUMBER` 列会被映射为 `INT` 或 `BIGINT` 而不是 `DECIMAL`。建议与 source 端保持一致，以保证自动建表的字段类型匹配。
+
+### int_type_narrowing [boolean]
+
+仅在 MySQL catalog 执行建表或读取目标表结构（`schema_save_mode`）时生效。为 `true` 时，MySQL 的 `TINYINT(1)` 列会被映射为 `BOOLEAN`；为 `false` 时保持为 `TINYINT`。
+
+### handle_blob_as_string [boolean]
+
+仅在 Oracle catalog 执行建表或读取目标表结构（`schema_save_mode`）时生效。为 `true` 时，Oracle 的 `BLOB` 列会按 `STRING` 类型处理，与 JDBC source 的 `handle_blob_as_string` 选项保持一致。
 
 ### common options
 
@@ -392,6 +418,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
+
+目标表的完整路径指定数据库（`database.schema.table`）时，`DROP_DATA` 会连接到该数据库执行 `TRUNCATE TABLE`。
 
 ### table_options [Map]
 
@@ -618,7 +646,7 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                       |
 | Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client               |
 | SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                              |
-| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                 |
+| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.client.OracleXADataSource           | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                 |
 | sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                          |
 | GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                   | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
 | StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |

@@ -174,7 +174,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)  |
 | FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT         |
 | DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE        |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING        |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>SET<br/>JSON   | STRING        |
 | DATE                                                                                           | DATE          |
 | TIME(s)                                                                                        | TIME(s)       |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
@@ -198,10 +198,10 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
 | startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
 | startup.specific-offset.gtid-set          | String   | 否    | -       | 当 `startup.mode` 为 `specific` 时，可选配置 MySQL GTID 集合. 该选项需要和 `startup.specific-offset.file`、`startup.specific-offset.pos` 一起使用.                                                                                                                                             |
-| startup.specific-offset.skip-events       | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的 binlog event 数量. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                         |
-| startup.specific-offset.skip-rows         | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的行数. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                                    |
+| startup.specific-offset.skip-events       | Long     | 否    | -       | 配置 specific 启动偏移量后需要跳过的 binlog event 数量. 未配置时不跳过任何 event. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                       |
+| startup.specific-offset.skip-rows         | Long     | 否    | -       | 配置 specific 启动偏移量后需要跳过的行数. 未配置时不跳过任何行. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                       |
 | startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。**                                                                                                                                                                    |
-| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
+| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止. 与需要执行快照的启动模式（`initial`/`earliest`）组合使用时, 停止偏移量在快照阶段完成后解析, 因此快照运行期间写入源表的变更仍会被 binlog 阶段捕获, 不会丢失.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
 | stop.specific-offset.file                 | String   | 否    | -       | 从指定的binlog日志文件名停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                         |
 | stop.specific-offset.pos                  | Long     | 否    | -       | 从指定的binlog日志文件位置停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                        |
 | snapshot.split.size                       | Integer  | 否    | 8096    | 表快照的分割大小（行数）,读取表的快照时,被捕获的表会被分割成多个分割块.                                                                                                                                                                                                        |
@@ -527,7 +527,7 @@ sink {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 env {
@@ -556,6 +556,8 @@ source {
 
 上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
 
+可空唯一键列中的 NULL 值，以及 `table-names-config.primaryKeys` 中配置的可空列中的 NULL 值，在快照阶段和 binlog 阶段都会按 NULL 输出。NULL 无法标识一行数据，因此当需要按键应用 UPDATE/DELETE 事件时，请选择 NOT NULL 的列作为键。开启 `exactly_once = true` 时，键为 NULL 的行同样无法区分，每个快照分片中只会保留其中一行。
+
 ### 从指定 Binlog 位置启动
 
 当需要从明确的 binlog 文件和位置开始读取时，可以使用 `startup.mode = "specific"`。
@@ -582,6 +584,25 @@ source {
 
 > **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
 > Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
+`stop.mode = "latest"` 同样会使作业变为有界读取：停止偏移量为快照阶段完成时的 binlog 位置
+（当 `startup.mode` 为 `initial`/`earliest` 时），或作业启动时的 binlog 位置（其他启动模式）。
+特别是与需要执行快照的启动模式组合使用时，**快照运行期间写入源表的变更不会丢失**——
+它们会在作业终止前被 binlog 阶段捕获。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "initial"
+    stop.mode = "latest"
+  }
+}
+```
 
 ```hocon
 source {

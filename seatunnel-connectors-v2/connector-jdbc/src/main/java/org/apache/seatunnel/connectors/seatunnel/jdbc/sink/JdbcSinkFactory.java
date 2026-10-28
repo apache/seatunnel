@@ -138,34 +138,14 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
      */
     static ResolvedSinkTable resolveSinkTable(ReadonlyConfig config, CatalogTable catalogTable) {
         ReadonlyConfig catalogOptions = getCatalogOptions(config);
-        Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
-        Optional<String> optionalDatabase = config.getOptional(JdbcSinkOptions.DATABASE);
         TableIdentifier tableId = catalogTable.getTableId();
-        String sinkDatabaseName =
-                optionalDatabase.orElse(catalogTable.getTablePath().getDatabaseName());
-        String sinkTableNameBefore =
-                optionalTable.orElse(catalogTable.getTablePath().getTableName());
-        String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
-        String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
-        String sinkSchemaName =
-                sinkTableSplitArray.length > 1
-                        ? sinkTableSplitArray[sinkTableSplitArray.length - 2]
-                        : null;
-        if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
-            sinkSchemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
-        }
-        String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
-        String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
-        String finalTableName = sinkTableName;
-        if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
-            finalTableName =
-                    StringUtils.isNotEmpty(prefix) ? prefix + finalTableName : finalTableName;
-            finalTableName =
-                    StringUtils.isNotEmpty(suffix) ? finalTableName + suffix : finalTableName;
-        }
+        TablePath sinkTablePath = resolveSinkTablePath(config, catalogOptions, catalogTable);
         TableIdentifier newTableId =
                 TableIdentifier.of(
-                        tableId.getCatalogName(), sinkDatabaseName, sinkSchemaName, finalTableName);
+                        tableId.getCatalogName(),
+                        sinkTablePath.getDatabaseName(),
+                        sinkTablePath.getSchemaName(),
+                        sinkTablePath.getTableName());
         CatalogTable resolvedCatalogTable =
                 CatalogTable.of(
                         newTableId,
@@ -267,9 +247,24 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                 new ExactlyOnceMaxRetriesValidator()))
                 .optional(
                         JdbcSinkOptions.CREATE_INDEX,
+                        JdbcSinkOptions.TABLE,
+                        JdbcSinkOptions.SCHEMA,
                         JdbcSinkOptions.USERNAME,
                         JdbcSinkOptions.PASSWORD,
+                        JdbcSinkOptions.PROPERTIES,
                         JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
+                        JdbcSinkOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSinkOptions.SOCKET_TIMEOUT_MS,
+                        JdbcSinkOptions.DECIMAL_TYPE_NARROWING,
+                        JdbcSinkOptions.INT_TYPE_NARROWING,
+                        JdbcSinkOptions.HANDLE_BLOB_AS_STRING,
+                        JdbcSinkOptions.USE_KERBEROS,
+                        JdbcSinkOptions.KERBEROS_PRINCIPAL,
+                        JdbcSinkOptions.KERBEROS_KEYTAB_PATH,
+                        JdbcSinkOptions.KRB5_PATH,
+                        JdbcSinkOptions.ACCESS_KEY_ID,
+                        JdbcSinkOptions.SECRET_ACCESS_KEY,
+                        JdbcSinkOptions.REGION,
                         JdbcSinkOptions.BATCH_SIZE,
                         JdbcSinkOptions.BATCH_INTERVAL_MS,
                         JdbcSinkOptions.GENERATE_SINK_SQL,
@@ -398,7 +393,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
      * database/table overrides, dotted table name split, schema option, and prefix/suffix. Keeping
      * a single implementation guarantees dry-run validates exactly the table the runtime writes to.
      */
-    private TablePath resolveSinkTablePath(
+    private static TablePath resolveSinkTablePath(
             ReadonlyConfig config, ReadonlyConfig catalogOptions, CatalogTable upstreamTable) {
         String databaseName =
                 config.getOptional(JdbcSinkOptions.DATABASE)

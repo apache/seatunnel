@@ -8,6 +8,12 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+## MySQL temporal values
+
+MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
+
+When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -179,6 +185,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| schema                                    | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
@@ -194,8 +201,11 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | max_commit_attempts                       | Int     | No       | 3                            |
 | transaction_timeout_sec                   | Int     | No       | -1                           |
 | auto_commit                               | Boolean | No       | true                         |
-| field_ide                                 | String  | No       | -                            |
+| field_ide                                 | Enum    | No       | -                            |
 | properties                                | Map     | No       | -                            |
+| decimal_type_narrowing                    | Boolean | No       | true                         |
+| int_type_narrowing                        | Boolean | No       | true                         |
+| handle_blob_as_string                     | Boolean | No       | false                        |
 | common-options                            |         | No       | -                            |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
@@ -289,6 +299,10 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
 
+### schema [string]
+
+The target schema for databases that support schemas (PostgreSQL, Oracle, SQL Server, Redshift, Kingbase, OpenGauss, Dameng, Xugu, ...). When set, it takes priority over the schema part embedded in `table` (`schema.table`) and is used both for the generated SQL and for the catalog operations driven by `schema_save_mode` / `data_save_mode`.
+
 ### tablePrefix [string]
 
 Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
@@ -365,7 +379,7 @@ For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_co
 This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
 When checkpointing is disabled, the transaction is committed after every successful `batch_size` / `batch_interval_ms` triggered flush, so flushed rows are not held in one unbounded transaction until the writer closes. When checkpointing is enabled, the commit boundary remains the checkpoint.
 
-### field_ide [String]
+### field_ide [Enum]
 
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
@@ -374,6 +388,18 @@ conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 ### properties
 
 Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
+### decimal_type_narrowing [boolean]
+
+Only used by the Oracle catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, Oracle `NUMBER` columns whose precision and scale fit into an integer type are mapped to `INT` or `BIGINT` instead of `DECIMAL`. Keep the same value as the one used on the source side so that the auto-created table types match.
+
+### int_type_narrowing [boolean]
+
+Only used by the MySQL catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, MySQL `TINYINT(1)` columns are mapped to `BOOLEAN`; when `false`, they are kept as `TINYINT`.
+
+### handle_blob_as_string [boolean]
+
+Only used by the Oracle catalog when the sink creates or inspects tables (`schema_save_mode`). When `true`, Oracle `BLOB` columns are treated as `STRING` columns, matching the `handle_blob_as_string` option of the JDBC source.
 
 ### common options
 
@@ -396,6 +422,8 @@ Option introduction：
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+When the full target table path specifies a database (`database.schema.table`), `DROP_DATA` executes `TRUNCATE TABLE` in that database.
 
 ### custom_sql [String]
 
@@ -623,7 +651,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | DM                | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                            | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
 | Phoenix           | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF  | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                                          |
 | SQL Server        | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                     | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
-| Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
+| Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.client.OracleXADataSource           | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
 | sqlite            | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                 | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
 | GBase8a           | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                    | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
 | StarRocks         | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
@@ -637,7 +665,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | Kingbase          | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                            | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
 | OceanBase         | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                     | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | xugu              | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                          | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
-| InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                     | /                                                  | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                     | /                                                  | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar                         |
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
