@@ -60,6 +60,7 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     private static final String DATASOURCE = "testDataSource";
     private static final String MULTI_DATASOURCE_1 = "druid_sink_1";
     private static final String MULTI_DATASOURCE_2 = "druid_sink_2";
+    private static final String NULL_FIELD_DATASOURCE = "druid_null_field";
     private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
@@ -158,6 +159,33 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                     "\"id\":1,\"val_bool\":\"true\",\"val_tinyint\":1,\"val_smallint\":2,\"val_int\":3,\"val_bigint\":4,\"val_float\":4.3,\"val_double\":5.3,\"val_decimal\":6.3";
                             Assertions.assertFalse(responseBody.contains("errorMessage"));
                             Assertions.assertTrue(responseBody.contains(expectedDataRow));
+                        });
+    }
+
+    @TestTemplate
+    public void testDruidSinkWithNullFields(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fakesource_to_druid_with_null.conf",
+                        Collections.singletonList(COORDINATOR_URL_VARIABLE + "=" + coordinatorURL));
+        Assertions.assertEquals(0, execResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(400L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            String responseBody = getSelectResponse(NULL_FIELD_DATASOURCE);
+                            Assertions.assertFalse(responseBody.contains("errorMessage"));
+                            // Rows 2 and 3 each have a null. Before the fix both were dropped,
+                            // because the null was left out of the CSV line. How Druid renders
+                            // the null itself depends on its null handling, so it is not
+                            // asserted; amount is the last column, so "amount":20} also shows
+                            // the value after the null stayed in its own column.
+                            Assertions.assertTrue(responseBody.contains("\"id\":1,"));
+                            Assertions.assertTrue(responseBody.contains("\"id\":2,"));
+                            Assertions.assertTrue(responseBody.contains("\"amount\":20}"));
+                            Assertions.assertTrue(responseBody.contains("\"id\":3,"));
                         });
     }
 
