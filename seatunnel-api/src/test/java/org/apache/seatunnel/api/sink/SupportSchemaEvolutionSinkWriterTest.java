@@ -17,14 +17,21 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Optional;
 
 /**
@@ -85,8 +92,60 @@ class SupportSchemaEvolutionSinkWriterTest {
         Assertions.assertTrue(exception.getMessage().contains("test_db.test_table"));
     }
 
+    @Test
+    void shouldDispatchRestoreToSupportedWriter() throws IOException {
+        SupportInterfaceWriter writer = new SupportInterfaceWriter();
+        RestoreTableSchemaEvent event = restoreSchemaEvent();
+
+        SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(writer, event);
+
+        Assertions.assertSame(event, writer.appliedEvent);
+    }
+
+    @Test
+    void shouldDispatchRestoreToLegacyOverride() throws IOException {
+        DeprecatedOverrideWriter writer = new DeprecatedOverrideWriter();
+        RestoreTableSchemaEvent event = restoreSchemaEvent();
+
+        SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(writer, event);
+
+        Assertions.assertSame(event, writer.appliedEvent);
+    }
+
+    @Test
+    void shouldRejectRestoreWhenWriterCannotRefreshRuntimeSchema() {
+        PlainWriter writer = new PlainWriter();
+        RestoreTableSchemaEvent event = restoreSchemaEvent();
+
+        UnsupportedOperationException exception =
+                Assertions.assertThrows(
+                        UnsupportedOperationException.class,
+                        () ->
+                                SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(
+                                        writer, event));
+
+        Assertions.assertTrue(exception.getMessage().contains(PlainWriter.class.getName()));
+        Assertions.assertTrue(exception.getMessage().contains("test_db.test_table"));
+    }
+
+    private static RestoreTableSchemaEvent restoreSchemaEvent() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.INT_TYPE, (Long) null, true, null, null))
+                        .build();
+        return new RestoreTableSchemaEvent(
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "test_db", "test_table"),
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        ""));
+    }
+
     /**
-     * Creates the schema change event used by all support-gate cases.
+     * Creates the live schema change event used by the support-gate cases.
      *
      * @return a mocked schema change event with a stable table path
      */

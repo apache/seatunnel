@@ -57,6 +57,10 @@ public interface SupportSchemaEvolutionSinkWriter {
      * must fail fast, otherwise a CDC schema change could be silently dropped while new-schema
      * records continue downstream.
      *
+     * <p>This check also applies to {@code RestoreTableSchemaEvent}. Although restoration must not
+     * replay physical DDL, a writer still needs to refresh its runtime row layout. Silently
+     * ignoring a restore event cannot establish that the writer accepts the restored schema.
+     *
      * @param writer sink writer that receives the schema change event
      * @param event schema change event from upstream
      * @throws IOException if the sink writer fails while applying the schema change
