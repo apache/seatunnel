@@ -12,6 +12,12 @@
   - **影响**：为绕过旧的解析逻辑而对 `params` 值做了百分号编码的客户端（例如 `"jobName": "sales%26ops"`），现在会原样得到编码后的文本（`sales%26ops`，而不是 `sales&ops`）。`POST /submit-job` 不受影响，仍会对查询字符串进行 URL 解码。
   - **迁移指南**：去掉 `params` 值上的 URL 编码，直接以普通 JSON 字符串发送。
 
+### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
+
+MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
+
+请移除为补偿此缺陷而设置的手动偏移。已经存储的数据不会自动修改；修正或重新加载之前，请先与原始数据核对。无需新增配置。
+
 ### Doris 与 StarRocks Source：MAP 或 ROW 列为空值时不再读成空 Map 或导致作业失败
 
 - **行为变更：Arrow 流中为空的复杂类型单元格现在读为 `null`**
