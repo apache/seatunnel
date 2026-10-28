@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -97,6 +98,128 @@ class IncrementalSourceReaderTest {
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
             new TableId("alpha_online", null, "account_interests");
+
+    @Test
+    void shouldRestoreCheckpointTablesOnlyForSchemaAwareDeserializer() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.when(schema.getSchemaChangeResolver())
+                .thenReturn(Mockito.mock(SchemaChangeResolver.class));
+        List<CatalogTable> checkpointTables =
+                Collections.singletonList(Mockito.mock(CatalogTable.class));
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointTables,
+                        Collections.emptyMap());
+
+        List<CatalogTable> restored =
+                IncrementalSourceReader.restoreCollectorCheckpointTables(split, schema, true);
+
+        Assertions.assertEquals(checkpointTables, restored);
+    }
+
+    @Test
+    void shouldIgnoreEmptyCheckpointTables() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.when(schema.getSchemaChangeResolver())
+                .thenReturn(Mockito.mock(SchemaChangeResolver.class));
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyMap());
+
+        Assertions.assertTrue(
+                IncrementalSourceReader.restoreCollectorCheckpointTables(split, schema, true)
+                        .isEmpty());
+        Mockito.verify(schema, Mockito.never()).restoreCheckpointProducedType(Mockito.anyList());
+    }
+
+    @Test
+    void shouldRestoreLegacyCheckpointDataType() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.when(schema.getSchemaChangeResolver())
+                .thenReturn(Mockito.mock(SchemaChangeResolver.class));
+        SeaTunnelRowType checkpointRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(new TableId("catalog", "database", "customers")),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        List<CatalogTable> restoredTables =
+                IncrementalSourceReader.restoreCollectorCheckpointTables(split, schema, true);
+        Assertions.assertEquals(1, restoredTables.size());
+        Assertions.assertEquals(
+                "catalog.database.customers", restoredTables.get(0).getTablePath().getFullName());
+        Assertions.assertArrayEquals(
+                checkpointRowType.getFieldNames(),
+                restoredTables.get(0).getSeaTunnelRowType().getFieldNames());
+    }
+
+    @Test
+    void shouldSkipRestoreForResolverlessDeserializer() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        List<CatalogTable> checkpointTables =
+                Collections.singletonList(Mockito.mock(CatalogTable.class));
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointTables,
+                        Collections.emptyMap());
+
+        Assertions.assertTrue(
+                IncrementalSourceReader.restoreCollectorCheckpointTables(split, schema, true)
+                        .isEmpty());
+        Mockito.verify(schema, Mockito.never()).restoreCheckpointProducedType(Mockito.anyList());
+    }
+
+    @Test
+    void shouldKeepLiveCollectorSchemaWhenSchemaChangeIsDisabled() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.when(schema.getSchemaChangeResolver())
+                .thenReturn(Mockito.mock(SchemaChangeResolver.class));
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "schema-disabled",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        null,
+                        Collections.emptyList(),
+                        Collections.singletonList(Mockito.mock(CatalogTable.class)),
+                        Collections.emptyMap());
+        Assertions.assertTrue(
+                IncrementalSourceReader.restoreCollectorCheckpointTables(split, schema, false)
+                        .isEmpty());
+    }
 
     @Test
     void testFetcherFailureBeforeHandoffRestoresUnemittedBatch() throws Exception {

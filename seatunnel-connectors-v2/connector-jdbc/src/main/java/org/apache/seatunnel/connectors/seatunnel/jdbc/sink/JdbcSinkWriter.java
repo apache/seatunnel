@@ -85,7 +85,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 jdbcSinkConfig,
                 tableSchema,
                 databaseTableSchema,
-                primaryKeyIndex);
+                primaryKeyIndex,
+                true);
     }
 
     public JdbcSinkWriter(
@@ -116,6 +117,35 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             TableSchema databaseTableSchema,
             Integer primaryKeyIndex,
             boolean checkpointEnabled) {
+        this(
+                sinkTablePath,
+                context,
+                dialect,
+                jdbcSinkConfig,
+                tableSchema,
+                databaseTableSchema,
+                primaryKeyIndex,
+                checkpointEnabled,
+                false);
+    }
+
+    /**
+     * Creates a writer with independent checkpoint and schema-restoration flags.
+     *
+     * <p>The checkpoint flag controls JDBC commit boundaries; restoring an evolved schema must
+     * never change those boundaries or the meaning of the existing public constructors.
+     */
+    JdbcSinkWriter(
+            TablePath sinkTablePath,
+            SinkWriter.Context context,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            Integer primaryKeyIndex,
+            boolean checkpointEnabled,
+            boolean schemaEvolutionApplied) {
+        this.schemaEvolutionApplied = schemaEvolutionApplied;
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
@@ -295,7 +325,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     @Override
     public List<JdbcSinkState> snapshotState(long checkpointId) {
-        return Collections.emptyList();
+        if (!schemaEvolutionApplied) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(new JdbcSinkState(null, tableSchema));
     }
 
     @Override

@@ -452,7 +452,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     static void validateSupportedErrorSinkLifecycle(
             String pluginName, SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink) throws Exception {
         List<String> unsupportedFeatures = new ArrayList<>();
-        if (sink.getWriterStateSerializer().isPresent()) {
+        if (sink.requiresWriterState()) {
             unsupportedFeatures.add("writer state serializer");
         }
         if (sink.getCommitInfoSerializer().isPresent()) {

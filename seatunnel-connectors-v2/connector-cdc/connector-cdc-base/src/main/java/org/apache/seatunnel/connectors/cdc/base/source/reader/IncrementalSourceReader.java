@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -86,6 +87,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
+    private final AtomicReference<List<CatalogTable>> restoredCheckpointTables =
+            new AtomicReference<>();
+
     public IncrementalSourceReader(
             DataSourceDialect<C> dataSourceDialect,
             BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
@@ -112,6 +116,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     @Override
     public void pollNext(Collector<T> output) throws Exception {
+        restoreCollectorSchema(output);
         if (!running) {
             if (getNumberOfCurrentlyAssignedSplits() == 0) {
                 context.sendSplitRequest();
@@ -264,6 +269,14 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     incrementalSplit,
                     debeziumDeserializationSchema,
                     isSchemaChangeEnabled(sourceConfig));
+            List<CatalogTable> collectorTables =
+                    restoreCollectorCheckpointTables(
+                            incrementalSplit,
+                            debeziumDeserializationSchema,
+                            isSchemaChangeEnabled(sourceConfig));
+            if (!collectorTables.isEmpty()) {
+                restoredCheckpointTables.set(collectorTables);
+            }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
@@ -278,6 +291,24 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             }
             return splitState;
         }
+    }
+
+    /**
+     * Selects the schema restored to the engine collector without changing deserializer history.
+     * Schema-disabled jobs retain their live schema, matching the deserializer restore contract.
+     */
+    static <T> List<CatalogTable> restoreCollectorCheckpointTables(
+            IncrementalSplit split,
+            DebeziumDeserializationSchema<T> schema,
+            boolean schemaChangeEnabled) {
+        if (!schemaChangeEnabled || schema.getSchemaChangeResolver() == null) {
+            return Collections.emptyList();
+        }
+        List<CatalogTable> tables = split.getCheckpointTables();
+        if ((tables == null || tables.isEmpty()) && split.getCheckpointDataType() != null) {
+            tables = restoreLegacyCheckpointTables(split);
+        }
+        return tables == null ? Collections.emptyList() : new ArrayList<>(tables);
     }
 
     /**
@@ -501,5 +532,17 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 checkpointTables,
                 incrementalSplit.splitId());
         return Arrays.asList(newIncrementalSplit);
+    }
+    /**
+     * Applies recovered collector state before the next restored record is emitted.
+     *
+     * <p>Atomically consuming the pending state prevents a later poll from replaying the same
+     * restore while preserving state published by a concurrent split assignment.
+     */
+    private void restoreCollectorSchema(Collector<T> output) {
+        List<CatalogTable> tables = restoredCheckpointTables.getAndSet(null);
+        if (tables != null && !tables.isEmpty()) {
+            output.restoreSchema(tables);
+        }
     }
 }

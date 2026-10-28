@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
@@ -60,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
@@ -118,75 +120,49 @@ public class JdbcSink
 
     @Override
     public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
-        try {
-            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (Exception e) {
-            log.warn(
-                    "Failed to load JDBC driver {}",
-                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
-                    e);
-        }
-        TablePath sinkTablePath = catalogTable.getTablePath();
-        AbstractJdbcSinkWriter sinkWriter;
-        if (jdbcSinkConfig.isExactlyOnce()) {
-            sinkWriter =
-                    new JdbcExactlyOnceSinkWriter(
-                            sinkTablePath,
-                            context,
-                            jobContext,
-                            dialect,
-                            jdbcSinkConfig,
-                            tableSchema,
-                            getDatabaseTableSchema().orElse(null),
-                            new ArrayList<>());
-
-        } else {
-            Integer primaryKeyIndex = null;
-            if (catalogTable.getTableSchema().getPrimaryKey() != null) {
-                String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
-                int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
-                if (index > -1) {
-                    primaryKeyIndex = index;
-                }
-            }
-            sinkWriter =
-                    new JdbcSinkWriter(
-                            sinkTablePath,
-                            context,
-                            dialect,
-                            jdbcSinkConfig,
-                            tableSchema,
-                            getDatabaseTableSchema().orElse(null),
-                            primaryKeyIndex,
-                            jobContext == null || jobContext.isEnableCheckpoint());
-        }
-        return sinkWriter;
+        return createWriter(context, tableSchema, new ArrayList<>());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
-        try {
-            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (Exception e) {
-            log.warn(
-                    "Failed to load JDBC driver {}",
-                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
-                    e);
+        TableSchema restoredTableSchema = resolveRestoredTableSchema(tableSchema, states);
+        return createWriter(context, restoredTableSchema, states);
+    }
+
+    /**
+     * Selects the single checkpoint schema shared by all restored writer states. Divergent nonnull
+     * schemas cannot safely describe one JDBC destination and therefore reject restoration.
+     *
+     * <p>Legacy states without a schema are ignored; when no state carries a schema, retain the
+     * initially discovered table schema rather than replaying schema changes.
+     */
+    static TableSchema resolveRestoredTableSchema(
+            TableSchema initialTableSchema, List<JdbcSinkState> states) {
+        TableSchema restoredTableSchema = null;
+        for (JdbcSinkState state : states) {
+            TableSchema stateTableSchema = state.getTableSchema();
+            if (stateTableSchema == null) {
+                continue;
+            }
+            if (restoredTableSchema == null) {
+                restoredTableSchema = stateTableSchema;
+            } else if (!restoredTableSchema.equals(stateTableSchema)) {
+                throw new IllegalStateException(
+                        "JDBC sink cannot restore divergent table schemas from the same checkpoint");
+            }
         }
-        TablePath sinkTablePath = catalogTable.getTablePath();
-        if (jdbcSinkConfig.isExactlyOnce()) {
-            return new JdbcExactlyOnceSinkWriter(
-                    sinkTablePath,
-                    context,
-                    jobContext,
-                    dialect,
-                    jdbcSinkConfig,
-                    tableSchema,
-                    getDatabaseTableSchema().orElse(null),
-                    states);
-        }
-        return SeaTunnelSink.super.restoreWriter(context, states);
+        return restoredTableSchema == null ? initialTableSchema : restoredTableSchema;
+    }
+
+    @Override
+    public Optional<Serializer<JdbcSinkState>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public boolean requiresWriterState() {
+        return jdbcSinkConfig.isExactlyOnce();
     }
 
     private Optional<TableSchema> getDatabaseTableSchema() {
@@ -334,5 +310,84 @@ public class JdbcSink
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
                 SchemaChangeType.UPDATE_COLUMN);
+    }
+    /**
+     * Recreates the JDBC writer using checkpoint schema state without changing commit boundaries.
+     *
+     * <p>XA identifiers are supplied only to exactly-once writers; ordinary writers retain the
+     * job's existing checkpoint setting independently of whether a schema was restored.
+     */
+    private AbstractJdbcSinkWriter createWriter(
+            SinkWriter.Context context, TableSchema writerTableSchema, List<JdbcSinkState> states) {
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
+        }
+        TablePath sinkTablePath = catalogTable.getTablePath();
+        AbstractJdbcSinkWriter sinkWriter;
+        if (jdbcSinkConfig.isExactlyOnce()) {
+            List<JdbcSinkState> xidStates =
+                    states.stream()
+                            .filter(state -> state.getXid() != null)
+                            .collect(Collectors.toList());
+            sinkWriter =
+                    new JdbcExactlyOnceSinkWriter(
+                            sinkTablePath,
+                            context,
+                            jobContext,
+                            dialect,
+                            jdbcSinkConfig,
+                            writerTableSchema,
+                            getDatabaseTableSchema().orElse(null),
+                            xidStates);
+
+        } else {
+            Integer primaryKeyIndex = resolvePrimaryKeyIndex(writerTableSchema);
+            boolean hasRestoredSchema =
+                    states.stream().anyMatch(state -> state.getTableSchema() != null);
+            sinkWriter =
+                    new JdbcSinkWriter(
+                            sinkTablePath,
+                            context,
+                            dialect,
+                            jdbcSinkConfig,
+                            writerTableSchema,
+                            getDatabaseTableSchema().orElse(null),
+                            primaryKeyIndex,
+                            jobContext == null || jobContext.isEnableCheckpoint(),
+                            hasRestoredSchema);
+        }
+        return sinkWriter;
+    }
+
+    /**
+     * Resolves the primary key against the restored schema while retaining configured metadata.
+     *
+     * <p>Older schema state can omit primary-key metadata, so the configured key name remains the
+     * fallback and its position is resolved against the writer's actual column order.
+     */
+    private Integer resolvePrimaryKeyIndex(TableSchema writerTableSchema) {
+        PrimaryKey primaryKey = writerTableSchema.getPrimaryKey();
+        if (primaryKey == null) {
+            primaryKey = tableSchema.getPrimaryKey();
+            if (primaryKey != null) {
+                log.warn(
+                        "Restored JDBC table schema for {} has no primary-key metadata; using the configured primary key {}",
+                        catalogTable.getTablePath(),
+                        primaryKey.getColumnNames());
+            }
+        }
+        if (primaryKey == null) {
+            return null;
+        }
+        int index =
+                writerTableSchema
+                        .toPhysicalRowDataType()
+                        .indexOf(primaryKey.getColumnNames().get(0));
+        return index > -1 ? index : null;
     }
 }
