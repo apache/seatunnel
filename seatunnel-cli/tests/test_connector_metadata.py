@@ -299,6 +299,44 @@ class ConnectorMetadataSyncTest(unittest.TestCase):
         self.assertEqual(required_options[0]["key"], "query")
         self.assertEqual(required_options[0]["connector_type"], "transform")
 
+    def test_missing_runtime_metadata_logs_warning_with_remediation(self):
+        """A missing connector_metadata.json must be visible at WARNING level, not DEBUG."""
+        original = connectors._RUNTIME_METADATA
+        connectors._RUNTIME_METADATA = None
+        try:
+            with patch.object(connectors, "_get_runtime_metadata_paths", return_value=[]):
+                with self.assertLogs("seatunnel_cli.connectors", level="WARNING") as captured:
+                    loaded = connectors._load_runtime_metadata()
+        finally:
+            connectors._RUNTIME_METADATA = original
+
+        self.assertEqual(loaded, {})
+        self.assertTrue(
+            any("connector_metadata.json" in line and "--export-metadata" in line for line in captured.output),
+            captured.output,
+        )
+
+    def test_connector_detail_does_not_suggest_queried_name_when_metadata_missing(self):
+        """Without metadata, a known connector name gets the remediation hint, not 'Did you mean: Doris?'."""
+        with patch.object(connectors, "_fetch_option_rules", return_value=None):
+            with patch.object(connectors, "_load_runtime_metadata", return_value={}):
+                with patch.object(connectors, "route_by_keyword", return_value=["Doris"]):
+                    detail = connectors.get_connector_detail("Doris")
+
+        self.assertIsNotNone(detail)
+        self.assertNotIn("Did you mean", detail)
+        self.assertIn("known connector", detail)
+        self.assertIn("--export-metadata", detail)
+
+    def test_connector_detail_keeps_other_suggestions_when_metadata_missing(self):
+        """Suggestions other than the queried name itself are still offered."""
+        with patch.object(connectors, "_fetch_option_rules", return_value=None):
+            with patch.object(connectors, "_load_runtime_metadata", return_value={}):
+                with patch.object(connectors, "route_by_keyword", return_value=["Doris", "Jdbc"]):
+                    detail = connectors.get_connector_detail("Doris")
+
+        self.assertIn("Did you mean: Jdbc?", detail)
+
 
 if __name__ == "__main__":
     unittest.main()
