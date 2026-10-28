@@ -35,6 +35,7 @@ import org.apache.avro.io.EncoderFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
@@ -43,6 +44,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class AvroConverterTest {
@@ -244,9 +246,9 @@ class AvroConverterTest {
     // still has to read every value back through its own parent branch, both for a present and for
     // a null nested row.
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testSameLeafRowNameUnderDifferentParentsRoundTripsNullableRow(boolean present)
-            throws IOException {
+    @CsvSource({"false, true", "true, true", "true, false"})
+    public void testSameLeafRowNameUnderDifferentParentsRoundTrips(
+            boolean rowNullable, boolean present) throws IOException {
         SeaTunnelRowType leftDetailType =
                 new SeaTunnelRowType(
                         new String[] {"code"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
@@ -271,9 +273,12 @@ class AvroConverterTest {
         SeaTunnelRow rightParent = new SeaTunnelRow(new Object[] {present ? rightDetail : null});
         SeaTunnelRow sourceRow = new SeaTunnelRow(new Object[] {leftParent, rightParent});
 
-        byte[] bytes = new AvroSerializationSchema(rowType, true).serialize(sourceRow);
+        AvroSerializationSchema serializer = new AvroSerializationSchema(rowType, rowNullable);
+        byte[] bytes = serializer.serialize(sourceRow);
+        Assertions.assertArrayEquals(bytes, serializer.serialize(sourceRow));
         SeaTunnelRow result =
-                new AvroDeserializationSchema(catalogTable, null, false, true).deserialize(bytes);
+                new AvroDeserializationSchema(catalogTable, null, false, rowNullable)
+                        .deserialize(bytes);
 
         SeaTunnelRow leftResult = (SeaTunnelRow) result.getField(0);
         SeaTunnelRow rightResult = (SeaTunnelRow) result.getField(1);
@@ -286,5 +291,74 @@ class AvroConverterTest {
             Assertions.assertNull(leftResult.getField(0));
             Assertions.assertNull(rightResult.getField(0));
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testNestedSchemasReusedAcrossRowsAndContainers(boolean rowNullable) {
+        SeaTunnelRowType detailType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"direct", "items", "entries", "other"},
+                        new SeaTunnelDataType<?>[] {
+                            detailType,
+                            ArrayType.of(detailType),
+                            new MapType<>(BasicType.STRING_TYPE, detailType),
+                            detailType
+                        });
+        SeaTunnelRow detail = new SeaTunnelRow(new Object[] {7});
+        Map<String, SeaTunnelRow> entries = new HashMap<>();
+        entries.put("first", detail);
+        entries.put("second", detail);
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            detail, new SeaTunnelRow[] {detail, detail}, entries, detail
+                        });
+        RowToAvroConverter converter = new RowToAvroConverter(rowType, rowNullable);
+        GenericRecord first = converter.convertRowToGenericRecord(row);
+        GenericRecord second = converter.convertRowToGenericRecord(row);
+        for (String field : rowType.getFieldNames()) {
+            GenericRecord firstNested = nestedRecord(first.get(field));
+            GenericRecord secondNested = nestedRecord(second.get(field));
+            Assertions.assertSame(firstNested.getSchema(), secondNested.getSchema());
+            Assertions.assertNotSame(firstNested, secondNested);
+            Assertions.assertEquals(7, secondNested.get("value"));
+            Assertions.assertEquals(
+                    rowNullable ? field : "SeaTunnelRecord", secondNested.getSchema().getName());
+        }
+        List<?> items = (List<?>) first.get("items");
+        Assertions.assertSame(
+                ((GenericRecord) items.get(0)).getSchema(),
+                ((GenericRecord) items.get(1)).getSchema());
+        Map<?, ?> records = (Map<?, ?>) first.get("entries");
+        Assertions.assertSame(
+                ((GenericRecord) records.get("first")).getSchema(),
+                ((GenericRecord) records.get("second")).getSchema());
+        detail.setField(0, 9);
+        GenericRecord updated = converter.convertRowToGenericRecord(row);
+        Assertions.assertEquals(7, nestedRecord(first.get("direct")).get("value"));
+        Assertions.assertEquals(9, nestedRecord(updated.get("direct")).get("value"));
+        Assertions.assertEquals(9, nestedRecord(updated.get("items")).get("value"));
+        Assertions.assertEquals(9, nestedRecord(updated.get("entries")).get("value"));
+        if (rowNullable) {
+            GenericRecord nullRecord =
+                    converter.convertRowToGenericRecord(
+                            new SeaTunnelRow(new Object[] {null, null, null, null}));
+            Assertions.assertNull(nullRecord.get("direct"));
+            Assertions.assertEquals(updated, converter.convertRowToGenericRecord(row));
+        }
+    }
+
+    private GenericRecord nestedRecord(Object value) {
+        if (value instanceof List) {
+            return (GenericRecord) ((List<?>) value).get(0);
+        }
+        if (value instanceof Map) {
+            return (GenericRecord) ((Map<?, ?>) value).values().iterator().next();
+        }
+        return (GenericRecord) value;
     }
 }
