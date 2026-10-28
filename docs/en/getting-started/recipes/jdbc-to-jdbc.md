@@ -22,7 +22,7 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-jdbc'
+ls connectors | grep -E 'connector-jdbc'
 ```
 
 The `Sql` transform is included in the SeaTunnel distribution and does not require another connector entry.
@@ -30,7 +30,7 @@ The `Sql` transform is included in the SeaTunnel distribution and does not requi
 3. Put both database drivers into `${SEATUNNEL_HOME}/lib`, then confirm that SeaTunnel can see them:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector|postgresql'
 ```
 
 4. Create the MySQL source table and insert three deterministic rows:

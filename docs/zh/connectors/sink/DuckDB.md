@@ -53,17 +53,21 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | SeaTunnel 数据类型                  | DuckDB 数据类型    |
 |---------------------------------|----------------|
 | BOOLEAN                         | BOOLEAN        |
-| TINYINT<br/>SMALLINT<br/>INT    | INTEGER        |
+| TINYINT                         | TINYINT        |
+| SMALLINT                        | SMALLINT       |
+| INT                             | INTEGER        |
 | BIGINT                          | BIGINT         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)   | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,18) |
+| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,y)  |
 | FLOAT                           | FLOAT          |
 | DOUBLE                          | DOUBLE         |
 | STRING                          | VARCHAR        |
 | DATE                            | DATE           |
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
+| TIMESTAMP_TZ                    | TIMESTAMP WITH TIME ZONE |
+| BYTES                           | BLOB           |
+| ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
