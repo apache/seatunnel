@@ -368,6 +368,17 @@ RabbitMQ source supports JSON by default and Protobuf when `format` is set to `p
 
 When a SeaTunnel task fails or crashes, the RabbitMQ connection drops, and RabbitMQ automatically requeues any unacknowledged messages. Upon job restoration from a checkpoint, the reader resumes processing without message loss.
 
+## Restoring legacy checkpoints
+
+Checkpoints containing the legacy `RabbitmqSourceState` serialized by SeaTunnel 2.3.13 can be read
+by the current RabbitMQ source. That legacy state did not contain assigned queue splits, so restore
+starts with an empty assignment map and rediscovers the queues in the current configuration. Keep
+the queue configuration and broker data available during upgrade; this compatibility layer does not
+reconstruct message offsets or acknowledgements that were absent from the old checkpoint.
+
+Current checkpoints retain assigned splits. Broker messages that were not acknowledged before a
+failure can be redelivered; legacy-state compatibility does not add an exactly-once guarantee.
+
 ## Changelog
 
 <ChangeLog />
