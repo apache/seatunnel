@@ -49,6 +49,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
+## Checkpoint recovery
+
+For bounded Zeta jobs, restore resumes pending file splits after readers register and skips files already completed in the checkpoint. Keep input files unchanged and accessible at the same paths while restoring. Sink delivery guarantees still depend on the selected sink and its checkpoint support.
+
 ## Options
 
 | name                       | type    | required | default value                        |

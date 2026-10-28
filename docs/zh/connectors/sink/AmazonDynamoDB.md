@@ -32,7 +32,7 @@ Amazon DynamoDB 写入连接器用于将 SeaTunnel 数据行写入 DynamoDB 表�
 | secret_access_key   | string | 是   | -      | AWS secret access key。       |
 | table               | string | 是   | -      | 要写入的 DynamoDB 表名。      |
 | batch_size          | int    | 否   | 25     | 一次批量写入请求缓存的记录数。 |
-| multi_table_sink_replica | int | 否   | -      | 每张表对应的 Sink Writer 副本数。 |
+| multi_table_sink_replica | int | 否   | 1      | 每张表对应的 Sink Writer 副本数。 |
 | max_retries         | int    | 否   | 10     | 未处理 item 的最大重试次数，必须大于等于 `0`。 |
 | retry_base_delay_ms | long   | 否   | 100    | 初始重试等待时间，单位毫秒。  |
 | retry_max_delay_ms  | long   | 否   | 5000   | 最大重试等待时间，单位毫秒。  |
