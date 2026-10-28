@@ -70,6 +70,7 @@ import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
@@ -114,6 +115,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.doThrow;
@@ -121,9 +123,11 @@ import static org.mockito.Mockito.doThrow;
 @Slf4j
 public class CoordinatorServiceTest {
     @Test
-    void testFailedRestorablePipelineRestartsAfterMasterTakeover() throws Exception {
+    void testFailedRestorablePipelineRestartsAfterMasterTakeover(@TempDir Path checkpointDirectory)
+            throws Exception {
         String clusterName = TestUtils.getClusterName("failed_restorable_pipeline_takeover");
-        HazelcastInstanceImpl first = createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        HazelcastInstanceImpl first =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100, checkpointDirectory);
         HazelcastInstanceImpl second = null;
         CountDownLatch allowScheduling = new CountDownLatch(1);
         try {
@@ -209,7 +213,9 @@ public class CoordinatorServiceTest {
                                 .build());
             }
 
-            second = createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+            second =
+                    createHazelcastInstanceWithJoinPortTryCount(
+                            clusterName, 100, checkpointDirectory);
             SeaTunnelServer successor =
                     second.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
             CoordinatorService coordinator =
@@ -966,11 +972,31 @@ public class CoordinatorServiceTest {
 
     private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
             String clusterName, int joinPortTryCount) {
+        return createHazelcastInstanceWithJoinPortTryCount(clusterName, joinPortTryCount, null);
+    }
+
+    private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
+            String clusterName, int joinPortTryCount, Path checkpointDirectory) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setProperty("hazelcast.tcp.join.port.try.count", String.valueOf(joinPortTryCount));
+        if (checkpointDirectory != null) {
+            // Share real checkpoint files without requiring Hadoop's Windows native utilities.
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getCheckpointConfig()
+                    .getStorage()
+                    .setStorage("localfile");
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getCheckpointConfig()
+                    .getStorage()
+                    .setStoragePluginConfig(
+                            Collections.singletonMap(
+                                    STORAGE_NAME_SPACE, checkpointDirectory.toString()));
+        }
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
