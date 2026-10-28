@@ -8,6 +8,10 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+### SAP HANA version compatibility
+
+Generated upserts support older SAP HANA revisions such as 2.00.033 through alias-free target references. No extra option is required. Tables containing only key columns still insert unmatched rows and leave matched rows unchanged.
+
 ## MySQL temporal values
 
 MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
