@@ -142,9 +142,41 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     这是该转换一直以来的行为，本次只改变范围相关的行为。而显式写成 `CAST` 到整型目标的浮点来源，在语句准备
     阶段就会被拒绝，本次变更前后都是如此。注意截断这条路径与字符串来源仍然不同，`Integer.parseInt("5.7")`
     会失败；是否统一两者是另一个决定。
-  - **未改变的目标类型**：`BIGINT` | `LONG` 保持原有转换方式，本次变更不对其做范围检查；该问题单独记录在 #12612。
+  - **`BIGINT` 由另一处变更覆盖**：撰写本条目时它仍保持原有转换方式；针对它的范围检查见下方条目，原记录于 #12612。
   - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
     扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
+
+### Zeta SQL Transform：数值来源转换为 BIGINT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `BIGINT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：`BIGINT` | `LONG` 的数值分支使用 `Number.longValue()` 转换，它只保留 `DECIMAL` 或
+    `BigInteger` 的低 64 位，把 `NaN` 映射为 `0`，并把超出范围的 `DOUBLE` 饱和到 `Long.MAX_VALUE`。
+    在 `dev` 上实测：`18446744073709551621`（2^64+5）得到 `5`，`18446744073709551616`（2^64）得到
+    `0`，`NaN` 得到 `0`，`1e30` 得到 `9223372036854775807`。这些都不会被报告，因此该行会写入错误的
+    数字。现在该转换会按 `Long.MIN_VALUE`..`Long.MAX_VALUE` 做范围检查，并复用为 `INT` 添加的同一套
+    按数值族检查的逻辑。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、精确的整型包装类型、扩宽转换和同类型转换均不受影响。
+  - **可达路径是 `COALESCE` 与 `IFNULL`，而不是 `CAST`**：显式的 `CAST(... AS BIGINT)` 不可能产生该问题，
+    因为规划阶段对 `BIGINT` 目标只接受 `TINYINT`、`SMALLINT`、`INT`、`BIGINT` 与 `STRING` 作为来源；
+    四种整型族都能无损加宽为 long，而 `STRING` 本来就会通过 `Long.parseLong` 报告自身的溢出。
+    `DECIMAL` 或 `DOUBLE` 是通过 `COALESCE` 与 `IFNULL` 到达该目标的，这两者的结果类型按第一个非空参数
+    推断，而不是按最宽的类型推断，因此 `COALESCE(bigint_col, decimal_col)` 的目标类型是 `BIGINT`，
+    并会静默收窄其中的 decimal。
+  - **`TRY_CAST` 无法把这些情况转成 `NULL`**：原因同上。`TRY_CAST(decimal_col AS BIGINT)` 与
+    `TRY_CAST(double_col AS BIGINT)` 在语句准备阶段就会以
+    `Unsupported CAST FROM ... AS type: BIGINT` 被拒绝，因此永远不会走到 `TRY_CAST` 捕获失败的逐行路径。
+    对于超出范围的 `STRING` 来源，`TRY_CAST` 仍会返回 `NULL`，这是唯一以 cast 形式到达该转换的路径。
+  - **小数来源的行为不变**：通过 `COALESCE` 或 `IFNULL` 到达 `BIGINT` 的 `5.7` 这类值仍然向零截断，
+    而不是被拒绝。本次只改变范围相关的行为。
+  - **迁移指南**：来源为字符串时，若希望得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型扩宽到
+    足以容纳该值；如果确实需要截断语义，请显式计算，而不要依赖 `COALESCE` 与 `IFNULL` 推断出的收窄。
+    如果希望结果使用最宽的类型，而不是第一个参数的类型，请自己写出转换：
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`。
+    该写法仅适用于整型来源：`DECIMAL` 或 `DOUBLE` 没有到 `BIGINT` 的转换，请改为把它放在第一个参数，
+    例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，
+    返回哪一个也会随之改变。
 
 ### DuckDB BIT 和 ENUM 自动建表
 

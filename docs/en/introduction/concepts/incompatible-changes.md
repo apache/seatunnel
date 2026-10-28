@@ -155,11 +155,49 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     `CAST` to an integral target is rejected while the statement is prepared, both before and after
     this change. Note the truncating path still differs from a string source, where
     `Integer.parseInt("5.7")` fails; aligning those is a separate decision.
-  - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
-    by this change; that gap is tracked separately in #12612.
+  - **`BIGINT` is covered by a separate change**: it kept its existing conversion when this entry
+    was written; the range check for it is described below and was tracked in #12612.
   - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
     cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
     compute it explicitly rather than relying on `CAST`.
+
+### Zeta SQL Transform: CAST to BIGINT rejects out-of-range numeric values
+
+- **Behavior change: converting a numeric value to `BIGINT` now fails instead of silently wrapping**
+  - **Affected component**: `seatunnel-transforms-v2`, `SystemFunction.castAs` (Zeta SQL transform)
+  - **Description**: The `BIGINT` | `LONG` numeric branch converted with `Number.longValue()`, which
+    keeps only the low-order 64 bits of a `DECIMAL` or a `BigInteger`, maps `NaN` to `0`, and
+    saturates an out-of-range `DOUBLE` at `Long.MAX_VALUE`. Measured on `dev`: `18446744073709551621`
+    (2^64+5) arrived as `5`, `18446744073709551616` (2^64) as `0`, `NaN` as `0`, and `1e30` as
+    `9223372036854775807`. None of it was reported, so the row was written with a wrong number. The
+    conversion is now range-checked against `Long.MIN_VALUE`..`Long.MAX_VALUE`, reusing the same
+    per-family check added for `INT`.
+  - **Impact**: A job that relied on the wraparound, deliberately or not, now fails at the row that
+    overflows rather than writing a wrong number. In-range values, the exact integral wrappers,
+    widening casts and identity casts are unaffected.
+  - **The reachable route is `COALESCE` and `IFNULL`, not `CAST`**: an explicit `CAST(... AS BIGINT)`
+    could never produce this, because the planner admits only `TINYINT`, `SMALLINT`, `INT`, `BIGINT`
+    and `STRING` as sources for a `BIGINT` target; the four integral families widen to a long
+    exactly, and a `STRING` already reported its own overflow through `Long.parseLong`. A `DECIMAL`
+    or `DOUBLE` reaches the target through `COALESCE` and `IFNULL`, whose result type is inferred
+    from the first non-null argument rather than the widest, so `COALESCE(bigint_col, decimal_col)`
+    targets `BIGINT` and narrowed the decimal silently.
+  - **`TRY_CAST` cannot turn these into `NULL`**: for the same reason. `TRY_CAST(decimal_col AS
+    BIGINT)` and `TRY_CAST(double_col AS BIGINT)` are rejected while the statement is prepared, with
+    `Unsupported CAST FROM ... AS type: BIGINT`, so the per-row path where `TRY_CAST` catches a
+    failure is never reached. `TRY_CAST` does return `NULL` for an overflowing `STRING` source, which
+    is the one route that reaches the conversion as a cast.
+  - **Fractional sources are unchanged**: a value such as `5.7` reaching `BIGINT` through `COALESCE`
+    or `IFNULL` is still truncated towards zero rather than rejected. Only the range behaviour
+    changes.
+  - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error where the source is a
+    string, widen the target type so the value fits, or compute a truncating conversion explicitly
+    rather than relying on the inferred narrowing in `COALESCE` and `IFNULL`. To keep the widest
+    type rather than the type of the first argument, write the cast yourself:
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`.
+    That works for an integral source only: a `DECIMAL` or `DOUBLE` has no cast to `BIGINT`, so
+    put it first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in
+    change though: it also changes which argument wins when both are non-null.
 
 ### DuckDB BIT and ENUM automatic DDL
 
