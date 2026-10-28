@@ -178,19 +178,15 @@ public class AzuriteWasbFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Verifies source and sink reject trimmed-key collisions after environment substitution. */
+    /** Verifies source and sink reject trimmed-key collisions before connecting to Azure. */
     @TestTemplate
     public void testAdlsFileRejectsDuplicateTrimmedProperties(TestContainer container)
             throws Exception {
-        List<String> variables =
-                Arrays.asList(
-                        "ADLS_TEST_AUTHORITY=https://login.example.test",
-                        "ADLS_TEST_DUPLICATE_RETRY_COUNT=9");
         for (String job :
                 Arrays.asList(
-                        "/adls/adls_invalid_authority_source.conf",
-                        "/adls/adls_invalid_authority_sink.conf")) {
-            Container.ExecResult result = container.executeJob(job, variables);
+                        "/adls/adls_duplicate_properties_source.conf",
+                        "/adls/adls_duplicate_properties_sink.conf")) {
+            Container.ExecResult result = container.executeJob(job);
             String output = result.getStdout() + "\n" + result.getStderr();
             Assertions.assertNotEquals(0, result.getExitCode(), job + ": " + output);
             Assertions.assertTrue(
