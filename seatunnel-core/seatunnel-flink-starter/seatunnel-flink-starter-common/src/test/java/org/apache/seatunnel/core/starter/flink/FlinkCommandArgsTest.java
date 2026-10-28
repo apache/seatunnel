@@ -17,12 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
-
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -30,8 +24,6 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,38 +33,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
-
 /**
  * Verifies Flink restore command construction and the actual POSIX wrapper argument boundaries.
  *
- * <p>Existing client execution checks remain covered alongside restore-path compatibility cases.
+ * <p>These cases build commands without starting Flink jobs. Job execution remains in the Flink
+ * 1.15 starter so its existing planner/runtime test classpath is preserved.
  */
 public class FlinkCommandArgsTest {
-    @Test
-    public void testExecuteClientCommandArgsWithPluginName()
-            throws FileNotFoundException, URISyntaxException {
-        String configurePath = "/config/fake_to_inmemory.json";
-        String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
-        FlinkCommandArgs flinkCommandArgs = buildFlinkCommandArgs(configFile);
-        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(flinkCommandArgs.buildCommand()));
-    }
-
-    @Test
-    public void testExecuteClientCommandArgsWithoutPluginName()
-            throws FileNotFoundException, URISyntaxException {
-        String configurePath = "/config/fake_to_inmemory_without_pluginname.json";
-        String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
-        FlinkCommandArgs flinkCommandArgs = buildFlinkCommandArgs(configFile);
-        ConfigException configException =
-                Assertions.assertThrows(
-                        ConfigException.class,
-                        () -> SeaTunnel.run(flinkCommandArgs.buildCommand()));
-        Assertions.assertEquals(
-                String.format("No configuration setting found for key '%s'", PLUGIN_NAME.key()),
-                configException.getMessage());
-    }
-
     @Test
     public void testBuildFlinkCommandArgsWithSavePoint() {
         String checkpointPath =
@@ -135,6 +102,33 @@ public class FlinkCommandArgsTest {
         Assertions.assertEquals(
                 Arrays.asList("-s", "'hdfs:///checkpoints/chk-1'"), commands.subList(2, 4));
         Assertions.assertTrue(commands.indexOf("-s") < commands.indexOf("-c"));
+    }
+
+    @Test
+    public void testAllowNonRestoredStateRemainsBeforeTheJobArguments() {
+        for (String mode : new String[] {"run", "run-application"}) {
+            FlinkStarter starter =
+                    new FlinkStarter(
+                            new String[] {
+                                "--target",
+                                "run".equals(mode) ? "local" : "yarn-application",
+                                "--deploy-mode",
+                                mode,
+                                "--config",
+                                "job.conf",
+                                "--fromCheckpoint",
+                                "hdfs:///checkpoints/chk-1",
+                                "--allowNonRestoredState"
+                            });
+            List<String> commands = starter.buildCommands();
+            Assertions.assertEquals(
+                    Arrays.asList("-s", "'hdfs:///checkpoints/chk-1'"), commands.subList(2, 4));
+            int flagIndex = commands.indexOf("--allowNonRestoredState");
+            Assertions.assertTrue(
+                    flagIndex >= 4 && flagIndex < commands.indexOf("-c"),
+                    "The native Flink restore flag must precede the SeaTunnel main class");
+            Assertions.assertEquals(flagIndex, commands.lastIndexOf("--allowNonRestoredState"));
+        }
     }
 
     @Test
@@ -284,13 +278,5 @@ public class FlinkCommandArgsTest {
         Assertions.assertEquals(
                 Arrays.asList("-s", "\'" + restorePath + "\'"), commands.subList(2, 4));
         Assertions.assertTrue(commands.indexOf("-s") < commands.indexOf("-c"));
-    }
-
-    private static FlinkCommandArgs buildFlinkCommandArgs(String configFile) {
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        flinkCommandArgs.setConfigFile(configFile);
-        flinkCommandArgs.setCheckConfig(false);
-        flinkCommandArgs.setVariables(null);
-        return flinkCommandArgs;
     }
 }

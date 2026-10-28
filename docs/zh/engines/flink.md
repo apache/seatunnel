@@ -91,6 +91,8 @@ sink {
 }
 ```
 
+如果你需要更多 transform 能力，继续查看 [Transforms 目录](../transforms) 和 [Transform 通用参数](../transforms/common-options/common-options.md)。
+
 ## 从 Savepoint 或外部化 Checkpoint 恢复
 
 使用 `--fromCheckpoint`（SeaTunnel 包装脚本提供的别名）将 Flink Savepoint
@@ -103,7 +105,14 @@ sink {
 bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
 ```
 
-如果你需要更多 transform 能力，继续查看 [Transforms 目录](../transforms) 和 [Transform 通用参数](../transforms/common-options/common-options.md)。
+包装脚本也会将 Flink 的 `--allowNonRestoredState` 参数原样传递给 Flink。
+如果有意删除了带状态的算子，可以添加此参数，允许跳过该算子无法恢复的已保存状态。
+不添加此参数时，保留 Flink 默认的完整状态映射校验。
+详见 [Flink 恢复命令行文档](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/deployment/cli/#starting-a-job-from-a-savepoint)。
+
+```shell
+bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/chk-7902 --allowNonRestoredState --deploy-mode run --config ./config/example.conf
+```
 
 ## 从源码仓库运行示例
 

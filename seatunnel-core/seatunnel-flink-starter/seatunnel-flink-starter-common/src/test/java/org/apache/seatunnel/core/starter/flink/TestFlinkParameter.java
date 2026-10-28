@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
@@ -32,6 +31,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -57,8 +57,10 @@ public class TestFlinkParameter {
         flinkCommandArgs.setDecrypt(false);
         flinkCommandArgs.setHelp(false);
 
-        flinkCommandArgs.setConfigFile(
-                MultiTableSinkTest.getTestConfigFile("/test_flink_run_parameter.conf"));
+        URL resource = TestFlinkParameter.class.getResource("/test_flink_run_parameter.conf");
+        Assertions.assertNotNull(
+                resource, "The common module's parameter fixture must be available");
+        flinkCommandArgs.setConfigFile(Paths.get(resource.toURI()).toString());
         flinkCommandArgs.setVariables(null);
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         Config config = ConfigBuilder.of(configFile).getConfig("env");

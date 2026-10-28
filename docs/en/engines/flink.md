@@ -91,6 +91,8 @@ sink {
 }
 ```
 
+If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
+
 ## Restore From A Savepoint Or Externalized Checkpoint
 
 Use `--fromCheckpoint` (a SeaTunnel wrapper alias) to pass a Flink savepoint or
@@ -103,7 +105,14 @@ The restore path must be nonblank and contain no line separators. Quote paths co
 bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
 ```
 
-If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
+The wrapper also passes Flink's `--allowNonRestoredState` option through unchanged.
+When intentionally removing a stateful operator, add this flag to allow its saved state to
+remain unrestored. Omit it to retain Flink's default validation that all saved state can be mapped.
+See [Flink's restore CLI documentation](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/deployment/cli/#starting-a-job-from-a-savepoint).
+
+```shell
+bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/chk-7902 --allowNonRestoredState --deploy-mode run --config ./config/example.conf
+```
 
 ## Running From A Source Checkout
 
