@@ -119,6 +119,8 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String DEFAULT_CHECKPOINT_PATH = "/tmp/seatunnel/checkpoint_snapshot";
 
+    private static final String SNAPSHOT_READ_FAIL_POINT = "waitInFindBeforeMakingBatch";
+
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     // mysql sink table query sql
@@ -159,6 +161,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         log.info("The second stage:Starting Mongodb containers...");
         mongodbContainer = new MongoDBContainer(NETWORK);
+        mongodbContainer.withCommand(
+                MongoDBContainer.ShardingClusterRole.startupCommand(
+                                MongoDBContainer.ShardingClusterRole.NONE)
+                        + " --setParameter enableTestCommands=1");
         mongodbContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
 
@@ -166,6 +172,172 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mongodbContainer.executeCommandFileInSeparateDatabase(MONGODB_DATABASE);
         initConnection();
         log.info("Mongodb Container are started");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression test requires Zeta job status and cancellation APIs")
+    public void testMongodbCdcNonExactlyOnceSnapshotWithConcurrentChanges(TestContainer container)
+            throws Exception {
+        assertSnapshotWithConcurrentChanges(container, false);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression test requires Zeta job status and cancellation APIs")
+    public void testMongodbCdcExactlyOnceSnapshotWithConcurrentChanges(TestContainer container)
+            throws Exception {
+        assertSnapshotWithConcurrentChanges(container, true);
+    }
+
+    private void assertSnapshotWithConcurrentChanges(TestContainer container, boolean exactlyOnce)
+            throws Exception {
+        cleanSourceTable();
+        String collectionName = "snapshot_products_" + exactlyOnce;
+        MongoCollection<Document> products =
+                client.getDatabase(MONGODB_DATABASE).getCollection(collectionName);
+        products.drop();
+        int snapshotSize = 512;
+        List<Document> snapshotDocuments = new ArrayList<>();
+        for (int i = 0; i < snapshotSize; i++) {
+            snapshotDocuments.add(
+                    new Document("_id", new ObjectId(String.format("%024x", i + 1)))
+                            .append("name", "snapshot-" + i)
+                            .append("description", "snapshot regression")
+                            .append("weight", "1"));
+        }
+        products.insertMany(snapshotDocuments);
+        long failPointCount =
+                ((Number) configureSnapshotReadFailPoint(collectionName, true).get("count"))
+                        .longValue();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mongodbcdc_snapshot_with_concurrent_changes.conf",
+                                        jobId,
+                                        "collection=" + collectionName,
+                                        "exactly_once=" + exactlyOnce);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+        try {
+            await().pollInterval(50, TimeUnit.MILLISECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        () ->
+                                                "Snapshot job exited: "
+                                                        + jobFuture.join().getStderr());
+                                Assertions.assertTrue(
+                                        snapshotWatermarkLogged(
+                                                container, collectionName, "Snapshot step 1"));
+                            });
+
+            client.getDatabase("admin")
+                    .runCommand(
+                            new Document("waitForFailPoint", SNAPSHOT_READ_FAIL_POINT)
+                                    .append("timesEntered", failPointCount + 1)
+                                    .append("maxTimeMS", 10_000));
+            try {
+                // The snapshot find is paused after LOW. Generate more changes than the
+                // 32-slot queue can hold before allowing the snapshot to reach HIGH.
+                products.updateMany(
+                        Filters.in(
+                                "_id",
+                                snapshotDocuments.subList(0, 128).stream()
+                                        .map(document -> document.getObjectId("_id"))
+                                        .collect(Collectors.toList())),
+                        Updates.set("weight", "2"));
+                Assertions.assertFalse(
+                        snapshotWatermarkLogged(container, collectionName, "Snapshot step 3"),
+                        "Concurrent changes must finish before the snapshot HIGH watermark");
+            } finally {
+                configureSnapshotReadFailPoint(collectionName, false);
+            }
+
+            await().atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        () ->
+                                                "Snapshot job exited: "
+                                                        + jobFuture.join().getStderr());
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList((long) snapshotSize)),
+                                        querySql("select count(*) from products"));
+                                Assertions.assertEquals(
+                                        Collections.singletonList(Collections.singletonList(128L)),
+                                        querySql(
+                                                "select count(*) from products where weight = '2'"));
+                            });
+
+            products.insertOne(
+                    new Document("_id", new ObjectId("200000000000000000000001"))
+                            .append("name", "after-snapshot")
+                            .append("description", "incremental regression")
+                            .append("weight", "1"));
+            products.updateOne(
+                    Filters.eq("_id", snapshotDocuments.get(0).getObjectId("_id")),
+                    Updates.set("weight", "3"));
+            products.deleteOne(Filters.eq("_id", snapshotDocuments.get(1).getObjectId("_id")));
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList((long) snapshotSize)),
+                                        querySql("select count(*) from products"));
+                                Assertions.assertEquals(
+                                        Arrays.asList(
+                                                Arrays.asList("after-snapshot", "1"),
+                                                Arrays.asList("snapshot-0", "3")),
+                                        querySql(
+                                                "select name, weight from products "
+                                                        + "where name in ('after-snapshot', 'snapshot-0', 'snapshot-1') order by name"));
+                            });
+        } finally {
+            try {
+                configureSnapshotReadFailPoint(collectionName, false);
+                if (!jobFuture.isDone()) {
+                    Container.ExecResult cancelled = container.cancelJob(jobId);
+                    Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());
+                }
+                jobFuture.get(60, TimeUnit.SECONDS);
+            } finally {
+                products.drop();
+            }
+        }
+    }
+
+    /** Pauses snapshot reads of the test collection until concurrent writes have completed. */
+    private Document configureSnapshotReadFailPoint(String collectionName, boolean enabled) {
+        return client.getDatabase("admin")
+                .runCommand(
+                        new Document("configureFailPoint", SNAPSHOT_READ_FAIL_POINT)
+                                .append("mode", enabled ? "alwaysOn" : "off")
+                                .append(
+                                        "data",
+                                        new Document("nss", MONGODB_DATABASE + "." + collectionName)
+                                                .append("shouldCheckForInterrupt", true)));
+    }
+
+    private boolean snapshotWatermarkLogged(
+            TestContainer container, String collectionName, String step) {
+        return Arrays.stream(container.getServerLogs().split("\n"))
+                .anyMatch(line -> line.contains(step) && line.contains(collectionName));
     }
 
     @TestTemplate

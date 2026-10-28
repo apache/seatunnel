@@ -8,6 +8,12 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+## MySQL temporal values
+
+MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
+
+When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -410,6 +416,8 @@ Option introduction：
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+When the full target table path specifies a database (`database.schema.table`), `DROP_DATA` executes `TRUNCATE TABLE` in that database.
 
 ### custom_sql [String]
 

@@ -23,13 +23,13 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(http-base|jdbc)'
+ls connectors | grep -E 'connector-(http-base|jdbc)'
 ```
 
 3. Put the target database JDBC driver into `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'postgresql'
 ```
 
 4. Inspect the HTTP response before running the job. The sample endpoint from the [Http source](../../connectors/source/Http.md) should return a JSON body that contains top-level fields such as `c_string` and `c_int`:
