@@ -47,17 +47,21 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | SeaTunnel 数据类型                  | DuckDB 数据类型    |
 |---------------------------------|----------------|
 | BOOLEAN                         | BOOLEAN        |
-| TINYINT<br/>SMALLINT<br/>INT    | INTEGER        |
+| TINYINT                         | TINYINT        |
+| SMALLINT                        | SMALLINT       |
+| INT                             | INTEGER        |
 | BIGINT                          | BIGINT         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)   | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,18) |
+| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,y)  |
 | FLOAT                           | FLOAT          |
 | DOUBLE                          | DOUBLE         |
 | STRING                          | VARCHAR        |
 | DATE                            | DATE           |
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
+| TIMESTAMP_TZ                    | TIMESTAMP WITH TIME ZONE |
+| BYTES                           | BLOB           |
+| ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
 DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 列分别生成 `TIMESTAMP_S`、`TIMESTAMP_MS`、`TIMESTAMP`、`TIMESTAMP_NS`。中间的正数精度使用下一个更宽的原生精度；未指定精度时保留默认的 `TIMESTAMP` 映射。显式精度 0 表示整秒：这类列此前自动生成为微秒精度的 `TIMESTAMP`，现在改为 `TIMESTAMP_S`。已有目标表不会自动迁移；依赖小数秒之前，请检查源列声明的精度和目标列类型。
 

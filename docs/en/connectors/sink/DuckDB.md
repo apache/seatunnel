@@ -50,18 +50,22 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 | SeaTunnel Data Type                                                 | DuckDB Data Type |
 |---------------------------------------------------------------------|------------------|
-| BOOLEAN                                                             | BOOLEAN          |
-| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
-| BIGINT                                                              | BIGINT           |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
-| FLOAT                                                               | FLOAT            |
-| DOUBLE                                                              | DOUBLE           |
-| STRING                                                              | VARCHAR          |
-| DATE                                                                | DATE             |
-| TIME                                                                | TIME             |
-| TIMESTAMP                                                           | TIMESTAMP        |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+| BOOLEAN                                                             | BOOLEAN                   |
+| TINYINT                                                             | TINYINT                   |
+| SMALLINT                                                            | SMALLINT                  |
+| INT                                                                 | INTEGER                   |
+| BIGINT                                                              | BIGINT                    |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)              |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)             |
+| FLOAT                                                               | FLOAT                     |
+| DOUBLE                                                              | DOUBLE                    |
+| STRING                                                              | VARCHAR                   |
+| DATE                                                                | DATE                      |
+| TIME                                                                | TIME                      |
+| TIMESTAMP                                                           | TIMESTAMP                 |
+| TIMESTAMP_TZ                                                        | TIMESTAMP WITH TIME ZONE  |
+| BYTES                                                               | BLOB                      |
+| ARRAY<br/>ROW<br/>MAP                                               | Not supported             |
 
 When the DuckDB sink creates a table, SeaTunnel `TIMESTAMP` columns with scales 0, 3, 6 and 9 become `TIMESTAMP_S`, `TIMESTAMP_MS`, `TIMESTAMP` and `TIMESTAMP_NS`, respectively. Intermediate positive scales use the next wider native precision; an unspecified scale retains the default `TIMESTAMP` mapping. An explicit scale 0 means whole seconds: automatic DDL now creates `TIMESTAMP_S` where it previously created a microsecond `TIMESTAMP`. Existing target tables are not migrated; check the declared source scale and target type before relying on fractional seconds.
 
