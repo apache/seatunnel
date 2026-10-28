@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,12 @@ class ClientExecuteCommandTest {
                 new ClientExecuteCommand(args) {
                     @Override
                     HazelcastInstance createHazelcastInstance(SeaTunnelConfig config) {
+                        // Local mode has already applied its REST defaults before this seam.
+                        // Job listing uses RPC, so disable both unrelated fixed-port listeners.
+                        HttpConfig httpConfig = new HttpConfig();
+                        httpConfig.setEnabled(false);
+                        httpConfig.setEnableHttps(false);
+                        config.getEngineConfig().setHttpConfig(httpConfig);
                         configuredPort.set(
                                 config.getHazelcastConfig().getNetworkConfig().getPort());
                         HazelcastInstance member = super.createHazelcastInstance(config);

@@ -70,6 +70,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
+    /**
+     * Optional local member override. {@code null} preserves configured port and join behavior;
+     * {@code 0} asks the OS to select a port. Keep the null default for existing local jobs.
+     */
     @Parameter(
             names = {"-port", "--hazelcast-port"},
             description =

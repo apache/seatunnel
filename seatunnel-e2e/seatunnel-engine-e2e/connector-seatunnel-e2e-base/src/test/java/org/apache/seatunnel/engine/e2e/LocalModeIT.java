@@ -20,12 +20,14 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
@@ -70,6 +72,11 @@ public class LocalModeIT {
     @Test
     public void localModeWithEphemeralPortUsesAdvertisedAddress() {
         SeaTunnelConfig localConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        // Health metrics use RPC. REST listeners would add unrelated fixed-port contention.
+        HttpConfig httpConfig = new HttpConfig();
+        httpConfig.setEnabled(false);
+        httpConfig.setEnableHttps(false);
+        localConfig.getEngineConfig().setHttpConfig(httpConfig);
         Config memberConfig = localConfig.getHazelcastConfig();
         memberConfig.setClusterName("local-ephemeral-" + UUID.randomUUID());
         memberConfig.getNetworkConfig().setPort(0).setPortAutoIncrement(false);
@@ -77,15 +84,22 @@ public class LocalModeIT {
         memberConfig.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
         HazelcastInstanceImpl member = SeaTunnelServerStarter.createHazelcastInstance(localConfig);
         try {
-            String address = member.getCluster().getLocalMember().getAddress().toString();
+            Address memberAddress = member.getCluster().getLocalMember().getAddress();
+            String host = memberAddress.getScopedHost();
+            // Client parser syntax differs from the display-form keys returned by metrics.
+            String endpoint =
+                    (host.indexOf(':') >= 0 ? "[" + host + "]" : host)
+                            + ":"
+                            + memberAddress.getPort();
             Assertions.assertTrue(
                     member.getCluster().getLocalMember().getSocketAddress().getPort() > 0);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(memberConfig.getClusterName());
-            clientConfig.getNetworkConfig().setAddresses(Collections.singletonList(address));
+            clientConfig.getNetworkConfig().setAddresses(Collections.singletonList(endpoint));
             try (SeaTunnelClient client = new SeaTunnelClient(clientConfig)) {
                 Assertions.assertEquals(
-                        Collections.singleton(address), client.getClusterHealthMetrics().keySet());
+                        Collections.singleton(memberAddress.toString()),
+                        client.getClusterHealthMetrics().keySet());
             }
         } finally {
             member.shutdown();

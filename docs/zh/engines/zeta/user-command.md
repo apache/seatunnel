@@ -318,16 +318,13 @@ sh bin/stop-seatunnel-cluster.sh
 sh bin/stop-seatunnel-cluster.sh -cn my_cluster
 ```
 
-### Local Hazelcast port
+### 本地 Hazelcast 端口
 
-Use `--master local --hazelcast-port <port>` (short form `-port`) to choose the
-embedded Hazelcast member port. Values range from `0` to `65535`; `0` requests an
-operating-system-assigned port. An explicit nonzero port must be available; it
-does not fall back to another port. The client connects to the actual member
-address and selected port.
+使用 `--master local --hazelcast-port <port>`（简写为 `-port`）指定嵌入式 Hazelcast
+成员的端口。有效范围为 `0` 到 `65535`；`0` 表示由操作系统分配端口。显式指定的非零端口
+必须可用，端口被占用时不会回退到其他端口。客户端连接该成员实际公布的地址和选定的端口。
 
-Without this option, local mode retains the configured `hazelcast.yaml` port and
-TCP/IP member list, including its existing port auto-increment behavior. An
-explicit override clears the TCP/IP join members for that local instance. The
-option is rejected in cluster mode. This setting does not change the REST port
-or network interface binding; configure those separately in the engine config.
+未指定此选项时，本地模式保留 `hazelcast.yaml` 中配置的端口和 TCP/IP 成员列表，
+并沿用原有的端口自动递增行为。显式指定端口会清空该本地实例的 TCP/IP 加入成员列表。
+集群模式不接受此选项。该配置不会改变 REST 端口或网络接口绑定；这两项需要在引擎配置中
+分别设置。
