@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
@@ -50,5 +51,18 @@ public class PostgresDialectFactory implements JdbcDialectFactory {
             return new PostgresLowDialect(fieldIde);
         }
         return new PostgresDialect(fieldIde);
+    }
+
+    @Override
+    public JdbcDialect create(
+            @Nonnull String compatibleMode,
+            String fieldIde,
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        boolean numericSpecialValueAsNull =
+                jdbcConnectionConfig != null && jdbcConnectionConfig.isNumericSpecialValueAsNull();
+        if ("postgresLow".equalsIgnoreCase(compatibleMode)) {
+            return new PostgresLowDialect(fieldIde, numericSpecialValueAsNull);
+        }
+        return new PostgresDialect(fieldIde, numericSpecialValueAsNull);
     }
 }

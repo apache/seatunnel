@@ -49,6 +49,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
+## Checkpoint recovery
+
+For bounded Zeta jobs, restore resumes pending file splits after readers register and skips files already completed in the checkpoint. Keep input files unchanged and accessible at the same paths while restoring. Sink delivery guarantees still depend on the selected sink and its checkpoint support.
+
 ## Options
 
 | name                       | type    | required | default value                        |
@@ -67,6 +71,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                     | config  | no       | -                                    |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| excel_use_header_line      | boolean | no       | false                                |
 | poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
@@ -212,7 +217,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -314,13 +319,19 @@ default `HH:mm:ss`
 
 ### skip_header_row_number [long]
 
-Skip the first few lines, but only for the txt and csv.
+Skip the first few lines for text, CSV, and Excel.
 
 For example, set like following:
 
 `skip_header_row_number = 2`
 
 then SeaTunnel will skip the first 2 lines from source files
+
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
 
 ### schema [config]
 
@@ -356,6 +367,12 @@ supported as the following file types:
 The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
 
 You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### excel_use_header_line [boolean]
+
+Only used when `file_format_type` is `excel`. The default is `false`, so Excel columns are read by position even when `skip_header_row_number` is set.
+
+Set `excel_use_header_line = true` to use the first row as the header and map schema fields by name. This skips the first row; when both options are set, `excel_use_header_line` takes precedence over `skip_header_row_number`. Fields missing from the header produce null values and a warning.
 
 ### poi_excel_max_file_size [long]
 

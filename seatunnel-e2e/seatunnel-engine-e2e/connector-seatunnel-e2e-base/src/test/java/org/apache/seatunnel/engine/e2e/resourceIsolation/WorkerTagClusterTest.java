@@ -48,8 +48,9 @@ public class WorkerTagClusterTest {
 
     @BeforeEach
     public void before() {
-        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
-        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        int hazelcastPort = TestUtils.getAvailablePort(100);
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName, hazelcastPort);
+        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName, hazelcastPort);
         masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
         workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
     }
@@ -114,8 +115,8 @@ public class WorkerTagClusterTest {
                         });
     }
 
-    private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
-        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
+    private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName, int hazelcastPort) {
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig(hazelcastPort));
         hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
@@ -123,7 +124,7 @@ public class WorkerTagClusterTest {
         return seaTunnelConfig;
     }
 
-    protected static String getHazelcastConfig() {
+    protected static String getHazelcastConfig(int hazelcastPort) {
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -140,7 +141,9 @@ public class WorkerTagClusterTest {
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + hazelcastPort
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
