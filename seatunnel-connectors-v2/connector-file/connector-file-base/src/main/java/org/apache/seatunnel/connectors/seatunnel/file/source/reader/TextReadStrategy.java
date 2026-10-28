@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 
 import org.apache.commons.io.input.CountingInputStream;
@@ -301,6 +302,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         TextDeserializationSchema.Builder builder = TextDeserializationSchema.builder();
         initConfig(builder, readonlyConfig);
+        // Schema-less text has one content field, so configured field separators must not split it.
+        builder.delimiter(TextFormatConstant.PLACEHOLDER);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();

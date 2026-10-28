@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.testcontainers.utility.MountableFile;
 
@@ -83,6 +84,8 @@ import java.util.zip.ZipOutputStream;
 @Slf4j
 public class LocalFileIT extends TestSuiteBase {
 
+    private static final String RAW_TEXT_LINE = "a,b,c\u0001tail||end";
+
     private GenericContainer<?> baseContainer;
 
     /** Copy data files to container */
@@ -90,6 +93,11 @@ public class LocalFileIT extends TestSuiteBase {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 this.baseContainer = container;
+                container.copyFileToContainer(
+                        Transferable.of(
+                                (RAW_TEXT_LINE + "\n" + RAW_TEXT_LINE)
+                                        .getBytes(StandardCharsets.UTF_8)),
+                        "/seatunnel/read/raw-text/raw.txt");
 
                 Path xlsGz =
                         convertToGzFile(
@@ -441,6 +449,7 @@ public class LocalFileIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         helper.execute("/text/fake_to_local_file_text.conf");
+        helper.execute("/text/local_file_raw_text_to_assert.conf");
         helper.execute("/text/local_file_text_lzo_to_assert.conf");
         helper.execute("/text/local_file_delimiter_assert.conf");
         helper.execute("/text/local_file_time_format_assert.conf");

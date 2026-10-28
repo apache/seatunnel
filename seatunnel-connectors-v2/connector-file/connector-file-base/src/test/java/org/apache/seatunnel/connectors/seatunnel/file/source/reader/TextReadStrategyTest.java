@@ -26,15 +26,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +81,54 @@ public class TextReadStrategyTest {
             Assertions.assertNotNull(date);
             Assertions.assertNotNull(datetime);
             Assertions.assertNotNull(time);
+        }
+    }
+
+    /**
+     * Keeps raw text intact with default or configured field separators and optional partitions.
+     *
+     * <p>Custom row delimiters and decoding must still use the shared configuration even though
+     * schema-less content must not be split into fields.
+     */
+    @Test
+    public void testSchemaLessTextPreservesWholeLine() throws Exception {
+        String path = "/input/day=2026-01-01/raw.txt";
+        List<String> lines = Arrays.asList("a,b,c\u0001tail||end", ",先頭,\u0001尾||");
+        String rowDelimiter = "<ROW>";
+        byte[] input = String.join(rowDelimiter, lines).getBytes(StandardCharsets.UTF_16LE);
+        for (boolean mergePartitions : new boolean[] {false, true}) {
+            for (String fieldDelimiter : new String[] {null, ",", "||"}) {
+                Map<String, Object> options = new HashMap<>();
+                options.put(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key(), mergePartitions);
+                options.put(FileBaseSourceOptions.ROW_DELIMITER.key(), rowDelimiter);
+                options.put(FileBaseSourceOptions.ENCODING.key(), StandardCharsets.UTF_16LE.name());
+                if (fieldDelimiter != null) {
+                    options.put(FileBaseSourceOptions.FIELD_DELIMITER.key(), fieldDelimiter);
+                }
+                TempCollector output = new TempCollector();
+                try (TextReadStrategy strategy = new TextReadStrategy()) {
+                    strategy.setPluginConfig(ConfigFactory.parseMap(options));
+                    strategy.getSeaTunnelRowTypeInfo(path);
+                    strategy.readProcess(
+                            new FileSourceSplit("raw-text-table", path),
+                            output,
+                            new ByteArrayInputStream(input),
+                            mergePartitions
+                                    ? Collections.singletonMap("day", "2026-01-01")
+                                    : Collections.emptyMap(),
+                            "raw.txt");
+                }
+                Assertions.assertEquals(lines.size(), output.getRows().size());
+                for (int i = 0; i < lines.size(); i++) {
+                    SeaTunnelRow row = output.getRows().get(i);
+                    Assertions.assertEquals(mergePartitions ? 2 : 1, row.getArity());
+                    Assertions.assertEquals(lines.get(i), row.getField(0));
+                    Assertions.assertEquals("raw-text-table", row.getTableId());
+                    if (mergePartitions) {
+                        Assertions.assertEquals("2026-01-01", row.getField(1));
+                    }
+                }
+            }
         }
     }
 

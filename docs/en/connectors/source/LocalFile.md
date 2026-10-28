@@ -291,6 +291,8 @@ Tips: **Do not define partition fields in schema option**
 
 ### date_format [string]
 
+> Upgrade note: explicit `date_format`, `datetime_format` and `time_format` values are now enforced for text/CSV reads. Remove the corresponding option to use automatic detection, or set a supported format matching the input. See the [migration guidance](../../introduction/concepts/incompatible-changes.md#file-sources-explicit-temporal-formats-for-text-and-csv).
+
 Date type format, used to tell connector how to convert string to date.
 
 When explicitly configured, only the specified format is used. Supported formats:

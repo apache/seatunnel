@@ -5,6 +5,22 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sources: explicit temporal formats for text and CSV
+
+File sources using `file_format_type = "text"` or `"csv"` now honor an explicitly configured
+`date_format`, `datetime_format` or `time_format` when converting DATE, TIMESTAMP or TIME fields.
+These options were previously accepted without consistently applying the selected format. An
+explicit format is now strict: a nonmatching value fails with `COMMON-32`, `COMMON-33` or `COMMON-39`
+instead of falling back to automatic inference.
+
+For example, data containing `2026/01/01` could previously be read despite
+`date_format = "yyyy-MM-dd"`; that configuration now fails. Before upgrading, check these options
+against the actual input. Remove the corresponding option to use automatic format detection, or
+select the matching supported format (for this example, `date_format = "yyyy/MM/dd"`). If strict
+validation is intended, normalize the input to the configured format. For a column containing mixed
+supported formats, leave the corresponding option unset; a single explicit format does not enable
+fallback. Option names and schema types are unchanged. (#10486)
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**

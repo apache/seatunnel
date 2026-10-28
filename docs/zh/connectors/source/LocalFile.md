@@ -291,6 +291,8 @@ PDF 特有的解析行为如下：
 
 ### date_format [string]
 
+> 升级提示：Text/CSV 读取现在会严格应用显式配置的 `date_format`、`datetime_format` 和 `time_format`。如需自动检测，请删除对应选项；也可以配置与输入匹配的受支持格式。详见[迁移指南](../../introduction/concepts/incompatible-changes.md)。
+
 日期类型格式，用于告诉连接器如何将字符串转换为日期。
 
 当显式配置时，仅使用指定的格式。支持的格式：
