@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Lance sink: TIMESTAMP values keep their microseconds
+
+- **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**
+  - **Description**: The Lance sink declares a `TIMESTAMP` column with microsecond precision, as documented, but `BaseTypeWriter.convertToEpochMicro` converted `LocalDateTime` and `java.sql.Timestamp` values through milliseconds, so every stored value ended in `000` microseconds. Values are now converted from the instant directly.
+  - **Impact**: For the same input, a newly written value can differ from one written by an earlier version in its last three microsecond digits. Rows already in a dataset are not rewritten, so one dataset can hold both. Millisecond columns, and values with no digits below the millisecond, are unchanged.
+  - **Migration Guide**: No configuration change is needed. If a consumer compares or deduplicates new rows against rows written by an earlier version, compare at millisecond precision, or rewrite the older rows from the source.
+
 ### JDBC MySQL: DATETIME writes preserve local date/time fields
 
 The MySQL JDBC sink now binds SeaTunnel `TIMESTAMP` (`LocalDateTime`) directly instead of converting it through `java.sql.Timestamp`. With different worker JVM and JDBC connection time zones, affected versions could shift `DATETIME` values or reject valid boundary values. Writes now preserve the local fields and the fractional seconds supported by the target column. The `DATETIME` source mapping and `TIMESTAMP_TZ` handling are unchanged.
