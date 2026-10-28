@@ -13,6 +13,12 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Jobs that cast a DECIMAL or STRING column to a smaller scale, explicitly with `CAST` or implicitly through `COALESCE` or `IFNULL`, can produce different values: positive values whose dropped digits are below one half are now rounded down, and negative values whose dropped digits are one half or more are now rounded away from zero. Conversions that do not drop digits are unchanged.
   - **Migration Guide**: No configuration change is needed. Review casts of DECIMAL or STRING columns to a smaller scale, including `COALESCE` and `IFNULL` expressions with a DECIMAL result; values written by earlier versions may differ in the last digit from values written after the upgrade.
 
+### JDBC MySQL: DATETIME writes preserve local date/time fields
+
+The MySQL JDBC sink now binds SeaTunnel `TIMESTAMP` (`LocalDateTime`) directly instead of converting it through `java.sql.Timestamp`. With different worker JVM and JDBC connection time zones, affected versions could shift `DATETIME` values or reject valid boundary values. Writes now preserve the local fields and the fractional seconds supported by the target column. The `DATETIME` source mapping and `TIMESTAMP_TZ` handling are unchanged.
+
+Remove any manual offset used to compensate for this defect. Existing stored values are not changed automatically; verify them against the original source before correcting or reloading them. No new configuration is required.
+
 ### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
 
 - **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
