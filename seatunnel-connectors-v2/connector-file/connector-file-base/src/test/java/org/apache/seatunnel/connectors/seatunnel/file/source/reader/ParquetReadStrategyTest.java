@@ -60,6 +60,9 @@ import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.DelegatingPositionOutputStream;
+import org.apache.parquet.io.OutputFile;
+import org.apache.parquet.io.PositionOutputStream;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
@@ -80,9 +83,13 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -102,6 +109,67 @@ public class ParquetReadStrategyTest {
     @TempDir java.nio.file.Path projectionDirectory;
 
     @Test
+    void testProjectionFixtureOutputPreservesPositionAndCreateMode() throws Exception {
+        Path path = new Path(projectionDirectory.resolve("output.parquet").toUri());
+        OutputFile file = new ProjectionOutputFile(path);
+        try (PositionOutputStream output = file.create(0)) {
+            output.write(1);
+            output.write(new byte[] {2, 3, 4}, 0, 2);
+            Assertions.assertEquals(3, output.getPos());
+        }
+        Assertions.assertThrows(FileAlreadyExistsException.class, () -> file.create(0));
+        try (PositionOutputStream output = file.createOrOverwrite(0)) {
+            Assertions.assertEquals(0, output.getPos());
+            output.write(new byte[] {5, 6});
+            Assertions.assertEquals(2, output.getPos());
+        }
+        Assertions.assertArrayEquals(
+                new byte[] {5, 6}, Files.readAllBytes(Paths.get(path.toUri())));
+    }
+
+    /** Writes projection fixtures without Hadoop's platform-specific local permission helpers. */
+    private static class ProjectionOutputFile implements OutputFile {
+        private final java.nio.file.Path path;
+
+        private ProjectionOutputFile(Path path) {
+            this.path = Paths.get(path.toUri());
+        }
+
+        @Override
+        public PositionOutputStream create(long blockSizeHint) throws IOException {
+            return open(StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
+        }
+
+        @Override
+        public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
+            return open(
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        }
+
+        private PositionOutputStream open(StandardOpenOption... options) throws IOException {
+            FileChannel channel = FileChannel.open(path, options);
+            return new DelegatingPositionOutputStream(Channels.newOutputStream(channel)) {
+                @Override
+                public long getPos() throws IOException {
+                    return channel.position();
+                }
+            };
+        }
+
+        @Override
+        public boolean supportsBlockSize() {
+            return false;
+        }
+
+        @Override
+        public long defaultBlockSize() {
+            return 0;
+        }
+    }
+
+    @Test
     void testProjectionRetainsAvroSchemaMetadataAndEmptyInput() throws Exception {
         Schema schema =
                 new Schema.Parser()
@@ -113,7 +181,7 @@ public class ParquetReadStrategyTest {
         for (boolean empty : new boolean[] {false, true}) {
             Path file = new Path(projectionDirectory.resolve("avro-" + empty + ".parquet").toUri());
             try (ParquetWriter<GenericData.Record> writer =
-                    AvroParquetWriter.<GenericData.Record>builder(file)
+                    AvroParquetWriter.<GenericData.Record>builder(new ProjectionOutputFile(file))
                             .withSchema(schema)
                             .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                             .build()) {
@@ -158,7 +226,7 @@ public class ParquetReadStrategyTest {
                         .named("split");
         Path file = new Path(projectionDirectory.resolve("split.parquet").toUri());
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(file)
+                ExampleParquetWriter.builder(new ProjectionOutputFile(file))
                         .withType(schema)
                         .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                         .withDictionaryEncoding(false)
@@ -219,7 +287,7 @@ public class ParquetReadStrategyTest {
                         .named("explicit");
         Path file = new Path(projectionDirectory.resolve("explicit.parquet").toUri());
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(file)
+                ExampleParquetWriter.builder(new ProjectionOutputFile(file))
                         .withType(schema)
                         .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                         .build()) {
@@ -267,7 +335,7 @@ public class ParquetReadStrategyTest {
                         .named("filtered");
         Path file = new Path(projectionDirectory.resolve("filter.parquet").toUri());
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(file)
+                ExampleParquetWriter.builder(new ProjectionOutputFile(file))
                         .withType(schema)
                         .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                         .build()) {
@@ -315,7 +383,7 @@ public class ParquetReadStrategyTest {
                 Files.createDirectories(projectionDirectory.resolve("region=east"));
         Path file = new Path(directory.resolve("nested.parquet").toUri());
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(file)
+                ExampleParquetWriter.builder(new ProjectionOutputFile(file))
                         .withType(schema)
                         .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                         .build()) {
@@ -358,11 +426,15 @@ public class ParquetReadStrategyTest {
         Path first = new Path(projectionDirectory.resolve("first.parquet").toUri());
         Path second = new Path(projectionDirectory.resolve("second.parquet").toUri());
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(first).withType(firstSchema).build()) {
+                ExampleParquetWriter.builder(new ProjectionOutputFile(first))
+                        .withType(firstSchema)
+                        .build()) {
             writer.write(new SimpleGroup(firstSchema).append("id", 1).append("first_only", 9));
         }
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(second).withType(secondSchema).build()) {
+                ExampleParquetWriter.builder(new ProjectionOutputFile(second))
+                        .withType(secondSchema)
+                        .build()) {
             writer.write(new SimpleGroup(secondSchema).append("id", 2).append("second_only", 8));
         }
         ParquetReadStrategy strategy = new ParquetReadStrategy();
@@ -415,7 +487,7 @@ public class ParquetReadStrategyTest {
                         .named("wide");
         Random random = new Random(1234);
         try (ParquetWriter<Group> writer =
-                ExampleParquetWriter.builder(file)
+                ExampleParquetWriter.builder(new ProjectionOutputFile(file))
                         .withType(schema)
                         .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
                         .withDictionaryEncoding(false)
