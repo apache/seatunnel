@@ -299,6 +299,7 @@ numeric_special_value_as_null = true
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
 | YashanDB  | DSQL     |          |
+| Ingres    |              |          |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
@@ -527,6 +528,44 @@ sink {
   Console {}
 }
 ```
+
+### Ingres
+
+Ingres 支持以 Source 读取为目标，真实服务器验证仍待完成。使用 `jdbc:ingres:` 的 Sink 也会选中该共享方言，但 Sink 执行和 `${schema_name}` 目标路由尚未验证，不能据此认定已支持 Ingres Sink。
+
+`owner.table` 应使用实际存储的大小写，`field_ide` 仅修改列名。生成 Sink SQL 时，`database` 不加入表标识符：数据库由 JDBC URL 选择，`table = "owner.table"` 提供 owner。当 `generate_sink_sql = true` 时，`database` 仍为必填配置。
+
+已有作业可设置 `dialect = "Generic"`，在迁移期间保留旧方言行为。详见[不兼容变更](../../introduction/concepts/incompatible-changes.md#dev)。
+
+JDBC Source 会为以 `jdbc:ingres:` 开头的 URL 选择 Ingres 方言。驱动类为
+`com.ingres.jdbc.IngresDriver`，需要按照适用许可自行从 Actian 获取 `iijdbc.jar`；
+SeaTunnel 不随附此驱动。请按照上文对应引擎的说明安装驱动。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:ingres://ingres.example.com:II7/sales"
+    driver = "com.ingres.jdbc.IngresDriver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    table_path = "sales_owner.orders"
+  }
+}
+```
+
+请为 `table_path` 使用 `owner.table` 格式，将 JDBC 元数据查询限定到目标所有者。
+多个所有者存在同名表时，仅填写表名可能产生有歧义的元数据。
+数据库由 JDBC URL 指定。请在 `table_path` 中填写实际标识符名称，不要添加 SQL 引号；
+生成的 SQL 会分别为所有者和表名添加双引号，并保留大小写。
+如果名称本身包含点号，请使用带有显式 SQL 引用的自定义 `query`，而不是 `table_path`。
+
+此方言复用通用 JDBC 类型映射和行转换，仅覆盖标准 JDBC 类型，未覆盖 `INGRESDATE`、
+`MONEY` 和 interval 等 Ingres 专有类型。由于尚未实现 Ingres 字符串哈希或范围分片，
+字符串键使用单个分片。此方言不添加 catalog、建表能力、CDC 或原生 upsert SQL。
+
+`connector-jdbc-e2e-part-7` 中的 `JdbcIngresIT` 是需要手动启用的测试，要求提供已获许可的
+Ingres 实例和自行获取的驱动。验证步骤见该模块的 `README-ingres.md`；
+仅通过离线方言测试并不能证明特定服务端与驱动版本的兼容性。
 
 ## 故障排查
 

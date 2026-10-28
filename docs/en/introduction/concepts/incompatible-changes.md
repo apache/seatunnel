@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC: Ingres dialect selection and identifier handling
+
+- **Affected jobs**: Jdbc sources and sinks using `jdbc:ingres:` without an explicit dialect now select `Ingres` instead of `Generic`.
+- **Behavior change**: Generated identifiers are double-quoted. Two-part paths mean `owner.table`, rather than `database.table`. Owner/table case is preserved; `field_ide` applies only to columns. The JDBC URL selects the database. Upsert uses the existing query/insert/update fallback; string split keys use a single split.
+- **Migration**: Use `owner.table` with the exact stored identifier case and check column case when setting `field_ide`. Do not rely on server folding of unquoted names. Set `dialect = "Generic"` explicitly to retain the previous dialect behavior while migrating.
+- **Validation boundary**: The integration-test scope is source reads only; real-server validation is pending. The shared dialect also changes sink SQL generation, but Ingres sink execution and placeholder-based target routing have not been validated.
+
 ### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
 
 - **Behavior change: a null complex cell from an Arrow stream now reads as `null`**

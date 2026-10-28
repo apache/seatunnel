@@ -262,6 +262,15 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
 | YashanDB  |            |          |
+| Ingres    |            |          |
+
+#### Ingres
+
+Ingres 支持以 Source 读取为目标，真实服务器验证仍待完成。使用 `jdbc:ingres:` 的 Sink 也会选中该共享方言，但 Sink 执行和 `${schema_name}` 目标路由尚未验证，不能据此认定已支持 Ingres Sink。
+
+`owner.table` 应使用实际存储的大小写，`field_ide` 仅修改列名。生成 Sink SQL 时，`database` 不加入表标识符：数据库由 JDBC URL 选择，`table = "owner.table"` 提供 owner。当 `generate_sink_sql = true` 时，`database` 仍为必填配置。
+
+已有作业可设置 `dialect = "Generic"`，在迁移期间保留旧方言行为。详见[不兼容变更](../../introduction/concepts/incompatible-changes.md#dev)。
 
 ### database [string]
 
