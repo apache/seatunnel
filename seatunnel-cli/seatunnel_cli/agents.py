@@ -275,6 +275,27 @@ def _check_conditional_mismatches(
             )
 
 
+def _registered_connector_names() -> dict[str, set[str]] | None:
+    """Lower-cased source and sink plugin names the engine registers.
+
+    Returns None when the registry is unavailable -- no metadata exported, or
+    the lookup failed -- in which case the caller compares plan names as given.
+    That is the pre-existing behaviour and the conservative choice: without a
+    registry we cannot tell an alias from a real mismatch.
+    """
+    try:
+        from .connectors import list_connector_names
+
+        names = list_connector_names()
+    except Exception:
+        return None
+    sources = {n.lower() for n in names.get("sources", []) if n}
+    sinks = {n.lower() for n in names.get("sinks", []) if n}
+    if not sources and not sinks:
+        return None
+    return {"source": sources, "sink": sinks}
+
+
 def _plan_conformance_errors(structured_plan, config_str: str) -> list[str]:
     """Report connectors the config uses that the plan did not ask for.
 
@@ -288,9 +309,11 @@ def _plan_conformance_errors(structured_plan, config_str: str) -> list[str]:
     realised with an added Assert sink or a second branch, and flagging those
     would make the check fight normal practice.
 
-    Comparison is case-insensitive and ignores a ``-CDC`` suffix difference
-    only when the base names differ, so ``MySQL-CDC`` vs ``Jdbc`` is reported
-    while ``jdbc`` vs ``Jdbc`` is not.
+    The plan is model output, not ground truth, so a planned name that is not a
+    registered plugin is ignored rather than enforced. Otherwise an alias the
+    planner invented -- ``S3`` where the plugin is ``S3File`` -- would condemn a
+    correct config and spend every repair round moving it away from the right
+    connector. Comparison is case-insensitive.
     """
     pipelines = getattr(structured_plan, "pipelines", None) or []
     if not pipelines:
@@ -304,6 +327,8 @@ def _plan_conformance_errors(structured_plan, config_str: str) -> list[str]:
         # Nothing recognisable to compare against; the HOCON checks own that.
         return []
 
+    known = _registered_connector_names()
+
     errors: list[str] = []
     for section, attribute in (("source", "source_connector"),
                                ("sink", "sink_connector")):
@@ -312,6 +337,10 @@ def _plan_conformance_errors(structured_plan, config_str: str) -> list[str]:
             for p in pipelines
         }
         planned.discard("")
+        if known is not None:
+            # Keep only names the engine actually registers for this section,
+            # so an invented alias cannot condemn a correct config.
+            planned &= known.get(section, set())
         if not planned or not used[section]:
             continue
         unmet = planned - used[section]
@@ -1577,9 +1606,16 @@ class Orchestrator:
             # loop as any other validation failure.
             drift = _plan_conformance_errors(structured_plan, config)
             if drift:
-                validation = "INVALID\n" + "\n".join(drift) + (
-                    "" if validation.startswith("PASS")
-                    else "\n" + validation.split("\n", 1)[-1])
+                # The validator's contract is "PASS", "PASS_WITH_NOTES: ..." or
+                # "FAIL: <issue list>", so its first line carries a real issue.
+                # Keep its text whole and prepend the drift: dropping a line
+                # here would remove a genuine defect from the repair prompt in
+                # exactly the case where two things are wrong at once.
+                drift_text = "FAIL: plan drift\n" + "\n".join(drift)
+                validation = (
+                    drift_text if validation.startswith("PASS")
+                    else drift_text + "\n" + validation
+                )
 
             if validation.startswith("PASS"):
                 # Phase 4: Dry-run validation (engine-level)
@@ -1849,11 +1885,20 @@ Check for semantic correctness, required parameters, and best practices."""
         # After LLM returns the fixed config, restore the original values.
         safe_config, cred_map = _replace_creds_with_placeholders(config)
 
+        # The config is credential-swapped above for a reason, and the request
+        # is free text the user typed -- it can hold a password just as easily.
+        # `redact_credentials` is the same scrubber the planner path and the
+        # session writer use, so this keeps one rule for what leaves the host.
+        from .memory import redact_credentials
+
         context = ""
         if request:
-            context += f"\n## The request this config must satisfy:\n{request}\n"
+            context += (
+                "\n## The request this config must satisfy:\n"
+                f"{redact_credentials(request)}\n"
+            )
         if plan_text:
-            context += f"\n## The resolved plan:\n{plan_text}\n"
+            context += f"\n## The resolved plan:\n{redact_credentials(plan_text)}\n"
 
         prompt = f"""The following SeaTunnel config has validation issues. Fix them.
 {context}
