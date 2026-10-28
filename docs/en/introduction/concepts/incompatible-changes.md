@@ -5,6 +5,35 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
+
+- **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
+  - **Description**: `ArrowToSeatunnelRowReader`, which the Doris and StarRocks sources read with, sends a MAP column to `MapConverter` and a ROW column to `StructConverter`. Neither checked the Arrow validity bit in the path that converts element types, so a null MAP cell was returned as an empty map and a null ROW cell ended the read with `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null`. Both now return `null`, the same as `ListConverter`, `LargeListConverter` and `FixedSizeListConverter`, which have guarded this since the Arrow reader was added.
+  - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
+  - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
+
+### Zeta: runtime metric counters restart from zero after a pipeline failover restore
+
+- **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
+  - **Description**: When the Zeta engine restores a pipeline after a worker failover (or retries it after a failure), the new attempt's runtime counters (`SourceReceivedCount`, `SinkWriteCount`, queue metrics) now start from zero. Previously the replacement attempt continued from the failed attempt's values, because task locations are stable across retries and the new attempt's counters were seeded from the shared metrics store, so finished-job metrics could include work already done and canceled by earlier attempts.
+  - **Impact**: For batch jobs this removes over-counted finished-job metrics. For streaming jobs resumed after a failover, reported totals now restart at the new attempt's values instead of continuing the pre-failure totals; external dashboards or alerts that aggregate these counters must not read the reset as data loss. The reset is best effort: a worker report already in flight during the restore can still carry a stale value for at most a millisecond-scale window.
+  - **Migration Guide**: No action is required for correctness. If you need lifetime totals that survive failovers, accumulate them outside the running job, for example from the stored metrics of finished jobs in the job history.
+
+### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
+
+When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
+
+Such a value now causes a parse error that identifies the field and the expected container type; with `ignore-parse-errors = true` only that container value is set to `null`, and every other value of the row is kept. The same holds for a wrong container type nested inside an array or a map: only the offending nested value becomes `null` while its siblings and the enclosing container are retained, and empty arrays and objects of the declared container type, `null` and missing values, and the conversion of elements and keys are unchanged. To migrate, provide an actual JSON array for an `ARRAY` field and an actual JSON object for a `MAP` field, or set `ignore-parse-errors = true` so that malformed container values become `null` instead of failing the job.
+
+The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
+
+### JDBC Dameng: NVARCHAR and NVARCHAR2 report their declared length
+
+- **Schema change: the Dameng catalog reports `NVARCHAR(n)` and `NVARCHAR2(n)` with length n instead of the byte length**
+  - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
+  - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
+  - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
@@ -12,12 +41,22 @@ You need to check this document before you upgrade to related version.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
 
+### Native CLI help exit code
+
+`seatunnel.sh -h` now exits with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
   - **Description**: For a table without a primary key, the snapshot split column was taken from a unique key even when that column was nullable. Rows with NULL in it matched no snapshot chunk and were silently skipped. A nullable column is now skipped, whether it comes from a unique key, from `snapshotSplitColumn` or from a primary key configured in `table-names-config.primaryKeys`; if no non-nullable key column remains, the table is read as a single split. Nullability is read from the database metadata.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
+
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
 
 ### Runtime Requirements
 
@@ -226,6 +265,32 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
   values and previously ran successfully will now fail fast at startup with a validation
   error.
+
+### SQL Numeric Predicate Precision
+
+- **Behavior change: exact numeric operands no longer compare through `double`**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform (`ZETA` and `INTERNAL`).
+  - **Description**: Comparisons and `IN`/`NOT IN` checks preserve precision when both
+    evaluated operands are integral or `DECIMAL`, including comparisons in searched
+    and simple `CASE` expressions. For example, `BIGINT` `9007199254740993` no longer
+    equals the integer literal `9007199254740992`.
+  - **Impact**: Filters can select different rows, and `CASE` expressions can choose
+    different branches. Comparisons involving `FLOAT` or `DOUBLE` retain their existing
+    behavior. Literals containing a decimal point still evaluate as `DOUBLE`. Unary minus
+    preserves `DECIMAL` precision for both `-decimal_col` and
+    `-CAST('...' AS DECIMAL(p, s))`. Each `IN` element independently selects the
+    exact or floating path, so mixing exact and floating operands can still match
+    distinct large values and does not guarantee transitive equality.
+  - **Migration Guide**: Review affected predicates and `CASE` expressions, and reconcile
+    previously written data that relied on rounded comparison results. For exact decimal
+    constants, use quoted strings with sufficient scale, such as
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
+    string/`DECIMAL` inputs use
+    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
+    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
+    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    for examples and limits. No configuration, output schema or state format changes are required.
 
 ### DataValidator Array Length
 
