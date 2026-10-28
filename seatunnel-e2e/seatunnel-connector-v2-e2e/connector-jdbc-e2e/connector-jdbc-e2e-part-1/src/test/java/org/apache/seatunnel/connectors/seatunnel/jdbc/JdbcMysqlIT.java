@@ -489,13 +489,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     /**
      * Exercises raw public JDBC writer batching against MySQL without misattributing its failures.
      * Ordinary engine planning wraps JDBC in MultiTableSink even for one table, so that separate
-     * path must retain the documented startup restriction instead of bypassing its safety guard.
+     * path must reject the unsupported policy during planning before destructive save mode.
+     * Existing target rows must survive the rejected submission on every supported engine.
      */
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "The explicit final job-status assertion uses the Zeta status API")
     public void testDirtyCollectorDoesNotDivertJdbcBatchFailure(TestContainer container)
             throws Exception {
         try (Statement statement = connection.createStatement()) {
@@ -579,10 +576,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 Assertions.assertThrows(JdbcConnectorException.class, wrapped::close);
             }
 
+            statement.execute("INSERT INTO dirty_batch_sink VALUES (99, 'safe')");
+            connection.commit();
             String previousServerLogs = container.getServerLogs();
-            String jobId = String.valueOf(System.nanoTime());
             Container.ExecResult result =
-                    container.executeJob("/jdbc_mysql_dirty_batch_failure.conf", jobId);
+                    container.executeJob("/jdbc_mysql_dirty_batch_failure.conf");
             String serverLogs = container.getServerLogs();
             // The engine container is reused. Only this execution can establish its SQL cause;
             // historical dirty-threshold or database errors must not satisfy these assertions.
@@ -607,25 +605,31 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     result.getExitCode(),
                     "The ordinary JDBC engine path must reject unsupported multi-table wrapping: "
                             + failureLogs);
-            Assertions.assertEquals("FAILED", container.getJobStatus(jobId));
             Assertions.assertTrue(
                     failureLogs.contains(
                                     "dirty.collector/dirty.validator requires a synchronous single-table writer")
                             && failureLogs.contains(
                                     "without row-error routing or deferred terminal outcomes"),
-                    "Expected the exact documented writer startup restriction: " + failureLogs);
+                    "Expected the documented planning restriction before target save mode: "
+                            + failureLogs);
+            Assertions.assertTrue(
+                    failureLogs.contains("multi-table-capable sinks are unsupported"),
+                    "The worker-startup guard is too late to protect save mode: " + failureLogs);
             Assertions.assertFalse(
                     failureLogs.contains("Dirty record collected (exception)"),
                     "Unsupported engine startup must not create dirty entries: " + failureLogs);
             Assertions.assertFalse(
                     failureLogs.contains("Dirty record threshold exceeded"),
                     "The original JDBC failure must not be replaced by a false dirty threshold");
-            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM dirty_batch_sink")) {
-                Assertions.assertTrue(rows.next());
-                Assertions.assertEquals(
-                        0,
-                        rows.getInt(1),
-                        "The failed transaction must not commit its healthy row");
+            try (ResultSet rows =
+                    statement.executeQuery(
+                            "SELECT id, payload FROM dirty_batch_sink ORDER BY id")) {
+                Assertions.assertTrue(
+                        rows.next(), "Planning rejection must preserve existing target data");
+                Assertions.assertEquals(99, rows.getInt(1));
+                Assertions.assertEquals("safe", rows.getString(2));
+                Assertions.assertFalse(
+                        rows.next(), "Rejected planning must not write any source row");
             }
             try (ResultSet rows =
                     statement.executeQuery(

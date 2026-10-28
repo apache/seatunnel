@@ -21,21 +21,35 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -48,7 +62,9 @@ import java.util.Optional;
  * <p>The inherited configuration entry point is exercised without launching Flink tasks, so invalid
  * plugin selection cannot silently revert to the no-feature path.
  */
-class SinkDirtyCollectorConfigTest {
+public class SinkDirtyCollectorConfigTest {
+    @TempDir Path temporaryDirectory;
+
     @Test
     void noDirtyConfigUsesNoOp() {
         TestProcessor processor = new TestProcessor();
@@ -119,6 +135,164 @@ class SinkDirtyCollectorConfigTest {
         Assertions.assertTrue(failure.getMessage().contains("single input catalog table"));
     }
 
+    @Test
+    void activeDirtyPolicyRejectsMultiTableCapableSinkBeforeSaveMode() throws Exception {
+        withRecordingFactory(
+                () -> {
+                    for (String failurePolicy :
+                            new String[] {"FAIL_FAST", "CONTINUE_OTHER_TABLES"}) {
+                        TestProcessor processor =
+                                new TestProcessor(
+                                        ConfigFactory.parseString(
+                                                "dirty.collector.type=log\nmulti_table.failure_policy="
+                                                        + failurePolicy),
+                                        ConfigFactory.parseString("plugin_name=SaveModeRecording"));
+                        IllegalArgumentException failure =
+                                Assertions.assertThrows(
+                                        IllegalArgumentException.class,
+                                        () ->
+                                                processor.execute(
+                                                        Collections.singletonList(
+                                                                new DataStreamTableInfo(
+                                                                        null,
+                                                                        Collections.singletonList(
+                                                                                catalogTable(
+                                                                                        "first")),
+                                                                        "input"))));
+                        Assertions.assertTrue(
+                                failure.getMessage().contains("synchronous single-table writer"));
+                        Assertions.assertEquals(
+                                Collections.singletonList("existing-target-row"),
+                                processor.targetRows());
+                    }
+                });
+    }
+
+    @Test
+    void disabledDirtyPoliciesPreserveMultiTableSinkSaveMode() throws Exception {
+        withRecordingFactory(
+                () -> {
+                    for (String policy :
+                            new String[] {
+                                "",
+                                "dirty.collector.type=noop",
+                                "dirty.collector.type=none",
+                                "dirty.collector=null"
+                            }) {
+                        TestProcessor processor =
+                                new TestProcessor(
+                                        policy.isEmpty()
+                                                ? ConfigFactory.empty()
+                                                : ConfigFactory.parseString(
+                                                        "dirty.collector.type=log"),
+                                        ConfigFactory.parseString(
+                                                "plugin_name=SaveModeRecording\n" + policy));
+                        UnsupportedOperationException failure =
+                                Assertions.assertThrows(
+                                        UnsupportedOperationException.class,
+                                        () ->
+                                                processor.execute(
+                                                        Collections.singletonList(
+                                                                new DataStreamTableInfo(
+                                                                        null,
+                                                                        Collections.singletonList(
+                                                                                catalogTable(
+                                                                                        "first")),
+                                                                        "input"))));
+                        Assertions.assertEquals(
+                                "Stream execution is outside this config test",
+                                failure.getMessage());
+                        Assertions.assertTrue(
+                                processor.targetRows().isEmpty(),
+                                "Default/no-op planning must still execute save mode");
+                    }
+                });
+    }
+
+    /**
+     * Makes the real factory-discovery path see a test-only provider without a production SPI file.
+     * The context loader and descriptor stay scoped to this planner-entry regression.
+     */
+    private void withRecordingFactory(Executable action) throws Exception {
+        Path service = temporaryDirectory.resolve("META-INF/services/" + Factory.class.getName());
+        Files.createDirectories(service.getParent());
+        Files.write(
+                service,
+                Collections.singletonList(RecordingSinkFactory.class.getName()),
+                StandardCharsets.UTF_8);
+        ClassLoader previous = Thread.currentThread().getContextClassLoader();
+        try (URLClassLoader loader =
+                new URLClassLoader(new URL[] {temporaryDirectory.toUri().toURL()}, previous)) {
+            Thread.currentThread().setContextClassLoader(loader);
+            try {
+                action.execute();
+            } catch (Exception | Error failure) {
+                throw failure;
+            } catch (Throwable failure) {
+                throw new AssertionError(failure);
+            }
+        } finally {
+            Thread.currentThread().setContextClassLoader(previous);
+        }
+    }
+
+    /**
+     * Supplies a real multi-table-capable sink to the inherited planner, keeping target data local.
+     * Factory discovery probes do not alter that data; only the actual save-mode entry does.
+     */
+    public static final class RecordingSinkFactory
+            implements TableSinkFactory<SeaTunnelRow, Void, Void, Void> {
+        private final List<String> targetRows =
+                new ArrayList<>(Collections.singletonList("existing-target-row"));
+
+        @Override
+        public String factoryIdentifier() {
+            return "SaveModeRecording";
+        }
+
+        @Override
+        public OptionRule optionRule() {
+            return OptionRule.builder().build();
+        }
+
+        @Override
+        public TableSink<SeaTunnelRow, Void, Void, Void> createSink(
+                TableSinkFactoryContext context) {
+            return () -> new RecordingSaveModeSink(targetRows);
+        }
+    }
+
+    /**
+     * Models destructive target preparation at the actual save-mode entry of a prepared sink.
+     * Runtime execution remains forbidden so successful writer activity cannot mask late rejection.
+     */
+    private static final class RecordingSaveModeSink
+            implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void>,
+                    SupportMultiTableSink,
+                    SupportSaveMode {
+        private final List<String> targetRows;
+
+        private RecordingSaveModeSink(List<String> targetRows) {
+            this.targetRows = targetRows;
+        }
+
+        @Override
+        public Optional<SaveModeHandler> getSaveModeHandler() {
+            targetRows.clear();
+            return Optional.empty();
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) {
+            throw new UnsupportedOperationException("Runtime writing is outside this config test");
+        }
+
+        @Override
+        public String getPluginName() {
+            return "SaveModeRecording";
+        }
+    }
+
     private static CatalogTable catalogTable(String name) {
         return CatalogTable.of(
                 TableIdentifier.of("catalog", "database", name),
@@ -154,7 +328,15 @@ class SinkDirtyCollectorConfigTest {
         @Override
         protected List<Optional<? extends Factory>> initializePlugins(
                 List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+            if (!pluginConfigs.isEmpty()
+                    && "SaveModeRecording".equals(pluginConfigs.get(0).getString("plugin_name"))) {
+                return Collections.singletonList(Optional.of(new RecordingSinkFactory()));
+            }
             return Collections.nCopies(pluginConfigs.size(), Optional.empty());
+        }
+
+        private List<String> targetRows() {
+            return ((RecordingSinkFactory) plugins.get(0).get()).targetRows;
         }
 
         @Override

@@ -175,6 +175,7 @@ public class SinkExecuteProcessor
                                 error);
                         continue;
                     }
+                    DirtyCollectorConfigProcessor.validateSinkSupport(mergedSinkConfig, sink);
                     try {
                         handleSaveMode(sink);
                         sinks.put(catalogTable.getTableId().toTablePath(), sink);

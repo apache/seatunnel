@@ -42,6 +42,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 import java.io.ByteArrayInputStream;
@@ -51,6 +52,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -159,6 +161,135 @@ public class DirtyRecordCollectorTest {
             appender.stop();
             logger.setLevel(previousLevel);
             Locale.setDefault(previousLocale);
+        }
+    }
+
+    @Test
+    void testDefaultLogSamplingRetainsEveryCountAndOneCloseSummary() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+                    collector.init(ConfigFactory.empty());
+                    for (int i = 1; i <= 10000; i++) {
+                        collector.collectFromUserRule(
+                                0, new SeaTunnelRow(new Object[] {i}), "rule", null);
+                    }
+                    Assertions.assertEquals(10000L, collector.getDirtyRecordCount());
+                    collector.close();
+                    collector.close();
+                    List<String> expected = new ArrayList<>();
+                    for (int count :
+                            new int[] {
+                                1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
+                            }) {
+                        expected.add(
+                                "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: "
+                                        + count
+                                        + ", Record: fields=1, Reason: rule");
+                    }
+                    expected.add(
+                            "Dirty record collection summary - Observed: 10000, Logged: 20, Suppressed: 9980");
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(() -> Assertions.assertEquals(expected, messages));
+                });
+    }
+
+    @Test
+    void testDisabledLogLevelDoesNotRenderPayloadOrSkipFatalThreshold() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        AtomicInteger renders = new AtomicInteger();
+        SeaTunnelRow row = unrenderableRow(renders);
+        AtomicInteger exceptionMessages = new AtomicInteger();
+        RuntimeException exception =
+                new RuntimeException() {
+                    @Override
+                    public String getMessage() {
+                        exceptionMessages.incrementAndGet();
+                        throw new AssertionError(
+                                "Disabled exception details must not be formatted");
+                    }
+                };
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+                    collector.init(
+                            ConfigFactory.parseString(
+                                    "log_level=DEBUG\nlog_payload=full\nthreshold=2\nfail_on_threshold=true"));
+                    collector.collect(0, row, exception, "rule", null);
+                    RuntimeException failure =
+                            Assertions.assertThrows(
+                                    RuntimeException.class,
+                                    () -> collector.collectFromUserRule(0, row, "rule", null));
+                    Assertions.assertEquals(RuntimeException.class, failure.getCause().getClass());
+                    Assertions.assertEquals(
+                            "Dirty record threshold exceeded: 2 >= 2",
+                            failure.getCause().getMessage());
+                    Assertions.assertEquals(2L, collector.getDirtyRecordCount());
+                    Assertions.assertEquals(0, renders.get());
+                    Assertions.assertEquals(0, exceptionMessages.get());
+                    collector.close();
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () ->
+                                            Assertions.assertEquals(
+                                                    Collections.singletonList(
+                                                            "Dirty record threshold exceeded: 2 >= 2 - Task will be failed!"),
+                                                    messages));
+                });
+    }
+
+    @Test
+    void testUnsampledPayloadIsLazyAndStillCounts() throws Exception {
+        List<String> messages = new CopyOnWriteArrayList<>();
+        AtomicInteger renders = new AtomicInteger();
+        withLogMessages(
+                messages,
+                () -> {
+                    LogDirtyRecordCollector collector = new LogDirtyRecordCollector();
+                    collector.init(
+                            ConfigFactory.parseString(
+                                    "log_payload=full\nlog_first_n_records=1\nlog_every_n_records=3"));
+                    collector.collectFromUserRule(
+                            0, new SeaTunnelRow(new Object[] {"first"}), "rule", null);
+                    collector.collect(0, unrenderableRow(renders), null, "rule", null);
+                    collector.collectFromUserRule(
+                            0, new SeaTunnelRow(new Object[] {"third"}), "rule", null);
+                    collector.close();
+                    Assertions.assertEquals(3L, collector.getDirtyRecordCount());
+                    Assertions.assertEquals(0, renders.get());
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(5))
+                            .untilAsserted(
+                                    () ->
+                                            Assertions.assertEquals(
+                                                    Arrays.asList(
+                                                            "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 1, Record: [field_0=first], Reason: rule",
+                                                            "Dirty record collected (user rule) - SubTask: 0, Table: unknown, Count: 3, Record: [field_0=third], Reason: rule",
+                                                            "Dirty record collection summary - Observed: 3, Logged: 2, Suppressed: 1"),
+                                                    messages));
+                });
+    }
+
+    @Test
+    void testInvalidLogSamplingIntervalsFailDuringInitialization() {
+        for (String config :
+                new String[] {
+                    "log_first_n_records=-1", "log_every_n_records=0", "log_every_n_records=-1"
+                }) {
+            IllegalArgumentException failure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    new LogDirtyRecordCollector()
+                                            .init(ConfigFactory.parseString(config)));
+            Assertions.assertTrue(
+                    failure.getMessage().contains(config.substring(0, config.indexOf('='))));
         }
     }
 
@@ -732,6 +863,54 @@ public class DirtyRecordCollectorTest {
         @Override
         public void close() {
             closed = true;
+        }
+    }
+
+    private static SeaTunnelRow unrenderableRow(AtomicInteger renders) {
+        return new SeaTunnelRow(
+                new Object[] {
+                    new Object() {
+                        @Override
+                        public String toString() {
+                            renders.incrementAndGet();
+                            throw new AssertionError("Suppressed payload must not be rendered");
+                        }
+                    }
+                });
+    }
+
+    /**
+     * Captures the collector's actual log messages while keeping the logger configuration scoped.
+     * Restoring the prior level and removing the appender also covers failed assertions.
+     */
+    private static void withLogMessages(List<String> messages, Executable action) throws Exception {
+        Logger logger = (Logger) LogManager.getLogger(LogDirtyRecordCollector.class);
+        Level previousLevel = logger.getLevel();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "log-sampling-test",
+                        null,
+                        PatternLayout.createDefaultLayout(),
+                        true,
+                        Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        messages.add(event.getMessage().getFormattedMessage());
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.ERROR);
+        try {
+            action.execute();
+        } catch (Exception | Error failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            throw new AssertionError(failure);
+        } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+            logger.setLevel(previousLevel);
         }
     }
 }

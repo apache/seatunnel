@@ -75,11 +75,21 @@ their own durable recovery and deduplication when required.
 | log collector option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `log_level` | string | `ERROR` | `ERROR`, `WARN`, `INFO` or `DEBUG`; other values use ERROR. |
+| `log_first_n_records` | long | `10` | Log the first N dirty records per collector; must be non-negative. |
+| `log_every_n_records` | long | `1000` | Also log every Nth record; must be positive. Set `1` to explicitly log every record. |
 | `include_stack_trace` | boolean | `true` | Include exception details in the message. |
 | `threshold` | long | `-1` | Count at which the threshold action runs; non-positive disables it. |
 | `fail_on_threshold` | boolean | `false` | Throw when count reaches or exceeds a positive threshold; otherwise warn once per collector instance. |
 | `log_payload` | string | `false` | `false` logs arity, `fields` logs field names, `full` logs values. |
 | `mask_fields` | list of strings | `[]` | Case-insensitive fields masked when logging full values. |
+
+The log collector samples diagnostics by default: the first 10 records and every
+1000th record thereafter. Sampling is local to each collector instance. Every record
+still increments the counter and evaluates the threshold, including unsampled records
+and records whose configured log level is disabled. Payload and exception formatting
+runs only for enabled samples. On close, the collector emits at most one summary of
+observed, logged and suppressed records at the configured level. Use
+`log_every_n_records = 1` only when per-record diagnostics are required.
 
 Keep payload logging disabled for data that must not appear in logs. If full
 payload logging is deliberately enabled, configure the required field masking.
@@ -129,13 +139,14 @@ The configured wrapper runs around real sink writers on Zeta, Flink and Spark.
 Only synchronous single-table inputs and writers are supported. Active dirty
 handling rejects multiple input catalog tables during planning, including per-table
 sink-template fallback; policies are resolved before sink preparation/save-mode side
-effects. Multi-table/async writers,
-deferred terminal outcomes and enabled Zeta sink error-handler policies are rejected
-at startup when dirty handling is active; they are not silently downgraded.
-Without dirty handling, those existing paths keep their original behavior. Zeta
-can aggregate even a single JDBC input into a multi-table writer; active dirty
-handling rejects that aggregated path as well. Pre-write validation does not
-bypass the writer capability restriction.
+effects. On Zeta, Flink and Spark, multi-table-capable sinks (including JDBC with
+even one input table) and already aggregated multi-table sinks are rejected during
+planning, before invoking their save-mode handlers. Async writers, deferred terminal
+outcomes and enabled Zeta sink error-handler policies remain rejected at writer
+startup when dirty handling is active; they are not silently downgraded. The writer
+capability guard also remains in place for multi-table writers. Without dirty
+handling, those existing paths keep their original behavior. Pre-write validation
+does not bypass the writer capability restriction.
 
 Validation runs before `write`. Zeta reports this wrapper's explicit validation
 rejections as DROPPED. A normal delegate return retains its existing accepted-write

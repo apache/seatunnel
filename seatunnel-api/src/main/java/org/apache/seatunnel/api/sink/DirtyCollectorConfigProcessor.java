@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.extern.slf4j.Slf4j;
@@ -172,19 +173,11 @@ public class DirtyCollectorConfigProcessor {
     public static DirtyRecordCollector processConfig(
             Config envConfig, Config sinkConfig, CatalogTable catalogTable, int inputTableCount) {
         Config mergedConfig = getMergedSinkConfigForDirty(envConfig, sinkConfig);
-        if (inputTableCount > 1) {
-            Config collectorConfig =
-                    mergedConfig.hasPath(DIRTY_COLLECTOR_CONFIG_KEY)
-                            ? mergedConfig.getConfig(DIRTY_COLLECTOR_CONFIG_KEY)
-                            : null;
-            String type = DirtyRecordCollectorFactory.collectorType(collectorConfig);
-            if (mergedConfig.hasPath(DIRTY_VALIDATOR_CONFIG_KEY)
-                    || !("noop".equals(type) || "none".equals(type))) {
-                throw new IllegalArgumentException(
-                        "Dirty data handling requires a single input catalog table; received "
-                                + inputTableCount
-                                + ".");
-            }
+        if (inputTableCount > 1 && hasActiveDirtyHandling(mergedConfig)) {
+            throw new IllegalArgumentException(
+                    "Dirty data handling requires a single input catalog table; received "
+                            + inputTableCount
+                            + ".");
         }
         DirtyRecordCollector collector = initializeCollector(mergedConfig);
         DirtyDataValidator validator = null;
@@ -222,6 +215,25 @@ public class DirtyCollectorConfigProcessor {
                 throw (RuntimeException) failure;
             }
             throw new IllegalStateException("Could not initialize dirty data handling", failure);
+        }
+    }
+
+    /**
+     * Rejects sinks that planners aggregate into a multi-table writer before save-mode side
+     * effects. Even a single input table uses that writer for multi-table-capable sinks; absent,
+     * explicitly null and no-op policies retain their existing planning behavior.
+     *
+     * @param effectiveConfig sink configuration after environment inheritance
+     * @param sink the prepared sink, before invoking its save-mode handler
+     */
+    public static void validateSinkSupport(Config effectiveConfig, SeaTunnelSink<?, ?, ?, ?> sink) {
+        if ((sink instanceof SupportMultiTableSink || sink instanceof MultiTableSink)
+                && hasActiveDirtyHandling(effectiveConfig)) {
+            throw new IllegalArgumentException(
+                    "dirty.collector/dirty.validator requires a synchronous single-table writer "
+                            + "without row-error routing or deferred terminal outcomes; "
+                            + "multi-table-capable sinks are unsupported even for one input table. "
+                            + "Disable dirty handling for this sink before using its save mode.");
         }
     }
 
@@ -266,5 +278,19 @@ public class DirtyCollectorConfigProcessor {
         }
         return DirtyDataValidatorFactory.createValidator(
                 validatorConfig.getString(DIRTY_TYPE.key()), validatorConfig, catalogTable);
+    }
+    /**
+     * Uses the same declared-policy rules for input cardinality and prepared sink capabilities. No
+     * plugin is instantiated here, so planners can reject unsafe save mode without new side
+     * effects.
+     */
+    private static boolean hasActiveDirtyHandling(Config effectiveConfig) {
+        Config collectorConfig =
+                effectiveConfig.hasPath(DIRTY_COLLECTOR_CONFIG_KEY)
+                        ? effectiveConfig.getConfig(DIRTY_COLLECTOR_CONFIG_KEY)
+                        : null;
+        String type = DirtyRecordCollectorFactory.collectorType(collectorConfig);
+        return effectiveConfig.hasPath(DIRTY_VALIDATOR_CONFIG_KEY)
+                || !("noop".equals(type) || "none".equals(type));
     }
 }

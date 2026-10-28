@@ -68,11 +68,19 @@ sink {
 | log 收集器参数 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
 | `log_level` | string | `ERROR` | 支持 `ERROR`、`WARN`、`INFO`、`DEBUG`，其他值按 ERROR 处理。 |
+| `log_first_n_records` | long | `10` | 每个收集器记录前 N 条脏数据，必须大于等于零。 |
+| `log_every_n_records` | long | `1000` | 同时记录每第 N 条脏数据，必须为正数；设为 `1` 明确启用逐条日志。 |
 | `include_stack_trace` | boolean | `true` | 在日志消息中包含异常详情。 |
 | `threshold` | long | `-1` | 触发阈值动作的计数；小于等于零时禁用。 |
 | `fail_on_threshold` | boolean | `false` | 达到或超过正数阈值时抛出异常，否则每个收集器实例最多记录一次警告。 |
 | `log_payload` | string | `false` | `false` 仅记录字段数，`fields` 记录字段名，`full` 记录值。 |
 | `mask_fields` | 字符串列表 | `[]` | full 模式下需要掩码的字段名，忽略大小写。 |
+
+log 收集器默认只输出前 10 条及之后每第 1000 条记录的诊断日志，采样在每个收集器实例
+内独立执行。所有记录仍逐条增加计数并判断阈值，包括未采样的记录和配置日志级别未启用
+的记录。只有日志级别已启用的采样记录才格式化 payload 和异常信息。关闭时，收集器按
+配置级别最多输出一次已观察、已记录和已抑制条数的汇总。需要逐条诊断时，可明确设置
+`log_every_n_records = 1`。
 
 不能出现在日志中的数据应保持关闭 payload 日志。如明确启用 full 模式，应配置所需字段
 掩码。校验器必须配合有效收集器使用，不能用 `noop` 静默丢弃拒绝记录；请根据所需
@@ -115,10 +123,11 @@ sink {
 包装器位于 Zeta、Flink、Spark 的真实 Sink writer 外层，仅支持单表输入及同步单表 writer。
 启用脏数据处理时，规划阶段会拒绝多个输入 CatalogTable，包括逐表 sink template 回退
 场景；配置和输入限制的校验先于 Sink 准备和 save-mode 副作用。
-启用脏数据处理时，多表/异步 writer、延迟终态上报和已启用的 Zeta sink error-handler 策略
-会在启动时被明确拒绝，不会静默降级；未启用脏数据处理时，以上已有链路保持原有行为。
-Zeta 即使只有一个 JDBC 输入，也可能将其聚合为多表 writer；启用脏数据处理时，该聚合
-链路同样被拒绝。写入前校验不会绕过 writer 能力限制。
+Zeta、Flink、Spark 会在规划阶段拒绝支持多表的 Sink（包括仅有一个输入表的 JDBC）
+及已聚合的多表 Sink，检查发生在调用对应 save-mode handler 之前。启用脏数据处理时，
+异步 writer、延迟终态上报和已启用的 Zeta sink error-handler 策略仍在 writer 启动时被
+明确拒绝，不会静默降级；多表 writer 的运行时保护检查也继续保留。未启用脏数据处理时，
+以上已有链路保持原有行为。写入前校验不会绕过 writer 能力限制。
 
 校验发生在 `write` 前，Zeta 只将此包装器明确校验拒绝的记录上报为 DROPPED。
 delegate 正常返回时保留既有的写入接收计数语义，后续 flush、checkpoint 或提交仍可能失败。

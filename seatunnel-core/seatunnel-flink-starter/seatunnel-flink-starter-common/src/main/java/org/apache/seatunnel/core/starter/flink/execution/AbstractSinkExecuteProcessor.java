@@ -182,6 +182,7 @@ public abstract class AbstractSinkExecuteProcessor
                                 error);
                         continue;
                     }
+                    DirtyCollectorConfigProcessor.validateSinkSupport(mergedSinkConfig, sink);
                     try {
                         handleSaveMode(sink);
                         TableIdentifier tableId = catalogTable.getTableId();

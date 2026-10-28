@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
@@ -869,6 +870,8 @@ public class MultipleTableJobConfigParser {
             return handleCreateSinkFailure(
                     catalogTable, factoryId, MultiTableFailurePhase.SINK_INIT, error);
         }
+        DirtyCollectorConfigProcessor.validateSinkSupport(
+                ConfigFactory.parseMap(readonlyConfig.getSourceMap()), sink);
         sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
         long id = idGenerator.getNextId();

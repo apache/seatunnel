@@ -35,10 +35,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
- * Logs dirty records and applies an optional count threshold.
+ * Samples dirty-record diagnostics and applies an optional count threshold to every record.
  *
  * <p>The default counter belongs to this collector instance, and payload values remain hidden
  * unless full logging is explicitly configured.
@@ -51,6 +52,18 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
                     .stringType()
                     .defaultValue("ERROR")
                     .withDescription("Log level used for dirty records.");
+    public static final Option<Long> LOG_FIRST_N_RECORDS =
+            Options.key("log_first_n_records")
+                    .longType()
+                    .defaultValue(10L)
+                    .withDescription(
+                            "Log the first non-negative number of dirty records per collector.");
+    public static final Option<Long> LOG_EVERY_N_RECORDS =
+            Options.key("log_every_n_records")
+                    .longType()
+                    .defaultValue(1000L)
+                    .withDescription(
+                            "Log every Nth dirty record per collector; must be positive, and 1 logs every record.");
     public static final Option<Boolean> INCLUDE_STACK_TRACE =
             Options.key("include_stack_trace")
                     .booleanType()
@@ -84,6 +97,13 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     private static final long serialVersionUID = 1L;
 
     private String logLevel = "ERROR";
+    private long logFirstNRecords = LOG_FIRST_N_RECORDS.defaultValue();
+    private long logEveryNRecords = LOG_EVERY_N_RECORDS.defaultValue();
+    // Local observations bound diagnostics independently of potentially shared counter reads.
+    private final AtomicLong observedRecords = new AtomicLong();
+    private final AtomicLong loggedRecords = new AtomicLong();
+    // Repeated writer cleanup must not emit duplicate close summaries.
+    private final AtomicBoolean summaryLogged = new AtomicBoolean();
     private boolean includeStackTrace = true;
     private long threshold = -1;
     private boolean failOnThreshold = false;
@@ -109,6 +129,18 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     public void init(Config config) {
         if (config.hasPath(LOG_LEVEL.key())) {
             this.logLevel = config.getString(LOG_LEVEL.key()).toUpperCase(Locale.ROOT);
+        }
+        if (config.hasPath(LOG_FIRST_N_RECORDS.key())) {
+            this.logFirstNRecords = config.getLong(LOG_FIRST_N_RECORDS.key());
+        }
+        if (config.hasPath(LOG_EVERY_N_RECORDS.key())) {
+            this.logEveryNRecords = config.getLong(LOG_EVERY_N_RECORDS.key());
+        }
+        if (logFirstNRecords < 0) {
+            throw new IllegalArgumentException(LOG_FIRST_N_RECORDS.key() + " must be non-negative");
+        }
+        if (logEveryNRecords <= 0) {
+            throw new IllegalArgumentException(LOG_EVERY_N_RECORDS.key() + " must be positive");
         }
         if (config.hasPath(INCLUDE_STACK_TRACE.key())) {
             this.includeStackTrace = config.getBoolean(INCLUDE_STACK_TRACE.key());
@@ -152,22 +184,21 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             String errorMessage,
             CatalogTable catalogTable) {
         incrementDistributedCounter();
-        long currentCount = dirtyRecordCounter.value();
-
-        String logMessage =
-                String.format(
-                        "Dirty record collected (exception) - SubTask: %d, %s, Count: %d, Record: %s, Error: %s",
-                        subTaskIndex,
-                        formatTableInfo(catalogTable),
-                        currentCount,
-                        summarizeRecord(dirtyRecord, catalogTable),
-                        errorMessage != null ? errorMessage : "");
-
-        if (includeStackTrace && exception != null) {
-            logMessage += "\nException: " + ExceptionUtils.getMessage(exception);
+        if (shouldLogRecord()) {
+            String logMessage =
+                    String.format(
+                            "Dirty record collected (exception) - SubTask: %d, %s, Count: %d, Record: %s, Error: %s",
+                            subTaskIndex,
+                            formatTableInfo(catalogTable),
+                            dirtyRecordCounter.value(),
+                            summarizeRecord(dirtyRecord, catalogTable),
+                            errorMessage != null ? errorMessage : "");
+            if (includeStackTrace && exception != null) {
+                logMessage += "\nException: " + ExceptionUtils.getMessage(exception);
+            }
+            doLog(logMessage);
+            loggedRecords.incrementAndGet();
         }
-
-        doLog(logMessage);
         checkThresholdRuntime();
     }
 
@@ -175,19 +206,35 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     public void collectFromUserRule(
             int subTaskIndex, Object record, String errorMessage, CatalogTable catalogTable) {
         incrementDistributedCounter();
-        long currentCount = dirtyRecordCounter.value();
-
-        String logMessage =
-                String.format(
-                        "Dirty record collected (user rule) - SubTask: %d, %s, Count: %d, Record: %s, Reason: %s",
-                        subTaskIndex,
-                        formatTableInfo(catalogTable),
-                        currentCount,
-                        summarizeRecord(record, catalogTable),
-                        errorMessage != null ? errorMessage : "");
-
-        doLog(logMessage);
+        if (shouldLogRecord()) {
+            String logMessage =
+                    String.format(
+                            "Dirty record collected (user rule) - SubTask: %d, %s, Count: %d, Record: %s, Reason: %s",
+                            subTaskIndex,
+                            formatTableInfo(catalogTable),
+                            dirtyRecordCounter.value(),
+                            summarizeRecord(record, catalogTable),
+                            errorMessage != null ? errorMessage : "");
+            doLog(logMessage);
+            loggedRecords.incrementAndGet();
+        }
         checkThresholdRuntime();
+    }
+
+    /**
+     * Emits one local sampling summary after collection ends, without reading a remote counter.
+     * Sampling only limits diagnostics; every record still contributes to the dirty threshold.
+     */
+    @Override
+    public void close() {
+        long observed = observedRecords.get();
+        if (observed > 0 && summaryLogged.compareAndSet(false, true) && isLogEnabled()) {
+            long logged = loggedRecords.get();
+            doLog(
+                    String.format(
+                            "Dirty record collection summary - Observed: %d, Logged: %d, Suppressed: %d",
+                            observed, logged, observed - logged));
+        }
     }
 
     @Override
@@ -211,6 +258,29 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             } else if (thresholdNoticeLogged.compareAndSet(false, true)) {
                 log.warn(message + " - Threshold reached but task continues");
             }
+        }
+    }
+
+    /**
+     * Selects diagnostics using an instance-local sequence independent of shared counter reads.
+     * Check the configured level before any payload or exception formatting on the hot path.
+     */
+    private boolean shouldLogRecord() {
+        long sequence = observedRecords.incrementAndGet();
+        return (sequence <= logFirstNRecords || sequence % logEveryNRecords == 0) && isLogEnabled();
+    }
+
+    private boolean isLogEnabled() {
+        switch (logLevel) {
+            case "WARN":
+                return log.isWarnEnabled();
+            case "INFO":
+                return log.isInfoEnabled();
+            case "DEBUG":
+                return log.isDebugEnabled();
+            case "ERROR":
+            default:
+                return log.isErrorEnabled();
         }
     }
 
