@@ -42,6 +42,7 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -70,6 +71,9 @@ public class Spark35BatchWriteTest {
 
     @Test
     public void boundedMicroBatchCommitsRowsThroughStreamingAdapter() throws Exception {
+        Assumptions.assumeFalse(
+                System.getProperty("os.name").startsWith("Windows"),
+                "Spark's local file stream requires Hadoop native libraries on Windows");
         Path input = Files.createDirectory(tempDir.resolve("input"));
         Files.write(
                 input.resolve("rows.json"),
