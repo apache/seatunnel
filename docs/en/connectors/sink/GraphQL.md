@@ -38,12 +38,12 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 |---------------|---------|----------|---------|-------------|
 | url           | String  | Yes      | -       | GraphQL HTTP endpoint. Sink mode requires `http://` or `https://`. |
 | query         | String  | Yes      | -       | GraphQL mutation statement. Sink only supports `mutation`. |
-| variables     | Map     | No       | -       | Initial GraphQL variables. Input row fields are added to this map before each request. |
+| variables     | Map     | No       | -       | Initial GraphQL variables. Explicitly configure a map (`variables = {}` if no initial values are needed); input row fields are added before each request. See the current implementation limitation below. |
 | valueCover    | Boolean | No       | false   | When false, row fields overwrite variables with the same name. When true, existing variables keep their configured values. |
 | timeout       | Long    | No       | -       | Request timeout value passed to the HTTP client parameter map. |
 | headers       | Map     | No       | -       | HTTP request headers, such as authentication headers. |
 | params        | Map     | No       | -       | HTTP request parameters. |
-| retry         | Int     | No       | -       | Maximum retry times when an HTTP request returns an IOException. |
+| retry         | Int     | No       | -       | Total request attempts, including the initial attempt, when set to at least 1. Only failures caused by `IOException` are retried, using Fibonacci backoff. Omitted or non-positive values disable retries. |
 | retry_backoff_multiplier_ms | Int | No | 100 | HTTP retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms | Int | No | 10000 | Maximum HTTP retry backoff in milliseconds. |
 | connect_timeout_ms | Int | No | 12000 | HTTP connection timeout in milliseconds. |
@@ -55,6 +55,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 - The sink validates that `query` is a GraphQL `mutation`.
 - Field names in the upstream row should match variable names used by the mutation.
+- Explicitly set `variables = {}` or an initial variables map. The current implementation stores a string when the option is omitted, and the first row then fails when the writer casts it to a map.
 - If `variables` already contains a key and `valueCover = true`, the configured variable value is kept.
 - If `valueCover = false`, row field values replace variables with the same name.
 - The sink sends one mutation request for each input row. If the upstream source contains multiple tables, make sure the same mutation and variable names can handle every table routed to this sink.
@@ -72,6 +73,7 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {
@@ -83,9 +85,17 @@ sink {
 }
 ```
 
-`password`, `token`, and similar sensitive values should be supplied via the
-job substitution mechanism (for example `${secret}` resolved by the runtime),
-not inlined into the configuration file.
+The credential belongs in `headers.Authorization`; this sink has no `password` or `token` option.
+Supply the `${secret}` variable when submitting the job. For example, with the Zeta CLI, set
+`GRAPHQL_TOKEN` in the submission environment and use:
+
+```shell
+./bin/seatunnel.sh --config graphql.conf -i "secret=${GRAPHQL_TOKEN}"
+```
+
+The shell expands `GRAPHQL_TOKEN`, and SeaTunnel substitutes the supplied `secret` into the
+header value. Keep credentials out of checked-in job files; see
+[configuration encryption](../../introduction/configuration/config-encryption-decryption.md) for stored credentials.
 
 ## Task Example
 
@@ -128,6 +138,7 @@ sink {
   GraphQL {
     plugin_input = "fake"
     url = "http://graphql:8080/v1/graphql"
+    variables = {}
     query = """
       mutation MyMutation(
         $id: Int!
@@ -187,9 +198,14 @@ sink {
 
 ### Stream Mutations to a GraphQL Service
 
-Run the same mutation continuously in streaming mode. The sink sends one mutation
-per row and uses `retry` plus exponential backoff to absorb transient HTTP
-failures.
+Run the same mutation continuously in streaming mode. The sink sends one mutation per row.
+Retries apply only when the request fails with an `IOException` (including a wrapped cause),
+using Fibonacci backoff capped by `retry_backoff_max_ms`. `retry = 5` permits five total attempts,
+including the initial request.
+
+Non-200 responses are logged but do not fail the write or trigger an automatic retry. The sink
+also does not inspect GraphQL errors in an HTTP 200 response. Do not rely on retries or checkpoints
+to guarantee delivery: a rejected mutation can leave the row unwritten without failing the job.
 
 ```hocon
 env {
@@ -221,6 +237,7 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {
@@ -282,6 +299,7 @@ sink {
   GraphQL {
     plugin_input = "fake"
     url = "http://graphql:8080/v1/graphql"
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_bool: Boolean!, $val_string: String!) {
         insert_sink(objects: {id: $id, val_bool: $val_bool, val_string: $val_string}) {
