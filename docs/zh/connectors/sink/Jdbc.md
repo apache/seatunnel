@@ -8,6 +8,10 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+### DELETE 语句初始化
+
+带键的 JDBC 写入只会在刷新批次归并后仍保留的删除操作时初始化 DELETE 语句。仅含 INSERT/UPDATE 的任务不会因为初始化未使用的 DELETE 语句而额外要求删除权限。实际删除仍需要数据库 DELETE 权限，初始化失败会正常报告。
+
 ## MySQL 时间值
 
 MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。

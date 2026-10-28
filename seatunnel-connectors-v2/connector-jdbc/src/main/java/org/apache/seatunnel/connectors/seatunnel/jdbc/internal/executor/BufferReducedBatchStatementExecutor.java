@@ -56,11 +56,14 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final Map<Object, Boolean> existedBeforeBatch = new HashMap<>();
 
     private boolean flushFailed;
+    private Connection connection;
+    private boolean deletePrepared;
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
+        this.connection = connection;
+        deletePrepared = false;
         upsertExecutor.prepareStatements(connection);
-        deleteExecutor.prepareStatements(connection);
     }
 
     @Override
@@ -115,6 +118,10 @@ public class BufferReducedBatchStatementExecutor
                     if (preChangeFlag != null && preChangeFlag) {
                         upsertExecutor.executeBatch();
                     }
+                    if (!deletePrepared) {
+                        deleteExecutor.prepareStatements(connection);
+                        deletePrepared = true;
+                    }
                     deleteExecutor.addToBatch(bufferedRow.getMiddle());
                 }
                 preChangeFlag = currentChangeFlag;
@@ -144,7 +151,9 @@ public class BufferReducedBatchStatementExecutor
             }
         } finally {
             upsertExecutor.closeStatements();
-            deleteExecutor.closeStatements();
+            if (deletePrepared) {
+                deleteExecutor.closeStatements();
+            }
         }
     }
 
@@ -153,7 +162,9 @@ public class BufferReducedBatchStatementExecutor
         buffer.clear();
         existedBeforeBatch.clear();
         upsertExecutor.clearBatch();
-        deleteExecutor.clearBatch();
+        if (deletePrepared) {
+            deleteExecutor.clearBatch();
+        }
     }
 
     private boolean changeFlag(RowKind rowKind) {

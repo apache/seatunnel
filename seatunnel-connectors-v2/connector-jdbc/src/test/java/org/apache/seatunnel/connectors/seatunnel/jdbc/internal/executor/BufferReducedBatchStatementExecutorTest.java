@@ -17,19 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest {
     @Override
@@ -200,5 +213,167 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
 
         @Override
         public void closeStatements() {}
+    }
+
+    private final JdbcBatchStatementExecutor<SeaTunnelRow> upsert =
+            mock(JdbcBatchStatementExecutor.class);
+    private final JdbcBatchStatementExecutor<SeaTunnelRow> delete =
+            mock(JdbcBatchStatementExecutor.class);
+    private final BufferReducedBatchStatementExecutor executor =
+            new BufferReducedBatchStatementExecutor(
+                    upsert,
+                    delete,
+                    row -> new SeaTunnelRow(new Object[] {row.getField(0)}),
+                    Function.identity());
+
+    private SeaTunnelRow row(int id, RowKind kind) {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id});
+        row.setRowKind(kind);
+        return row;
+    }
+
+    @Test
+    void insertUpdateAndCloseDoNotPrepareDeleteEvenWhenPermissionIsDenied() throws SQLException {
+        Connection connection = mock(Connection.class);
+        doThrow(new SQLException("insufficient DELETE privilege", "42000", 258))
+                .when(delete)
+                .prepareStatements(any());
+        executor.prepareStatements(connection);
+        executor.addToBatch(row(1, RowKind.INSERT));
+        executor.addToBatch(row(2, RowKind.UPDATE_AFTER));
+        executor.addToBatch(row(3, RowKind.UPDATE_BEFORE));
+        executor.executeBatch();
+        executor.closeStatements();
+        verify(upsert).prepareStatements(connection);
+        verify(upsert, times(2)).addToBatch(any());
+        verify(delete, never()).prepareStatements(any());
+        verify(delete, never()).addToBatch(any());
+        verify(delete, never()).executeBatch();
+    }
+
+    @Test
+    void realDeletesPrepareOnceAndRetainDeletion() throws SQLException {
+        Connection connection = mock(Connection.class);
+        executor.prepareStatements(connection);
+        executor.addToBatch(row(1, RowKind.DELETE));
+        executor.executeBatch();
+        executor.addToBatch(row(2, RowKind.DELETE));
+        executor.executeBatch();
+        verify(delete).prepareStatements(connection);
+        verify(delete, times(2)).addToBatch(any());
+        verify(delete, times(2)).executeBatch();
+    }
+
+    @Test
+    void reducedDeleteOverwrittenByInsertDoesNotRequestDeletePermission() throws SQLException {
+        executor.prepareStatements(mock(Connection.class));
+        executor.addToBatch(row(1, RowKind.DELETE));
+        executor.addToBatch(row(1, RowKind.INSERT));
+        executor.executeBatch();
+        verify(delete, never()).prepareStatements(any());
+        verify(upsert).addToBatch(any());
+    }
+
+    @Test
+    void deniedRealDeletePropagatesAndIsPreparedAgainOnRetry() throws SQLException {
+        Connection connection = mock(Connection.class);
+        doThrow(new SQLException("insufficient privilege", "42000", 258))
+                .doNothing()
+                .when(delete)
+                .prepareStatements(connection);
+        executor.prepareStatements(connection);
+        executor.addToBatch(row(1, RowKind.DELETE));
+        assertThrows(SQLException.class, executor::executeBatch);
+        verify(delete, never()).addToBatch(any());
+        executor.executeBatch();
+        verify(delete, times(2)).prepareStatements(connection);
+        verify(delete).addToBatch(any());
+        verify(delete).executeBatch();
+    }
+
+    @Test
+    void reconnectUsesTheNewConnectionAndPreparesDeleteLazilyAgain() throws SQLException {
+        Connection first = mock(Connection.class);
+        Connection second = mock(Connection.class);
+        executor.prepareStatements(first);
+        executor.addToBatch(row(1, RowKind.DELETE));
+        executor.executeBatch();
+        executor.closeStatements();
+        executor.prepareStatements(second);
+        executor.addToBatch(row(2, RowKind.INSERT));
+        executor.executeBatch();
+        verify(delete, never()).prepareStatements(second);
+        executor.addToBatch(row(3, RowKind.DELETE));
+        executor.executeBatch();
+        executor.closeStatements();
+        verify(delete).prepareStatements(first);
+        verify(delete).prepareStatements(second);
+        verify(delete, times(2)).closeStatements();
+    }
+
+    @Test
+    void mixedChangesKeepExistingBatchOrder() throws SQLException {
+        Connection connection = mock(Connection.class);
+        executor.prepareStatements(connection);
+        executor.addToBatch(row(1, RowKind.INSERT));
+        executor.addToBatch(row(2, RowKind.DELETE));
+        executor.addToBatch(row(3, RowKind.UPDATE_AFTER));
+        executor.executeBatch();
+        org.mockito.InOrder order = inOrder(upsert, delete);
+        order.verify(upsert).prepareStatements(connection);
+        order.verify(upsert).addToBatch(any());
+        order.verify(upsert).executeBatch();
+        order.verify(delete).prepareStatements(connection);
+        order.verify(delete).addToBatch(any());
+        order.verify(delete).executeBatch();
+        order.verify(upsert).addToBatch(any());
+        order.verify(upsert).executeBatch();
+    }
+
+    @Test
+    void reconnectWithoutDeleteDoesNotClearOrCloseAnOldStatement() throws SQLException {
+        Connection first = mock(Connection.class);
+        Connection second = mock(Connection.class);
+        PreparedStatement oldStatement = mock(PreparedStatement.class);
+        PreparedStatement newStatement = mock(PreparedStatement.class);
+        AtomicBoolean oldClosed = new AtomicBoolean();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            if (oldClosed.get()) {
+                                throw new SQLException("statement is closed");
+                            }
+                            return null;
+                        })
+                .when(oldStatement)
+                .clearBatch();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            oldClosed.set(true);
+                            return null;
+                        })
+                .when(oldStatement)
+                .close();
+        JdbcBatchStatementExecutor<SeaTunnelRow> upserts = mock(JdbcBatchStatementExecutor.class);
+        SimpleBatchStatementExecutor deletes =
+                new SimpleBatchStatementExecutor(
+                        connection -> connection == first ? oldStatement : newStatement,
+                        TableSchema.builder().build(),
+                        null,
+                        mock(JdbcRowConverter.class));
+        BufferReducedBatchStatementExecutor reduced =
+                new BufferReducedBatchStatementExecutor(
+                        upserts, deletes, Function.identity(), Function.identity());
+        reduced.prepareStatements(first);
+        reduced.addToBatch(row(1, RowKind.DELETE));
+        reduced.executeBatch();
+        reduced.closeStatements();
+        reduced.prepareStatements(second);
+        doThrow(new SQLException("row error", "22001")).when(upserts).executeBatch();
+        reduced.addToBatch(row(2, RowKind.INSERT));
+        assertThrows(SQLException.class, reduced::executeBatch);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(reduced::clearBatch);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(reduced::closeStatements);
+        verify(oldStatement).close();
+        org.mockito.Mockito.verifyNoInteractions(newStatement);
     }
 }
