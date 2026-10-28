@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
@@ -36,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatB
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
@@ -68,6 +72,11 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
      */
     protected boolean commitOnFlush;
 
+    /** Resolved sink metadata, never the source event's target or options, controls runtime DDL. */
+    private CatalogTable runtimeSinkTable;
+    /** Runtime replay uses non-destructive schema save-mode semantics. */
+    private SchemaSaveMode runtimeSchemaSaveMode;
+
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
 
@@ -91,32 +100,33 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     }
 
     /**
-     * Creates the physical table for a runtime-discovered CDC table and refreshes the output format
-     * so subsequent rows can be written immediately.
+     * Creates the physical table for a runtime-discovered CDC table before any rows reach the
+     * already configured writer.
      */
     protected void applyCreateTableEvent(CreateTableEvent event) throws IOException {
         if (event.getChangeAfter() == null) {
             throw new IOException("CreateTableEvent changeAfter cannot be null");
         }
-        this.tableSchema = event.getChangeAfter().getTableSchema();
-        if (this.databaseTableSchema == null) {
-            this.databaseTableSchema = this.tableSchema;
+        if (!supportsNewlyCreatedTable() || runtimeSinkTable == null) {
+            throw new IOException(
+                    "JDBC writer is not configured for runtime table " + sinkTablePath);
         }
-        if (isOpen) {
-            prepareCommit();
-        }
+        // The factory already built the output format from resolved sink metadata. Rebuilding it
+        // here would discard its commit/error-handling settings and reset later ALTERs on replay.
         createPhysicalTableIfAbsent(event);
-        this.outputFormat =
-                new JdbcOutputFormatBuilder(
-                                dialect,
-                                connectionProvider,
-                                jdbcSinkConfig,
-                                tableSchema,
-                                databaseTableSchema)
-                        .build();
-        if (isOpen) {
-            this.outputFormat.open();
+    }
+
+    /**
+     * Pins runtime DDL to the same resolved target as row writes. Called during writer
+     * construction, before the writer is registered with the multi-table coordinator.
+     */
+    void configureRuntimeTableCreation(CatalogTable table, SchemaSaveMode schemaSaveMode) {
+        if (!sinkTablePath.equals(table.getTablePath())) {
+            throw new IllegalArgumentException(
+                    "Runtime DDL target must match the JDBC writer target");
         }
+        this.runtimeSinkTable = table;
+        this.runtimeSchemaSaveMode = schemaSaveMode;
     }
 
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
@@ -155,6 +165,9 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
      * one place.
      */
     protected void createPhysicalTableIfAbsent(CreateTableEvent event) throws IOException {
+        if (runtimeSchemaSaveMode == SchemaSaveMode.IGNORE) {
+            return;
+        }
         Optional<Catalog> catalogOptional = findCatalog();
         if (!catalogOptional.isPresent()) {
             throw new IOException(
@@ -162,10 +175,19 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                             "JDBC sink dialect %s does not provide a catalog for runtime create-table",
                             dialect.dialectName()));
         }
-        try (Catalog catalog = catalogOptional.get()) {
-            catalog.open();
-            catalog.createTable(
-                    sinkTablePath, event.getChangeAfter(), true, jdbcSinkConfig.isCreateIndex());
+        try (JdbcSaveModeHandler handler =
+                new JdbcSaveModeHandler(
+                        runtimeSchemaSaveMode,
+                        DataSaveMode.APPEND_DATA,
+                        catalogOptional.get(),
+                        sinkTablePath,
+                        runtimeSinkTable,
+                        null,
+                        jdbcSinkConfig.isCreateIndex())) {
+            handler.open();
+            // Replicas, retries and checkpoint replay can deliver CREATE more than once. Never
+            // drop/truncate an existing table or re-run custom data processing on this path.
+            handler.handleSchemaSaveModeWithRestore();
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);

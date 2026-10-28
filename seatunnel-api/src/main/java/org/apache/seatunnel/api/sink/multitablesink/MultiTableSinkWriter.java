@@ -500,6 +500,11 @@ public class MultiTableSinkWriter
     private boolean hasSourceMatchedWriter(SchemaChangeEvent event) throws IOException {
         String tableId = event.tablePath().getFullName();
         if (event instanceof CreateTableEvent) {
+            CatalogTable table = ((CreateTableEvent) event).getChangeAfter();
+            if (table == null || !event.tablePath().equals(table.getTablePath())) {
+                throw new IOException(
+                        "CreateTableEvent identity does not match its catalog table: " + tableId);
+            }
             // Runtime table creation is driven by the configured factory and the writer templates,
             // not by the startup writer map. A job that starts with no tables at all has an empty
             // startup map, so gating only on it would drop the CreateTableEvent for the very first
@@ -513,12 +518,18 @@ public class MultiTableSinkWriter
                 }
                 return true;
             }
-            return sinkWriters.values().stream()
-                    .anyMatch(
-                            writer ->
-                                    writer instanceof SupportMultiTableSinkWriter
-                                            && ((SupportMultiTableSinkWriter<?>) writer)
-                                                    .supportsNewlyCreatedTable());
+            boolean supported =
+                    sinkWriters.values().stream()
+                            .anyMatch(
+                                    writer ->
+                                            writer instanceof SupportMultiTableSinkWriter
+                                                    && ((SupportMultiTableSinkWriter<?>) writer)
+                                                            .supportsNewlyCreatedTable());
+            if (!supported) {
+                throw new IOException(
+                        "Sink does not support runtime newly created table " + tableId);
+            }
+            return true;
         }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
@@ -581,7 +592,9 @@ public class MultiTableSinkWriter
                 }
             }
         }
-        if (primarySharedSinkIds.isEmpty()) {
+        // CREATE initializes only the new source writer. Broadcasting it to a sibling sharing
+        // the target would overwrite that sibling's resolved schema with unrelated metadata.
+        if (event instanceof CreateTableEvent || primarySharedSinkIds.isEmpty()) {
             return dispatchTargets;
         }
 
@@ -760,8 +773,19 @@ public class MultiTableSinkWriter
                             catalogTable, tableIdentifier, sinkWriterTemplate, context);
             SupportMultiTableSinkWriter<?> newMultiTableWriter =
                     (SupportMultiTableSinkWriter<?>) newWriter;
-            initializeResourceManagerIfNeeded(newMultiTableWriter);
-            newMultiTableWriter.setMultiTableResourceManager(resourceManager, i);
+            try {
+                initializeResourceManagerIfNeeded(newMultiTableWriter);
+                newMultiTableWriter.setMultiTableResourceManager(resourceManager, i);
+            } catch (RuntimeException | Error failure) {
+                // A failed setup is retried before installation. Release this attempt's writer
+                // instead of leaking a connection/output format on every retry.
+                try {
+                    newWriter.close();
+                } catch (Exception closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+                throw failure;
+            }
             boolean installed = false;
             synchronized (runnable.get(i)) {
                 if (!sinkWritersWithIndex.get(i).containsKey(sinkIdentifier)) {
@@ -810,20 +834,36 @@ public class MultiTableSinkWriter
             newWriter = templateWriter.createSinkWriter(catalogTable, context);
         }
         if (!(newWriter instanceof SupportMultiTableSinkWriter)) {
-            throw new IOException(
-                    String.format(
-                            "New sink writer %s must implement SupportMultiTableSinkWriter",
-                            newWriter.getClass().getName()));
+            IOException failure =
+                    new IOException(
+                            String.format(
+                                    "New sink writer %s must implement SupportMultiTableSinkWriter",
+                                    newWriter.getClass().getName()));
+            closeRejectedRuntimeWriter(newWriter, failure);
+            throw failure;
         }
         SupportMultiTableSinkWriter<?> newMultiTableWriter =
                 (SupportMultiTableSinkWriter<?>) newWriter;
         if (!newMultiTableWriter.supportsNewlyCreatedTable()) {
-            throw new IOException(
-                    String.format(
-                            "New sink writer %s does not support runtime newly created tables",
-                            newWriter.getClass().getName()));
+            IOException failure =
+                    new IOException(
+                            String.format(
+                                    "New sink writer %s does not support runtime newly created tables",
+                                    newWriter.getClass().getName()));
+            closeRejectedRuntimeWriter(newWriter, failure);
+            throw failure;
         }
         return newWriter;
+    }
+
+    /** Releases a writer rejected before registration without masking the admission failure. */
+    private void closeRejectedRuntimeWriter(
+            SinkWriter<SeaTunnelRow, ?, ?> writer, IOException failure) {
+        try {
+            writer.close();
+        } catch (Exception closeFailure) {
+            failure.addSuppressed(closeFailure);
+        }
     }
 
     private synchronized void initializeResourceManagerIfNeeded(

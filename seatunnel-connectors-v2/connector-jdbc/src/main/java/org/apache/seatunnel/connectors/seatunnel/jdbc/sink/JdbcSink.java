@@ -167,6 +167,7 @@ public class JdbcSink
                             baseConfig,
                             jobContext == null || jobContext.isEnableCheckpoint());
         }
+        sinkWriter.configureRuntimeTableCreation(catalogTable, schemaSaveMode);
         return sinkWriter;
     }
 

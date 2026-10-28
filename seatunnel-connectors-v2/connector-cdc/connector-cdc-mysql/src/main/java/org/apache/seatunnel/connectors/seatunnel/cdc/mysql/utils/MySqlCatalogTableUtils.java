@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.connector.mysql.MySqlConnectorConfig;
@@ -90,7 +92,18 @@ public class MySqlCatalogTableUtils {
     public static CatalogTable toRuntimeCatalogTable(
             Table table, MySqlConnectorConfig dbzConnectorConfig) {
         validateRuntimeTableIdentifiers(table);
-        return toCatalogTable(table, dbzConnectorConfig);
+        try {
+            return toCatalogTable(table, dbzConnectorConfig);
+        } catch (SeaTunnelRuntimeException error) {
+            // Only an unsupported source type is a table-local admission rejection. Unexpected
+            // converter/configuration failures must still fail the task instead of losing data.
+            if (!CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE.equals(
+                    error.getSeaTunnelErrorCode())) {
+                throw error;
+            }
+            throw new IllegalArgumentException(
+                    "Unsupported column type in runtime MySQL table " + table.id(), error);
+        }
     }
 
     /** Validates every source-controlled identifier that a runtime sink can turn into SQL. */

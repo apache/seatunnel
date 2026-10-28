@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class JdbcSinkFactoryTest {
@@ -300,7 +301,7 @@ class JdbcSinkFactoryTest {
     }
 
     @Test
-    void testResolveSinkTableExplicitEmptyPrimaryKeysClearsInheritedPrimaryKey() {
+    void testResolveSinkTableExplicitEmptyPrimaryKeysInheritsSourcePrimaryKey() {
         ReadonlyConfig config =
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
@@ -312,8 +313,16 @@ class JdbcSinkFactoryTest {
         JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
                 JdbcSinkFactory.resolveSinkTable(config, createCatalogTable(true));
 
-        Assertions.assertTrue(
-                resolvedSinkTable.getOptions().get(JdbcSinkOptions.PRIMARY_KEYS).isEmpty());
-        Assertions.assertNull(resolvedSinkTable.getCatalogTable().getTableSchema().getPrimaryKey());
+        List<String> expectedKeys =
+                createCatalogTable(true).getTableSchema().getPrimaryKey().getColumnNames();
+        Assertions.assertEquals(
+                expectedKeys, resolvedSinkTable.getOptions().get(JdbcSinkOptions.PRIMARY_KEYS));
+        Assertions.assertEquals(
+                expectedKeys,
+                resolvedSinkTable
+                        .getCatalogTable()
+                        .getTableSchema()
+                        .getPrimaryKey()
+                        .getColumnNames());
     }
 }

@@ -26,12 +26,8 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.sink.SaveModeHandler;
-import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -48,10 +44,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DdsqlJdbcConnectionPoolProviderProxy;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -333,28 +327,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
     }
 
-    /** JDBC at-least-once writers can create additional per-table writers at runtime. */
+    /** Runtime tables require generated SQL and the non-XA writer lifecycle. */
     @Override
     public boolean supportsNewlyCreatedTable() {
-        return !jdbcSinkConfig.isExactlyOnce();
+        return !jdbcSinkConfig.isExactlyOnce()
+                && StringUtils.isBlank(jdbcSinkConfig.getSimpleSql());
     }
 
     /**
      * Reuses JDBC sink naming rules so a runtime source table is mapped to the same target naming
      * convention as startup tables.
      *
-     * <p>Startup tables get their physical DDL from {@link JdbcSink#getSaveModeHandler()}, which
-     * the engine invokes once per configured table before the pipeline starts. A table discovered
-     * at runtime never goes through that path, so this method runs the same schema/data save-mode
-     * handling itself before handing back a writer, otherwise every row written to a newly created
-     * table fails against a physical table that was never created.
+     * <p>This compatibility path only constructs a writer. Like factory-created writers, it applies
+     * non-destructive schema save mode when the ordered CreateTableEvent arrives, not here.
      */
     @Override
     public SinkWriter<SeaTunnelRow, ?, ?> createSinkWriter(
             CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
-        if (jdbcSinkConfig.isExactlyOnce()) {
+        if (!supportsNewlyCreatedTable() || baseConfig == null) {
             throw new IOException(
-                    "JDBC exact-once mode does not support runtime newly created tables");
+                    "Runtime JDBC tables require generated SQL, at-least-once mode and sink options");
         }
         JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
                 JdbcSinkFactory.resolveSinkTable(baseConfig, catalogTable);
@@ -369,63 +361,20 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             }
         }
         JdbcSinkConfig resolvedSinkConfig = JdbcSinkConfig.of(resolvedSinkTable.getOptions());
-        applySaveModeForNewlyCreatedTable(resolvedSinkConfig, resolvedCatalogTable);
-        return new JdbcSinkWriter(
-                resolvedCatalogTable.getTablePath(),
-                context,
-                dialect,
-                resolvedSinkConfig,
-                targetTableSchema,
-                null,
-                targetPrimaryKeyIndex,
-                baseConfig,
-                checkpointEnabled);
-    }
-
-    /**
-     * Runs schema and data save-mode handling for a table resolved at runtime.
-     *
-     * <p>Mirrors {@link JdbcSink#getSaveModeHandler()}'s catalog-construction guards: save mode is
-     * skipped, exactly like at startup, when the resolved config cannot build a catalog (simple-SQL
-     * mode, or a blank database/table). {@link
-     * org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog} is intentionally not
-     * special-cased here, unlike the startup path, because Iris does not support the
-     * newly-added-table CDC source this method exists to serve.
-     */
-    private void applySaveModeForNewlyCreatedTable(
-            JdbcSinkConfig resolvedSinkConfig, CatalogTable resolvedCatalogTable)
-            throws IOException {
-        if (StringUtils.isBlank(resolvedSinkConfig.getDatabase())
-                || StringUtils.isBlank(resolvedSinkConfig.getTable())
-                || StringUtils.isNotBlank(resolvedSinkConfig.getSimpleSql())) {
-            return;
-        }
-        SchemaSaveMode schemaSaveMode = baseConfig.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = baseConfig.get(JdbcSinkOptions.DATA_SAVE_MODE);
-        Optional<Catalog> catalogOptional =
-                JdbcCatalogUtils.findCatalog(resolvedSinkConfig.getJdbcConnectionConfig(), dialect);
-        if (!catalogOptional.isPresent()) {
-            return;
-        }
-        try (SaveModeHandler handler =
-                new JdbcSaveModeHandler(
-                        schemaSaveMode,
-                        dataSaveMode,
-                        catalogOptional.get(),
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
                         resolvedCatalogTable.getTablePath(),
-                        resolvedCatalogTable,
-                        baseConfig.get(JdbcSinkOptions.CUSTOM_SQL),
-                        resolvedSinkConfig.isCreateIndex())) {
-            handler.open();
-            handler.handleSaveMode();
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException(
-                    "Failed to apply save mode for runtime table "
-                            + resolvedCatalogTable.getTablePath(),
-                    e);
-        }
+                        context,
+                        dialect,
+                        resolvedSinkConfig,
+                        targetTableSchema,
+                        null,
+                        targetPrimaryKeyIndex,
+                        baseConfig,
+                        checkpointEnabled);
+        writer.configureRuntimeTableCreation(
+                resolvedCatalogTable, baseConfig.get(JdbcSinkOptions.SCHEMA_SAVE_MODE));
+        return writer;
     }
 
     private void tryOpen() throws IOException {

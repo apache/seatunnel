@@ -65,7 +65,7 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
     public static final Option<Boolean> SCAN_NEWLY_ADDED_TABLE_ENABLED =
             Options.key("scan.newly-added-table.enabled")
                     .booleanType()
-                    .defaultValue(false)
+                    .defaultValue(true)
                     .withDescription(
                             "Whether to scan newly added tables when the job is restored from checkpoint or savepoint.");
 

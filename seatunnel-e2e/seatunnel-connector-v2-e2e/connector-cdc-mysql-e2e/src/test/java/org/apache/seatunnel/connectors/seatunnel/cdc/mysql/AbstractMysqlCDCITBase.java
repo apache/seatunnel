@@ -48,6 +48,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -858,7 +860,30 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     }
                 });
         assertWildcardTablesSynced();
-        TimeUnit.SECONDS.sleep(5);
+        // Observe a post-snapshot mutation before testing runtime discovery, rather than sleeping
+        // for an assumed transition time between the snapshot and binlog phases.
+        executeSql(
+                "UPDATE source.products SET description = '"
+                        + newlyAddedWildcardSourceTable
+                        + "' WHERE id = 101");
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList(
+                                                        newlyAddedWildcardSourceTable)),
+                                        query(
+                                                "SELECT description FROM sink.source_products WHERE id = 101")));
+        List<String> rejectedNames =
+                Arrays.asList(
+                        newlyAddedWildcardSourceTable + ";bad",
+                        newlyAddedWildcardSourceTable + "`bad");
+        for (String name : rejectedNames) {
+            String quoted = "`" + name.replace("`", "``") + "`";
+            executeSql("CREATE TABLE source." + quoted + " (id INT PRIMARY KEY)");
+            executeSql("INSERT INTO source." + quoted + " VALUES (1)");
+        }
         createNewlyAddedWildcardTable(newlyAddedWildcardSourceTable);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -867,6 +892,17 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                         query(getQuerySQL("source", newlyAddedWildcardSourceTable)),
                                         queryNewlyAddedWildcardSinkTable(
                                                 newlyAddedWildcardSinkTable)));
+
+        // The valid CREATE follows the rejected records in the same binlog. Its replication is
+        // the processing barrier for asserting that neither unsafe name caused downstream DDL.
+        for (String name : rejectedNames) {
+            Assertions.assertEquals(
+                    Collections.emptyList(),
+                    query(
+                            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'sink' AND table_name = 'source_"
+                                    + name
+                                    + "'"));
+        }
 
         updateNewlyAddedWildcardTable(newlyAddedWildcardSourceTable);
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -882,8 +918,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
      * Polls the newly added wildcard sink table during the runtime-created-table assertions.
      *
      * <p>The test drops the dynamically generated sink table in {@code
-     * resetWildcardRuntimeTableState(...)} and the sink re-creates it at runtime via schema save
-     * mode only after the CDC source discovers the new table, so a poll issued inside that window
+     * resetWildcardRuntimeTableState(...)} and the sink creates it through the ordered CREATE
+     * handler only after the CDC source discovers the new table, so a poll issued inside that window
      * legitimately hits {@code Table 'sink.<generated>' doesn't exist}. {@code query} wraps that
      * {@link SQLException} in a {@link RuntimeException}, and {@code untilAsserted} only retries
      * {@link AssertionError}, so without this translation the very first early poll aborts the

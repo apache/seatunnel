@@ -19,20 +19,35 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.relational.TableId;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +55,92 @@ import java.util.Map;
 public class MySqlIncrementalSourceStartupConfigTest {
 
     private static final String GTID_SET = "3E11FA47-71CA-11E1-9E33-C80AA9429562:1-10";
+
+    /**
+     * Existing hybrid checkpoints must still snapshot newly matched tables unless explicitly opted
+     * out; runtime binlog discovery remains disabled in this legacy configuration.
+     */
+    @Test
+    public void testRestorePreservesNewTableDiscoveryDefault() throws Exception {
+        TableId oldTable = new TableId("db1", null, "old_table");
+        TableId newTable = new TableId("db1", null, "new_table");
+        for (Boolean enabled : Arrays.asList(null, Boolean.TRUE, Boolean.FALSE)) {
+            Map<String, Object> options = new HashMap<>();
+            if (enabled != null) {
+                options.put(
+                        MySqlIncrementalSourceOptions.SCAN_NEWLY_ADDED_TABLE_ENABLED.key(),
+                        enabled);
+            }
+            RestoreTestSource source = new RestoreTestSource(ReadonlyConfig.fromMap(options));
+            SnapshotPhaseState snapshot =
+                    new SnapshotPhaseState(
+                            new ArrayList<>(Collections.singletonList(oldTable)),
+                            new ArrayList<>(),
+                            new HashMap<>(),
+                            new HashMap<>(),
+                            true,
+                            new ArrayList<>(),
+                            true,
+                            true);
+            HybridPendingSplitsState checkpoint =
+                    new HybridPendingSplitsState(snapshot, new IncrementalPhaseState());
+            SourceSplitEnumerator.Context<SourceSplitBase> context =
+                    Mockito.mock(SourceSplitEnumerator.Context.class);
+            Mockito.when(context.currentParallelism()).thenReturn(1);
+            SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> enumerator =
+                    source.restoreEnumerator(context, checkpoint);
+            HybridPendingSplitsState restored =
+                    (HybridPendingSplitsState) enumerator.snapshotState(1L);
+            Assertions.assertEquals(
+                    Boolean.FALSE.equals(enabled)
+                            ? Collections.emptyList()
+                            : Collections.singletonList(newTable),
+                    restored.getSnapshotPhaseState().getRemainingTables());
+            Assertions.assertEquals(
+                    Boolean.FALSE.equals(enabled),
+                    restored.getSnapshotPhaseState().isAssignerCompleted());
+            Assertions.assertEquals(
+                    Collections.singletonList(oldTable),
+                    restored.getSnapshotPhaseState().getAlreadyProcessedTables());
+        }
+    }
+
+    /**
+     * Replaces database I/O only; restoreEnumerator and its checkpoint transformation remain real.
+     */
+    private static class RestoreTestSource extends MySqlIncrementalSource<SeaTunnelRow> {
+        RestoreTestSource(ReadonlyConfig options) {
+            super(options, Collections.emptyList());
+        }
+
+        @Override
+        public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(
+                ReadonlyConfig options) {
+            return index -> Mockito.mock(JdbcSourceConfig.class);
+        }
+
+        @Override
+        public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig options) {
+            DataSourceDialect<JdbcSourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+            Mockito.when(dialect.discoverDataCollections(Mockito.any()))
+                    .thenReturn(
+                            Arrays.asList(
+                                    new TableId("db1", null, "old_table"),
+                                    new TableId("db1", null, "new_table")));
+            return dialect;
+        }
+
+        @Override
+        public DebeziumDeserializationSchema<SeaTunnelRow> createDebeziumDeserializationSchema(
+                ReadonlyConfig options) {
+            return Mockito.mock(DebeziumDeserializationSchema.class);
+        }
+
+        @Override
+        public OffsetFactory createOffsetFactory(ReadonlyConfig options) {
+            return new TestOffsetFactory();
+        }
+    }
 
     @Test
     public void testOptionRuleAcceptsGtidSpecificStartup() {

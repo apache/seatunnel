@@ -146,7 +146,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                         catalogTable = tableChangeCatalogTableConverter.convert(tableChange);
                     } catch (IllegalArgumentException e) {
                         log.warn(
-                                "Skip newly added CDC table {} because its identifier cannot be used safely",
+                                "Skip newly added CDC table {} because its identifier or schema is unsupported",
                                 tableChange.getId(),
                                 e);
                         return;

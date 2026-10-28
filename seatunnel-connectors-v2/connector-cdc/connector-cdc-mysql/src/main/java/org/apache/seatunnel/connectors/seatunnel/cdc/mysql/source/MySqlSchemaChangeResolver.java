@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResol
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser.CustomMySqlAntlrDdlParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.relational.ddl.DdlParser;
 
 import java.util.ArrayList;
@@ -61,7 +63,7 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
     }
 
     @Override
-    public boolean support(org.apache.kafka.connect.source.SourceRecord record) {
+    public boolean support(SourceRecord record) {
         if (!scanBinlogNewlyAddedTableEnabled) {
             return super.support(record);
         }

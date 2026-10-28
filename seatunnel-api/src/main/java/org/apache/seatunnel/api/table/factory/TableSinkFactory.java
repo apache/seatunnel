@@ -37,7 +37,9 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
      * Whether this factory can create a writer for a table discovered after the job starts.
      *
      * <p>Connectors must opt in because ordinary sink factories are only required to create the
-     * writers resolved during job submission.
+     * writers resolved during job submission. A runtime CreateTableEvent is never silently dropped:
+     * the job fails if the configured sink factory has not opted in, before creating a writer or
+     * executing target DDL.
      */
     default boolean supportsNewlyCreatedTable() {
         return false;

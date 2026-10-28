@@ -189,7 +189,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                 JdbcSinkOptions.DATABASE.key(),
                 resolvedCatalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = resolvedCatalogTable.getTableSchema().getPrimaryKey();
-        if (!config.getOptional(JdbcSinkOptions.PRIMARY_KEYS).isPresent()) {
+        // Empty and absent primary_keys both inherit the source key, as in existing jobs.
+        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(
                         JdbcSinkOptions.PRIMARY_KEYS.key(),
@@ -213,20 +214,16 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                                 .collect(Collectors.joining(","))));
             }
         } else {
-            java.util.List<String> configuredPrimaryKeys = config.get(JdbcSinkOptions.PRIMARY_KEYS);
+            List<String> configuredPrimaryKeys = config.get(JdbcSinkOptions.PRIMARY_KEYS);
             TableSchema tableSchema = resolvedCatalogTable.getTableSchema();
             TableSchema.Builder tableSchemaBuilder =
                     TableSchema.builder()
                             .constraintKey(tableSchema.getConstraintKeys())
                             .columns(tableSchema.getColumns());
-            // Keep explicit empty primary_keys as "disable inherited PK" instead of creating an
-            // invalid primary-key object with no columns.
-            if (CollectionUtils.isNotEmpty(configuredPrimaryKeys)) {
-                tableSchemaBuilder.primaryKey(
-                        PrimaryKey.of(
-                                resolvedCatalogTable.getTablePath().getTableName() + "_config_pk",
-                                configuredPrimaryKeys));
-            }
+            tableSchemaBuilder.primaryKey(
+                    PrimaryKey.of(
+                            resolvedCatalogTable.getTablePath().getTableName() + "_config_pk",
+                            configuredPrimaryKeys));
             resolvedCatalogTable =
                     CatalogTable.of(
                             resolvedCatalogTable.getTableId(),

@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -165,8 +166,97 @@ public class MultiTableSinkWriterTest {
                 DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get("db1.first_runtime_table").size());
     }
 
+    /** An event cannot use a different source identity to create or register a target writer. */
+    @Test
+    public void testRuntimeCreateRejectsMismatchedIdentityBeforeFactory() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        new HashMap<>(),
+                        1,
+                        new HashMap<>(),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 0)),
+                        (table, context) -> {
+                            attempts.incrementAndGet();
+                            return new DynamicTestSinkWriter(table.getTablePath().getFullName());
+                        });
+        CatalogTable source = catalogTable(TablePath.of("db1", "source"));
+        CatalogTable other = catalogTable(TablePath.of("db1", "other"));
+        IOException error =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                writer.applySchemaChange(
+                                        new CreateTableEvent(source.getTableId(), other)));
+        Assertions.assertTrue(error.getMessage().contains("identity does not match"));
+        Assertions.assertEquals(0, attempts.get());
+        writer.close();
+    }
+
+    /**
+     * Failed runtime registration either fails the task or checkpoints the table quarantine; no
+     * path may continue as though the rejected table had a working writer.
+     */
+    @Test
+    public void testRuntimeRegistrationFailurePolicy() throws Exception {
+        for (MultiTableFailurePolicy policy : MultiTableFailurePolicy.values()) {
+            AtomicInteger attempts = new AtomicInteger();
+            MultiTableSinkWriter writer =
+                    new MultiTableSinkWriter(
+                            new HashMap<>(),
+                            1,
+                            new HashMap<>(),
+                            policy,
+                            JobMode.STREAMING,
+                            Collections.emptyList(),
+                            2,
+                            0,
+                            Collections.singletonList(
+                                    new MultiTableSinkWriter.SinkWriterTemplate(
+                                            null, new TestSinkWriterContext(), 0)),
+                            (table, context) -> {
+                                attempts.incrementAndGet();
+                                throw new IOException("runtime registration unavailable");
+                            });
+            CatalogTable table = catalogTable(TablePath.of("db1", "unavailable"));
+            CreateTableEvent event = new CreateTableEvent(table.getTableId(), table);
+            if (policy == MultiTableFailurePolicy.FAIL_FAST) {
+                Assertions.assertThrows(IOException.class, () -> writer.applySchemaChange(event));
+                Assertions.assertEquals(1, attempts.get());
+            } else {
+                writer.applySchemaChange(event);
+                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+                row.setTableId(table.getTablePath().getFullName());
+                writer.write(row);
+                List<MultiTableState> states = writer.snapshotState(1);
+                Assertions.assertEquals(3, attempts.get());
+                Assertions.assertEquals(1, states.get(0).getFailedTables().size());
+                Assertions.assertEquals(
+                        table.getTablePath().getFullName(),
+                        states.get(0).getFailedTables().get(0).getTablePath());
+                Assertions.assertEquals(
+                        Collections.emptyList(), states.get(0).getRuntimeCreatedTables());
+            }
+            try {
+                writer.close();
+            } catch (IOException | RuntimeException error) {
+                if (policy != MultiTableFailurePolicy.FAIL_FAST) {
+                    throw error;
+                }
+            }
+        }
+    }
+
     @Test
     public void testRuntimeTableRegistrationRetriesWriterCreation() throws Exception {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         SinkWriter.Context context = new TestSinkWriterContext();
@@ -195,9 +285,76 @@ public class MultiTableSinkWriterTest {
         CatalogTable catalogTable = catalogTable(TablePath.of("db1", "retry_runtime_table"));
         multiTableSinkWriter.applySchemaChange(
                 new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        // Replay must reuse the registered writer, not run the failing factory again.
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {42});
+        row.setTableId(catalogTable.getTablePath().getFullName());
+        multiTableSinkWriter.write(row);
         multiTableSinkWriter.close();
 
         Assertions.assertEquals(3, attempts.get());
+        Assertions.assertEquals(
+                Collections.singletonList(row),
+                DynamicTestSinkWriter.WRITTEN_ROWS.get(row.getTableId()));
+    }
+
+    /** Rejected or incompletely initialized writers are closed before registration is retried. */
+    @Test
+    public void testRuntimeRegistrationRetryClosesUninstalledWriter() throws Exception {
+        for (boolean rejectCapability : new boolean[] {true, false}) {
+            DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+            AtomicInteger attempts = new AtomicInteger();
+            AtomicInteger rejectedCloses = new AtomicInteger();
+            MultiTableSinkWriter writer =
+                    new MultiTableSinkWriter(
+                            new HashMap<>(),
+                            1,
+                            new HashMap<>(),
+                            MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                            JobMode.STREAMING,
+                            Collections.emptyList(),
+                            1,
+                            0,
+                            Collections.singletonList(
+                                    new MultiTableSinkWriter.SinkWriterTemplate(
+                                            null, new TestSinkWriterContext(), 0)),
+                            (table, context) -> {
+                                if (attempts.incrementAndGet() > 1) {
+                                    return new DynamicTestSinkWriter(
+                                            table.getTablePath().getFullName());
+                                }
+                                return new DynamicTestSinkWriter(
+                                        table.getTablePath().getFullName()) {
+                                    @Override
+                                    public boolean supportsNewlyCreatedTable() {
+                                        return !rejectCapability;
+                                    }
+
+                                    @Override
+                                    public void setMultiTableResourceManager(
+                                            MultiTableResourceManager resourceManager, int index) {
+                                        throw new IllegalStateException("resource setup failed");
+                                    }
+
+                                    @Override
+                                    public void close() {
+                                        rejectedCloses.incrementAndGet();
+                                    }
+                                };
+                            });
+            CatalogTable table = catalogTable(TablePath.of("db1", "retry_setup"));
+            writer.applySchemaChange(new CreateTableEvent(table.getTableId(), table));
+            SeaTunnelRow row = buildRow(table.getTablePath().getFullName(), 42);
+            writer.write(row);
+            writer.close();
+
+            Assertions.assertEquals(2, attempts.get());
+            Assertions.assertEquals(1, rejectedCloses.get());
+            Assertions.assertEquals(
+                    Collections.singletonList(row),
+                    DynamicTestSinkWriter.WRITTEN_ROWS.get(row.getTableId()));
+        }
     }
 
     @Test
@@ -1111,6 +1268,7 @@ public class MultiTableSinkWriterTest {
         Assertions.assertNotNull(restored.getStates());
         Assertions.assertTrue(restored.getStates().isEmpty());
         Assertions.assertTrue(restored.getFailedTables().isEmpty());
+        Assertions.assertEquals(Collections.emptyList(), restored.getRuntimeCreatedTables());
     }
 
     /**
