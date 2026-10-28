@@ -56,7 +56,9 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -65,8 +67,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -350,6 +354,73 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+
+    @Test
+    public void testFixedDateSplitsReadEveryRow() throws Exception {
+        String tableName = "split_date_review";
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("query", "SELECT * FROM " + tableName);
+        configMap.put("partition_column", "created_on");
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                mysqlUrlInfo.getUrlWithDatabase().get(),
+                                MYSQL_USERNAME,
+                                MYSQL_PASSWORD);
+                Statement statement = connection.createStatement();
+                MySqlCatalog catalog =
+                        new MySqlCatalog(
+                                "mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null)) {
+            statement.execute(
+                    "CREATE TABLE " + tableName + " (id INT PRIMARY KEY, created_on DATE)");
+            statement.execute(
+                    "INSERT INTO "
+                            + tableName
+                            + " VALUES (1, '2024-01-01'), (2, '2024-01-02'), (3, '2024-01-03')");
+            catalog.open();
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+            for (String[] bounds :
+                    new String[][] {
+                        {null, null}, {"2024-01-01", "2024-01-03"}, {"19723", "19725"}
+                    }) {
+                JdbcSourceTable sourceTable =
+                        JdbcSourceTable.builder()
+                                .tablePath(tablePath)
+                                .catalogTable(catalogTable)
+                                .query("SELECT * FROM " + tableName)
+                                .partitionColumn("created_on")
+                                .partitionNumber(3)
+                                .partitionStart(bounds[0])
+                                .partitionEnd(bounds[1])
+                                .build();
+                try (FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                    Collection<JdbcSourceSplit> splits = splitter.generateSplits(sourceTable);
+                    Assertions.assertEquals(3, splits.size());
+                    Set<Integer> ids = new HashSet<>();
+                    for (JdbcSourceSplit split : splits) {
+                        try (PreparedStatement query =
+                                        splitter.generateSplitStatement(
+                                                split, catalogTable.getTableSchema());
+                                ResultSet rows = query.executeQuery()) {
+                            while (rows.next()) {
+                                Assertions.assertTrue(
+                                        ids.add(rows.getInt("id")), "Split rows overlap");
+                                Assertions.assertEquals(
+                                        LocalDate.of(2024, 1, rows.getInt("id")),
+                                        rows.getDate("created_on").toLocalDate());
+                            }
+                        }
+                    }
+                    Assertions.assertEquals(new HashSet<>(Arrays.asList(1, 2, 3)), ids);
+                }
+            }
+            statement.execute("DROP TABLE " + tableName);
+        }
+    }
 
     @Test
     public void testSplit() throws Exception {

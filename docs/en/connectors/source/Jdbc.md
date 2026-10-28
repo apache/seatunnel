@@ -321,6 +321,8 @@ For a full-table snapshot, configure `table_path` and normally leave split-key d
 
 Only the top-level combination of `query` and `partition_column` selects the legacy fixed splitter; `partition_num` then controls the number of splits. The partition column must be present in the query result. Optional lower and upper bounds avoid extra `MIN`/`MAX` queries, but incorrect bounds can omit source rows, so use them only when the full data range is known.
 
+Fixed query partitioning supports DATE columns with ISO dates or whole epoch-day bounds. TIME, TIMESTAMP and TIMESTAMP_TZ partition columns are not supported; use a supported partition column or omit partition_column to read the query as a single split.
+
 Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
 
 ### Query and primary-key caution

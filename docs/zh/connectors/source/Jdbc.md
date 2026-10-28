@@ -197,6 +197,8 @@ driver = "org.mariadb.jdbc.Driver"
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
 | common-options                             |         | 否    | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
+固定查询分片支持 DATE 列，边界可使用 ISO 日期或整数 epoch-day。TIME、TIMESTAMP 和 TIMESTAMP_TZ 列不支持作为分片列；请选择受支持的列，或不设置 partition_column，以单个分片读取查询。
+
 ### 表匹配
 
 请按照数据库方言要求填写完整表路径：

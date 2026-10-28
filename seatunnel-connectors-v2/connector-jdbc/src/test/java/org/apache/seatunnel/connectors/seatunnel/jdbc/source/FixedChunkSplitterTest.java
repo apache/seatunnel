@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -31,25 +36,22 @@ import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -125,204 +127,109 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
-    public void testCreateDateColumnSplitsUseSqlDateBoundaries() throws Exception {
-        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        JdbcSourceTable table =
-                JdbcSourceTable.builder()
-                        .tablePath(TablePath.of("db", "tbl"))
-                        .partitionNumber(3)
-                        .build();
-        Method createNumberColumnSplitsMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "createNumberColumnSplits",
-                        JdbcSourceTable.class,
-                        String.class,
-                        SeaTunnelDataType.class,
-                        BigDecimal.class,
-                        BigDecimal.class);
-        createNumberColumnSplitsMethod.setAccessible(true);
-
-        @SuppressWarnings("unchecked")
-        Collection<JdbcSourceSplit> splits =
-                (Collection<JdbcSourceSplit>)
-                        createNumberColumnSplitsMethod.invoke(
-                                splitter,
-                                table,
-                                "create_date",
-                                LocalTimeType.LOCAL_DATE_TYPE,
-                                BigDecimal.valueOf(
-                                        Date.valueOf("2024-01-01").toLocalDate().toEpochDay()),
-                                BigDecimal.valueOf(
-                                        Date.valueOf("2024-01-03").toLocalDate().toEpochDay()));
-
-        List<JdbcSourceSplit> splitList = new ArrayList<>(splits);
-        assertEquals(3, splitList.size());
-        assertEquals(Date.valueOf("2024-01-01"), splitList.get(0).getSplitStart());
-        assertEquals(Date.valueOf("2024-01-01"), splitList.get(0).getSplitEnd());
-        assertEquals(Date.valueOf("2024-01-02"), splitList.get(1).getSplitStart());
-        assertEquals(Date.valueOf("2024-01-02"), splitList.get(1).getSplitEnd());
-        assertEquals(Date.valueOf("2024-01-03"), splitList.get(2).getSplitStart());
-        assertEquals(Date.valueOf("2024-01-03"), splitList.get(2).getSplitEnd());
+    public void testDateSplitsWithIsoAndLegacyBoundsBindJdbcDates() throws Exception {
+        for (String[] bounds :
+                new String[][] {
+                    {"2024-01-01", "2024-01-03"},
+                    {"19723", "19725"}
+                }) {
+            CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+            assertDateSplits(splitter, dateTable(bounds[0], bounds[1]));
+        }
     }
 
     @Test
-    public void testCreateDateSplitStatementBindsSqlDateParameters() throws SQLException {
-        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
-        JdbcSourceSplit split =
-                new JdbcSourceSplit(
-                        TablePath.of("db", "tbl"),
-                        "split-0",
-                        null,
-                        "create_date",
-                        LocalTimeType.LOCAL_DATE_TYPE,
-                        Date.valueOf("2024-01-01"),
-                        Date.valueOf("2024-01-02"));
-
-        splitter.generateSplitStatement(split, TableSchema.builder().build());
-
-        assertEquals(
-                "SELECT * FROM `db`.`tbl` WHERE `create_date` >= ? AND `create_date` <= ?",
-                splitter.sql);
-        assertEquals(Date.valueOf("2024-01-01"), splitter.dateParameters.get(1));
-        assertEquals(Date.valueOf("2024-01-02"), splitter.dateParameters.get(2));
-        assertFalse(splitter.bigDecimalParameters.containsKey(1));
-        assertFalse(splitter.bigDecimalParameters.containsKey(2));
+    public void testDateSplitsDiscoverDateAndTimestampMinMax() throws Exception {
+        for (Object[] bounds :
+                new Object[][] {
+                    {Date.valueOf("2024-01-01"), Date.valueOf("2024-01-03")},
+                    {
+                        Timestamp.valueOf("2024-01-01 12:34:56"),
+                        Timestamp.valueOf("2024-01-03 12:34:56")
+                    }
+                }) {
+            CapturingFixedChunkSplitter splitter =
+                    new CapturingFixedChunkSplitter(mysqlConfig()) {
+                        @Override
+                        protected Pair<Object, Object> queryMinMax(
+                                JdbcSourceTable table, String columnName) {
+                            return Pair.of(bounds[0], bounds[1]);
+                        }
+                    };
+            assertDateSplits(splitter, dateTable(null, null));
+        }
     }
 
     @Test
-    public void testConvertTemporalSplitBoundaries() throws Exception {
+    public void testRejectInvalidAndFractionalDateBounds() {
         FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method convertSplitBoundaryMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "convertSplitBoundary", SeaTunnelDataType.class, Serializable.class);
-        convertSplitBoundaryMethod.setAccessible(true);
-
-        assertEquals(
-                new Time(1000),
-                convertSplitBoundaryMethod.invoke(
-                        splitter, LocalTimeType.LOCAL_TIME_TYPE, BigDecimal.valueOf(1000)));
-        assertEquals(
-                new Timestamp(2000),
-                convertSplitBoundaryMethod.invoke(
-                        splitter, LocalTimeType.LOCAL_DATE_TIME_TYPE, BigDecimal.valueOf(2000)));
-        assertEquals(
-                new Timestamp(3000),
-                convertSplitBoundaryMethod.invoke(
-                        splitter, LocalTimeType.OFFSET_DATE_TIME_TYPE, BigDecimal.valueOf(3000)));
+        for (String bound : new String[] {"2024-01-03 00:00:00", "20000.5"}) {
+            JdbcConnectorException exception =
+                    assertThrows(
+                            JdbcConnectorException.class,
+                            () -> splitter.createSplits(dateTable(bound, "2024-01-03"), dateKey()));
+            assertTrue(exception.getMessage().contains("DATE"));
+        }
     }
 
     @Test
-    public void testConvertDateMinMaxResultsToEpochDays() throws Exception {
+    public void testNonDateTemporalPartitionColumnsRemainUnsupported() {
         FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method convertToBigDecimalMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "convertToBigDecimal", Object.class, SeaTunnelDataType.class);
-        convertToBigDecimalMethod.setAccessible(true);
-        BigDecimal expected =
-                BigDecimal.valueOf(Date.valueOf("2024-01-03").toLocalDate().toEpochDay());
-
-        assertEquals(
-                expected,
-                convertToBigDecimalMethod.invoke(
-                        splitter, Date.valueOf("2024-01-03"), LocalTimeType.LOCAL_DATE_TYPE));
-        assertEquals(
-                expected,
-                convertToBigDecimalMethod.invoke(
-                        splitter,
-                        Timestamp.valueOf("2024-01-03 12:34:56"),
-                        LocalTimeType.LOCAL_DATE_TYPE));
+        for (SeaTunnelDataType<?> type :
+                new SeaTunnelDataType<?>[] {
+                    LocalTimeType.LOCAL_TIME_TYPE,
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                    LocalTimeType.OFFSET_DATE_TIME_TYPE
+                }) {
+            TableSchema schema =
+                    TableSchema.builder()
+                            .column(PhysicalColumn.of("created_at", type, 0L, true, null, null))
+                            .build();
+            JdbcSourceTable table =
+                    JdbcSourceTable.builder()
+                            .tablePath(TablePath.of("db", "tbl"))
+                            .partitionColumn("created_at")
+                            .catalogTable(
+                                    CatalogTable.of(
+                                            TableIdentifier.of("catalog", "db", "tbl"),
+                                            schema,
+                                            Collections.emptyMap(),
+                                            Collections.emptyList(),
+                                            ""))
+                            .build();
+            assertThrows(JdbcConnectorException.class, () -> splitter.generateSplits(table));
+        }
     }
 
-    @Test
-    public void testParseDatePartitionBoundsSupportsIsoAndLegacyEpochDays() throws Exception {
-        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method parsePartitionBoundMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
-        parsePartitionBoundMethod.setAccessible(true);
-        BigDecimal expected =
-                BigDecimal.valueOf(Date.valueOf("2024-01-03").toLocalDate().toEpochDay());
-
-        assertEquals(
-                expected,
-                parsePartitionBoundMethod.invoke(
-                        splitter, "2024-01-03", LocalTimeType.LOCAL_DATE_TYPE));
-        assertEquals(
-                expected,
-                parsePartitionBoundMethod.invoke(
-                        splitter, expected.toPlainString(), LocalTimeType.LOCAL_DATE_TYPE));
+    private static JdbcSourceTable dateTable(String lower, String upper) {
+        return JdbcSourceTable.builder()
+                .tablePath(TablePath.of("db", "tbl"))
+                .partitionNumber(3)
+                .partitionStart(lower)
+                .partitionEnd(upper)
+                .build();
     }
 
-    @Test
-    public void testRejectInvalidDatePartitionBound() throws Exception {
-        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method parsePartitionBoundMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
-        parsePartitionBoundMethod.setAccessible(true);
-
-        InvocationTargetException exception =
-                assertThrows(
-                        InvocationTargetException.class,
-                        () ->
-                                parsePartitionBoundMethod.invoke(
-                                        splitter,
-                                        "2024-01-03 00:00:00",
-                                        LocalTimeType.LOCAL_DATE_TYPE));
-
-        assertTrue(exception.getCause() instanceof JdbcConnectorException);
-        assertTrue(exception.getCause().getMessage().contains("yyyy-MM-dd"));
+    private static SeaTunnelRowType dateKey() {
+        return new SeaTunnelRowType(
+                new String[] {"create_date"},
+                new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
     }
 
-    @Test
-    public void testRejectInvalidNonDateTemporalPartitionBound() throws Exception {
-        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method parsePartitionBoundMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
-        parsePartitionBoundMethod.setAccessible(true);
-
-        InvocationTargetException exception =
-                assertThrows(
-                        InvocationTargetException.class,
-                        () ->
-                                parsePartitionBoundMethod.invoke(
-                                        splitter,
-                                        "2024-01-03 00:00:00",
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE));
-
-        assertTrue(exception.getCause() instanceof JdbcConnectorException);
-        assertTrue(exception.getCause().getMessage().contains("TIMESTAMP"));
-        assertTrue(exception.getCause().getMessage().contains("epoch-millisecond"));
-    }
-
-    @Test
-    public void testRejectFractionalTemporalPartitionBound() throws Exception {
-        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
-        Method parsePartitionBoundMethod =
-                FixedChunkSplitter.class.getDeclaredMethod(
-                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
-        parsePartitionBoundMethod.setAccessible(true);
-
-        InvocationTargetException exception =
-                assertThrows(
-                        InvocationTargetException.class,
-                        () ->
-                                parsePartitionBoundMethod.invoke(
-                                        splitter, "20000.5", LocalTimeType.LOCAL_DATE_TYPE));
-
-        assertTrue(exception.getCause() instanceof JdbcConnectorException);
-        assertTrue(exception.getCause().getMessage().contains("whole numbers"));
-
-        InvocationTargetException timestampException =
-                assertThrows(
-                        InvocationTargetException.class,
-                        () ->
-                                parsePartitionBoundMethod.invoke(
-                                        splitter, "20000.5", LocalTimeType.LOCAL_DATE_TIME_TYPE));
-
-        assertTrue(timestampException.getCause() instanceof JdbcConnectorException);
-        assertTrue(timestampException.getCause().getMessage().contains("whole numbers"));
+    private static void assertDateSplits(
+            CapturingFixedChunkSplitter splitter, JdbcSourceTable table) throws Exception {
+        List<JdbcSourceSplit> splits = new ArrayList<>(splitter.createSplits(table, dateKey()));
+        assertEquals(3, splits.size());
+        for (int i = 0; i < splits.size(); i++) {
+            Date expected = Date.valueOf(LocalDate.of(2024, 1, 1).plusDays(i));
+            JdbcSourceSplit split = splits.get(i);
+            assertEquals(expected, split.getSplitStart());
+            assertEquals(expected, split.getSplitEnd());
+            splitter.generateSplitStatement(split, TableSchema.builder().build());
+            assertEquals(expected, splitter.dateParameters.get(1));
+            assertEquals(expected, splitter.dateParameters.get(2));
+            assertTrue(splitter.bigDecimalParameters.isEmpty());
+        }
     }
 
     @Test
@@ -384,6 +291,7 @@ public class FixedChunkSplitterTest {
                                 .driverName("com.mysql.cj.jdbc.Driver")
                                 .build())
                 .stringSplitStrategy(StringSplitStrategy.RANGE)
+                .enableConcurrentRead(true)
                 .build();
     }
 

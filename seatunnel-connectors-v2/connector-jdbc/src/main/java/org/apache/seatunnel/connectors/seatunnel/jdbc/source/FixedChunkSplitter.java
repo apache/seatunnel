@@ -545,11 +545,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
             return null;
         }
         SqlType sqlType = splitKeyType.getSqlType();
-        boolean temporalSplitKey =
-                SqlType.DATE.equals(sqlType)
-                        || SqlType.TIME.equals(sqlType)
-                        || SqlType.TIMESTAMP.equals(sqlType)
-                        || SqlType.TIMESTAMP_TZ.equals(sqlType);
+        boolean dateSplitKey = SqlType.DATE.equals(sqlType);
         if (SqlType.DATE.equals(sqlType)) {
             try {
                 return BigDecimal.valueOf(LocalDate.parse(bound).toEpochDay());
@@ -558,18 +554,15 @@ public class FixedChunkSplitter extends ChunkSplitter {
         }
         try {
             BigDecimal numericBound = new BigDecimal(bound);
-            if (temporalSplitKey && numericBound.stripTrailingZeros().scale() > 0) {
+            if (dateSplitKey && numericBound.stripTrailingZeros().scale() > 0) {
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                        "Temporal partition bounds must be whole numbers: " + bound);
+                        "DATE partition bounds must be whole numbers: " + bound);
             }
             return numericBound;
         } catch (NumberFormatException e) {
-            if (temporalSplitKey) {
-                String expectedFormat =
-                        SqlType.DATE.equals(sqlType)
-                                ? "yyyy-MM-dd or a whole epoch-day number."
-                                : "a whole epoch-millisecond number.";
+            if (dateSplitKey) {
+                String expectedFormat = "yyyy-MM-dd or a whole epoch-day number.";
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "Invalid "
@@ -584,10 +577,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         }
     }
 
-    /**
-     * Converts numeric split boundaries back to JDBC temporal values before parameter binding. DATE
-     * uses epoch days; TIME and TIMESTAMP use epoch milliseconds.
-     */
+    /** Converts epoch-day split boundaries back to JDBC DATE values before parameter binding. */
     private Serializable convertSplitBoundary(
             SeaTunnelDataType splitKeyType, Serializable splitBoundary) {
         if (!(splitBoundary instanceof BigDecimal)) {
@@ -596,11 +586,6 @@ public class FixedChunkSplitter extends ChunkSplitter {
         BigDecimal boundary = (BigDecimal) splitBoundary;
         if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
             return Date.valueOf(LocalDate.ofEpochDay(boundary.longValueExact()));
-        } else if (SqlType.TIME.equals(splitKeyType.getSqlType())) {
-            return new Time(boundary.longValueExact());
-        } else if (SqlType.TIMESTAMP.equals(splitKeyType.getSqlType())
-                || SqlType.TIMESTAMP_TZ.equals(splitKeyType.getSqlType())) {
-            return new Timestamp(boundary.longValueExact());
         }
         return splitBoundary;
     }
