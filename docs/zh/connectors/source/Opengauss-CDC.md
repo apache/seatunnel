@@ -45,6 +45,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FULL;' from pg_tables where schemaname = 'YourTableSchema'
 ```
 
+3. 当 `startup.mode = initial` 时，连接器会在开始增量读取之前先读取表快照。快照阶段使用与增量阶段相同的拆分规则并行执行，快照完成后从增量 LSN 继续读取。
+
 ## 数据类型映射
 
 |                                   Opengauss Data type                                   |                                                              SeaTunnel Data type                                                               |
