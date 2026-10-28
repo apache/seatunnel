@@ -41,14 +41,14 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
-import java.net.ServerSocket;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
-    private int httpPort;
-    private static final int HTTPS_PORT = 18443;
+    // Share the allocator with the base class so REST ports stay outside Hazelcast discovery.
+    private final int httpPort = TestUtils.getAvailablePort();
+    private final int httpsPort = TestUtils.getAvailablePort();
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
@@ -67,11 +67,10 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         // Not enabled Http
-        httpPort = findFreePortExcluding(HTTPS_PORT);
         httpConfig.setEnabled(false);
         httpConfig.setPort(httpPort);
         // Enabled Https
-        httpConfig.setHttpsPort(HTTPS_PORT);
+        httpConfig.setHttpsPort(httpsPort);
         httpConfig.setEnableHttps(true);
 
         httpConfig.setKeyStorePath(getPath("server_keystore.jks"));
@@ -130,7 +129,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
 
         HttpsURLConnection conn =
                 (HttpsURLConnection)
-                        new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview")
+                        new java.net.URL("https://localhost:" + httpsPort + "/overview")
                                 .openConnection();
         conn.setSSLSocketFactory(sslContext.getSocketFactory());
 
@@ -149,7 +148,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                 SSLHandshakeException.class,
                 () -> {
                     java.net.URL url =
-                            new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview");
+                            new java.net.URL("https://localhost:" + httpsPort + "/overview");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.getResponseCode();
                 });
@@ -165,24 +164,10 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                                     getPath("client_keystore.jks"), CLIENT_KEYSTORE_PASSWORD);
                     HttpsURLConnection conn =
                             (HttpsURLConnection)
-                                    new java.net.URL(
-                                                    "https://localhost:" + HTTPS_PORT + "/overview")
+                                    new java.net.URL("https://localhost:" + httpsPort + "/overview")
                                             .openConnection();
                     conn.setSSLSocketFactory(sslContext.getSocketFactory());
                     conn.getInputStream();
                 });
-    }
-
-    private int findFreePortExcluding(int exclude) {
-        int port;
-        do {
-            try (ServerSocket socket = new ServerSocket(0)) {
-                socket.setReuseAddress(true);
-                port = socket.getLocalPort();
-            } catch (Exception e) {
-                throw new RuntimeException("No free port available", e);
-            }
-        } while (port == exclude);
-        return port;
     }
 }
