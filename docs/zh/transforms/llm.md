@@ -8,7 +8,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 
 ## 属性
 
-| 名称                     | 类型   | 是否必须 | 默认值         |
+| 名称                       | 类型   | 是否必须 | 默认值         |
 |------------------------| ------ | -------- |-------------|
 | model_provider         | enum   | yes      |             |
 | output_data_type       | enum   | no       | String      |
@@ -17,7 +17,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
 | model                  | string | yes      |             |
-| api_key                | string | yes      |             |
+| api_key                    | string | yes      |             |
 | api_path               | string | no       |             |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
@@ -30,7 +30,6 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
-
 ### output_data_type
 
 输出数据的数据类型。可用选项为:
@@ -110,6 +109,8 @@ transform {
 
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
+
+当 `model_provider` 为 `OPENAI`、`DOUBAO` 或 `MICROSOFT` 时该选项必填。
 
 当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
 

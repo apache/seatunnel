@@ -6,6 +6,9 @@ Seatunnel 的 Kafka 连接器支持解析通过 Kafka Connect Source 抽取的�
 
 更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
 
+墓碑消息（tombstone，即带有键且值为 `null` 的记录）不会产生任何行。Source 会跳过该记录并推进 offset，因此它不会被视为解析错误。
+值存在但长度为 0 的记录属于另一种情况，仍然是解码错误。
+
 # 如何使用
 
 ## Kafka 流入 Mysql

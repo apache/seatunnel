@@ -49,6 +49,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 :::
 
+## 检查点恢复
+
+对于 Zeta 批处理作业，恢复时会等待读取器注册后再分配未完成的文件分片，并跳过检查点中已经完成的文件。恢复期间，输入文件应保持不变，且仍可通过相同路径访问。最终写入语义仍取决于所选 Sink 及其检查点支持。
+
 ## 选项
 
 | 名称                         | 类型      | 是否必须 | 默认值                 |
@@ -213,7 +217,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`（`ARRAY<STRING>`）：直接子元素的 ID；叶子元素为空数组。
 
 当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
@@ -322,6 +326,11 @@ PDF 特有的解析行为如下：
 `skip_header_row_number = 2`
 
 然后 SeaTunnel 将跳过源文件的前 2 行
+
+对于设置了 `enable_file_split = false` 的 CSV 文件，此参数跳过的是 CSV 解析之前的物理行。如果设置了
+`csv_use_header_line = true`，跳过这些行之后的第一条 CSV 记录将作为表头。
+`skip_header_row_number` 只应包含表头之前的说明行，不要将表头本身计入；
+如果表头之前没有说明行，请保持默认值 `0`。
 
 ### schema [config]
 
