@@ -86,7 +86,7 @@ Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and 
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
 | custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
-| iceberg.drop-data.strategy             | Enum    | no       | DELETE_COMMIT                | Strategy used when `data_save_mode = DROP_DATA`. `DELETE_COMMIT` preserves the legacy delete-commit behavior and can target `iceberg.table.commit-branch`. `HARD_METADATA_RESET` clears all snapshot refs and snapshots for the table, then recreates the configured commit branch if needed. |
+| iceberg.drop-data.strategy             | Enum    | no       | DELETE_COMMIT                | Strategy used when `data_save_mode = DROP_DATA`. `DELETE_COMMIT` uses Iceberg delete-commit semantics on `iceberg.table.commit-branch`, or `main` when the branch is not configured. `HARD_METADATA_RESET` clears all snapshot refs and snapshots for the table, then recreates the configured commit branch if needed. |
 | multi_table_sink_replica               | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
@@ -142,14 +142,14 @@ The keytab file path for Kerberos authentication.
 
 Controls how the Iceberg sink handles `data_save_mode = DROP_DATA`.
 
-- `DELETE_COMMIT`
-  - Preserves the historical behavior.
-  - Uses Iceberg delete commit semantics.
-  - If `iceberg.table.commit-branch` is configured, the delete commit targets that branch.
+- `DELETE_COMMIT` (default)
+  - Uses Iceberg delete commit semantics and retains snapshot history.
+  - If `iceberg.table.commit-branch` is configured, the delete commit targets that branch instead of `main`. Earlier sink versions cleared `main` regardless of this option. A missing target branch is created empty; other branches and tags are retained.
 - `HARD_METADATA_RESET`
   - Removes all snapshot refs and snapshots from the table metadata.
-  - Recreates the configured non-`main` commit branch after reset.
-  - Leaves orphan file cleanup to separate Iceberg maintenance.
+  - Recreates the configured non-`main` commit branch after reset. Reset and branch recreation are separate metadata commits: if recreation fails, the reset remains committed and the configured branch may be absent. Resolve the catalog failure before retrying the job.
+  - Stop independent writers before resetting the table. This operation does not coordinate concurrent jobs.
+  - Leaves physical orphan file cleanup to separate Iceberg maintenance; it does not delete the data files.
 
 ## Task Example
 

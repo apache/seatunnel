@@ -86,7 +86,7 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
 | custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
-| iceberg.drop-data.strategy             | Enum    | no   | DELETE_COMMIT                | `data_save_mode = DROP_DATA` 时使用的策略。`DELETE_COMMIT` 保持历史 delete commit 行为，并且可以作用在 `iceberg.table.commit-branch` 指定的分支上。`HARD_METADATA_RESET` 会清空整张表的 snapshot refs 和 snapshots，并在需要时重建配置的 commit branch。 |
+| iceberg.drop-data.strategy             | Enum    | no   | DELETE_COMMIT                | `data_save_mode = DROP_DATA` 时使用的策略。`DELETE_COMMIT` 使用 Iceberg delete commit 语义，作用于 `iceberg.table.commit-branch` 指定的分支；未配置时作用于 `main`。`HARD_METADATA_RESET` 会清空整张表的 snapshot refs 和 snapshots，并在需要时重建配置的 commit branch。 |
 | multi_table_sink_replica               | int     | no   | 1                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
@@ -142,14 +142,14 @@ Kerberos 认证的 keytab 文件路径。
 
 用于控制 Iceberg sink 在 `data_save_mode = DROP_DATA` 时的处理方式。
 
-- `DELETE_COMMIT`
-  - 保持历史行为。
-  - 使用 Iceberg 的 delete commit 语义清理数据。
-  - 如果配置了 `iceberg.table.commit-branch`，delete commit 会作用在该分支上。
+- `DELETE_COMMIT`（默认）
+  - 使用 Iceberg 的 delete commit 语义清理数据，并保留 snapshot 历史。
+  - 如果配置了 `iceberg.table.commit-branch`，delete commit 会作用在该分支而非 `main`。较早版本的 Sink 不论此选项如何配置都会清空 `main`。目标分支不存在时会创建空分支；其他分支和 tag 保持不变。
 - `HARD_METADATA_RESET`
   - 清空整张表 metadata 中的 snapshot refs 和 snapshots。
-  - reset 后会重建配置的非 `main` commit branch。
-  - orphan 文件清理由独立的 Iceberg 维护任务处理。
+  - reset 后会重建配置的非 `main` commit branch。reset 与分支重建是两次独立的 metadata 提交：如果重建失败，reset 仍已提交，配置的分支可能不存在。应先排除 catalog 故障，再重试作业。
+  - reset 前应停止其他独立写入作业；该操作不会协调并发作业。
+  - 物理 orphan 文件由独立的 Iceberg 维护任务清理；该操作不会删除数据文件。
 
 ## 任务示例
 
