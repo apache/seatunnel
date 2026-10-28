@@ -23,9 +23,9 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-public class SeaTunnelServer {
-    private static final int HELP_EXIT_CODE = 0;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.HELP_EXIT_CODE;
 
+public class SeaTunnelServer {
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs =
                 CommandLineUtils.parse(
@@ -33,7 +33,6 @@ public class SeaTunnelServer {
                         new ServerCommandArgs(),
                         EngineType.SEATUNNEL.getStarterShellName(),
                         true,
-                        ignored -> {},
                         HELP_EXIT_CODE);
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }

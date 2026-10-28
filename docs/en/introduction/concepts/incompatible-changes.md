@@ -46,7 +46,9 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
 Native help requests for `seatunnel.sh`, `seatunnel-application.sh`, `seatunnel-cluster.sh`,
 `seatunnel-connector.sh`, `seatunnel-metadata-export.sh`, and the Edge Agent starter now exit with
 `0` instead of `234`.
-Update scripts that recognize native help by exit code `234`. Invalid arguments still exit nonzero.
+Update scripts that recognize native help by exit code `234`. Explicit help requests, including the
+connector script's no-argument help, exit `0`; missing required arguments still show usage and exit
+with `234`. Other invalid arguments remain nonzero.
 The Spark/Flink Java launcher protocol still uses `234`; its wrapper scripts continue to translate
 help to exit `0`.
 

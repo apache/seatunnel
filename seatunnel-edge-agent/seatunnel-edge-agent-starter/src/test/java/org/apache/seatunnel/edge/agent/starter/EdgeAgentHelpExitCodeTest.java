@@ -26,8 +26,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Runs the CLI main in a child JVM because the entrypoint terminates through {@code System.exit}.
+ */
 class EdgeAgentHelpExitCodeTest {
 
     @Test
@@ -41,9 +45,20 @@ class EdgeAgentHelpExitCodeTest {
 
     @Test
     void invalidEdgeAgentArgumentsRemainUnsuccessful() throws Exception {
-        ProcessResult result = invokeMain("--invalid-option");
+        assertUsageError("--config");
+        assertUsageError("db", "--sqlite-path");
+        assertUsageError("db");
 
-        Assertions.assertNotEquals(0, result.exitCode);
+        ProcessResult result = invokeMain("db", "unknown-command");
+        Assertions.assertEquals(1, result.exitCode, result.output);
+        Assertions.assertTrue(result.output.contains("Unknown db subcommand"), result.output);
+    }
+
+    private static void assertUsageError(String... args) throws Exception {
+        ProcessResult result = invokeMain(args);
+
+        Assertions.assertEquals(234, result.exitCode, result.output);
+        Assertions.assertTrue(result.output.contains("Usage:"), result.output);
     }
 
     private static void assertHelpExitsSuccessfully(String... args) throws Exception {
@@ -67,9 +82,24 @@ class EdgeAgentHelpExitCodeTest {
                                 EdgeAgentStarter.class.getName()));
         command.addAll(Arrays.asList(args));
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        Assertions.assertTrue(process.waitFor(15, TimeUnit.SECONDS), "CLI process timed out");
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        return new ProcessResult(process.exitValue(), output);
+        FutureTask<String> output =
+                new FutureTask<>(
+                        () ->
+                                new String(
+                                        process.getInputStream().readAllBytes(),
+                                        StandardCharsets.UTF_8));
+        Thread outputReader = new Thread(output, "edge-agent-cli-output-reader");
+        outputReader.setDaemon(true);
+        outputReader.start();
+        try {
+            Assertions.assertTrue(process.waitFor(15, TimeUnit.SECONDS), "CLI process timed out");
+            return new ProcessResult(process.exitValue(), output.get(5, TimeUnit.SECONDS));
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+                process.waitFor();
+            }
+        }
     }
 
     private static final class ProcessResult {

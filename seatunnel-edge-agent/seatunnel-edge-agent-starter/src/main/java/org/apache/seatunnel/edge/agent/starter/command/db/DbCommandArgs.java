@@ -76,8 +76,11 @@ public class DbCommandArgs extends EdgeAgentCommandArgs {
 
     @Override
     public EdgeAgentCommand<?> buildCommand() {
-        if (getSubcommand() == null || "help".equals(getSubcommand())) {
-            return new EdgeAgentDbHelpCommand();
+        if (getSubcommand() == null) {
+            return new EdgeAgentDbUsageCommand(EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+        }
+        if ("help".equals(getSubcommand())) {
+            return new EdgeAgentDbUsageCommand(EdgeAgentStarterConstants.HELP_EXIT_CODE);
         }
         DbSubcommand subcommand = DbSubcommand.fromCliName(getSubcommand());
         if (subcommand == null) {
@@ -104,12 +107,18 @@ public class DbCommandArgs extends EdgeAgentCommandArgs {
         return Paths.get(sqlitePath.trim());
     }
 
-    private static final class EdgeAgentDbHelpCommand implements EdgeAgentCommand<DbCommandArgs> {
+    private static final class EdgeAgentDbUsageCommand implements EdgeAgentCommand<DbCommandArgs> {
+
+        private final int exitCode;
+
+        private EdgeAgentDbUsageCommand(int exitCode) {
+            this.exitCode = exitCode;
+        }
 
         @Override
         public void execute() {
             EdgeAgentDbUsage.printUsage(System.out);
-            System.exit(EdgeAgentStarterConstants.HELP_EXIT_CODE);
+            System.exit(exitCode);
         }
     }
 }

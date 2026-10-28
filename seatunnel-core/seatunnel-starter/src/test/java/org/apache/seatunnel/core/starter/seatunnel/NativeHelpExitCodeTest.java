@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
-import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.command.CommandArgs;
-import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -30,8 +26,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Runs each CLI main in a child JVM because the entrypoints terminate through {@code System.exit}.
+ */
 class NativeHelpExitCodeTest {
 
     @Test
@@ -45,7 +45,9 @@ class NativeHelpExitCodeTest {
 
     @Test
     void invalidNativeCommandStillExitsUnsuccessfully() throws Exception {
-        assertInvalidCommandExitsUnsuccessfully(SeaTunnelServer.class, "-r");
+        assertUsageError(SeaTunnelServer.class, "-r");
+        assertUsageError(SeaTunnelConnector.class, "-pt");
+        assertUsageError(SeaTunnelMetadataExporter.class, "-pt");
         assertInvalidCommandExitsUnsuccessfully(SeaTunnelConnector.class, "-pt", "invalid");
         assertInvalidCommandExitsUnsuccessfully(SeaTunnelMetadataExporter.class, "-pt", "invalid");
     }
@@ -57,11 +59,11 @@ class NativeHelpExitCodeTest {
         Assertions.assertNotEquals(0, result.exitCode);
     }
 
-    @Test
-    void sharedParserKeepsEngineLauncherHelpExitCode() throws Exception {
-        ProcessResult result = invokeMain(DefaultHelpParserMain.class, "--help");
+    private static void assertUsageError(Class<?> mainClass, String... args) throws Exception {
+        ProcessResult result = invokeMain(mainClass, args);
 
         Assertions.assertEquals(234, result.exitCode, result.output);
+        Assertions.assertTrue(result.output.contains("Usage:"), result.output);
     }
 
     private static void assertHelpExitsSuccessfully(Class<?> mainClass, String... args)
@@ -82,22 +84,23 @@ class NativeHelpExitCodeTest {
                         Arrays.asList(java.toString(), "-cp", classpath, mainClass.getName()));
         command.addAll(Arrays.asList(args));
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        Assertions.assertTrue(process.waitFor(15, TimeUnit.SECONDS), "CLI process timed out");
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        return new ProcessResult(process.exitValue(), output);
-    }
-
-    public static class DefaultHelpParserMain {
-
-        public static void main(String[] args) {
-            CommandLineUtils.parse(args, new HelpOnlyCommandArgs(), "engine-starter", true);
-        }
-    }
-
-    private static final class HelpOnlyCommandArgs extends CommandArgs {
-        @Override
-        public Command<?> buildCommand() {
-            return null;
+        FutureTask<String> output =
+                new FutureTask<>(
+                        () ->
+                                new String(
+                                        process.getInputStream().readAllBytes(),
+                                        StandardCharsets.UTF_8));
+        Thread outputReader = new Thread(output, "native-cli-output-reader");
+        outputReader.setDaemon(true);
+        outputReader.start();
+        try {
+            Assertions.assertTrue(process.waitFor(15, TimeUnit.SECONDS), "CLI process timed out");
+            return new ProcessResult(process.exitValue(), output.get(5, TimeUnit.SECONDS));
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+                process.waitFor();
+            }
         }
     }
 
