@@ -55,6 +55,10 @@ public final class MetadataProviderManager {
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
      *
+     * <p>Unwrapping a Config drops key quoting. The map-to-config rebuild therefore uses {@link
+     * ConfigMapPathUtils#quoteInvalidPathKeys(Map)} to preserve keys rejected by the path parser as
+     * literals. Valid paths such as {@code a->b} retain their existing nested meaning.
+     *
      * @param seaTunnelJobConfig the SeaTunnel job configuration (Hocon/Config format)
      * @param metaDataConfig the MetaData configuration containing provider kind and properties
      * @return a new Config with datasource configurations merged
@@ -290,6 +294,11 @@ public final class MetadataProviderManager {
      * Merges the datasource configuration into the original connector config.
      *
      * <p>The datasource config values will override values in the original config if keys conflict.
+     *
+     * <p>Unwrapping the original Config drops key quoting. Before reparsing, the shared helper
+     * quotes keys rejected by the path parser. Provider keys that are valid paths, such as {@code
+     * a->b}, still create nested values; dots remain literal under the SeaTunnel path syntax. This
+     * does not redefine every provider key as a literal.
      *
      * @param connectorConfig the original connector configuration
      * @param datasourceConfig the configuration fetched from MetaData Center
