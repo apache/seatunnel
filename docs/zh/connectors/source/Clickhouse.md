@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | password          | String | 是      | -                      | `ClickHouse` user 用户密码.                                                           |
 | table_path        | String | 否       | -                      | 单个数据表的完整路径，例如 `default.table`。当未设置 `table_list` 时，在外层 source 中配置 `table_path` 和/或 `sql`（至少需要其一）；若已设置 `table_list`，则 `table_list` 优先，外层展开的 `table_path`/`sql` 会被忽略。                                                                                |
 | table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表。每个表条目可以独立覆盖 `sql`、`filter_query`、`split_size`、`batch_size`、`partition_list`。                                              |
-| sql               | String | 否       | -                      | 通过 ClickHouse 服务查询数据的 SQL 语句。需要表名占位符时使用字面量 `table`，不要使用表别名。                                                                            |
+| sql               | String | 否       | -                      | 用于从 ClickHouse 读取数据的 SQL。省略 `table_path` 时，仅当 SQL 引用一张表才能推断表路径。被识别为复杂 SQL 的查询使用单个 split。 |
 | filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。该条件用于表/分区模式。自定义 SQL 模式下，请将过滤条件写入 SQL 的 `WHERE` 子句，不要依赖 `filter_query` 限制查询。                          |
 | partition_list    | Array  | 否       | -                      | 指定分区列表过滤数据。如果是分区表，该字段可以配置为过滤指定分区的数据。例如 `partition_list = ["20250615", "20250616"]`。                                                                |
 | split.size        | int    | 否       | `Integer.MAX_VALUE`    | 配置在外层 source 时，每个 SeaTunnel split 包含的 ClickHouse part 数量。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。                                                                |
