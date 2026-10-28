@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorErrorCode;
@@ -50,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
@@ -457,12 +459,16 @@ public class DatabendCatalog implements Catalog {
         }
     }
 
-    private SeaTunnelDataType<?> convertDatabendType(
+    static SeaTunnelDataType<?> convertDatabendType(
             String typeName, int sqlType, int columnSize, int decimalDigits) {
         // This method should convert Databend data types to SeaTunnel data types
         // This is a simplified version, you'll need to adjust based on Databend's actual type
         // system
-        typeName = typeName.toUpperCase();
+        typeName = typeName.trim().toUpperCase(Locale.ROOT);
+        int typeParametersStart = typeName.indexOf('(');
+        if (typeParametersStart >= 0) {
+            typeName = typeName.substring(0, typeParametersStart).trim();
+        }
 
         switch (typeName) {
             case "BOOLEAN":
@@ -499,7 +505,7 @@ public class DatabendCatalog implements Catalog {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "VARBINARY":
             case "BINARY":
-                return BasicType.BYTE_TYPE;
+                return PrimitiveByteArrayType.INSTANCE;
             default:
                 log.warn("Unsupported Databend type: {}, fallback to STRING type", typeName);
                 return BasicType.STRING_TYPE;
