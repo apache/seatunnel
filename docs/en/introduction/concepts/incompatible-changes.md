@@ -12,6 +12,12 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Numeric columns read from Excel can now carry more digits than before. A DECIMAL with more significant digits than a `double` holds (about 15 to 17, for example many `DECIMAL(38, 18)` values) is now a text cell in the written file, so Excel shows it as text and does not use it in formulas such as `SUM`. A number cell with a percent or currency display format that is read into a numeric column is now read as its stored number, for example a cell shown as `50%` is read as `0.5`; before, the displayed text was parsed and usually failed.
   - **Migration Guide**: No change is needed to read the files with SeaTunnel. If spreadsheet formulas must use such a column, cast it to DOUBLE before the sink, which writes a number cell and accepts the rounding.
 
+### JDBC MySQL: DATETIME writes preserve local date/time fields
+
+The MySQL JDBC sink now binds SeaTunnel `TIMESTAMP` (`LocalDateTime`) directly instead of converting it through `java.sql.Timestamp`. With different worker JVM and JDBC connection time zones, affected versions could shift `DATETIME` values or reject valid boundary values. Writes now preserve the local fields and the fractional seconds supported by the target column. The `DATETIME` source mapping and `TIMESTAMP_TZ` handling are unchanged.
+
+Remove any manual offset used to compensate for this defect. Existing stored values are not changed automatically; verify them against the original source before correcting or reloading them. No new configuration is required.
+
 ### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
 
 - **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
