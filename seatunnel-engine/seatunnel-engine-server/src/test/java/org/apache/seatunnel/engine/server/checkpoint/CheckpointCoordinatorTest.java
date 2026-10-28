@@ -226,7 +226,9 @@ public class CheckpointCoordinatorTest
                 1,
                 CheckpointPlan.builder()
                         .pipelineId(1)
-                        .pipelineSubtasks(Collections.singleton(new TaskLocation()))
+                        .pipelineSubtasks(
+                                Collections.singleton(
+                                        new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0)))
                         .build());
         CompletableFuture<Boolean> threadIsInterrupted = new CompletableFuture<>();
         ExecutorService executorService = Executors.newCachedThreadPool();
@@ -271,7 +273,9 @@ public class CheckpointCoordinatorTest
                 1,
                 CheckpointPlan.builder()
                         .pipelineId(1)
-                        .pipelineSubtasks(Collections.singleton(new TaskLocation()))
+                        .pipelineSubtasks(
+                                Collections.singleton(
+                                        new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0)))
                         .build());
         ExecutorService executorService = Executors.newCachedThreadPool();
         CompletableFuture<Boolean> invokedHandleCheckpointError = new CompletableFuture<>();

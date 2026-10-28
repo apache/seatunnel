@@ -729,6 +729,9 @@ public class CheckpointCoordinator {
             // SubPlan accepts FINISHED physical groups only for unbounded readers while every
             // coordinator is RUNNING. Rebuild their idle-close bookkeeping before triggering a
             // checkpoint: those groups no longer run and cannot acknowledge another barrier.
+            // This is a second read of the execution state after SubPlan's decision. A group that
+            // turns FINISHED between the two reads is treated as closed as well; a running
+            // pipeline only finishes an unbounded reader group through the idle-close handshake.
             Set<TaskGroupLocation> finishedGroups =
                     plan.getPipelineSubtasks().stream()
                             .map(TaskLocation::getTaskGroupLocation)
@@ -742,6 +745,9 @@ public class CheckpointCoordinator {
                     .filter(task -> finishedGroups.contains(task.getTaskGroupLocation()))
                     .forEach(closedIdleTask::add);
             isAllTaskReady.set(true);
+            // Finished groups still receive CheckpointFinishedOperation here: the hosting worker
+            // resolves them through its finishedExecutionContexts fallback. If that worker is
+            // gone, the send fails and the error path restarts the pipeline as before.
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;
             }

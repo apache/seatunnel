@@ -362,7 +362,8 @@ public class PhysicalVertex {
      * tasks). During restore of a RUNNING pipeline with RUNNING coordinators, this is the shape of
      * an idle-closed reader group; it does not prove the original reason for closure.
      *
-     * @param executionState state already read by the restore decision, avoiding a second IMap read
+     * @param executionState state read once by {@code SubPlan#isRecoverableRunningState} for this
+     *     vertex; the coordinator re-reads the IMap in its own restore step
      */
     @VisibleForTesting
     boolean isRecoverableFinishedStateForRunningPipelineRestore(ExecutionState executionState) {

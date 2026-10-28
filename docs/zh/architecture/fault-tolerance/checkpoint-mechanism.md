@@ -330,6 +330,19 @@ sequenceDiagram
       从 100+ 开始的记录重新处理但不重复（幂等提交）
 ```
 
+### 4.3 存在空闲数据源读取器时的 Master 故障转移
+
+对于处于运行状态的流式管道，即使某个无界数据源读取器任务组已经通过空闲关闭握手正常结束，
+Zeta 在 Master 切换后仍会继续执行检查点。前提是所有枚举器和提交器必须仍处于运行状态，
+并且每个已结束的读取器任务组必须至少包含一个数据源，且其中的数据源全部为无界数据源。
+有界数据源、不包含数据源的任务组、失败的任务组以及未知状态都不满足该条件。已结束的
+枚举器不是空闲读取器，仍然走现有的重启路径。
+
+新的 Master 会在创建下一个检查点之前，根据分布式执行状态重建已关闭的读取器任务组，
+因此不会等待那些已经退出的任务返回确认。该判定仅作用于运行中管道的 Master 故障转移，
+不会改变正常执行流程、配置默认值或持久化的检查点格式。执行状态和数据源的有界性只用于
+识别符合条件的任务组，并不记录任务组最初被关闭的原因。
+
 ## 5. 配置和调优
 
 ### 5.1 检查点配置
@@ -513,19 +526,3 @@ seatunnel:
 
 - [Apache Flink 检查点](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/fault-tolerance/checkpointing/)
 - [Spark 结构化流检查点](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#recovering-from-failures-with-checkpointing)
-
-## Master failover with idle source readers
-
-For a running streaming pipeline, Zeta keeps checkpointing after a master switch even when
-an unbounded source reader group has already finished through the idle-close handshake.
-Every enumerator and committer must still be running, and each finished reader group must
-contain at least one source with all its sources unbounded. Bounded sources, non-source
-groups, failed groups and unknown states do not qualify. A finished enumerator is not an
-idle reader and follows the existing restart path.
-
-The new master reconstructs the closed reader groups from the distributed execution states
-before creating the next checkpoint, so it does not wait for acknowledgements from tasks
-that have already exited. This decision applies only to master failover of a running
-pipeline; it does not change normal execution, configuration defaults or the persisted
-checkpoint format. The execution state and source boundedness identify eligible groups;
-they do not record the original reason for closure.
