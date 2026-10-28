@@ -198,7 +198,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 flushException = null;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
-            } catch (JdbcConnectorException e) {
+            } catch (RuntimeException e) {
                 recordFlushException(e);
                 throw e;
             } catch (SQLException e) {

@@ -25,10 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.stream.Stream;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -163,11 +166,13 @@ public class JdbcOutputFormatTest {
         Assertions.assertEquals(1, executor.executeBatchCount);
     }
 
-    @Test
-    public void testCloseDoesNotFlushAgainAfterRuntimeFlushFailure() throws Exception {
+    @ParameterizedTest
+    @MethodSource("runtimeFlushFailures")
+    public void testCloseDoesNotFlushAgainAfterRuntimeFlushFailure(RuntimeException failure)
+            throws Exception {
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
-        RuntimeFailingBatchExecutor executor = new RuntimeFailingBatchExecutor();
+        RuntimeFailingBatchExecutor executor = new RuntimeFailingBatchExecutor(failure);
         JdbcConnectionConfig config =
                 JdbcConnectionConfig.builder().batchSize(1).maxRetries(0).build();
 
@@ -187,6 +192,14 @@ public class JdbcOutputFormatTest {
 
         Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
         Assertions.assertEquals(1, executor.executeBatchCount);
+        org.mockito.Mockito.verify(connectionProvider).closeConnection();
+    }
+
+    private static Stream<RuntimeException> runtimeFlushFailures() {
+        return Stream.of(
+                new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "flush failed"),
+                new IllegalStateException("flush failed"));
     }
 
     @Test
@@ -279,17 +292,22 @@ public class JdbcOutputFormatTest {
     }
 
     /**
-     * Records connector exception failures to detect replay during writer close.
+     * Records unchecked failures to detect replay during writer close.
      *
-     * <p>This fixture exercises the unchecked connector-exception path independently of SQL errors.
+     * <p>Both connector exceptions and plain runtime exceptions must retain the failure latch.
      */
     private static class RuntimeFailingBatchExecutor extends CountingExecutor {
+
+        private final RuntimeException failure;
+
+        private RuntimeFailingBatchExecutor(RuntimeException failure) {
+            this.failure = failure;
+        }
 
         @Override
         public void executeBatch() throws SQLException {
             executeBatchCount++;
-            throw new JdbcConnectorException(
-                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "flush failed");
+            throw failure;
         }
     }
 }
