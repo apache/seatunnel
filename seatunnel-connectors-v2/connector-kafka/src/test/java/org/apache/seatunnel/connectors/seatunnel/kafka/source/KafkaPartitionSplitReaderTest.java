@@ -18,12 +18,24 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -62,6 +74,83 @@ public class KafkaPartitionSplitReaderTest {
                 "true", properties.getProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
     }
 
+    @Test
+    void shouldFinishSplitWhenConsumerPositionReachesStoppingOffsetAfterControlRecord()
+            throws Exception {
+        KafkaSourceConfig sourceConfig = Mockito.mock(KafkaSourceConfig.class);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        KafkaConsumer<byte[], byte[]> consumer = Mockito.mock(KafkaConsumer.class);
+        TopicPartition partition = new TopicPartition("transactional-topic", 0);
+
+        Mockito.when(sourceConfig.getProperties()).thenReturn(new Properties());
+        Mockito.when(sourceConfig.getConsumerGroup()).thenReturn("test-group");
+        Mockito.when(sourceConfig.getBootstrap()).thenReturn("localhost:1");
+        Mockito.when(sourceConfig.getPollTimeout()).thenReturn(1L);
+        Mockito.when(context.getIndexOfSubtask()).thenReturn(0);
+        Mockito.when(consumer.assignment()).thenReturn(Collections.singleton(partition));
+        Mockito.when(consumer.position(partition)).thenReturn(0L, 101L);
+        Mockito.when(consumer.poll(Mockito.any(Duration.class)))
+                .thenReturn(ConsumerRecords.empty());
+
+        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(sourceConfig, context);
+        setConsumer(reader, consumer);
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(
+                                new KafkaSourceSplit(null, partition, 0L, 101L))));
+
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
+
+        Assertions.assertEquals(
+                Collections.singleton(partition.toString()), records.finishedSplits());
+        reader.close();
+    }
+
+    /**
+     * Guards delivery of the final visible records when a transaction marker completes the split.
+     */
+    @Test
+    void shouldDeliverFinalRecordsBeforeFinishingTransactionalSplit() throws Exception {
+        KafkaSourceConfig sourceConfig = Mockito.mock(KafkaSourceConfig.class);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        KafkaConsumer<byte[], byte[]> consumer = Mockito.mock(KafkaConsumer.class);
+        TopicPartition partition = new TopicPartition("transactional-topic", 0);
+        ConsumerRecord<byte[], byte[]> first =
+                new ConsumerRecord<>(partition.topic(), 0, 98L, null, new byte[] {1});
+        ConsumerRecord<byte[], byte[]> last =
+                new ConsumerRecord<>(partition.topic(), 0, 99L, null, new byte[] {2});
+        ConsumerRecord<byte[], byte[]> beyondBound =
+                new ConsumerRecord<>(partition.topic(), 0, 101L, null, new byte[] {3});
+        Mockito.when(sourceConfig.getProperties()).thenReturn(new Properties());
+        Mockito.when(sourceConfig.getConsumerGroup()).thenReturn("test-group");
+        Mockito.when(sourceConfig.getBootstrap()).thenReturn("localhost:1");
+        Mockito.when(sourceConfig.getPollTimeout()).thenReturn(1L);
+        Mockito.when(consumer.assignment()).thenReturn(Collections.singleton(partition));
+        Mockito.when(consumer.position(partition)).thenReturn(0L, 102L);
+        Mockito.when(consumer.poll(Mockito.any(Duration.class)))
+                .thenReturn(
+                        new ConsumerRecords<>(
+                                Collections.singletonMap(
+                                        partition, Arrays.asList(first, last, beyondBound))));
+        // SplitReader does not extend AutoCloseable, so the reader must be closed explicitly
+        // like the test above instead of using try-with-resources.
+        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(sourceConfig, context);
+        setConsumer(reader, consumer);
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(
+                                new KafkaSourceSplit(null, partition, 0L, 101L))));
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
+        Assertions.assertEquals(
+                Collections.singleton(partition.toString()), records.finishedSplits());
+        Assertions.assertEquals(partition.toString(), records.nextSplit());
+        Assertions.assertSame(first, records.nextRecordFromSplit());
+        Assertions.assertSame(last, records.nextRecordFromSplit());
+        Assertions.assertNull(records.nextRecordFromSplit());
+        Assertions.assertNull(records.nextSplit());
+        reader.close();
+    }
+
     /** Creates the minimum Kafka source config used by the tests. */
     private ReadonlyConfig createConfig(boolean commitOnCheckpoint) {
         Map<String, Object> configMap = new HashMap<>();
@@ -82,5 +171,17 @@ public class KafkaPartitionSplitReaderTest {
         Map<String, Object> schema = new HashMap<>();
         schema.put("fields", schemaFields);
         return schema;
+    }
+
+    /**
+     * Replaces and closes the internally created consumer so regression tests do not leak threads.
+     */
+    private void setConsumer(
+            KafkaPartitionSplitReader reader, KafkaConsumer<byte[], byte[]> consumer)
+            throws Exception {
+        Field consumerField = KafkaPartitionSplitReader.class.getDeclaredField("consumer");
+        consumerField.setAccessible(true);
+        ((KafkaConsumer<?, ?>) consumerField.get(reader)).close(Duration.ZERO);
+        consumerField.set(reader, consumer);
     }
 }

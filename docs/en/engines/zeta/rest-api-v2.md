@@ -196,7 +196,7 @@ config-file uploads to `/submit-job/upload` continue to read the uploaded file a
     "conditionRules": [],
     "valueConstraints": [
       {
-        "expression": "'row.num' >= 1",
+        "expression": "'row.num' >= 0",
         "conditionTree": {
           "option": {
             "key": "row.num",
@@ -206,7 +206,7 @@ config-file uploads to `/submit-job/upload` continue to read the uploaded file a
             "fallbackKeys": [],
             "optionValues": null
           },
-          "expectValue": 1,
+          "expectValue": 0,
           "compareOperator": ">=",
           "compareOption": null,
           "conditionOperator": "GREATER_OR_EQUAL",
@@ -269,11 +269,11 @@ config-file uploads to `/submit-job/upload` continue to read the uploaded file a
 
 ```json
 {
-    "projectVersion":"3.0.1-SNAPSHOT",
+    "projectVersion":"3.1.0-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
     "pendingJobs":"0",
     "finishedJobs":"0",
@@ -284,7 +284,7 @@ config-file uploads to `/submit-job/upload` continue to read the uploaded file a
 
 **Notes:**
 - If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
-- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+- If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
@@ -394,12 +394,45 @@ None.
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
 ```
+
+**Notes:**
+- The `metrics` object keys follow the engine metric names: besides `SourceReceivedCount` and `SinkWriteCount` it also contains the `SinkCommitted*`, `*Bytes`, `*Qps`, `IntermediateQueueSize`, `FlushSignal*` and `Table*` entries when the job exposes them.
+- When the `page` parameter is supplied, the response is wrapped as `{"data": [...], "total": n}` (same as `/finished-jobs`); without paging the bare array above is returned.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Get Running Jobs Summary
+
+<details>
+ <summary><code>GET</code> <code><b>/running-jobs/summary</b></code> <code>(Returns a lightweight running-job list without DAG or metrics.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "733584788375666689",
+    "jobName": "rest_api_test",
+    "jobStatus": "RUNNING",
+    "createTime": "2024-08-01 12:00:00"
+  }
+]
+```
+
+**Notes:**
+- This is a cheap variant of `/running-jobs` used by the Web UI: it returns only `jobId`, `jobName`, `jobStatus` and `createTime` per job and skips DAG and metrics decoding.
 
 </details>
 
@@ -582,6 +615,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -624,7 +658,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -662,7 +696,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
@@ -702,11 +736,11 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -735,6 +769,7 @@ This API has been deprecated, please use /job-info/:jobId instead
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -760,6 +795,10 @@ This API has been deprecated, please use /job-info/:jobId instead
     "SinkWriteQPS": "",
     "SinkWriteBytes": "",
     "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -769,7 +808,7 @@ This API has been deprecated, please use /job-info/:jobId instead
     "TableSinkWriteBytes": {},
     "TableSinkWriteBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -781,13 +820,13 @@ This API has been deprecated, please use /job-info/:jobId instead
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 
-When we can't get the job info, the response will be:
+When we can't get the job info, the response contains only the requested `jobId`:
 
 ```json
 {
-  "jobId" : ""
+  "jobId" : "733584788375666689"
 }
 ```
 
@@ -1046,7 +1085,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "rest_api_test"
 }
 ```
@@ -1095,7 +1134,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-    "jobId": 733584788375666689,
+    "jobId": "733584788375666689",
     "jobName": "SeaTunnel_Job"
 }
 ```
@@ -1232,7 +1271,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 
@@ -1439,13 +1478,11 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 
 #### Request Parameters
 
-#### Parameters (to be added in the `params` field of the request body)
-
 > |    Parameter Name     |   Required   |  Type   |            Description            |
 > |-----------------------|--------------|---------|------------------------------------|
-> | jobId                 |   optional   | string  | job id                            |
+> | jobId                 |   optional   | string  | job id, appended as the path segment `/logs/{jobId}` |
 
-If `jobId` is empty, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
+If `jobId` is omitted, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
 
 #### Response
 
@@ -1522,8 +1559,8 @@ Returns a list of logs from the requested node.
 
 #### Examples
 
-To get a list of logs from the current node: `http://localhost:5801/log`
-To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+To get a list of logs from the current node: `http://localhost:8080/log`
+To get the content of a log file: `http://localhost:8080/log/job-898380162133917698.log`
 
 Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
 all-node endpoint above.
@@ -1725,6 +1762,7 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 ```json
 {
   "jobId": "1234567890",
+  "generatedAt": 1720000006500,
   "updatedAt": 1720000000123,
   "pipelines": [
     {
@@ -1787,7 +1825,8 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 | Field | Description |
 | --- | --- |
 | `jobId` | Job ID. |
-| `updatedAt` | Latest snapshot timestamp (millisecond). |
+| `generatedAt` | When this response was produced, in epoch milliseconds, taken from the clock of the member that served it. Always present, including when there is no overview to report. Use this, not `updatedAt`, to work out how long an `inProgress` checkpoint has been running: subtract its `triggerTimestamp` from this value. That subtraction assumes member clocks are NTP-synchronised: when the master cannot be reached the request is served by another member, so the two timestamps can come from different nodes. |
+| `updatedAt` | When the overview was last written, in epoch milliseconds — that is, the time of the most recent checkpoint event (trigger, acknowledgement, completion, failure or restore). It does **not** advance while a checkpoint is simply waiting, so it is not a response timestamp and cannot be used to age an in-progress checkpoint. Absent when the monitor has nothing recorded for the job. |
 | `pipelines` | List of pipeline statistics. |
 | `pipelines[].pipelineId` | Pipeline ID. |
 | `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint statistics:<br/>- `triggered`: total triggered checkpoints.<br/>- `completed`: total successful checkpoints.<br/>- `failed`: total failed checkpoints.<br/>- `inProgress`: checkpoints currently running.<br/>- `restored`: number of restore (including savepoint) attempts. |
@@ -1882,9 +1921,20 @@ See [Realtime Observability](realtime-observability.md) for configuration and me
       "retentionMinutes": 3,
       "latestBucketStartMs": 1700000000000
     }
-  ]
+  ],
+  "collector": {
+    "pollIntervalMs": 5000,
+    "fetchTimeoutMs": 3000,
+    "lastCollectStartMs": 1700000000000,
+    "lastCollectEndMs": 1700000001200,
+    "lastRawMetricsFetchCostMs": 120,
+    "lastRawMetricsBlobs": 2,
+    "collectFailureCount": 0
+  }
 }
 ```
+
+The `collector` object reports the realtime collector lifecycle on the master (poll interval, last collection timings and the failure counter).
 
 </details>
 
