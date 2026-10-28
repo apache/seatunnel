@@ -235,10 +235,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
       - "8080:8080"
@@ -251,10 +248,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -266,10 +260,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -303,10 +294,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
       - "8080:8080"
@@ -319,10 +307,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -334,10 +319,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -352,10 +334,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801,seatunnel_worker_3:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:

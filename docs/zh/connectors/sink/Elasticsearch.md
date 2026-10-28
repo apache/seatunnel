@@ -32,7 +32,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_type             | string  | 否    |                              |
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |
-| auth_type              | enum    | 否    | basic                        |
+| key_encoding           | enum    | 否    | LEGACY                       |
+| auth_type              | string  | 否    | basic                        |
 | username               | string  | 否    |                              |
 | password               | string  | 否    |                              |
 | auth.api_key_id        | string  | 否    | -                            |
@@ -71,6 +72,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 ### key_delimiter [string]
 
 设定复合键的分隔符（默认为 `_`），例如，如果使用 `$` 作为分隔符，那么文档的 `_id` 将呈现为 `KEY1$KEY2$KEY3` 的格式
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有文档 ID。当存在多个 `primary_keys` 时，如果主键值包含 `key_delimiter`，可能会生成相同的 ID。设为 `LENGTH_PREFIXED` 后，每个格式化后的值会编码为 `<长度>:<值>`；例如 `["1_1", "2"]` 会编码为 `3:1_11:2`，`["1", "1_2"]` 会编码为 `1:13:1_2`。该模式会忽略 `key_delimiter`，且单主键的 ID 保持不变。
+
+对已有复合主键索引修改此选项会改变文档 ID，切换前需要重建索引或迁移已有文档，否则后续写入可能产生重复文档而不是更新旧 ID。
 
 ### multi_table_sink_replica [int]
 

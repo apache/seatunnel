@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfi
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,12 +35,27 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -199,6 +215,158 @@ public class FixedChunkSplitterTest {
                             PreparedStatement.class.getClassLoader(),
                             new Class<?>[] {PreparedStatement.class},
                             handler);
+        }
+    }
+
+    private static final String DUCKDB_URL = "jdbc:duckdb:";
+
+    @Test
+    public void testNumericSplitsReadEveryRowExactlyOnce() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE t (id BIGINT)");
+                statement.execute("INSERT INTO t SELECT * FROM range(1, 2002)");
+            }
+
+            JdbcSourceTable table =
+                    JdbcSourceTable.builder()
+                            .tablePath(TablePath.of("main", "t"))
+                            .query("SELECT id FROM t")
+                            .partitionColumn("id")
+                            .partitionStart("1")
+                            .partitionEnd("2001")
+                            .partitionNumber(1000)
+                            .build();
+
+            Collection<JdbcSourceSplit> splits = splitter.createSplits(table, splitKeyType());
+            List<Long> ids = readAllIds(splitter, splits);
+
+            assertEquals(2001, ids.size(), "every row must be read exactly once");
+            List<Long> distinct = new ArrayList<>(new LinkedHashSet<>(ids));
+            assertEquals(2001, distinct.size(), "no row may be read twice");
+            Collections.sort(distinct);
+            assertEquals(
+                    LongStream.rangeClosed(1, 2001).boxed().collect(Collectors.toList()), distinct);
+        }
+    }
+
+    @Test
+    public void testSignedBigIntBoundariesAreSplitWithoutNarrowing() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            long[] boundaries = {Long.MIN_VALUE, -1L, 0L, Long.MAX_VALUE};
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE t (id BIGINT)");
+            }
+            try (PreparedStatement insert =
+                    connection.prepareStatement("INSERT INTO t (id) VALUES (?)")) {
+                for (long value : boundaries) {
+                    insert.setLong(1, value);
+                    insert.addBatch();
+                }
+                insert.executeBatch();
+            }
+
+            JdbcSourceTable table =
+                    JdbcSourceTable.builder()
+                            .tablePath(TablePath.of("main", "t"))
+                            .query("SELECT id FROM t")
+                            .partitionColumn("id")
+                            .partitionStart(String.valueOf(Long.MIN_VALUE))
+                            .partitionEnd(String.valueOf(Long.MAX_VALUE))
+                            .partitionNumber(2)
+                            .build();
+
+            Collection<JdbcSourceSplit> splits = splitter.createSplits(table, splitKeyType());
+            List<Long> ids = readAllIds(splitter, splits);
+
+            assertEquals(4, ids.size(), "each signed BIGINT boundary must be read exactly once");
+            List<Long> sorted = new ArrayList<>(ids);
+            Collections.sort(sorted);
+            assertEquals(Arrays.asList(Long.MIN_VALUE, -1L, 0L, Long.MAX_VALUE), sorted);
+        }
+    }
+
+    @Test
+    public void testConfiguredBoundsCoverRangeAndExcludeOutsiders() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE t (id BIGINT)");
+                statement.execute("INSERT INTO t SELECT * FROM range(0, 12)");
+            }
+
+            JdbcSourceTable table =
+                    JdbcSourceTable.builder()
+                            .tablePath(TablePath.of("main", "t"))
+                            .query("SELECT id FROM t")
+                            .partitionColumn("id")
+                            .partitionStart("1")
+                            .partitionEnd("10")
+                            .partitionNumber(3)
+                            .build();
+
+            Collection<JdbcSourceSplit> splits = splitter.createSplits(table, splitKeyType());
+            List<Long> ids = readAllIds(splitter, splits);
+            assertEquals(10, ids.size());
+            Set<Long> distinct = new HashSet<>(ids);
+
+            assertEquals(
+                    LongStream.rangeClosed(1, 10).boxed().collect(Collectors.toSet()),
+                    distinct,
+                    "the configured bounds must cover 1..10");
+            assertFalse(
+                    distinct.contains(0L), "values below the configured start must be excluded");
+            assertFalse(distinct.contains(11L), "values above the configured end must be excluded");
+        }
+    }
+
+    private static List<Long> readAllIds(ChunkSplitter splitter, Collection<JdbcSourceSplit> splits)
+            throws SQLException {
+        List<Long> ids = new ArrayList<>();
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement statement =
+                            splitter.generateSplitStatement(split, TableSchema.builder().build());
+                    ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    ids.add(resultSet.getLong(1));
+                }
+            }
+        }
+        return ids;
+    }
+
+    private static JdbcSourceConfig duckDbConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url(DUCKDB_URL)
+                                .driverName("org.duckdb.DuckDBDriver")
+                                .build())
+                .build();
+    }
+
+    private static SeaTunnelRowType splitKeyType() {
+        return new SeaTunnelRowType(
+                new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE});
+    }
+
+    private static final class DuckDbFixedChunkSplitter extends FixedChunkSplitter {
+
+        private final Connection connection;
+
+        private DuckDbFixedChunkSplitter(JdbcSourceConfig config, Connection connection) {
+            super(config);
+            this.connection = connection;
+        }
+
+        @Override
+        protected PreparedStatement createPreparedStatement(String sql) throws SQLException {
+            return connection.prepareStatement(sql);
         }
     }
 }

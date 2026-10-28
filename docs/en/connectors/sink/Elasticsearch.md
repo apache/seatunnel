@@ -38,7 +38,8 @@ Engine Supported
 | index_type              | string  | no       | -                            | Deprecated. Maps to Elasticsearch `_type` for clusters that still require it. Leave unset for modern clusters. |
 | primary_keys            | list    | no       | -                            | Primary key fields used to generate the document `_id`. Required for CDC sources that produce update / delete events. |
 | key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys into `_id` (default `_`). Use a different character to avoid clashes with field values. |
-| auth_type               | enum    | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`), `api_key` (Elasticsearch API key id + secret) or `api_key_encoded` (Base64-encoded API key). |
+| key_encoding            | enum    | no       | LEGACY                       | `LEGACY` keeps existing document IDs; `LENGTH_PREFIXED` avoids composite-key delimiter collisions. |
+| auth_type               | string  | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`) or `api_key` (Elasticsearch API key). |
 | username                | string  | no       | -                            | Username for `basic` auth. |
 | password                | string  | no       | -                            | Password for `basic` auth. |
 | auth.api_key_id         | string  | no       | -                            | API key id for `api_key` auth. |
@@ -77,6 +78,12 @@ Primary key fields used to generate the document `_id`, this is cdc required opt
 ### key_delimiter [string]
 
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY` (default) keeps existing document IDs. With multiple `primary_keys`, values containing `key_delimiter` can produce the same ID. Set `LENGTH_PREFIXED` to encode each formatted value as `<length>:<value>`; for example, `["1_1", "2"]` becomes `3:1_11:2` and `["1", "1_2"]` becomes `1:13:1_2`. This mode ignores `key_delimiter` and leaves single-key IDs unchanged.
+
+Changing this option for an existing composite-key index changes its document IDs. Reindex or migrate existing documents before switching; otherwise subsequent writes can create duplicates instead of updating the old IDs.
 
 ### multi_table_sink_replica [int]
 
