@@ -80,7 +80,9 @@ The Job Detail page contains four main tabs:
 
 The Overview runtime context shows the vertex and edge counts, checkpoint counts across pipelines,
 the latest completed checkpoint, failed checkpoint and savepoint, and a compact job error message.
-If the checkpoint API fails, the UI clears its previous snapshot and displays an unavailable warning.
+If the checkpoint API fails or the monitor has no snapshot for the job, the UI clears its previous
+snapshot and displays an unavailable warning instead of zero counts. Overlapping requests cannot
+replace the latest request's result with an older response.
 For graphs with more than 80 vertices or 120 edges, a summary also lists up to five busy vertices
 and five blocked downstream inputs, ranked by busyness and by the greater of downstream wait ratio
 or queue fill ratio, respectively. These summaries use the same realtime metrics as the DAG and

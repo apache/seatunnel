@@ -103,15 +103,23 @@ export default defineComponent({
     let timer: NodeJS.Timeout
     let fetchTimer: NodeJS.Timeout
     let checkpointWarningLogged = false
+    let checkpointRequestSequence = 0
     const checkpointOverview = ref<CheckpointOverviewResponse>()
     const checkpointError = ref<string | null>(null)
     const fetchCheckpointOverview = async () => {
       if (select.value !== 'Overview') return
+      // Polls and tab changes can overlap. Only the latest request may publish its result.
+      const requestSequence = ++checkpointRequestSequence
       try {
-        checkpointOverview.value = await getJobCheckpointOverview(jobId)
-        checkpointError.value = null
+        const overview = await getJobCheckpointOverview(jobId)
+        if (requestSequence !== checkpointRequestSequence) return
+        // A jobId-only response means the monitor has no snapshot, not zero checkpoints.
+        const hasSnapshot = Array.isArray(overview.pipelines)
+        checkpointOverview.value = hasSnapshot ? overview : undefined
+        checkpointError.value = hasSnapshot ? null : t('detail.runtime.checkpointUnavailable')
         checkpointWarningLogged = false
       } catch (e) {
+        if (requestSequence !== checkpointRequestSequence) return
         checkpointOverview.value = undefined
         checkpointError.value = t('detail.runtime.checkpointUnavailable')
         if (!checkpointWarningLogged) {
@@ -149,6 +157,7 @@ export default defineComponent({
 
     // Clear the timer when the component is uninstalled
     onUnmounted(() => {
+      checkpointRequestSequence++
       clearInterval(timer)
       clearTimeout(fetchTimer)
       clearInterval(realtimeTimer)
@@ -693,11 +702,15 @@ export default defineComponent({
         <div class="runtime-context-item">
           <div class="runtime-context-title">{t('detail.runtime.checkpoint')}</div>
           <div class="runtime-context-value">
-            {checkpointCounts.value.completed}/{checkpointCounts.value.triggered}{' '}
-            {t('detail.runtime.completed')}
+            {checkpointOverview.value
+              ? `${checkpointCounts.value.completed}/${checkpointCounts.value.triggered} ${t('detail.runtime.completed')}`
+              : t('detail.runtime.unavailable')}
           </div>
           <div class="runtime-context-line">
-            {t('detail.runtime.inProgress')}: {checkpointCounts.value.inProgress}
+            {t('detail.runtime.inProgress')}:{' '}
+            {checkpointOverview.value
+              ? checkpointCounts.value.inProgress
+              : t('detail.runtime.unavailable')}
           </div>
           <div class="runtime-context-line">
             {t('detail.runtime.latestCompleted')}:{' '}

@@ -147,6 +147,7 @@ describe('runtime diagnosis summary', () => {
         3: edgePoint(0.1, 0.95),
         4: edgePoint(0.9, 0.2),
         5: edgePoint(0, 0),
+        // Both inputs score 0.6; their original order must survive the sort.
         6: edgePoint(0.6, 0.3),
         7: edgePoint(0.3, 0.6),
         8: edgePoint(0.1, 0.1)

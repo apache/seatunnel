@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createApp, h } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { NMessageProvider } from 'naive-ui'
@@ -24,6 +24,7 @@ import i18n from '@/locales'
 import detail from '@/views/jobs/detail'
 import { getJobInfo } from '@/service/job'
 import { getJobCheckpointOverview } from '@/service/checkpoint'
+import type { CheckpointOverviewResponse } from '@/service/checkpoint'
 import type { Job } from '@/service/job/types'
 
 vi.mock('@/service/checkpoint', () => ({
@@ -69,7 +70,9 @@ vi.mock('@/service/realtime-metrics', async () => {
 describe('detail', () => {
   const app = createApp({})
   beforeEach(() => {
-    vi.mocked(getJobCheckpointOverview).mockResolvedValue({ jobId: '123456789', pipelines: [] })
+    vi.mocked(getJobCheckpointOverview)
+      .mockReset()
+      .mockResolvedValue({ jobId: '123456789', pipelines: [] })
     const pinia = createPinia()
     app.use(pinia)
     setActivePinia(createPinia())
@@ -187,5 +190,150 @@ describe('detail', () => {
     expect(wrapper.find('.runtime-error-snippet').text()).toBe('connector failed')
     expect(wrapper.find('.runtime-large-summary').exists()).toBe(false)
     wrapper.unmount()
+  })
+
+  describe('checkpoint refresh', () => {
+    let wrapper: VueWrapper | undefined
+    const snapshot: CheckpointOverviewResponse = {
+      jobId: '123456789',
+      pipelines: [
+        {
+          pipelineId: 1,
+          counts: { triggered: 9, completed: 8, failed: 1, inProgress: 0, restored: 0 },
+          latestCompleted: { checkpointId: 17, status: 'COMPLETED', durationMillis: 500 },
+          latestFailed: {},
+          latestSavepoint: {},
+          inProgress: [],
+          history: []
+        }
+      ]
+    }
+    const deferred = () => {
+      let resolve!: (value: CheckpointOverviewResponse) => void
+      let reject!: (reason: Error) => void
+      const promise = new Promise<CheckpointOverviewResponse>((res, rej) => {
+        resolve = res
+        reject = rej
+      })
+      return { promise, resolve, reject }
+    }
+    const mountDetail = async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      wrapper = mount(
+        {
+          setup: () => () => h(NMessageProvider, null, { default: () => h(detail) })
+        },
+        { global: { plugins: [i18n, pinia] } }
+      )
+      await flushPromises()
+      return wrapper
+    }
+
+    beforeEach(() => {
+      // Keep setImmediate real so flushPromises can drain deferred API responses.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
+      vi.mocked(getJobInfo).mockResolvedValue({
+        jobId: '123456789',
+        jobName: 'runtime-refresh',
+        jobStatus: 'RUNNING',
+        createTime: '2026-05-21 10:00:00',
+        errorMsg: '',
+        jobDag: { jobId: '123456789', vertexInfoMap: [], pipelineEdges: {} },
+        metrics: {},
+        pluginJarsUrls: []
+      } as unknown as Job)
+    })
+
+    afterEach(() => {
+      wrapper?.unmount()
+      wrapper = undefined
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    })
+
+    test('shows unavailable without zero counts when the monitor has no snapshot', async () => {
+      vi.mocked(getJobCheckpointOverview).mockResolvedValue({ jobId: '123456789' })
+      const view = await mountDetail()
+      const panel = view.findAll('.runtime-context-item')[1]
+      expect(panel.find('.runtime-context-value').text()).toBe(
+        i18n.global.t('detail.runtime.unavailable')
+      )
+      expect(panel.text()).toContain(i18n.global.t('detail.runtime.checkpointUnavailable'))
+      expect(panel.text()).not.toContain('0/0')
+    })
+
+    test('retains valid zero counts for an available snapshot with no pipelines', async () => {
+      const view = await mountDetail()
+      const panel = view.findAll('.runtime-context-item')[1]
+      expect(panel.find('.runtime-context-value').text()).toContain('0/0')
+      expect(panel.text()).not.toContain(i18n.global.t('detail.runtime.checkpointUnavailable'))
+    })
+
+    test.each(['missing snapshot', 'request failure'])(
+      'clears previous checkpoint values after %s',
+      async (outcome) => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(getJobCheckpointOverview).mockResolvedValueOnce(snapshot)
+        if (outcome === 'missing snapshot') {
+          vi.mocked(getJobCheckpointOverview).mockResolvedValueOnce({ jobId: '123456789' })
+        } else {
+          vi.mocked(getJobCheckpointOverview).mockRejectedValueOnce(
+            new Error('checkpoint unavailable')
+          )
+        }
+        const view = await mountDetail()
+        expect(view.findAll('.runtime-context-item')[1].text()).toContain('#17 COMPLETED')
+        await vi.advanceTimersByTimeAsync(5000)
+        await flushPromises()
+        const panel = view.findAll('.runtime-context-item')[1]
+        expect(panel.text()).toContain(i18n.global.t('detail.runtime.checkpointUnavailable'))
+        expect(panel.text()).not.toContain('#17')
+        expect(panel.text()).not.toContain('8/9')
+        expect(panel.text()).not.toContain('0/0')
+      }
+    )
+
+    test.each(['success', 'failure'])(
+      'ignores an older %s after a newer request succeeds',
+      async (outcome) => {
+        const older = deferred()
+        const newer = deferred()
+        vi.mocked(getJobCheckpointOverview)
+          .mockReturnValueOnce(older.promise)
+          .mockReturnValueOnce(newer.promise)
+        const view = await mountDetail()
+        await vi.advanceTimersByTimeAsync(5000)
+        newer.resolve(snapshot)
+        await flushPromises()
+        expect(view.findAll('.runtime-context-item')[1].text()).toContain('8/9')
+        if (outcome === 'success') older.resolve({ jobId: '123456789', pipelines: [] })
+        else older.reject(new Error('older request failed'))
+        await flushPromises()
+        const panel = view.findAll('.runtime-context-item')[1]
+        expect(panel.text()).toContain('8/9')
+        expect(panel.text()).toContain('#17 COMPLETED')
+        expect(panel.text()).not.toContain(i18n.global.t('detail.runtime.checkpointUnavailable'))
+      }
+    )
+
+    test('does not restore an older successful snapshot after the latest request fails', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const older = deferred()
+      const newer = deferred()
+      vi.mocked(getJobCheckpointOverview)
+        .mockReturnValueOnce(older.promise)
+        .mockReturnValueOnce(newer.promise)
+      const view = await mountDetail()
+      await vi.advanceTimersByTimeAsync(5000)
+      newer.reject(new Error('latest request failed'))
+      await flushPromises()
+      older.resolve(snapshot)
+      await flushPromises()
+      const panel = view.findAll('.runtime-context-item')[1]
+      expect(panel.text()).toContain(i18n.global.t('detail.runtime.checkpointUnavailable'))
+      expect(panel.text()).not.toContain('8/9')
+      expect(panel.text()).not.toContain('#17')
+    })
   })
 })
