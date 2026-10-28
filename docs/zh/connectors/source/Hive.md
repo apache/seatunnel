@@ -6,19 +6,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 描述
 
-从 Hive 读取数据。
-
-使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
-- `element_id`：元素的唯一标识符
-- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
-- `heading_level`：标题级别（1-6，非标题元素为 null）
-- `text`：元素的文本内容
-- `page_number`：页码（默认：1）
-- `position_index`：文档中的位置索引
-- `parent_id`：父元素的 ID
-- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
-
-注意：Markdown 格式仅支持读取，不支持写入。
+从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
 
 :::tip 提示
 
@@ -38,21 +26,18 @@ import ChangeLog from '../changelog/connector-hive.md';
 - [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
-- [x] 文件格式
+- [x] 文件格式（由 Hive 表的 `STORED AS` 存储格式决定）
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
-    - [x] markdown
 
 ## 选项
 
 |         名称          |  类型  | 必需 | 默认值  | 描述 |
 |-----------------------|--------|------|---------|------|
 | table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
-| table_list            | array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `tables_configs`。仅为向后兼容保留，未来版本将移除。 |
-| tables_configs        | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
+| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。若两者同时设置，`table_list` 优先。 |
+| tables_configs        | array  | 否   | 已废弃，请使用 `table_list` | 已废弃的多表配置列表。Hive 是结构化数据源，新作业请使用 `table_list`。仅为向后兼容保留。 |
 | use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
 | metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
 | krb5_path             | string | 否   | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 文件路径。 |
@@ -65,22 +50,22 @@ import ChangeLog from '../changelog/connector-hive.md';
 | remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
 | read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
 | read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
-| compress_codec        | string | 否   | none    | text / CSV / JSON 输出的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
 | common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### table_name [string]
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
 
-单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `tables_configs`。`table_list` 仍可作为向后兼容的旧配置，但新作业建议使用 `tables_configs`。
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，请配置 `table_list`。`tables_configs` 仍可向后兼容使用，但 `table_list` 是当前选项。
 
 ### table_list [array]
 
-已废弃的多表读取配置列表，仅为向后兼容保留。新作业请使用 `tables_configs`。
+多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### tables_configs [array]
 
-Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+已废弃的多表配置列表，仅为向后兼容保留；新作业请使用 `table_list`。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### use_regex [boolean]
 
@@ -142,8 +127,6 @@ Kerberos 认证的 keytab 文件路径
 文件的压缩编解码器，支持的详细信息如下所示：
 
 - txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
 - orc/parquet:  
   自动识别压缩类型，无需额外设置。
 
@@ -172,12 +155,12 @@ Kerberos 认证的 keytab 文件路径
 ```
 
 ### 示例 3：多表
-> 注意：Hive 是结构化数据源，应使用 `tables_configs`，`table_list` 已在新的 API 中废弃，并将在未来移除。
+> 注意：Hive 是结构化数据源，多表读取请使用 `table_list`；`tables_configs` 已废弃，目前仍向后兼容可用。
 > 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
 
 ```bash
   Hive {
-    tables_configs = [
+    table_list = [
         {
           table_name = "default.seatunnel_orc_1"
           metastore_uri = "thrift://namenode001:9083"
