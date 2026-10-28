@@ -17,11 +17,14 @@
 
 import io
 import json
+import os
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+from urllib.error import URLError
 
-from ci_duration_analysis import fetch_jobs_from_api, parse_jobs_from_data, print_job_summary
+from ci_duration_analysis import fetch_jobs_from_api, main, parse_jobs_from_data, print_job_summary
 
 
 class CiDurationAnalysisTest(unittest.TestCase):
@@ -101,3 +104,105 @@ class CiDurationAnalysisTest(unittest.TestCase):
         with patch("ci_duration_analysis.urlopen", return_value=page):
             with self.assertRaisesRegex(ValueError, "page limit"):
                 fetch_jobs_from_api("https://api.github.com/jobs?page=1", max_pages=1)
+
+    def test_expected_bucket_boundaries_are_monotonic(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        samples = [(0, 0), (9, 20), (10, 20), (19, 20), (20, 20),
+                   (29, 40), (30, 40), (40, 40)]
+        for minutes, expected in samples:
+            with self.subTest(minutes=minutes):
+                end = (start + timedelta(minutes=minutes)).isoformat()
+                jobs = parse_jobs_from_data({"jobs": [self.job(1, completed_at=end)]})
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    print_job_summary(jobs)
+                row = next(line for line in output.getvalue().splitlines()
+                           if line.startswith("| 1 | job-1 |"))
+                self.assertEqual(str(expected), row.split("|")[-2].strip())
+
+    def test_expected_uses_seconds_before_display_minute_rounding(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        for seconds, display_minutes, expected in [
+                (0.01, 0.0, 20), (1199.99, 20.0, 20),
+                (1200, 20.0, 20), (1200.01, 20.0, 40)]:
+            with self.subTest(seconds=seconds):
+                end = (start + timedelta(seconds=seconds)).isoformat()
+                jobs = parse_jobs_from_data({"jobs": [self.job(1, completed_at=end)]})
+                self.assertEqual(seconds, jobs[0]["total_duration_seconds"])
+                self.assertEqual(display_minutes, jobs[0]["total_duration_minutes"])
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    print_job_summary(jobs)
+                row = next(line for line in output.getvalue().splitlines()
+                           if line.startswith("| 1 | job-1 |"))
+                self.assertEqual(str(expected), row.split("|")[-2].strip())
+
+    def test_parser_preserves_zero_invalid_timing_and_success_only_reporting(self):
+        jobs = parse_jobs_from_data({"jobs": [
+            self.job(1, started_at="invalid", completed_at=None),
+            self.job(2, completed_at="2026-01-01T00:00:00Z"),
+            self.job(3, conclusion="failure"),
+            self.job(4, completed_at="2025-12-31T23:59:59Z"),
+            self.job(5, started_at="2026-01-01T01:00:00+01:00",
+                     completed_at="2026-01-01T00:00:01.234567Z"),
+        ]})
+        by_id = {job["job_id"]: job for job in jobs}
+        self.assertIsNone(by_id[1]["started_at"])
+        self.assertIsNone(by_id[1]["total_duration_seconds"])
+        self.assertEqual(0.0, by_id[2]["total_duration_seconds"])
+        self.assertIsNone(by_id[4]["total_duration_seconds"])
+        self.assertEqual(1.23, by_id[5]["total_duration_seconds"])
+        self.assertEqual(0.02, by_id[5]["total_duration_minutes"])
+        output = io.StringIO()
+        with redirect_stdout(output):
+            print_job_summary(jobs)
+        summary = output.getvalue()
+        self.assertIn("Jobs without completed timing: 2", summary)
+        self.assertNotIn("job-3", summary)
+        unknown = next(line for line in summary.splitlines() if "| job-1 |" in line)
+        self.assertEqual(["", "", ""], [cell.strip() for cell in unknown.split("|")[-4:-1]])
+        zero = next(line for line in summary.splitlines() if "| job-2 |" in line)
+        self.assertEqual(["0.0", "0.0", "0"], [cell.strip() for cell in zero.split("|")[-4:-1]])
+
+    def test_cli_authentication_comes_only_from_environment(self):
+        for token in [None, "test-only-environment-credential"]:
+            with self.subTest(authenticated=token is not None):
+                environment = {} if token is None else {"GITHUB_TOKEN": token}
+                output, errors = io.StringIO(), io.StringIO()
+                with patch.dict(os.environ, environment, clear=True), \
+                        patch("ci_duration_analysis.urlopen", return_value=self.response([], 0)) as fetch, \
+                        redirect_stdout(output), redirect_stderr(errors):
+                    result = main(["apache", "42"])
+                self.assertEqual(0, result)
+                request = fetch.call_args.args[0]
+                self.assertEqual("https://api.github.com/repos/apache/seatunnel/actions/runs/42/jobs?page=1&per_page=100",
+                                 request.full_url)
+                self.assertEqual(None if token is None else "Bearer " + token,
+                                 request.get_header("Authorization"))
+                self.assertIn("A total of 0 tasks were parsed", output.getvalue())
+                self.assertEqual("", errors.getvalue())
+                if token:
+                    self.assertNotIn(token, output.getvalue())
+
+    def test_cli_rejects_legacy_token_argument_without_echoing_it(self):
+        token = "test-only-positional-credential"
+        output, errors = io.StringIO(), io.StringIO()
+        with patch("ci_duration_analysis.urlopen") as fetch, \
+                redirect_stdout(output), redirect_stderr(errors):
+            result = main(["apache", "42", token])
+        self.assertEqual(1, result)
+        fetch.assert_not_called()
+        self.assertIn("GITHUB_TOKEN", errors.getvalue())
+        self.assertNotIn(token, output.getvalue() + errors.getvalue())
+        self.assertNotIn("[token]", errors.getvalue())
+
+    def test_cli_request_errors_redact_environment_credential(self):
+        token = "test-only-failing-credential"
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"GITHUB_TOKEN": token}, clear=True), \
+                patch("ci_duration_analysis.urlopen", side_effect=URLError("request rejected " + token)), \
+                redirect_stdout(output), redirect_stderr(errors):
+            result = main(["apache", "42"])
+        self.assertEqual(1, result)
+        self.assertIn("request rejected [REDACTED]", errors.getvalue())
+        self.assertNotIn(token, output.getvalue() + errors.getvalue())

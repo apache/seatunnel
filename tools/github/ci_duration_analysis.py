@@ -13,10 +13,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-"""Summarize all workflow jobs without inferring durations for unfinished work."""
+"""Summarize workflow jobs without inferring durations for unfinished work.
+
+Usage: python ci_duration_analysis.py <owner> <run_id>
+Set GITHUB_TOKEN in the environment for optional authentication; never pass it in argv.
+Expected rounds measured seconds up to a 20-minute bucket without an extra safety margin.
+"""
 
 import json
 import math
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -74,6 +80,10 @@ def fetch_jobs_from_api(api_url, token=None, max_pages=100):
 
 
 def _parse_timestamp(value):
+    """Parse ISO-8601 timestamps; missing, non-string or invalid values return None.
+
+    Naive timestamps are interpreted as UTC; explicit timezone offsets are preserved.
+    """
     if not isinstance(value, str):
         return None
     try:
@@ -84,12 +94,21 @@ def _parse_timestamp(value):
 
 
 def _duration_seconds(start, end):
+    """Return elapsed seconds rounded to two decimals, including a genuine zero.
+
+    Missing endpoints or a completion before its start have unknown duration (None).
+    """
     if start is None or end is None or end < start:
         return None
     return round((end - start).total_seconds(), 2)
 
 
 def _parse_single_job(job):
+    """Keep every job and step, with None for unavailable or reversed timing.
+
+    Durations are seconds rounded to two decimals; minutes are separately rounded for
+    display. Missing or malformed start times remain None instead of an invented time.
+    """
     start = _parse_timestamp(job.get("started_at"))
     duration = _duration_seconds(start, _parse_timestamp(job.get("completed_at")))
     job_info = {
@@ -140,7 +159,21 @@ def _format_table(rows, headers):
     return "\n".join(lines)
 
 
+def _expected_minutes(duration_seconds):
+    """Round measured seconds up to a 20-minute bucket, with no extra safety margin.
+
+    Unknown timing stays None; a measured zero stays zero. Display-minute rounding
+    never affects the bucket, so recommendations are monotonic at bucket boundaries.
+    """
+    return None if duration_seconds is None else math.ceil(duration_seconds / 1200) * 20
+
+
 def print_job_summary(parsed_jobs):
+    """Report successful jobs only, while counting incomplete timing across all jobs.
+
+    Unknown job/step timing is blank, not zero. Seconds and minutes retain their parsed
+    precision; Expected uses measured seconds rounded up to 20 minutes with no margin.
+    """
     success_jobs = sorted(
         (job for job in parsed_jobs if job["conclusion"] == "success"),
         key=lambda job: job["total_duration_seconds"] or 0,
@@ -154,9 +187,7 @@ def print_job_summary(parsed_jobs):
     rows = []
     for index, job in enumerate(success_jobs, 1):
         minutes = job["total_duration_minutes"]
-        expected = None
-        if minutes is not None:
-            expected = (math.ceil(minutes / 20) + (1 if minutes % 20 >= 10 else 0)) * 20
+        expected = _expected_minutes(job["total_duration_seconds"])
         rows.append([index, job["name"], job["job_id"], job["conclusion"], job["started_at"],
                      job["total_duration_seconds"], minutes, expected])
     print("Overview of the Task:")
@@ -174,15 +205,30 @@ def print_job_summary(parsed_jobs):
         print("\n" + "-" * 80)
 
 
-if __name__ == "__main__":
-    if len(sys.argv) not in (3, 4):
-        print("Usage: python ci_duration_analysis.py <owner> <run_id> [token]")
-        sys.exit(1)
-    owner, run_id = sys.argv[1:3]
+def main(argv=None):
+    """Read owner/run ID and optional GITHUB_TOKEN, returning a process exit status.
+
+    Authentication is environment-only; usage errors never echo arguments, and request
+    failures redact the configured token before writing their message to stderr.
+    """
+    arguments = sys.argv[1:] if argv is None else argv
+    if len(arguments) != 2:
+        print("Usage: python ci_duration_analysis.py <owner> <run_id>\n"
+              "Optional authentication: set GITHUB_TOKEN in the environment.", file=sys.stderr)
+        return 1
+    owner, run_id = arguments
     api_url = f"https://api.github.com/repos/{owner}/seatunnel/actions/runs/{run_id}/jobs?page=1&per_page=100"
-    token = sys.argv[3] if len(sys.argv) == 4 else None
+    token = os.environ.get("GITHUB_TOKEN")
     try:
         print_job_summary(fetch_jobs_from_api(api_url, token))
     except Exception as error:
-        print(f"Processing failed: {error}", file=sys.stderr)
-        sys.exit(1)
+        message = str(error)
+        if token:
+            message = message.replace(token, "[REDACTED]")
+        print(f"Processing failed: {message}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
