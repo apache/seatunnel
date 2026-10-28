@@ -59,9 +59,12 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -503,6 +506,323 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(
                 pendingPipelineCleanupIMap.containsKey(pipelineLocation),
                 "successful restore must invalidate cleanup for the previous pipeline generation");
+    }
+
+    /**
+     * A removed owner does not authorize reusing an id while failed cleanup retains terminal keys.
+     * Both ordinary submission and savepoint submission must wait for the existing cleanup fence.
+     */
+    @Test
+    void testOwnerAbsentPartialCleanupBlocksBothSubmissionModes() throws Exception {
+        List<Runnable> attempts = new CopyOnWriteArrayList<>();
+        List<Long> delays = new CopyOnWriteArrayList<>();
+        CoordinatorService coordinator = capturedCleanupCoordinator(attempts, delays);
+        long jobId = System.currentTimeMillis();
+        IMap<Object, Object> states =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> timestamps =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobInfo> infos =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobCleanupRecord> pending =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        JobCleanupRecord record =
+                new JobCleanupRecord(
+                        100L, JobStatus.FINISHED, stateKeys(jobId), stateKeys(jobId), 0L);
+        IMap<Object, Object> failingStates =
+                Mockito.mock(IMap.class, AdditionalAnswers.delegatesTo(states));
+        Mockito.doThrow(new RuntimeException("state removal unavailable"))
+                .when(failingStates)
+                .remove(jobId);
+        ReflectionUtils.setField(
+                coordinator, CoordinatorService.class, "runningJobStateIMap", failingStates);
+        try {
+            states.put(jobId, JobStatus.FINISHED);
+            timestamps.put(jobId, new Long[] {1L});
+            pending.put(jobId, record);
+            coordinator.schedulePendingJobCleanup(jobId, record);
+            attempts.get(0).run();
+            Assertions.assertEquals(2, attempts.size());
+            for (boolean savepoint : new boolean[] {false, true}) {
+                CompletionException failure =
+                        Assertions.assertThrows(
+                                CompletionException.class,
+                                () ->
+                                        coordinator
+                                                .submitJob(
+                                                        jobId,
+                                                        createJobData(jobId, savepoint),
+                                                        savepoint)
+                                                .join());
+                Assertions.assertInstanceOf(JobException.class, failure.getCause());
+                Assertions.assertTrue(
+                        failure.getCause().getMessage().contains("terminal state cleanup"));
+                Assertions.assertFalse(infos.containsKey(jobId));
+                Assertions.assertEquals(JobStatus.FINISHED, states.get(jobId));
+                Assertions.assertEquals(record, pending.get(jobId));
+            }
+        } finally {
+            states.remove(jobId);
+            timestamps.remove(jobId);
+            pending.remove(jobId);
+        }
+    }
+
+    /**
+     * Savepoint admission waits for an in-flight writer and removes both maps for asymmetric keys.
+     * The fence is invoked directly so no successor job can obscure the removed old-generation
+     * data.
+     */
+    @Test
+    void testSavepointCleanupUsesLockedPairedKeyUnion() throws Exception {
+        CoordinatorService coordinator = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+        IMap<Object, Object> states =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> timestamps =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobInfo> infos =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobCleanupRecord> pending =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        infos.put(jobId, new JobInfo(100L, null));
+        states.put(jobId, JobStatus.SAVEPOINT_DONE);
+        states.put(pipeline, "old-pipeline");
+        timestamps.put(jobId, new Long[] {1L});
+        timestamps.put(pipeline, new Long[] {1L});
+        pending.put(
+                jobId,
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.SAVEPOINT_DONE,
+                        stateKeys(jobId),
+                        stateKeys(jobId, pipeline),
+                        System.currentTimeMillis()));
+        ExecutorService submitter = Executors.newSingleThreadExecutor();
+        Future<?> admission = null;
+        boolean unlocked = false;
+        states.lock(pipeline);
+        try {
+            admission =
+                    submitter.submit(
+                            () -> {
+                                checkSubmissionFence(coordinator, jobId, true);
+                                return null;
+                            });
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertFalse(states.containsKey(jobId)));
+            Assertions.assertFalse(admission.isDone());
+            Assertions.assertTrue(infos.containsKey(jobId));
+            states.put(pipeline, "in-flight-writer");
+            timestamps.put(pipeline, new Long[] {7L});
+            states.unlock(pipeline);
+            unlocked = true;
+            admission.get(10, TimeUnit.SECONDS);
+            Assertions.assertFalse(states.containsKey(pipeline));
+            Assertions.assertFalse(timestamps.containsKey(pipeline));
+            Assertions.assertFalse(timestamps.containsKey(jobId));
+            Assertions.assertFalse(infos.containsKey(jobId));
+            Assertions.assertFalse(pending.containsKey(jobId));
+        } finally {
+            try {
+                if (!unlocked) {
+                    states.unlock(pipeline);
+                }
+            } finally {
+                try {
+                    if (admission != null) {
+                        admission.cancel(true);
+                        try {
+                            admission.get(10, TimeUnit.SECONDS);
+                        } catch (CancellationException expected) {
+                            // Executor termination below also joins the cancelled worker itself.
+                        }
+                    }
+                } finally {
+                    submitter.shutdownNow();
+                    Assertions.assertTrue(
+                            submitter.awaitTermination(10, TimeUnit.SECONDS),
+                            "savepoint admission worker must terminate before map cleanup");
+                    states.remove(jobId);
+                    states.remove(pipeline);
+                    timestamps.remove(jobId);
+                    timestamps.remove(pipeline);
+                    infos.remove(jobId);
+                    pending.remove(jobId);
+                }
+            }
+        }
+    }
+
+    /**
+     * Partial inline cleanup keeps its owner and record even if the terminal job key was removed.
+     * The captured retry must finish that same generation instead of discarding its durable fence.
+     */
+    @Test
+    void testSavepointCleanupRetriesAfterRemovingOnlyTheJobKey() throws Exception {
+        List<Runnable> attempts = new CopyOnWriteArrayList<>();
+        List<Long> delays = new CopyOnWriteArrayList<>();
+        CoordinatorService coordinator = capturedCleanupCoordinator(attempts, delays);
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+        IMap<Object, Object> states =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> timestamps =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobInfo> infos =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobCleanupRecord> pending =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        JobInfo owner = new JobInfo(100L, null);
+        JobCleanupRecord record =
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipeline),
+                        stateKeys(jobId, pipeline),
+                        System.currentTimeMillis());
+        IMap<Object, Object> failingStates =
+                Mockito.mock(IMap.class, AdditionalAnswers.delegatesTo(states));
+        Mockito.doThrow(new RuntimeException("pipeline removal unavailable"))
+                .when(failingStates)
+                .remove(pipeline);
+        ReflectionUtils.setField(
+                coordinator, CoordinatorService.class, "runningJobStateIMap", failingStates);
+        try {
+            infos.put(jobId, owner);
+            states.put(jobId, JobStatus.FINISHED);
+            states.put(pipeline, "old-pipeline");
+            timestamps.put(jobId, new Long[] {1L});
+            timestamps.put(pipeline, new Long[] {1L});
+            pending.put(jobId, record);
+            Assertions.assertThrows(
+                    JobException.class, () -> checkSubmissionFence(coordinator, jobId, true));
+            Assertions.assertFalse(states.containsKey(jobId));
+            Assertions.assertEquals(owner, infos.get(jobId));
+            Assertions.assertEquals(record, pending.get(jobId));
+            Assertions.assertEquals("old-pipeline", states.get(pipeline));
+            Assertions.assertEquals(1, attempts.size());
+            Assertions.assertEquals(Long.valueOf(5000L), delays.get(0));
+            ReflectionUtils.setField(
+                    coordinator, CoordinatorService.class, "runningJobStateIMap", states);
+            attempts.get(0).run();
+            Assertions.assertFalse(infos.containsKey(jobId));
+            Assertions.assertFalse(states.containsKey(pipeline));
+            Assertions.assertFalse(timestamps.containsKey(pipeline));
+            Assertions.assertFalse(pending.containsKey(jobId));
+        } finally {
+            states.remove(jobId);
+            states.remove(pipeline);
+            timestamps.remove(jobId);
+            timestamps.remove(pipeline);
+            infos.remove(jobId);
+            pending.remove(jobId);
+        }
+    }
+
+    /**
+     * State-key and job-fence lock failures retain one bounded retry for the captured generation.
+     * Repeated acquisition failure and simultaneous key/unlock failures must neither lose nor
+     * multiply the scheduled continuation.
+     */
+    @Test
+    void testCleanupRetriesStateAndJobLockFailures() throws Exception {
+        long firstJobId = System.currentTimeMillis();
+        int index = 0;
+        for (String failurePoint :
+                new String[] {"state-lock", "state-unlock", "job-lock", "job-unlock"}) {
+            List<Runnable> attempts = new CopyOnWriteArrayList<>();
+            List<Long> delays = new CopyOnWriteArrayList<>();
+            CoordinatorService coordinator = capturedCleanupCoordinator(attempts, delays);
+            long jobId = firstJobId + index++;
+            PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+            IMap<Object, Object> states =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            IMap<Object, Long[]> timestamps =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+            IMap<Long, JobCleanupRecord> pending =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+            JobCleanupRecord record =
+                    new JobCleanupRecord(
+                            100L,
+                            JobStatus.FINISHED,
+                            stateKeys(jobId, pipeline),
+                            stateKeys(jobId, pipeline),
+                            0L);
+            IMap<Object, Object> failingStates =
+                    Mockito.mock(IMap.class, AdditionalAnswers.delegatesTo(states));
+            IMap<Long, JobCleanupRecord> failingPending =
+                    Mockito.mock(IMap.class, AdditionalAnswers.delegatesTo(pending));
+            if ("state-lock".equals(failurePoint)) {
+                Mockito.doThrow(new RuntimeException("state lock unavailable"))
+                        .when(failingStates)
+                        .lock(jobId);
+            } else if ("state-unlock".equals(failurePoint)) {
+                Mockito.doAnswer(
+                                call -> {
+                                    states.unlock(jobId);
+                                    throw new RuntimeException("state unlock acknowledgement lost");
+                                })
+                        .when(failingStates)
+                        .unlock(jobId);
+            } else if ("job-lock".equals(failurePoint)) {
+                Mockito.doThrow(new RuntimeException("job fence unavailable"))
+                        .when(failingPending)
+                        .lock(jobId);
+            } else {
+                Mockito.doThrow(new RuntimeException("state removal unavailable"))
+                        .when(failingStates)
+                        .remove(jobId);
+                Mockito.doAnswer(
+                                call -> {
+                                    pending.unlock(jobId);
+                                    throw new RuntimeException("job unlock acknowledgement lost");
+                                })
+                        .when(failingPending)
+                        .unlock(jobId);
+            }
+            ReflectionUtils.setField(
+                    coordinator, CoordinatorService.class, "runningJobStateIMap", failingStates);
+            ReflectionUtils.setField(
+                    coordinator, CoordinatorService.class, "pendingJobCleanupIMap", failingPending);
+            try {
+                states.put(jobId, JobStatus.FINISHED);
+                states.put(pipeline, "old-pipeline");
+                timestamps.put(jobId, new Long[] {1L});
+                timestamps.put(pipeline, new Long[] {1L});
+                pending.put(jobId, record);
+                coordinator.schedulePendingJobCleanup(jobId, record);
+                attempts.get(0).run();
+                Assertions.assertEquals(2, attempts.size(), failurePoint);
+                Assertions.assertEquals(Long.valueOf(5000L), delays.get(1), failurePoint);
+                Assertions.assertEquals(record, pending.get(jobId), failurePoint);
+                if ("job-lock".equals(failurePoint)) {
+                    attempts.get(1).run();
+                    Assertions.assertEquals(3, attempts.size());
+                    Assertions.assertEquals(Long.valueOf(5000L), delays.get(2));
+                } else {
+                    Assertions.assertFalse(states.containsKey(pipeline), failurePoint);
+                    Assertions.assertFalse(timestamps.containsKey(pipeline), failurePoint);
+                }
+                ReflectionUtils.setField(
+                        coordinator, CoordinatorService.class, "runningJobStateIMap", states);
+                ReflectionUtils.setField(
+                        coordinator, CoordinatorService.class, "pendingJobCleanupIMap", pending);
+                attempts.get(attempts.size() - 1).run();
+                Assertions.assertFalse(states.containsKey(jobId), failurePoint);
+                Assertions.assertFalse(timestamps.containsKey(jobId), failurePoint);
+                Assertions.assertFalse(states.containsKey(pipeline), failurePoint);
+                Assertions.assertFalse(timestamps.containsKey(pipeline), failurePoint);
+                Assertions.assertFalse(pending.containsKey(jobId), failurePoint);
+            } finally {
+                states.remove(jobId);
+                states.remove(pipeline);
+                timestamps.remove(jobId);
+                timestamps.remove(pipeline);
+                pending.remove(jobId);
+            }
+        }
     }
 
     @Test
@@ -1126,6 +1446,49 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
             runningJobStateIMap.remove(jobId);
             runningJobStateTimestampsIMap.remove(jobId);
             pendingJobCleanupIMap.remove(jobId);
+        }
+    }
+
+    /**
+     * Captures this coordinator's cleanup tasks without replacing the shared server's scheduler.
+     * The spy retains real maps and production cleanup methods; only scheduling is recorded.
+     */
+    private CoordinatorService capturedCleanupCoordinator(
+            List<Runnable> attempts, List<Long> delays) throws Exception {
+        ScheduledExecutorService monitor = Mockito.mock(ScheduledExecutorService.class);
+        Mockito.doAnswer(
+                        call -> {
+                            attempts.add(call.getArgument(0));
+                            delays.add(call.getArgument(1));
+                            return Mockito.mock(ScheduledFuture.class);
+                        })
+                .when(monitor)
+                .schedule(
+                        Mockito.any(Runnable.class),
+                        Mockito.anyLong(),
+                        Mockito.eq(TimeUnit.MILLISECONDS));
+        SeaTunnelServer monitoredServer =
+                Mockito.mock(SeaTunnelServer.class, AdditionalAnswers.delegatesTo(server));
+        Mockito.doReturn(monitor).when(monitoredServer).getMonitorService();
+        CoordinatorService coordinator = Mockito.spy(server.getCoordinatorService());
+        ReflectionUtils.setField(
+                coordinator, CoordinatorService.class, "seaTunnelServer", monitoredServer);
+        return coordinator;
+    }
+
+    /**
+     * Exercises the internal admission check under its required distributed job fence. The direct
+     * test seam avoids starting a successor job that could obscure removed state.
+     */
+    private void checkSubmissionFence(CoordinatorService coordinator, long jobId, boolean savepoint)
+            throws Exception {
+        IMap<Long, JobCleanupRecord> pending =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        pending.lock(jobId);
+        try {
+            coordinator.validateJobSubmissionFence(jobId, savepoint);
+        } finally {
+            pending.unlock(jobId);
         }
     }
 
