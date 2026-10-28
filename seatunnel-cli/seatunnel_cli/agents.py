@@ -1289,8 +1289,15 @@ class Orchestrator:
     SUMMARY_THRESHOLD = 24     # only summarize when total exceeds this
 
     def load_history(self, history: list[dict]) -> None:
-        """Replace conversation history (e.g., when resuming a session)."""
+        """Replace conversation history (e.g., when resuming a session).
+
+        The clarification state belongs to the exchange being replaced, so it
+        is cleared too. Leaving it would merge the first message after a resume
+        into whatever requirement happened to be open before.
+        """
         self.conversation_history = list(history)
+        self.pending_question = None
+        self._original_request = None
 
     def _trimmed_history(self) -> list[dict]:
         """Return a context-window-friendly view of conversation_history.

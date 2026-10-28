@@ -70,6 +70,22 @@ class EffectiveRequestTest(unittest.TestCase):
         self.assertIn("The target table already exists.", merged)
         self.assertIn("Batch mode is fine.", merged)
 
+    def test_the_requirement_is_not_prepended_twice(self):
+        """Only one component may do the merge.
+
+        The interactive loop in `cli.py` used to merge the reply with the
+        request before calling in, which together with this would have
+        prepended the requirement twice. That merge was removed in favour of
+        this one, because the Orchestrator owns `pending_question` and the
+        programmatic callers -- the benchmark among them -- never went through
+        `cli.py` at all.
+        """
+        self.orchestrator._effective_request(REQUEST)
+        self.orchestrator.pending_question = "Which table?"
+        merged = self.orchestrator._effective_request(REPLY)
+
+        self.assertEqual(merged.count("users_replica"), 1)
+
     def test_a_new_message_after_delivery_starts_over(self):
         self.orchestrator._effective_request(REQUEST)
         # Delivering a config clears the exchange.
@@ -139,7 +155,7 @@ class EnrichedPromptAfterClarificationTest(unittest.TestCase):
         self.assertIn("users_replica", prompt_request)
         self.assertIn("localhost:3306", prompt_request)
 
-    def test_question_records_pending_state_and_config_clears_it(self):
+    def test_a_question_records_the_pending_state(self):
         seen: list[str] = []
         orchestrator, skill = self._orchestrator_with_stubs(seen)
 
@@ -152,6 +168,100 @@ class EnrichedPromptAfterClarificationTest(unittest.TestCase):
 
         self.assertEqual(orchestrator.pending_question, "Which database?")
         self.assertEqual(orchestrator._original_request, REQUEST)
+
+
+class PendingStateIsClearedTest(unittest.TestCase):
+    """Every exit that serves or abandons the requirement must clear it.
+
+    Without these, removing any single reset would leave a stale requirement to
+    be merged into the next, unrelated, request and no test would go red.
+    """
+
+    def _orchestrator(self):
+        orchestrator = Orchestrator(client=mock.MagicMock())
+        orchestrator.pending_question = "Which database?"
+        orchestrator._original_request = REQUEST
+        return orchestrator
+
+    def _assert_cleared(self, orchestrator):
+        self.assertIsNone(orchestrator.pending_question)
+        self.assertIsNone(orchestrator._original_request)
+
+    def _stub_skill(self):
+        skill = mock.MagicMock()
+        skill.fill_and_check.return_value = []
+        skill.fetch_all_metadata.return_value = "## Connector Option Rules\n"
+        skill.build_enriched_prompt.return_value = "## User Request:\nx"
+        return skill
+
+    def test_a_delivered_config_clears_it(self):
+        orchestrator = self._orchestrator()
+
+        with mock.patch.object(
+            orchestrator, "_run_planner",
+            return_value={"type": "plan",
+                          "content": "source: Jdbc\nsink: Console\nmode: BATCH"},
+        ), mock.patch("seatunnel_cli.skills.SkillExecutor",
+                      return_value=self._stub_skill()), \
+             mock.patch("seatunnel_cli.skills.SkillRouter.match", return_value=[]), \
+             mock.patch.object(
+                 orchestrator, "_run_config_generator",
+                 return_value={"config": "env {}\nsource {}\nsink {}",
+                               "explanation": ""}), \
+             mock.patch.object(orchestrator, "_run_validator", return_value="PASS"), \
+             mock.patch("seatunnel_cli.agents.dry_run_config",
+                        return_value={"valid": True, "phase1_local": "VALID",
+                                      "phase2_check": "PASS", "phase3_api": None,
+                                      "summary": ""}):
+            result = orchestrator.process_user_input("Batch is fine.")
+
+        self.assertEqual(result["type"], "config")
+        self._assert_cleared(orchestrator)
+
+    def test_a_best_effort_config_after_three_rounds_clears_it(self):
+        orchestrator = self._orchestrator()
+
+        with mock.patch.object(
+            orchestrator, "_run_planner",
+            return_value={"type": "plan",
+                          "content": "source: Jdbc\nsink: Console\nmode: BATCH"},
+        ), mock.patch("seatunnel_cli.skills.SkillExecutor",
+                      return_value=self._stub_skill()), \
+             mock.patch("seatunnel_cli.skills.SkillRouter.match", return_value=[]), \
+             mock.patch.object(
+                 orchestrator, "_run_config_generator",
+                 return_value={"config": "env {}\nsource {}\nsink {}",
+                               "explanation": ""}), \
+             mock.patch.object(orchestrator, "_run_validator",
+                               return_value="FAIL: still broken"), \
+             mock.patch.object(orchestrator, "_run_fix",
+                               return_value={"config": "env {}\nsource {}\nsink {}",
+                                             "explanation": ""}):
+            result = orchestrator.process_user_input("Batch is fine.")
+
+        self.assertEqual(result["type"], "config")
+        self._assert_cleared(orchestrator)
+
+    def test_a_chat_reply_clears_it(self):
+        orchestrator = self._orchestrator()
+
+        with mock.patch.object(
+            orchestrator, "_run_planner",
+            return_value={"type": "chat", "content": "SeaTunnel is an ETL tool."},
+        ):
+            result = orchestrator.process_user_input("What is SeaTunnel?")
+
+        self.assertEqual(result["type"], "chat")
+        self._assert_cleared(orchestrator)
+
+    def test_resuming_a_session_clears_it(self):
+        orchestrator = self._orchestrator()
+
+        orchestrator.load_history([
+            {"role": "user", "content": [{"text": "an unrelated earlier session"}]},
+        ])
+
+        self._assert_cleared(orchestrator)
 
 
 if __name__ == "__main__":
