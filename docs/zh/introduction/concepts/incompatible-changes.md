@@ -248,9 +248,9 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     如需精确的小数常量，请使用带引号的字符串并保留足够的小数位，例如
     `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` 或
     `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`。
-    现有 CAST 舍入行为不变：字符串/`DECIMAL` 输入在减少小数位时使用 `CEILING`，
-    因此在 CAST 之前或之后取负可能产生不同结果；
-    `FLOAT`/`DOUBLE` 输入使用 `HALF_UP`，且无法恢复浮点求值时已丢失的精度。
+    CAST 减少小数位时，所有来源类型都按四舍五入（远离零方向）舍入（见上文
+    “SQL Transform：`CAST ... AS DECIMAL` 按四舍五入（远离零方向）舍入”），
+    因此在 CAST 之前或之后取负结果相同；`FLOAT`/`DOUBLE` 输入无法恢复浮点求值时已丢失的精度。
     示例与限制见[数值比较](../../transforms/sql.md#数值比较)。无需更改配置、输出结构或状态格式。
 
 ### DataValidator 数组长度

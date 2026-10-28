@@ -293,11 +293,10 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     previously written data that relied on rounded comparison results. For exact decimal
     constants, use quoted strings with sufficient scale, such as
     `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
-    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
-    string/`DECIMAL` inputs use
-    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
-    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
-    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. When CAST reduces the scale, every
+    source type rounds half away from zero (see "SQL transform: `CAST ... AS DECIMAL` rounds
+    half away from zero" above), so negating before or after CAST gives the same result.
+    `FLOAT`/`DOUBLE` inputs cannot recover precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
     for examples and limits. No configuration, output schema or state format changes are required.
 
 ### DataValidator Array Length
