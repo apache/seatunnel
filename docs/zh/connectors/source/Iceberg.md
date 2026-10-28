@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 - [x] 数据格式
   - [x] parquet
   - [x] orc
@@ -273,6 +274,24 @@ source {
   }
 }
 ```
+
+## 常见问题
+
+### 如何在一个作业中读取多张 Iceberg 表？
+
+使用 `table_list` 选项，每张表提供一个条目。同时不要配置 `table`。每个条目可以覆盖该表的 `table`、`query` 以及快照/流式扫描相关选项。
+
+### `start_snapshot_id` 和 `use_snapshot_id` 的区别是什么？
+
+批模式中，`start_snapshot_id` 选择增量追加扫描，不包含指定的起始快照；配置 `end_snapshot_id` 时包含该结束快照。流模式中，需同时设置 `stream_scan_strategy = "FROM_SNAPSHOT_ID"` 和 `start_snapshot_id`，并包含所选的起始快照。一次性读取指定历史快照时，使用 `use_snapshot_id`，不要同时配置 `start_snapshot_id` 或 `end_snapshot_id`。
+
+### `start_snapshot_timestamp` 应该在什么场景下使用？
+
+流模式中，需同时设置 `stream_scan_strategy = "FROM_SNAPSHOT_TIMESTAMP"` 和 `start_snapshot_timestamp`（自 Unix 纪元以来的毫秒数）。扫描从时间戳等于或晚于该值的第一个快照开始，并包含该快照，而非选择时间最接近的快照。若要按快照 ID 选择起点，使用 `FROM_SNAPSHOT_ID` 配合 `start_snapshot_id`。批模式按历史时间点读取时，使用 `use_snapshot_timestamp` 或 `use_snapshot_id`。
+
+### Iceberg 源如何配置 Kerberos 认证？
+
+设置 `krb5_path` 为 `krb5.conf` 路径，`kerberos_principal` 为 `primary/instance@REALM`，`kerberos_keytab_path` 为 keytab 文件的绝对路径。这些选项由底层 Hadoop FileSystem 解析，仅在 `iceberg.catalog.config` 使用 Hadoop 或 Hive catalog 并基于 HDFS 时生效。
 
 ## 变更日志
 

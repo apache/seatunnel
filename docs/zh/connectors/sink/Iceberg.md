@@ -20,6 +20,7 @@ Apache Iceberg 目标连接器支持 CDC 写入、自动建表、表结构变更
 
 ## 主要特性
 
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
@@ -80,7 +81,7 @@ libfb303-xxx.jar
 | iceberg.table.auto-create-props        | map     | no   | -                            | Iceberg 自动建表时指定的配置                                                                                                                                                                                                |
 | iceberg.table.schema-evolution-enabled | boolean | no   | false                        | 设置为 true 时，Iceberg 表可以在同步过程中支持 schema 变更                                                                                                                                                                          |
 | iceberg.table.primary-keys             | string  | no   | -                            | 用于标识表中一行数据的主键列列表，默认情况下以逗号分隔                                                                                                                                                                                       |
-| iceberg.table.partition-keys           | string  | no   | -                            | 创建表时使用的分区字段列表，默认情况下以逗号分隔。多表场景可使用占位符 `${partition_keys}`                                                                                                                                                 |
+| iceberg.table.partition-keys           | string  | no   | -                            | 创建表时使用的分区字段列表，以逗号分隔。固定值应用于每张表；`${partition_keys}` 可使用各上游表元数据中提供的分区键。                                                                                                                                                 |
 | iceberg.table.upsert-mode-enabled      | boolean | no   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
 | schema_save_mode                       | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
@@ -111,7 +112,7 @@ iceberg.table.auto-create-props = {
 
 ### iceberg.table.partition-keys [string]
 
-使用英文逗号分隔多个分区字段，例如 `dt,region`，也可以使用 Iceberg transform，例如 `days(ts)`。多表写入场景可以使用 `${partition_keys}` 占位符，从上游表元信息中取分区字段。
+使用英文逗号分隔多个分区字段，例如 `dt,region`，也可以使用 Iceberg transform，例如 `days(ts)`。在多表写入作业中，固定值应用于每张自动建出的表。若要使用各上游表的分区键，可设置 `iceberg.table.partition-keys = "${partition_keys}"`，SeaTunnel 会在创建各表的 Sink 前，根据该表的元数据替换此占位符。若上游元数据没有提供分区键，则需显式配置。
 
 ### iceberg.table.commit-branch [string]
 
@@ -386,6 +387,28 @@ sink {
   }
 }
 ```
+
+## 常见问题
+
+### 如何开启 Iceberg Sink 的 upsert 模式？
+
+设置 `iceberg.table.upsert-mode-enabled=true` 并通过 `iceberg.table.primary-keys` 配置以逗号分隔的主键列。Sink 不会自动从 source 推断主键，因此在该模式下必须显式配置主键。
+
+### `iceberg.table.partition-keys` 支持什么格式？
+
+支持以逗号分隔的列名（例如 `dt,region`）或 Iceberg transform 表达式（例如 `days(ts)`）。固定值应用于每张自动建出的表。对于上游表元数据包含分区键的多表作业，`iceberg.table.partition-keys = "${partition_keys}"` 会通过 SeaTunnel 通用表占位符机制，分别替换为各表的分区键。若上游元数据没有提供分区键，则需显式配置。
+
+### 如何提交到非默认 Iceberg 分支？
+
+设置 `iceberg.table.commit-branch` 为目标分支名即可。留空表示提交到表的默认分支。
+
+### 什么时候必须配置 `custom_sql`？
+
+只有当 `data_save_mode = CUSTOM_PROCESSING` 时才需要配置 `custom_sql`。它是目标 Iceberg 表上用于在 Sink 写入新数据前删除目标数据的 SQL。
+
+### Iceberg Sink 如何配置 Kerberos 认证？
+
+设置 `krb5_path`、`kerberos_principal` 和 `kerberos_keytab_path`，含义同 Source FAQ。这些选项由 Iceberg writer 底层使用的 Hadoop FileSystem 解析，仅在 catalog 为 Hadoop 或 Hive 且基于 HDFS 时生效。
 
 ## 变更日志
 

@@ -20,6 +20,12 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to write data to Clickhouse.
