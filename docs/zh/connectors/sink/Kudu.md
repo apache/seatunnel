@@ -26,7 +26,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | SeaTunnel 数据类型 |      Kudu 数据类型      |
 |---------------------|--------------------------|
 | BOOLEAN             | BOOL                     |
-| INT                 | INT8<br/>INT16<br/>INT32 |
+| TINYINT             | INT8                     |
+| SMALLINT            | INT16                    |
+| INT                 | INT32                    |
 | BIGINT              | INT64                    |
 | DECIMAL             | DECIMAL                  |
 | FLOAT               | FLOAT                    |

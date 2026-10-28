@@ -4,6 +4,19 @@
 
 ## dev
 
+### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
+
+MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
+
+请移除为补偿此缺陷而设置的手动偏移。已经存储的数据不会自动修改；修正或重新加载之前，请先与原始数据核对。无需新增配置。
+
+### Doris 与 StarRocks Source：MAP 或 ROW 列为空值时不再读成空 Map 或导致作业失败
+
+- **行为变更：Arrow 流中为空的复杂类型单元格现在读为 `null`**
+  - **描述**：Doris 和 StarRocks Source 使用的 `ArrowToSeatunnelRowReader` 会把 MAP 列交给 `MapConverter`、ROW 列交给 `StructConverter`。这两个转换器在处理元素类型的分支中没有检查 Arrow 的有效性位，因此为空的 MAP 单元格被返回为空 Map，为空的 ROW 单元格则以 `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null` 结束整个读取。现在两者都返回 `null`，与自 Arrow Reader 引入起就有此判断的 `ListConverter`、`LargeListConverter` 和 `FixedSizeListConverter` 保持一致。
+  - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
+  - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
+
 ### Zeta SQL：FORMATDATETIME 和 FROM_UNIXTIME 固定使用英文语言环境
 
 - **行为变更：这两个函数的输出不再跟随工作节点的默认语言环境**
@@ -36,12 +49,25 @@
 
 同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
 
+### JDBC 达梦：NVARCHAR 和 NVARCHAR2 按声明长度上报
+
+- **模式变更：达梦 Catalog 现在按声明长度 n 上报 `NVARCHAR(n)` 和 `NVARCHAR2(n)`，不再使用字节长度**
+  - **描述**：`NVARCHAR(n)` 和 `NVARCHAR2(n)` 可容纳 n 个字符，但 Catalog 此前从 `ALL_TAB_COLUMNS.DATA_LENGTH` 读取长度，该字段是字节数：GB18030 库上是 2n，UTF-8 库上是 4n，与 `LENGTH_IN_CHAR` 的取值无关。因此 `NVARCHAR(10)` 会被上报为 `NVARCHAR(20)` 或 `NVARCHAR(40)`。现在长度取自 `SYS.SYSCOLUMNS.LENGTH$`，即声明长度。
+  - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
+  - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
   - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### 原生 CLI 帮助退出码
+
+`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
+依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
+对应包装脚本仍将帮助请求转换为退出码 `0`。
 
 ### CDC：可空列不再用作快照分片列
 
@@ -220,6 +246,27 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
+
+### SQL 数值条件的精度
+
+- **行为变更：精确数值操作数不再通过 `double` 进行比较**
+  - **影响范围**：`seatunnel-transforms-v2`，`Sql` 转换（`ZETA` 和 `INTERNAL`）。
+  - **变更说明**：当求值后的两个操作数均为整型或 `DECIMAL` 时，比较及 `IN`/`NOT IN` 判断保留精度，
+    包括搜索式和简单式 `CASE` 表达式中的比较。例如，`BIGINT` 值 `9007199254740993`
+    不再等于整数字面量 `9007199254740992`。
+  - **影响**：过滤条件可能选择不同的行，`CASE` 表达式也可能选择不同的分支。
+    涉及 `FLOAT` 或 `DOUBLE` 的比较保持原有行为。包含小数点的字面量仍求值为 `DOUBLE`，
+    一元负号会保留 `DECIMAL` 精度，`-decimal_col` 和 `-CAST('...' AS DECIMAL(p, s))` 均如此。
+    每个 `IN` 元素独立选择精确或浮点比较，
+    因此混用精确类型和浮点类型时，仍可能匹配不同的大数值，且等号不保证传递性。
+  - **迁移指南**：请检查相关条件和 `CASE` 表达式，并核对、修正依赖此前舍入比较结果的已写入数据。
+    如需精确的小数常量，请使用带引号的字符串并保留足够的小数位，例如
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` 或
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`。
+    现有 CAST 舍入行为不变：字符串/`DECIMAL` 输入在减少小数位时使用 `CEILING`，
+    因此在 CAST 之前或之后取负可能产生不同结果；
+    `FLOAT`/`DOUBLE` 输入使用 `HALF_UP`，且无法恢复浮点求值时已丢失的精度。
+    示例与限制见[数值比较](../../transforms/sql.md#数值比较)。无需更改配置、输出结构或状态格式。
 
 ### DataValidator 数组长度
 
