@@ -582,7 +582,9 @@ public class CheckpointCoordinator {
      */
     protected void readyToClose(TaskLocation taskLocation) {
         readyToCloseStartingTask.add(taskLocation);
-        updateReadyToCloseStartingTask();
+        if (!updateReadyToCloseStartingTask()) {
+            return;
+        }
         if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
             tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
         }
@@ -614,22 +616,10 @@ public class CheckpointCoordinator {
         }
     }
 
-    private void updateReadyToCloseStartingTask() {
+    private boolean updateReadyToCloseStartingTask() {
         try {
-            RetryUtils.retryWithException(
-                    () -> {
-                        runningJobStateIMap.compute(
-                                readyToCloseImapKey,
-                                (k, exist) -> {
-                                    Set<TaskLocation> merged =
-                                            exist instanceof Set
-                                                    ? new HashSet<>((Set<TaskLocation>) exist)
-                                                    : new HashSet<>();
-                                    merged.addAll(readyToCloseStartingTask);
-                                    return merged;
-                                });
-                        return null;
-                    },
+            return RetryUtils.retryWithException(
+                    this::persistReadyToCloseStartingTask,
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
@@ -645,6 +635,56 @@ public class CheckpointCoordinator {
                     "Failed to persist readyToCloseStartingTask to IMap, key: "
                             + readyToCloseImapKey,
                     e);
+        }
+    }
+
+    /**
+     * Persists ready-to-close state with a cleanup fence only when the key must be created.
+     *
+     * <p>The state lock is released before taking the job fence and then reacquired, preserving the
+     * cleanup-to-state lock order. Existing keys never take the job-wide fence.
+     */
+    private boolean persistReadyToCloseStartingTask() {
+        boolean stateLocked = false;
+        boolean missingStateFenceLocked = false;
+        try {
+            runningJobStateIMap.lock(readyToCloseImapKey);
+            stateLocked = true;
+            if (runningJobStateIMap.get(readyToCloseImapKey) == null) {
+                runningJobStateIMap.unlock(readyToCloseImapKey);
+                stateLocked = false;
+                checkpointManager.lockStatePersistenceFence();
+                missingStateFenceLocked = true;
+                runningJobStateIMap.lock(readyToCloseImapKey);
+                stateLocked = true;
+            }
+            if (!isStatePersistenceAllowed()) {
+                LOG.info(
+                        "Skip persisting {} because its job generation no longer owns distributed state",
+                        readyToCloseImapKey);
+                return false;
+            }
+            runningJobStateIMap.compute(
+                    readyToCloseImapKey,
+                    (k, exist) -> {
+                        Set<TaskLocation> merged =
+                                exist instanceof Set
+                                        ? new HashSet<>((Set<TaskLocation>) exist)
+                                        : new HashSet<>();
+                        merged.addAll(readyToCloseStartingTask);
+                        return merged;
+                    });
+            return true;
+        } finally {
+            try {
+                if (stateLocked) {
+                    runningJobStateIMap.unlock(readyToCloseImapKey);
+                }
+            } finally {
+                if (missingStateFenceLocked) {
+                    checkpointManager.unlockStatePersistenceFence();
+                }
+            }
         }
     }
 
@@ -1258,7 +1298,7 @@ public class CheckpointCoordinator {
             // (completed/failed/cancelled). During a reset (master failover), the IMap entry
             // must be preserved so restoreCoordinator() can recover from it.
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
-                runningJobStateIMap.remove(readyToCloseImapKey);
+                removeReadyToCloseStateIfOwned();
             }
             scheduler.shutdownNow();
             scheduler =
@@ -1521,24 +1561,35 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
     }
 
-    private synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
+    synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
         try {
             RetryUtils.retryWithException(
                     () -> {
-                        Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
-                        if (currentStatus == null) {
-                            LOG.warn(
-                                    String.format(
-                                            "%s has already been cleaned, skip persisting transition to %s",
-                                            checkpointStateImapKey, targetStatus));
-                            return null;
+                        runningJobStateIMap.lock(checkpointStateImapKey);
+                        try {
+                            if (!isStatePersistenceAllowed()) {
+                                LOG.info(
+                                        "Skip persisting {} because its job generation no longer owns distributed state",
+                                        checkpointStateImapKey);
+                                return null;
+                            }
+                            Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
+                            if (currentStatus == null) {
+                                LOG.warn(
+                                        String.format(
+                                                "%s has already been cleaned, skip persisting transition to %s",
+                                                checkpointStateImapKey, targetStatus));
+                                return null;
+                            }
+                            LOG.info(
+                                    "Turn {} state from {} to {}",
+                                    checkpointStateImapKey,
+                                    currentStatus,
+                                    targetStatus);
+                            runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
+                        } finally {
+                            runningJobStateIMap.unlock(checkpointStateImapKey);
                         }
-                        LOG.info(
-                                "Turn {} state from {} to {}",
-                                checkpointStateImapKey,
-                                currentStatus,
-                                targetStatus);
-                        runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -1552,6 +1603,33 @@ public class CheckpointCoordinator {
                     checkpointStateImapKey,
                     targetStatus);
         }
+    }
+
+    /**
+     * Removes ready-to-close recovery state only while this job generation still owns the key.
+     *
+     * <p>The state-key lock serializes this delete with ready-to-close compute and terminal job
+     * cleanup; the generation check prevents an old coordinator from deleting a newer value.
+     */
+    private void removeReadyToCloseStateIfOwned() {
+        runningJobStateIMap.lock(readyToCloseImapKey);
+        try {
+            if (isStatePersistenceAllowed()) {
+                runningJobStateIMap.remove(readyToCloseImapKey);
+            }
+        } finally {
+            runningJobStateIMap.unlock(readyToCloseImapKey);
+        }
+    }
+
+    /**
+     * Applies generation fencing when a production JobMaster is present.
+     *
+     * <p>Standalone coordinator tests and tooling intentionally construct a manager without a job
+     * master; those instances retain their historical in-memory behavior.
+     */
+    private boolean isStatePersistenceAllowed() {
+        return !checkpointManager.hasJobMaster() || checkpointManager.isStatePersistenceAllowed();
     }
 
     /**
