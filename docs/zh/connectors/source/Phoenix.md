@@ -29,7 +29,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ## 关键特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 

@@ -410,7 +410,7 @@ Redis {
 }
 ```
 
-read string type keys write append to list
+read string type keys and write them to a list (LPUSH)
 
 ```hocon
 source {

@@ -62,13 +62,16 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | SeaTunnel Data Type |                                                             Clickhouse Data Type                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING              | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
-| INT                 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
+| TINYINT             | Int8                                                                                                                                          |
+| SMALLINT            | Int16                                                                                                                                         |
+| INT                 | Int32                                                                                                                                         |
 | BIGINT              | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
 | DOUBLE              | Float64                                                                                                                                       |
 | DECIMAL             | Decimal                                                                                                                                       |
 | FLOAT               | Float32                                                                                                                                       |
 | DATE                | Date                                                                                                                                          |
-| TIME                | DateTime                                                                                                                                      |
+| TIME                | String                                                                                                                                        |
+| TIMESTAMP           | DateTime64                                                                                                                                    |
 | ARRAY               | Array                                                                                                                                         |
 | MAP                 | Map                                                                                                                                           |
 
