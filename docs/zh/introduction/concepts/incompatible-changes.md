@@ -4,6 +4,12 @@
 
 ## dev
 
+### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
+
+MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
+
+请移除为补偿此缺陷而设置的手动偏移。已经存储的数据不会自动修改；修正或重新加载之前，请先与原始数据核对。无需新增配置。
+
 ### Doris 与 StarRocks Source：MAP 或 ROW 列为空值时不再读成空 Map 或导致作业失败
 
 - **行为变更：Arrow 流中为空的复杂类型单元格现在读为 `null`**
