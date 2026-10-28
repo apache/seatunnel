@@ -130,6 +130,8 @@ connection TCP establishment timeout in milliseconds; zero for infinite
 
 In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).
 
+Note: the sink currently parses this option but does not apply its entries to the RabbitMQ client. To tune connection behavior, use the dedicated options above such as `connection_timeout`, `network_recovery_interval`, `AUTOMATIC_RECOVERY_ENABLED`, and `topology_recovery_enabled`.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
@@ -194,10 +196,6 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -235,10 +233,6 @@ sink {
           durable = true
           exclusive = false
           auto_delete = false
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -273,7 +267,7 @@ Yes. The sink publishes messages to RabbitMQ by binding to the target queue or r
 
 ### How does RabbitMQ sink handle network reconnects and timeouts?
 
-You can tune client connection resilience using the `rabbitmq.config` block (such as `connection-timeout`, `requested-heartbeat`, and retry intervals) to prevent premature disconnection during transient network blips.
+Use the dedicated options to tune client connection resilience: `AUTOMATIC_RECOVERY_ENABLED` enables automatic connection recovery, `network_recovery_interval` sets how long recovery waits before reconnecting (in ms), `topology_recovery_enabled` enables topology recovery, and `connection_timeout` bounds the TCP connection establishment time (in ms). The `rabbitmq.config` block is accepted for backward compatibility, but its entries are currently not applied by the sink.
 
 ## Changelog
 

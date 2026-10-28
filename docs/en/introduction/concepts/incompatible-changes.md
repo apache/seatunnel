@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
+
+- **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
+  - **Description**: `ArrowToSeatunnelRowReader`, which the Doris and StarRocks sources read with, sends a MAP column to `MapConverter` and a ROW column to `StructConverter`. Neither checked the Arrow validity bit in the path that converts element types, so a null MAP cell was returned as an empty map and a null ROW cell ended the read with `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null`. Both now return `null`, the same as `ListConverter`, `LargeListConverter` and `FixedSizeListConverter`, which have guarded this since the Arrow reader was added.
+  - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
+  - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
@@ -20,12 +27,25 @@ Such a value now causes a parse error that identifies the field and the expected
 
 The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
 
+### JDBC Dameng: NVARCHAR and NVARCHAR2 report their declared length
+
+- **Schema change: the Dameng catalog reports `NVARCHAR(n)` and `NVARCHAR2(n)` with length n instead of the byte length**
+  - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
+  - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
+  - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
   - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### Native CLI help exit code
+
+`seatunnel.sh -h` now exits with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
 
 ### CDC: nullable columns are no longer used as the snapshot split column
 
@@ -245,6 +265,32 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
   values and previously ran successfully will now fail fast at startup with a validation
   error.
+
+### SQL Numeric Predicate Precision
+
+- **Behavior change: exact numeric operands no longer compare through `double`**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform (`ZETA` and `INTERNAL`).
+  - **Description**: Comparisons and `IN`/`NOT IN` checks preserve precision when both
+    evaluated operands are integral or `DECIMAL`, including comparisons in searched
+    and simple `CASE` expressions. For example, `BIGINT` `9007199254740993` no longer
+    equals the integer literal `9007199254740992`.
+  - **Impact**: Filters can select different rows, and `CASE` expressions can choose
+    different branches. Comparisons involving `FLOAT` or `DOUBLE` retain their existing
+    behavior. Literals containing a decimal point still evaluate as `DOUBLE`. Unary minus
+    preserves `DECIMAL` precision for both `-decimal_col` and
+    `-CAST('...' AS DECIMAL(p, s))`. Each `IN` element independently selects the
+    exact or floating path, so mixing exact and floating operands can still match
+    distinct large values and does not guarantee transitive equality.
+  - **Migration Guide**: Review affected predicates and `CASE` expressions, and reconcile
+    previously written data that relied on rounded comparison results. For exact decimal
+    constants, use quoted strings with sufficient scale, such as
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
+    string/`DECIMAL` inputs use
+    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
+    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
+    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    for examples and limits. No configuration, output schema or state format changes are required.
 
 ### DataValidator Array Length
 
