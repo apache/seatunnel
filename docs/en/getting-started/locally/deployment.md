@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';
@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
-* Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
+* Install [Java](https://www.java.com/en/download/) (Java 11 or Java 17) and set `JAVA_HOME`.
 
 ## Download SeaTunnel Release Package
 
@@ -22,19 +22,19 @@ Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal:
 
 ```shell
-export version="3.0.0"
+export version="3.1.0"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-On Windows, download the `.zip` archive from the [SeaTunnel Download Page](https://seatunnel.apache.org/download), then extract it with File Explorer or PowerShell:
+On Windows, download the `.tar.gz` archive from the [SeaTunnel Download Page](https://seatunnel.apache.org/download), then extract it with `tar` (bundled with Windows 10 1803+). Only the `.tar.gz` archive is published on archive.apache.org, there is no `.zip` release:
 
 ```powershell
-$version = "3.0.0"
+$version = "3.1.0"
 Invoke-WebRequest `
-  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.zip" `
-  -OutFile "apache-seatunnel-$version-bin.zip"
-Expand-Archive "apache-seatunnel-$version-bin.zip" -DestinationPath .
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.tar.gz" `
+  -OutFile "apache-seatunnel-$version-bin.tar.gz"
+tar -xzf "apache-seatunnel-$version-bin.tar.gz"
 Set-Location "apache-seatunnel-$version"
 ```
 
@@ -49,27 +49,27 @@ sh bin/install-plugin.sh
 On Windows, run the bundled batch script from the extracted directory. It uses the Maven Wrapper, so a separate Maven installation is not required:
 
 ```bat
-cd apache-seatunnel-3.0.0
+cd apache-seatunnel-3.1.0
 bin\install-plugin.cmd
 ```
 
 To install connectors for a specific release, pass the version to the same script:
 
 ```bat
-bin\install-plugin.cmd 3.0.0
+bin\install-plugin.cmd 3.1.0
 ```
 
-If you need a specific connector version, taking 3.0.0 as an example, you need to execute the following command:
+If you need a specific connector version, taking 3.1.0 as an example, you need to execute the following command:
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.1.0
 ```
 
 For released connector versions, `install-plugin.sh` downloads JARs and their checksums directly over HTTPS, so Maven is not required on Linux and macOS. This path requires `curl`, `mktemp`, and one of `sha512sum`, `sha1sum`, `shasum`, or `openssl`. The Windows `install-plugin.cmd` script continues to use the bundled Maven Wrapper. To use an HTTPS Maven-compatible mirror with `install-plugin.sh`, set `SEATUNNEL_MAVEN_REPOSITORY` to its base URL:
 
 ```bash
 SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
-  sh bin/install-plugin.sh 3.0.0
+  sh bin/install-plugin.sh 3.1.0
 ```
 
 The direct download path supports immutable release versions from repositories that publish `.sha512` or `.sha1` checksum files. `SNAPSHOT`, `LATEST`, `RELEASE`, and version ranges automatically use the bundled Maven wrapper because Maven metadata must be resolved. You can also set `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven` to preserve Maven `settings.xml` behavior such as mirrors, authenticated repositories, proxies, and custom TLS policies.
@@ -92,9 +92,7 @@ If you want to install connector plugins by manually downloading connectors, you
 :::
 
 :::note Developer note
-
 This local deployment guide assumes that you use an official binary release package. If you need to validate unreleased code, debug SeaTunnel source code, or prepare a custom distribution, see [Set Up Develop Environment](../../developer/setup.md).
-
 :::
 
 # Run SeaTunnel
