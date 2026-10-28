@@ -12,6 +12,12 @@ You need to check this document before you upgrade to related version.
   - **Impact**: For the same input, a newly written value can differ from one written by an earlier version in its last three microsecond digits. Rows already in a dataset are not rewritten, so one dataset can hold both. Millisecond columns, and values with no digits below the millisecond, are unchanged.
   - **Migration Guide**: No configuration change is needed. If a consumer compares or deduplicates new rows against rows written by an earlier version, compare at millisecond precision, or rewrite the older rows from the source.
 
+### Kafka sink: writer-specific transactional IDs
+
+With `semantics = EXACTLY_ONCE`, transactional IDs now include the subtask index: `<transaction_prefix>-<subtask>-<checkpoint>` instead of `<transaction_prefix>-<checkpoint>`. This prevents parallel writers sharing a configured prefix from fencing each other. Configuration keys and checkpoint serialization are unchanged.
+
+Update Kafka transactional-ID ACLs or monitoring rules that depend on the old ID shape. Stop the previous job attempt before restoring a checkpoint; recovery still needs permission to fence unfinished transactions using the saved IDs, including IDs written before this change. Keep a distinct configured prefix for every concurrent job.
+
 ### JDBC MySQL: DATETIME writes preserve local date/time fields
 
 The MySQL JDBC sink now binds SeaTunnel `TIMESTAMP` (`LocalDateTime`) directly instead of converting it through `java.sql.Timestamp`. With different worker JVM and JDBC connection time zones, affected versions could shift `DATETIME` values or reject valid boundary values. Writes now preserve the local fields and the fractional seconds supported by the target column. The `DATETIME` source mapping and `TIMESTAMP_TZ` handling are unchanged.

@@ -51,6 +51,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
     private final String transactionPrefix;
+    private final String transactionIdPrefix;
     private final Properties kafkaProperties;
 
     /**
@@ -64,7 +65,13 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     private int recordNumInTransaction = 0;
 
     public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
+        this(transactionPrefix, transactionPrefix, kafkaProperties);
+    }
+
+    KafkaTransactionSender(
+            String transactionPrefix, String transactionIdPrefix, Properties kafkaProperties) {
         this.transactionPrefix = transactionPrefix;
+        this.transactionIdPrefix = transactionIdPrefix;
         this.kafkaProperties = kafkaProperties;
     }
 
@@ -167,8 +174,15 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public void abortTransaction(long checkpointId) {
+        abortTransaction(this.transactionIdPrefix, checkpointId);
+    }
+
+    /**
+     * Fence unfinished transactions in either the current writer or a restored legacy namespace.
+     */
+    void abortTransaction(String transactionIdPrefix, long checkpointId) {
         for (long i = checkpointId; ; i++) {
-            String transactionId = generateTransactionId(this.transactionPrefix, i);
+            String transactionId = generateTransactionId(transactionIdPrefix, i);
             KafkaInternalProducer<K, V> producer = createTransactionProducer(transactionId);
             try {
                 if (log.isDebugEnabled()) {

@@ -49,6 +49,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SinkWriter.Context context;
 
     private String transactionPrefix;
+    private final String writerTransactionPrefix;
     private long lastCheckpointId = 0;
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -73,19 +74,33 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
 
         restoreState(kafkaStates);
+        // Keep the checkpointed job prefix unchanged, but give each writer its own namespace.
+        this.writerTransactionPrefix = this.transactionPrefix + "-" + context.getIndexOfSubtask();
         this.seaTunnelRowSerializer = KafkaSinkSerializer.create(pluginConfig, seaTunnelRowType);
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
-            this.kafkaProducerSender =
+            KafkaTransactionSender<byte[], byte[]> transactionSender =
                     new KafkaTransactionSender<>(
-                            this.transactionPrefix, getKafkaProperties(pluginConfig));
+                            this.transactionPrefix,
+                            this.writerTransactionPrefix,
+                            getKafkaProperties(pluginConfig));
+            this.kafkaProducerSender = transactionSender;
             // abort all transaction number bigger than current transaction, because they maybe
             // already start
             //  transaction.
             if (!kafkaStates.isEmpty()) {
-                this.kafkaProducerSender.abortTransaction(kafkaStates.get(0).getCheckpointId() + 1);
+                KafkaSinkState restoredState = kafkaStates.get(0);
+                String restoredId = restoredState.getTransactionId();
+                String restoredPrefix = restoredId.substring(0, restoredId.lastIndexOf('-'));
+                long nextCheckpointId = restoredState.getCheckpointId() + 1;
+                // Old checkpoints used a shared namespace. Fence its unfinished transactions
+                // before migrating, and also clean up retries in this writer's new namespace.
+                if (restoredPrefix.equals(this.transactionPrefix)) {
+                    transactionSender.abortTransaction(restoredPrefix, nextCheckpointId);
+                }
+                transactionSender.abortTransaction(nextCheckpointId);
             }
             this.kafkaProducerSender.beginTransaction(
-                    generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
+                    generateTransactionId(this.writerTransactionPrefix, this.lastCheckpointId + 1));
         } else {
             this.kafkaProducerSender =
                     new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
@@ -104,7 +119,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         List<KafkaSinkState> states = kafkaProducerSender.snapshotState(checkpointId);
         this.lastCheckpointId = checkpointId;
         this.kafkaProducerSender.beginTransaction(
-                generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
+                generateTransactionId(this.writerTransactionPrefix, this.lastCheckpointId + 1));
         return states;
     }
 

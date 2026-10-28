@@ -2159,7 +2159,10 @@ public class KafkaIT extends AbstractKafkaIT {
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
         List<String> exactlyOnceVariables =
-                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+                new ArrayList<>(
+                        buildExactlyOnceStreamingVariables(
+                                producerTopic, consumerTopic, consumerGroup));
+        exactlyOnceVariables.add("parallelism=2");
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
@@ -2282,6 +2285,46 @@ public class KafkaIT extends AbstractKafkaIT {
                             Assertions.assertTrue(
                                     checkData(consumerTopic, sinkDataStartOffset, 10, sourceData));
                         });
+    }
+
+    @TestTemplate
+    public void shouldWriteEveryRecordWithParallelExactlyOnceWriters(TestContainer container)
+            throws Exception {
+        // SeaTunnel-13044: both nonempty writers share one configured transaction prefix.
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String sourceTopic = "parallel_exactly_once_source_" + suffix;
+        String sinkTopic = "parallel_exactly_once_sink_" + suffix;
+        createKafkaTopic(sourceTopic, 2);
+        createKafkaTopic(sinkTopic);
+        Set<String> expected = new HashSet<>();
+        for (int i = 0; i < 100; i++) {
+            String value = "record-" + i;
+            expected.add(value);
+            producer.send(
+                            new ProducerRecord<>(
+                                    sourceTopic,
+                                    i % 2,
+                                    null,
+                                    value.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+        }
+
+        Container.ExecResult result =
+                container.executeJob(
+                        "/kafka/kafka_to_kafka_parallel_exactly_once_batch.conf",
+                        Arrays.asList(
+                                "sourceTopic=" + sourceTopic,
+                                "sinkTopic=" + sinkTopic,
+                                "transactionPrefix=parallel-exactly-once-" + suffix));
+
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        List<String> actual = getKafkaConsumerListData(sinkTopic, 0);
+        Assertions.assertEquals(
+                expected,
+                new HashSet<>(actual),
+                "Every source record must be visible to read_committed");
+        Assertions.assertEquals(
+                expected.size(), actual.size(), "No source record may be duplicated");
     }
 
     @TestTemplate
@@ -2668,7 +2711,11 @@ public class KafkaIT extends AbstractKafkaIT {
      * <p>Each registered topic is removed during class cleanup.
      */
     private void createKafkaTopic(String topicName) {
-        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        createKafkaTopic(topicName, 1);
+    }
+
+    private void createKafkaTopic(String topicName, int partitions) {
+        NewTopic topic = new NewTopic(topicName, partitions, (short) 1);
         topic.configs(Collections.singletonMap("retention.ms", "-1"));
         try (AdminClient adminClient = createKafkaAdmin()) {
             adminClient.createTopics(Collections.singletonList(topic)).all().get();
