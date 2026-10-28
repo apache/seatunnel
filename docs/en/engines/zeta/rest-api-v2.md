@@ -93,6 +93,8 @@ Please refer [security](security.md)
 ### Request body encoding
 
 Endpoints that read a text or JSON body use UTF-8 when no request charset is declared.
+Previously, text bodies without a declared charset were decoded as ISO-8859-1.
+Clients sending Latin-1 bytes must declare `charset=ISO-8859-1` or encode the body as UTF-8.
 This includes HOCON, SQL and JSON submitted to `/submit-job`, and JSON bodies sent to
 `/submit-jobs`, `/stop-job`, `/stop-jobs`, `/encrypt-config`, `/update-tags` and
 `/loggers/{name}`. An explicit, supported `charset` in `Content-Type` is honored;

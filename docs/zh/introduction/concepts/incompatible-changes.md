@@ -4,6 +4,11 @@
 
 ## dev
 
+### Zeta REST API v2 请求体字符集
+
+- **行为变更**：未声明字符集的文本请求体现在使用 UTF-8，而不是 Servlet 默认的 ISO-8859-1。这影响使用共享 REST 读取方法的原始请求体接口，包括 HOCON/SQL 提交以及以 `text/plain` 发送的 JSON。显式声明的受支持字符集仍然有效；不支持的字符集声明返回 HTTP 400。
+- **迁移指南**：发送 UTF-8 字节，或在 `Content-Type` 中显式声明实际编码（例如，Latin-1 字节使用 `text/plain; charset=ISO-8859-1`）。UTF-8 的 `application/json` 请求和 multipart 配置文件上传保持不变。此变更不改变查询参数或表单参数的解码方式。
+
 ### Lance Sink：TIMESTAMP 值保留微秒
 
 - **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**

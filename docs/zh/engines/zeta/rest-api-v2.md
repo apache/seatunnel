@@ -88,6 +88,8 @@ seatunnel:
 ### 请求体编码
 
 读取文本或 JSON 请求体的接口在未声明请求字符集时默认使用 UTF-8。
+此前，未声明字符集的文本请求体按 ISO-8859-1 解码。
+发送 Latin-1 字节的客户端必须声明 `charset=ISO-8859-1`，或将请求体改为 UTF-8 编码。
 这包括 `/submit-job` 接收的 HOCON、SQL 和 JSON，以及 `/submit-jobs`、
 `/stop-job`、`/stop-jobs`、`/encrypt-config`、`/update-tags` 和 `/loggers/{name}`
 接收的 JSON 请求体。如果 `Content-Type` 显式声明了受支持的 `charset`，则使用该字符集；
