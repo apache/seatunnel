@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
 /** Encoding of composite document IDs. Existing indexes use {@link #LEGACY}. */
 public enum KeyEncoding {
+    /** Join key fields with {@code key_delimiter} (legacy behavior). */
     LEGACY,
+    /** Encode each key field as {@code <length>:<value>} to avoid delimiter collisions. */
     LENGTH_PREFIXED
 }
