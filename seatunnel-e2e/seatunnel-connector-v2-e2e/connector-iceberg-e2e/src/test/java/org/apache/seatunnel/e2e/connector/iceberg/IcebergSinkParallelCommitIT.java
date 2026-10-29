@@ -278,8 +278,18 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                             }
                         });
 
-        // checkpoint.interval=3s × 3 = 9 s
-        Thread.sleep(9_000);
+        // Wait until at least one checkpoint has been committed to the table instead of
+        // waiting a fixed number of checkpoint intervals, so the savepoint always happens
+        // after real commits even when checkpoints run slower under CI load.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        collectCheckpointIds(loadRecoveryTable()).isEmpty(),
+                                        "At least one checkpoint must have been committed"
+                                                + " before the savepoint"));
 
         Assertions.assertEquals(
                 0,
