@@ -70,15 +70,20 @@ Use either a root-level `sql` and `schema` for one table, or `tables_configs` fo
 | num_partitions             | int     | no       | -             | Number of time-range partitions. Use it together with `lower_bound` and `upper_bound`.                             |
 | thrift_default_buffer_size | int     | no       | -             | Initial Thrift buffer size for the IoTDB client.                                                                  |
 | thrift_max_frame_size      | int     | no       | -             | Maximum Thrift frame size for the IoTDB client.                                                                   |
+| zone_id                    | string  | no       | -             | `java.time.ZoneId` for timestamp conversion and the IoTDB client, for example `Asia/Shanghai`.                     |
 | enable_cache_leader        | boolean | no       | -             | Whether to cache the leader node in the IoTDB client.                                                             |
 | version                    | string  | no       | -             | SQL semantic version used by the client. The possible values are `V_0_12` and `V_0_13`.                           |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 The first field in `schema.fields` must describe the IoTDB time column. It can be `bigint` when you want epoch milliseconds, or `timestamp` when you want a SeaTunnel timestamp value.
 
+When the time column is mapped to `TIMESTAMP` (`LocalDateTime`), `zone_id` controls how epoch milliseconds are converted to local date and time. For example, with `zone_id = "Asia/Shanghai"`, epoch millisecond `0` is read as `1970-01-01T08:00:00`. The same option configures the IoTDB client session. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. Mapping the time column to `BIGINT` returns the original epoch milliseconds without conversion.
+
+For IoTDB source-to-sink jobs, configure the same `zone_id` on both sides so they use the same timestamp conversion rules.
+
 ### Multiple tables
 
-All tables share the source-level connection and client options, including `node_urls`, credentials, `fetch_size`, and `version`. Configure these options only at source level. Each `tables_configs` entry defines its own SQL query, schema, and optional `lower_bound`, `upper_bound`, and `num_partitions`. Root-level SQL, schema, and time-partition options cannot be combined with `tables_configs`.
+All tables share the source-level connection and client options, including `node_urls`, credentials, `fetch_size`, `zone_id`, and `version`. Configure these options only at source level. Each `tables_configs` entry defines its own SQL query, schema, and optional `lower_bound`, `upper_bound`, and `num_partitions`. Root-level SQL, schema, and time-partition options cannot be combined with `tables_configs`.
 
 `schema.table` identifies the output table for downstream routing; it does not change the IoTDB path in the SQL. Each schema must match its query's columns in order, starting with the time column. Different entries can have different field names and types.
 

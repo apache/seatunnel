@@ -65,8 +65,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | num_partitions             | Integer | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若 (上界 - 下界) < 分区数，则使用差值作为实际分区数 |
 | default_thrift_buffer_size | Integer | 否    | -    | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                     |
 | max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
+| zone_id                    | String  | 否    | -    | 用于时间戳转换和 IoTDB 客户端的 `java.time.ZoneId`，例如 `Asia/Shanghai`。                     |
 | enable_cache_leader        | Boolean | 否    | -    | 是否在 IoTDB 客户端启用 Leader 节点缓存。                                                     |
 | common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source 常用选项](../common-options/source-common-options.md)                  |
+
+树模型时间列、表模型 TIME 列或表模型 TIMESTAMP FIELD 列映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）时，`zone_id` 决定如何将纪元毫秒值转换为本地日期时间。例如，配置 `zone_id = "Asia/Shanghai"` 时，纪元毫秒值 `0` 读为 `1970-01-01T08:00:00`。此选项也会设置两种 SQL 方言下 IoTDB 客户端会话的时区。未配置时，时间戳转换仍使用 UTC，客户端保留原有默认时区。时间戳列映射为 `BIGINT` 时，直接返回原始纪元毫秒值，不做时区转换。
+
+对于 IoTDBv2 Source 到 Sink 的作业，请在两端配置相同的 `zone_id`，使读取和写入使用相同的时间戳转换规则。
 
 可以使用时间列把一次查询拆成多个分片执行。启用分片读取时，需要同时配置 `lower_bound`、`upper_bound` 和 `num_partitions`。
 

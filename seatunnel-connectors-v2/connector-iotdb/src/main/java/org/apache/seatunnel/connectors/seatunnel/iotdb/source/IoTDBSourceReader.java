@@ -40,6 +40,7 @@ import org.apache.iotdb.tsfile.read.common.RowRecord;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -57,12 +58,14 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSource
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.VERSION;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.ZONE_ID;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.NODES_SPLIT;
 
 @Slf4j
 public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
 
     private final ReadonlyConfig conf;
+    private final ZoneId zoneId;
 
     private final Queue<IoTDBSourceSplit> pendingSplits;
 
@@ -77,25 +80,29 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
     public IoTDBSourceReader(
             ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         this.conf = conf;
+        this.zoneId = conf.getOptional(ZONE_ID).map(ZoneId::of).orElse(null);
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
-        this.deserializers.put(null, new DefaultSeaTunnelRowDeserializer(rowType));
+        this.deserializers.put(null, new DefaultSeaTunnelRowDeserializer(rowType, zoneId));
     }
 
     IoTDBSourceReader(
             ReadonlyConfig conf, SourceReader.Context readerContext, List<CatalogTable> tables) {
         this.conf = conf;
+        this.zoneId = conf.getOptional(ZONE_ID).map(ZoneId::of).orElse(null);
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         if (!conf.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()
                 && tables.size() == 1) {
             deserializers.put(
-                    null, new DefaultSeaTunnelRowDeserializer(tables.get(0).getSeaTunnelRowType()));
+                    null,
+                    new DefaultSeaTunnelRowDeserializer(
+                            tables.get(0).getSeaTunnelRowType(), zoneId));
         } else {
             for (CatalogTable table : tables) {
                 deserializers.put(
                         table.getTablePath().toString(),
-                        new DefaultSeaTunnelRowDeserializer(table.getSeaTunnelRowType()));
+                        new DefaultSeaTunnelRowDeserializer(table.getSeaTunnelRowType(), zoneId));
             }
         }
     }
@@ -162,6 +169,9 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
         List<String> nodes =
                 Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
         sessionBuilder.nodeUrls(nodes);
+        if (zoneId != null) {
+            sessionBuilder.zoneId(zoneId);
+        }
         if (null != conf.get(FETCH_SIZE)) {
             sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE).toString()));
         }

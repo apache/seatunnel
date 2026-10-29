@@ -38,12 +38,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -233,6 +235,69 @@ class IoTDBMultiTableSourceTest {
         verify(context).signalNoMoreElement();
         reader.close();
         verify(session).close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "zone_id = \"Asia/Shanghai\"\n"})
+    void singleTableReaderConstructorsUseConfiguredZone(String zoneConfig) throws Exception {
+        SourceReader.Context context = mock(SourceReader.Context.class);
+        IoTDBSource source =
+                source(zoneConfig + "sql = x\nschema {fields {ts = timestamp, value = int}}");
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseString(CONNECTION + zoneConfig));
+        List<IoTDBSourceReader> readers =
+                Arrays.asList(
+                        (IoTDBSourceReader) source.createReader(context),
+                        new IoTDBSourceReader(
+                                config,
+                                context,
+                                source.getProducedCatalogTables().get(0).getSeaTunnelRowType()));
+        LocalDateTime expected = LocalDateTime.of(2024, 1, 1, zoneConfig.isEmpty() ? 0 : 8, 0);
+        for (IoTDBSourceReader reader : readers) {
+            Session session = mock(Session.class);
+            setSession(reader, session);
+            RowRecord row = new RowRecord(1704067200000L);
+            row.addField(7, TSDataType.INT32);
+            SessionDataSet dataSet = result(row);
+            when(session.executeQueryStatement("query")).thenReturn(dataSet);
+            reader.addSplits(Collections.singletonList(new IoTDBSourceSplit("a", "query")));
+            List<SeaTunnelRow> rows = new ArrayList<>();
+            reader.pollNext(collector(rows));
+            Assertions.assertArrayEquals(new Object[] {expected, 7}, rows.get(0).getFields());
+        }
+    }
+
+    @Test
+    void multiTableReaderAppliesSourceZoneToEachSchema() throws Exception {
+        IoTDBSourceReader reader =
+                (IoTDBSourceReader)
+                        source(
+                                        "zone_id = \"Asia/Shanghai\"\n"
+                                                + "tables_configs = ["
+                                                + "{sql = x, schema {table = a, fields {ts = timestamp, value = int}}},"
+                                                + "{sql = y, schema {table = b, fields {ts = timestamp, enabled = boolean}}}]")
+                                .createReader(mock(SourceReader.Context.class));
+        Session session = mock(Session.class);
+        setSession(reader, session);
+        RowRecord first = new RowRecord(1704067200000L);
+        first.addField(7, TSDataType.INT32);
+        RowRecord second = new RowRecord(1704067200000L);
+        second.addField(true, TSDataType.BOOLEAN);
+        SessionDataSet firstResult = result(first);
+        SessionDataSet secondResult = result(second);
+        when(session.executeQueryStatement("first")).thenReturn(firstResult);
+        when(session.executeQueryStatement("second")).thenReturn(secondResult);
+        reader.addSplits(
+                Arrays.asList(
+                        new IoTDBSourceSplit("a", "first", "a"),
+                        new IoTDBSourceSplit("b", "second", "b")));
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        reader.pollNext(collector(rows));
+        LocalDateTime expected = LocalDateTime.of(2024, 1, 1, 8, 0);
+        Assertions.assertArrayEquals(new Object[] {expected, 7}, rows.get(0).getFields());
+        Assertions.assertArrayEquals(new Object[] {expected, true}, rows.get(1).getFields());
+        Assertions.assertEquals("a", rows.get(0).getTableId());
+        Assertions.assertEquals("b", rows.get(1).getTableId());
     }
 
     @Test

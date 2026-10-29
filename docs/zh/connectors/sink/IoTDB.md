@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | max_retry_backoff_ms        | Integer | 否    | -                              | 尝试重试对 IoTDB 的请求之前等待的时间量                                                      |
 | default_thrift_buffer_size  | Integer | 否    | -                              | IoTDB 客户端的初始化 Thrift 缓冲区大小                                                   |
 | max_thrift_frame_size       | Integer | 否    | -                              | IoTDB 客户端的最大 Thrift 帧大小                                                       |
-| zone_id                     | string  | 否    | -                              | IoTDB 客户端使用的 `java.time.ZoneId`                                                |
+| zone_id                     | string  | 否    | -                              | 用于时间戳转换和 IoTDB 客户端的 `java.time.ZoneId`，例如 `Asia/Shanghai`。                     |
 | enable_rpc_compression      | Boolean | 否    | -                              | 在 IoTDB 客户端中启用rpc压缩                                                          |
 | connection_timeout_in_ms    | Integer | 否    | -                              | 连接到 IoTDB 时等待的最长时间（毫秒）                                                       |
 | common-options              |         | 否    | -                              | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)              |
@@ -71,6 +71,10 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 - `key_timestamp` 可以指定 `STRING`、`BIGINT` 或 `TIMESTAMP` 类型字段。未配置时，连接器会使用当前处理时间。
 - 未配置 `key_measurement_fields` 时，会把除 `key_device` 和 `key_timestamp` 之外的所有字段写为测点。
 - sink 支持写入 `STRING`、`BOOLEAN`、`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT` 和 `DOUBLE` 类型测点。
+
+`key_timestamp` 指向 `TIMESTAMP`（`LocalDateTime`）字段时，`zone_id` 决定如何将其转换为纪元毫秒值。例如，配置 `zone_id = "Asia/Shanghai"` 时，`1970-01-01T08:00:00` 写为纪元毫秒值 `0`。此选项也会设置 IoTDB 客户端会话的时区。未配置时，时间戳转换仍使用 UTC，客户端保留原有默认时区。`BIGINT` 和数字 `STRING` 类型的时间戳键已经表示纪元毫秒值，写入时保持不变。
+
+对于 IoTDB Source 到 Sink 的作业，请在两端配置相同的 `zone_id`。已有作业如果为 Sink 显式配置了非 UTC 的 `zone_id`，请查看[迁移指南](../../introduction/concepts/incompatible-changes.md)，因为此选项现在也会影响时间戳转换。
 
 ## 示例
 
