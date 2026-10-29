@@ -50,6 +50,16 @@ public abstract class TaskOperation extends TracingOperation implements Identifi
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskLocation = in.readObject(TaskLocation.class);
+        Object decodedLocation = in.readObject();
+        if (!(decodedLocation instanceof TaskLocation)) {
+            throw new IOException(
+                    "Task operation expects location of type "
+                            + TaskLocation.class.getName()
+                            + " but the wire payload decoded to "
+                            + (decodedLocation == null
+                                    ? "null"
+                                    : decodedLocation.getClass().getName()));
+        }
+        taskLocation = (TaskLocation) decodedLocation;
     }
 }
