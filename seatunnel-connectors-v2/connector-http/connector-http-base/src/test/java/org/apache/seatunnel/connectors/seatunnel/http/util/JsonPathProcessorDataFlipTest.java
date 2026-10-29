@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import com.jayway.jsonpath.JsonPath;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -66,8 +67,10 @@ public class JsonPathProcessorDataFlipTest {
                         () -> processor.processJsonData(JsonPath.parse(json), paths),
                         "Unequal path cardinality must not crash the reader");
 
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(2, result.size(), "One row per element of the longest path");
+        Assertions.assertEquals(
+                Arrays.asList(Arrays.asList("1", "10"), Arrays.asList(null, "20")),
+                result,
+                "Rows stay index-aligned: the shorter first path is padded with null");
     }
 
     @Test
@@ -84,8 +87,10 @@ public class JsonPathProcessorDataFlipTest {
                         () -> processor.processJsonData(JsonPath.parse(json), paths),
                         "Unequal path cardinality must not crash the reader");
 
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(2, result.size(), "One row per element of the longest path");
+        Assertions.assertEquals(
+                Arrays.asList(Arrays.asList("1", "10"), Arrays.asList("2", null)),
+                result,
+                "Rows stay index-aligned: the shorter later path is padded with null");
     }
 
     @Test
@@ -98,8 +103,8 @@ public class JsonPathProcessorDataFlipTest {
                 processorWithNullForMissing().processJsonData(JsonPath.parse(json), paths);
 
         List<List<String>> expected = new ArrayList<>();
-        expected.add(java.util.Arrays.asList("1", "10"));
-        expected.add(java.util.Arrays.asList("2", "20"));
+        expected.add(Arrays.asList("1", "10"));
+        expected.add(Arrays.asList("2", "20"));
 
         Assertions.assertEquals(expected, result);
     }
@@ -119,5 +124,43 @@ public class JsonPathProcessorDataFlipTest {
         Assertions.assertEquals("2", result.get(1).get(0), "first column keeps original order");
         Assertions.assertNull(result.get(0).get(1), "missing second column is padded with null");
         Assertions.assertNull(result.get(1).get(1), "missing second column is padded with null");
+    }
+
+    @Test
+    public void factoryRoutedScalarFirstPathPadsRaggedRows() {
+        // A first path without [*] is what the factory routes to this processor; the
+        // [*]-first reproduction in the PR description actually goes to ArrayJsonPathProcessor.
+        // The first path must still read a list: a scalar path such as $.id returns a bare
+        // Integer that this processor rejects before and after the padding change.
+        String json = "{\"a\":[1],\"b\":[10,20]}";
+
+        JsonPath[] paths =
+                new JsonPath[] {
+                    JsonPath.compile("$.a"), JsonPath.compile("$.b[*]")
+                };
+
+        JsonPathProcessor processor = JsonPathProcessorFactory.getProcessor(paths, true);
+        Assertions.assertInstanceOf(
+                JsonPathProcessorImpl.class,
+                processor,
+                "A scalar first path must reach JsonPathProcessorImpl through the factory");
+
+        List<List<String>> result = processor.processJsonData(JsonPath.parse(json), paths);
+
+        Assertions.assertEquals(
+                Arrays.asList(Arrays.asList("1", "10"), Arrays.asList(null, "20")),
+                result,
+                "A short first column is not broadcast; it is null for the remaining rows");
+    }
+
+    @Test
+    public void factoryStillRoutesArrayFirstPathToTheArrayProcessor() {
+        JsonPath[] arrayPaths = new JsonPath[] {JsonPath.compile("$.a[*]")};
+        JsonPathProcessor processor = JsonPathProcessorFactory.getProcessor(arrayPaths, true);
+
+        Assertions.assertInstanceOf(
+                ArrayJsonPathProcessor.class,
+                processor,
+                "A [*] first path keeps its dedicated processor");
     }
 }

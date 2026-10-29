@@ -67,7 +67,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                |         | No       | -           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                             |
 | keep_params_as_form           |    Boolean  | No       | false       | Whether the params are submitted according to the form, used for compatibility with legacy behaviors. When true, the value of the params parameter is submitted through the form. |
 | keep_page_param_as_http_param |    Boolean  | No       | false       | Whether to set the paging parameters to params. For compatibility with legacy behaviors.|
-| json_filed_missed_return_null         |    Boolean     | No       | false       | When the json field is missing, set true return null else error.|
+| json_filed_missed_return_null         |    Boolean     | No       | false       | When the json field is missing, set true return null else error. When one path matches fewer elements than another, the shorter column is padded with null at the end of the rows (index-aligned, not repeated).|
 
 ## Option Notes
 
