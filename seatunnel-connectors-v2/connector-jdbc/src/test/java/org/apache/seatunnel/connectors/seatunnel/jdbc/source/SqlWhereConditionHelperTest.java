@@ -1463,8 +1463,7 @@ public class SqlWhereConditionHelperTest {
         // 'ß' uppercases to "SS", which shifts every later index when keyword matching is done
         // on an uppercased copy of the SQL.
         Assertions.assertTrue(
-                SqlWhereConditionHelper.hasTopLevelSelectWildcard(
-                        "select id as maß, t.* from t"),
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("select id as maß, t.* from t"),
                 "t.* after a column whose uppercase form is longer should be detected");
     }
 
