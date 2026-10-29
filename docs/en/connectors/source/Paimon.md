@@ -52,37 +52,41 @@ Read data from Apache Paimon.
 
 ## Options
 
-| name                    | type     | required       | default value |
-|-------------------------|----------|----------------|---------------|
-| warehouse               | String   | Yes            | -             |
-| catalog_name            | String   | No             | paimon        |
-| catalog_type            | String   | No             | filesystem    |
-| catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             |
-| database                | String   | Yes            | -             |
-| table                   | String   | Yes when `table_list` is absent | -             |
-| table_list              | array    | Yes when `table` is absent | -             |
-| user                    | String   | No             | -             |
-| password                | String   | No             | -             |
-| hdfs_site_path          | String   | No             | -             |
-| query                   | String   | No             | -             |
-| paimon.hadoop.conf      | Map      | No             | -             |
-| paimon.hadoop.conf-path | String   | No             | -             |
+| name                    | type     | required       | default value | description                                                                                                                  |
+|-------------------------|----------|----------------|---------------|------------------------------------------------------------------------------------------------------------------------------|
+| warehouse               | String   | Yes            | -             | Paimon warehouse path.                                                                                                       |
+| catalog_name            | String   | No             | paimon        | The name of the Paimon catalog.                                                                                              |
+| catalog_type            | String   | No             | filesystem    | Catalog type of Paimon, supports `filesystem` and `hive`.                                                                    |
+| catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                |
+| database                | String   | Yes            | -             | The database you want to access.                                                                                             |
+| table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
+| table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
+| user                    | String   | No             | -             | The Paimon user used to access the table (for example, with a `hive` catalog that enables authentication).                   |
+| password                | String   | No             | -             | The Paimon user password. Required when `user` is configured.                                                                 |
+| hdfs_site_path          | String   | No             | -             | The file path of `hdfs-site.xml`. Deprecated; prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.        |
+| query                   | String   | No             | -             | The filter condition applied to the table read. If not specified, all rows are read.                                         |
+| paimon.hadoop.conf      | Map      | No             | -             | Properties applied to the Hadoop configuration.                                                                              |
+| paimon.hadoop.conf-path | String   | No             | -             | The loading path for `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml` files.                                            |
 
 ### warehouse [string]
 
 Paimon warehouse path. Must not be blank.
 
+### catalog_name [string]
+
+The name of the Paimon catalog. Default value is `paimon`.
+
 ### catalog_type [string]
 
-Catalog type of Paimon, support filesystem and hive
+Catalog type of Paimon. Supports `filesystem` and `hive`. Default value is `filesystem`.
 
 ### catalog_uri [string]
 
-Catalog URI of Paimon. This option is required when `catalog_type` is `hive`.
+Catalog URI of Paimon. This option is required when `catalog_type` is `hive` (for example, `thrift://hadoop04:9083`).
 
 ### database [string]
 
-The database you want to access
+The database you want to access.
 
 ### table [string]
 
@@ -90,7 +94,29 @@ The table you want to access. Configure exactly one of `table` and `table_list`.
 
 ### table_list [array]
 
-The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `table`, and can contain its own `query`.
+The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `database` and `table`, and may contain its own `query` filter.
+
+```hocon
+table_list = [
+  {
+    database = "default"
+    table = "table1"
+    query = "select * from table1 where id > 100"
+  },
+  {
+    database = "default"
+    table = "table2"
+  }
+]
+```
+
+### user [string]
+
+The Paimon user used to access the table. Use it together with `password`. This is mainly required when the underlying catalog enforces authentication.
+
+### password [string]
+
+The Paimon user password. Required when `user` is configured.
 
 ### hdfs_site_path [string]
 
@@ -159,10 +185,12 @@ source {
     database = "default"
     table_list = [
       {
+        database = "default"
         table = "table1"
         query = "select * from table1 where id > 100"
       },
       {
+        database = "default"
         table = "table2"
         query = "select * from table2 where id > 100"
       }
@@ -278,13 +306,14 @@ If you want to read the changelog of the Paimon table, first set the `changelog-
 
 ### Note
 
-Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table, and to ensure order, the parallelism of the stream read task should be set to 1.
+Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table. To ensure ordering, the parallelism of the stream read task should be set to 1.
 
 ### Streaming read example
+
 ```hocon
 env {
   parallelism = 1
-  job.mode = "Streaming"
+  job.mode = "STREAMING"
 }
 
 source {
