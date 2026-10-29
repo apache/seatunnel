@@ -21,18 +21,25 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresPublishedColumns;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ServerInfo;
@@ -43,9 +50,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
@@ -117,6 +128,77 @@ public class PostgresIncrementalSourceTest {
                         dialect.checkAllTablesEnabledCapture(
                                 connectionReporting(ServerInfo.ReplicaIdentity.FULL),
                                 Collections.singletonList(ORDERS)));
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            value = {
+                "DEFAULT, DEFAULT, initial, true",
+                "decoderbufs, DEFAULT, initial, false",
+                "DEFAULT, decoderbufs, initial, false",
+                "decoderbufs, pgoutput, initial, true",
+                "pgoutput, pgoutput, initial, true",
+                "pgoutput, DEFAULT, snapshot-only, false",
+                "decoderbufs, pgoutput, snapshot-only, false"
+            },
+            nullValues = "DEFAULT")
+    void testPublishedColumnFilterUsesEffectivePlugin(
+            String configuredPlugin, String overridePlugin, String startupMode, boolean filter) {
+        Map<String, Object> options = new HashMap<>(baseOptions());
+        if (configuredPlugin != null) {
+            options.put(
+                    PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.key(), configuredPlugin);
+        }
+        if (overridePlugin != null) {
+            options.put(
+                    SourceOptions.DEBEZIUM_PROPERTIES.key(),
+                    Collections.singletonMap("plugin.name", overridePlugin));
+        }
+        options.put(PostgresSourceOptions.STARTUP_MODE.key(), startupMode);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+        ClassLoader classLoader = getClass().getClassLoader();
+        List<CatalogTable> discoveredTables =
+                Collections.singletonList(
+                        CatalogTableUtil.getCatalogTable(
+                                "postgres",
+                                "inventory",
+                                "public",
+                                "orders",
+                                new SeaTunnelRowType(
+                                        new String[] {"id", "note"},
+                                        new SeaTunnelDataType[] {
+                                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                        })));
+        List<CatalogTable> publishedTables = catalogTables();
+        AtomicReference<Object> sourceTables = new AtomicReference<>();
+        TableSourceFactoryContext context = new TableSourceFactoryContext(config, classLoader);
+        try (MockedStatic<CatalogTableUtil> catalog = mockStatic(CatalogTableUtil.class);
+                MockedStatic<PostgresPublishedColumns> published =
+                        mockStatic(PostgresPublishedColumns.class);
+                MockedConstruction<PostgresIncrementalSource> sources =
+                        mockConstruction(
+                                PostgresIncrementalSource.class,
+                                (source, construction) ->
+                                        sourceTables.set(construction.arguments().get(1)))) {
+            catalog.when(() -> CatalogTableUtil.getCatalogTables(config, classLoader))
+                    .thenReturn(discoveredTables);
+            published
+                    .when(
+                            () ->
+                                    PostgresPublishedColumns.retainPublishedColumns(
+                                            config, discoveredTables))
+                    .thenReturn(publishedTables);
+
+            new PostgresIncrementalSourceFactory()
+                    .restoreSource(context, Collections.emptyList())
+                    .createSource();
+
+            Assertions.assertEquals(1, sources.constructed().size());
+            Assertions.assertSame(filter ? publishedTables : discoveredTables, sourceTables.get());
+            published.verify(
+                    () -> PostgresPublishedColumns.retainPublishedColumns(config, discoveredTables),
+                    times(filter ? 1 : 0));
+        }
     }
 
     /**

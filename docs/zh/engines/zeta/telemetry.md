@@ -22,6 +22,17 @@ seatunnel:
 
 ## 指标
 
+> [!NOTE]
+> 指标接口通过 Hazelcast REST API 提供，而发行包中 `config/hazelcast.yaml` 默认**关闭**了 REST API。
+> 抓取指标前，需要在每个节点的 `hazelcast.yaml` 中启用它：
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
 OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
@@ -188,7 +199,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|
-| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | seatunnel 集群的所有作业计数 |
+| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | seatunnel 集群的所有作业计数 |
 
 ### JVM 指标
 

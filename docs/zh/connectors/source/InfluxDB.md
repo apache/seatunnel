@@ -143,7 +143,7 @@ InfluxDB 密码。必须和 `username` 一起配置。
 `split_column` 列的下界。启用并行范围读取时使用。
 
 连接器会把 `split_column` 范围切成 `partition_num` 份；若 `partition_num = 1`，则使用整段范围；若
-`partition_num` 小于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
+`partition_num` 大于 `upper_bound - lower_bound`，则按 `upper_bound - lower_bound` 切分。
 
 例如 `lower_bound = 1`、`upper_bound = 10`、`partition_num = 2`、
 `sql = "select * from test where age > 0 and age < 10"` 会被切分成：
@@ -161,18 +161,14 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 ### where [string]
 
-:::caution 保留选项
+:::caution 保留参数
 
-单表模式（根级 `sql`）：当前的切分逻辑会直接从 `sql` 选项中读取小写的 `where` 关键字。单独设置 `where`
-对生成的切分查询没有任何效果——请把过滤条件直接写进 `sql`，例如
-`select * from test where age > 0`。该路径的切分解析器对 `where` 关键字区分大小写。
+当前的切分逻辑会直接从 `sql` 参数中读取小写的 `where` 关键字。设置 `where` 参数对生成的切分查询
+没有任何效果——请把过滤条件直接写进 `sql` 中，例如 `select * from test where age > 0`。切分解析器
+对 `where` 关键字区分大小写。
 
-`tables_configs` 多表模式：在表配置中设置 `where` 会在构建阶段直接抛出
-`OptionValidationException`（`InfluxDBSourceFactory` 校验拒绝）；该模式的切分解析器对
-`where` 关键字不区分大小写。
-
-该选项保留在选项列表中只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）
-为了向后兼容仍然引用它；运行时的切分查询生成器并不会读取它。
+该参数保留在参数列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）为了向后兼容仍然
+引用了它；运行时的切分查询生成器不会读取该参数。
 
 :::
 
@@ -336,11 +332,10 @@ sink {
 }
 ```
 
-### 使用并行分片的有界读取
+### 有界读取与并行切分
 
-InfluxDB source 是有界数据源，读取范围为 `sql` 的查询结果。如果要将它接入流式
-sink 且不丢数据，可以设置一个有限的 `partition_num`，由 SeaTunnel 对每个分片的
-offset 做检查点。
+InfluxDB Source 的读取范围由 `sql` 的结果决定。如果需要把它接入流式 Sink 且不丢数据，可以设置一个
+有限的 `partition_num`，让 SeaTunnel 通过检查点记录每个切分的读取位置。
 
 ```hocon
 env {
