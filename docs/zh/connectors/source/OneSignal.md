@@ -34,7 +34,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 | schema.fields               | Config  | 否  | -     | 字段名与 SeaTunnel 数据类型，用于解析 JSON 响应。                                                                |
 | json_field                  | Config  | 否  | -     | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                                |
 | content_field               | String  | 否  | -     | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON，例如 `$.players[*]` 可展开列表响应。                                  |
-| pageing                     | Config  | 否  | -     | HTTP 分页配置，继承自 HTTP 源连接器。OneSignal 分页接口通常使用 `page` / `per_page` 参数。                                |
+| pageing                     | Config  | 否  | -     | HTTP 分页配置，继承自 HTTP 源连接器。对 OneSignal 当前不生效：连接器创建的读取器不带分页能力，任务每次请求只读取单次响应。                                  |
 | poll_interval_millis        | int     | 否  | -     | 流式任务下两次请求之间的间隔（毫秒）。批模式下连接器读取一次后即结束。                                                            |
 | retry                       | int     | 否  | -     | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
 | retry_backoff_multiplier_ms | int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
@@ -50,7 +50,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 - 需要按字段读取时，把 `format` 设置为 `json` 并配置 `schema`。
 - 当 OneSignal 把记录嵌套在数组中（例如 `players` 列表）时，使用 `content_field` 抽取数组元素。
 - 只有当不同字段位于不同 JSON 路径时，才需要使用 `json_field`。
-- OneSignal 分页接口使用 `page` 和 `per_page` 查询参数，可以通过 `params` 与 `pageing` 配合来逐页读取。
+- OneSignal 读取器目前会忽略 `pageing`，每个任务只读取单次响应；可通过 `params`（例如 `limit`）控制该次响应返回的记录数。
 
 ## 任务示例
 
@@ -90,9 +90,10 @@ sink {
 }
 ```
 
-### 读取 Players 列表（分页）
+### 读取 Players 列表
 
-通过 `params` 配合 `pageing` 读取 OneSignal 分页接口：
+通过 `params` 查询 Players 接口。注意：OneSignal 读取器目前不支持自动翻页，`pageing` 配置会被
+忽略，任务只读取按当前 `params` 发出的单次响应；可通过 `limit` 控制该次响应返回的记录数：
 
 ```hocon
 env {
@@ -108,13 +109,6 @@ source {
     params = {
       app_id = "<your-app-id>"
       limit = "50"
-      offset = "0"
-    }
-    pageing = {
-      page_field = "offset"
-      start_page_number = 0
-      total_page_size = 10
-      use_placeholder_replacement = false
     }
     format = "json"
     content_field = "$.players[*]"

@@ -32,7 +32,8 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 
 - **追加写入**：每行生成一条新文档。性能最好，但在失败重试场景下不幂等。
 - **Upsert 写入**：当 `upsert-enable = true` 且配置了 `primary-key` 时，连接器会把主键字段作为
-  upsert 的匹配过滤条件（文档 `_id` 由 MongoDB 自动生成）并以 upsert 方式写入。结合 checkpoint 恢复机制，可以实现
+  upsert 的匹配过滤条件并以 upsert 方式写入。插入新文档时，仅当主键不包含 `_id` 的情况下文档
+  `_id` 才由 MongoDB 自动生成；若主键为 `_id`，则沿用过滤条件中传入的 `_id` 值。结合 checkpoint 恢复机制，可以实现
   at-least-once + 幂等重试，这是把 exactly-once 落到 MongoDB 的标准做法。
 
 缓存、重试以及可选的事务都可以通过下文的配置项进行调节。
@@ -299,7 +300,8 @@ sink {
 
 当配置中定义了 `primary-key` 且启用了 `upsert-enable`，MongoDB Sink 将使用 Upsert 语义而非
 普通 INSERT 语句。SeaTunnel 会将定义的主键作为 Upsert 的匹配过滤条件，在 Upsert 模式下写入
-以确保幂等性；插入新文档时 `_id` 由 MongoDB 自动生成。
+以确保幂等性；插入新文档时，仅当主键不包含 `_id` 的情况下 `_id` 才由 MongoDB 自动生成
+（若主键为 `_id`，则新文档沿用该 `_id` 值）。
 
 若作业在运行过程中失败，SeaTunnel 会从上一个成功的 checkpoint 恢复并重新处理数据，这可能
 导致重复数据。强烈建议启用 Upsert 模式，以避免主键冲突或重复插入。

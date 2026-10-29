@@ -34,7 +34,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when each output field lives at a different JSON path. |
 | content_field               | String  | No       | -       | JSONPath expression that selects a JSON fragment before `schema` parses it. For example, use `$.players[*]` to flatten a list response. |
-| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. OneSignal paged endpoints use `page` / `per_page` parameters. |
+| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. Currently not effective for OneSignal: the reader is created without pagination support, so a job reads only a single response per request. |
 | poll_interval_millis        | Int     | No       | -       | Request interval in milliseconds for streaming jobs. In batch mode the connector reads once and finishes. |
 | retry                       | Int     | No       | -       | Maximum retry count when an HTTP request fails with `IOException`. |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
@@ -50,7 +50,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 - Set `format = "json"` and define `schema` when you want typed SeaTunnel rows.
 - Use `content_field` when OneSignal wraps records in a nested array such as `$.players[*]`.
 - Use `json_field` only when each output field needs its own JSONPath expression.
-- OneSignal paged endpoints accept `page` and `per_page` query parameters; configure them through `params` and `pageing`.
+- The OneSignal reader currently ignores `pageing`; each job reads a single response. Use `params` (for example `limit`) to control how many records that response returns.
 
 ## Task Examples
 
@@ -90,9 +90,12 @@ sink {
 }
 ```
 
-### Read Players With Pagination
+### Read Players
 
-Use `params` together with `pageing` to walk through paged OneSignal endpoints:
+Query the players endpoint with `params`. Note that the OneSignal reader currently does not
+paginate: a `pageing` block is accepted but ignored, and the job reads only the single response
+returned for the configured `params`. Use `limit` to control how many records that response
+returns:
 
 ```hocon
 env {
@@ -108,13 +111,6 @@ source {
     params = {
       app_id = "<your-app-id>"
       limit = "50"
-      offset = "0"
-    }
-    pageing = {
-      page_field = "offset"
-      start_page_number = 0
-      total_page_size = 10
-      use_placeholder_replacement = false
     }
     format = "json"
     content_field = "$.players[*]"
