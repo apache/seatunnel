@@ -459,6 +459,13 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         throwAsIoException(e);
                     }
                     handleRowLevelBatchFailure(RowErrorPhase.CLOSE, null, batchRows, e);
+                    try {
+                        // A handled close error must commit preserved rows or reject lost work.
+                        commitIfNeeded();
+                    } catch (Exception commitError) {
+                        rollbackIfNeeded("close after row error");
+                        throwAsIoException(commitError);
+                    }
                 } finally {
                     outputFormat.close();
                 }

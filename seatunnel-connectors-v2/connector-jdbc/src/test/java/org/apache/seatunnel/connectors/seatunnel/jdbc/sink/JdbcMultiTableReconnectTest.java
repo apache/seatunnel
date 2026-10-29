@@ -536,6 +536,62 @@ class JdbcMultiTableReconnectTest {
         }
     }
 
+    @Test
+    void closeRowErrorCommitsEarlierGoodRows() throws Exception {
+        String url = "jdbc:sqlite:" + tempDir.resolve("close-row-error.db");
+        createTables(url);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        url,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "bad"));
+            dialect.getConnectionProvider()
+                    .failNextBatchWith(new SQLException("constraint violated", "23000"));
+            writer.close();
+            assertEquals(1, errors.size());
+            assertEquals(Arrays.asList("1:first", "2:second"), queryRows(url, "active_table"));
+        } finally {
+            closeQuietly(writer);
+        }
+    }
+
+    @Test
+    void closeRowErrorRejectsPoisonedTransaction() throws Exception {
+        String url = "jdbc:sqlite:" + tempDir.resolve("close-poisoned.db");
+        createTables(url);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        url,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "bad"));
+            SQLException failure = new SQLException("constraint violation", "23000");
+            failure.setNextException(new SQLException("transaction rolled back", "40001"));
+            dialect.slot().failNextBatchWith(failure);
+            assertThrows(IOException.class, writer::close);
+            assertTrue(dialect.transactionStateManager.isPoisoned());
+            assertEquals(1, errors.size());
+        } finally {
+            closeQuietly(writer);
+        }
+        assertTrue(queryRows(url, "active_table").isEmpty());
+    }
+
     /** A plain {@link JdbcSinkWriter}, so the real pooled provider is used once it is wired. */
     private static JdbcSinkWriter createPooledWriter(String jdbcUrl, String table) {
         Map<String, Object> options = new HashMap<>(manualCommit());
