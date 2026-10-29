@@ -1255,6 +1255,13 @@ fractional value reaches an integral target only through `COALESCE` or `IFNULL`,
 type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
 `NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
+`BIGINT` | `LONG` is range-checked the same way, but only an overflowing string source reaches it as
+a cast, such as `CAST('9223372036854775808' AS BIGINT)`, where `TRY_CAST` returns `NULL`. A `DECIMAL`
+or `DOUBLE` source is refused while the statement is prepared, so it reaches `BIGINT` only through
+`COALESCE` or `IFNULL`: when `bigint_col` is `NULL`, `COALESCE(bigint_col, decimal_col)` on
+`18446744073709551616` now fails instead of returning `0`. `TRY_CAST` cannot turn that into `NULL`,
+because no cast is involved.
+
 NOTE:
 Casting to `DECIMAL(p,s)` rounds to scale `s` half away from zero, whatever the source type:
 `CAST(1.21 AS DECIMAL(10,1))` gives `1.2`, `CAST(1.25 AS DECIMAL(10,1))` gives `1.3` and
@@ -1280,6 +1287,8 @@ TRY_CAST(NAME AS INT)
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `COALESCE(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
+
 Example:
 
 COALESCE(A, B, C)
@@ -1294,9 +1303,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
+
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `IFNULL(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `IFNULL(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
 
 Example:
 
@@ -1438,6 +1449,15 @@ SELECT * FROM dual
 ```
 
 ## Vector Functions
+
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` perform intermediate products and differences in double precision
+for float vector elements. This avoids float overflow or underflow for finite large
+or small elements. `VECTOR_NORMALIZE` still returns float elements; rounding and
+underflow in the output representation remain possible. Null inputs and actual zero
+vectors retain their handling. No non-finite input validation or sanitization is
+added; corrected finite intermediates can also affect results when mixed with
+non-finite elements.
 
 Vector functions do not consume or modify their input vector buffers. The same vector field can be used in multiple expressions or as both arguments to a distance function, and remains available to downstream transforms and sinks.
 
