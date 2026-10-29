@@ -1484,7 +1484,8 @@ public class SqlWhereConditionHelperTest {
     }
 
     @Test
-    public void testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_KeepsWildcardProjection() {
+    public void
+            testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_KeepsWildcardProjection() {
         String sql = "select id as maß, t.* from t";
         String whereCondition = "name = 'x'";
 
@@ -1498,8 +1499,7 @@ public class SqlWhereConditionHelperTest {
     }
 
     @Test
-    public void
-            testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_InsertsBeforeMainFrom() {
+    public void testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_InsertsBeforeMainFrom() {
         String sql = "select id as maß from t";
         String whereCondition = "name = 'x'";
 
