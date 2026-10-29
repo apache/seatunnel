@@ -55,6 +55,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
@@ -651,8 +652,12 @@ class JdbcSinkWriterTest {
 
         when(context.getRowErrorCollector()).thenReturn(Optional.of(rowErrorCollector));
         when(dialect.getJdbcConnectionProvider(connectionConfig)).thenReturn(connectionProvider);
+        when(dialect.getRowConverter()).thenReturn(mock(JdbcRowConverter.class));
         try {
             when(connectionProvider.getConnection()).thenReturn(connection);
+            when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+            when(connection.prepareStatement(anyString()))
+                    .thenReturn(mock(PreparedStatement.class));
             when(connection.getAutoCommit()).thenReturn(autoCommit);
             when(connection.getMetaData()).thenReturn(metaData);
             when(metaData.supportsSavepoints()).thenReturn(supportsSavepoints);
@@ -719,6 +724,8 @@ class JdbcSinkWriterTest {
 
     private static void invokeReportAndClearPendingRowsIfCommitted(
             JdbcSinkWriter writer, boolean autoFlushed) throws Exception {
+        // The real auto-flush callback runs only after the output format has been opened.
+        writer.outputFormat.open();
         Method method =
                 JdbcSinkWriter.class.getDeclaredMethod(
                         "reportAndClearPendingRowsIfCommitted", boolean.class);

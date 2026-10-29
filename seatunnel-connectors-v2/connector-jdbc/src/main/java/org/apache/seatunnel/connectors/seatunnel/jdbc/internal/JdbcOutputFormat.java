@@ -66,9 +66,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient volatile Exception flushException;
     // The connection the statement executor was prepared on.
     private transient Connection executorConnection;
-    // Flushed-but-uncommitted state of the manual-commit transaction. Shared with the other
-    // writers on the same pooled connection when the provider keeps one, see transactionState().
-    private transient JdbcTransactionState transactionState;
+    // Resolved once in open(), shared across writers on the same pooled connection when available.
+    // The provider is the owner key, because schema changes rebuild this format with the same
+    // provider.
+    private transient volatile JdbcTransactionState transactionState;
     private transient long lastFlushTimeMs;
     private transient boolean failFastOnRowLevelSqlState;
 
@@ -90,7 +91,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         this.commitOnFlush = commitOnFlush;
     }
 
-    /** Connects to the target database and initializes the prepared statement. */
+    /** Opens the connection and initializes statements and the transaction state. */
     public void open() throws IOException {
         try {
             connectionProvider.getOrEstablishConnection();
@@ -99,6 +100,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
                     "unable to open JDBC writer",
                     e);
+        }
+        if (transactionState == null) {
+            transactionState =
+                    connectionProvider.getTransactionState().orElseGet(JdbcTransactionState::new);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
         lastFlushTimeMs = System.currentTimeMillis();
@@ -222,10 +227,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     // A batch exception may contain both data errors and a transaction failure.
                     // Record lost shared work before either data-error path returns, so other
                     // writers cannot commit even if row-error handling discards this batch.
-                    transactionState()
-                            .markPendingWorkLost(
-                                    "a flush failed with a lost connection or a transaction"
-                                            + " rollback");
+                    transactionState.markPendingWorkLost(
+                            "a flush failed with a lost connection or a transaction rollback");
                 }
                 // Row-error mode delegates failed data batches to the writer for rollback.
                 if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
@@ -264,7 +267,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
-                if (transactionState().hasPendingOrLostWork()) {
+                if (transactionState.hasPendingOrLostWork()) {
                     // A retry would re-send only the current batch. Earlier batches live only in
                     // the open transaction, which a reconnect discards and a deadlock or abort can
                     // already have rolled back, so retrying could commit a partial result. The
@@ -351,22 +354,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      */
     private void trackUncommittedBatchIfNeeded() {
         if (isManualCommitTransaction()) {
-            transactionState().recordFlush(connectionProvider, executorConnection);
+            transactionState.recordFlush(connectionProvider, executorConnection);
         }
-    }
-
-    /**
-     * The transaction state this output format reports to. A pooled provider returns the state of
-     * its queue index, which every writer on that connection shares. Otherwise the state is kept
-     * here. The connection provider is the owner key, because it stays the same when the writer
-     * rebuilds its output format after a schema change.
-     */
-    private synchronized JdbcTransactionState transactionState() {
-        if (transactionState == null) {
-            transactionState =
-                    connectionProvider.getTransactionState().orElseGet(JdbcTransactionState::new);
-        }
-        return transactionState;
     }
 
     /** Whether the failure means the connection, and with it the open transaction, is gone. */
@@ -412,7 +401,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * @param connection the connection the writer committed
      */
     public void markCommitted(Connection connection) {
-        transactionState().markCommitted(connection);
+        transactionState.markCommitted(connection);
     }
 
     /**
@@ -428,7 +417,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      *     handling does); otherwise discarding them also poisons the interval
      */
     public void markRolledBack(Connection connection, boolean ownWorkReported) {
-        transactionState().markRolledBack(connectionProvider, connection, ownWorkReported);
+        transactionState.markRolledBack(connectionProvider, connection, ownWorkReported);
     }
 
     /**
@@ -440,7 +429,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * example the XA writer, must not call it.
      */
     public long currentFlushSequence() {
-        return transactionState().currentFlushSequence();
+        return transactionState.currentFlushSequence();
     }
 
     /**
@@ -454,7 +443,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      *     set
      */
     public void markRolledBackToSavepoint(long savepointSequence) {
-        transactionState().markRolledBackToSavepoint(connectionProvider, savepointSequence);
+        transactionState.markRolledBackToSavepoint(connectionProvider, savepointSequence);
     }
 
     /**
@@ -470,7 +459,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * @param commitConnection the connection the writer is about to commit
      */
     public void checkUncommittedBatchesOn(Connection commitConnection) {
-        transactionState().checkCommit(commitConnection);
+        transactionState.checkCommit(commitConnection);
     }
 
     private boolean isRowLevelSqlState(SQLException sqlException) {

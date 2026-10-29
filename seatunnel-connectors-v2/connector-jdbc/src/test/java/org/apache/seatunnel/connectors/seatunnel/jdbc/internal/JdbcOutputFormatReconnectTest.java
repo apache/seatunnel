@@ -228,6 +228,9 @@ public class JdbcOutputFormatReconnectTest {
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
         outputFormat.flush();
 
+        // Reopening must preserve the batches already held by this connection.
+        outputFormat.open();
+
         // A pooled provider swaps a dead connection for a new one; committing it would lose "AA".
         Assertions.assertThrows(
                 JdbcConnectorException.class,
@@ -298,9 +301,45 @@ public class JdbcOutputFormatReconnectTest {
         // A failed checkpoint rolled "AA" back without reporting it; a later commit on the same
         // connection must not report this interval as complete.
         outputFormat.markRolledBack(connection, false);
-        Assertions.assertThrows(
-                JdbcConnectorException.class,
-                () -> outputFormat.checkUncommittedBatchesOn(connection));
+        outputFormat.open();
+        JdbcConnectorException failure =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> outputFormat.checkUncommittedBatchesOn(connection));
+        Assertions.assertTrue(
+                failure.getMessage().contains("Flushed but uncommitted JDBC batches were lost"));
+    }
+
+    /** Rebuilding a format with the same provider must retain shared transaction loss. */
+    @Test
+    public void testRebuiltFormatKeepsSharedTransactionLoss() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Connection connection = provider.getConnection();
+        JdbcTransactionState sharedState = new JdbcTransactionState("test queue");
+        Mockito.when(provider.getTransactionState()).thenReturn(Optional.of(sharedState));
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> original =
+                new JdbcOutputFormat<>(
+                        provider,
+                        buildConnectionConfig(),
+                        () -> new TrackingJdbcBatchExecutor(null, Integer.MAX_VALUE));
+        original.open();
+        original.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        original.flush();
+        original.markRolledBack(connection, false);
+
+        // Schema changes construct a new format while retaining the provider and its shared state.
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> rebuilt =
+                new JdbcOutputFormat<>(
+                        provider,
+                        buildConnectionConfig(),
+                        () -> new TrackingJdbcBatchExecutor(null, Integer.MAX_VALUE));
+        rebuilt.open();
+        JdbcConnectorException failure =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> rebuilt.checkUncommittedBatchesOn(connection));
+        Assertions.assertTrue(
+                failure.getMessage().contains("Flushed but uncommitted JDBC batches were lost"));
     }
 
     @Test
