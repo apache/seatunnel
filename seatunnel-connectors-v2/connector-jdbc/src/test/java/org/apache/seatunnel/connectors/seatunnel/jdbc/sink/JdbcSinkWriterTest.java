@@ -157,36 +157,6 @@ class JdbcSinkWriterTest {
         Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
     }
 
-    /**
-     * After a rollback to the savepoint, the rows reported at that savepoint are still uncommitted.
-     * If a second row-level failure then needs a full rollback, those already reported rows are
-     * discarded too, so the rollback must not be treated as fully reported work.
-     */
-    @Test
-    void testFullRollbackAfterSavepointRollbackDiscardsReportedRows() throws Exception {
-        AtomicInteger successCount = new AtomicInteger();
-        WriterFixture fixture = createWriterFixture(false, successCount);
-        JdbcSinkWriter writer = fixture.writer;
-        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
-                Mockito.mock(JdbcOutputFormat.class);
-        setOutputFormat(writer, outputFormat);
-        List<SeaTunnelRow> pendingRows = new ArrayList<>();
-        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
-        setPendingRows(writer, pendingRows);
-
-        invokeReportAndClearPendingRowsIfCommitted(writer, true);
-        Assertions.assertEquals(1, successCount.get());
-
-        // First row-level failure: rollback to the savepoint keeps the reported row.
-        invokeRollbackIfNeeded(writer);
-        verify(fixture.connection, times(1)).rollback(fixture.savepoint);
-        // Second failure before the next good batch: a full rollback discards the reported row.
-        invokeRollbackIfNeeded(writer);
-
-        verify(fixture.connection, times(1)).rollback();
-        verify(outputFormat).markRolledBack(fixture.connection, false);
-    }
-
     @Test
     void testTransactionalCommitClearsSavepointBoundary() throws Exception {
         AtomicInteger successCount = new AtomicInteger();

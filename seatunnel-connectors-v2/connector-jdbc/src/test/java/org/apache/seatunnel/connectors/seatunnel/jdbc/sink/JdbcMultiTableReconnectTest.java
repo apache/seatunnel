@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
@@ -61,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -496,6 +498,99 @@ class JdbcMultiTableReconnectTest {
         } finally {
             closeQuietly(writer);
         }
+    }
+
+    /**
+     * A savepoint rollback preserves reported good rows, but a consecutive row error before another
+     * successful batch rolls them back completely. The real writer must reject the checkpoint.
+     */
+    @Test
+    void consecutiveRowErrorsRejectCheckpointAfterFullRollbackDiscardsReportedRows()
+            throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("consecutive-row-errors.db");
+        createTables(jdbcUrl);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        List<SeaTunnelRow> successfulRows = new ArrayList<>();
+        RowErrorCollector collector =
+                new RowErrorCollector() {
+                    @Override
+                    public void collect(RowErrorEvent event) {
+                        errors.add(event);
+                    }
+
+                    @Override
+                    public void collectWriteSuccess(SeaTunnelRow row) {
+                        successfulRows.add(row);
+                    }
+                };
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(collector));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            assertEquals(
+                    Arrays.asList(1, 2),
+                    successfulRows.stream()
+                            .map(row -> row.getField(0))
+                            .collect(Collectors.toList()));
+
+            // Only a data error: transaction-loss SQLStates must not poison this interval early.
+            dialect.getConnectionProvider()
+                    .failNextBatchWith(new SQLException("first constraint failure", "23000"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+            assertEquals(
+                    Arrays.asList(3, 4),
+                    errors.stream()
+                            .map(event -> event.getRow().getField(0))
+                            .collect(Collectors.toList()));
+
+            // The first rollback keeps the good batch in the real open SQLite transaction.
+            List<Integer> retainedIds = new ArrayList<>();
+            try (Statement statement =
+                            dialect.getConnectionProvider().getConnection().createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("SELECT id FROM active_table ORDER BY id")) {
+                while (resultSet.next()) {
+                    retainedIds.add(resultSet.getInt("id"));
+                }
+            }
+            assertEquals(Arrays.asList(1, 2), retainedIds);
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+
+            // No successful flush between failures: the savepoint was cleared, so this rolls back
+            // the whole transaction, including good rows already reported as written.
+            dialect.getConnectionProvider()
+                    .failNextBatchWith(new SQLException("second constraint failure", "23000"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 5, "fifth"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 6, "sixth"));
+            assertEquals(
+                    Arrays.asList(3, 4, 5, 6),
+                    errors.stream()
+                            .map(event -> event.getRow().getField(0))
+                            .collect(Collectors.toList()));
+            for (RowErrorEvent event : errors) {
+                assertEquals(ACTIVE_TABLE_ID, event.getRow().getTableId());
+                assertEquals(RowErrorPhase.WRITE, event.getPhase());
+                assertFalse(event.getCheckpointId().isPresent());
+            }
+            assertEquals(2, successfulRows.size());
+
+            IOException rejected = assertThrows(IOException.class, () -> writer.prepareCommit(7L));
+            assertTrue(
+                    rejected.getMessage()
+                            .contains("Flushed but uncommitted JDBC batches were lost"));
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        } finally {
+            closeQuietly(writer);
+        }
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
     }
 
     /** A mixed data/transaction error must reject this checkpoint after row-error handling. */
