@@ -21,6 +21,7 @@ A sink plugin used to send data to `INFINI Easysearch`.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -46,26 +47,26 @@ Engine Supported
 
 ## Sink Options
 
-|          name          |  type   | required | default value |
-|------------------------|---------|----------|---------------|
-| hosts                  | array   | yes      | -             |
-| index                  | string  | yes      | -             |
-| primary_keys           | list    | no       |               |
-| key_delimiter          | string  | no       | `_`           |
-| key_encoding           | enum    | no       | LEGACY        |
-| username               | string  | no       |               |
-| password               | string  | no       |               |
-| max_retry_count        | int     | no       | 3             |
-| max_batch_size         | int     | no       | 10            |
-| tls_verify_certificate | boolean | no       | true          |
-| tls_verify_hostname    | boolean | no       | true          |
-| tls_keystore_path      | string  | no       | -             |
-| tls_keystore_password  | string  | no       | -             |
-| tls_truststore_path    | string  | no       | -             |
-| tls_truststore_password | string  | no       | -             |
-| schema_save_mode       | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | enum    | no       | APPEND_DATA   |
-| common-options         |         | no       | -             |
+|          name          |  type   | required | default value | description                                                                                                       |
+|------------------------|---------|----------|---------------|-------------------------------------------------------------------------------------------------------------------|
+| hosts                  | array   | yes      | -             | Easysearch HTTP cluster addresses in `host:port` format, for example `["host1:9200", "host2:9200"]`.              |
+| index                  | string  | yes      | -             | Easysearch index name. Supports placeholders such as `seatunnel_${age}`.                                          |
+| primary_keys           | list    | no       | -             | Primary key fields used to build the document `_id`. Configure when writing CDC rows that need upsert/delete.      |
+| key_delimiter          | string  | no       | `_`           | Delimiter used to join composite key fields when building `_id`.                                                 |
+| key_encoding | enum | no | LEGACY | Encoding used to build document keys; see `key_encoding` below. |
+| username               | string  | no       | -             | Username for secured Easysearch clusters.                                                                        |
+| password               | string  | no       | -             | Password for secured Easysearch clusters.                                                                        |
+| max_retry_count        | int     | no       | 3             | Maximum retry count for one bulk request.                                                                        |
+| max_batch_size         | int     | no       | 10            | Maximum number of documents buffered into one bulk request.                                                      |
+| tls_verify_certificate | boolean | no       | true          | Whether to validate HTTPS certificates.                                                                          |
+| tls_verify_hostname    | boolean | no       | true          | Whether to validate HTTPS host names.                                                                            |
+| tls_keystore_path      | string  | no       | -             | Path to the PEM or JKS key store.                                                                                |
+| tls_keystore_password  | string  | no       | -             | Password for the configured key store.                                                                           |
+| tls_truststore_path    | string  | no       | -             | Path to the PEM or JKS trust store.                                                                              |
+| tls_truststore_password | string | no       | -             | Password for the configured trust store.                                                                         |
+| schema_save_mode       | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target index before the synchronization task starts. See `schema_save_mode` below. |
+| data_save_mode         | enum    | no       | APPEND_DATA   | How to handle existing target data before the synchronization task starts. See `data_save_mode` below.           |
+| common-options         |         | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md).   |
 
 ### hosts [array]
 
@@ -181,6 +182,49 @@ sink {
     hosts = ["localhost:9200"]
     index = "seatunnel_${age}"
     primary_keys = ["key1", "key2"]
+  }
+}
+```
+
+### Route Rows To Dynamic Indexes
+
+Easysearch does not implement the multi-table sink contract. This example uses one
+input table with a `target_index` field on each row. The index template reads that
+field and writes the two rows to `st_customers` and `st_orders`. Upstream table
+identifiers are not automatically exposed as row fields. `target_index` is a
+row field; the reserved `${table_name}` metadata placeholder is not used here.
+Create the target indexes first or enable index auto-creation on the server.
+`schema_save_mode = "IGNORE"` leaves their schema management to the server.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 2
+    schema {
+      fields {
+        id = int
+        name = string
+        target_index = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", "customers"] },
+      { kind = INSERT, fields = [2, "order", "orders"] }
+    ]
+  }
+}
+
+sink {
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "st_${target_index}"
+    primary_keys = ["id"]
+    schema_save_mode = "IGNORE"
   }
 }
 ```

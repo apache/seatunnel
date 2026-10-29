@@ -161,17 +161,14 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 ### where [string]
 
-:::caution 保留配置项
+:::caution 保留参数
 
-单表模式（根级 `sql`）：设置 `where` 对生成的切分查询没有任何效果——请把过滤条件直接写在
-`sql` 中，例如 `select * from test where age > 0`。该路径的切分解析器对 `where` 关键字区分大小写。
+当前的切分逻辑会直接从 `sql` 参数中读取小写的 `where` 关键字。设置 `where` 参数对生成的切分查询
+没有任何效果——请把过滤条件直接写进 `sql` 中，例如 `select * from test where age > 0`。切分解析器
+对 `where` 关键字区分大小写。
 
-`tables_configs` 多表模式：在某个表配置中设置 `where` 会在构建阶段直接抛出
-`OptionValidationException`（`InfluxDBSourceFactory` 校验拒绝）；该模式下的切分解析器对
-`where` 关键字不区分大小写。
-
-该配置项保留在选项列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）
-出于向后兼容仍然引用它；运行时的切分查询生成器并不会读取它。
+该参数保留在参数列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）为了向后兼容仍然
+引用了它；运行时的切分查询生成器不会读取该参数。
 
 :::
 
@@ -335,10 +332,10 @@ sink {
 }
 ```
 
-### 有界读取与并行分片
+### 有界读取与并行切分
 
-InfluxDB source 的读取范围由 `sql` 的结果决定。如果希望把它接到流式 sink 上且不丢数据，
-可以设置有限的 `partition_num`，让 SeaTunnel 通过 checkpoint 记录每个分片的读取进度。
+InfluxDB Source 的读取范围由 `sql` 的结果决定。如果需要把它接入流式 Sink 且不丢数据，可以设置一个
+有限的 `partition_num`，让 SeaTunnel 通过检查点记录每个切分的读取位置。
 
 ```hocon
 env {
