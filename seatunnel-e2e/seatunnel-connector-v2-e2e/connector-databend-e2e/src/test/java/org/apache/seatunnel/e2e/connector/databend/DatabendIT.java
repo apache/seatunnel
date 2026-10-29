@@ -130,10 +130,11 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Reads a table holding a DECIMAL and a BINARY column with no schema declared in the job, so
-     * the run depends on the types DatabendCatalog resolves for them. information_schema.columns
-     * reports those two as "decimal(10, 2)" and "binary", the shapes the catalog used to resolve to
-     * STRING and to a single byte.
+     * Reads a table holding a DECIMAL(10, 2) column with no schema declared in the job, so the
+     * column type comes from DatabendCatalog. Databend reports the type with its precision and
+     * scale attached, which the catalog used to resolve to STRING. The Assert sink checks that the
+     * column is a decimal(10, 2) holding 1234.56. BINARY is not covered here, because this Databend
+     * image treats BINARY as an alias of STRING.
      */
     @TestTemplate
     public void testDatabendTypeMapping(TestContainer container)
