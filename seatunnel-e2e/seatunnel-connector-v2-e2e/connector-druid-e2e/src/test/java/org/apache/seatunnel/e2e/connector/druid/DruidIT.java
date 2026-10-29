@@ -18,6 +18,10 @@
 
 package org.apache.seatunnel.e2e.connector.druid;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -46,7 +50,11 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -60,7 +68,8 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     private static final String DATASOURCE = "testDataSource";
     private static final String MULTI_DATASOURCE_1 = "druid_sink_1";
     private static final String MULTI_DATASOURCE_2 = "druid_sink_2";
-    private static final String NULL_FIELD_DATASOURCE = "druid_null_field";
+    private static final String NULL_FIELD_DATASOURCE_PREFIX = "druid_null_field_";
+    private static final String NULL_FIELD_DATASOURCE_VARIABLE = "nullFieldDatasource";
     private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
@@ -164,10 +173,17 @@ public class DruidIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testDruidSinkWithNullFields(TestContainer container) throws Exception {
+        // The Druid cluster is shared by every engine this template runs on, so each run writes
+        // to its own datasource. Otherwise a run could pass on rows an earlier run indexed.
+        String datasource =
+                NULL_FIELD_DATASOURCE_PREFIX
+                        + container.identifier().name().toLowerCase(Locale.ROOT);
         Container.ExecResult execResult =
                 container.executeJob(
                         "/fakesource_to_druid_with_null.conf",
-                        Collections.singletonList(COORDINATOR_URL_VARIABLE + "=" + coordinatorURL));
+                        Arrays.asList(
+                                COORDINATOR_URL_VARIABLE + "=" + coordinatorURL,
+                                NULL_FIELD_DATASOURCE_VARIABLE + "=" + datasource));
         Assertions.assertEquals(0, execResult.getExitCode());
         given().ignoreExceptions()
                 .await()
@@ -175,17 +191,21 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                 .atMost(400L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            String responseBody = getSelectResponse(NULL_FIELD_DATASOURCE);
-                            Assertions.assertFalse(responseBody.contains("errorMessage"));
+                            ArrayNode rows = JsonUtils.parseArray(getSelectResponse(datasource));
                             // Rows 2 and 3 each have a null. Before the fix both were dropped,
                             // because the null was left out of the CSV line. How Druid renders
                             // the null itself depends on its null handling, so it is not
-                            // asserted; amount is the last column, so "amount":20} also shows
-                            // the value after the null stayed in its own column.
-                            Assertions.assertTrue(responseBody.contains("\"id\":1,"));
-                            Assertions.assertTrue(responseBody.contains("\"id\":2,"));
-                            Assertions.assertTrue(responseBody.contains("\"amount\":20}"));
-                            Assertions.assertTrue(responseBody.contains("\"id\":3,"));
+                            // asserted.
+                            Assertions.assertEquals(3, rows.size(), rows.toString());
+                            Map<Long, JsonNode> rowsById = new HashMap<>();
+                            for (JsonNode row : rows) {
+                                rowsById.put(row.get("id").asLong(), row);
+                            }
+                            Assertions.assertEquals("a", rowsById.get(1L).get("name").asText());
+                            Assertions.assertEquals(10L, rowsById.get(1L).get("amount").asLong());
+                            // The value after the null name stayed in its own column.
+                            Assertions.assertEquals(20L, rowsById.get(2L).get("amount").asLong());
+                            Assertions.assertEquals("c", rowsById.get(3L).get("name").asText());
                         });
     }
 
