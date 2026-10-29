@@ -8,6 +8,12 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 Write data to Apache Druid through the Druid indexing task API.
 
+## Supported Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
