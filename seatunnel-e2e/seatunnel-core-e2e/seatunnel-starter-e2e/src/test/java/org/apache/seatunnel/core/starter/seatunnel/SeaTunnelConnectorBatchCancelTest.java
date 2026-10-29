@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -83,23 +85,20 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
                     return null;
                 });
 
-        // Wait for the task to start
-        Thread.sleep(15000);
+        // Wait for the tasks to be listed by the client instead of waiting a fixed time, so
+        // the ids are read only after both jobs have started.
+        Awaitility.await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        listBatchCancelJobIds(container).size(),
+                                        "Both batch cancel tasks should be listed"));
 
         // Get the task id
-        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
-        String regex = "(\\d+)\\s+";
-        Pattern pattern = Pattern.compile(regex);
-        List<String> runningJobId =
-                Arrays.stream(execResult.getStdout().toString().split("\n"))
-                        .filter(s -> s.contains("batch_cancel_task"))
-                        .map(
-                                s -> {
-                                    Matcher matcher = pattern.matcher(s);
-                                    return matcher.find() ? matcher.group(1) : null;
-                                })
-                        .filter(jobId -> jobId != null)
-                        .collect(Collectors.toList());
+        List<String> runningJobId = listBatchCancelJobIds(container);
         Assertions.assertEquals(2, runningJobId.size());
 
         // Verify that the status is Running
@@ -125,5 +124,21 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
             ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
             Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "CANCELED");
         }
+    }
+
+    private List<String> listBatchCancelJobIds(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
+        String regex = "(\\d+)\\s+";
+        Pattern pattern = Pattern.compile(regex);
+        return Arrays.stream(execResult.getStdout().toString().split("\n"))
+                .filter(s -> s.contains("batch_cancel_task"))
+                .map(
+                        s -> {
+                            Matcher matcher = pattern.matcher(s);
+                            return matcher.find() ? matcher.group(1) : null;
+                        })
+                .filter(jobId -> jobId != null)
+                .collect(Collectors.toList());
     }
 }
