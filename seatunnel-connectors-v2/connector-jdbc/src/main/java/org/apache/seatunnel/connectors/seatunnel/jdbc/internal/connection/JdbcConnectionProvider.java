@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Optional;
 
 /** JDBC connection provider. */
 public interface JdbcConnectionProvider {
@@ -58,4 +59,15 @@ public interface JdbcConnectionProvider {
      * @throws ClassNotFoundException driver class not found
      */
     Connection reestablishConnection() throws SQLException, ClassNotFoundException;
+
+    /**
+     * Returns the manual-commit transaction state shared by every writer that uses the same
+     * connection as this provider. An empty result means the provider does not keep shared state,
+     * so each writer keeps its own state.
+     *
+     * @return the shared transaction state when available
+     */
+    default Optional<JdbcTransactionState> getTransactionState() {
+        return Optional.empty();
+    }
 }

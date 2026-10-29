@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Optional;
 
 @Slf4j
 public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProvider {
@@ -78,5 +79,11 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
     public Connection reestablishConnection() {
         closeConnection();
         return getOrEstablishConnection();
+    }
+
+    /** Writers on one queue index share a connection, so they also share its transaction state. */
+    @Override
+    public Optional<JdbcTransactionState> getTransactionState() {
+        return Optional.of(poolManager.getTransactionState(queueIndex));
     }
 }
