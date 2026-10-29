@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -68,6 +69,7 @@ public class LanceIT extends TestSuiteBase {
     private static final String DATASET_PATH = "/tmp/seatunnel_mnt/lanceTest/";
     private static final String TABLE_NAME = "lance_sink_table";
     private static final String TIMESTAMP_TABLE_NAME = "lance_timestamp_table";
+    private static final String BIGINT_TABLE_NAME = "lance_bigint_table";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -155,6 +157,42 @@ public class LanceIT extends TestSuiteBase {
             }
         }
         return fractions;
+    }
+
+    @TestTemplate
+    public void testBigintKeepsItsValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult writeResult = container.executeJob("/lance/fake_bigint_to_lance.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
+
+        Map<Integer, Long> expected = new HashMap<>();
+        expected.put(1, 3_000_000_000L);
+        expected.put(2, -3_000_000_000L);
+        expected.put(3, 1_739_586_083_123L);
+        expected.put(4, Long.MAX_VALUE);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(expected, readBigints()));
+    }
+
+    private Map<Integer, Long> readBigints() throws Exception {
+        Map<Integer, Long> values = new HashMap<>();
+        try (BufferAllocator allocator = new RootAllocator();
+                Dataset dataset = Dataset.open(DATASET_PATH + BIGINT_TABLE_NAME, allocator);
+                LanceScanner scanner = dataset.newScan();
+                ArrowReader reader = scanner.scanBatches()) {
+            while (reader.loadNextBatch()) {
+                VectorSchemaRoot root = reader.getVectorSchemaRoot();
+                IntVector ids = (IntVector) root.getVector("id");
+                BigIntVector bigints = (BigIntVector) root.getVector("c_bigint");
+                for (int i = 0; i < root.getRowCount(); i++) {
+                    values.put(ids.get(i), bigints.get(i));
+                }
+            }
+        }
+        return values;
     }
 
     private long loadLanceTableCount() {

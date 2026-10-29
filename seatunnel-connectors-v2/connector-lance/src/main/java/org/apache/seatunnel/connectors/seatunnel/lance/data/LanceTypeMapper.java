@@ -91,11 +91,14 @@ public class LanceTypeMapper {
         switch (type.getSqlType()) {
             case TINYINT:
             case SMALLINT:
-            case BIGINT:
             case INT:
                 JsonArrowDataType intType = new JsonArrowDataType();
                 intType.setType("int32");
                 return intType;
+            case BIGINT:
+                JsonArrowDataType bigintType = new JsonArrowDataType();
+                bigintType.setType("int64");
+                return bigintType;
             case STRING:
                 JsonArrowDataType stringType = new JsonArrowDataType();
                 stringType.setType("utf8");
