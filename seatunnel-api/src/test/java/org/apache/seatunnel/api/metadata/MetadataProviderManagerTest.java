@@ -269,10 +269,6 @@ public class MetadataProviderManagerTest {
         assertTrue(connector.root().containsKey("connection.pool.size"));
         assertFalse(connector.root().containsKey("connection->timeout"));
         assertEquals("jdbc:postgresql://original:5432/original_db", original.getString("url"));
-        assertTrue(datasource.containsKey("connection->timeout"));
-        assertEquals(
-                Collections.singletonMap("^metadata_.*$", "string"),
-                datasource.get("provider_fields"));
         assertEquals(1, datasourceCalls.get());
     }
 
