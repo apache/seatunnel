@@ -546,6 +546,8 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 日志将写入 `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`
 
+> 如果 Worker 先于任何 Master 启动，它会在 `hazelcast.max.join.seconds`（默认 300 秒）内持续重试配置的 master 地址，并在等待期间输出 `This lite member cannot assume the master role ...` 日志。
+
 ## 8. 安装 SeaTunnel Engine 客户端
 
 ### 8.1 和服务端一样设置`SEATUNNEL_HOME`

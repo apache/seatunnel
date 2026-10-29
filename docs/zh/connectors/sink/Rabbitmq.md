@@ -150,6 +150,8 @@ TCP连接建立的超时时间，单位为毫秒；0代表不限制。
 
 除了上面提及必须设置的RabbitMQ客户端参数，你也还可以为客户端指定多个非强制参数，参见 [RabbitMQ官方文档参数设置](https://www.rabbitmq.com/configure.html)。
 
+注意：Sink 目前仅解析该配置项，但不会将其中的参数应用到 RabbitMQ 客户端。如需调优连接行为，请使用上文的专用选项，例如 `connection_timeout`、`network_recovery_interval`、`AUTOMATIC_RECOVERY_ENABLED` 和 `topology_recovery_enabled`。
+
 ### common options
 
 Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
@@ -193,10 +195,6 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -234,10 +232,6 @@ sink {
           durable = true
           exclusive = false
           auto_delete = false
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -272,7 +266,7 @@ sink {
 
 ### RabbitMQ Sink 如何处理网络重连和超时？
 
-可以通过 `rabbitmq.config` 配置块调优客户端连接参数（如 `connection-timeout`、`requested-heartbeat` 等），以应对网络短暂抖动并提高连接稳定性。
+使用专用选项调优客户端连接能力：`AUTOMATIC_RECOVERY_ENABLED` 用于启用自动连接恢复，`network_recovery_interval` 设置重连前的等待时长（毫秒），`topology_recovery_enabled` 用于启用拓扑恢复，`connection_timeout` 限制 TCP 连接建立的超时时间（毫秒）。`rabbitmq.config` 配置块仅为兼容旧配置保留，其中的参数目前不会被 Sink 应用。
 
 ## 变更日志
 
