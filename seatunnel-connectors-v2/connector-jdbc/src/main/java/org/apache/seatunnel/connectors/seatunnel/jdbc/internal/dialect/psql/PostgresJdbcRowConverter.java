@@ -53,10 +53,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOGRAPHY;
@@ -68,6 +72,46 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    private static final Pattern USER_TYPE_NAME =
+            Pattern.compile(
+                    "(\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*)"
+                            + "(\\.(?:\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*))?");
+
+    private static final Set<String> BUILTIN_TYPE_NAMES =
+            Collections.unmodifiableSet(
+                    new HashSet<>(
+                            Arrays.asList(
+                                    "text",
+                                    "varchar",
+                                    "bpchar",
+                                    "char",
+                                    "name",
+                                    "json",
+                                    "jsonb",
+                                    "uuid",
+                                    "xml",
+                                    "citext",
+                                    "bool",
+                                    "boolean",
+                                    "int2",
+                                    "int4",
+                                    "int8",
+                                    "integer",
+                                    "bigint",
+                                    "smallint",
+                                    "float4",
+                                    "float8",
+                                    "numeric",
+                                    "decimal",
+                                    "bytea",
+                                    "date",
+                                    "time",
+                                    "timetz",
+                                    "timestamp",
+                                    "timestamptz",
+                                    "interval",
+                                    "money")));
 
     private final boolean numericSpecialValueAsNull;
 
@@ -316,7 +360,16 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             intervalObject.setValue(intervalVal);
                             statement.setObject(statementIndex, intervalObject);
                         } else {
-                            statement.setString(statementIndex, (String) row.getField(fieldIndex));
+                            String enumType = postgresUserTypeName(sourceType);
+                            if (enumType != null) {
+                                PGobject enumObject = new PGobject();
+                                enumObject.setType(enumType);
+                                enumObject.setValue((String) row.getField(fieldIndex));
+                                statement.setObject(statementIndex, enumObject);
+                            } else {
+                                statement.setString(
+                                        statementIndex, (String) row.getField(fieldIndex));
+                            }
                         }
                         break;
                     case BOOLEAN:
@@ -377,6 +430,18 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         Object[] array = (Object[]) row.getField(fieldIndex);
                         if (array == null) {
                             statement.setNull(statementIndex, java.sql.Types.ARRAY);
+                            break;
+                        }
+                        String arraySourceType =
+                                resolveSourceType(
+                                        rowType, fieldIndex, databaseTableSchema, sourceTypes);
+                        String enumElementType = postgresEnumArrayElementType(arraySourceType);
+                        if (enumElementType != null
+                                && SqlType.STRING.equals(elementType.getSqlType())) {
+                            statement.setArray(
+                                    statementIndex,
+                                    statement.getConnection()
+                                            .createArrayOf(enumElementType, array));
                             break;
                         }
                         if (SqlType.TINYINT.equals(elementType.getSqlType())) {
@@ -555,5 +620,43 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     + normalized.substring(normalized.length() - 2);
         }
         return normalized;
+    }
+
+    /**
+     * Unqualified PostgreSQL type name when {@code sourceType} is a user-defined type such as an
+     * enum. Built-in names stay on the normal string binding path.
+     *
+     * <p>Quoted identifiers are preserved. pgjdbc lowercases an unquoted type name before looking
+     * it up, so a mixed-case enum such as {@code "ChapterElementType"} must be passed to {@code
+     * PGobject.setType} with the quotes still in place.
+     */
+    @Nullable
+    private static String postgresUserTypeName(String sourceType) {
+        if (sourceType == null || !USER_TYPE_NAME.matcher(sourceType).matches()) {
+            return null;
+        }
+        String unqualified = sourceType;
+        int dot = unqualified.lastIndexOf('.');
+        if (dot >= 0) {
+            unqualified = unqualified.substring(dot + 1);
+        }
+        String comparable = unqualified;
+        if (comparable.length() >= 2
+                && comparable.startsWith("\"")
+                && comparable.endsWith("\"")) {
+            comparable = comparable.substring(1, comparable.length() - 1);
+        }
+        if (BUILTIN_TYPE_NAMES.contains(comparable.toLowerCase(Locale.ROOT))) {
+            return null;
+        }
+        return unqualified;
+    }
+
+    @Nullable
+    private static String postgresEnumArrayElementType(String sourceType) {
+        if (sourceType == null || !sourceType.endsWith("[]")) {
+            return null;
+        }
+        return postgresUserTypeName(sourceType.substring(0, sourceType.length() - 2).trim());
     }
 }

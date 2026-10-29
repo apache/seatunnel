@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -52,10 +53,13 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    a.attname AS column_name, \n"
                     + "\t\tt.typname as type_name,\n"
                     + "\t\tt.typtype as type_type,\n"
+                    + "\t\tt.typcategory as type_category,\n"
+                    + "\t\tet.typtype as element_type_type,\n"
                     + "    CASE \n"
                     // Enum types are schema objects, format_type qualifies them when not on the
-                    // search_path.
+                    // search_path. Enum arrays use the same form, for example "Role"[].
                     + "        WHEN t.typtype = 'e' THEN format_type(a.atttypid, NULL)\n"
+                    + "        WHEN t.typcategory = 'A' AND et.typtype = 'e' THEN format_type(a.atttypid, NULL)\n"
                     + "        WHEN a.atttypmod = -1 THEN t.typname\n"
                     + "        WHEN t.typname = 'varchar' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
@@ -84,6 +88,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    JOIN pg_namespace n ON c.relnamespace = n.oid\n"
                     + "    JOIN pg_attribute a ON a.attrelid = c.oid\n"
                     + "    JOIN pg_type t ON a.atttypid = t.oid\n"
+                    + "    LEFT JOIN pg_type et ON t.typelem = et.oid\n"
                     + "    LEFT JOIN pg_description d ON c.oid = d.objoid AND a.attnum = d.objsubid\n"
                     + "    LEFT JOIN pg_attrdef ad ON a.attnum = ad.adnum AND a.attrelid = ad.adrelid\n"
                     + "WHERE \n"
@@ -156,6 +161,19 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
             return PhysicalColumn.builder()
                     .name(columnName)
                     .dataType(BasicType.STRING_TYPE)
+                    .sourceType(fullTypeName)
+                    .nullable(isNullable)
+                    .defaultValue(defaultValue)
+                    .comment(columnComment)
+                    .build();
+        }
+        String typeCategory = resultSet.getString("type_category");
+        String elementTypeType = resultSet.getString("element_type_type");
+        if ("A".equals(typeCategory) && PG_TYPTYPE_ENUM.equals(elementTypeType)) {
+            // Keep role_type[] (and quoted names such as "Role"[]) as the source type.
+            return PhysicalColumn.builder()
+                    .name(columnName)
+                    .dataType(ArrayType.STRING_ARRAY_TYPE)
                     .sourceType(fullTypeName)
                     .nullable(isNullable)
                     .defaultValue(defaultValue)
