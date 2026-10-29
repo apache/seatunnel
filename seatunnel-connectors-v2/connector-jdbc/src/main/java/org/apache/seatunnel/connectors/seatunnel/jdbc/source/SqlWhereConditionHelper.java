@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -171,7 +172,7 @@ public class SqlWhereConditionHelper {
      * top level would make auto-adding columns unsafe.
      */
     public static boolean hasTopLevelSetOperator(String sql) {
-        String upper = sql.toUpperCase();
+        String upper = sql.toUpperCase(Locale.ROOT);
         int length = upper.length();
         int parenCount = 0;
         boolean inString = false;
@@ -276,9 +277,9 @@ public class SqlWhereConditionHelper {
         String columnList = cleaned.substring(selectEndIdx, fromIdx).trim();
 
         // Skip DISTINCT/ALL keywords
-        if (columnList.toUpperCase().startsWith("DISTINCT ")) {
+        if (columnList.toUpperCase(Locale.ROOT).startsWith("DISTINCT ")) {
             columnList = columnList.substring(9).trim();
-        } else if (columnList.toUpperCase().startsWith("ALL ")) {
+        } else if (columnList.toUpperCase(Locale.ROOT).startsWith("ALL ")) {
             columnList = columnList.substring(4).trim();
         }
 
@@ -336,7 +337,7 @@ public class SqlWhereConditionHelper {
      * and CTE (WITH ... AS).
      */
     public static boolean hasComplexClause(String sql) {
-        String upper = sql.toUpperCase();
+        String upper = sql.toUpperCase(Locale.ROOT);
         int length = upper.length();
         int parenCount = 0;
         boolean inString = false;
@@ -565,7 +566,7 @@ public class SqlWhereConditionHelper {
 
     /** Check if a string is a SQL keyword that should be ignored. */
     private static boolean isKeyword(String word) {
-        String upper = word.toUpperCase();
+        String upper = word.toUpperCase(Locale.ROOT);
         return upper.equals("AND")
                 || upper.equals("OR")
                 || upper.equals("NOT")

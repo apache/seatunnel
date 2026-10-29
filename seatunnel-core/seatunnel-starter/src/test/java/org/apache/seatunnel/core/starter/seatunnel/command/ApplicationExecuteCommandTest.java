@@ -21,7 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.common.constants.ApplicationOperation;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication;
 import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
@@ -49,12 +51,15 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -311,6 +316,121 @@ class ApplicationExecuteCommandTest {
     }
 
     @Test
+    void statusWithoutWaitReportsUnknownWithoutFailing() throws Exception {
+        assertEquals(0, executeStatus(ApplicationStatus.UNKNOWN, false));
+    }
+
+    @Test
+    void statusWithWaitReportsUnknownWithDistinctExitCode() throws Exception {
+        assertEquals(
+                ApplicationExecuteCommand.UNKNOWN_STATUS_EXIT_CODE,
+                executeStatus(ApplicationStatus.UNKNOWN, true));
+    }
+
+    @Test
+    void statusWithWaitReportsCanceledWithoutFailing() throws Exception {
+        assertEquals(0, executeStatus(ApplicationStatus.CANCELED, true));
+    }
+
+    @Test
+    void statusWithoutWaitReportsFailedWithoutFailing() throws Exception {
+        assertEquals(0, executeStatus(ApplicationStatus.FAILED, false));
+    }
+
+    @Test
+    void statusWithWaitFailsOnFailed() {
+        assertThrows(
+                CommandExecuteException.class, () -> executeStatus(ApplicationStatus.FAILED, true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"status", "submit"})
+    void unknownWaitExitsTwoFromApplicationEntrypoint(String operation) throws Exception {
+        Path application = temporary.resolve("application.config");
+        Files.write(application, "application.name = demo".getBytes(StandardCharsets.UTF_8));
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.create(any())).thenReturn(descriptor);
+        when(factory.parseApplicationId("application_1")).thenReturn("native-id");
+        when(descriptor.deployApplication(any())).thenReturn("application_1");
+        when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.UNKNOWN);
+        String[] arguments =
+                "submit".equals(operation)
+                        ? new String[] {
+                            "submit", "-t", "kubernetes", "-a", application.toString(), "--wait"
+                        }
+                        : new String[] {
+                            "status", "-t", "kubernetes", "--id", "application_1", "--wait"
+                        };
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            assertEquals(2, catchSystemExit(() -> SeaTunnelApplication.main(arguments)));
+        }
+        verify(descriptor).getApplicationStatus("native-id");
+        verify(descriptor, times("submit".equals(operation) ? 2 : 1)).close();
+        verify(descriptor, never()).cancelApplication(any());
+    }
+
+    @Test
+    void helpExitsZeroBeforeCommandValidation() throws Exception {
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                SeaTunnelApplication.main(
+                                        new String[] {"status", "-t", "kubernetes", "--help"}));
+        assertEquals(0, statusCode);
+    }
+
+    @Test
+    void submitWithMissingApplicationConfigExitsThroughUsagePath() throws Exception {
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                CommandLineUtils.parse(
+                                        new String[] {
+                                            "submit",
+                                            "-t",
+                                            "kubernetes",
+                                            "-a",
+                                            temporary.resolve("missing.config").toString()
+                                        },
+                                        new ApplicationCommandArgs(),
+                                        "seatunnel-application.sh",
+                                        false,
+                                        ApplicationCommandArgs::validateCommandOptions,
+                                        0));
+        assertEquals(USAGE_EXIT_CODE, statusCode);
+    }
+
+    private int executeStatus(ApplicationStatus status, boolean wait) throws Exception {
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.parseApplicationId("application_1")).thenReturn("native-id");
+        doReturn(descriptor).when(factory).create(any());
+        when(descriptor.getApplicationStatus("native-id")).thenReturn(status);
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            ApplicationCommandArgs args =
+                    parse("status", "-t", "kubernetes", "--id", "application_1");
+            args.setWait(wait);
+            ApplicationExecuteCommand command = (ApplicationExecuteCommand) args.buildCommand();
+            command.execute();
+            verify(descriptor).close();
+            return command.getExitCode();
+        }
+    }
+
+    @Test
     void waitsForPlatformTerminalState() throws Exception {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         when(descriptor.getApplicationStatus("app"))
@@ -376,7 +496,7 @@ class ApplicationExecuteCommandTest {
         ApplicationClusterDescriptorFactory<String> factory =
                 mock(ApplicationClusterDescriptorFactory.class);
         when(factory.parseApplicationId("application_1")).thenReturn("native-id");
-        org.mockito.Mockito.doReturn(descriptor).when(factory).create(any());
+        doReturn(descriptor).when(factory).create(any());
         when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.SUCCEEDED);
         try (MockedConstruction<ClusterClientServiceLoader> loaders =
                 mockConstruction(
@@ -403,6 +523,50 @@ class ApplicationExecuteCommandTest {
         verify(descriptor).cancelApplication("native-id");
         verify(descriptor, never()).retrieve(any());
         verify(descriptor, times(2)).close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void submitsWithDeploymentOverridesOnly(boolean wait) throws Exception {
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.create(any())).thenReturn(descriptor);
+        when(descriptor.deployApplication(any())).thenReturn("application_1");
+        when(factory.parseApplicationId("application_1")).thenReturn("native-id");
+        when(descriptor.getApplicationStatus("native-id")).thenReturn(ApplicationStatus.SUCCEEDED);
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            ApplicationCommandArgs args =
+                    parse(
+                            "submit",
+                            "-t",
+                            "kubernetes",
+                            "-Dapplication.name=overrides-only",
+                            "-Dapplication.worker-count=3",
+                            "-Dkubernetes.image=example:latest",
+                            "-Dkubernetes.job-config-file=/etc/seatunnel/job.conf");
+            args.setWait(wait);
+            args.buildCommand().execute();
+        }
+        ArgumentCaptor<ApplicationSpecification> specification =
+                ArgumentCaptor.forClass(ApplicationSpecification.class);
+        verify(descriptor).deployApplication(specification.capture());
+        assertEquals("overrides-only", specification.getValue().getName());
+        assertEquals(3, specification.getValue().getWorkerCount());
+        assertEquals("", specification.getValue().getJobConfig());
+        ArgumentCaptor<Map<String, String>> deploymentOptions = ArgumentCaptor.forClass(Map.class);
+        verify(factory, times(wait ? 2 : 1)).create(deploymentOptions.capture());
+        assertEquals("example:latest", deploymentOptions.getValue().get("kubernetes.image"));
+        assertEquals(
+                "/etc/seatunnel/job.conf",
+                deploymentOptions.getValue().get("kubernetes.job-config-file"));
+        verify(descriptor, times(wait ? 1 : 0)).getApplicationStatus("native-id");
+        verify(descriptor, times(wait ? 2 : 1)).close();
     }
 
     @Test

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /** Unit tests for SqlWhereConditionHelper */
@@ -1454,6 +1455,109 @@ public class SqlWhereConditionHelperTest {
                 result.contains(", region FROM"),
                 "Outer simple query with GROUP BY only in subquery should add fields. Result: "
                         + result);
+    }
+
+    /**
+     * Locales to drive the guards under. Turkish and Azerbaijani both uppercase "i" to the dotted
+     * capital "\u0130", so every guard keyword containing an "i" stops matching once the SQL is
+     * uppercased with the default locale.
+     */
+    private static final List<Locale> DOTTED_I_LOCALES =
+            Arrays.asList(Locale.forLanguageTag("tr-TR"), Locale.forLanguageTag("az-AZ"));
+
+    private static Locale[] snapshotDefaultLocales() {
+        return new Locale[] {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+    }
+
+    /** Restores the base locale first, because setting it overwrites both category defaults. */
+    private static void restoreDefaultLocales(Locale[] saved) {
+        Locale.setDefault(saved[0]);
+        Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+        Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+    }
+
+    @Test
+    public void testSqlStructureGuardsAreIndependentOfTheDefaultLocale() {
+        Locale[] saved = snapshotDefaultLocales();
+        try {
+            for (Locale locale : DOTTED_I_LOCALES) {
+                Locale.setDefault(locale);
+
+                // Set operators: adding a column to only the first branch changes its arity, so
+                // these have to keep being detected whatever the default locale is.
+                for (String sql :
+                        Arrays.asList(
+                                "select id from a union select id from b",
+                                "select id from a union all select id from b",
+                                "select id from a intersect select id from b",
+                                "select id from a minus select id from b",
+                                "select id from a except select id from b")) {
+                    Assertions.assertTrue(
+                            SqlWhereConditionHelper.hasTopLevelSetOperator(sql),
+                            "set operator must be detected under " + locale + ": " + sql);
+                }
+
+                // Complex clauses: auto-adding a column changes the result of these queries.
+                for (String sql :
+                        Arrays.asList(
+                                "select distinct id from t",
+                                "select id from t group by id",
+                                "select id from t having count(*) > 1",
+                                "select id from t limit 10",
+                                "select id from t offset 5",
+                                "select id, row_number() over (order by id) from t",
+                                "with x as (select id from t) select id from x")) {
+                    Assertions.assertTrue(
+                            SqlWhereConditionHelper.hasComplexClause(sql),
+                            "complex clause must be detected under " + locale + ": " + sql);
+                }
+            }
+        } finally {
+            restoreDefaultLocales(saved);
+        }
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrapIsIndependentOfTheDefaultLocale() {
+        List<String> queries =
+                Arrays.asList(
+                        "select id from a union select id from b",
+                        "select distinct id from t",
+                        "select id from t limit 10",
+                        "select id from t having count(*) > 1");
+        String whereCondition = "name = 'x'";
+
+        Locale[] saved = snapshotDefaultLocales();
+        try {
+            Locale.setDefault(Locale.ROOT);
+            for (String sql : queries) {
+                String expected =
+                        SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                                sql, whereCondition, true);
+                // The guard holds, so the inner query is wrapped without being rewritten.
+                Assertions.assertTrue(
+                        expected.contains(sql), "guarded sql must not be rewritten: " + expected);
+
+                for (Locale locale : DOTTED_I_LOCALES) {
+                    Locale.setDefault(locale);
+                    Assertions.assertEquals(
+                            expected,
+                            SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                                    sql, whereCondition, true),
+                            "emitted sql must not depend on the default locale ("
+                                    + locale
+                                    + "): "
+                                    + sql);
+                }
+                Locale.setDefault(Locale.ROOT);
+            }
+        } finally {
+            restoreDefaultLocales(saved);
+        }
     }
 
     // ==================== Tests for Unicode uppercase expansion (#12998) ====================
