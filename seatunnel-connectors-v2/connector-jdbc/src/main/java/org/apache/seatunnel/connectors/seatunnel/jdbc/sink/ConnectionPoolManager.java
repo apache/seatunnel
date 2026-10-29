@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +46,8 @@ public class ConnectionPoolManager {
 
     // One manual-commit transaction state per queue index, shared by every writer on that index.
     // It outlives connection replacement, so a replaced connection cannot hide lost work.
-    private final Map<Integer, JdbcTransactionState> transactionStates = new ConcurrentHashMap<>();
+    private final Map<Integer, JdbcTransactionStateManager> transactionStateManagers =
+            new ConcurrentHashMap<>();
 
     private final AtomicLong replacementsSinceLastWarn = new AtomicLong();
 
@@ -170,12 +171,12 @@ public class ConnectionPoolManager {
      * Returns the transaction state of the connection held for this queue index. Every writer on
      * the index gets the same instance.
      */
-    public JdbcTransactionState getTransactionState(int index) {
-        JdbcTransactionState state = transactionStates.get(index);
-        return state != null
-                ? state
-                : transactionStates.computeIfAbsent(
-                        index, i -> new JdbcTransactionState("JDBC sink queue index " + i));
+    public JdbcTransactionStateManager getTransactionStateManager(int index) {
+        JdbcTransactionStateManager stateManager = transactionStateManagers.get(index);
+        return stateManager != null
+                ? stateManager
+                : transactionStateManagers.computeIfAbsent(
+                        index, i -> new JdbcTransactionStateManager("JDBC sink queue index " + i));
     }
 
     public boolean containsConnection(int index) {

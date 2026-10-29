@@ -83,7 +83,7 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
 
     /** Writers on one queue index share a connection, so they also share its transaction state. */
     @Override
-    public Optional<JdbcTransactionState> getTransactionState() {
-        return Optional.of(poolManager.getTransactionState(queueIndex));
+    public Optional<JdbcTransactionStateManager> getTransactionStateManager() {
+        return Optional.of(poolManager.getTransactionStateManager(queueIndex));
     }
 }

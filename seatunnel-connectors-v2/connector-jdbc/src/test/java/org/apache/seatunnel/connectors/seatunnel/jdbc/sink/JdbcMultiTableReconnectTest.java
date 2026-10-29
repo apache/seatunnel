@@ -38,7 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
 
 import org.junit.jupiter.api.Test;
@@ -215,7 +215,7 @@ class JdbcMultiTableReconnectTest {
             closeQuietly(tableA);
         }
 
-        assertTrue(dialect.transactionState.isPoisoned());
+        assertTrue(dialect.transactionStateManager.isPoisoned());
         assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
         assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
     }
@@ -303,12 +303,12 @@ class JdbcMultiTableReconnectTest {
             assertEquals(2, rowErrors.size());
 
             // Rows 1 and 2 are still pending in the shared transaction.
-            assertTrue(dialect.transactionState.hasPendingOrLostWork());
-            assertFalse(dialect.transactionState.isPoisoned());
+            assertTrue(dialect.transactionStateManager.hasPendingOrLostWork());
+            assertFalse(dialect.transactionStateManager.isPoisoned());
 
             // Table B commits the shared connection, which covers table A's rows 1 and 2.
             tableB.prepareCommit(1L);
-            assertFalse(dialect.transactionState.hasPendingOrLostWork());
+            assertFalse(dialect.transactionStateManager.hasPendingOrLostWork());
             tableA.prepareCommit(1L);
         } finally {
             closeQuietly(tableB);
@@ -349,7 +349,7 @@ class JdbcMultiTableReconnectTest {
             tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
             assertEquals(2, rowErrors.size());
 
-            assertTrue(dialect.transactionState.isPoisoned());
+            assertTrue(dialect.transactionStateManager.isPoisoned());
             assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
         } finally {
             closeQuietly(tableB);
@@ -409,7 +409,7 @@ class JdbcMultiTableReconnectTest {
 
             assertThrows(JdbcConnectorException.class, () -> tableA.prepareCommit(1L));
             assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
-            assertTrue(pool.getTransactionState(0).isPoisoned());
+            assertTrue(pool.getTransactionStateManager(0).isPoisoned());
         } finally {
             closeQuietly(tableB);
             closeQuietly(tableA);
@@ -447,7 +447,7 @@ class JdbcMultiTableReconnectTest {
                 tableA.prepareCommit(checkpoint);
                 tableB.prepareCommit(checkpoint);
 
-                assertFalse(pool.getTransactionState(0).hasPendingOrLostWork());
+                assertFalse(pool.getTransactionStateManager(0).hasPendingOrLostWork());
             }
         } finally {
             closeQuietly(tableB);
@@ -527,7 +527,7 @@ class JdbcMultiTableReconnectTest {
             assertTrue(
                     rejected.getMessage()
                             .contains("Flushed but uncommitted JDBC batches were lost"));
-            assertTrue(dialect.transactionState.isPoisoned());
+            assertTrue(dialect.transactionStateManager.isPoisoned());
             assertEquals(1, errors.size());
             assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
         } finally {
@@ -819,7 +819,8 @@ class JdbcMultiTableReconnectTest {
      * transaction state, like the writers on one queue index of {@link ConnectionPoolManager}.
      */
     private static class SharedQueueDialect extends SqliteDialect {
-        private final JdbcTransactionState transactionState = new JdbcTransactionState();
+        private final JdbcTransactionStateManager transactionStateManager =
+                new JdbcTransactionStateManager();
         private TrackingConnectionProvider slot;
 
         @Override
@@ -828,7 +829,7 @@ class JdbcMultiTableReconnectTest {
             if (slot == null) {
                 slot = new TrackingConnectionProvider(jdbcConnectionConfig);
             }
-            return new SharedQueueProvider(slot, transactionState);
+            return new SharedQueueProvider(slot, transactionStateManager);
         }
 
         private TrackingConnectionProvider slot() {
@@ -839,12 +840,13 @@ class JdbcMultiTableReconnectTest {
     /** One writer's view of the shared connection, like SimpleJdbcConnectionPoolProviderProxy. */
     private static class SharedQueueProvider implements JdbcConnectionProvider {
         private final TrackingConnectionProvider slot;
-        private final JdbcTransactionState transactionState;
+        private final JdbcTransactionStateManager transactionStateManager;
 
         private SharedQueueProvider(
-                TrackingConnectionProvider slot, JdbcTransactionState transactionState) {
+                TrackingConnectionProvider slot,
+                JdbcTransactionStateManager transactionStateManager) {
             this.slot = slot;
-            this.transactionState = transactionState;
+            this.transactionStateManager = transactionStateManager;
         }
 
         @Override
@@ -873,8 +875,8 @@ class JdbcMultiTableReconnectTest {
         }
 
         @Override
-        public Optional<JdbcTransactionState> getTransactionState() {
-            return Optional.of(transactionState);
+        public Optional<JdbcTransactionStateManager> getTransactionStateManager() {
+            return Optional.of(transactionStateManager);
         }
     }
 

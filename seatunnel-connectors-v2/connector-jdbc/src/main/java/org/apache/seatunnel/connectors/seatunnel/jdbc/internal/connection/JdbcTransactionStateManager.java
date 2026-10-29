@@ -53,9 +53,9 @@ import java.util.Map;
  * <p>Owners are compared by identity. A writer uses its connection provider as owner, because the
  * provider stays the same when the output format is rebuilt after a schema change.
  */
-public class JdbcTransactionState {
+public class JdbcTransactionStateManager {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcTransactionState.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JdbcTransactionStateManager.class);
 
     // Names the connection in log messages, for example the queue index of a pooled connection.
     private final String description;
@@ -66,7 +66,7 @@ public class JdbcTransactionState {
     private volatile String lostWorkReason;
 
     /** State of a connection used by a single writer. */
-    public JdbcTransactionState() {
+    public JdbcTransactionStateManager() {
         this("the writer's JDBC connection");
     }
 
@@ -74,7 +74,7 @@ public class JdbcTransactionState {
      * @param description names the connection in log messages, for example {@code "JDBC sink queue
      *     index 2"}
      */
-    public JdbcTransactionState(String description) {
+    public JdbcTransactionStateManager(String description) {
         this.description = description;
     }
 

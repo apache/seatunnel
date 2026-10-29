@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
 
 import org.junit.jupiter.api.Assertions;
@@ -233,24 +233,24 @@ class ConnectionPoolManagerTest {
     }
 
     @Test
-    void sharesOneTransactionStatePerQueueIndex() {
+    void sharesOneTransactionStateManagerPerQueueIndex() {
         HikariDataSource pool = mock(HikariDataSource.class);
         ConnectionPoolManager manager = new ConnectionPoolManager(pool);
         JdbcConnectionConfig config = JdbcConnectionConfig.builder().url("jdbc:test").build();
 
         // Writers of two tables on queue index 0 share one connection, so they must see the
         // same transaction state; a writer on another index has its own.
-        JdbcTransactionState tableA =
+        JdbcTransactionStateManager tableA =
                 new SimpleJdbcConnectionPoolProviderProxy(manager, config, 0)
-                        .getTransactionState()
+                        .getTransactionStateManager()
                         .orElseThrow(AssertionError::new);
-        JdbcTransactionState tableB =
+        JdbcTransactionStateManager tableB =
                 new SimpleJdbcConnectionPoolProviderProxy(manager, config, 0)
-                        .getTransactionState()
+                        .getTransactionStateManager()
                         .orElseThrow(AssertionError::new);
-        JdbcTransactionState otherQueue =
+        JdbcTransactionStateManager otherQueue =
                 new SimpleJdbcConnectionPoolProviderProxy(manager, config, 1)
-                        .getTransactionState()
+                        .getTransactionStateManager()
                         .orElseThrow(AssertionError::new);
 
         Assertions.assertNotNull(tableA);

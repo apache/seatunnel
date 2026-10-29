@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
@@ -315,8 +315,10 @@ public class JdbcOutputFormatReconnectTest {
     public void testRebuiltFormatKeepsSharedTransactionLoss() throws Exception {
         JdbcConnectionProvider provider = manualCommitProvider();
         Connection connection = provider.getConnection();
-        JdbcTransactionState sharedState = new JdbcTransactionState("test queue");
-        Mockito.when(provider.getTransactionState()).thenReturn(Optional.of(sharedState));
+        JdbcTransactionStateManager sharedStateManager =
+                new JdbcTransactionStateManager("test queue");
+        Mockito.when(provider.getTransactionStateManager())
+                .thenReturn(Optional.of(sharedStateManager));
         JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> original =
                 new JdbcOutputFormat<>(
                         provider,
@@ -395,9 +397,11 @@ public class JdbcOutputFormatReconnectTest {
         JdbcConnectionProvider provider = manualCommitProvider();
         Mockito.when(provider.isConnectionValid()).thenReturn(true);
         // Another table on the same queue index already flushed into the shared transaction.
-        JdbcTransactionState sharedState = new JdbcTransactionState("test queue");
-        sharedState.recordFlush(new Object(), provider.getConnection());
-        Mockito.when(provider.getTransactionState()).thenReturn(Optional.of(sharedState));
+        JdbcTransactionStateManager sharedStateManager =
+                new JdbcTransactionStateManager("test queue");
+        sharedStateManager.recordFlush(new Object(), provider.getConnection());
+        Mockito.when(provider.getTransactionStateManager())
+                .thenReturn(Optional.of(sharedStateManager));
         TrackingJdbcBatchExecutor executor =
                 new TrackingJdbcBatchExecutor(new SQLException("deadlock detected", "40001"), 1);
         JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
@@ -409,7 +413,7 @@ public class JdbcOutputFormatReconnectTest {
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
         Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
         Assertions.assertEquals(1, executor.executeBatchCalls);
-        Assertions.assertTrue(sharedState.isPoisoned());
+        Assertions.assertTrue(sharedStateManager.isPoisoned());
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> outputFormat.checkUncommittedBatchesOn(provider.getConnection()));
@@ -443,9 +447,11 @@ public class JdbcOutputFormatReconnectTest {
         JdbcConnectionProvider provider = manualCommitProvider();
         Connection connection = provider.getConnection();
         Mockito.when(provider.isConnectionValid()).thenReturn(true);
-        JdbcTransactionState sharedState = new JdbcTransactionState("test queue");
-        sharedState.recordFlush(new Object(), connection);
-        Mockito.when(provider.getTransactionState()).thenReturn(Optional.of(sharedState));
+        JdbcTransactionStateManager sharedStateManager =
+                new JdbcTransactionStateManager("test queue");
+        sharedStateManager.recordFlush(new Object(), connection);
+        Mockito.when(provider.getTransactionStateManager())
+                .thenReturn(Optional.of(sharedStateManager));
         TrackingJdbcBatchExecutor executor =
                 new TrackingJdbcBatchExecutor(
                         batchException(
@@ -467,10 +473,11 @@ public class JdbcOutputFormatReconnectTest {
 
         // A batch exception can also carry a data error. Neither data-error exit may hide that
         // another table's already flushed work was lost, even if the Connection object survives.
-        Assertions.assertTrue(sharedState.isPoisoned());
+        Assertions.assertTrue(sharedStateManager.isPoisoned());
         JdbcConnectorException commitFailure =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class, () -> sharedState.checkCommit(connection));
+                        JdbcConnectorException.class,
+                        () -> sharedStateManager.checkCommit(connection));
         Assertions.assertTrue(
                 commitFailure
                         .getMessage()

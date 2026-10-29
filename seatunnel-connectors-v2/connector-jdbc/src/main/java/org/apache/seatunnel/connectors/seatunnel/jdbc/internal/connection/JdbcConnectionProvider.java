@@ -67,7 +67,7 @@ public interface JdbcConnectionProvider {
      *
      * @return the shared transaction state when available
      */
-    default Optional<JdbcTransactionState> getTransactionState() {
+    default Optional<JdbcTransactionStateManager> getTransactionStateManager() {
         return Optional.empty();
     }
 }
