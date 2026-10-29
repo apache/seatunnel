@@ -134,10 +134,7 @@ public class JsonPathProcessorDataFlipTest {
         // Integer that this processor rejects before and after the padding change.
         String json = "{\"a\":[1],\"b\":[10,20]}";
 
-        JsonPath[] paths =
-                new JsonPath[] {
-                    JsonPath.compile("$.a"), JsonPath.compile("$.b[*]")
-                };
+        JsonPath[] paths = new JsonPath[] {JsonPath.compile("$.a"), JsonPath.compile("$.b[*]")};
 
         JsonPathProcessor processor = JsonPathProcessorFactory.getProcessor(paths, true);
         Assertions.assertInstanceOf(
