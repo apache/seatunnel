@@ -161,3 +161,14 @@ sink {
   }
 }
 ```
+
+## Tombstone and empty messages
+
+A Kafka tombstone is a record whose value is `null`, used on a compacted topic to mark its key as
+deleted. The Protobuf source reads such a record as one that produces no row: it is not a format
+error, so it is passed over whatever `format_error_handle_way` is set to, and the offset moves on
+past it.
+
+An empty (zero length) value is different. Protobuf defines it as a valid message in which every
+field holds its default value, so it is decoded into a row of those defaults rather than being
+passed over.

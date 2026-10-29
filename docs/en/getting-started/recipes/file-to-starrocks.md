@@ -23,13 +23,13 @@ connector-starrocks
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(file-local|starrocks)'
+ls connectors | grep -E 'connector-(file-local|starrocks)'
 ```
 
 3. Put the MySQL JDBC driver required by the StarRocks sink into `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 4. Prepare the local input file and make sure the SeaTunnel process can read it:

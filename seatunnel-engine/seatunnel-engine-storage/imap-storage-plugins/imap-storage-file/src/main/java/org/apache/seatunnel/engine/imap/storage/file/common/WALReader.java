@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.ClassUtils;
 
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -39,6 +40,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.LatestMutationAccumulator.SerializedKey;
 
@@ -85,38 +87,79 @@ public class WALReader {
         this.fileReader.initialize(fs, serializer);
     }
 
+    /** Returns the keys whose latest mutation is neither a delete nor expired. */
     public Set<Object> loadAllKeys(Path parentPath) throws IOException {
         LatestMutationAccumulator accumulator = readLatestMutations(parentPath, null);
+        long now = System.currentTimeMillis();
         Set<Object> result = new HashSet<>(accumulator.size());
         Iterator<IMapFileData> mutations = accumulator.iterator();
         while (mutations.hasNext()) {
             IMapFileData mutation = mutations.next();
             mutations.remove();
-            if (!mutation.isDeleted()) {
+            if (isLive(mutation, now)) {
                 result.add(deserializeData(mutation.getKey(), mutation.getKeyClassName()));
             }
         }
         return result;
     }
 
+    /** Returns the latest value of each key that is neither deleted nor expired. */
     public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys)
+            throws IOException {
+        return loadLiveData(parentPath, searchKeys, (value, mutation) -> value);
+    }
+
+    /**
+     * Returns the latest value of each key that is neither deleted nor expired, together with the
+     * time at which it expires.
+     */
+    public Map<Object, ExpirableValue> loadAllDataWithExpirationTime(
+            Path parentPath, Set<Object> searchKeys) throws IOException {
+        return loadLiveData(
+                parentPath,
+                searchKeys,
+                (value, mutation) ->
+                        new ExpirableValue(
+                                value,
+                                mutation.getExpirationTime() == null
+                                        ? ExpirableValue.NO_EXPIRATION_TIME
+                                        : mutation.getExpirationTime()));
+    }
+
+    private <V> Map<Object, V> loadLiveData(
+            Path parentPath,
+            Set<Object> searchKeys,
+            BiFunction<Object, IMapFileData, V> valueMapper)
             throws IOException {
         Set<SerializedKey> serializedSearchKeys = serializeSearchKeys(searchKeys);
         LatestMutationAccumulator accumulator =
                 readLatestMutations(parentPath, serializedSearchKeys);
-        Map<Object, Object> result = new HashMap<>(accumulator.size());
+        long now = System.currentTimeMillis();
+        Map<Object, V> result = new HashMap<>(accumulator.size());
         Iterator<IMapFileData> mutations = accumulator.iterator();
         while (mutations.hasNext()) {
             IMapFileData mutation = mutations.next();
             mutations.remove();
-            if (mutation.isDeleted()) {
+            if (!isLive(mutation, now)) {
                 continue;
             }
             Object key = deserializeData(mutation.getKey(), mutation.getKeyClassName());
             Object value = deserializeData(mutation.getValue(), mutation.getValueClassName());
-            result.put(key, value);
+            result.put(key, valueMapper.apply(value, mutation));
         }
         return result;
+    }
+
+    /**
+     * An entry stays in the WAL after it expires because Hazelcast does not delete expired entries
+     * from the map store, so its latest put is skipped here instead of being loaded again.
+     */
+    private static boolean isLive(IMapFileData mutation, long now) {
+        if (mutation.isDeleted()) {
+            return false;
+        }
+        Long expirationTime = mutation.getExpirationTime();
+        return expirationTime == null || expirationTime > now;
     }
 
     private LatestMutationAccumulator readLatestMutations(

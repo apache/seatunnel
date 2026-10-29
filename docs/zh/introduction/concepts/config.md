@@ -206,7 +206,7 @@ sql = """ select * from "table" """
 
 在配置文件中，我们可以定义一些变量并在运行时替换它们。但请注意，目前仅支持 HOCON 格式的文件。
 
-变量使用方法：
+### 变量使用方法：
  - `${varName}`，如果变量未传值，则抛出异常。
  - `${varName:default}`，如果变量未传值，则使用默认值。如果设置默认值则变量需要写在双引号中。
  - `${varName:}`，如果变量未传值，则使用空字符串。
@@ -220,7 +220,7 @@ export varName="value with space"
 
 如果您在配置文件中设置了没有默认值的变量，但在执行过程中未传递该变量，则会保留该变量值，系统不会抛出异常。但请您需要确保其他流程能够正确解析该变量值。例如，ElasticSearch的索引需要支持`${xxx}`这样的格式来动态指定索引。若其他流程不支持，程序可能无法正常运行。
 
-具体样例：
+### 示例：
 ```hocon
 env {
   job.mode = "BATCH"
@@ -306,7 +306,7 @@ transform {
     sql {
       plugin_input = "fake_test_table"
       plugin_output = "sql"
-      query = "select * from dual where name = 'abc' "
+      query = "select * from fake_test_table where name = 'abc' "
     }
 
 }
@@ -321,7 +321,7 @@ sink {
 
 ```
 
-一些注意事项:
+### 注意事项:
 - 为了避免非预期的数据同步错误，`-i` 传参不能出现重复的key。
 - 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但list和map类型不需要用`\"`包裹，如`-i include_fields=[id,name]`。
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
