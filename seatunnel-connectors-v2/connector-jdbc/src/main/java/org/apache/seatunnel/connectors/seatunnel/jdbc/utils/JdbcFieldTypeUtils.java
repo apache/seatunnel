@@ -38,16 +38,6 @@ import java.util.TimeZone;
 
 public final class JdbcFieldTypeUtils {
 
-    /** A binary PostgreSQL special numeric value consists of the four header words only. */
-    private static final int PG_BINARY_NUMERIC_HEADER_LENGTH = 8;
-
-    /** Sign words of the PostgreSQL binary numeric format, see {@code numeric.c}. */
-    private static final int PG_BINARY_NUMERIC_NAN = 0xC000;
-
-    private static final int PG_BINARY_NUMERIC_POSITIVE_INFINITY = 0xD000;
-
-    private static final int PG_BINARY_NUMERIC_NEGATIVE_INFINITY = 0xF000;
-
     private JdbcFieldTypeUtils() {}
 
     public static Boolean getBoolean(ResultSet resultSet, int columnIndex) throws SQLException {
@@ -108,19 +98,17 @@ public final class JdbcFieldTypeUtils {
      * <p>PostgreSQL and its derivatives (e.g. Kingbase) allow the special numeric values {@code
      * NaN}, {@code Infinity} and {@code -Infinity} (supported since PostgreSQL 14), which have no
      * {@code BigDecimal} representation. The driver fails in that case with {@code PSQLException:
-     * Bad value for type BigDecimal : NaN} (text protocol). In the binary protocol it fails with a
-     * {@code ClassCastException} for {@code NaN}, where the driver returns a {@code Double}, and
-     * with an {@code IllegalArgumentException: invalid sign in "numeric" value} for {@code
-     * Infinity} and {@code -Infinity}. When {@code numericSpecialValueAsNull} is enabled, these
-     * special values are read as {@code null}, so that a single special value does not abort the
-     * whole job. Otherwise the original error is thrown.
+     * Bad value for type BigDecimal : NaN} (text protocol) or with a {@code ClassCastException}
+     * (binary protocol, where the driver returns a {@code Double}). When {@code
+     * numericSpecialValueAsNull} is enabled, these special values are read as {@code null}, so that
+     * a single special value does not abort the whole job. Otherwise the original error is thrown.
      */
     public static BigDecimal getBigDecimal(
             ResultSet resultSet, int columnIndex, boolean numericSpecialValueAsNull)
             throws SQLException {
         try {
             return resultSet.getBigDecimal(columnIndex);
-        } catch (SQLException | ClassCastException | IllegalArgumentException e) {
+        } catch (SQLException | ClassCastException e) {
             if (numericSpecialValueAsNull && isNumericSpecialValue(resultSet, columnIndex)) {
                 return null;
             }
@@ -134,45 +122,15 @@ public final class JdbcFieldTypeUtils {
      *
      * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
      * -Infinity} (supported since PostgreSQL 14). This method reads the raw value as a string and
-     * reports whether it is one of those special values. In the binary protocol the driver decodes
-     * the value for {@code getString} as well and fails on {@code Infinity} and {@code -Infinity},
-     * so the binary representation of the value is inspected instead. It never throws.
+     * reports whether it is one of those special values; it never throws.
      */
     public static boolean isNumericSpecialValue(ResultSet resultSet, int columnIndex) {
         try {
             return isNumericSpecialValueString(resultSet.getString(columnIndex));
         } catch (SQLException | RuntimeException e) {
-            return isPostgresBinaryNumericSpecialValue(resultSet, columnIndex);
-        }
-    }
-
-    /**
-     * Checks whether the raw bytes of the given column are a PostgreSQL binary {@code numeric}
-     * special value. The binary format starts with four 16-bit words: digit count, weight, sign and
-     * display scale. A special value has no digits and one of the special sign words.
-     */
-    private static boolean isPostgresBinaryNumericSpecialValue(
-            ResultSet resultSet, int columnIndex) {
-        byte[] bytes;
-        try {
-            bytes = resultSet.getBytes(columnIndex);
-        } catch (SQLException | RuntimeException e) {
             // The raw value cannot be read, so it cannot be identified as a special value
             return false;
         }
-        if (bytes == null || bytes.length != PG_BINARY_NUMERIC_HEADER_LENGTH) {
-            return false;
-        }
-        int digitCount = readUnsignedShort(bytes, 0);
-        int sign = readUnsignedShort(bytes, 4);
-        return digitCount == 0
-                && (sign == PG_BINARY_NUMERIC_NAN
-                        || sign == PG_BINARY_NUMERIC_POSITIVE_INFINITY
-                        || sign == PG_BINARY_NUMERIC_NEGATIVE_INFINITY);
-    }
-
-    private static int readUnsignedShort(byte[] bytes, int offset) {
-        return ((bytes[offset] & 0xFF) << 8) | (bytes[offset + 1] & 0xFF);
     }
 
     private static boolean isNumericSpecialValueString(@Nullable String value) {
