@@ -75,14 +75,58 @@ class RestUtilSubmitJobsParamsTest {
     }
 
     @Test
-    void testStartWithSavePointStillRequiresJobId() throws IOException {
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        requestParamsOf(
-                                "[{\"params\": {\"isStartWithSavePoint\": \"true\"}, "
-                                        + JOB
-                                        + "}]"));
+    void testNullValueIsSkippedAndEmptyStringIsKept() throws IOException {
+        Map<String, String> requestParams =
+                requestParamsOf(
+                        "[{\"params\": {\"jobId\": null, \"jobName\": \"\"}, " + JOB + "}]");
+
+        // A null value is skipped, so the default (no jobId) applies instead of the string "null"
+        Assertions.assertTrue(requestParams.containsKey(RestConstant.JOB_ID));
+        Assertions.assertNull(requestParams.get(RestConstant.JOB_ID));
+        Assertions.assertEquals("", requestParams.get(RestConstant.JOB_NAME));
+    }
+
+    @Test
+    void testStartWithSavePointStillRequiresJobId() {
+        for (String jobId : new String[] {"", "\"jobId\": \"\", ", "\"jobId\": \"  \", "}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    requestParamsOf(
+                                            "[{\"params\": {"
+                                                    + jobId
+                                                    + "\"isStartWithSavePoint\": \"true\"}, "
+                                                    + JOB
+                                                    + "}]"),
+                            "jobId " + jobId);
+            Assertions.assertEquals(
+                    "Please provide jobId when start with save point.", exception.getMessage());
+        }
+    }
+
+    @Test
+    void testNumberValuesMustBeLongIntegers() throws IOException {
+        Map<String, String> requestParams =
+                requestParamsOf("[{\"params\": {\"jobId\": 9223372036854775807}, " + JOB + "}]");
+        Assertions.assertEquals("9223372036854775807", requestParams.get(RestConstant.JOB_ID));
+
+        for (String number : new String[] {"1e3", "1.5", "9223372036854775808"}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    requestParamsOf(
+                                            "[{\"params\": {\"jobId\": "
+                                                    + number
+                                                    + "}, "
+                                                    + JOB
+                                                    + "}]"),
+                            "jobId " + number);
+            Assertions.assertEquals(
+                    "'params' number values must be integers within the long range",
+                    exception.getMessage());
+        }
     }
 
     @Test
@@ -113,14 +157,15 @@ class RestUtilSubmitJobsParamsTest {
                             IllegalArgumentException.class,
                             () ->
                                     requestParamsOf(
-                                            "[{\"params\": {\"jobName\": "
+                                            "[{\"params\": {\"do-not-echo\\nkey\": "
                                                     + nested[0]
                                                     + "}, "
                                                     + JOB
                                                     + "}]"),
-                            "jobName " + nested[0]);
+                            "value " + nested[0]);
+            // Neither the client-supplied key nor the value is echoed into the message
             Assertions.assertEquals(
-                    "'params.jobName' must be a string, number or boolean, but was a JSON "
+                    "'params' values must be a string, number or boolean, but one was a JSON "
                             + nested[1],
                     exception.getMessage());
         }
@@ -145,7 +190,7 @@ class RestUtilSubmitJobsParamsTest {
                         RestUtil.convertByteToJsonNode(body.getBytes(StandardCharsets.UTF_8)));
         Assertions.assertEquals(1, configs.size());
         Map<String, String> requestParams = new HashMap<>();
-        RestUtil.buildRequestParams(requestParams, configs.get(0)._1);
+        RestUtil.buildRequestParamsFromJson(requestParams, configs.get(0)._1);
         return requestParams;
     }
 }

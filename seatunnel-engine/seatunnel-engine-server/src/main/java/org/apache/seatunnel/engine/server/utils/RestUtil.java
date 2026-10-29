@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -30,6 +31,7 @@ import scala.Tuple2;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
 import java.net.URLDecoder;
 import java.util.Collection;
 import java.util.HashMap;
@@ -52,7 +54,8 @@ public class RestUtil {
     /**
      * Fills the request parameters of a v1 {@code /hazelcast/rest/maps/submit-job} request from the
      * query string of its URI. The values come from a URL, so they are URL-decoded, unlike the JSON
-     * {@code params} values read by {@link #buildRequestParams(Map, Map)}, which must not be.
+     * {@code params} values read by {@link #buildRequestParamsFromJson(Map, Map)}, which must not
+     * be.
      *
      * @param requestParams the map to fill
      * @param uri the request URI, with or without a query string
@@ -87,7 +90,7 @@ public class RestUtil {
      * @param requestParams the map to fill
      * @param params the {@code params} object of the job, may be {@code null} when it is omitted
      */
-    public static void buildRequestParams(
+    public static void buildRequestParamsFromJson(
             Map<String, String> requestParams, Map<String, String> params) {
         requestParams.put(RestConstant.JOB_ID, null);
         requestParams.put(RestConstant.IS_START_WITH_SAVE_POINT, String.valueOf(false));
@@ -99,7 +102,7 @@ public class RestUtil {
 
     private static void checkStartWithSavePoint(Map<String, String> requestParams) {
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && requestParams.get(RestConstant.JOB_ID) == null) {
+                && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
     }
@@ -125,10 +128,11 @@ public class RestUtil {
 
     /**
      * Converts the optional {@code params} object of a {@code /submit-jobs} entry to string values,
-     * so that a number such as {@code "jobId": 123} is accepted like {@code "jobId": "123"}.
-     * Entries with a {@code null} value are skipped. A nested object or array value is rejected,
-     * because it has no meaningful string form. The error messages name the key and the JSON type,
-     * never the value, so that a large request value is not echoed back in the response.
+     * so that an integral number such as {@code "jobId": 123} is accepted like {@code "jobId":
+     * "123"}. Entries with a {@code null} value are skipped. A nested object or array value, and a
+     * number that is not an integer within the {@code long} range, are rejected because they have
+     * no meaningful string form. The error messages name only the JSON type, never the key or the
+     * value: both come from the client, and the message is written to the server log.
      */
     private static Map<String, String> toStringParams(Object params) {
         Map<String, String> stringParams = new HashMap<>();
@@ -149,17 +153,38 @@ public class RestUtil {
                                 throw new IllegalArgumentException(
                                         "'"
                                                 + REST_SUBMIT_JOBS_PARAMS
-                                                + "."
-                                                + key
-                                                + "' must be a string, number or boolean,"
-                                                + " but was a JSON "
+                                                + "' values must be a string, number or boolean,"
+                                                + " but one was a JSON "
                                                 + jsonTypeOf(value));
+                            }
+                            if (value instanceof Number && !isLongValue((Number) value)) {
+                                throw new IllegalArgumentException(
+                                        "'"
+                                                + REST_SUBMIT_JOBS_PARAMS
+                                                + "' number values must be integers within the"
+                                                + " long range");
                             }
                             if (value != null) {
                                 stringParams.put(String.valueOf(key), String.valueOf(value));
                             }
                         });
         return stringParams;
+    }
+
+    /**
+     * Whether a JSON number produced by {@link JsonUtils#toMap(JsonNode)} is an integer within the
+     * {@code long} range. Jackson gives {@code Integer} or {@code Long} for such a number, {@code
+     * BigInteger} for a larger integer and {@code Double} for a fraction or an exponent such as
+     * {@code 1e3}.
+     */
+    private static boolean isLongValue(Number value) {
+        if (value instanceof Long
+                || value instanceof Integer
+                || value instanceof Short
+                || value instanceof Byte) {
+            return true;
+        }
+        return value instanceof BigInteger && ((BigInteger) value).bitLength() < Long.SIZE;
     }
 
     /** Names the JSON type of a value produced by {@link JsonUtils#toMap(JsonNode)}. */

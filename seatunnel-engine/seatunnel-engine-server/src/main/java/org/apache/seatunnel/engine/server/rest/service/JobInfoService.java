@@ -494,30 +494,43 @@ public class JobInfoService extends BaseService {
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
+    /**
+     * Submits every job of a {@code /submit-jobs} request. The {@code params} of all entries are
+     * validated before the first job is submitted, so an invalid entry rejects the whole request
+     * instead of leaving the jobs before it running.
+     */
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody));
 
-        return configTuples.stream()
-                .map(
-                        tuple -> {
-                            Map<String, String> requestParams = new HashMap<>();
-                            RestUtil.buildRequestParams(requestParams, tuple._1);
-                            if (requestParams.containsKey(RestConstant.DRY_RUN)
-                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
-                                throw new IllegalArgumentException(
-                                        "Dry-run is only supported via CLI");
-                            }
-                            validateCheckpointRestoreRequest(requestParams);
-                            SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
-                            return submitJobInternal(
-                                    decryptConfig,
-                                    requestParams,
-                                    seaTunnelServer,
-                                    nodeEngine.getNode());
-                        })
-                .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        List<Map<String, String>> requestParamsList =
+                configTuples.stream()
+                        .map(tuple -> validatedSubmitJobsParams(tuple._1))
+                        .collect(Collectors.toList());
+
+        JsonArray result = new JsonArray();
+        for (int i = 0; i < configTuples.size(); i++) {
+            SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+            Config decryptConfig = ConfigShadeUtils.decryptConfig(configTuples.get(i)._2);
+            result.add(
+                    submitJobInternal(
+                            decryptConfig,
+                            requestParamsList.get(i),
+                            seaTunnelServer,
+                            nodeEngine.getNode()));
+        }
+        return result;
+    }
+
+    private Map<String, String> validatedSubmitJobsParams(Map<String, String> params) {
+        Map<String, String> requestParams = new HashMap<>();
+        RestUtil.buildRequestParamsFromJson(requestParams, params);
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
+        validateCheckpointRestoreRequest(requestParams);
+        return requestParams;
     }
 
     private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {

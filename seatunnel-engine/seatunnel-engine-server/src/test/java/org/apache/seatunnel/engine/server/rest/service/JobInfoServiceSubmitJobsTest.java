@@ -103,6 +103,36 @@ class JobInfoServiceSubmitJobsTest {
         Assertions.assertTrue(service.submittedParams.isEmpty());
     }
 
+    @Test
+    void testInvalidLaterEntryRejectsTheWholeRequest() {
+        // Only the second entry is invalid; the first one must not be submitted either
+        String[] invalidParams = {
+            "{\"isStartWithSavePoint\": \"true\"}",
+            "{\"restoreMode\": \"BOGUS\"}",
+            "{\"restoreMode\": \"SAVEPOINT\"}",
+            "{\"jobName\": {\"a\": 1}}",
+            "{\"jobId\": 1.5}"
+        };
+        for (String params : invalidParams) {
+            RecordingJobInfoService service = new RecordingJobInfoService();
+
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () ->
+                            service.submitJobs(
+                                    bytes(
+                                            "[{\"params\": {\"jobName\": \"first\"}, "
+                                                    + JOB
+                                                    + "}, {\"params\": "
+                                                    + params
+                                                    + ", "
+                                                    + JOB
+                                                    + "}]")),
+                    "second entry params " + params);
+            Assertions.assertTrue(service.submittedParams.isEmpty(), "params " + params);
+        }
+    }
+
     private static byte[] bytes(String body) {
         return body.getBytes(StandardCharsets.UTF_8);
     }
