@@ -191,6 +191,20 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return commitFailed;
     }
 
+    /**
+     * Records a non-XA writer's commit failure before any rollback or local retry. The database may
+     * have rolled back the whole transaction, so neither this writer nor another writer with
+     * pending work on the same transaction may acknowledge it by committing again.
+     *
+     * @param failure the original commit exception, retained for subsequent failure reporting
+     */
+    public synchronized void markCommitFailed(Exception failure) {
+        commitFailed = true;
+        recordFlushException(failure);
+        transactionStateManager.markPendingWorkLost(
+                "a JDBC commit failed and the transaction outcome is unknown");
+    }
+
     public synchronized void setFailFastOnRowLevelSqlState(boolean failFastOnRowLevelSqlState) {
         this.failFastOnRowLevelSqlState = failFastOnRowLevelSqlState;
     }
@@ -461,6 +475,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * @param commitConnection the connection the writer is about to commit
      */
     public void checkUncommittedBatchesOn(Connection commitConnection) {
+        if (commitFailed) {
+            checkFlushException();
+        }
         transactionStateManager.checkCommit(commitConnection);
     }
 

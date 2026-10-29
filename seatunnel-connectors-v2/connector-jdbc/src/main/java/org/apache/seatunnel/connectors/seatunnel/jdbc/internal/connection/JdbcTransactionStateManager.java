@@ -20,8 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.util.IdentityHashMap;
@@ -53,9 +52,8 @@ import java.util.Map;
  * <p>Owners are compared by identity. A writer uses its connection provider as owner, because the
  * provider stays the same when the output format is rebuilt after a schema change.
  */
+@Slf4j
 public class JdbcTransactionStateManager {
-
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcTransactionStateManager.class);
 
     // Names the connection in log messages, for example the queue index of a pooled connection.
     private final String description;
@@ -65,7 +63,10 @@ public class JdbcTransactionStateManager {
     private volatile long flushSequence;
     private volatile String lostWorkReason;
 
-    /** State of a connection used by a single writer. */
+    /**
+     * Creates transaction state for a single writer whose connection is not shared through the
+     * multi-table connection pool.
+     */
     public JdbcTransactionStateManager() {
         this("the writer's JDBC connection");
     }
@@ -96,7 +97,11 @@ public class JdbcTransactionStateManager {
         lastFlushByOwner.put(owner, ++flushSequence);
     }
 
-    /** Sequence number of the latest recorded flush, used to mark a savepoint. */
+    /**
+     * Returns the sequence number of the latest recorded flush.
+     *
+     * @return the sequence to record when creating a savepoint
+     */
     public long currentFlushSequence() {
         return flushSequence;
     }
@@ -110,7 +115,11 @@ public class JdbcTransactionStateManager {
         return connection != null || lostWorkReason != null;
     }
 
-    /** Whether flushed work was lost in this checkpoint interval. */
+    /**
+     * Checks whether flushed work was lost in this checkpoint interval.
+     *
+     * @return whether further commits must be rejected until recovery
+     */
     public boolean isPoisoned() {
         return lostWorkReason != null;
     }
@@ -216,7 +225,7 @@ public class JdbcTransactionStateManager {
             lostWorkReason = reason;
             // Logged once, when the work is lost: the failed commit that follows can come a whole
             // checkpoint interval later.
-            LOG.warn(
+            log.warn(
                     "Flushed but uncommitted JDBC batches on {} were lost: {}. No writer on this"
                             + " connection will commit again; the job will recover from the last"
                             + " checkpoint.",

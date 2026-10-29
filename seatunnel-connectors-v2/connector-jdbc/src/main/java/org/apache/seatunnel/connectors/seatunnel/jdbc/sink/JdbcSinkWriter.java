@@ -641,7 +641,14 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         Connection connection = connectionProvider.getConnection();
         outputFormat.checkUncommittedBatchesOn(connection);
         if (!connection.getAutoCommit()) {
-            connection.commit();
+            try {
+                connection.commit();
+            } catch (SQLException | RuntimeException commitError) {
+                // Retrying only commit cannot replay batches discarded by the database. Record
+                // the failure before cleanup, even if rollback fails or the SQLState is 22/23.
+                outputFormat.markCommitFailed(commitError);
+                throw commitError;
+            }
             lastSuccessfulBatchSavepoint = null;
             reportedUncommittedRows = false;
             outputFormat.markCommitted(connection);

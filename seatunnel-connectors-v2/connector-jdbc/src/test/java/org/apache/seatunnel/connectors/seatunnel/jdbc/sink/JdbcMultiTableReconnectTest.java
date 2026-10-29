@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
@@ -34,6 +36,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
@@ -41,9 +44,12 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -194,6 +200,167 @@ class JdbcMultiTableReconnectTest {
         }
 
         assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+    }
+
+    /**
+     * A failed commit may have rolled back every executed batch while leaving the same connection
+     * usable. Neither checkpoint retries nor another writer may commit that now-empty transaction,
+     * and even a data SQLState at the commit boundary must remain a system failure.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"40001", "22001", "23000", "40001,23000", "23000,40001", "runtime"})
+    void commitFailureRejectsRepeatedPreparationAndSharedWriter(String sqlStates) throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("commit-failure.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestSinkWriterContext context = new TestSinkWriterContext(errors::add);
+        TestJdbcSinkWriter tableA =
+                createWriter(jdbcUrl, "active_table", dialect, manualCommit(), context);
+        TestJdbcSinkWriter tableB =
+                createWriter(jdbcUrl, "idle_table", dialect, manualCommit(), context);
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+            // A nonempty final batch also detects incorrectly reporting a commit error as a bad
+            // row.
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            Exception commitFailure;
+            if ("runtime".equals(sqlStates)) {
+                commitFailure =
+                        new IllegalStateException(
+                                "commit wrapper failed",
+                                new SQLException("commit rolled back transaction", "40001"));
+            } else {
+                String[] states = sqlStates.split(",");
+                SQLException sqlFailure =
+                        new SQLException("commit rolled back transaction", states[0]);
+                if (states.length > 1) {
+                    sqlFailure.setNextException(new SQLException("chained SQLState", states[1]));
+                }
+                commitFailure = sqlFailure;
+            }
+            dialect.slot().rollBackOnNextCommit(commitFailure);
+
+            IOException firstFailure =
+                    assertThrows(IOException.class, () -> tableA.prepareCommit(1L));
+            assertTrue(hasCause(firstFailure, commitFailure), "Keep the original commit exception");
+            assertThrows(Exception.class, tableA::prepareCommit);
+            assertThrows(Exception.class, () -> tableA.prepareCommit(2L));
+            assertThrows(IOException.class, () -> tableB.prepareCommit(2L));
+            assertEquals(
+                    1,
+                    dialect.slot().commitCalls,
+                    "An empty replacement transaction must not commit");
+            assertTrue(errors.isEmpty(), "Commit failures cannot be dropped as row-level errors");
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+            assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /** A failed commit remains rejected on close even when no batch was pending to poison. */
+    @Test
+    void emptyTransactionCommitFailureStillRejectsPreparationAndClose() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("empty-commit-failure.db");
+        createTables(jdbcUrl);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        SQLException commitFailure = new SQLException("empty commit failed", "40001");
+        dialect.getConnectionProvider().rollBackOnNextCommit(commitFailure);
+        try {
+            IOException firstFailure =
+                    assertThrows(IOException.class, () -> writer.prepareCommit(1L));
+            assertTrue(hasCause(firstFailure, commitFailure));
+            assertThrows(Exception.class, writer::prepareCommit);
+            assertThrows(Exception.class, writer::close);
+            assertEquals(1, dialect.getConnectionProvider().commitCalls);
+            assertTrue(errors.isEmpty());
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        } finally {
+            closeQuietly(writer);
+        }
+    }
+
+    /**
+     * Exercises the actual asynchronous multi-table checkpoint retry entry. The first commit loses
+     * the real transaction, so all configured local retries must fail instead of acknowledging the
+     * now-empty connection.
+     */
+    @Test
+    void multiTableCheckpointRetriesCannotAcknowledgeCommitTimeRollback() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("coordinator-commit-failure.db");
+        createTables(jdbcUrl);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new LinkedHashMap<>();
+        writers.put(SinkIdentifier.of(ACTIVE_TABLE_ID, 0), writer);
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(
+                        writers,
+                        1,
+                        buildContextMap(writers),
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        3,
+                        0);
+        try {
+            coordinator.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            coordinator.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            // Drains the real queue without committing the flushed transaction.
+            coordinator.snapshotState(1L);
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+            dialect.getConnectionProvider()
+                    .rollBackOnNextCommit(
+                            new SQLException("commit serialization failure", "40001"));
+
+            IOException rejected =
+                    assertThrows(IOException.class, () -> coordinator.prepareCommit(1L));
+            assertTrue(MultiTableFailureHelper.isIsolatedFailure(rejected.getMessage()));
+            assertEquals(
+                    4,
+                    writer.prepareCommitCalls,
+                    "The public prepare entry must exhaust all three retries");
+            assertEquals(1, dialect.getConnectionProvider().commitCalls);
+            assertTrue(errors.isEmpty());
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        } finally {
+            try {
+                coordinator.close();
+            } catch (Exception ignored) {
+                // The quarantined table is intentionally failed.
+            }
+        }
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+    }
+
+    private static boolean hasCause(Throwable error, Throwable expected) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (current == expected) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -842,8 +1009,10 @@ class JdbcMultiTableReconnectTest {
         private Connection delegate;
         private boolean failNextBatch;
         private SQLException nextBatchFailure;
+        private Exception nextCommitFailure;
         private boolean replaceDeadConnectionOnGet;
         private int reestablishConnectionCalls;
+        private int commitCalls;
 
         private TrackingConnectionProvider(JdbcConnectionConfig jdbcConfig) {
             this.jdbcConfig = jdbcConfig;
@@ -856,6 +1025,14 @@ class JdbcMultiTableReconnectTest {
         /** Fails the next batch with {@code failure} and keeps the connection open. */
         private void failNextBatchWith(SQLException failure) {
             nextBatchFailure = failure;
+        }
+
+        /**
+         * Rolls back the real transaction once; subsequent commits would succeed on this
+         * connection.
+         */
+        private void rollBackOnNextCommit(Exception failure) {
+            nextCommitFailure = failure;
         }
 
         /** Mimics ConnectionPoolManager, which swaps a dead cached connection on getConnection. */
@@ -925,6 +1102,15 @@ class JdbcMultiTableReconnectTest {
                             Connection.class.getClassLoader(),
                             new Class<?>[] {Connection.class},
                             (proxy, method, args) -> {
+                                if ("commit".equals(method.getName())) {
+                                    commitCalls++;
+                                    if (nextCommitFailure != null) {
+                                        Exception failure = nextCommitFailure;
+                                        nextCommitFailure = null;
+                                        delegate.rollback();
+                                        throw failure;
+                                    }
+                                }
                                 try {
                                     Object result = method.invoke(delegate, args);
                                     if (result instanceof PreparedStatement
@@ -1032,6 +1218,8 @@ class JdbcMultiTableReconnectTest {
     }
 
     private static class TestJdbcSinkWriter extends JdbcSinkWriter {
+        private int prepareCommitCalls;
+
         private TestJdbcSinkWriter(
                 TablePath sinkTablePath,
                 SinkWriter.Context context,
@@ -1061,6 +1249,12 @@ class JdbcMultiTableReconnectTest {
                 MultiTableResourceManager<ConnectionPoolManager> multiTableResourceManager,
                 int queueIndex) {
             // Keep the per-writer provider so the test can deterministically break one table only.
+        }
+
+        @Override
+        public Optional<XidInfo> prepareCommit(long checkpointId) throws IOException {
+            prepareCommitCalls++;
+            return super.prepareCommit(checkpointId);
         }
     }
 

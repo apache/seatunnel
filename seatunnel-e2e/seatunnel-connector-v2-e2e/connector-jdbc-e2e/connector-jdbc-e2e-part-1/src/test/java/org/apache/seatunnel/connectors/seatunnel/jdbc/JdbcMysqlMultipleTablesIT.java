@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -58,8 +59,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -284,9 +289,32 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             disabledReason = "The shared multi-table queue connection is a Zeta engine path")
     public void testMysqlMultipleTablesManualCommitAcrossCheckpoints(TestContainer container)
             throws IOException, InterruptedException {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
         Container.ExecResult execResult =
-                container.executeJob("/jdbc_mysql_fake_multiple_tables_manual_commit.conf");
+                container.executeJob("/jdbc_mysql_fake_multiple_tables_manual_commit.conf", jobId);
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String serverLogs = container.getServerLogs();
+        Matcher completedCheckpoint =
+                Pattern.compile(
+                                "pending checkpoint notify finished, job id: "
+                                        + Pattern.quote(jobId)
+                                        + ", pipeline id: \\d+, checkpoint id: (\\d+)!")
+                        .matcher(serverLogs);
+        Set<String> completedCheckpointIds = new HashSet<>();
+        while (completedCheckpoint.find()) {
+            String checkpointId = completedCheckpoint.group(1);
+            // The batch job's terminal checkpoint uses PREPARE_CLOSE_BARRIER_ID (Long.MAX_VALUE).
+            if (!String.valueOf(Long.MAX_VALUE).equals(checkpointId)) {
+                completedCheckpointIds.add(checkpointId);
+            }
+        }
+        Assertions.assertTrue(
+                completedCheckpointIds.size() >= 2,
+                "expected at least two completed non-terminal checkpoints for job "
+                        + jobId
+                        + ", but observed "
+                        + completedCheckpointIds);
 
         String expected = String.valueOf(MANUAL_COMMIT_ROWS_PER_TABLE);
         for (String table : MANUAL_COMMIT_TABLES) {
@@ -299,7 +327,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                     "rows in " + SINK_DATABASE + "." + table);
         }
         Assertions.assertFalse(
-                container.getServerLogs().contains("Flushed but uncommitted JDBC batches"),
+                serverLogs.contains("Flushed but uncommitted JDBC batches"),
                 "a healthy job must not report lost batches");
     }
 

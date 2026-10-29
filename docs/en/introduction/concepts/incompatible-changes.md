@@ -13,6 +13,9 @@ You need to check this document before you upgrade to related version.
   transaction rollback, the sink refuses the commit so the job can recover from the last successful
   checkpoint. A failed flush is not retried while earlier flushed work is pending. In multi-table
   row-error handling, a rollback that discards another table's work also prevents further commits.
+  A commit exception also prevents further commits by the failed writer and, when flushed work is
+  pending, by all writers sharing its transaction. Commit exceptions remain system errors even with
+  SQLState class `22` or `23`; retrying only the commit cannot replay a rolled-back transaction.
   Previously, these paths could complete a checkpoint with records missing.
 - **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
   restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
