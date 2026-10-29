@@ -414,27 +414,9 @@ FtpFile {
 
 ```
 
-### 通过 SFTP 写入
+### 写入 SFTP 服务器
 
-`FtpFile` Sink 同时支持 `ftp://` 和 `sftp://` URI。认证方式与 source 一致：SSH 密钥或密码外加 `known_hosts` 文件——连接器不会自动信任未知 host。
-
-```hocon
-sink {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "parquet"
-    ftp_properties = {
-      "fs.sftp.user."      = "seatunnel"
-      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"       = "sftp.example.example.com"
-      "fs.sftp.port"       = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
+`FtpFile` Sink 仅支持标准 FTP 协议——连接始终由 `host`/`port` 选项拼接为 `ftp://<host>:<port>`，不支持 `fs.defaultFS`、`ftp_properties`、`known_hosts` 等选项。如需通过 SFTP（SSH 文件传输协议）写入文件，请改用 [SftpFile](SftpFile.md) Sink。
 
 
 ## 变更日志

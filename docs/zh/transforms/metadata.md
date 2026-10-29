@@ -33,6 +33,31 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
+## 连接器声明的元数据字段
+
+连接器可以通过 `CatalogTable.MetadataSchema` 暴露各自的元数据，而不必把每个 Key 都注册到全局元数据表中。`Metadata` 转换会接受满足以下任一条件的逻辑 Key：
+
+1. 本文档表格中已列出的全局元数据 Key
+2. 输入表 `MetadataSchema` 中显式声明的 Key
+
+对于连接器声明的 Key，输出物理列会保留声明的数据类型、可空性、长度、默认值和注释。运行时的值从 `SeaTunnelRow.options` 读取。
+
+这**不会**放开任意 row option。一个 Key 如果只出现在 `SeaTunnelRow.options` 中，但既不在全局注册表、也不在 `MetadataSchema` 中，仍然会被拒绝。匹配区分大小写。该转换不会读取碰巧同名的物理列。
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "source_rows"
+    plugin_output = "rows_with_source_metadata"
+    metadata_fields {
+      KafkaOffset = kafka_offset
+    }
+  }
+}
+```
+
+上游 Source 或 Transform 必须先在 `CatalogTable.metadataSchema` 中声明 `KafkaOffset`，并把对应值写入 `SeaTunnelRow.options`。`Metadata` 转换本身不会生成连接器特有的元数据。
+
 ## Knowledge Sync 元数据字段
 
 Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 chunk 身份信息。这些 Key 只有通过 `Metadata` 转换显式投影后，才会成为真实的物理列。
@@ -54,7 +79,7 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 
 ### 重要说明
 
-1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
+1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind`），或输入表 `MetadataSchema` 中声明的精确名称。
 2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
@@ -137,7 +162,7 @@ metadata_fields {
 ```
 
 **注意事项：**
-- 左侧必须是支持的元数据 Key（见上表），且严格区分大小写
+- 左侧必须是全局支持的元数据 Key（见上表），或输入表 `MetadataSchema` 中声明的 Key，且严格区分大小写
 - 右侧是自定义的输出字段名，不能与原有字段重名
 - 可以只选择需要的元数据字段，不必全部配置
 

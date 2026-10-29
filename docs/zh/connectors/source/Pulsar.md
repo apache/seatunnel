@@ -49,6 +49,7 @@ Apache Pulsar 的源连接器。
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
 | format                   | String  | 否    | json   | 数据格式。默认为 json。支持 json、canal_json、avro 和 text 格式。**text 仅支持单表模式；多表模式支持 JSON、CANAL_JSON 和 AVRO**                      |
 | field_delimiter          | String  | 否    | ,      | `text` 格式使用的字段分隔符。                                                                             |
+| avro_row_nullable        | Boolean | 否    | false  | 当 `format` 为 `avro` 时生效。当生产端按可空 Avro union 写入 ROW 字段时设为 `true`；Pulsar 没有 writer schema 选项，读取 schema 由 `schema` 推导，必须与写入端布局一致。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -162,7 +163,7 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 ### format [String]
 
-数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。
+数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
 
 ### field_delimiter [String]
 
@@ -391,9 +392,9 @@ source {
 
 当订阅分区 Topic 或使用正则表达式匹配 Topic 时（`topic-pattern`），SeaTunnel 会自动感知分区信息并将分片均匀分配给并发任务。可通过 `topic-discovery.interval` 调整新分区检测的探测频率。
 
-### 支持哪些消费游标（Cursor）位点恢复与订阅模式？
+### 支持哪些消费游标（Cursor）启动模式与重置策略？
 
-通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早未消费位点）或 `LATEST`（从最新位点开始消费）。消费者以配置的订阅类型（如 `Failover` 或 `Exclusive`）注册，并在 Checkpoint 时同步保存消息 ID，确保故障时精准回溯。
+通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早位点）、`LATEST`（从最新位点）、`SUBSCRIPTION`（从订阅已提交的位点恢复）或 `TIMESTAMP`（从指定时间戳开始消费）。使用 `TIMESTAMP` 时必须配置 `cursor.startup.timestamp`；使用 `SUBSCRIPTION` 时必须配置 `cursor.reset.mode`（`EARLIEST` 或 `LATEST`）：如果订阅已存在，则从其已提交的位点继续消费；否则按 `cursor.reset.mode` 在最早或最新消息处创建订阅。订阅类型（Subscription Type）不可配置，连接器只设置订阅名称并使用 Pulsar 客户端默认值。SeaTunnel 会在 Checkpoint 时保存消息 ID，确保故障时精准回溯。
 
 ### 如何在连接受安全防护的 Pulsar 集群时配置身份认证？
 
