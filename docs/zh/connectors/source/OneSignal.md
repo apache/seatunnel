@@ -26,7 +26,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 | url                         | String  | 是  | -     | OneSignal REST API 地址，常见接口如 `https://onesignal.com/api/v1/apps`、`https://onesignal.com/api/v1/players`。          |
 | password                    | String  | 是  | -     | OneSignal 用户 Auth Key，连接器会将其作为 `Authorization: Basic <password>` 请求头发送。可在 [OneSignal 账号与密钥](https://documentation.onesignal.com/docs/accounts-and-keys#user-auth-key) 中创建。 |
 | method                      | String  | 否  | get   | HTTP 请求方法，支持 `GET` 和 `POST`。                                                                 |
-| headers                     | Map     | 否  | -     | 额外的 HTTP 请求头。除非需要覆盖由 `password` 生成的头，否则不要在这里配置 `Authorization`。                                  |
+| headers                     | Map     | 否  | -     | 额外的 HTTP 请求头。注意：此处配置的 `Authorization` 会被连接器根据 `password` 生成的 `Authorization: Basic <password>` 请求头覆盖。                                  |
 | params                      | Map     | 否  | -     | HTTP 查询参数，例如 `limit`、`offset` 等 OneSignal API 参数。                                                  |
 | body                        | String  | 否  | -     | HTTP 请求体，对支持 JSON 负载的接口有用。                                                                      |
 | format                      | String  | 否  | text  | 响应格式，`json` 时需要配合 `schema`；`text` 时返回原始响应。                                                       |
@@ -113,7 +113,6 @@ source {
     pageing = {
       page_field = "offset"
       start_page_number = 0
-      page_step = 50
       total_page_size = 10
       use_placeholder_replacement = false
     }

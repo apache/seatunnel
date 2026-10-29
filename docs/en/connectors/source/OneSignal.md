@@ -26,7 +26,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 | url                         | String  | Yes      | -       | OneSignal REST API endpoint. Common endpoints include `https://onesignal.com/api/v1/apps` and `https://onesignal.com/api/v1/players`. |
 | password                    | String  | Yes      | -       | OneSignal user auth key. The connector sends it as the HTTP `Authorization: Basic <password>` header. Create one at [OneSignal Accounts and Keys](https://documentation.onesignal.com/docs/accounts-and-keys#user-auth-key). |
 | method                      | String  | No       | get     | HTTP request method. Supported values are `GET` and `POST`. |
-| headers                     | Map     | No       | -       | Extra HTTP headers. Do not put `Authorization` here unless you want to override the header generated from `password`. |
+| headers                     | Map     | No       | -       | Extra HTTP headers. Note: any `Authorization` entry configured here is overwritten by the `Authorization: Basic <password>` header generated from `password`. |
 | params                      | Map     | No       | -       | HTTP query parameters, such as `limit`, `offset`, or other OneSignal API parameters. |
 | body                        | String  | No       | -       | HTTP request body. Useful for endpoints that accept a JSON payload. |
 | format                      | String  | No       | text    | Response format. Use `json` with `schema` to read OneSignal JSON as SeaTunnel rows with named fields. Use `text` to keep the raw response. |
@@ -113,7 +113,6 @@ source {
     pageing = {
       page_field = "offset"
       start_page_number = 0
-      page_step = 50
       total_page_size = 10
       use_placeholder_replacement = false
     }
