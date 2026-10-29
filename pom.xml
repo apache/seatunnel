@@ -1224,6 +1224,77 @@
                 <module>seatunnel-benchmarks</module>
             </modules>
         </profile>
+        <!-- The ATR release path leaves the existing release profile unchanged. -->
+        <profile>
+            <id>release-atr</id>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+            <properties>
+                <atr-maven-plugin.version>1.0.0-beta-1</atr-maven-plugin.version>
+                <atr.dryRun>true</atr.dryRun>
+                <atr.gpg.executable>gpg</atr.gpg.executable>
+            </properties>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.tooling</groupId>
+                            <artifactId>atr-maven-plugin</artifactId>
+                            <version>${atr-maven-plugin.version}</version>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <inherited>false</inherited>
+                        <executions>
+                            <execution>
+                                <id>atr-preflight</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <phase>validate</phase>
+                                <configuration>
+                                    <rules>
+                                        <requireMavenVersion>
+                                            <version>[3.9.0,)</version>
+                                            <message>ATR release requires Maven 3.9.0 or newer; use a separate Maven installation instead of the project wrapper.</message>
+                                        </requireMavenVersion>
+                                        <requireReleaseVersion>
+                                            <message>Set revision to the release version, without SNAPSHOT.</message>
+                                        </requireReleaseVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.tooling</groupId>
+                        <artifactId>atr-maven-plugin</artifactId>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <project>seatunnel</project>
+                            <version>${project.version}</version>
+                            <dryRun>${atr.dryRun}</dryRun>
+                            <runOnlyAtExecutionRoot>true</runOnlyAtExecutionRoot>
+                            <createVersion>false</createVersion>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>atr-check-composing</id>
+                                <goals>
+                                    <goal>check-composing</goal>
+                                </goals>
+                                <phase>initialize</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
 </project>

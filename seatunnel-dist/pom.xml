@@ -1546,6 +1546,312 @@
                 </plugins>
             </build>
         </profile>
+        <!-- Keep release packaging aligned with the legacy release profile above. -->
+        <profile>
+            <id>release-atr</id>
+            <dependencies>
+                <!-- starters -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-flink-13-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-flink-15-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-flink-20-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-2-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <!-- Edge agent library jars (packaged by seatunnel-dist assembly-edge-agent-*.xml). -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-edge-agent-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <!-- seatunnel connectors for demo -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-fake</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-console</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <!-- transforms v2 -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-transforms-v2</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-base</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-sls</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-aerospike</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <finalName>apache-seatunnel-${project.version}</finalName>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>export-connector-metadata</id>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <mainClass>org.apache.seatunnel.core.starter.seatunnel.SeaTunnelMetadataExporter</mainClass>
+                                    <arguments>
+                                        <argument>-o</argument>
+                                        <argument>${project.build.directory}/connector_metadata.json</argument>
+                                    </arguments>
+                                    <classpathScope>test</classpathScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>bin</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-seatunnel-bin.xml</descriptor>
+                                    </descriptors>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+
+                            <execution>
+                                <id>src</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-seatunnel-src.xml</descriptor>
+                                    </descriptors>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>edge-agent-bin</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-edge-agent-bin.xml</descriptor>
+                                    </descriptors>
+                                    <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>edge-agent-src</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-edge-agent-src.xml</descriptor>
+                                    </descriptors>
+                                    <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Sign the four archive paths explicitly: their assembly classifiers overlap. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>atr-sign-distributions</id>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <target>
+                                        <macrodef name="atr-sign-archive">
+                                            <attribute name="file" />
+                                            <sequential>
+                                                <checksum algorithm="SHA-512" file="@{file}" fileext=".sha512" forceOverwrite="true" format="MD5SUM" />
+                                                <exec executable="${atr.gpg.executable}" failonerror="true">
+                                                    <arg value="--yes" />
+                                                    <arg value="--armor" />
+                                                    <arg value="--detach-sign" />
+                                                    <arg value="--output" />
+                                                    <arg value="@{file}.asc" />
+                                                    <arg value="@{file}" />
+                                                </exec>
+                                            </sequential>
+                                        </macrodef>
+                                        <atr-sign-archive file="${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz" />
+                                        <atr-sign-archive file="${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz" />
+                                        <atr-sign-archive file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz" />
+                                        <atr-sign-archive file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz" />
+                                        <fail message="All four distribution archives, signatures and SHA-512 files must exist before ATR upload.">
+                                            <condition>
+                                                <not>
+                                                    <and>
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz.asc" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz.sha512" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz.asc" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz.sha512" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz.asc" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz.sha512" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz.asc" type="file" />
+                                                        <available file="${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz.sha512" type="file" />
+                                                    </and>
+                                                </not>
+                                            </condition>
+                                        </fail>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.tooling</groupId>
+                        <artifactId>atr-maven-plugin</artifactId>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <project>seatunnel</project>
+                            <version>${project.version}</version>
+                            <dryRun>${atr.dryRun}</dryRun>
+                            <runOnlyAtExecutionRoot>false</runOnlyAtExecutionRoot>
+                            <files>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz</file>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz.asc</file>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-src.tar.gz.sha512</file>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz</file>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz.asc</file>
+                                <file>${project.build.directory}/apache-seatunnel-${project.version}-bin.tar.gz.sha512</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz.asc</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-src.tar.gz.sha512</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz.asc</file>
+                                <file>${project.build.directory}/apache-seatunnel-edge-agent-${project.version}-bin.tar.gz.sha512</file>
+                            </files>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>atr-upload-distributions</id>
+                                <goals>
+                                    <goal>upload</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>docker</id>
             <activation>
