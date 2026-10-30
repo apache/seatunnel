@@ -44,6 +44,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -481,6 +482,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
                 statement.setByte(i + 1, (Byte) param);
             } else if (param instanceof Short) {
                 statement.setShort(i + 1, (Short) param);
+            } else if (param instanceof LocalDate) {
+                statement.setDate(i + 1, Date.valueOf((LocalDate) param));
             } else if (param instanceof Date) {
                 statement.setDate(i + 1, (Date) param);
             } else if (param instanceof Time) {
@@ -577,7 +580,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         }
     }
 
-    /** Converts epoch-day split boundaries back to JDBC DATE values before parameter binding. */
+    /** Keeps DATE split boundaries independent of JVM timezones until JDBC parameter binding. */
     private Serializable convertSplitBoundary(
             SeaTunnelDataType splitKeyType, Serializable splitBoundary) {
         if (!(splitBoundary instanceof BigDecimal)) {
@@ -585,7 +588,14 @@ public class FixedChunkSplitter extends ChunkSplitter {
         }
         BigDecimal boundary = (BigDecimal) splitBoundary;
         if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
-            return Date.valueOf(LocalDate.ofEpochDay(boundary.longValueExact()));
+            try {
+                return LocalDate.ofEpochDay(boundary.longValueExact());
+            } catch (ArithmeticException | DateTimeException e) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "DATE partition bound is outside the supported date range: " + boundary,
+                        e);
+            }
         }
         return splitBoundary;
     }

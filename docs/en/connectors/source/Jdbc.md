@@ -323,7 +323,7 @@ Only the top-level combination of `query` and `partition_column` selects the leg
 
 For fixed splitting of integer keys, including BIGINT and zero-scale DECIMAL, the partitions cover the numeric range without gaps or overlaps. An uneven division by `partition_num` preserves the remaining values, and each interval stays within the lower and upper bounds.
 
-Fixed query partitioning supports DATE columns with ISO dates or whole epoch-day bounds. TIME, TIMESTAMP and TIMESTAMP_TZ partition columns are not supported; use a supported partition column or omit partition_column to read the query as a single split.
+Fixed query partitioning supports columns mapped to SeaTunnel DATE with ISO dates or whole epoch-day bounds. Support follows the dialect mapping; for example, Oracle DATE maps to TIMESTAMP and is not covered here. TIME, TIMESTAMP and TIMESTAMP_TZ partition columns are not supported; use a supported partition column or omit partition_column to read the query as a single split.
 
 Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
 
