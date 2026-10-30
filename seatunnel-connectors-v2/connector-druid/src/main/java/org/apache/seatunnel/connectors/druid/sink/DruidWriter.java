@@ -112,9 +112,10 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         final StringJoiner joiner = new StringJoiner(DEFAULT_FIELD_DELIMITER, "", "");
         for (int i = 0; i < element.getArity(); i++) {
             final Object v = element.getField(i);
-            if (v != null) {
-                joiner.add(v.toString());
-            }
+            // A null is written as an empty field so that it keeps its column. Leaving it out
+            // shifts every later value one column left, the timestamp column comes out missing,
+            // and Druid drops the row as unparseable without failing the task.
+            joiner.add(v == null ? "" : v.toString());
         }
         // timestamp column is a required field to add in Druid.
         // See https://druid.apache.org/docs/24.0.0/ingestion/data-model.html#primary-timestamp
