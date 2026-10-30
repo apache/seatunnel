@@ -326,6 +326,8 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
+非 XA 手动提交连接在 `Connection.commit()` 阶段失败时，一律按系统错误处理，即使 SQLState 属于 `22` 或 `23` 类也不能作为行级错误丢弃。失败的 writer 不能通过再次提交来假定事务已恢复。开启 checkpoint 时，该共享事务中已 flush 的数据会被标记为不安全，同队列的其他 writer 也会拒绝提交，直到作业恢复。
+
 ### batch_size [int]
 
 每个 batch 最多缓存的行数。达到 `batch_size`、checkpoint 准备提交或 writer 关闭时会执行 flush。增大该值可能提高吞吐，但会占用更多内存，并增加故障后需要重试的数据量。
