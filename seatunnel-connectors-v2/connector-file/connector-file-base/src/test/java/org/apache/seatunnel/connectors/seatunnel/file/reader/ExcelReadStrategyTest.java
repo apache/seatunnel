@@ -648,7 +648,9 @@ public class ExcelReadStrategyTest {
             {7.142857142, new BigDecimal("5000.0000")},
             {-0.1, new BigDecimal("-3.2500")},
             {1.0E-5, new BigDecimal("0.0001")},
-            {123456789.123, new BigDecimal("9215784885957046.9450")}
+            {123456789.123, new BigDecimal("9215784885957046.9450")},
+            // 17 significant digits: more than the 15 EasyExcel rounds its number value to
+            {0.30000000000000004, new BigDecimal("12.5000")}
         };
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(

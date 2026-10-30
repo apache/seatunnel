@@ -102,13 +102,14 @@ public class ExcelCellUtils implements Serializable {
     /**
      * Whether the EasyExcel cell is a number cell read into a numeric column. EasyExcel hands the
      * text formatted with the cell's display format ("General" keeps about 10 significant digits),
-     * so such a cell is read from its stored number instead.
+     * so such a cell is read from its stored number instead. The original number value is used
+     * because {@link ReadCellData#getNumberValue()} is rounded to 15 significant digits.
      */
     private static boolean isNumericCell(@Nullable Cell cellRaw, SqlType sqlType) {
         return NUMERIC_SQL_TYPES.contains(sqlType)
                 && cellRaw instanceof ReadCellData
                 && ((ReadCellData<?>) cellRaw).getType() == CellDataTypeEnum.NUMBER
-                && ((ReadCellData<?>) cellRaw).getNumberValue() != null;
+                && ((ReadCellData<?>) cellRaw).getOriginalNumberValue() != null;
     }
 
     @SneakyThrows(JsonProcessingException.class)
@@ -121,7 +122,7 @@ public class ExcelCellUtils implements Serializable {
 
         String fieldValue;
         if (isNumericCell(cellRaw, sqlType)) {
-            fieldValue = ((ReadCellData<?>) cellRaw).getNumberValue().toString();
+            fieldValue = ((ReadCellData<?>) cellRaw).getOriginalNumberValue().toString();
         } else if (field instanceof String || cellRaw == null) {
             fieldValue = field.toString();
         } else {
