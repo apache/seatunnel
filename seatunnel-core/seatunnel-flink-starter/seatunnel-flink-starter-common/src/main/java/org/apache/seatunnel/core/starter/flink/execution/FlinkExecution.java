@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
@@ -33,10 +34,14 @@ import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
+import org.apache.seatunnel.lineage.LineageConfig;
+import org.apache.seatunnel.lineage.LineageDataset;
+import org.apache.seatunnel.lineage.LineageDatasetFactory;
 import org.apache.seatunnel.translation.flink.metric.FlinkJobMetricsSummary;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +57,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -82,6 +88,10 @@ public class FlinkExecution implements TaskExecution {
     private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
+    private final JobContext jobContext;
+    private final LineageConfig lineageConfig;
+    private final List<LineageDataset> lineageInputs;
+    private final List<LineageDataset> lineageOutputs;
 
     public FlinkExecution(Config config) {
         try {
@@ -98,10 +108,32 @@ public class FlinkExecution implements TaskExecution {
             throw new SeaTunnelException("load flink starter error.", e);
         }
         Config envConfig = config.getConfig("env");
+        Map<String, Object> envOptions = ReadonlyConfig.fromConfig(envConfig).getSourceMap();
+        LineageConfig.rejectJobAuthToken(envOptions);
+        LineageConfig resolvedLineageConfig = LineageConfig.defaults();
+        List<LineageDataset> resolvedLineageInputs = Collections.emptyList();
+        List<LineageDataset> resolvedLineageOutputs = Collections.emptyList();
+        LineageConfig candidateLineageConfig = FlinkLineageSupport.resolveConfig(envOptions);
+        if (candidateLineageConfig.enabled() && FlinkLineageSupport.isSupported()) {
+            resolvedLineageConfig = candidateLineageConfig;
+            resolvedLineageInputs = collectLineageDatasets(config.getConfigList(Constants.SOURCE));
+            resolvedLineageOutputs = collectLineageDatasets(config.getConfigList(Constants.SINK));
+        } else if (candidateLineageConfig.enabled()) {
+            // Reporting was asked for and will not happen, which the operator cannot otherwise
+            // tell apart from a working setup that has not reported yet.
+            LOGGER.warn(
+                    "Lineage reporting is enabled but this Flink starter does not support it;"
+                            + " the status hook API requires Flink 1.16 or later, so use the"
+                            + " flink-20-starter. No lineage events will be reported for this job.");
+        }
+        this.lineageConfig = resolvedLineageConfig;
+        this.lineageInputs = resolvedLineageInputs;
+        this.lineageOutputs = resolvedLineageOutputs;
         registerPlugin(envConfig);
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
         jobContext.setEnableCheckpoint(RuntimeEnvironment.getEnableCheckpoint(config));
+        this.jobContext = jobContext;
 
         this.sourcePluginExecuteProcessor =
                 new SourceExecuteProcessor(
@@ -150,10 +182,24 @@ public class FlinkExecution implements TaskExecution {
         }
         try {
             final long jobStartTime = System.currentTimeMillis();
+            StreamGraph lineageStreamGraph =
+                    lineageConfig.enabled()
+                            ? FlinkLineageSupport.register(
+                                    flinkRuntimeEnvironment.getStreamExecutionEnvironment(),
+                                    lineageConfig,
+                                    jobContext,
+                                    lineageInputs,
+                                    lineageOutputs,
+                                    flinkRuntimeEnvironment.getJobName())
+                            : null;
             JobExecutionResult jobResult =
-                    flinkRuntimeEnvironment
-                            .getStreamExecutionEnvironment()
-                            .execute(flinkRuntimeEnvironment.getJobName());
+                    lineageStreamGraph == null
+                            ? flinkRuntimeEnvironment
+                                    .getStreamExecutionEnvironment()
+                                    .execute(flinkRuntimeEnvironment.getJobName())
+                            : flinkRuntimeEnvironment
+                                    .getStreamExecutionEnvironment()
+                                    .execute(lineageStreamGraph);
             final long jobEndTime = System.currentTimeMillis();
 
             final FlinkJobMetricsSummary jobMetricsSummary =
@@ -165,8 +211,24 @@ public class FlinkExecution implements TaskExecution {
 
             LOGGER.info("Job finished, execution result: \n{}", jobMetricsSummary);
         } catch (Exception e) {
+            String lineageDeploymentHint = FlinkLineageSupport.describeMissingHookClass(e);
+            if (lineageDeploymentHint != null) {
+                throw new TaskExecuteException(lineageDeploymentHint, e);
+            }
             throw new TaskExecuteException("Execute Flink job error", e);
         }
+    }
+
+    private static List<LineageDataset> collectLineageDatasets(
+            List<? extends Config> connectorConfigs) {
+        return connectorConfigs.stream()
+                .map(
+                        config ->
+                                LineageDatasetFactory.fromConnectorOptions(
+                                        ReadonlyConfig.fromConfig(config).getSourceMap()))
+                .flatMap(List::stream)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private void registerPlugin(Config envConfig) {

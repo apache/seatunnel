@@ -76,6 +76,27 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-lineage</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            Carries the job status hook the client serializes into the JobGraph, and transitively the
+            OpenLineage backend. The backend is required at runtime, not just the contract: the
+            reporter resolves it through the LineageBackend service loader, so without it the starter
+            jar carries no provider file and lineage silently reports nothing.
+
+            The same module also produces the shaded artifact that must be installed in the Flink
+            cluster's lib/ directory; see docs/en/introduction/concepts/lineage.md.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-lineage-flink</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
