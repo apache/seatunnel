@@ -24,13 +24,18 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -65,7 +70,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1065,5 +1072,125 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.dropTable(tablePathPgSink, true);
         Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
         postgresCatalog.close();
+    }
+
+    @Test
+    public void testEnumSinkBindingKeepsQuotedSchemaQualifiedTypes() throws Exception {
+        executeSQL("DROP SCHEMA IF EXISTS enum_bind CASCADE");
+        executeSQL("DROP SCHEMA IF EXISTS enum_bind_other CASCADE");
+        executeSQL("CREATE SCHEMA enum_bind");
+        executeSQL("CREATE SCHEMA enum_bind_other");
+        executeSQL(
+                "CREATE TYPE enum_bind.\"ChapterElementType\" AS ENUM ('paragraph', 'heading')");
+        executeSQL("CREATE TYPE enum_bind.\"Order Status\" AS ENUM ('open', 'closed')");
+        executeSQL("CREATE TYPE enum_bind.\"Role\" AS ENUM ('ADMIN', 'reader')");
+        executeSQL("CREATE TYPE enum_bind.\"text\" AS ENUM ('literal', 'other')");
+        executeSQL("CREATE TYPE enum_bind_other.\"Role\" AS ENUM ('reader')");
+        executeSQL(
+                "CREATE TABLE enum_bind.sink ("
+                        + "id INT PRIMARY KEY, "
+                        + "element_type enum_bind.\"ChapterElementType\", "
+                        + "order_status enum_bind.\"Order Status\", "
+                        + "roles enum_bind.\"Role\"[], "
+                        + "text_enum enum_bind.\"text\", "
+                        + "note jsonb)");
+        try {
+            Map<String, String> formatTypes = new HashMap<>();
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT a.attname, format_type(a.atttypid, NULL) "
+                                            + "FROM pg_attribute a "
+                                            + "JOIN pg_class c ON a.attrelid = c.oid "
+                                            + "JOIN pg_namespace n ON c.relnamespace = n.oid "
+                                            + "WHERE n.nspname = 'enum_bind' "
+                                            + "AND c.relname = 'sink' "
+                                            + "AND a.attnum > 0 AND NOT a.attisdropped")) {
+                while (resultSet.next()) {
+                    formatTypes.put(resultSet.getString(1), resultSet.getString(2));
+                }
+            }
+            String elementType = formatTypes.get("element_type");
+            String orderStatus = formatTypes.get("order_status");
+            String roles = formatTypes.get("roles");
+            String textEnum = formatTypes.get("text_enum");
+            Assertions.assertTrue(elementType.contains("enum_bind"));
+            Assertions.assertTrue(elementType.contains("ChapterElementType"));
+            Assertions.assertTrue(orderStatus.contains("Order Status"));
+            Assertions.assertTrue(roles.contains("enum_bind") && roles.endsWith("[]"));
+            Assertions.assertTrue(textEnum.contains("enum_bind") && textEnum.contains("text"));
+
+            String jdbcUrl = POSTGRESQL_CONTAINER.getJdbcUrl();
+            String separator = jdbcUrl.contains("?") ? "&" : "?";
+            try (Connection connection =
+                    getJdbcConnection(jdbcUrl + separator + "stringtype=unspecified")) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("SET search_path TO enum_bind_other, public");
+                }
+                TableSchema tableSchema =
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.builder()
+                                                        .name("id")
+                                                        .dataType(BasicType.INT_TYPE)
+                                                        .build(),
+                                                PhysicalColumn.builder()
+                                                        .name("element_type")
+                                                        .dataType(BasicType.STRING_TYPE)
+                                                        .sourceType(elementType)
+                                                        .build(),
+                                                PhysicalColumn.builder()
+                                                        .name("order_status")
+                                                        .dataType(BasicType.STRING_TYPE)
+                                                        .sourceType(orderStatus)
+                                                        .build(),
+                                                PhysicalColumn.builder()
+                                                        .name("roles")
+                                                        .dataType(ArrayType.STRING_ARRAY_TYPE)
+                                                        .sourceType(roles)
+                                                        .build(),
+                                                PhysicalColumn.builder()
+                                                        .name("text_enum")
+                                                        .dataType(BasicType.STRING_TYPE)
+                                                        .sourceType(textEnum)
+                                                        .build(),
+                                                PhysicalColumn.builder()
+                                                        .name("note")
+                                                        .dataType(BasicType.STRING_TYPE)
+                                                        .sourceType("jsonb")
+                                                        .build()))
+                                .build();
+                SeaTunnelRow row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    1, "paragraph", "open", new String[] {"ADMIN"}, "literal",
+                                    "{\"a\":1}"
+                                });
+                try (PreparedStatement statement =
+                        connection.prepareStatement(
+                                "INSERT INTO enum_bind.sink "
+                                        + "(id, element_type, order_status, roles, text_enum, note) "
+                                        + "VALUES (?,?,?,?,?,?)")) {
+                    new PostgresJdbcRowConverter().toExternal(tableSchema, null, row, statement);
+                    Assertions.assertEquals(1, statement.executeUpdate());
+                }
+            }
+
+            List<List<Object>> written =
+                    querySql(
+                            "SELECT element_type::text, order_status::text, roles[1]::text, "
+                                    + "text_enum::text, (note = '{\"a\":1}'::jsonb) "
+                                    + "FROM enum_bind.sink");
+            Assertions.assertEquals("paragraph", String.valueOf(written.get(0).get(0)));
+            Assertions.assertEquals("open", String.valueOf(written.get(0).get(1)));
+            Assertions.assertEquals("ADMIN", String.valueOf(written.get(0).get(2)));
+            Assertions.assertEquals("literal", String.valueOf(written.get(0).get(3)));
+            Assertions.assertEquals("true", String.valueOf(written.get(0).get(4)));
+        } finally {
+            executeSQL("DROP SCHEMA IF EXISTS enum_bind CASCADE");
+            executeSQL("DROP SCHEMA IF EXISTS enum_bind_other CASCADE");
+        }
     }
 }

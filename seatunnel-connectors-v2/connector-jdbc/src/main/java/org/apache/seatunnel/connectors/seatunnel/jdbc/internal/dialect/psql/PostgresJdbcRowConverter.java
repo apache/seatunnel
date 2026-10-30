@@ -60,7 +60,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOGRAPHY;
@@ -72,11 +71,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
-
-    private static final Pattern USER_TYPE_NAME =
-            Pattern.compile(
-                    "(\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*)"
-                            + "(\\.(?:\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*))?");
 
     private static final Set<String> BUILTIN_TYPE_NAMES =
             Collections.unmodifiableSet(
@@ -623,40 +617,128 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /**
-     * Unqualified PostgreSQL type name when {@code sourceType} is a user-defined type such as an
-     * enum. Built-in names stay on the normal string binding path.
+     * Type name for {@code PGobject.setType}, or null when the value stays on {@code setString}.
      *
-     * <p>Quoted identifiers are preserved. pgjdbc lowercases an unquoted type name before looking
-     * it up, so a mixed-case enum such as {@code "ChapterElementType"} must be passed to {@code
-     * PGobject.setType} with the quotes still in place.
+     * <p>Catalog metadata is {@code format_type}: quotes, spaces, and the schema are part of the
+     * identity. pgjdbc lowercases an unquoted name and keeps case only inside quotes, and it
+     * resolves {@code schema."type"} on that same string. Stripping the schema makes {@code
+     * tenant."text"} look like builtin {@code text}, and it binds the wrong type when two schemas
+     * define the same enum name.
      */
     @Nullable
     private static String postgresUserTypeName(String sourceType) {
-        if (sourceType == null || !USER_TYPE_NAME.matcher(sourceType).matches()) {
+        if (sourceType == null) {
             return null;
         }
-        String unqualified = sourceType;
-        int dot = unqualified.lastIndexOf('.');
-        if (dot >= 0) {
-            unqualified = unqualified.substring(dot + 1);
-        }
-        String comparable = unqualified;
-        if (comparable.length() >= 2
-                && comparable.startsWith("\"")
-                && comparable.endsWith("\"")) {
-            comparable = comparable.substring(1, comparable.length() - 1);
-        }
-        if (BUILTIN_TYPE_NAMES.contains(comparable.toLowerCase(Locale.ROOT))) {
+        String trimmed = sourceType.trim();
+        String[] parts = splitPgTypeName(trimmed);
+        if (parts == null) {
             return null;
         }
-        return unqualified;
+        boolean builtinSchema = parts[0] == null || "pg_catalog".equals(parts[0]);
+        if (builtinSchema && BUILTIN_TYPE_NAMES.contains(parts[1])) {
+            return null;
+        }
+        return trimmed;
+    }
+
+    /**
+     * Element type for {@code Connection.createArrayOf}, or null when the array is not an enum.
+     * The {@code []} suffix is removed only when it sits outside the quoted name. pgjdbc appends
+     * {@code []} again while resolving the array type.
+     */
+    @Nullable
+    private static String postgresEnumArrayElementType(String sourceType) {
+        if (sourceType == null) {
+            return null;
+        }
+        String trimmed = sourceType.trim();
+        if (!trimmed.endsWith("[]")) {
+            return null;
+        }
+        return postgresUserTypeName(trimmed.substring(0, trimmed.length() - 2).trim());
+    }
+
+    /**
+     * Schema and type with quotes removed, or null when {@code sourceType} is not one identifier
+     * or {@code schema.type}. Index 0 is null when the name has no schema. An unquoted name is
+     * folded to lowercase, the way PostgreSQL folds it. A quoted name keeps its case, so {@code
+     * "TEXT"} is not builtin {@code text}. A doubled quote inside a quoted identifier is one quote
+     * character.
+     */
+    @Nullable
+    private static String[] splitPgTypeName(String sourceType) {
+        PgIdentifier first = readPgIdentifier(sourceType, 0);
+        if (first == null || first.comparable.isEmpty()) {
+            return null;
+        }
+        if (first.next == sourceType.length()) {
+            return new String[] {null, first.comparable};
+        }
+        if (sourceType.charAt(first.next) != '.') {
+            return null;
+        }
+        PgIdentifier second = readPgIdentifier(sourceType, first.next + 1);
+        if (second == null || second.comparable.isEmpty() || second.next != sourceType.length()) {
+            return null;
+        }
+        return new String[] {first.comparable, second.comparable};
     }
 
     @Nullable
-    private static String postgresEnumArrayElementType(String sourceType) {
-        if (sourceType == null || !sourceType.endsWith("[]")) {
+    private static PgIdentifier readPgIdentifier(String value, int start) {
+        if (start >= value.length()) {
             return null;
         }
-        return postgresUserTypeName(sourceType.substring(0, sourceType.length() - 2).trim());
+        if (value.charAt(start) == '"') {
+            StringBuilder raw = new StringBuilder();
+            int index = start + 1;
+            while (index < value.length()) {
+                char current = value.charAt(index);
+                if (current == '"') {
+                    if (index + 1 < value.length() && value.charAt(index + 1) == '"') {
+                        raw.append('"');
+                        index += 2;
+                        continue;
+                    }
+                    return new PgIdentifier(raw.toString(), index + 1);
+                }
+                raw.append(current);
+                index++;
+            }
+            return null;
+        }
+        char startChar = value.charAt(start);
+        if (!isPgIdentifierStart(startChar)) {
+            return null;
+        }
+        int index = start + 1;
+        while (index < value.length() && isPgIdentifierPart(value.charAt(index))) {
+            index++;
+        }
+        return new PgIdentifier(
+                value.substring(start, index).toLowerCase(Locale.ROOT), index);
+    }
+
+    private static boolean isPgIdentifierStart(char current) {
+        return (current >= 'A' && current <= 'Z')
+                || (current >= 'a' && current <= 'z')
+                || current == '_';
+    }
+
+    private static boolean isPgIdentifierPart(char current) {
+        return isPgIdentifierStart(current)
+                || (current >= '0' && current <= '9')
+                || current == '$';
+    }
+
+    private static final class PgIdentifier {
+        private final String comparable;
+        private final int next;
+
+        private PgIdentifier(String comparable, int next) {
+            this.comparable = comparable;
+            this.next = next;
+        }
     }
 }

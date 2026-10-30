@@ -766,6 +766,10 @@ sink {
 }
 ```
 
+### PostgreSQL 枚举列
+
+标量枚举和枚举数组按目录元数据里的 PostgreSQL 类型名写入。引号、空格和模式名都会保留，例如 `"ChapterElementType"`、`"Order Status"` 和 `tenant."Role"[]`。`json`、`jsonb` 这类内置字符串类型仍然用 `setString` 写入。`jsonb` 列的 JDBC URL 需要带 `stringtype=unspecified`。目标列必须已经是该枚举。按 STRING 字段自动建列会建成 `text`，而不是枚举。
+
 ### PostgreSQL 9.5 及以下版本 CDC 兼容模式
 
 Postgres 9.5及以下版本，通过设置 `compatible_mode` 配置为 `postgresLow` 来支持 Postgres CDC 操作

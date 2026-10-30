@@ -403,7 +403,99 @@ public class PostgresJdbcRowConverterTest {
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(statement).setObject(eq(2), captor.capture());
         PGobject pg = (PGobject) captor.getValue();
-        Assertions.assertEquals("\"ChapterElementType\"", pg.getType());
+        Assertions.assertEquals("public.\"ChapterElementType\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsSchemaQualifiedQuotedEnum() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("roles", BasicType.STRING_TYPE, "tenant.\"Role\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "ADMIN"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("tenant.\"Role\"", pg.getType());
+        Assertions.assertEquals("ADMIN", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedEnumWithSpace() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("status", BasicType.STRING_TYPE, "\"Order Status\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"Order Status\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsEscapedQuoteInEnumName() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("status", BasicType.STRING_TYPE, "\"Order\"\"Status\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"Order\"\"Status\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsUserSchemaTypeNamedText() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("label", BasicType.STRING_TYPE, "tenant.\"text\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "literal"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("tenant.\"text\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedUppercaseTextAsUserType() throws SQLException {
+        TableSchema tableSchema = createTableSchema("label", BasicType.STRING_TYPE, "\"TEXT\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "literal"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"TEXT\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalLeavesPgCatalogTextOnStringBinding() throws SQLException {
+        TableSchema tableSchema = createTableSchema("body", BasicType.STRING_TYPE, "pg_catalog.text");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "plain"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setString(2, "plain");
     }
 
     @Test
@@ -446,6 +538,24 @@ public class PostgresJdbcRowConverterTest {
         Array sqlArray = mock(Array.class);
         when(statement.getConnection()).thenReturn(connection);
         when(connection.createArrayOf(eq("\"Role\""), any(Object[].class))).thenReturn(sqlArray);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setArray(2, sqlArray);
+    }
+
+    @Test
+    public void testToExternalKeepsSchemaQualifiedEnumArray() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("roles", ArrayType.STRING_ARRAY_TYPE, "tenant.\"Role\"[]");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, new String[] {"ADMIN"}});
+        PreparedStatement statement = mock(PreparedStatement.class);
+        Connection connection = mock(Connection.class);
+        Array sqlArray = mock(Array.class);
+        when(statement.getConnection()).thenReturn(connection);
+        when(connection.createArrayOf(eq("tenant.\"Role\""), any(Object[].class)))
+                .thenReturn(sqlArray);
 
         converter.toExternal(tableSchema, null, row, statement);
 
