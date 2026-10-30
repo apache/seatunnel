@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.server.Connector;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -51,7 +50,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -140,7 +138,6 @@ public class RestApiSubmitJobVariablesTest {
             if (instance != null) {
                 instance.shutdown();
             }
-            FileUtils.deleteFile(Paths.get("logs").toString());
         } catch (Exception e) {
             System.err.println(ExceptionUtils.getMessage(e));
         }
