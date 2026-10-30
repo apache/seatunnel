@@ -10,6 +10,22 @@ You need to check this document before you upgrade to related version.
 - **Behavior change**: Text request bodies without a declared charset now use UTF-8 instead of the servlet default ISO-8859-1. This affects raw-body endpoints using the shared REST reader, including HOCON/SQL submissions and JSON sent as `text/plain`. Explicit supported charsets remain honored; unsupported declarations return HTTP 400.
 - **Migration Guide**: Send UTF-8 bytes, or explicitly declare the actual encoding in `Content-Type` (for example, `text/plain; charset=ISO-8859-1` for Latin-1 bytes). UTF-8 `application/json` requests and multipart config-file uploads remain unchanged. This does not change query or form-parameter decoding.
 
+### JDBC Sink: fail safely after losing uncommitted work
+
+- **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
+  (`auto_commit = false`, or Oracle, which always uses manual commit).
+- **Behavior change**: if flushed but uncommitted work is lost through connection replacement or
+  transaction rollback, the sink refuses the commit so the job can recover from the last successful
+  checkpoint. A failed flush is not retried while earlier flushed work is pending. In multi-table
+  row-error handling, a rollback that discards another table's work also prevents further commits.
+  A commit exception also prevents further commits by the failed writer and, when flushed work is
+  pending, by all writers sharing its transaction. Commit exceptions remain system errors even with
+  SQLState class `22` or `23`; retrying only the commit cannot replay a rolled-back transaction.
+  Previously, these paths could complete a checkpoint with records missing.
+- **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
+  restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
+  jobs without checkpointing, and XA writers retain their existing behavior.
+
 ### Lance sink: TIMESTAMP values keep their microseconds
 
 - **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**
