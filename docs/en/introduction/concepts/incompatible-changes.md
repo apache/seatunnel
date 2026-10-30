@@ -344,6 +344,14 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   - **Migration Guide**: Rename the existing UDF, or switch to the built-in function.
     See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
 
+### Zeta SQL Transform: FROM_UNIXTIME and UNIX_TIMESTAMP text patterns use English locale
+
+- **Behavior change: text pattern letters are now interpreted in English regardless of the worker JVM locale**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `getFormatter`, the shared `DateTimeFormatter` factory used by `FROM_UNIXTIME` (format path) and `UNIX_TIMESTAMP` (parse path), now passes `Locale.ENGLISH` to `DateTimeFormatter.ofPattern`. Previously the JVM default FORMAT locale was captured, so text pattern letters such as `MMM` (month name), `EEE` (weekday), or `a` (AM/PM) rendered or parsed in the worker's language.
+  - **Impact**: On a non-English worker (for example `de-DE`), `FROM_UNIXTIME(epoch, 'dd MMM yyyy')` previously produced `23 Okt 2026` and now produces `23 Oct 2026`; `UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` previously returned `NULL` (parse failure) and now returns the correct epoch. English-locale workers are unaffected. This is consistent with `DAYNAME` and `MONTHNAME`, which already pin English via `DateFormatSymbols.getInstance(Locale.ENGLISH)`.
+  - **Migration Guide**: No action is needed for correctness — English was always the intended locale for text patterns. If a downstream consumer relied on localized month or weekday names in `FROM_UNIXTIME` output, update it to expect English names. See [SQL Functions](../../transforms/sql-functions.md) for the full pattern reference.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**

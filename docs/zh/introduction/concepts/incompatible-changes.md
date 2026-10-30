@@ -287,6 +287,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：若作业此前注册了名为 `UNIX_TIMESTAMP` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。声明的输出类型现在被强制为 `BIGINT`，无视该 UDF 的 `resultType` 返回值，若 UDF 返回不同类型，可能破坏下游 sink 的 schema。
   - **迁移指南**：重命名已有 UDF，或迁移到内置函数。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
 
+### Zeta SQL Transform：FROM_UNIXTIME 与 UNIX_TIMESTAMP 文本 pattern 使用英语 locale
+
+- **行为变更：文本 pattern 字母现在按英语解释，不受 worker JVM locale 影响**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`getFormatter` 是 `FROM_UNIXTIME`（格式化路径）和 `UNIX_TIMESTAMP`（解析路径）共用的 `DateTimeFormatter` 工厂，现在向 `DateTimeFormatter.ofPattern` 传入 `Locale.ENGLISH`。此前捕获的是 JVM 默认 FORMAT locale，导致文本 pattern 字母（如 `MMM` 月份名、`EEE` 星期、`a` 上下午）按 worker 语言渲染或解析。
+  - **影响**：在非英语 worker 上（如 `de-DE`），`FROM_UNIXTIME(epoch, 'dd MMM yyyy')` 此前输出 `23 Okt 2026`，现在输出 `23 Oct 2026`；`UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` 此前返回 `NULL`（解析失败），现在返回正确的 epoch 值。英语 locale 的 worker 不受影响。此变更与 `DAYNAME` 和 `MONTHNAME` 一致，后者已通过 `DateFormatSymbols.getInstance(Locale.ENGLISH)` 固定英语。
+  - **迁移指南**：无需操作即可保证正确性——文本 pattern 按英语解释始终是预期行为。若下游消费方依赖 `FROM_UNIXTIME` 输出中的本地化月份或星期名称，需更新为预期英语名称。完整 pattern 参考见 [SQL 函数](../../transforms/sql-functions.md)。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
