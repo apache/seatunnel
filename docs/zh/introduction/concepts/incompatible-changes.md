@@ -614,6 +614,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
+- **行为变更：JSON 反序列化保留嵌套在数组中的 `DECIMAL` 精度**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`JsonDeserializationSchema`）--影响所有以 JSON 格式读取行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Source）。
+  - **变更说明**：判断是否需要把文档中的数字按 `BigDecimal` 解析时，此前不会发现声明在 `ARRAY` 中的 `DECIMAL`（例如 `ARRAY<DECIMAL>`、`ARRAY<ARRAY<DECIMAL>>` 或 `ARRAY<ROW<DECIMAL>>`），因为数组不是复合类型。其元素会先按 `double` 解析，随后才转换为 `DECIMAL`，因此会丢失 `double` 精度之外的各位数字，而同一 Schema 中的标量 `DECIMAL` 列却能保留。现在嵌套在数组中的 `DECIMAL` 与标量 `DECIMAL` 一样保留数值精度。选项、默认值和行结构均未变化。
+  - **影响**：声明为 `DECIMAL` 的数组元素不再被舍入到约 17 位有效数字。由于底层的 mapper 设置作用于整个文档，在声明了数组内 `DECIMAL` 的 Schema 中，赋给 `STRING` 字段的裸数字现在会保留全部数位（`3.14159265358979323846`，此前为 `3.141592653589793`）。作为文本赋给 `STRING` 字段的 JSON 对象或数组同理：容器会按十进制值重新生成文本，其中的浮点数可能保留更多位数或改用指数表示（`1e-10` 会变为 `1E-10`），而同一对象或数组内以引号包裹的数字仍保持原始文本。带引号的 JSON 字符串以及不含任何 `DECIMAL` 的 Schema 不受影响。 (#12871)
+  - **迁移指南**：如果下游环节会比较这类数值的文本，请按精确数位重新评估这些比较逻辑，或让来源为承载裸数字的 `STRING` 列提供带引号的 JSON 字符串。存放在 `STRING` 列中的 JSON 对象或数组也属于同一类：请先核对它们序列化后的文本（数位与指数写法）再依赖该文本，或让来源以带引号的 JSON 字符串提供这些值。`DECIMAL` 列无需修改配置即可保留声明的数值精度。
+
 ### 引擎行为变更
 
 - **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
