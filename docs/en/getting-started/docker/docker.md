@@ -138,8 +138,10 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connecto
 ```shell
 # flink version between `1.12.x` and `1.14.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-13-connector-v2.sh -c config/v2.streaming.conf.template'
-# flink version between `1.15.x` and `1.16.x`
+# flink version between `1.15.x` and `1.18.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
+# flink version `1.20.x`
+docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-20-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
 
 
@@ -233,12 +235,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -248,10 +248,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -263,10 +260,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -283,7 +277,7 @@ run `docker-compose up -d` command to start the cluster.
 
 
 You can run `docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1` to check the node log.
-And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
+And when you call `http://localhost:8080/system-monitoring-information`, you will see there are 3 nodes (1 master and 2 workers) as we expected.
 
 After that, you can use client or restapi to submit job to this cluster.
 
@@ -300,12 +294,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -315,10 +307,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -330,10 +319,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -348,10 +334,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801,seatunnel_worker_3:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
