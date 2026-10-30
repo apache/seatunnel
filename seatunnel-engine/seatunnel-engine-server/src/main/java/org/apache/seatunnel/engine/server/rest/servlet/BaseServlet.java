@@ -34,6 +34,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -157,6 +159,53 @@ public class BaseServlet extends HttpServlet {
 
     protected byte[] requestBody(HttpServletRequest req) throws IOException {
         return requestBody(req, ConfigFormat.JSON);
+    }
+
+    /**
+     * Reads the request parameters from the query string only.
+     *
+     * <p>Use this instead of {@link #getParameterMap(HttpServletRequest)} when the request body is
+     * read as well. For a body sent as {@code application/x-www-form-urlencoded}, which is the
+     * default of {@code curl -d}, {@link HttpServletRequest#getParameterMap()} parses the body as
+     * form fields and consumes it, so a later {@link HttpServletRequest#getReader()} fails with
+     * {@code IllegalStateException: STREAMED}.
+     */
+    protected Map<String, String> getQueryParameterMap(HttpServletRequest req) {
+        Map<String, String> reqParameterMap = new HashMap<>();
+        String queryString = req.getQueryString();
+        if (queryString == null || queryString.isEmpty()) {
+            return reqParameterMap;
+        }
+        for (String pair : queryString.split("&")) {
+            if (pair.isEmpty()) {
+                continue;
+            }
+            int separator = pair.indexOf('=');
+            String name = separator < 0 ? pair : pair.substring(0, separator);
+            String value = separator < 0 ? "" : pair.substring(separator + 1);
+            String decodedName = decodeQueryComponent(name);
+            if (RestConstant.VARIABLES.equals(decodedName)
+                    && reqParameterMap.containsKey(decodedName)) {
+                throw new IllegalArgumentException(
+                        "Pass all variables in one '"
+                                + RestConstant.VARIABLES
+                                + "' parameter, separated by commas");
+            }
+            reqParameterMap.put(decodedName, decodeQueryComponent(value));
+        }
+        return reqParameterMap;
+    }
+
+    private static String decodeQueryComponent(String component) {
+        // UnsupportedEncodingException cannot occur for UTF-8, it is only declared by this
+        // overload. IllegalArgumentException means a malformed escape such as "%zz". Both are
+        // rethrown as IllegalArgumentException, which ExceptionHandlingFilter turns into HTTP 400
+        // instead of a 500. Do not include the component or decoder cause: they may contain values.
+        try {
+            return URLDecoder.decode(component, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException | IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid URL encoding in query parameter");
+        }
     }
 
     protected Map<String, String> getParameterMap(HttpServletRequest req) {

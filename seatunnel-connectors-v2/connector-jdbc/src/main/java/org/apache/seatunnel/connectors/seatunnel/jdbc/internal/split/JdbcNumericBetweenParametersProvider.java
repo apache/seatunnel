@@ -44,8 +44,9 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
     private final BigDecimal minVal;
     private final BigDecimal maxVal;
 
-    private long batchSize;
+    private BigDecimal batchSize;
     private int batchNum;
+    private BigDecimal largeBatchCount;
 
     /**
      * NumericBetweenParametersProviderJdbc constructor.
@@ -78,16 +79,15 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
         checkArgument(batchSize > 0, "Batch size must be positive");
 
         BigDecimal maxElemCount = (maxVal.subtract(minVal)).add(BigDecimal.valueOf(1));
-        if (BigDecimal.valueOf(batchSize).compareTo(maxElemCount) > 0) {
-            batchSize = maxElemCount.longValue();
+        BigDecimal requestedBatchSize = BigDecimal.valueOf(batchSize);
+        if (requestedBatchSize.compareTo(maxElemCount) > 0) {
+            requestedBatchSize = maxElemCount;
         }
-        this.batchSize = batchSize;
-        this.batchNum =
-                new Double(
-                                Math.ceil(
-                                        (maxElemCount.divide(BigDecimal.valueOf(batchSize)))
-                                                .doubleValue()))
-                        .intValue();
+        int numberOfBatches =
+                maxElemCount.divide(requestedBatchSize, 0, RoundingMode.CEILING).intValueExact();
+        this.batchSize = requestedBatchSize;
+        this.batchNum = numberOfBatches;
+        this.largeBatchCount = BigDecimal.valueOf(this.batchNum);
         return this;
     }
 
@@ -99,36 +99,32 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
             batchNum = maxElemCount.intValue();
         }
         this.batchNum = batchNum;
-        // For the presence of a decimal we take the integer up
-        this.batchSize =
-                (maxElemCount.divide(BigDecimal.valueOf(batchNum), 2, RoundingMode.HALF_UP))
-                        .setScale(0, RoundingMode.CEILING)
-                        .longValue();
+        this.batchSize = maxElemCount.divide(BigDecimal.valueOf(batchNum), 0, RoundingMode.CEILING);
+        // Distribute the remainder without rounding away keys or exceeding the upper bound.
+        this.largeBatchCount =
+                maxElemCount.subtract(
+                        this.batchSize
+                                .subtract(BigDecimal.valueOf(1))
+                                .multiply(BigDecimal.valueOf(batchNum)));
         return this;
     }
 
     @Override
     public Serializable[][] getParameterValues() {
         checkState(
-                batchSize > 0,
+                batchSize != null && batchSize.compareTo(BigDecimal.ZERO) > 0 && batchNum > 0,
                 "Batch size and batch number must be positive. Have you called `ofBatchSize` or `ofBatchNum`?");
-
-        BigDecimal maxElemCount = (maxVal.subtract(minVal)).add(BigDecimal.valueOf(1));
-        BigDecimal bigBatchNum =
-                maxElemCount
-                        .subtract(BigDecimal.valueOf(batchSize - 1))
-                        .multiply(BigDecimal.valueOf(batchNum));
 
         Serializable[][] parameters = new Serializable[batchNum][2];
         BigDecimal start = minVal;
         for (int i = 0; i < batchNum; i++) {
-            BigDecimal end =
-                    start.add(BigDecimal.valueOf(batchSize))
-                            .subtract(BigDecimal.valueOf(1))
-                            .subtract(
-                                    BigDecimal.valueOf(i).compareTo(bigBatchNum) >= 0
-                                            ? BigDecimal.ONE
-                                            : BigDecimal.ZERO);
+            BigDecimal end = start.add(batchSize).subtract(BigDecimal.valueOf(1));
+            if (BigDecimal.valueOf(i).compareTo(largeBatchCount) >= 0) {
+                end = end.subtract(BigDecimal.valueOf(1));
+            }
+            if (end.compareTo(maxVal) > 0) {
+                end = maxVal;
+            }
             parameters[i] = new BigDecimal[] {start, end};
             start = end.add(BigDecimal.valueOf(1));
         }

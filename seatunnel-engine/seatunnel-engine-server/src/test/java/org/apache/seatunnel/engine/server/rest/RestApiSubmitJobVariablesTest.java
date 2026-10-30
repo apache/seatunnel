@@ -222,9 +222,9 @@ public class RestApiSubmitJobVariablesTest {
         HttpResponse repeated =
                 post(
                         "/submit-job?format=hocon&variables="
-                                + encode("region=eu")
-                                + "&variables="
-                                + encode("rows=1"),
+                                + encode("region=eu,rows=1")
+                                + "&%76ariables="
+                                + encode("region=us,rows=2"),
                         HOCON);
         assertRejected(repeated, "variables", null);
 
