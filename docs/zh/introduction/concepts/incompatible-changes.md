@@ -4,6 +4,26 @@
 
 ## dev
 
+### Lance Sink：TIMESTAMP 值保留微秒
+
+- **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**
+  - **描述**：Lance Sink 按文档以微秒精度声明 `TIMESTAMP` 列，但 `BaseTypeWriter.convertToEpochMicro` 会先把 `LocalDateTime` 和 `java.sql.Timestamp` 值转换为毫秒，因此写入的每个值最后三位微秒都是 `000`。现在直接由时间点（Instant）转换。
+  - **影响**：对同一输入，新写入的值可能与早期版本写入的值在最后三位微秒上不同。数据集中已有的行不会被重写，因此同一个数据集中可能同时存在两种值。毫秒精度的列，以及没有毫秒以下数字的值，不受影响。
+  - **迁移指南**：无需修改配置。如果下游需要把新写入的行与早期版本写入的行进行比较或去重，请按毫秒精度比较，或从数据源重新写入旧数据。
+
+### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
+
+MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
+
+请移除为补偿此缺陷而设置的手动偏移。已经存储的数据不会自动修改；修正或重新加载之前，请先与原始数据核对。无需新增配置。
+
+### Doris 与 StarRocks Source：MAP 或 ROW 列为空值时不再读成空 Map 或导致作业失败
+
+- **行为变更：Arrow 流中为空的复杂类型单元格现在读为 `null`**
+  - **描述**：Doris 和 StarRocks Source 使用的 `ArrowToSeatunnelRowReader` 会把 MAP 列交给 `MapConverter`、ROW 列交给 `StructConverter`。这两个转换器在处理元素类型的分支中没有检查 Arrow 的有效性位，因此为空的 MAP 单元格被返回为空 Map，为空的 ROW 单元格则以 `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null` 结束整个读取。现在两者都返回 `null`，与自 Arrow Reader 引入起就有此判断的 `ListConverter`、`LargeListConverter` 和 `FixedSizeListConverter` 保持一致。
+  - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
+  - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
+
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
 - **行为变更：运行时计数器不再累计失败管道执行的数值**
@@ -33,12 +53,24 @@
   - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
   - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
 
+### 原生 CLI 帮助退出码
+
+`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
+依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
+对应包装脚本仍将帮助请求转换为退出码 `0`。
+
 ### CDC：可空列不再用作快照分片列
 
 - **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
   - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
+### PostgreSQL CDC pgoutput 表结构
+
+- **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
+- **影响**：下次启动或恢复作业时，快照和自动创建的目标表将不再包含未发布的非主键列。依赖这些列的现有目标表和下游使用方可能需要调整表结构或字段映射；此前流式更新可能将这些列写为 NULL，或因表结构不匹配而失败。如果必需的主键未发布（包括仅发布 INSERT 的发布），作业现在会在启动时失败，而不是保留该列并在流式同步中输出 NULL 主键。
+- **迁移指南**：升级前检查发布配置及下游表结构。在 PostgreSQL 18 中，设置 `publish_generated_columns = stored` 的发布可以保留存储生成列；虚拟生成列仍不会发布。使用发布列列表时，请加入所有必需主键列（包括 `table-names-config.primaryKeys` 配置的主键）和其他必需列。发布 UPDATE/DELETE 时，PostgreSQL 还要求包含副本标识列。请调整目标表结构和下游映射，移除其他未发布的列；没有显式列列表的发布仍遵循生成列规则。
 
 ### Markdown File Source 的 `child_ids` 数组
 
@@ -123,9 +155,41 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     这是该转换一直以来的行为，本次只改变范围相关的行为。而显式写成 `CAST` 到整型目标的浮点来源，在语句准备
     阶段就会被拒绝，本次变更前后都是如此。注意截断这条路径与字符串来源仍然不同，`Integer.parseInt("5.7")`
     会失败；是否统一两者是另一个决定。
-  - **未改变的目标类型**：`BIGINT` | `LONG` 保持原有转换方式，本次变更不对其做范围检查；该问题单独记录在 #12612。
+  - **`BIGINT` 由另一处变更覆盖**：撰写本条目时它仍保持原有转换方式；针对它的范围检查见下方条目，原记录于 #12612。
   - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
     扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
+
+### Zeta SQL Transform：数值来源转换为 BIGINT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `BIGINT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：`BIGINT` | `LONG` 的数值分支使用 `Number.longValue()` 转换，它只保留 `DECIMAL` 或
+    `BigInteger` 的低 64 位，把 `NaN` 映射为 `0`，并把超出范围的 `DOUBLE` 饱和到 `Long.MAX_VALUE`。
+    在 `dev` 上实测：`18446744073709551621`（2^64+5）得到 `5`，`18446744073709551616`（2^64）得到
+    `0`，`NaN` 得到 `0`，`1e30` 得到 `9223372036854775807`。这些都不会被报告，因此该行会写入错误的
+    数字。现在该转换会按 `Long.MIN_VALUE`..`Long.MAX_VALUE` 做范围检查，并复用为 `INT` 添加的同一套
+    按数值族检查的逻辑。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、精确的整型包装类型、扩宽转换和同类型转换均不受影响。
+  - **可达路径是 `COALESCE` 与 `IFNULL`，而不是 `CAST`**：显式的 `CAST(... AS BIGINT)` 不可能产生该问题，
+    因为规划阶段对 `BIGINT` 目标只接受 `TINYINT`、`SMALLINT`、`INT`、`BIGINT` 与 `STRING` 作为来源；
+    四种整型族都能无损加宽为 long，而 `STRING` 本来就会通过 `Long.parseLong` 报告自身的溢出。
+    `DECIMAL` 或 `DOUBLE` 是通过 `COALESCE` 与 `IFNULL` 到达该目标的，这两者的结果类型按第一个非空参数
+    推断，而不是按最宽的类型推断，因此 `COALESCE(bigint_col, decimal_col)` 的目标类型是 `BIGINT`，
+    并会静默收窄其中的 decimal。
+  - **`TRY_CAST` 无法把这些情况转成 `NULL`**：原因同上。`TRY_CAST(decimal_col AS BIGINT)` 与
+    `TRY_CAST(double_col AS BIGINT)` 在语句准备阶段就会以
+    `Unsupported CAST FROM ... AS type: BIGINT` 被拒绝，因此永远不会走到 `TRY_CAST` 捕获失败的逐行路径。
+    对于超出范围的 `STRING` 来源，`TRY_CAST` 仍会返回 `NULL`，这是唯一以 cast 形式到达该转换的路径。
+  - **小数来源的行为不变**：通过 `COALESCE` 或 `IFNULL` 到达 `BIGINT` 的 `5.7` 这类值仍然向零截断，
+    而不是被拒绝。本次只改变范围相关的行为。
+  - **迁移指南**：来源为字符串时，若希望得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型扩宽到
+    足以容纳该值；如果确实需要截断语义，请显式计算，而不要依赖 `COALESCE` 与 `IFNULL` 推断出的收窄。
+    如果希望结果使用最宽的类型，而不是第一个参数的类型，请自己写出转换：
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`。
+    该写法仅适用于整型来源：`DECIMAL` 或 `DOUBLE` 没有到 `BIGINT` 的转换，请改为把它放在第一个参数，
+    例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，
+    返回哪一个也会随之改变。
 
 ### DuckDB BIT 和 ENUM 自动建表
 
@@ -136,6 +200,17 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### SQL 和 Calcite 向量运算
+
+- **行为修正**：`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、
+  `L2_DISTANCE` 和 `VECTOR_NORMALIZE` 在中间乘法或减法之前将 float 元素提升为 double。
+  有限输入不再仅因中间 float 运算溢出或下溢而得到错误的无穷大、NaN 或零，
+  结果的低位数字也可能发生变化。
+- **迁移建议**：重放数据前，请检查阈值以及此前计算的向量指标或归一化向量。
+  配置项、类型、模式和状态格式均不变。空输入和实际零向量的处理方式不变。
+  未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
+  归一化输出元素仍为 float，随机投影运算不受影响。
 
 ### Helm Chart：默认关闭 Zeta REST API v1
 
@@ -210,6 +285,27 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
   必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
   将在启动时快速抛出校验错误并失败。
+
+### SQL 数值条件的精度
+
+- **行为变更：精确数值操作数不再通过 `double` 进行比较**
+  - **影响范围**：`seatunnel-transforms-v2`，`Sql` 转换（`ZETA` 和 `INTERNAL`）。
+  - **变更说明**：当求值后的两个操作数均为整型或 `DECIMAL` 时，比较及 `IN`/`NOT IN` 判断保留精度，
+    包括搜索式和简单式 `CASE` 表达式中的比较。例如，`BIGINT` 值 `9007199254740993`
+    不再等于整数字面量 `9007199254740992`。
+  - **影响**：过滤条件可能选择不同的行，`CASE` 表达式也可能选择不同的分支。
+    涉及 `FLOAT` 或 `DOUBLE` 的比较保持原有行为。包含小数点的字面量仍求值为 `DOUBLE`，
+    一元负号会保留 `DECIMAL` 精度，`-decimal_col` 和 `-CAST('...' AS DECIMAL(p, s))` 均如此。
+    每个 `IN` 元素独立选择精确或浮点比较，
+    因此混用精确类型和浮点类型时，仍可能匹配不同的大数值，且等号不保证传递性。
+  - **迁移指南**：请检查相关条件和 `CASE` 表达式，并核对、修正依赖此前舍入比较结果的已写入数据。
+    如需精确的小数常量，请使用带引号的字符串并保留足够的小数位，例如
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` 或
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`。
+    现有 CAST 舍入行为不变：字符串/`DECIMAL` 输入在减少小数位时使用 `CEILING`，
+    因此在 CAST 之前或之后取负可能产生不同结果；
+    `FLOAT`/`DOUBLE` 输入使用 `HALF_UP`，且无法恢复浮点求值时已丢失的精度。
+    示例与限制见[数值比较](../../transforms/sql.md#数值比较)。无需更改配置、输出结构或状态格式。
 
 ### DataValidator 数组长度
 

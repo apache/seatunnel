@@ -278,6 +278,66 @@ sink {
 }
 ```
 
+### 用户明细（Detail 记录）
+
+用户明细记录（`record_type = "details"`）会为 SensorsData 用户附加一条按记录维度的标识。
+`detail_id_column` 提供明细键，`distinct_id_column` 和 `identity_fields` 用于标识所属用户。
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.129.27.43:8106/sa?project=sditest"
+    time_free = true
+
+    record_type = details
+    schema = fund_manager
+    distinct_id_column = c_id
+    detail_id_column = c_id
+    identity_fields = [
+      { target = "$identity_distinct_id", source = c_id }
+    ]
+    property_fields = [
+      { target = c_id, source = c_id, type = STRING }
+      { target = fund_amount, source = c_int, type = INT }
+      { target = "$is_valid", source = c_boolean, type = BOOLEAN }
+    ]
+  }
+}
+```
+
+### 多身份与动态事件名称
+
+下面的示例直接从数据行本身构造事件名称（`event_name = "${c_event}"`），并一次性映射多个身份
+（`$identity_login_id`、`$identity_distinct_id`）。转换失败的记录会通过 `skip_error_record = true` 跳过。
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.1.136.63:8106/sa?project=default"
+    time_free = true
+
+    record_type = events
+    schema = events
+    event_name = "${c_event}"
+    time_column = c_date
+    distinct_id_column = c_bigint
+    identity_fields = [
+      { source = c_bigint, target = "$identity_login_id" }
+      { source = c_bigint, target = "$identity_distinct_id" }
+    ]
+    property_fields = [
+      { target = c_tinyint, source = c_tinyint, type = INT }
+      { target = c_bigint,   source = c_bigint,   type = BIGINT }
+      { target = c_int,      source = c_int,      type = INT }
+      { target = c_boolean,  source = c_boolean,  type = BOOLEAN }
+    ]
+    skip_error_record = true
+  }
+}
+```
+
 ### 控制台输出（用于测试）
 
 ```hocon
