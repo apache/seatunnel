@@ -365,6 +365,15 @@ RabbitMQ Source 默认支持 JSON。当 `format` 设置为 `protobuf` 时支持 
 
 当 SeaTunnel 任务失败或异常退出时，与 RabbitMQ 的连接会断开，RabbitMQ 会自动将所有未确认（unacknowledged）的消息重新入队（requeue）。在任务从检查点恢复后，Reader 可以重新处理这些消息，避免数据丢失。
 
+## 恢复旧版本检查点
+
+当前 RabbitMQ source 可以读取 SeaTunnel 2.3.13 序列化的旧版 `RabbitmqSourceState`。
+旧状态没有保存已分配的队列 split，因此恢复时先建立空的分配映射，再重新发现当前配置中的队列。
+升级时应保留队列配置和 broker 数据；此兼容层不会重建旧检查点中原本没有的消息位点或确认信息。
+
+当前版本的检查点会保存已分配的 split。故障前尚未确认的 broker 消息可能重新投递，
+旧状态兼容本身不提供额外的 Exactly-Once 保证。
+
 ## 变更日志
 
 <ChangeLog />

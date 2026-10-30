@@ -251,7 +251,7 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 
 ```json
 {
-    "projectVersion":"3.0.1-SNAPSHOT",
+    "projectVersion":"3.1.0-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",

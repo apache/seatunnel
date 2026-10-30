@@ -246,7 +246,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"3.0.1-SNAPSHOT",
+    "projectVersion":"3.1.0-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -1852,6 +1852,13 @@ Checkpoint 信息字段：
 ```
 
 </details>
+
+#### 字段说明
+
+| 字段 | 说明 |
+| --- | --- |
+| `pipelineId` | 该记录所属的 pipeline ID。 |
+| `checkpoint` | 上文所述的 Checkpoint 元数据。 |
 
 ------------------------------------------------------------------------------------------
 
