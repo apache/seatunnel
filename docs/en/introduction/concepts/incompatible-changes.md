@@ -12,6 +12,22 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Numeric columns read from Excel can now carry more digits than before. A DECIMAL with more significant digits than a `double` holds (about 15 to 17, for example many `DECIMAL(38, 18)` values) is now a text cell in the written file, so Excel shows it as text and does not use it in formulas such as `SUM`. A number cell with a percent or currency display format that is read into a numeric column is now read as its stored number, for example a cell shown as `50%` is read as `0.5`; before, the displayed text was parsed and usually failed.
   - **Migration Guide**: No change is needed to read the files with SeaTunnel. If spreadsheet formulas must use such a column, cast it to DOUBLE before the sink, which writes a number cell and accepts the rounding.
 
+### JDBC Sink: fail safely after losing uncommitted work
+
+- **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
+  (`auto_commit = false`, or Oracle, which always uses manual commit).
+- **Behavior change**: if flushed but uncommitted work is lost through connection replacement or
+  transaction rollback, the sink refuses the commit so the job can recover from the last successful
+  checkpoint. A failed flush is not retried while earlier flushed work is pending. In multi-table
+  row-error handling, a rollback that discards another table's work also prevents further commits.
+  A commit exception also prevents further commits by the failed writer and, when flushed work is
+  pending, by all writers sharing its transaction. Commit exceptions remain system errors even with
+  SQLState class `22` or `23`; retrying only the commit cannot replay a rolled-back transaction.
+  Previously, these paths could complete a checkpoint with records missing.
+- **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
+  restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
+  jobs without checkpointing, and XA writers retain their existing behavior.
+
 ### Lance sink: TIMESTAMP values keep their microseconds
 
 - **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**
