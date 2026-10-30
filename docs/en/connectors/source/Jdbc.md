@@ -329,6 +329,14 @@ Entries inside `table_list` continue to use dynamic splitting even when they inc
 
 When SeaTunnel infers a key for `query`, it inherits metadata from the underlying table of the first result column. For joins or multi-table queries, that key is not guaranteed to be unique across the complete result set. Prefer a single-reader query or explicitly choose a partition column whose values divide the result safely.
 
+## Hive metadata queries
+
+For Hive, schema discovery adds a top-level `LIMIT 1` to `SELECT` and `WITH` queries that do not
+already contain a top-level limit. The original projection and column labels are preserved;
+queries with an existing top-level `LIMIT` are used unchanged. This limit applies only to schema
+discovery, not to the query used to read job data. The cost of server-side execution still depends
+on the query plan, for example when an aggregation must process all input rows.
+
 ## Driver reference
 
 The following values are starting points. Confirm the driver artifact, license, database compatibility, and Java compatibility with the database vendor before deployment.
