@@ -36,8 +36,15 @@ import com.hazelcast.config.MapStoreConfig;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.impl.MapContainer;
+import com.hazelcast.map.impl.MapService;
+import com.hazelcast.map.impl.MapServiceContext;
+import com.hazelcast.map.impl.MapStoreWrapper;
+import com.hazelcast.spi.impl.NodeEngine;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
@@ -322,6 +329,61 @@ public class FileMapStoreTest {
         } finally {
             restarted.shutdown();
         }
+    }
+
+    /**
+     * A real Hazelcast write-through put must surface a WAL durability failure to the caller. The
+     * store/delete tests above inject a fake {@link IMapStorage}; this one uses the file MapStore
+     * Hazelcast actually calls with {@code write-delay-seconds=0}.
+     */
+    @Test
+    public void testWriteThroughPutThrowsWhenWalAppendFails() throws Exception {
+        String clusterName = "file-map-store-write-through-failure-" + System.nanoTime();
+        String mapName = Constant.IMAP_FINISHED_JOB_STATE;
+        HazelcastInstance node = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = node.getMap(mapName);
+            map.put(1L, "durable");
+            FileMapStore store = mapStore(node, mapName);
+            spyStorage(store);
+
+            IMapStorageException ex =
+                    Assertions.assertThrows(
+                            IMapStorageException.class, () -> map.put(2L, "not-durable"));
+            Assertions.assertTrue(
+                    ex.getMessage().contains("permanently fail-closed"),
+                    "Expected fail-closed message, got: " + ex.getMessage());
+            Assertions.assertFalse(
+                    map.containsKey(2L),
+                    "a failed write-through put must not leave the in-memory entry behind");
+        } finally {
+            node.shutdown();
+        }
+    }
+
+    private static FileMapStore mapStore(HazelcastInstance node, String mapName) {
+        HazelcastInstanceImpl impl =
+                node instanceof HazelcastInstanceProxy
+                        ? ((HazelcastInstanceProxy) node).getOriginal()
+                        : (HazelcastInstanceImpl) node;
+        NodeEngine nodeEngine = impl.node.getNodeEngine();
+        MapService mapService = nodeEngine.getService(MapService.SERVICE_NAME);
+        MapServiceContext context = mapService.getMapServiceContext();
+        MapContainer container = context.getMapContainer(mapName);
+        MapStoreWrapper wrapper = container.getMapStoreContext().getMapStoreWrapper();
+        Assertions.assertInstanceOf(FileMapStore.class, wrapper.getMapStore());
+        return (FileMapStore) wrapper.getMapStore();
+    }
+
+    /** Wraps the live storage so one append can fail without corrupting the real WAL writer. */
+    private static IMapStorage spyStorage(FileMapStore store) throws Exception {
+        Field field = FileMapStore.class.getDeclaredField("mapStorage");
+        field.setAccessible(true);
+        IMapStorage storage = org.mockito.Mockito.spy((IMapStorage) field.get(store));
+        field.set(store, storage);
+        org.mockito.Mockito.doReturn(true).when(storage).isAppendPermanentlyBlocked();
+        org.mockito.Mockito.doReturn(false).when(storage).store(any(), any(), anyLong());
+        return storage;
     }
 
     private Config hazelcastConfig(String clusterName) {

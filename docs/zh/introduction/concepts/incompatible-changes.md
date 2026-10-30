@@ -4,6 +4,13 @@
 
 ## dev
 
+### Zeta：文件型检查点 IMap 写入失败现在会使操作失败
+
+- **行为变更：文件 write-through 持久化在 WAL 追加失败时不再报告成功**
+  - **描述**：`FileMapStore` 以前会丢弃失败的 `store`、`storeAll`、`delete` 或 `deleteAll`，让内存中的 IMap 条目继续前进。在默认的 write-through（`write-delay-seconds=0`）下，该失败现在会作为 `IMapStorageException` 抛给调用方。一次 WAL 追加失败后，同一个 writer 会失败关闭：后续追加以失败完成，不再往可能写了一半的记录后面继续写字节。带超时的 WAL 等待到期表示结果不确定，因此取消路径的记账写入超时后，作业可能以 `FAILED` 或 `UNKNOWABLE` 结束，而不是 `CANCELED`。write-behind 不提供这种同步失败。辅助的 checkpoint monitor 存储失败会被记录，并且本身不会中止已经存好载荷的检查点；节点关闭异常仍会停掉正在退出的协调器。
+  - **影响**：以前在持久化静默失败后继续运行的作业和调用方，现在会在写入处失败。取消操作的记账写入超时后，作业可能表现为失败或状态不可知。WAL writer 失败关闭的节点会一直拒绝追加，直到该节点重启。
+  - **迁移指南**：无需修改配置。如果希望这些失败到达调用方，请保持 write-through（`write-delay-seconds=0`）。超时不能证明写入已经持久化。如果错误提示 WAL 追加已永久失败关闭，请重启该引擎节点；不要靠删除 WAL 来消除这个状态。
+
 ### Lance Sink：TIMESTAMP 值保留微秒
 
 - **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**
