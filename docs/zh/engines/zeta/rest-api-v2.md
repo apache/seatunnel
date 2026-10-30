@@ -1124,7 +1124,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | restoreMode          | optional | string            | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
 > | restoreSourceJobId   | optional | string \| number  | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
 
-`params` 可以省略。其中的值必须是字符串、`long` 范围内的整数或布尔值，值为 `null` 的项会被跳过并使用默认值；嵌套的对象或数组，以及小数、指数形式或超出范围的数字（如 `1.5`、`1e3`），会以 HTTP 400 拒绝；这些值按 JSON 中给出的原样使用，不会进行 URL 解码，因此无需对 `&`、`=`、`%` 或 `+` 进行编码。
+`params` 可以省略。其中的值必须是字符串、`long` 范围内的整数或布尔值，值为 `null` 的项会被跳过并使用默认值；嵌套的对象或数组，以及小数、指数形式或超出范围的数字（如 `1.5`、`1e3`），会以 HTTP 400 拒绝；这些值按 JSON 中给出的原样使用，不会进行 URL 解码，因此无需对 `&`、`=`、`%` 或 `+` 进行编码。提交第一个作业之前会先检查所有条目的 `params`，包括 `jobId` 和 `restoreSourceJobId` 必须是整数，因此任一 `params` 不合法都会拒绝整个请求。依赖作业配置或集群状态的错误仍可能在它之前的作业提交之后才出现。
 
 
 

@@ -1413,6 +1413,102 @@ public class RestApiIT {
                         });
     }
 
+    /** A small batch job body for the {@code /submit-jobs} entries below. */
+    private static final String SUBMIT_JOBS_ENTRY_JOB =
+            "\"env\": {\"parallelism\": 1, \"job.mode\": \"BATCH\"},"
+                    + " \"source\": [{\"plugin_name\": \"FakeSource\", \"plugin_output\": \"fake\","
+                    + " \"row.num\": 1, \"schema\": {\"fields\": {\"name\": \"string\"}}}],"
+                    + " \"sink\": [{\"plugin_name\": \"Console\", \"plugin_input\": [\"fake\"]}]";
+
+    @Test
+    public void testSubmitJobsUsesParamsAsGiven() {
+        for (String url : submitJobsUrls()) {
+            String jobName = "sales&ops 100%+x=y-" + System.nanoTime();
+            given().body(
+                            "[{"
+                                    + SUBMIT_JOBS_ENTRY_JOB
+                                    + "}, {\"params\": {\"jobName\": \""
+                                    + jobName
+                                    + "\"}, "
+                                    + SUBMIT_JOBS_ENTRY_JOB
+                                    + "}]")
+                    .post(url)
+                    .then()
+                    .statusCode(200)
+                    .body("", hasSize(2))
+                    .body("[0].jobId", notNullValue())
+                    .body("[1].jobName", equalTo(jobName));
+
+            // The lookup used by the rejection test below does find a submitted job
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(() -> Assertions.assertTrue(jobNameExists(jobName), url));
+        }
+    }
+
+    @Test
+    public void testSubmitJobsRejectsAnInvalidLaterEntryBeforeSubmittingAny() {
+        String[] invalidParams = {
+            "{\"jobId\": \"abc\"}",
+            "{\"restoreMode\": \"CHECKPOINT\", \"restoreSourceJobId\": \"abc\"}",
+            "{\"isStartWithSavePoint\": true}"
+        };
+        for (String url : submitJobsUrls()) {
+            for (String params : invalidParams) {
+                String firstJobName = "submit-jobs-first-" + System.nanoTime();
+                given().body(
+                                "[{\"params\": {\"jobName\": \""
+                                        + firstJobName
+                                        + "\"}, "
+                                        + SUBMIT_JOBS_ENTRY_JOB
+                                        + "}, {\"params\": "
+                                        + params
+                                        + ", "
+                                        + SUBMIT_JOBS_ENTRY_JOB
+                                        + "}]")
+                        .post(url)
+                        .then()
+                        .statusCode(400);
+
+                Assertions.assertFalse(
+                        jobNameExists(firstJobName),
+                        url
+                                + ": the first entry must not be submitted when params "
+                                + params
+                                + " of the second entry is invalid");
+            }
+        }
+    }
+
+    /** The v1 and the v2 {@code /submit-jobs} endpoint of node1. */
+    private List<String> submitJobsUrls() {
+        return Arrays.asList(
+                HOST
+                        + node1.getCluster().getLocalMember().getAddress().getPort()
+                        + CONTEXT_PATH
+                        + RestConstant.REST_URL_SUBMIT_JOBS,
+                buildHttpBaseUrl(httpPort(node1)) + RestConstant.REST_URL_SUBMIT_JOBS);
+    }
+
+    /** Whether a running or finished job of the cluster has the given name. */
+    private boolean jobNameExists(String jobName) {
+        String baseUrl = buildHttpBaseUrl(httpPort(node1));
+        List<Map<String, Object>> running =
+                given().get(baseUrl + RestConstant.REST_URL_RUNNING_JOBS)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+        List<Map<String, Object>> finished =
+                given().get(baseUrl + RestConstant.REST_URL_FINISHED_JOBS)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+        return running.stream().anyMatch(job -> jobName.equals(job.get("jobName")))
+                || finished.stream().anyMatch(job -> jobName.equals(job.get("jobName")));
+    }
+
     @Test
     public void testSubmitJobWithHoconFormat() {
         String hoconConfig =

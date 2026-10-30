@@ -111,7 +111,11 @@ class JobInfoServiceSubmitJobsTest {
             "{\"restoreMode\": \"BOGUS\"}",
             "{\"restoreMode\": \"SAVEPOINT\"}",
             "{\"jobName\": {\"a\": 1}}",
-            "{\"jobId\": 1.5}"
+            "{\"jobId\": 1.5}",
+            "{\"jobId\": \"abc\"}",
+            "{\"restoreMode\": \"CHECKPOINT\", \"restoreSourceJobId\": \"abc\"}",
+            "{\"restoreMode\": \"CHECKPOINT\", \"restoreSourceJobId\": \"\"}",
+            "{\"restoreMode\": \"SAVEPOINT\", \"restoreSourceJobId\": \" \"}"
         };
         for (String params : invalidParams) {
             RecordingJobInfoService service = new RecordingJobInfoService();
@@ -131,6 +135,36 @@ class JobInfoServiceSubmitJobsTest {
                     "second entry params " + params);
             Assertions.assertTrue(service.submittedParams.isEmpty(), "params " + params);
         }
+    }
+
+    @Test
+    void testStringJobIdsMustBeLongs() {
+        for (String key : new String[] {"jobId", "restoreSourceJobId"}) {
+            RecordingJobInfoService service = new RecordingJobInfoService();
+            String restoreMode =
+                    "restoreSourceJobId".equals(key) ? "\"restoreMode\": \"CHECKPOINT\", " : "";
+
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    service.submitJobs(
+                                            bytes(
+                                                    "[{\"params\": {"
+                                                            + restoreMode
+                                                            + "\""
+                                                            + key
+                                                            + "\": \"12x\"}, "
+                                                            + JOB
+                                                            + "}]")),
+                            key);
+            Assertions.assertEquals("'" + key + "' must be a long integer", exception.getMessage());
+            Assertions.assertTrue(service.submittedParams.isEmpty(), key);
+        }
+
+        RecordingJobInfoService service = new RecordingJobInfoService();
+        service.submitJobs(bytes("[{\"params\": {\"jobId\": \"123\"}, " + JOB + "}]"));
+        Assertions.assertEquals("123", service.submittedParams.get(0).get(RestConstant.JOB_ID));
     }
 
     private static byte[] bytes(String body) {

@@ -719,7 +719,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | restoreMode          | optional     | string            | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
 > | restoreSourceJobId   | optional     | string \| number  | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 
-`params` may be omitted. Its values must be strings, integers within the `long` range or booleans; a `null` value is skipped so that the default applies. A nested object or array, or a fractional, exponent or larger number such as `1.5` or `1e3`, is rejected with HTTP 400. They are used exactly as given in the JSON and are not URL-decoded, so `&`, `=`, `%` and `+` need no encoding.
+`params` may be omitted. Its values must be strings, integers within the `long` range or booleans; a `null` value is skipped so that the default applies. A nested object or array, or a fractional, exponent or larger number such as `1.5` or `1e3`, is rejected with HTTP 400. They are used exactly as given in the JSON and are not URL-decoded, so `&`, `=`, `%` and `+` need no encoding. The `params` of every entry are checked before the first job is submitted, including that `jobId` and `restoreSourceJobId` are integers, so an invalid `params` value rejects the whole request. An error that depends on the job config or the cluster can still occur after the jobs before it were submitted.
 
 #### Request Body
 
