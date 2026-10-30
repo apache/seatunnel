@@ -62,7 +62,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
 | case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
-| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。 |
+| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。未设置且表中有 `TIMESTAMP_TZ` 列时，writer 会打印一条警告，列出这些列和实际使用的 JVM 时区。 |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
@@ -475,6 +475,182 @@ sink {
           read_json_by_line = "true"
         }
     }
+}
+```
+
+### 自定义 SQL 预处理
+
+当 `data_save_mode = "CUSTOM_PROCESSING"` 时，`custom_sql` 中配置的 SQL 会在同步任务读取数据之前在目标
+Doris 集群上执行。这样可以在连接器常规写入路径之外准备、清理或初始化目标表。此后连接器仍通过
+Stream Load 写入数据。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        F_ID = bigint
+        F_INT = int
+        F_BIGINT = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_sink"
+    table = "doris_e2e_unique_table"
+    data_save_mode = "CUSTOM_PROCESSING"
+    custom_sql = "INSERT INTO e2e_sink.doris_e2e_unique_table (F_ID, F_INT, F_BIGINT) VALUES (1, 123, 1234567890123);"
+    sink.enable-2pc = true
+    sink.label-prefix = "test_custom_sql"
+    save_mode_create_template = """CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) ENGINE=OLAP UNIQUE KEY (`F_ID`) DISTRIBUTED BY HASH (`F_ID`) PROPERTIES ("replication_allocation" = "tag.location.default: 1")"""
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### CDC 与 Schema 变更
+
+该示例展示 MySQL-CDC 以 `schema-changes.enabled = true` 流式写入 Doris，使上游 MySQL 源的加列、
+类型扩宽等 DDL 变更能同步应用到目标 Doris 表。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "products"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = true
+    sink.enable-delete = true
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### 多表
+
+#### 示例 1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+#### 示例 2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
 }
 ```
 
