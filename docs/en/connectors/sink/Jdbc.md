@@ -8,6 +8,10 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+### DB2 upsert NULL handling
+
+Generated DB2 upserts update matched rows when an incoming field changes, including NULL-to-value and value-to-NULL transitions. Equal values, including two NULLs, do not trigger an unnecessary matched update.
+
 ## MySQL temporal values
 
 MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
