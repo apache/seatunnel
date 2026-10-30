@@ -369,6 +369,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http posthog source
         Container.ExecResult execResult23 = container.executeJob("/posthog_json_to_assert.conf");
         Assertions.assertEquals(0, execResult23.getExitCode());
+
+        // ragged json_path results padded to the longest path (missing-field-null mode)
+        Container.ExecResult execResult24 =
+                container.executeJob("/http_ragged_jsonpath_to_assert.conf");
+        Assertions.assertEquals(0, execResult24.getExitCode());
     }
 
     /**
