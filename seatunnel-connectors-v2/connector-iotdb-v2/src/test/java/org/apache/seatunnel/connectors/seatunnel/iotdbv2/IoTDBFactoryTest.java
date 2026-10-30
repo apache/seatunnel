@@ -54,6 +54,27 @@ class IoTDBFactoryTest {
     }
 
     @Test
+    void timestampZoneIsOptionalForSourceAndSink() {
+        Assertions.assertFalse(
+                ReadonlyConfig.fromMap(validSourceConfig())
+                        .getOptional(IoTDBv2SourceOptions.ZONE_ID)
+                        .isPresent());
+        Assertions.assertFalse(
+                ReadonlyConfig.fromMap(validSinkConfig())
+                        .getOptional(IoTDBv2SinkOptions.ZONE_ID)
+                        .isPresent());
+        for (String zone : Arrays.asList("UTC", "Asia/Shanghai")) {
+            Map<String, Object> sourceConfig = validSourceConfig();
+            sourceConfig.put(IoTDBv2SourceOptions.ZONE_ID.key(), zone);
+            Assertions.assertDoesNotThrow(() -> validate(sourceConfig, sourceRule));
+
+            Map<String, Object> sinkConfig = validSinkConfig();
+            sinkConfig.put(IoTDBv2SinkOptions.ZONE_ID.key(), zone);
+            Assertions.assertDoesNotThrow(() -> validate(sinkConfig, sinkRule));
+        }
+    }
+
+    @Test
     void supportedSqlDialectsAreAcceptedCaseInsensitively() {
         for (String dialect : Arrays.asList("tree", "table", "TrEe", "TaBlE")) {
             Map<String, Object> sourceConfig = validSourceConfig();

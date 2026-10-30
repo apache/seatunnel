@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,7 @@ public class RelationalSeaTunnelRowSerializer
     private final Function<SeaTunnelRow, List<String>> tagsExtractor;
     private final Function<SeaTunnelRow, List<String>> attributesExtractor;
     private final Function<SeaTunnelRow, List<Object>> fieldsExtractor;
+    private final ZoneId zoneId;
 
     public RelationalSeaTunnelRowSerializer(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -55,6 +57,30 @@ public class RelationalSeaTunnelRowSerializer
             List<String> attributeKeys,
             List<String> fieldNames,
             List<TSDataType> fieldTypes) {
+        this(
+                seaTunnelRowType,
+                database,
+                tableNameKey,
+                timestampKey,
+                tagKeys,
+                attributeKeys,
+                fieldNames,
+                fieldTypes,
+                ZoneOffset.UTC);
+    }
+
+    /** Converts TIME and TIMESTAMP fields using the configured zone, or UTC when it is absent. */
+    public RelationalSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            @NonNull String database,
+            @NonNull String tableNameKey,
+            String timestampKey,
+            List<String> tagKeys,
+            List<String> attributeKeys,
+            List<String> fieldNames,
+            List<TSDataType> fieldTypes,
+            ZoneId zoneId) {
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
         this.tableNameExtractor = createTableNameExtractor(seaTunnelRowType, tableNameKey);
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.tagsExtractor = createTagAttributeExtractor(seaTunnelRowType, tagKeys);
@@ -98,10 +124,7 @@ public class RelationalSeaTunnelRowSerializer
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return ((LocalDateTime) timestamp)
-                            .atZone(ZoneOffset.UTC)
-                            .toInstant()
-                            .toEpochMilli();
+                    return ((LocalDateTime) timestamp).atZone(zoneId).toInstant().toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
                 default:
@@ -150,8 +173,7 @@ public class RelationalSeaTunnelRowSerializer
         };
     }
 
-    private static Object convert(
-            SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
+    private Object convert(SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
         if (value == null) {
             return null;
         }
@@ -167,7 +189,7 @@ public class RelationalSeaTunnelRowSerializer
             case DOUBLE:
                 return ((Number) value).doubleValue();
             case TIMESTAMP:
-                return ((LocalDateTime) value).atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+                return ((LocalDateTime) value).atZone(zoneId).toInstant().toEpochMilli();
             case DATE:
             case TEXT:
             case STRING:

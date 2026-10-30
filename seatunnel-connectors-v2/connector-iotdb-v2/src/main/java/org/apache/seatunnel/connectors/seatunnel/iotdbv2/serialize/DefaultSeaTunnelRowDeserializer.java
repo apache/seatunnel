@@ -24,23 +24,35 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import shaded.org.apache.tsfile.enums.TSDataType;
 import shaded.org.apache.tsfile.read.common.Field;
 import shaded.org.apache.tsfile.read.common.RowRecord;
 
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 
 @Slf4j
-@AllArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType rowType;
 
     private final String sqlDialect;
+    private final ZoneId zoneId;
+
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowType, String sqlDialect) {
+        this(rowType, sqlDialect, ZoneOffset.UTC);
+    }
+
+    /** Converts epoch timestamps to local timestamps in the configured zone, defaulting to UTC. */
+    public DefaultSeaTunnelRowDeserializer(
+            SeaTunnelRowType rowType, String sqlDialect, ZoneId zoneId) {
+        this.rowType = rowType;
+        this.sqlDialect = sqlDialect;
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
+    }
 
     @Override
     public SeaTunnelRow deserialize(RowRecord rowRecord) {
@@ -119,19 +131,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return field.getBoolV();
             case TIMESTAMP:
                 long timestamp = (long) field.getObjectValue(TSDataType.TIMESTAMP);
-                switch (seaTunnelFieldType.getSqlType()) {
-                    case TIMESTAMP:
-                        return new Date(timestamp)
-                                .toInstant()
-                                .atZone(ZoneOffset.UTC)
-                                .toLocalDateTime();
-                    case BIGINT:
-                        return timestamp;
-                    default:
-                        throw new IotdbConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "Unsupported data type: " + seaTunnelFieldType);
-                }
+                return convertTimestamp(timestamp, seaTunnelFieldType);
             case DATE:
                 return field.getObjectValue(TSDataType.DATE);
             case BLOB:
@@ -146,7 +146,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     private Object convertTimestamp(long timestamp, SeaTunnelDataType<?> seaTunnelFieldType) {
         switch (seaTunnelFieldType.getSqlType()) {
             case TIMESTAMP:
-                return new Date(timestamp).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
+                return new Date(timestamp).toInstant().atZone(zoneId).toLocalDateTime();
             case BIGINT:
                 return timestamp;
             default:

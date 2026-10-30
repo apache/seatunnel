@@ -46,6 +46,7 @@ import shaded.org.apache.tsfile.read.common.RowRecord;
 import shaded.org.apache.tsfile.utils.Binary;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -105,8 +106,43 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        List<RowRecord> sinkDataset = readSinkDataset();
-        assertDatasetEquals(testDataset, sinkDataset);
+        List<RowRecord> sinkDataset = readSinkDataset(SINK_GROUP);
+        assertDatasetEquals(testDataset, sinkDataset, 0);
+    }
+
+    @TestTemplate
+    public void testIoTDBWithZoneId(TestContainer container) throws Exception {
+        // Different source and sink zones expose conversion errors in either direction.
+        assertZoneIdConversion(
+                container,
+                "Asia/Shanghai",
+                "UTC",
+                SINK_GROUP + "_source_zone",
+                TimeUnit.HOURS.toMillis(8));
+        assertZoneIdConversion(
+                container,
+                "UTC",
+                "Asia/Shanghai",
+                SINK_GROUP + "_sink_zone",
+                -TimeUnit.HOURS.toMillis(8));
+    }
+
+    private void assertZoneIdConversion(
+            TestContainer container,
+            String sourceZone,
+            String sinkZone,
+            String sinkGroup,
+            long timestampOffset)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob(
+                        "/iotdb/iotdb_source_to_sink_zone.conf",
+                        Arrays.asList(
+                                "source_zone=" + sourceZone,
+                                "sink_zone=" + sinkZone,
+                                "sink_group=" + sinkGroup));
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        assertDatasetEquals(testDataset, readSinkDataset(sinkGroup), timestampOffset);
     }
 
     private Session createSession() {
@@ -122,6 +158,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             throws IoTDBConnectionException, StatementExecutionException {
         session.setStorageGroup(SOURCE_GROUP);
         session.setStorageGroup(SINK_GROUP);
+        session.setStorageGroup(SINK_GROUP + "_source_zone");
+        session.setStorageGroup(SINK_GROUP + "_sink_zone");
 
         String[] deviceIds = new String[] {"device_a", "device_b"};
         LinkedHashMap<String, TSDataType> measurements = new LinkedHashMap<>();
@@ -180,19 +218,19 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         return rowRecords;
     }
 
-    private List<RowRecord> readSinkDataset()
+    private List<RowRecord> readSinkDataset(String sinkGroup)
             throws IoTDBConnectionException, StatementExecutionException {
         SessionDataSet dataSet =
                 session.executeQueryStatement(
                         "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM "
-                                + SINK_GROUP
+                                + sinkGroup
                                 + ".* align by device");
         List<RowRecord> results = new ArrayList<>();
         while (dataSet.hasNext()) {
             RowRecord record = dataSet.next();
             List<Field> notContainDeviceField =
                     record.getFields().stream()
-                            .filter(field -> !field.getStringValue().startsWith(SINK_GROUP))
+                            .filter(field -> !field.getStringValue().startsWith(sinkGroup))
                             .collect(Collectors.toList());
             record = new RowRecord(record.getTimestamp(), notContainDeviceField);
             results.add(record);
@@ -201,7 +239,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         return results;
     }
 
-    private void assertDatasetEquals(List<RowRecord> testDataset, List<RowRecord> sinkDataset) {
+    private void assertDatasetEquals(
+            List<RowRecord> testDataset, List<RowRecord> sinkDataset, long timestampOffset) {
         Assertions.assertEquals(testDataset.size(), sinkDataset.size());
 
         Collections.sort(testDataset, Comparator.comparingLong(RowRecord::getTimestamp));
@@ -209,7 +248,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         for (int rowIndex = 0; rowIndex < testDataset.size(); rowIndex++) {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
-            Assertions.assertEquals(testDatasetRow.getTimestamp(), sinkDatasetRow.getTimestamp());
+            Assertions.assertEquals(
+                    testDatasetRow.getTimestamp() + timestampOffset, sinkDatasetRow.getTimestamp());
 
             List<Field> testDatasetRowFields = testDatasetRow.getFields();
             List<Field> sinkDatasetRowFields = sinkDatasetRow.getFields();

@@ -56,6 +56,7 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
                         IoTDBv2SourceOptions.SQL_DIALECT,
                         Conditions.matches(IoTDBv2SourceOptions.SQL_DIALECT, "(?i)^(tree|table)$"))
                 .optional(
+                        IoTDBv2SourceOptions.ZONE_ID,
                         IoTDBv2SourceOptions.DATABASE,
                         IoTDBv2SourceOptions.FETCH_SIZE,
                         IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE,

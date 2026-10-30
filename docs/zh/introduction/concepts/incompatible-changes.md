@@ -4,6 +4,12 @@
 
 ## dev
 
+### IoTDB 与 IoTDBv2：`zone_id` 应用于时间戳转换
+
+- **行为变更**：显式配置的 Sink `zone_id` 现在既设置 IoTDB 客户端会话时区，也决定如何将 SeaTunnel `TIMESTAMP`（`LocalDateTime`）转换为纪元毫秒值。此前，即使客户端配置了其他时区，转换也始终使用 UTC。影响范围包括两个连接器的时间戳键，以及 IoTDBv2 表模型的 TIME 和 TIMESTAMP FIELD 列。两个 Source 现在都支持可选的 `zone_id`，按该时区将纪元毫秒值转换为 `TIMESTAMP`，并设置客户端会话时区。
+- **影响**：已有 Sink 如果配置了非 UTC 的 `zone_id`，同一个 `LocalDateTime` 可能写为不同的纪元毫秒值。例如，配置 `zone_id = "Asia/Shanghai"` 时，`1970-01-01T08:00:00` 现在写为 `0`，此前为 `28800000`。未配置 `zone_id` 时，转换仍使用 UTC，客户端保留原有默认时区。Source 的 `BIGINT` 值、`BIGINT` 和数字 `STRING` 类型的时间戳键，以及 IoTDB 中已有的数据均保持不变。
+- **迁移指南**：对于 IoTDB Source 到 Sink 的作业，请在两端配置相同的 `zone_id`。如需保留原有时间戳转换结果，请设置 `zone_id = "UTC"`。改用预期的本地时区时，请移除此前为补偿 UTC 转换而添加的时间偏移，例如为 `Asia/Shanghai` 减去八小时。本次变更不会重写已有数据；如需修正此前发生偏移的数据，请另行处理。
+
 ### Lance Sink：TIMESTAMP 值保留微秒
 
 - **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**

@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### IoTDB and IoTDBv2: `zone_id` applies to timestamp conversion
+
+- **Behavior change**: An explicit sink `zone_id` now controls conversion of SeaTunnel `TIMESTAMP` (`LocalDateTime`) values to epoch milliseconds as well as the IoTDB client session. Previously, conversion always used UTC even when a different client time zone was configured. This affects the timestamp key in both connectors and the table-model TIME and TIMESTAMP FIELD columns in IoTDBv2. Both sources now accept the optional `zone_id` to convert epoch milliseconds to `TIMESTAMP` using the same zone and configure the client session.
+- **Impact**: Existing sinks with a non-UTC `zone_id` can write different epoch milliseconds for the same `LocalDateTime`. For example, `1970-01-01T08:00:00` with `zone_id = "Asia/Shanghai"` now writes `0` instead of `28800000`. If `zone_id` is omitted, conversion still uses UTC and the client keeps its existing default time zone. `BIGINT` source values, `BIGINT` and numeric `STRING` timestamp keys, and rows already stored in IoTDB are unchanged.
+- **Migration Guide**: Configure the same `zone_id` on the source and sink for IoTDB source-to-sink jobs. To retain previous timestamp conversion results, set `zone_id = "UTC"`. When switching to the intended local time zone, remove any timestamp adjustments previously used to compensate for UTC conversion, such as subtracting eight hours for `Asia/Shanghai`. This change does not rewrite existing rows; correct previously shifted data separately if needed.
+
 ### Lance sink: TIMESTAMP values keep their microseconds
 
 - **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**

@@ -112,8 +112,43 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/iotdb/iotdb_source_to_sink_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        List<RowRecord> sinkTableDataset = readSinkTableDataset();
-        assertDatasetEquals(testTableDataSet, sinkTableDataset);
+        List<RowRecord> sinkTableDataset = readSinkTableDataset(SINK_DATABASE);
+        assertDatasetEquals(testTableDataSet, sinkTableDataset, 0);
+    }
+
+    @TestTemplate
+    public void testIoTDBTableWithZoneId(TestContainer container) throws Exception {
+        // Check both the time key and the TIMESTAMP field without cancelling zone conversions.
+        assertZoneIdConversion(
+                container,
+                "Asia/Shanghai",
+                "UTC",
+                SINK_DATABASE + "SourceZone",
+                TimeUnit.HOURS.toMillis(8));
+        assertZoneIdConversion(
+                container,
+                "UTC",
+                "Asia/Shanghai",
+                SINK_DATABASE + "SinkZone",
+                -TimeUnit.HOURS.toMillis(8));
+    }
+
+    private void assertZoneIdConversion(
+            TestContainer container,
+            String sourceZone,
+            String sinkZone,
+            String sinkDatabase,
+            long timestampOffset)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob(
+                        "/iotdb/iotdb_source_to_sink_table_zone.conf",
+                        Arrays.asList(
+                                "source_zone=" + sourceZone,
+                                "sink_zone=" + sinkZone,
+                                "sink_database=" + sinkDatabase));
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        assertDatasetEquals(testTableDataSet, readSinkTableDataset(sinkDatabase), timestampOffset);
     }
 
     private TableSessionBuilder createTableSessionBuilder() throws IoTDBConnectionException {
@@ -223,12 +258,12 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         return rowRecords;
     }
 
-    private List<RowRecord> readSinkTableDataset()
+    private List<RowRecord> readSinkTableDataset(String sinkDatabase)
             throws IoTDBConnectionException, StatementExecutionException {
         SessionDataSet dataSet =
                 tableSession.executeQueryStatement(
                         "SELECT time, c_tag, c_attribute, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_text, c_date, c_timestamp, c_blob FROM "
-                                + SINK_DATABASE
+                                + sinkDatabase
                                 + ".testString");
         List<RowRecord> results = new ArrayList<>();
         while (dataSet.hasNext()) {
@@ -239,7 +274,8 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         return results;
     }
 
-    private void assertDatasetEquals(List<RowRecord> testDataset, List<RowRecord> sinkDataset) {
+    private void assertDatasetEquals(
+            List<RowRecord> testDataset, List<RowRecord> sinkDataset, long timestampOffset) {
         Assertions.assertEquals(testDataset.size(), sinkDataset.size());
 
         Collections.sort(testDataset, Comparator.comparingLong(RowRecord::getTimestamp));
@@ -248,7 +284,8 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
             Assertions.assertEquals(
-                    testDatasetRow.getTimestamp(), sinkDatasetRow.getField(0).getLongV());
+                    testDatasetRow.getTimestamp() + timestampOffset,
+                    sinkDatasetRow.getField(0).getLongV());
 
             List<Field> testDatasetRowFields = testDatasetRow.getFields();
             List<Field> sinkDatasetRowFields = sinkDatasetRow.getFields();
@@ -256,8 +293,17 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
             for (int fieldIndex = 0; fieldIndex < testDatasetRowFields.size(); fieldIndex++) {
                 Field testDatasetRowField = testDatasetRowFields.get(fieldIndex);
                 Field sinkDatasetRowField = sinkDatasetRowFields.get(fieldIndex + 1);
+                Object expectedValue =
+                        testDatasetRowField.getObjectValue(testDatasetRowField.getDataType());
+                if (testDatasetRowField.getDataType() == TSDataType.TIMESTAMP) {
+                    expectedValue = (Long) expectedValue + timestampOffset;
+                    if (timestampOffset != 0) {
+                        Assertions.assertEquals(
+                                TSDataType.TIMESTAMP, sinkDatasetRowField.getDataType());
+                    }
+                }
                 Assertions.assertEquals(
-                        testDatasetRowField.getObjectValue(testDatasetRowField.getDataType()),
+                        expectedValue,
                         sinkDatasetRowField.getObjectValue(sinkDatasetRowField.getDataType()));
             }
         }

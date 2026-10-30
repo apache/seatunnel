@@ -65,8 +65,13 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 | num_partitions             | Integer | No       | -             | The number of partitions used to split the time range.                                                            |
 | default_thrift_buffer_size | Integer | No       | -             | The default Thrift buffer size used by the IoTDB client.                                                          |
 | max_thrift_frame_size      | Integer | No       | -             | The thrift max frame size                                                                                         |
+| zone_id                    | String  | No       | -             | `java.time.ZoneId` for timestamp conversion and the IoTDB client, for example `Asia/Shanghai`.                     |
 | enable_cache_leader        | Boolean | No       | -             | Whether to enable leader cache in the IoTDB client.                                                               |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
+
+When a tree-model time column, a table-model TIME column, or a table-model TIMESTAMP FIELD column is mapped to SeaTunnel `TIMESTAMP` (`LocalDateTime`), `zone_id` controls how epoch milliseconds are converted to local date and time. For example, with `zone_id = "Asia/Shanghai"`, epoch millisecond `0` is read as `1970-01-01T08:00:00`. The same option configures the IoTDB client session in both SQL dialects. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. Mapping a timestamp column to `BIGINT` returns the original epoch milliseconds without conversion.
+
+For IoTDBv2 source-to-sink jobs, configure the same `zone_id` on both sides so they use the same timestamp conversion rules.
 
 You can use the time column to split a source query into multiple partitions. To enable this, set `lower_bound`, `upper_bound`, and `num_partitions` together.
 

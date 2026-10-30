@@ -59,7 +59,7 @@ Used to write data to IoTDB.
 | max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
 | default_thrift_buffer_size  | Integer | No       | -                              | Thrift init buffer size in IoTDB client                                                                                                                           |
 | max_thrift_frame_size       | Integer | No       | -                              | Thrift max frame size in IoTDB client                                                                                                                             |
-| zone_id                     | string  | No       | -                              | java.time.ZoneId in IoTDB client                                                                                                                                  |
+| zone_id                     | string  | No       | -                              | `java.time.ZoneId` for timestamp conversion and the IoTDB client, for example `Asia/Shanghai`.                                                                     |
 | enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in IoTDB client                                                                                                                            |
 | connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                         |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                       |
@@ -71,6 +71,10 @@ Used to write data to IoTDB.
 - `key_timestamp` can name a `STRING`, `BIGINT`, or `TIMESTAMP` field. If it is not configured, the connector uses the current processing time.
 - If `key_measurement_fields` is not configured, all fields except `key_device` and `key_timestamp` are written as measurements.
 - The sink supports `STRING`, `BOOLEAN`, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, and `DOUBLE` measurement fields.
+
+When `key_timestamp` names a `TIMESTAMP` (`LocalDateTime`) field, `zone_id` controls its conversion to epoch milliseconds. For example, with `zone_id = "Asia/Shanghai"`, `1970-01-01T08:00:00` is written as epoch millisecond `0`. The same option configures the IoTDB client session. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. `BIGINT` and numeric `STRING` timestamp keys already contain epoch milliseconds and are written unchanged.
+
+For IoTDB source-to-sink jobs, configure the same `zone_id` on both sides. Existing jobs with an explicit non-UTC sink `zone_id` must review the [migration guidance](../../introduction/concepts/incompatible-changes.md) because the option now affects timestamp conversion as well as the client session.
 
 ## Examples
 

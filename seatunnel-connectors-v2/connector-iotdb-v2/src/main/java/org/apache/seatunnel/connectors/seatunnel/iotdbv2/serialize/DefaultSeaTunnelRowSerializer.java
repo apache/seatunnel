@@ -29,6 +29,7 @@ import lombok.NonNull;
 import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoT
     private final Function<SeaTunnelRow, List<Object>> valuesExtractor;
     private final List<String> measurements;
     private final List<TSDataType> measurementsType;
+    private final ZoneId zoneId;
 
     public DefaultSeaTunnelRowSerializer(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -50,6 +52,24 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoT
             String timestampKey,
             @NonNull String deviceKey,
             List<String> measurementKeys) {
+        this(
+                seaTunnelRowType,
+                storageGroup,
+                timestampKey,
+                deviceKey,
+                measurementKeys,
+                ZoneOffset.UTC);
+    }
+
+    /** Converts local timestamps using the configured zone, or UTC when it is absent. */
+    public DefaultSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            String storageGroup,
+            String timestampKey,
+            @NonNull String deviceKey,
+            List<String> measurementKeys,
+            ZoneId zoneId) {
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.deviceExtractor = createDeviceExtractor(seaTunnelRowType, deviceKey, storageGroup);
         this.measurements =
@@ -85,10 +105,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoT
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return ((LocalDateTime) timestamp)
-                            .atZone(ZoneOffset.UTC)
-                            .toInstant()
-                            .toEpochMilli();
+                    return ((LocalDateTime) timestamp).atZone(zoneId).toInstant().toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
                 default:

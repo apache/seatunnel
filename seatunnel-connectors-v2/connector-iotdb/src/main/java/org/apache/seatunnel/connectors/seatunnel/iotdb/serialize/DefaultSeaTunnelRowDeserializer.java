@@ -26,16 +26,25 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 
-import lombok.AllArgsConstructor;
-
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 
-@AllArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType rowType;
+    private final ZoneId zoneId;
+
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowType) {
+        this(rowType, ZoneOffset.UTC);
+    }
+
+    /** Creates a deserializer using the supplied zone for local timestamps, or UTC when absent. */
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowType, ZoneId zoneId) {
+        this.rowType = rowType;
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
+    }
 
     @Override
     public SeaTunnelRow deserialize(RowRecord rowRecord) {
@@ -101,7 +110,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     private Object convertTimestamp(long timestamp, SeaTunnelDataType<?> seaTunnelFieldType) {
         switch (seaTunnelFieldType.getSqlType()) {
             case TIMESTAMP:
-                return new Date(timestamp).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
+                return new Date(timestamp).toInstant().atZone(zoneId).toLocalDateTime();
             case BIGINT:
                 return timestamp;
             default:

@@ -46,7 +46,8 @@ public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         sinkConfig.getStorageGroup(),
                         sinkConfig.getKeyTimestamp(),
                         sinkConfig.getKeyDevice(),
-                        sinkConfig.getKeyMeasurementFields());
+                        sinkConfig.getKeyMeasurementFields(),
+                        sinkConfig.getZoneId());
         this.sinkClient = new IoTDBSinkClient(sinkConfig);
     }
 

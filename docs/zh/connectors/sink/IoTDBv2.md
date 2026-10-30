@@ -62,7 +62,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | max_retry_backoff_ms        | Integer | 否    | -      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
 | default_thrift_buffer_size  | Integer | 否    | -      | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                                                                                                                                                                             |
 | max_thrift_frame_size       | Integer | 否    | -      | IoTDB 客户端使用的最大 Thrift 帧大小。                                                                                                                                                                                                               |
-| zone_id                     | String  | 否    | -      | IoTDB 客户端使用的 `java.time.ZoneId`。                                                                                                                                                                                                        |
+| zone_id                     | String  | 否    | -      | 用于时间戳转换和 IoTDB 客户端的 `java.time.ZoneId`，例如 `Asia/Shanghai`。                                                                                                                                                                          |
 | enable_rpc_compression      | Boolean | 否    | -      | 在 IoTDB 客户端中启用 rpc 压缩，只在树模型中生效                                                                                                                                                                                                          |
 | connection_timeout_in_ms    | Integer | 否    | -      | 连接到 IoTDB 时等待的最长时间（毫秒）                                                                                                                                                                                                                  |
 | common-options              |         | 否    | -      | Sink 插件常用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)                                                                                                                                                                              |
@@ -70,6 +70,10 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 树模型下，`key_device` 用作 IoTDB 设备路径，`key_measurement_fields` 决定哪些字段写成测点。未配置 `key_measurement_fields` 时，除 `key_device` 和 `key_timestamp` 之外的所有字段都会写成测点。
 
 表模型下，`storage_group` 表示数据库，`key_device` 表示目标表名字段，`key_tag_fields` 表示 TAG 列，`key_attribute_fields` 表示 ATTRIBUTE 列，`key_measurement_fields` 表示 FIELD 列。未配置 `key_measurement_fields` 时，除表名、时间、TAG 和 ATTRIBUTE 字段之外的所有字段都会写成 FIELD 列。
+
+`zone_id` 决定如何将 SeaTunnel `TIMESTAMP`（`LocalDateTime`）值转换为纪元毫秒值，适用于树模型的时间戳键、表模型的 TIME 列及 TIMESTAMP FIELD 列。例如，配置 `zone_id = "Asia/Shanghai"` 时，`1970-01-01T08:00:00` 写为纪元毫秒值 `0`。此选项也会设置两种 SQL 方言下 IoTDB 客户端会话的时区。未配置时，时间戳转换仍使用 UTC，客户端保留原有默认时区。`BIGINT` 和数字 `STRING` 类型的时间戳键已经表示纪元毫秒值，写入时保持不变。
+
+对于 IoTDBv2 Source 到 Sink 的作业，请在两端配置相同的 `zone_id`。已有作业如果为 Sink 显式配置了非 UTC 的 `zone_id`，请查看[迁移指南](../../introduction/concepts/incompatible-changes.md)，因为此选项现在也会影响时间戳转换。
 
 
 ## 示例

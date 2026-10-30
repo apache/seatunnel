@@ -45,6 +45,14 @@ public class IoTDBSourceOptions extends IoTDBCommonOptions {
 
     /*---------------------- other configurations -------------------------*/
 
+    public static final Option<String> ZONE_ID =
+            Options.key("zone_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Zone ID used by the IoTDB client and for TIMESTAMP conversion. "
+                                    + "If unset, conversions use UTC and the client uses its default zone.");
+
     /** Fetches the next batch of data from the source. */
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch_size").intType().noDefaultValue().withDescription("fetch size");

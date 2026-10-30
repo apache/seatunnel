@@ -75,6 +75,7 @@ public class IoTDBSourceFactory implements TableSourceFactory {
                         IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
                         IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE,
                         IoTDBSourceOptions.ENABLE_CACHE_LEADER,
+                        IoTDBSourceOptions.ZONE_ID,
                         IoTDBSourceOptions.VERSION,
                         IoTDBSourceOptions.LOWER_BOUND,
                         IoTDBSourceOptions.UPPER_BOUND,
