@@ -77,7 +77,8 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
             disabledReason = "The configuration-only --check command is provided by Zeta")
     public void rejectsBlankSinkEndpointDuringConfigCheck(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult result = checkSinkEndpoint(container, "/maxcompute_sink_blank_endpoint.conf");
+        Container.ExecResult result =
+                checkSinkEndpoint(container, "/maxcompute_sink_blank_endpoint.conf");
         String output = result.getStdout() + result.getStderr();
         Assertions.assertNotEquals(0, result.getExitCode(), output);
         Assertions.assertTrue(output.contains("endpoint") && output.contains("blank"), output);
@@ -90,15 +91,22 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
             disabledReason = "The configuration-only --check command is provided by Zeta")
     public void acceptsValidSinkEndpointDuringConfigCheck(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult result = checkSinkEndpoint(container, "/maxcompute_sink_valid_endpoint.conf");
+        Container.ExecResult result =
+                checkSinkEndpoint(container, "/maxcompute_sink_valid_endpoint.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStdout() + result.getStderr());
     }
 
     private Container.ExecResult checkSinkEndpoint(TestContainer container, String configResource)
             throws IOException, InterruptedException {
         container.executeExtraCommands(
-                engineContainer -> ContainerUtil.copyConnectorJarToContainer(
-                        engineContainer, configResource, "seatunnel-connectors-v2", "connector-", "seatunnel", "/tmp/seatunnel"));
+                engineContainer ->
+                        ContainerUtil.copyConnectorJarToContainer(
+                                engineContainer,
+                                configResource,
+                                "seatunnel-connectors-v2",
+                                "connector-",
+                                "seatunnel",
+                                "/tmp/seatunnel"));
         String configPath = "/tmp/seatunnel/config" + configResource;
         container.copyFileToContainer(configResource, configPath);
         return container.executeBaseCommand(new String[] {"--config", configPath, "--check"});

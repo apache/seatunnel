@@ -44,9 +44,7 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                 .required(
                         MaxcomputeSinkOptions.ENDPOINT,
                         Conditions.notBlank(MaxcomputeSinkOptions.ENDPOINT))
-                .required(
-                        MaxcomputeSinkOptions.PROJECT,
-                        MaxcomputeSinkOptions.TABLE_NAME)
+                .required(MaxcomputeSinkOptions.PROJECT, MaxcomputeSinkOptions.TABLE_NAME)
                 .optional(
                         MaxcomputeSinkOptions.ACCESS_ID,
                         MaxcomputeSinkOptions.ACCESS_KEY,

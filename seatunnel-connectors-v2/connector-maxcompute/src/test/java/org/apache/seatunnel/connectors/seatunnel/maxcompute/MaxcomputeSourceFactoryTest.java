@@ -89,14 +89,20 @@ public class MaxcomputeSourceFactoryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"http://service.odps.aliyun.com/api", " \thttp://service.odps.aliyun.com/api\r\n "})
+    @ValueSource(
+            strings = {
+                "http://service.odps.aliyun.com/api",
+                " \thttp://service.odps.aliyun.com/api\r\n "
+            })
     void acceptsNonblankSinkEndpointWithoutTrimming(String endpoint) {
         Map<String, Object> config = sinkConfig();
         config.put(MaxcomputeSinkOptions.ENDPOINT.key(), endpoint);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
 
         Assertions.assertDoesNotThrow(
-                () -> ConfigValidator.of(readonlyConfig).validate(new MaxcomputeSinkFactory().optionRule()));
+                () ->
+                        ConfigValidator.of(readonlyConfig)
+                                .validate(new MaxcomputeSinkFactory().optionRule()));
         Assertions.assertEquals(endpoint, readonlyConfig.get(MaxcomputeSinkOptions.ENDPOINT));
     }
 
@@ -105,9 +111,12 @@ public class MaxcomputeSourceFactoryTest {
     void rejectsMissingRequiredSinkOption(String key) {
         Map<String, Object> config = sinkConfig();
         config.remove(key);
-        OptionValidationException error = Assertions.assertThrows(
-                OptionValidationException.class,
-                () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(new MaxcomputeSinkFactory().optionRule()));
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSinkFactory().optionRule()));
         Assertions.assertTrue(error.getMessage().contains(key), error.getMessage());
     }
 
@@ -116,9 +125,12 @@ public class MaxcomputeSourceFactoryTest {
     void rejectsBlankSinkEndpoint(String endpoint) {
         Map<String, Object> config = sinkConfig();
         config.put(MaxcomputeSinkOptions.ENDPOINT.key(), endpoint);
-        OptionValidationException error = Assertions.assertThrows(
-                OptionValidationException.class,
-                () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(new MaxcomputeSinkFactory().optionRule()));
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSinkFactory().optionRule()));
         Assertions.assertTrue(error.getMessage().contains("endpoint"), error.getMessage());
         Assertions.assertTrue(error.getMessage().contains("blank"), error.getMessage());
     }
