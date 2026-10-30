@@ -85,6 +85,10 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final long processTime;
     private final transient StringBuffer data;
 
+    StringBuffer getData() {
+        return data;
+    }
+
     private final CloseableHttpClient httpClient;
     private final ObjectMapper mapper;
     private final String coordinatorUrl;
@@ -114,6 +118,8 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             final Object v = element.getField(i);
             if (v != null) {
                 joiner.add(v.toString());
+            } else {
+                joiner.add("");
             }
         }
         // timestamp column is a required field to add in Druid.
