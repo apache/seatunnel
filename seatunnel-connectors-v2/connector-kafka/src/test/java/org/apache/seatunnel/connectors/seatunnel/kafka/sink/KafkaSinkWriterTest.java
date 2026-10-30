@@ -110,18 +110,40 @@ class KafkaSinkWriterTest {
     }
 
     @Test
-    void shouldNotFenceAnotherWriterWhenRestoringItsState() {
+    void shouldRejectStateAssignedToTheWrongWriter() {
         List<String> initializedIds = new ArrayList<>();
         List<KafkaSinkState> state =
                 Collections.singletonList(
                         new KafkaSinkState(PREFIX + "-1-4", PREFIX, 4, new Properties()));
-        try (MockedConstruction<KafkaInternalProducer> producers = mockProducers(initializedIds);
-                TestWriter writer = writer(2, state)) {
-            Assertions.assertFalse(
-                    initializedIds.stream().anyMatch(id -> id.startsWith(PREFIX + "-1-")),
-                    "Restored state must not authorize fencing a sibling writer's namespace");
+        try (MockedConstruction<KafkaInternalProducer> producers = mockProducers(initializedIds)) {
+            IllegalStateException exception =
+                    Assertions.assertThrows(IllegalStateException.class, () -> writer(2, 3, state));
             Assertions.assertTrue(
-                    writer.prepareCommit().get().getTransactionId().startsWith(PREFIX + "-2-"));
+                    exception.getMessage().contains("does not own that restored state"));
+            Assertions.assertTrue(
+                    initializedIds.isEmpty(),
+                    "Ownership must be validated before any transaction is fenced or started");
+        }
+    }
+
+    @Test
+    void shouldFenceEveryAssignedWriterNamespaceAfterScaleDown() {
+        List<String> initializedIds = new ArrayList<>();
+        Set<String> unfinishedIds = Set.of(PREFIX + "-0-5", PREFIX + "-2-5");
+        List<KafkaSinkState> states =
+                List.of(
+                        new KafkaSinkState(PREFIX + "-0-4", PREFIX, 4, new Properties()),
+                        new KafkaSinkState(PREFIX + "-2-4", PREFIX, 4, new Properties()));
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, unfinishedIds);
+                TestWriter writer = writer(0, 2, states)) {
+            Assertions.assertTrue(
+                    initializedIds.containsAll(unfinishedIds),
+                    "A 3-to-2 restore must fence both namespaces assigned to writer zero");
+            Assertions.assertTrue(initializedIds.contains(PREFIX + "-0-6"));
+            Assertions.assertTrue(initializedIds.contains(PREFIX + "-2-6"));
+            Assertions.assertEquals(
+                    PREFIX + "-0-5", writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -174,8 +196,13 @@ class KafkaSinkWriterTest {
     }
 
     private static TestWriter writer(int index, List<KafkaSinkState> state) {
+        return writer(index, Math.max(index + 1, 1), state);
+    }
+
+    private static TestWriter writer(int index, int parallelism, List<KafkaSinkState> state) {
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         when(context.getIndexOfSubtask()).thenReturn(index);
+        when(context.getNumberOfParallelSubtasks()).thenReturn(parallelism);
         ReadonlyConfig config =
                 ReadonlyConfig.fromMap(
                         Map.of(

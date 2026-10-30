@@ -50,8 +50,13 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
+
+    /** Job-level prefix stored in {@link KafkaSinkState} across checkpoints and upgrades. */
     private final String transactionPrefix;
+
+    /** Writer-owned namespace used to create and clean up Kafka transactional IDs. */
     private final String transactionIdPrefix;
+
     private final Properties kafkaProperties;
 
     /**
@@ -68,6 +73,11 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         this(transactionPrefix, transactionPrefix, kafkaProperties);
     }
 
+    /**
+     * Creates a sender that persists the job prefix while operating only in the supplied writer
+     * namespace. Keeping those lifetimes separate prevents restore from appending writer suffixes
+     * repeatedly and prevents parallel writers from cleaning up one another's transactions.
+     */
     KafkaTransactionSender(
             String transactionPrefix, String transactionIdPrefix, Properties kafkaProperties) {
         this.transactionPrefix = transactionPrefix;

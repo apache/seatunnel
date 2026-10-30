@@ -95,7 +95,7 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
 
-同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加子任务索引和 checkpoint ID，生成 Kafka 事务 ID（`<prefix>-<subtask>-<checkpoint>`），避免并行 Writer 触发 `ProducerFencedException`。恢复时会清理当前 Writer 的未完成事务；恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务。checkpoint 状态格式保持不变。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。
+同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加子任务索引和 checkpoint ID，生成 Kafka 事务 ID（`<prefix>-<subtask>-<checkpoint>`），避免并行 Writer 触发 `ProducerFencedException`。恢复或调整并行度时，每个 Writer 会先清理恢复 checkpoint 分配给它的所有未完成事务命名空间，再启动新事务；恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务。checkpoint 状态格式保持不变。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。
 
 ### 分区关键字段
 

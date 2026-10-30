@@ -99,7 +99,7 @@ NON does not provide any guarantees: messages may be lost in case of issues on t
 
 For `EXACTLY_ONCE`, enable checkpoints and make sure every running job uses a unique `transaction_prefix`. Reusing the same transaction prefix across jobs can cause Kafka transaction conflicts.
 
-Parallel writers within one job share the configured prefix. SeaTunnel appends the subtask index and checkpoint ID to form each Kafka transactional ID (`<prefix>-<subtask>-<checkpoint>`), so writers do not fence one another. Recovery cleans up the current writer's unfinished transactions and also fences legacy shared IDs when restoring an older checkpoint; the checkpoint state format is unchanged. If Kafka transactional-ID ACLs restrict the old `<prefix>-<checkpoint>` pattern, update them to allow the writer-specific IDs and retain access to old IDs while restoring older checkpoints.
+Parallel writers within one job share the configured prefix. SeaTunnel appends the subtask index and checkpoint ID to form each Kafka transactional ID (`<prefix>-<subtask>-<checkpoint>`), so writers do not fence one another. During recovery or rescaling, each writer cleans every unfinished transaction namespace assigned to it by the restored checkpoint before starting new transactions. Recovery also fences legacy shared IDs when restoring an older checkpoint; the checkpoint state format is unchanged. If Kafka transactional-ID ACLs restrict the old `<prefix>-<checkpoint>` pattern, update them to allow the writer-specific IDs and retain access to old IDs while restoring older checkpoints.
 
 ### Partition Key Fields
 

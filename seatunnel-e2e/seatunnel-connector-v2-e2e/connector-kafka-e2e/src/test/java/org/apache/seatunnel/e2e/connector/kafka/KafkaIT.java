@@ -2158,18 +2158,23 @@ public class KafkaIT extends AbstractKafkaIT {
         String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
-        List<String> exactlyOnceVariables =
+        List<String> initialVariables =
                 new ArrayList<>(
                         buildExactlyOnceStreamingVariables(
                                 producerTopic, consumerTopic, consumerGroup));
-        exactlyOnceVariables.add("parallelism=2");
-        createKafkaTopic(producerTopic);
+        initialVariables.add("parallelism=3");
+        List<String> restoredVariables =
+                new ArrayList<>(
+                        buildExactlyOnceStreamingVariables(
+                                producerTopic, consumerTopic, consumerGroup));
+        restoredVariables.add("parallelism=2");
+        createKafkaTopic(producerTopic, 3);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceData);
+        for (int i = 0; i < 12; i++) {
+            sendTextRecordAndWait(producerTopic, i % 3, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2178,7 +2183,7 @@ public class KafkaIT extends AbstractKafkaIT {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables.toArray(new String[0]));
+                                initialVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -2192,7 +2197,7 @@ public class KafkaIT extends AbstractKafkaIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
+                                        checkData(consumerTopic, sinkStartOffset, 12, sourceData)));
 
         // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
@@ -2200,8 +2205,8 @@ public class KafkaIT extends AbstractKafkaIT {
         String sourceDataRestore = "Seatunnel Exactly Once Example Restore";
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceDataRestore);
+        for (int i = 0; i < 12; i++) {
+            sendTextRecordAndWait(producerTopic, i % 3, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2210,7 +2215,7 @@ public class KafkaIT extends AbstractKafkaIT {
                         container.restoreJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables.toArray(new String[0]));
+                                restoredVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -2225,7 +2230,7 @@ public class KafkaIT extends AbstractKafkaIT {
                                         checkData(
                                                 consumerTopic,
                                                 restoreStartOffset,
-                                                10,
+                                                12,
                                                 sourceDataRestore)));
     }
 
@@ -2381,8 +2386,13 @@ public class KafkaIT extends AbstractKafkaIT {
      * issues surface immediately instead of appearing later as assertion flakes.
      */
     private void sendTextRecordAndWait(String topicName, String data) {
+        sendTextRecordAndWait(topicName, null, data);
+    }
+
+    private void sendTextRecordAndWait(String topicName, Integer partition, String data) {
         ProducerRecord<byte[], byte[]> record =
-                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+                new ProducerRecord<>(
+                        topicName, partition, null, data.getBytes(StandardCharsets.UTF_8));
         try {
             producer.send(record).get();
         } catch (InterruptedException e) {

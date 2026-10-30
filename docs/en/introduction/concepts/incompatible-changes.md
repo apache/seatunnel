@@ -16,7 +16,7 @@ You need to check this document before you upgrade to related version.
 
 With `semantics = EXACTLY_ONCE`, transactional IDs now include the subtask index: `<transaction_prefix>-<subtask>-<checkpoint>` instead of `<transaction_prefix>-<checkpoint>`. This prevents parallel writers sharing a configured prefix from fencing each other. Configuration keys and checkpoint serialization are unchanged.
 
-Update Kafka transactional-ID ACLs or monitoring rules that depend on the old ID shape. Stop the previous job attempt before restoring a checkpoint; recovery still needs permission to fence unfinished transactions using the saved IDs, including IDs written before this change. Keep a distinct configured prefix for every concurrent job.
+Update Kafka transactional-ID ACLs or monitoring rules that depend on the old ID shape. Stop the previous job attempt before restoring a checkpoint; recovery and rescaling fence every unfinished writer namespace assigned by the checkpoint, including IDs written before this change. Keep a distinct configured prefix for every concurrent job.
 
 ### JDBC MySQL: DATETIME writes preserve local date/time fields
 
