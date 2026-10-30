@@ -314,6 +314,8 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
 
+在处理 batch 写入失败时，如果连接有效性检查抛出 `SQLException`，该连接会被视为失效。当 `max_retries` 允许再次尝试时，writer 会重新建立连接并重试尚未完成的 batch。连接检查超时不会增加重试次数。
+
 ### connect_timeout_ms [int]
 
 建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
@@ -325,6 +327,8 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 ### max_retries [int]
 
 JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
+
+当 `max_retries = 0` 时，即使连接有效性检查也失败，失败的 batch 仍不会重试。重新连接不会使非 XA 写入自动具备 exactly-once 语义：如果数据库已经执行了失败 batch 中的部分写入，重试可能重复这些写入。应根据所需的投递语义使用适当的主键/upsert 行为或 XA 事务。
 
 ### batch_size [int]
 

@@ -313,6 +313,8 @@ The target key columns used to generate database-native UPSERT, UPDATE, and DELE
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
+If this validation throws a `SQLException` while handling a failed batch, the connection is treated as broken. When `max_retries` permits another attempt, the writer reestablishes the connection and retries the pending batch. The validation timeout does not increase the retry budget.
+
 ### connect_timeout_ms [int]
 
 Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
@@ -324,6 +326,8 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 ### max_retries [int]
 
 The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
+
+With `max_retries = 0`, a failed batch is not retried even if connection validation also fails. Reconnecting does not make a non-XA write exactly-once: if the database applied part of a failed batch, retrying can repeat those writes. Use suitable primary keys/upsert behavior or XA transactions for the required delivery semantics.
 
 ### batch_size [int]
 
