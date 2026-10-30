@@ -54,8 +54,8 @@ public class RowKindExtractorTransform extends SingleFieldOutputTransform {
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         Object fieldValue = getOutputFieldValue(new SeaTunnelRowAccessor(inputRow));
-        inputRow.setRowKind(RowKind.INSERT);
         SeaTunnelRow outputRow = getRowContainerGenerator().apply(inputRow);
+        outputRow.setRowKind(RowKind.INSERT);
         outputRow.setField(getFieldIndex(), fieldValue);
         return outputRow;
     }
