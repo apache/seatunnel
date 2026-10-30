@@ -239,6 +239,8 @@ Writer the sheet of the workbook
 
 ### csv_string_quote_mode [string]
 
+Quoting uses the configured `field_delimiter`: if a string field contains the delimiter, quotes, or line breaks, the value is quoted under `MINIMAL`, and embedded quotes are escaped.
+
 When File Format is CSV,The string quote mode of CSV.
 
 - ALL: All String fields will be quoted.
