@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.options.table.FormatOptions;
@@ -42,6 +43,8 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         MaxcomputeSinkOptions.ENDPOINT,
+                        Conditions.notBlank(MaxcomputeSinkOptions.ENDPOINT))
+                .required(
                         MaxcomputeSinkOptions.PROJECT,
                         MaxcomputeSinkOptions.TABLE_NAME)
                 .optional(
