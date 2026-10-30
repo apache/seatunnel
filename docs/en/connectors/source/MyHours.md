@@ -12,26 +12,37 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 ## Description
 
-Used to read data from My Hours through the My Hours REST API. The connector logs in with the configured
-`email` and `password`, obtains an access token, and then sends the configured HTTP request with that token.
+The My Hours source exposes settings for reading My Hours REST endpoints through the shared HTTP request and retry runtime.
+
+:::caution Authentication limitation
+
+Automatic email/password authentication currently sends the configured data request instead of the login request containing credentials. The template below using a data URL is a configuration reference and does not complete that login. A separately tested connector authentication fix is required before live use; access tokens are not automatically refreshed.
+
+:::
 
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
+:::tip
+
+The shared HTTP reader supports repeated polling in streaming mode using `poll_interval_millis`. The authentication limitation above applies to My Hours in both batch and streaming modes.
+
+:::
+
 ## Supported DataSource Info
 
-In order to use the My Hours connector, the following dependencies are required.
-They can be downloaded via install-plugin.sh or from the Maven central repository.
+In order to use the My Hours connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from the Maven central repository.
 
 | Datasource | Supported Versions |                                         Dependency                                          |
 |------------|--------------------|---------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel) |
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-myhours)      |
 
 ## Source Options
 
@@ -56,7 +67,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | json_filed_missed_return_null | Boolean | No     | false   | Return `null` when a configured JSON field is missing.                                                                |
 | common-options              |         | No       | -       | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md).             |
 
-## How to Create a My Hours Data Synchronization Jobs
+## Configuration reference (authentication currently blocked)
 
 ```hocon
 env {
@@ -110,6 +121,16 @@ sink {
 ```
 
 ## Parameter Interpretation
+
+### Authentication
+
+The configuration requires `email` and `password`, but the current implementation has the authentication limitation described above. No automatic access-token refresh is implemented.
+
+### Request scope and polling limits
+
+Each configured request reads one HTTP response. Automatic pagination is not supported: `pageing` does not advance pages or follow next-page links or cursors. Select a specific page in the API request or manage multiple requests outside the connector.
+
+Streaming mode repeats the configured request. Polls can re-emit the same rows, and the connector does not checkpoint an API cursor for incremental recovery. Repeated polls and restarts can therefore produce duplicates.
 
 ### format
 
