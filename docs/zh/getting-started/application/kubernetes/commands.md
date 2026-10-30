@@ -40,13 +40,17 @@ Application ID: example-9f2c41a0b7d3
 Status: RUNNING
 ```
 
-加 `--wait` 会持续轮询直到终态；`FAILED`、`CANCELED` 和 `UNKNOWN` 会让命令以非零码退出，可直接
-作为调度器或 CI 的完成判定。`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
+不带 `--wait` 的 `status` 打印状态快照，查询成功时返回 `0`，包括 `FAILED` 和 `UNKNOWN`；
+查询异常以非零码退出。加 `--wait` 会持续轮询直到终态或 `UNKNOWN`。
+`status --wait` 和 `submit --wait` 在 `FAILED` 时退出码为 `1`，在 `UNKNOWN` 时为 `2`
+（表示无法确定成功或失败），在 `SUCCEEDED` 或 `CANCELED` 时为 `0`。
+共享退出码规则见[状态与等待](../cli.md#状态与等待)。
+`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
 默认 `0` 表示一直等待。`--wait-interval` 设置轮询间隔（默认 500 ms）。
 
 ## cancel
 
-单 Master 和 HA application 的 `cancel` 删除 owner Job 及自有资源。HA 使用 UID 前置条件；单 Master 仍清理 Job 已不存在时的孤立 Pod。同一 handle 返回 `CANCELED`；删除后新 handle 返回 `UNKNOWN`，引用的用户资源保持不变。若通过原生引擎而非 application 命令取消，终态 Job 可以保留至 TTL 到期。
+单 Master 和 HA application 的 `cancel` 删除 owner Job，自有 Pod、Service、Secret 和 ConfigMap 通过 owner reference 回收，引用的用户资源保持不变。HA 使用 UID 前置条件；单 Master 在 owner Job 缺失时仍保留优雅清理行为。删除请求被接受后命令输出 `Cancellation requested`。同一客户端 handle 返回 `CANCELED`；删除后新 handle 返回 `UNKNOWN`。可以用 `kubectl` 确认 Pod 已经消失。如果 API 调用失败，请在 API 恢复后重试 `cancel`。若通过原生引擎而非 application 命令取消，终态 Job 可以保留至 TTL 到期。
 
 ## 用 kubectl 排查
 

@@ -2325,7 +2325,8 @@ public class CoordinatorServiceTest {
         try {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-            CoordinatorService coordinatorService = server.getCoordinatorService();
+            CoordinatorService coordinatorService =
+                    server.awaitCoordinatorService(TimeUnit.SECONDS.toMillis(60));
             await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));

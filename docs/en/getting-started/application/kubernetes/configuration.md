@@ -480,7 +480,7 @@ application {
 
 kubernetes {
   namespace = seatunnel
-  image = "registry.example.com/seatunnel/application:3.0.1"
+  image = "registry.example.com/seatunnel/application:3.1.0"
   image-pull-policy = IfNotPresent
   service-account = seatunnel-application
   job-config-file = job.conf

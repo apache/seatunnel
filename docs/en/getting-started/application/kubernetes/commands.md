@@ -44,15 +44,18 @@ Application ID: example-9f2c41a0b7d3
 Status: RUNNING
 ```
 
-`--wait` keeps polling until a terminal status is reported; `FAILED`, `CANCELED` and `UNKNOWN` make
-the command exit non-zero, which turns it into a completion gate for schedulers and CI.
+A plain `status` prints the snapshot and exits `0` when the query succeeds, including for `FAILED`
+and `UNKNOWN`; query errors exit non-zero. `--wait` keeps polling until a terminal status or `UNKNOWN`
+is reported. Both `status --wait` and `submit --wait` exit `1` for `FAILED`, `2` for `UNKNOWN`
+(an indeterminate outcome, not a confirmed success or failure), and `0` for `SUCCEEDED` or `CANCELED`.
+See [Status and waiting](../cli.md#status-and-waiting) for the shared exit-code contract.
 `--wait-timeout` bounds that polling and fails with the last observed status when the limit is
 reached, while the default `0` keeps waiting indefinitely; `--wait-interval` sets the poll interval
 (500 ms by default).
 
 ## cancel
 
-For single-master and HA applications, `cancel` deletes the owner Job and owned resources. HA uses a UID precondition; single-master mode still cleans orphan Pods after Job deletion. The same handle reports `CANCELED`; a fresh handle sees `UNKNOWN` after deletion. Referenced user resources are preserved. Cancellation through the native engine instead of the application command can leave a terminal Job until its retention TTL.
+For single-master and HA applications, `cancel` deletes the owner Job. Owned Pods, Services, Secrets and ConfigMaps are garbage-collected through owner references; referenced user resources are preserved. HA uses a UID precondition, and single-master mode retains graceful cleanup when the owner Job is missing. The command reports `Cancellation requested` once deletion is accepted. The same client handle reports `CANCELED`; a fresh handle sees `UNKNOWN` after deletion. Use `kubectl` to confirm that the Pods are gone. If an API call fails, retry `cancel` after the outage is resolved. Cancellation through the native engine instead of the application command can leave a terminal Job until its retention TTL.
 
 ## Inspecting in Kubernetes
 

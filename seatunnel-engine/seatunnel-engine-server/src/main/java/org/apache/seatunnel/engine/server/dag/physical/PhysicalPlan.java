@@ -228,10 +228,10 @@ public class PhysicalPlan {
                     .forEach(SubPlan::cancelPipeline);
         } else {
             errorBySubPlan.compareAndSet(null, ExceptionUtils.getMessage(failure));
-            updateJobState(JobStatus.FAILING);
             pipelineList.stream()
                     .filter(pipeline -> !pipeline.getCurrPipelineStatus().isEndState())
                     .forEach(pipeline -> pipeline.makePipelineFailing(failure));
+            updateJobState(JobStatus.FAILING);
         }
         pipelineList.forEach(SubPlan::startSubPlanStateProcess);
     }
@@ -427,7 +427,22 @@ public class PhysicalPlan {
             case FAILING:
             case CANCELING:
                 jobMaster.neverNeedRestore();
-                getPipelineList().forEach(SubPlan::cancelPipeline);
+                if (JobStatus.CANCELING.equals(jobStatus)) {
+                    // Mark every pipeline as cancel-requested before any cancelPipeline() can
+                    // block on checkpoint cancellation: CoordinatorService.makeTasksFailed()
+                    // may otherwise complete the remaining RUNNING vertices as FAILED while
+                    // the cancel loop has not reached their pipeline yet (#12353).
+                    getPipelineList().forEach(SubPlan::markCancelRequested);
+                }
+                getPipelineList().stream()
+                        // A failing pipeline already cancels its vertices. Reclassifying that
+                        // cleanup as a cancel request would hide the failure that ended the job.
+                        .filter(
+                                pipeline ->
+                                        !JobStatus.FAILING.equals(jobStatus)
+                                                || !PipelineStatus.FAILING.equals(
+                                                        pipeline.getCurrPipelineStatus()))
+                        .forEach(SubPlan::cancelPipeline);
                 break;
             case FAILED:
             case CANCELED:
