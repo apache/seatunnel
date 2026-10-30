@@ -13,6 +13,22 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A client that percent-encoded `params` values to get them through the old parsing, for example `"jobName": "sales%26ops"`, now gets the encoded text literally (`sales%26ops` instead of `sales&ops`). `POST /submit-job` is unchanged and still URL-decodes its query string.
   - **Migration Guide**: Remove any URL encoding from `params` values and send them as plain JSON strings.
 
+### JDBC Sink: fail safely after losing uncommitted work
+
+- **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
+  (`auto_commit = false`, or Oracle, which always uses manual commit).
+- **Behavior change**: if flushed but uncommitted work is lost through connection replacement or
+  transaction rollback, the sink refuses the commit so the job can recover from the last successful
+  checkpoint. A failed flush is not retried while earlier flushed work is pending. In multi-table
+  row-error handling, a rollback that discards another table's work also prevents further commits.
+  A commit exception also prevents further commits by the failed writer and, when flushed work is
+  pending, by all writers sharing its transaction. Commit exceptions remain system errors even with
+  SQLState class `22` or `23`; retrying only the commit cannot replay a rolled-back transaction.
+  Previously, these paths could complete a checkpoint with records missing.
+- **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
+  restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
+  jobs without checkpointing, and XA writers retain their existing behavior.
+
 ### Lance sink: TIMESTAMP values keep their microseconds
 
 - **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**

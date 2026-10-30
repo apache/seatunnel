@@ -12,6 +12,18 @@
   - **影响**：为绕过旧的解析逻辑而对 `params` 值做了百分号编码的客户端（例如 `"jobName": "sales%26ops"`），现在会原样得到编码后的文本（`sales%26ops`，而不是 `sales&ops`）。`POST /submit-job` 不受影响，仍会对查询字符串进行 URL 解码。
   - **迁移指南**：去掉 `params` 值上的 URL 编码，直接以普通 JSON 字符串发送。
 
+### JDBC Sink：未提交数据丢失后拒绝提交
+
+- **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
+  或始终使用手动提交的 Oracle）。
+- **行为变化**：如果连接替换或事务回滚丢弃了已 flush 但尚未提交的数据，Sink 会拒绝提交，使作业能够从上一个
+  成功的 checkpoint 恢复。存在先前已 flush 的待提交数据时，失败的 flush 不再原地重试。多表行级错误处理中，
+  如果回滚同时丢弃了其他表的数据，该共享事务也不允许继续提交。提交异常会禁止失败 writer 再次提交；如果存在已 flush
+  的待提交数据，同事务的所有 writer 也会拒绝提交。提交异常即使包含 `22` 或 `23` 类 SQLState 也按系统错误处理，
+  因为仅重试提交无法重放已回滚的事务。此前这些路径可能在记录缺失时仍完成 checkpoint。
+- **升级说明**：无需迁移配置或 checkpoint 格式。受影响的作业可能由批次原地重试或忽略行级错误继续运行，
+  转为失败恢复。自动提交连接、未开启 checkpoint 的作业和 XA Writer 保持原有行为。
+
 ### Lance Sink：TIMESTAMP 值保留微秒
 
 - **行为变更：Lance Sink 写入的 `TIMESTAMP` 保留毫秒以下的数字**
@@ -31,6 +43,7 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **描述**：Doris 和 StarRocks Source 使用的 `ArrowToSeatunnelRowReader` 会把 MAP 列交给 `MapConverter`、ROW 列交给 `StructConverter`。这两个转换器在处理元素类型的分支中没有检查 Arrow 的有效性位，因此为空的 MAP 单元格被返回为空 Map，为空的 ROW 单元格则以 `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null` 结束整个读取。现在两者都返回 `null`，与自 Arrow Reader 引入起就有此判断的 `ListConverter`、`LargeListConverter` 和 `FixedSizeListConverter` 保持一致。
   - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
   - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
+
 
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 

@@ -68,7 +68,14 @@ public class DatabendTypeConverter {
             case DATE:
                 return "DATE";
             case TIME:
-                return "TIME";
+                // Databend has no TIME type. Its type parser accepts TIME only inside
+                // TIMESTAMP WITH TIME ZONE, so an ALTER TABLE ADD COLUMN naming TIME fails to
+                // parse and the schema change event is rejected. A time of day is carried as
+                // text instead, which is what the Doris and StarRocks converters also do for a
+                // target without a TIME type. Those two use VARCHAR(8); STRING is used here
+                // because LocalTime.toString() reaches 18 characters once the value carries a
+                // sub-second part, and Databend's String is unbounded.
+                return "STRING";
             case TIMESTAMP:
                 return "TIMESTAMP";
             case BYTES:

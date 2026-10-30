@@ -379,3 +379,13 @@ sink {
 - [sink 目标端架构](sink-architecture.md)
 - [模式演化](../../introduction/configuration/schema-evolution.md)
 - [模式特性](../../introduction/concepts/schema-feature.md)
+
+## 11. 参考资料
+
+### 关键源码文件
+
+- [CatalogTable.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [TableSchema.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
+- [Column.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
+- [SeaTunnelDataType.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
+- [SchemaChangeEvent.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/schema/event/SchemaChangeEvent.java)

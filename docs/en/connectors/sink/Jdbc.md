@@ -325,6 +325,8 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 
 The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
+A non-XA manual-commit failure at `Connection.commit()` is treated as a system error, even with SQLState class `22` or `23`. The failed writer cannot retry the commit as if it restored the transaction. With checkpointing enabled, any flushed work sharing that transaction is marked unsafe, and other writers on the same queue also refuse to commit until recovery.
+
 ### batch_size [int]
 
 The maximum number of buffered rows per batch. The sink flushes when the buffer reaches `batch_size`, when a checkpoint prepares a commit, or when the writer closes. A larger value can improve throughput but uses more memory and increases the amount of work retried after a failure.
