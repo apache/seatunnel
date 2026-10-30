@@ -434,7 +434,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 && SqlType.STRING.equals(elementType.getSqlType())) {
                             statement.setArray(
                                     statementIndex,
-                                    statement.getConnection()
+                                    statement
+                                            .getConnection()
                                             .createArrayOf(enumElementType, array));
                             break;
                         }
@@ -625,8 +626,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
      * tenant."text"} look like builtin {@code text}, and it binds the wrong type when two schemas
      * define the same enum name.
      */
-    @Nullable
-    private static String postgresUserTypeName(String sourceType) {
+    @Nullable private static String postgresUserTypeName(String sourceType) {
         if (sourceType == null) {
             return null;
         }
@@ -643,12 +643,11 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /**
-     * Element type for {@code Connection.createArrayOf}, or null when the array is not an enum.
-     * The {@code []} suffix is removed only when it sits outside the quoted name. pgjdbc appends
-     * {@code []} again while resolving the array type.
+     * Element type for {@code Connection.createArrayOf}, or null when the array is not an enum. The
+     * {@code []} suffix is removed only when it sits outside the quoted name. pgjdbc appends {@code
+     * []} again while resolving the array type.
      */
-    @Nullable
-    private static String postgresEnumArrayElementType(String sourceType) {
+    @Nullable private static String postgresEnumArrayElementType(String sourceType) {
         if (sourceType == null) {
             return null;
         }
@@ -660,14 +659,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /**
-     * Schema and type with quotes removed, or null when {@code sourceType} is not one identifier
-     * or {@code schema.type}. Index 0 is null when the name has no schema. An unquoted name is
-     * folded to lowercase, the way PostgreSQL folds it. A quoted name keeps its case, so {@code
-     * "TEXT"} is not builtin {@code text}. A doubled quote inside a quoted identifier is one quote
-     * character.
+     * Schema and type with quotes removed, or null when {@code sourceType} is not one identifier or
+     * {@code schema.type}. Index 0 is null when the name has no schema. An unquoted name is folded
+     * to lowercase, the way PostgreSQL folds it. A quoted name keeps its case, so {@code "TEXT"} is
+     * not builtin {@code text}. A doubled quote inside a quoted identifier is one quote character.
      */
-    @Nullable
-    private static String[] splitPgTypeName(String sourceType) {
+    @Nullable private static String[] splitPgTypeName(String sourceType) {
         PgIdentifier first = readPgIdentifier(sourceType, 0);
         if (first == null || first.comparable.isEmpty()) {
             return null;
@@ -685,8 +682,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         return new String[] {first.comparable, second.comparable};
     }
 
-    @Nullable
-    private static PgIdentifier readPgIdentifier(String value, int start) {
+    @Nullable private static PgIdentifier readPgIdentifier(String value, int start) {
         if (start >= value.length()) {
             return null;
         }
@@ -716,8 +712,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         while (index < value.length() && isPgIdentifierPart(value.charAt(index))) {
             index++;
         }
-        return new PgIdentifier(
-                value.substring(start, index).toLowerCase(Locale.ROOT), index);
+        return new PgIdentifier(value.substring(start, index).toLowerCase(Locale.ROOT), index);
     }
 
     private static boolean isPgIdentifierStart(char current) {
@@ -727,9 +722,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     private static boolean isPgIdentifierPart(char current) {
-        return isPgIdentifierStart(current)
-                || (current >= '0' && current <= '9')
-                || current == '$';
+        return isPgIdentifierStart(current) || (current >= '0' && current <= '9') || current == '$';
     }
 
     private static final class PgIdentifier {

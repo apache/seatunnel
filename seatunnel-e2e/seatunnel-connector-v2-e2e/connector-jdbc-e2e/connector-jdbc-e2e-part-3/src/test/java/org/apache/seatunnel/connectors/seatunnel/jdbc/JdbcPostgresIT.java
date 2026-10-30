@@ -29,15 +29,15 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -1080,8 +1080,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         executeSQL("DROP SCHEMA IF EXISTS enum_bind_other CASCADE");
         executeSQL("CREATE SCHEMA enum_bind");
         executeSQL("CREATE SCHEMA enum_bind_other");
-        executeSQL(
-                "CREATE TYPE enum_bind.\"ChapterElementType\" AS ENUM ('paragraph', 'heading')");
+        executeSQL("CREATE TYPE enum_bind.\"ChapterElementType\" AS ENUM ('paragraph', 'heading')");
         executeSQL("CREATE TYPE enum_bind.\"Order Status\" AS ENUM ('open', 'closed')");
         executeSQL("CREATE TYPE enum_bind.\"Role\" AS ENUM ('ADMIN', 'reader')");
         executeSQL("CREATE TYPE enum_bind.\"text\" AS ENUM ('literal', 'other')");
@@ -1165,7 +1164,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 SeaTunnelRow row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                    1, "paragraph", "open", new String[] {"ADMIN"}, "literal",
+                                    1,
+                                    "paragraph",
+                                    "open",
+                                    new String[] {"ADMIN"},
+                                    "literal",
                                     "{\"a\":1}"
                                 });
                 try (PreparedStatement statement =

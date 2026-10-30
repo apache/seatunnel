@@ -373,8 +373,7 @@ public class PostgresJdbcRowConverterTest {
     @Test
     public void testToExternalKeepsQuotedMixedCaseEnumType() throws SQLException {
         TableSchema tableSchema =
-                createTableSchema(
-                        "elementType", BasicType.STRING_TYPE, "\"ChapterElementType\"");
+                createTableSchema("elementType", BasicType.STRING_TYPE, "\"ChapterElementType\"");
 
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "paragraph"});
         PreparedStatement statement = mock(PreparedStatement.class);
@@ -488,7 +487,8 @@ public class PostgresJdbcRowConverterTest {
 
     @Test
     public void testToExternalLeavesPgCatalogTextOnStringBinding() throws SQLException {
-        TableSchema tableSchema = createTableSchema("body", BasicType.STRING_TYPE, "pg_catalog.text");
+        TableSchema tableSchema =
+                createTableSchema("body", BasicType.STRING_TYPE, "pg_catalog.text");
 
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "plain"});
         PreparedStatement statement = mock(PreparedStatement.class);
@@ -500,8 +500,7 @@ public class PostgresJdbcRowConverterTest {
 
     @Test
     public void testToExternalBindsUnquotedEnumType() throws SQLException {
-        TableSchema tableSchema =
-                createTableSchema("state", BasicType.STRING_TYPE, "ticket_state");
+        TableSchema tableSchema = createTableSchema("state", BasicType.STRING_TYPE, "ticket_state");
 
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
         PreparedStatement statement = mock(PreparedStatement.class);
