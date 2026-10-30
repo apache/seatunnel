@@ -8,6 +8,16 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+### DB2 upsert 的 NULL 处理
+
+生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
+
+## MySQL 时间值
+
+MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
+
+从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -321,6 +331,8 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 JDBC `executeBatch` 失败后的重试次数。在自动提交模式下，PostgreSQL `40P01` 等事务冲突保持原有的通用重试行为。在手动提交连接上，只有 sink 能够回滚并完整重放本次 flush 事务时才会重试，否则会直接抛出。当一个 checkpoint 事务跨越多个 flush 时，由 checkpoint 恢复机制安全重放完整事务。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
+非 XA 手动提交连接在 `Connection.commit()` 阶段失败时，一律按系统错误处理，即使 SQLState 属于 `22` 或 `23` 类也不能作为行级错误丢弃。失败的 writer 不能通过再次提交来假定事务已恢复。开启 checkpoint 时，该共享事务中已 flush 的数据会被标记为不安全，同队列的其他 writer 也会拒绝提交，直到作业恢复。
+
 ### batch_size [int]
 
 每个 batch 最多缓存的行数。达到 `batch_size`、checkpoint 准备提交或 writer 关闭时会执行 flush。增大该值可能提高吞吐，但会占用更多内存，并增加故障后需要重试的数据量。
@@ -407,6 +419,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
+
+目标表的完整路径指定数据库（`database.schema.table`）时，`DROP_DATA` 会连接到该数据库执行 `TRUNCATE TABLE`。
 
 ### table_options [Map]
 
