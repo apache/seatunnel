@@ -494,6 +494,22 @@ Result: Records 0-99, 100-199, 200-299 committed exactly once
         Records from 100+ reprocessed but not duplicated (idempotent commit)
 ```
 
+### 4.3 Master Failover with Idle Source Readers
+
+For a running streaming pipeline, Zeta keeps checkpointing after a master switch even when
+an unbounded source reader group has already finished through the idle-close handshake.
+Every enumerator and committer must still be running, and each finished reader group must
+contain at least one source with all its sources unbounded. Bounded sources, non-source
+groups, failed groups and unknown states do not qualify. A finished enumerator is not an
+idle reader and follows the existing restart path.
+
+The new master reconstructs the closed reader groups from the distributed execution states
+before creating the next checkpoint, so it does not wait for acknowledgements from tasks
+that have already exited. This decision applies only to master failover of a running
+pipeline; it does not change normal execution, configuration defaults or the persisted
+checkpoint format. The execution state and source boundedness identify eligible groups;
+they do not record the original reason for closure.
+
 ## 5. Configuration and Tuning
 
 ### 5.1 Checkpoint Configuration
@@ -512,6 +528,31 @@ env {
 ```
 
 Checkpoint storage is configured on the engine side (e.g., `config/seatunnel.yaml` under `seatunnel.engine.checkpoint.storage`), rather than as job-level `env` options.
+
+The size of the checkpoint history the monitor retains is also engine-side:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      monitor-history-size: 32   # default
+```
+
+This is how many checkpoint history entries are kept per pipeline for the
+`/jobs/checkpoints/{jobId}` REST endpoint; completed and failed checkpoints
+share the window. Valid values are 1 to 4096.
+
+It bounds how far back a client can compare a job against its own past, which
+matters for spotting a gradual slowdown. Note that it is a count, not a
+duration: how much time it covers depends on each job's own
+`checkpoint.interval`, while the option itself is cluster-wide. At the default
+interval of 300000ms, 32 entries cover roughly 2.5 hours; on a job
+checkpointing every 10000ms they cover only about 5 minutes.
+
+The history is stored in the cluster-wide checkpoint overview map, and every
+checkpoint event rewrites that whole entry, so a larger window costs master
+CPU, network and backup traffic as well as heap — not heap alone. The value is
+read once at master startup, so changing it requires a restart.
 
 ### 5.2 Tuning Guidelines
 
