@@ -42,9 +42,10 @@ import java.util.stream.Collectors;
 public abstract class AbstractJobEnvironment {
     protected static ILogger LOGGER = null;
 
-    protected final boolean isStartWithSavePoint;
-
     protected final RestoreMode restoreMode;
+
+    /** @deprecated Use {@link #restoreMode} to distinguish restore modes. */
+    @Deprecated protected final boolean isStartWithSavePoint;
 
     protected final List<Action> actions = new ArrayList<>();
 
@@ -58,6 +59,8 @@ public abstract class AbstractJobEnvironment {
 
     protected final List<URL> commonPluginJars = new ArrayList<>();
 
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
     public AbstractJobEnvironment(JobConfig jobConfig, boolean isStartWithSavePoint) {
         this(jobConfig, isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE);
     }
