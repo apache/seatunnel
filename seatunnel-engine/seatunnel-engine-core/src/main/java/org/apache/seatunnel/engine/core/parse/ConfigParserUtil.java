@@ -266,6 +266,11 @@ public final class ConfigParserUtil {
         return config.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
     }
 
+    /**
+     * Returns configured input IDs, or the default input ID when {@code plugin_input} is absent. An
+     * explicitly empty list stays empty so the dependency scheduler can distinguish the legacy
+     * previous-output fallback from an omitted input that refers to the default output.
+     */
     public static List<String> getInputIds(ReadonlyConfig config) {
         return config.getOptional(PLUGIN_INPUT).orElse(Collections.singletonList(DEFAULT_ID));
     }

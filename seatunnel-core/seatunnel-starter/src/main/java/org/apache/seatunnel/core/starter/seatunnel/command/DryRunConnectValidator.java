@@ -221,6 +221,10 @@ class DryRunConnectValidator {
         }
     }
 
+    /**
+     * Uses the runtime dependency scheduler and translates job-definition failures into dry-run
+     * configuration errors, preserving the original message and cause.
+     */
     static List<ScheduledTransform> scheduleTransforms(
             List<? extends Config> configs, Set<String> initialOutputIds) {
         try {
