@@ -209,6 +209,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | support_upsert_by_insert_only             | Boolean | No       | false                        |
 | table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
+| use_sqlserver_bulk_copy | Boolean | No | false | Insert-only SQL Server bulk copy. Requires `enable_upsert=false` and generated insert mode. |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
 | use_kerberos                              | Boolean | No       | false                        |
@@ -585,6 +586,19 @@ Whether primary key fields are included when generating update statements. Keep 
 ### support_upsert_by_insert_only [boolean]
 
 Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
+
+### use_sqlserver_bulk_copy [boolean]
+
+Enables Microsoft JDBC `SQLServerBulkCopy` for insert-only SQL Server writes. The default is `false`.
+Set `enable_upsert = false` and `generate_sink_sql = true`. Exactly-once, upsert, PostgreSQL
+`use_copy_statement`, custom `query`, and non-INSERT row kinds are rejected instead of being silently ignored.
+Use a SQL Server JDBC URL and provide `database` and `table` as for ordinary generated JDBC inserts.
+
+Input columns are explicitly mapped to destination column names, so destination ordering may differ and
+omitted identity/default columns are allowed. Explicit identity values and nulls are preserved, and
+constraints/triggers remain enabled. `auto_commit` retains the regular JDBC writer transaction behavior;
+the bulk executor does not commit or roll back the connection itself. Delivery is at-least-once and a
+retry can repeat a completed batch, so design the destination accordingly.
 
 ### use_copy_statement [boolean]
 

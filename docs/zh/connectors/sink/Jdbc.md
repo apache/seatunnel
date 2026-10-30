@@ -209,6 +209,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | support_upsert_by_insert_only             | Boolean | 否    | false                        |
 | table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
+| use_sqlserver_bulk_copy | Boolean | 否 | false | SQL Server 仅插入的批量复制，要求 `enable_upsert=false` 并使用自动生成的插入模式。 |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
 | create_index                              | Boolean | 否    | true                         |
 | use_kerberos                              | Boolean | 否    | false                        |
@@ -581,6 +582,17 @@ sink {
 ### support_upsert_by_insert_only [boolean]
 
 是否通过仅 insert 的语句支持 upsert 行为。该参数属于高级兼容选项，默认关闭。
+
+### use_sqlserver_bulk_copy [boolean]
+
+通过 Microsoft JDBC `SQLServerBulkCopy` 执行仅插入的 SQL Server 写入，默认值为 `false`。
+必须设置 `enable_upsert = false` 和 `generate_sink_sql = true`。Exactly-Once、Upsert、PostgreSQL 的
+`use_copy_statement`、自定义 `query` 以及非 INSERT 行会被明确拒绝，不会被静默忽略。
+使用 SQL Server JDBC URL，并按照普通 JDBC 自动生成插入模式配置 `database` 和 `table`。
+
+输入字段会按名称显式映射到目标字段，因此目标字段顺序可以不同，也可以省略由目标端生成的自增或默认值字段。
+显式输入的自增值和 NULL 会被保留，约束和触发器保持启用。`auto_commit` 沿用普通 JDBC Writer 的事务行为，
+批量复制执行器不会自行提交或回滚连接。该模式提供至少一次交付，重试可能重复已完成的批次，应据此设计目标表。
 
 ### use_copy_statement [boolean]
 
