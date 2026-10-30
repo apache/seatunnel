@@ -46,6 +46,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -67,6 +70,22 @@ public class DorisIT extends AbstractDorisIT {
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
+    private static final String TZ_UNSET_TABLE = "doris_tz_unset";
+    private static final String TZ_EXPLICIT_TABLE = "doris_tz_explicit";
+    private static final OffsetDateTime TZ_SOURCE_VALUE =
+            OffsetDateTime.parse("2025-09-28T02:54:08+08:00");
+    private static final Pattern TIMESTAMP_TZ_WARNING =
+            Pattern.compile(
+                    Pattern.quote(
+                                    "Doris sink table "
+                                            + sinkDB
+                                            + "."
+                                            + TZ_UNSET_TABLE
+                                            + " has TIMESTAMP_TZ columns [F_TS] and"
+                                            + " 'sink.datetime-timezone' is not set. These values"
+                                            + " are written as wall-clock time in the JVM default"
+                                            + " zone ")
+                            + "(\\S+)\\. ");
     private Connection conn;
 
     private Map<String, String> checkColumnTypeMap = null;
@@ -241,6 +260,76 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
+    }
+
+    @TestTemplate
+    public void testTimestampTzZoneWarning(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        try {
+            Container.ExecResult unsetResult =
+                    container.executeJob("/fake_timestamp_tz_to_doris_zone_unset.conf");
+            Assertions.assertEquals(0, unsetResult.getExitCode(), unsetResult.getStderr());
+            Container.ExecResult explicitResult =
+                    container.executeJob("/fake_timestamp_tz_to_doris_zone_explicit.conf");
+            Assertions.assertEquals(0, explicitResult.getExitCode(), explicitResult.getStderr());
+
+            // Where the writer's log ends up depends on the engine, so search both.
+            String logs =
+                    unsetResult.getStdout()
+                            + unsetResult.getStderr()
+                            + explicitResult.getStdout()
+                            + explicitResult.getStderr()
+                            + container.getServerLogs();
+            Matcher warning = TIMESTAMP_TZ_WARNING.matcher(logs);
+            Assertions.assertTrue(
+                    warning.find(), "No TIMESTAMP_TZ zone warning for " + TZ_UNSET_TABLE);
+            Assertions.assertFalse(
+                    logs.contains("Doris sink table " + sinkDB + "." + TZ_EXPLICIT_TABLE),
+                    "Unexpected TIMESTAMP_TZ zone warning for " + TZ_EXPLICIT_TABLE);
+
+            // The warning names the zone the value was written in; the explicit zone is a control.
+            ZoneId jvmZone = ZoneId.of(warning.group(1));
+            LocalDateTime expectedUnset =
+                    TZ_SOURCE_VALUE.atZoneSameInstant(jvmZone).toLocalDateTime();
+            LocalDateTime expectedExplicit =
+                    TZ_SOURCE_VALUE.atZoneSameInstant(ZoneId.of("Asia/Shanghai")).toLocalDateTime();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        expectedUnset, readTimestampTz(TZ_UNSET_TABLE));
+                                Assertions.assertEquals(
+                                        expectedExplicit, readTimestampTz(TZ_EXPLICIT_TABLE));
+                            });
+        } finally {
+            dropTable(sinkDB, TZ_UNSET_TABLE);
+            dropTable(sinkDB, TZ_EXPLICIT_TABLE);
+        }
+    }
+
+    private LocalDateTime readTimestampTz(String table) throws SQLException {
+        try (Statement statement = conn.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select cast(F_TS as string) from %s.%s where F_ID = 1",
+                                        sinkDB, table))) {
+            Assertions.assertTrue(resultSet.next(), "No row in " + table);
+            String value = resultSet.getString(1);
+            Assertions.assertFalse(resultSet.next(), "More than one row in " + table);
+            return LocalDateTime.parse(value.substring(0, 19).replace(' ', 'T'));
+        }
+    }
+
+    private void dropTable(String db, String table) {
+        try (Statement statement = conn.createStatement()) {
+            statement.execute(String.format("DROP TABLE IF EXISTS %s.%s", db, table));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop " + db + "." + table, e);
+        }
     }
 
     private void checkAllTypeSinkData() {

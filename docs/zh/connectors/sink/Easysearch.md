@@ -15,11 +15,13 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 ## 使用依赖
 
 > 依赖 [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 :::提示
 
@@ -45,26 +47,26 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 
 ## 接收器选项
 
-|          名称           | 类型    | 是否必填 | 默认值 |
-|------------------------|---------|----|---------------|
-| hosts                  | array   | 是  | -             |
-| index                  | string  | 是  | -             |
-| primary_keys           | list    | 否       | -             |
-| key_delimiter          | string  | 否       | `_`           |
-| key_encoding           | enum    | 否       | LEGACY        |
-| username               | string  | 否       | -             |
-| password               | string  | 否       | -             |
-| max_retry_count        | int     | 否       | 3             |
-| max_batch_size         | int     | 否       | 10            |
-| tls_verify_certificate | boolean | 否       | true          |
-| tls_verify_hostname    | boolean | 否       | true          |
-| tls_keystore_path      | string  | 否       | -             |
-| tls_keystore_password  | string  | 否       | -             |
-| tls_truststore_path    | string  | 否       | -             |
-| tls_truststore_password | string | 否       | -             |
-| schema_save_mode       | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | enum    | 否       | APPEND_DATA   |
-| common-options         | config  | 否       | -             |
+|          名称           | 类型    | 是否必填 | 默认值           | 描述                                                                                                              |
+|------------------------|---------|----|---------------|-------------------------------------------------------------------------------------------------------------------|
+| hosts                  | array   | 是  | -             | Easysearch HTTP 集群地址，格式为 `host:port`，可指定多个主机，例如 `["host1:9200", "host2:9200"]`。                              |
+| index                  | string  | 是  | -             | Easysearch 索引名称。支持占位符，例如 `seatunnel_${age}`。                                                              |
+| primary_keys           | list    | 否       | -             | 用于构建文档 `_id` 的主键字段。写入需要更新或删除语义的 CDC 数据时需要配置。                                                                |
+| key_delimiter          | string  | 否       | `_`           | 在构建 `_id` 时连接复合主键字段的分隔符。                                                                                       |
+| key_encoding | enum | 否 | LEGACY | 文档主键的编码方式，详见下方 `key_encoding` 章节。 |
+| username               | string  | 否       | -             | 安全用户名。                                                                                                          |
+| password               | string  | 否       | -             | 安全密码。                                                                                                          |
+| max_retry_count        | int     | 否       | 3             | 单次批量请求的最大重试次数。                                                                                                    |
+| max_batch_size         | int     | 否       | 10            | 单次批量请求最多缓存的文档数量。                                                                                                  |
+| tls_verify_certificate | boolean | 否       | true          | 是否校验 HTTPS 证书。                                                                                                  |
+| tls_verify_hostname    | boolean | 否       | true          | 是否校验 HTTPS 主机名。                                                                                                |
+| tls_keystore_path      | string  | 否       | -             | PEM 或 JKS 密钥存储路径。                                                                                              |
+| tls_keystore_password  | string  | 否       | -             | 密钥存储的密码。                                                                                                        |
+| tls_truststore_path    | string  | 否       | -             | PEM 或 JKS 信任存储路径。                                                                                              |
+| tls_truststore_password | string | 否       | -             | 信任存储的密码。                                                                                                        |
+| schema_save_mode       | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务前如何处理目标索引，详见下方的 `schema_save_mode` 章节。                                       |
+| data_save_mode         | enum    | 否       | APPEND_DATA   | 在启动同步任务前如何处理目标端已有数据，详见下方的 `data_save_mode` 章节。                                                          |
+| common-options         | config  | 否       | -             | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。                                                |
 
 ### hosts [array]
 
@@ -180,6 +182,47 @@ sink {
     hosts = ["localhost:9200"]
     index = "seatunnel_${age}"
     primary_keys = ["key1", "key2"]
+  }
+}
+```
+
+### 按行字段写入动态索引
+
+Easysearch 未实现多表 Sink 契约。以下示例只有一张输入表，每行均携带
+`target_index` 字段。索引模板读取该字段，将两行分别写入 `st_customers`
+和 `st_orders`。上游表标识不会自动转换为行字段。`target_index` 是行字段；
+这里不使用保留的 `${table_name}` 元数据占位符。请预先创建目标索引，或在服务器上启用
+自动创建索引。`schema_save_mode = "IGNORE"` 将索引结构管理交给服务器。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 2
+    schema {
+      fields {
+        id = int
+        name = string
+        target_index = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", "customers"] },
+      { kind = INSERT, fields = [2, "order", "orders"] }
+    ]
+  }
+}
+
+sink {
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "st_${target_index}"
+    primary_keys = ["id"]
+    schema_save_mode = "IGNORE"
   }
 }
 ```
