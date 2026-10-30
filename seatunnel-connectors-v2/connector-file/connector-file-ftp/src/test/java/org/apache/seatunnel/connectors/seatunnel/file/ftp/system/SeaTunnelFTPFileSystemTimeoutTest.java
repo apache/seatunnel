@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.sink.FtpFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.source.FtpFileSourceFactory;
@@ -32,7 +37,11 @@ import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
@@ -59,12 +68,26 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     private static final class Server {
         int greetingCode = 220;
         boolean loginAccepted = true;
+        /**
+         * When set, {@code connect()} throws this instead of succeeding, like a timed-out greeting.
+         */
+        IOException connectFailure;
+        /** When set, {@code login()} throws this instead, like a timed-out login reply. */
+        IOException loginFailure;
 
         void stub(FTPClient client) throws IOException {
             when(client.getReplyCode()).thenReturn(greetingCode);
-            when(client.login(anyString(), anyString())).thenReturn(loginAccepted);
             when(client.printWorkingDirectory()).thenReturn("/");
             when(client.isConnected()).thenReturn(true);
+            if (connectFailure != null) {
+                Mockito.doThrow(connectFailure).when(client).connect(anyString(), Mockito.anyInt());
+                return;
+            }
+            if (loginFailure != null) {
+                when(client.login(anyString(), anyString())).thenThrow(loginFailure);
+                return;
+            }
+            when(client.login(anyString(), anyString())).thenReturn(loginAccepted);
         }
     }
 
@@ -125,7 +148,47 @@ class SeaTunnelFTPFileSystemTimeoutTest {
 
             // The socket is open by now, so leaving it to the garbage collector pins a control
             // connection on the server until the server gives up on it.
-            verify(mocked.constructed().get(0)).disconnect();
+            FTPClient client = mocked.constructed().get(0);
+            verify(client).disconnect();
+            // QUIT must not be attempted on a server that just refused the login.
+            verify(client, never()).logout();
+        }
+    }
+
+    @Test
+    void clientIsClosedWhenTheGreetingReadTimesOut() throws Exception {
+        Server server = new Server();
+        server.connectFailure = new SocketTimeoutException("Read timed out");
+
+        try (MockedConstruction<FTPClient> mocked = constructing(server)) {
+            Assertions.assertThrows(
+                    SocketTimeoutException.class,
+                    () -> fileSystem(baseConf()).getFileStatus(new Path("/")));
+
+            FTPClient client = mocked.constructed().get(0);
+            // connect() throws before the caller can receive the client, so this is the only
+            // place that can release the socket the client allocated before reading the greeting.
+            verify(client).disconnect();
+            // logout() would write QUIT and wait for its reply on the channel that just timed
+            // out, costing another full control_timeout before the failure surfaces.
+            verify(client, never()).logout();
+            verify(client, never()).login(anyString(), anyString());
+        }
+    }
+
+    @Test
+    void clientIsClosedWhenTheLoginReplyTimesOut() throws Exception {
+        Server server = new Server();
+        server.loginFailure = new SocketTimeoutException("Read timed out");
+
+        try (MockedConstruction<FTPClient> mocked = constructing(server)) {
+            Assertions.assertThrows(
+                    SocketTimeoutException.class,
+                    () -> fileSystem(baseConf()).getFileStatus(new Path("/")));
+
+            FTPClient client = mocked.constructed().get(0);
+            verify(client).disconnect();
+            verify(client, never()).logout();
         }
     }
 
@@ -174,17 +237,38 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     }
 
     @Test
+    void negativeControlTimeoutIsRejectedByBothFactories() {
+        // Passed through unchecked, a negative value only fails later, inside Socket.setSoTimeout,
+        // as an IllegalArgumentException that does not name the option the user set.
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("host", HOST);
+        raw.put("port", PORT);
+        raw.put("user", "user");
+        raw.put("password", "password");
+        raw.put("control_timeout", -1);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(raw))
+                                .validate(new FtpFileSourceFactory().optionRule()));
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(raw))
+                                .validate(new FtpFileSinkFactory().optionRule()));
+    }
+
+    @Test
     void controlTimeoutIsForwardedToTheHadoopConfiguration() {
-        java.util.Map<String, Object> raw = new java.util.HashMap<>();
+        Map<String, Object> raw = new HashMap<>();
         raw.put("host", HOST);
         raw.put("port", PORT);
         raw.put("user", "user");
         raw.put("password", "password");
         raw.put("control_timeout", 4_500);
 
-        org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf hadoopConf =
-                org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf.buildWithConfig(
-                        org.apache.seatunnel.api.configuration.ReadonlyConfig.fromMap(raw));
+        HadoopConf hadoopConf = FtpConf.buildWithConfig(ReadonlyConfig.fromMap(raw));
 
         // The value travels as a string through the Hadoop configuration map; a missing key would
         // silently fall back to the default whatever the user configured.
@@ -216,7 +300,7 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     }
 
     private static SeaTunnelFTPFileSystem fileSystem(Configuration conf)
-            throws IOException, java.net.URISyntaxException {
+            throws IOException, URISyntaxException {
         SeaTunnelFTPFileSystem fs = new SeaTunnelFTPFileSystem();
         fs.initialize(new URI("ftp://" + HOST + ":" + PORT), conf);
         return fs;
