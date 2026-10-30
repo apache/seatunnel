@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -35,14 +36,17 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest {
     @Override
@@ -319,7 +323,7 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         executor.addToBatch(row(2, RowKind.DELETE));
         executor.addToBatch(row(3, RowKind.UPDATE_AFTER));
         executor.executeBatch();
-        org.mockito.InOrder order = inOrder(upsert, delete);
+        InOrder order = inOrder(upsert, delete);
         order.verify(upsert).prepareStatements(connection);
         order.verify(upsert).addToBatch(any());
         order.verify(upsert).executeBatch();
@@ -337,7 +341,7 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         PreparedStatement oldStatement = mock(PreparedStatement.class);
         PreparedStatement newStatement = mock(PreparedStatement.class);
         AtomicBoolean oldClosed = new AtomicBoolean();
-        org.mockito.Mockito.doAnswer(
+        doAnswer(
                         call -> {
                             if (oldClosed.get()) {
                                 throw new SQLException("statement is closed");
@@ -346,7 +350,7 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
                         })
                 .when(oldStatement)
                 .clearBatch();
-        org.mockito.Mockito.doAnswer(
+        doAnswer(
                         call -> {
                             oldClosed.set(true);
                             return null;
@@ -371,9 +375,9 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         doThrow(new SQLException("row error", "22001")).when(upserts).executeBatch();
         reduced.addToBatch(row(2, RowKind.INSERT));
         assertThrows(SQLException.class, reduced::executeBatch);
-        org.junit.jupiter.api.Assertions.assertDoesNotThrow(reduced::clearBatch);
-        org.junit.jupiter.api.Assertions.assertDoesNotThrow(reduced::closeStatements);
+        assertDoesNotThrow(reduced::clearBatch);
+        assertDoesNotThrow(reduced::closeStatements);
         verify(oldStatement).close();
-        org.mockito.Mockito.verifyNoInteractions(newStatement);
+        verifyNoInteractions(newStatement);
     }
 }

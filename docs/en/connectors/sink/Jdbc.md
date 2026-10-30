@@ -8,10 +8,6 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
-### DELETE statement preparation
-
-Keyed JDBC writes prepare DELETE statements only when flushing a deletion retained after batch reduction. INSERT/UPDATE-only workloads do not require DELETE privileges solely to prepare an unused statement. Effective deletions still require the database DELETE permission; a preparation failure is reported normally.
-
 ## MySQL temporal values
 
 MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
@@ -312,6 +308,10 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 ### primary_keys [array]
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
+
+### DELETE statement preparation
+
+Keyed JDBC writes prepare DELETE statements only when flushing a deletion retained after batch reduction. INSERT/UPDATE-only workloads do not require DELETE privileges solely to prepare an unused statement. Effective deletions still require the database DELETE permission; a preparation failure is reported normally.
 
 ### connection_check_timeout_sec [int]
 

@@ -56,7 +56,12 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final Map<Object, Boolean> existedBeforeBatch = new HashMap<>();
 
     private boolean flushFailed;
+    /** Connection used to lazily prepare DELETE in the current statement lifecycle. */
     private Connection connection;
+    /**
+     * Whether DELETE was prepared for the current connection. Reset on prepareStatements and gate
+     * cleanup so a reconnect never accesses a DELETE statement retained from an old connection.
+     */
     private boolean deletePrepared;
 
     @Override
