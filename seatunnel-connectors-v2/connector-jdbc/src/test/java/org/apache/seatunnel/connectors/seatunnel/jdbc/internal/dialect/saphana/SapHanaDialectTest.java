@@ -60,4 +60,49 @@ public class SapHanaDialectTest {
                         + sql
                         + ")");
     }
+
+    @Test
+    void testSingleKeyOnlyUpsertOmitsMatchedUpdate() {
+        String sql =
+                new SapHanaDialect()
+                        .getUpsertStatement("S", "T", new String[] {"ID"}, new String[] {"ID"})
+                        .get();
+
+        Assertions.assertEquals(
+                " MERGE INTO \"S\".\"T\" USING (SELECT :ID AS \"ID\" FROM DUMMY) AS SOURCE"
+                        + " ON (\"S\".\"T\".\"ID\"=SOURCE.\"ID\") "
+                        + " WHEN NOT MATCHED THEN INSERT (\"ID\") VALUES (SOURCE.\"ID\")",
+                sql);
+    }
+
+    @Test
+    void testCompositeKeyOnlyUpsertOmitsMatchedUpdate() {
+        String sql =
+                new SapHanaDialect()
+                        .getUpsertStatement(
+                                "S", "T", new String[] {"ID", "PART"}, new String[] {"ID", "PART"})
+                        .get();
+
+        Assertions.assertEquals(
+                " MERGE INTO \"S\".\"T\" USING (SELECT :ID AS \"ID\", :PART AS \"PART\" FROM DUMMY) AS SOURCE"
+                        + " ON (\"S\".\"T\".\"ID\"=SOURCE.\"ID\" AND \"S\".\"T\".\"PART\"=SOURCE.\"PART\") "
+                        + " WHEN NOT MATCHED THEN INSERT (\"ID\", \"PART\") VALUES (SOURCE.\"ID\", SOURCE.\"PART\")",
+                sql);
+    }
+
+    @Test
+    void testUpsertWithPayloadPreservesMatchedUpdate() {
+        String sql =
+                new SapHanaDialect()
+                        .getUpsertStatement(
+                                "S", "T", new String[] {"ID", "PAYLOAD"}, new String[] {"ID"})
+                        .get();
+
+        Assertions.assertEquals(
+                " MERGE INTO \"S\".\"T\" USING (SELECT :ID AS \"ID\", :PAYLOAD AS \"PAYLOAD\" FROM DUMMY) AS SOURCE"
+                        + " ON (\"S\".\"T\".\"ID\"=SOURCE.\"ID\") "
+                        + " WHEN MATCHED THEN UPDATE SET \"PAYLOAD\"=SOURCE.\"PAYLOAD\" "
+                        + " WHEN NOT MATCHED THEN INSERT (\"ID\", \"PAYLOAD\") VALUES (SOURCE.\"ID\", SOURCE.\"PAYLOAD\")",
+                sql);
+    }
 }
