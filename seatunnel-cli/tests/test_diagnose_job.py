@@ -32,6 +32,8 @@ from seatunnel_cli.diagnostics.jobs import (
     STUCK_SECONDS,
     diagnose_job,
 )
+from seatunnel_cli.diagnostics.realtime import diagnose_realtime
+import pytest
 
 NOW = 1_760_000_000_000  # fixed clock, so the stuck rule is not time-dependent
 
@@ -732,3 +734,294 @@ def test_restore_count_of_true_is_not_counted_as_one():
     )
 
     assert findings == []
+
+
+def _realtime_payloads(bp=0.8, fill=0.9, busy=0.7, timestamps=(0, 5000, 10000)):
+    window = {"fromMs": 0, "toMs": 17000, "bucketMs": 5000}
+    edges = {
+        **window,
+        "edges": [
+            {
+                "queueId": -3,
+                "targetVertexId": 1,
+                "points": [
+                    {"ts": ts, "bpRatio": bp, "queueFillRatio": fill}
+                    for ts in timestamps
+                ],
+            }
+        ],
+    }
+    vertices = {
+        **window,
+        "vertices": [
+            {
+                "vertexId": 1,
+                "points": [
+                    {
+                        "ts": ts,
+                        "sinkBusyRatio": busy,
+                        "sourceReadRatio": 0.0,
+                        "transformBusyRatio": 0.0,
+                        "sinkPrepareCommitNs": 0,
+                        "sinkCommitNs": 0,
+                        "subtaskCount": 1,
+                    }
+                    for ts in timestamps
+                ],
+            }
+        ],
+    }
+    return edges, vertices
+
+
+def test_realtime_matches_completed_buckets_and_keeps_queue_identity():
+    edges, vertices = _realtime_payloads()
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert finding.severity == "warning"
+    assert "sink writes" in finding.detail
+    assert "candidate" in finding.detail
+    assert "queueId=-3 targetVertexId=1 buckets=3" in finding.evidence
+    assert "window=0..15000ms" in finding.evidence
+    assert "bucketMs=5000" in finding.evidence
+    assert "bpRatio=0.80 queueFillRatio=0.90" in finding.evidence
+
+
+@pytest.mark.parametrize("width", [1000, 7000])
+def test_realtime_evidence_reports_actual_bucket_width(width):
+    edges, vertices = _realtime_payloads(timestamps=(0, width, 2 * width))
+    for data in (edges, vertices):
+        data["bucketMs"] = width
+        data["toMs"] = 3 * width
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = int(width * 1_000_000 * 0.8)
+
+    findings = diagnose_realtime(edges, vertices)
+    for rule in ("realtime_queue_pressure", "realtime_sink_commit_pressure"):
+        evidence = _by_rule(findings, rule).evidence
+        assert f"bucketMs={width}" in evidence
+        assert f"window=0..{3 * width}ms" in evidence
+
+
+def test_realtime_transient_spike_is_not_sustained_pressure():
+    edges, vertices = _realtime_payloads(bp=0.1)
+    edges["edges"][0]["points"][-1]["bpRatio"] = 0.9
+    assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_backpressure_with_an_empty_queue_is_not_attributed():
+    edges, vertices = _realtime_payloads(fill=0.1)
+    assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_multiple_queues_into_one_vertex_are_not_collapsed():
+    import copy
+
+    edges, vertices = _realtime_payloads()
+    second = copy.deepcopy(edges["edges"][0])
+    second["queueId"] = -2
+    edges["edges"].append(second)
+    findings = diagnose_realtime(edges, vertices)
+    assert len(findings) == 2
+    assert "queueId=-3" in findings[0].evidence
+    assert "queueId=-2" in findings[1].evidence
+
+
+def test_realtime_orders_points_by_timestamp_not_array_order():
+    edges, vertices = _realtime_payloads()
+    expected = diagnose_realtime(edges, vertices)
+    edges["edges"][0]["points"].reverse()
+    vertices["vertices"][0]["points"].reverse()
+    assert diagnose_realtime(edges, vertices) == expected
+
+
+def test_realtime_uses_latest_buckets_not_an_old_pressure_episode():
+    edges, vertices = _realtime_payloads(
+        timestamps=(0, 5000, 10000, 15000, 20000, 25000)
+    )
+    edges["toMs"] = vertices["toMs"] = 31000
+    for point in edges["edges"][0]["points"][3:]:
+        point["bpRatio"] = 0
+    assert diagnose_realtime(edges, vertices) == []
+
+
+@pytest.mark.parametrize("timestamps", [(0, 0, 0), (0, 10000, 15000), (0, 5000, 15000)])
+def test_realtime_repeated_partial_and_missing_buckets_are_not_extra_evidence(
+    timestamps,
+):
+    edges, vertices = _realtime_payloads(timestamps=timestamps)
+    findings = diagnose_realtime(edges, vertices)
+    assert _rules(findings) == ["realtime_unavailable"]
+
+
+def test_realtime_conflicting_duplicate_points_are_discarded():
+    edges, vertices = _realtime_payloads()
+    edges["edges"][0]["points"].append({"ts": 0, "bpRatio": 0, "queueFillRatio": 0})
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+@pytest.mark.parametrize("endpoint", ["edges", "vertices"])
+@pytest.mark.parametrize("gap", ["missing", "conflicting"])
+def test_realtime_recent_gap_cannot_fall_back_to_an_old_pressure_episode(endpoint, gap):
+    edges, vertices = _realtime_payloads(timestamps=(0, 5000, 10000, 15000))
+    edges["toMs"] = vertices["toMs"] = 22000
+    points = (edges if endpoint == "edges" else vertices)[endpoint][0]["points"]
+    if gap == "missing":
+        points.pop()
+    else:
+        conflicting = {**points[-1]}
+        conflicting["bpRatio" if endpoint == "edges" else "sinkBusyRatio"] = 0
+        points.append(conflicting)
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_stale_healthy_samples_are_a_coverage_gap():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    edges["toMs"] = vertices["toMs"] = 27000
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_old_commit_pressure_is_not_current_evidence():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    edges["toMs"] = vertices["toMs"] = 22000
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = 4_000_000_000
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_window_ending_at_a_boundary_includes_the_just_completed_bucket():
+    edges, vertices = _realtime_payloads()
+    edges["toMs"] = vertices["toMs"] = 15000
+
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "window=0..15000ms" in finding.evidence
+
+
+def test_realtime_freshness_uses_the_shared_engine_window():
+    edges, vertices = _realtime_payloads(timestamps=(0, 5000, 10000, 15000))
+    edges["toMs"] = 22000
+    vertices["toMs"] = 17000
+
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "window=0..15000ms" in finding.evidence
+
+
+def test_realtime_requires_matching_target_and_timestamps():
+    edges, vertices = _realtime_payloads()
+    vertices["vertices"][0]["vertexId"] = 999
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+    vertices["vertices"][0]["vertexId"] = 1
+    for point in vertices["vertices"][0]["points"]:
+        point["ts"] += 5000
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+@pytest.mark.parametrize("bad", [None, [], {}, {"enabled": False}])
+def test_realtime_missing_or_disabled_is_not_healthy(bad):
+    _, vertices = _realtime_payloads()
+    assert _rules(diagnose_realtime(bad, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_empty_enabled_store_still_has_no_evidence():
+    edges, vertices = _realtime_payloads()
+    edges["enabled"] = vertices["enabled"] = True
+    edges["edges"] = vertices["vertices"] = []
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_window_and_bucket_widths_must_agree():
+    edges, vertices = _realtime_payloads()
+    vertices["bucketMs"] = 1000
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+    vertices["bucketMs"] = 5000
+    vertices["fromMs"] = 20000
+    vertices["toMs"] = 40000
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+@pytest.mark.parametrize(
+    "bad", [None, True, float("nan"), float("inf"), -0.1, 1.2, "0.9"]
+)
+def test_realtime_invalid_ratios_are_not_pressure(bad):
+    edges, vertices = _realtime_payloads()
+    edges["edges"][0]["points"][0]["queueFillRatio"] = bad
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_source_read_time_does_not_blame_the_source():
+    edges, vertices = _realtime_payloads(busy=0)
+    for point in vertices["vertices"][0]["points"]:
+        point["sourceReadRatio"] = 0.99
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "do not establish the cause" in finding.detail
+    assert "source bottleneck" not in finding.detail
+    assert "sink writes were busy" not in finding.detail
+
+
+def test_realtime_transform_busy_time_correlates_with_the_pressure():
+    edges, vertices = _realtime_payloads(busy=0)
+    for point in vertices["vertices"][0]["points"]:
+        point["transformBusyRatio"] = 0.8
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "transform processing" in finding.detail
+
+
+def test_realtime_commit_pressure_is_visible_even_when_write_busyness_is_zero():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    for point in vertices["vertices"][0]["points"]:
+        point.update(
+            subtaskCount=2,
+            sinkPrepareCommitNs=1_000_000_000,
+            sinkCommitNs=5_000_000_000,
+        )
+    findings = diagnose_realtime(edges, vertices)
+    assert _rules(findings) == ["realtime_sink_commit_pressure"]
+    assert "writes only" in findings[0].detail
+    assert "ratio=0.60" in findings[0].evidence
+
+
+def test_realtime_commit_time_is_normalized_by_bucket_and_subtask_count():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    for point in vertices["vertices"][0]["points"]:
+        point.update(subtaskCount=2, sinkCommitNs=3_000_000_000)
+    assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_one_slow_commit_is_not_persistent_pressure():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    vertices["vertices"][0]["points"][-1]["sinkCommitNs"] = 5_000_000_000
+    assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_one_healthy_queue_does_not_hide_another_queues_data_gap():
+    edges, vertices = _realtime_payloads(bp=0, fill=0)
+    edges["edges"].append({"queueId": -2, "targetVertexId": 1, "points": []})
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_unavailable")
+    assert "1 queue series lacked matched" in finding.detail
+
+
+def test_realtime_large_vertex_ids_keep_integer_precision():
+    edges, vertices = _realtime_payloads()
+    target = 852362670771666945
+    edges["edges"][0]["targetVertexId"] = str(target)
+    vertices["vertices"][0]["vertexId"] = target
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert f"targetVertexId={target}" in finding.evidence
+
+
+def test_realtime_current_partial_bucket_cannot_complete_a_pressure_run():
+    edges, vertices = _realtime_payloads(timestamps=(0, 5000, 10000, 15000))
+    edges["edges"][0]["points"][0]["bpRatio"] = 0
+    # 15000..20000 is not complete at toMs=17000. Only the current partial
+    # point would make the last three buckets look persistently pressured.
+    assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_preserves_engine_backpressure_ratios_above_one():
+    # RealtimeMetricsService.edgePoint does not clamp bpRatio, unlike its
+    # vertex/fill ratios. A delayed collection can report more than one.
+    edges, vertices = _realtime_payloads(bp=1.2)
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "bpRatio=1.20" in finding.evidence
