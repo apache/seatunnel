@@ -377,7 +377,7 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
                                                         ReadonlyConfig.fromMap(options),
                                                         getClass().getClassLoader()))
                                 .createSource();
-        SourceReader<SeaTunnelRow, Split> reader = source.createReader(null);
+        SourceReader<SeaTunnelRow, Split> reader = source.createReader(new TestReaderContext(0));
         reader.open();
         reader.addSplits(Collections.singletonList(new Split(0)));
         return reader;
