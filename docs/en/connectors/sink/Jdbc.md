@@ -8,6 +8,12 @@ The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver
 
 If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+## MySQL temporal values
+
+MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
+
+When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -318,6 +324,8 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 ### max_retries [int]
 
 The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
+
+A non-XA manual-commit failure at `Connection.commit()` is treated as a system error, even with SQLState class `22` or `23`. The failed writer cannot retry the commit as if it restored the transaction. With checkpointing enabled, any flushed work sharing that transaction is marked unsafe, and other writers on the same queue also refuse to commit until recovery.
 
 ### batch_size [int]
 
