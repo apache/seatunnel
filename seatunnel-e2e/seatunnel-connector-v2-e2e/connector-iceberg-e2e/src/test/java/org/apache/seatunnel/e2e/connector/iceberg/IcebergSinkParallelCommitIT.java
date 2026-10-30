@@ -320,12 +320,17 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
         // The pre-savepoint snapshot set already satisfies every uniqueness and occurrence
         // assertion below, so those checks alone cannot prove the restored run did anything.
         // Wait until the restored job commits a checkpoint-id that was absent before the
-        // savepoint before making any recovery claims.
+        // savepoint before making any recovery claims. The restored job is streaming, so the
+        // restore command only returns once the job stops — it must never be joined here;
+        // only a non-blocking fail-fast on an already-failed restore is done.
         given().ignoreExceptions()
                 .await()
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
+                            Assertions.assertFalse(
+                                    restoreRun.isDone() && restoreRun.isCompletedExceptionally(),
+                                    "restoreJob must not fail while waiting for its commits");
                             Set<String> current = collectCheckpointIds(loadRecoveryTable());
                             current.removeAll(checkpointIdsBefore);
                             Assertions.assertFalse(
@@ -333,8 +338,6 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                                     "The restored job must commit at least one new checkpoint-id"
                                             + " before recovery can be verified");
                         });
-
-        Assertions.assertEquals(0, restoreRun.get().getExitCode(), "restoreJob should succeed");
 
         // Wait long enough for the restored job to finish (4 splits × 3 s + buffer)
         given().ignoreExceptions()
