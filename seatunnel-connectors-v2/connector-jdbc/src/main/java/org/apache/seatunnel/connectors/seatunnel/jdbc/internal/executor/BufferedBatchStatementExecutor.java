@@ -31,7 +31,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
     @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
-    private boolean flushFailed;
 
     public BufferedBatchStatementExecutor(
             @NonNull JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor,
@@ -53,17 +52,11 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @Override
     public void executeBatch() throws SQLException {
         if (!buffer.isEmpty()) {
-            try {
-                for (SeaTunnelRow row : buffer) {
-                    statementExecutor.addToBatch(row);
-                }
-                statementExecutor.executeBatch();
-                buffer.clear();
-                flushFailed = false;
-            } catch (SQLException e) {
-                flushFailed = true;
-                throw e;
+            for (SeaTunnelRow row : buffer) {
+                statementExecutor.addToBatch(row);
             }
+            statementExecutor.executeBatch();
+            buffer.clear();
         }
     }
 

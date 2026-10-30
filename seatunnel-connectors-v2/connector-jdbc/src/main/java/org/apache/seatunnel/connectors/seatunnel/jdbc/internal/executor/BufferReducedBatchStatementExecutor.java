@@ -48,8 +48,6 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final LinkedHashMap<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> buffer =
             new LinkedHashMap<>();
 
-    private boolean flushFailed;
-
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
         upsertExecutor.prepareStatements(connection);
@@ -86,37 +84,31 @@ public class BufferReducedBatchStatementExecutor
 
     @Override
     public void executeBatch() throws SQLException {
-        try {
-            Boolean preChangeFlag = null;
-            for (Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow : buffer.values()) {
-                Boolean currentChangeFlag = bufferedRow.getLeft();
-                if (currentChangeFlag) {
-                    if (preChangeFlag != null && !preChangeFlag) {
-                        deleteExecutor.executeBatch();
-                    }
-                    upsertExecutor.addToBatch(bufferedRow.getRight());
-                } else {
-                    if (preChangeFlag != null && preChangeFlag) {
-                        upsertExecutor.executeBatch();
-                    }
-                    deleteExecutor.addToBatch(bufferedRow.getMiddle());
-                }
-                preChangeFlag = currentChangeFlag;
-            }
-
-            if (preChangeFlag != null) {
-                if (preChangeFlag) {
-                    upsertExecutor.executeBatch();
-                } else {
+        Boolean preChangeFlag = null;
+        for (Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow : buffer.values()) {
+            Boolean currentChangeFlag = bufferedRow.getLeft();
+            if (currentChangeFlag) {
+                if (preChangeFlag != null && !preChangeFlag) {
                     deleteExecutor.executeBatch();
                 }
+                upsertExecutor.addToBatch(bufferedRow.getRight());
+            } else {
+                if (preChangeFlag != null && preChangeFlag) {
+                    upsertExecutor.executeBatch();
+                }
+                deleteExecutor.addToBatch(bufferedRow.getMiddle());
             }
-            buffer.clear();
-            flushFailed = false;
-        } catch (SQLException e) {
-            flushFailed = true;
-            throw e;
+            preChangeFlag = currentChangeFlag;
         }
+
+        if (preChangeFlag != null) {
+            if (preChangeFlag) {
+                upsertExecutor.executeBatch();
+            } else {
+                deleteExecutor.executeBatch();
+            }
+        }
+        buffer.clear();
     }
 
     /**
