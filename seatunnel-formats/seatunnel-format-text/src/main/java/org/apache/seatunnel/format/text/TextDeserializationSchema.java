@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
@@ -324,14 +325,12 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case TIMESTAMP:
                 DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
                 if (dateTimeFormatter == null) {
-                    dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+                    dateTimeFormatter = matchTimestampFormatter(field, fieldName);
                     fieldFormatterMap.put(fieldName, dateTimeFormatter);
                 }
-                if (dateTimeFormatter == null) {
-                    throw CommonError.formatDateTimeError(field, fieldName);
-                }
 
-                TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
+                TemporalAccessor parsedTimestamp =
+                        parseTimestampWithFormatterRefresh(field, fieldName, dateTimeFormatter);
                 LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
                 LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
                 return LocalDateTime.of(localDate, localTime);
@@ -341,10 +340,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 } catch (DateTimeParseException ignored) {
                     // Fallback: data written by old SeaTunnel (wall-clock, no offset).
                     // Parse as LocalDateTime and attach UTC — offset info is already lost.
-                    DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(field);
-                    if (fallbackFmt == null) {
-                        throw CommonError.formatDateTimeError(field, fieldName);
-                    }
+                    DateTimeFormatter fallbackFmt = matchTimestampFormatter(field, fieldName);
                     TemporalAccessor ta = fallbackFmt.parse(field);
                     return LocalDateTime.of(
                                     ta.query(TemporalQueries.localDate()),
@@ -369,5 +365,47 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 throw CommonError.unsupportedDataType(
                         "SeaTunnel", fieldType.getSqlType().toString(), fieldName);
         }
+    }
+
+    /** Refreshes the cached formatter when timestamp precision changes between rows. */
+    private TemporalAccessor parseTimestampWithFormatterRefresh(
+            String field, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(field);
+        } catch (DateTimeParseException parseException) {
+            DateTimeFormatter refreshedFormatter = matchTimestampFormatter(field, fieldName);
+            if (refreshedFormatter == dateTimeFormatter) {
+                // The value matched a supported pattern but is not a valid calendar date.
+                throw formatDateTimeErrorWithCause(field, fieldName, parseException);
+            }
+            // Keep one cached formatter per field. Switching layouts triggers an exception
+            // and re-matches the value instead of maintaining a multi-layout cache.
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            try {
+                return refreshedFormatter.parse(field);
+            } catch (DateTimeParseException refreshedException) {
+                throw formatDateTimeErrorWithCause(field, fieldName, refreshedException);
+            }
+        }
+    }
+
+    /** Matches a supported formatter or reports an unsupported timestamp. */
+    private DateTimeFormatter matchTimestampFormatter(String field, String fieldName) {
+        DateTimeFormatter dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+        if (dateTimeFormatter == null) {
+            throw CommonError.formatDateTimeError(field, fieldName);
+        }
+        return dateTimeFormatter;
+    }
+
+    /**
+     * Reports an unsupported timestamp with the field name and value, keeping the parsing error as
+     * the cause for diagnostics.
+     */
+    private static SeaTunnelRuntimeException formatDateTimeErrorWithCause(
+            String field, String fieldName, DateTimeParseException cause) {
+        SeaTunnelRuntimeException exception = CommonError.formatDateTimeError(field, fieldName);
+        exception.initCause(cause);
+        return exception;
     }
 }

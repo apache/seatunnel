@@ -135,6 +135,8 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | sort_files_by_modification_time | boolean | 否 | false | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。 |
 | common-options             |         | 否   | -                             | 源插件通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md)    |
 
+> 读取 CSV 和 Text 文件时，`TIMESTAMP` 的格式会自动识别，因此 Source 的 `datetime_format` 选项不用于选择该格式，Sink 的 `datetime_format` 选项只控制输出格式。 详见 [LocalFile 说明](LocalFile.md#datetime_format-string)。
+
 ## 如何创建 SMB 数据同步作业
 
 以下示例演示了如何创建一个从 SMB 共享读取数据并在本地客户端打印的数据同步作业：

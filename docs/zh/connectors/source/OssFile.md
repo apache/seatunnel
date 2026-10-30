@@ -239,6 +239,8 @@ schema {
 | recursive_file_scan        | boolean | 否    | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                         |
 | sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
+> 读取 CSV 和 Text 文件时，`TIMESTAMP` 的格式会自动识别，因此 Source 的 `datetime_format` 选项不用于选择该格式，Sink 的 `datetime_format` 选项只控制输出格式。 详见 [LocalFile 说明](LocalFile.md#datetime_format-string)。
+
 ### compress_codec [string]
 
 文件的压缩编解码器，支持的详细信息如下所示：

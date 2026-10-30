@@ -614,6 +614,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
+- **行为变更：CSV/Text 的 `TIMESTAMP` 解析按每个值重新匹配格式**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-csv`（`CsvDeserializationSchema`）与 `seatunnel-formats/seatunnel-format-text`（`TextDeserializationSchema`）--影响所有以 `csv` 或 `text` 读取文件的 Source（`file_format_type = csv|text`），例如 LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、ObsFile、BosFile、FtpFile、SftpFile 和 SmbFile。
+  - **变更说明**：以前一个反序列化 Schema 实例服务整个文件的所有行，并把每个 `TIMESTAMP` 列固定为第一行匹配到的格式；因此后续行若使用另一种受支持的小数秒精度（例如 `2024-01-01 00:00:00` 之后出现 `2024-01-01 00:00:00.123`），整个读取都会失败。现在解析失败时会针对当前值重新匹配格式并再次解析，因此同一列可以按任意顺序混用受支持的精度。
+  - **影响**：以前会失败的输入现在可以正常解析，以前合法的输入解析结果不变。无需修改配置：CSV 与 Text 读取器会按每个值自动匹配格式，`datetime_format` 不用于选择 Source 的解析格式。无法匹配任何受支持格式的值仍会被拒绝；CSV 现在以 `SeaTunnelRuntimeException` 和 `COMMON-33`（`FORMAT_DATETIME_ERROR`）上报，并包含字段名和值，不再使用 `SeaTunnelCsvFormatException` 与 `UNSUPPORTED_DATA_TYPE`（Text 原本就使用 `COMMON-33`）。能够匹配格式但日历日期无效的值（例如 `2024-01-01 25:00:00`）现在同样以 `COMMON-33` 失败，并把解析异常作为 cause 保留。如果应用代码检查这类异常或错误码，请相应调整。(#12661)
+
 ### 引擎行为变更
 
 - **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
