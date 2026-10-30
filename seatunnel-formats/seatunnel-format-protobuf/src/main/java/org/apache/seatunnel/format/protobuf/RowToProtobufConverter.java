@@ -38,6 +38,9 @@ public class RowToProtobufConverter implements Serializable {
     private final Descriptors.Descriptor descriptor;
     private final SeaTunnelRowType rowType;
 
+    /** Field resolution plans reused across records and kept out of serialized state. */
+    private transient volatile ProtobufFieldResolver fieldResolver;
+
     public RowToProtobufConverter(SeaTunnelRowType rowType, Descriptors.Descriptor descriptor) {
         this.rowType = rowType;
         this.descriptor = descriptor;
@@ -45,29 +48,58 @@ public class RowToProtobufConverter implements Serializable {
 
     public byte[] convertRowToGenericRecord(SeaTunnelRow element) {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        String[] fieldNames = rowType.getFieldNames();
-
-        for (int i = 0; i < fieldNames.length; i++) {
-            String fieldName = rowType.getFieldName(i);
-            Object value = element.getField(i);
-            Object resolvedValue =
-                    resolveObject(fieldName, value, rowType.getFieldType(i), builder);
-            if (resolvedValue != null) {
-                if (resolvedValue instanceof byte[]) {
-                    resolvedValue = ByteString.copyFrom((byte[]) resolvedValue);
-                }
-                builder.setField(
-                        descriptor.findFieldByName(fieldName.toLowerCase()), resolvedValue);
-            }
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            resolveAndSetField(
+                    rowType.getFieldName(i), element.getField(i), rowType.getFieldType(i), builder);
         }
 
         return builder.build().toByteArray();
     }
 
-    private Object resolveObject(
+    /** Resolves each field against the message that owns it, including nested rows and maps. */
+    private void resolveAndSetField(
             String fieldName,
+            Object value,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            DynamicMessage.Builder builder) {
+        if (value == null) {
+            return;
+        }
+
+        Descriptors.Descriptor messageDescriptor = builder.getDescriptorForType();
+        Descriptors.FieldDescriptor fieldDescriptor =
+                getFieldResolver().findField(messageDescriptor, fieldName);
+        if (fieldDescriptor == null) {
+            throw new SeaTunnelProtobufFormatException(
+                    ProtobufFormatErrorCode.FIELD_NOT_FOUND,
+                    String.format(
+                            "Field [%s] is not defined in the protobuf message [%s].",
+                            fieldName, messageDescriptor.getFullName()));
+        }
+
+        Object resolvedValue = resolveObject(value, seaTunnelDataType, fieldDescriptor, builder);
+        if (resolvedValue != null) {
+            if (resolvedValue instanceof byte[]) {
+                resolvedValue = ByteString.copyFrom((byte[]) resolvedValue);
+            }
+            builder.setField(fieldDescriptor, resolvedValue);
+        }
+    }
+
+    /** Returns the field resolution plans reused across records. */
+    ProtobufFieldResolver getFieldResolver() {
+        ProtobufFieldResolver resolver = fieldResolver;
+        if (resolver == null) {
+            resolver = ProtobufFieldResolver.create();
+            fieldResolver = resolver;
+        }
+        return resolver;
+    }
+
+    private Object resolveObject(
             Object data,
             SeaTunnelDataType<?> seaTunnelDataType,
+            Descriptors.FieldDescriptor fieldDescriptor,
             DynamicMessage.Builder builder) {
         if (data == null) {
             return null;
@@ -92,11 +124,11 @@ public class RowToProtobufConverter implements Serializable {
                 }
                 return data;
             case MAP:
-                return handleMapType(fieldName, data, seaTunnelDataType, builder);
+                return handleMapType(data, fieldDescriptor, builder);
             case ARRAY:
                 return Arrays.asList((Object[]) data);
             case ROW:
-                return handleRowType(fieldName, data, seaTunnelDataType);
+                return handleRowType(data, seaTunnelDataType, fieldDescriptor);
             default:
                 throw new SeaTunnelProtobufFormatException(
                         ProtobufFormatErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -106,45 +138,48 @@ public class RowToProtobufConverter implements Serializable {
         }
     }
 
+    /** Adds map entries directly to the owning message builder. */
     private Object handleMapType(
-            String fieldName,
             Object data,
-            SeaTunnelDataType<?> seaTunnelDataType,
+            Descriptors.FieldDescriptor fieldDescriptor,
             DynamicMessage.Builder builder) {
-        Descriptors.Descriptor mapEntryDescriptor =
-                descriptor.findFieldByName(fieldName).getMessageType();
-
         if (data instanceof Map) {
-            Map<?, ?> mapData = (Map<?, ?>) data;
-            mapData.forEach(
-                    (key, value) -> {
-                        DynamicMessage mapEntry =
-                                DynamicMessage.newBuilder(mapEntryDescriptor)
-                                        .setField(mapEntryDescriptor.findFieldByName("key"), key)
-                                        .setField(
-                                                mapEntryDescriptor.findFieldByName("value"), value)
-                                        .build();
-                        builder.addRepeatedField(descriptor.findFieldByName(fieldName), mapEntry);
-                    });
+            Descriptors.Descriptor mapEntryDescriptor = fieldDescriptor.getMessageType();
+            Descriptors.FieldDescriptor keyFieldDescriptor =
+                    mapEntryDescriptor.findFieldByName("key");
+            Descriptors.FieldDescriptor valueFieldDescriptor =
+                    mapEntryDescriptor.findFieldByName("value");
+            ((Map<?, ?>) data)
+                    .forEach(
+                            (key, value) -> {
+                                DynamicMessage mapEntry =
+                                        DynamicMessage.newBuilder(mapEntryDescriptor)
+                                                .setField(keyFieldDescriptor, key)
+                                                .setField(valueFieldDescriptor, value)
+                                                .build();
+                                builder.addRepeatedField(fieldDescriptor, mapEntry);
+                            });
         }
 
         return null;
     }
 
+    /** Uses the field descriptor to determine the nested message type. */
     private Object handleRowType(
-            String fieldName, Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+            Object data,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Descriptors.FieldDescriptor fieldDescriptor) {
         SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
-        SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
-        String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
-        Descriptors.Descriptor nestedTypeDescriptor = descriptor.findNestedTypeByName(fieldName);
-        DynamicMessage.Builder nestedBuilder = DynamicMessage.newBuilder(nestedTypeDescriptor);
+        SeaTunnelRowType nestedRowType = (SeaTunnelRowType) seaTunnelDataType;
+        DynamicMessage.Builder nestedBuilder =
+                DynamicMessage.newBuilder(fieldDescriptor.getMessageType());
 
-        for (int i = 0; i < fieldNames.length; i++) {
-            Object resolvedValue =
-                    resolveObject(
-                            fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i], nestedBuilder);
-            nestedBuilder.setField(
-                    nestedTypeDescriptor.findFieldByName(fieldNames[i]), resolvedValue);
+        for (int i = 0; i < nestedRowType.getTotalFields(); i++) {
+            resolveAndSetField(
+                    nestedRowType.getFieldName(i),
+                    seaTunnelRow.getField(i),
+                    nestedRowType.getFieldType(i),
+                    nestedBuilder);
         }
 
         return nestedBuilder.build();
