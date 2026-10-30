@@ -65,6 +65,9 @@ data:
               clusterName: seatunnel-cluster
               storage.type: hdfs
               fs.defaultFS: hdfs://namenode:8020
+        engine_finishedJobMetrics:
+          map-store:
+            enabled: false
       properties:
         hazelcast.invocation.max.retry.count: 20
         hazelcast.tcp.join.port.try.count: 30
@@ -77,6 +80,18 @@ data:
         hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
         hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
 ```
+
+:::info Note
+The examples keep `map-store.enabled: true` for `engine*` and explicitly disable persistence for
+`engine_finishedJobMetrics`. This is a choice in these examples, not a change to the product default.
+After a full cluster restart, metrics of jobs that finished before the restart are not retained when
+this override is used. Job recovery does not depend on this map.
+
+To enable MapStore for these metrics, remove the `engine_finishedJobMetrics` entry so that `engine*` applies, or
+copy the complete `engine*` `map-store` block into the exact-name entry with `enabled: true`, including
+`factory-class-name` and the backend `properties`. Exact-name entries do not inherit the wildcard
+configuration; changing only `enabled` does not configure a persistence implementation.
+:::
 
 ### Worker Hazelcast ConfigMap
 

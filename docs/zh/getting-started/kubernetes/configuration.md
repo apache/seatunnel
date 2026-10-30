@@ -196,6 +196,19 @@ hazelcast:
 这个覆盖是可选的。需要避免持久化仅用于观测的数据、减少 MapStore/WAL 写放大时可以使用；如果希望 checkpoint monitor 的 overview/history 与其他 `engine*` IMap 使用相同的 MapStore 配置，可以不添加该覆盖。
 :::
 
+### Finished Job Metrics MapStore
+
+:::info 说明
+这些示例保持 `engine*` 的 `map-store.enabled: true`，并通过精确名称配置单独关闭
+`engine_finishedJobMetrics` 的持久化。这是示例中的选择，不会改变产品默认值。使用该覆盖时，
+整个集群重启后不会保留重启前已完成作业的指标。作业恢复不依赖该 IMap。
+
+如需为这些指标启用 MapStore，可以删除 `engine_finishedJobMetrics` 配置项，使其使用 `engine*` 配置；也可以
+将 `engine*` 的完整 `map-store` 配置块复制到精确名称配置项中并设置 `enabled: true`，包括
+`factory-class-name` 和对应存储的 `properties`。精确名称配置项不会继承通配符配置，因此只修改
+`enabled` 不会配置持久化实现。
+:::
+
 ### HDFS
 
 ```yaml
@@ -212,6 +225,9 @@ hazelcast:
           clusterName: seatunnel-cluster
           storage.type: hdfs
           fs.defaultFS: hdfs://namenode:8020
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 ### S3 或兼容对象存储
@@ -237,6 +253,9 @@ hazelcast:
           fs.s3a.access.key: YOUR_ACCESS_KEY
           fs.s3a.secret.key: YOUR_SECRET_KEY
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 :::caution 注意
@@ -315,6 +334,9 @@ hazelcast:
           fs.oss.endpoint: https://oss-<region>.aliyuncs.com
           fs.oss.accessKeyId: YOUR_ACCESS_KEY_ID
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 如果不希望把 OSS 凭据渲染到最终 ConfigMap，可以使用上面的环境变量 provider、Hadoop credential provider，或通过 `fs.oss.credentials.provider` 指定自定义 provider。自定义 provider 需要实现 Aliyun OSS SDK 的 `com.aliyun.oss.common.auth.CredentialsProvider`，并在 SeaTunnel 镜像中可被加载。
