@@ -53,4 +53,19 @@ public class YamlSeaTunnelDomConfigProcessorTest {
         assertEquals("test_metalake", metadataConfig.getProperties().get("test_config2"));
         assertEquals("test", metadataConfig.getProperties().get("test_config3"));
     }
+
+    @Test
+    public void testParseMetricsFetchTimeout() throws Exception {
+        String configPath =
+                Paths.get(
+                                YamlSeaTunnelDomConfigProcessorTest.class
+                                        .getResource("/conf/engine-metrics-timeout.yaml")
+                                        .toURI())
+                        .toString();
+
+        try (FileInputStream input = new FileInputStream(configPath)) {
+            SeaTunnelConfig config = new YamlSeaTunnelConfigBuilder(input).build();
+            assertEquals(4500L, config.getEngineConfig().getMetricsFetchTimeoutMs());
+        }
+    }
 }
