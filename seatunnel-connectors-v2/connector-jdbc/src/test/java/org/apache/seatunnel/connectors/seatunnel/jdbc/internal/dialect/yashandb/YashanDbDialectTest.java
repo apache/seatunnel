@@ -19,11 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.yashandb
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class YashanDbDialectTest {
 
@@ -36,6 +47,73 @@ public class YashanDbDialectTest {
     @Test
     public void testDialectName() {
         Assertions.assertEquals(DatabaseIdentifier.YASHANDB, DIALECT.dialectName());
+    }
+
+    @Test
+    public void testSampleDataFromColumnOrdersByDatabaseCollationForTablePath() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.prepareStatement(
+                        anyString(),
+                        eq(ResultSet.TYPE_FORWARD_ONLY),
+                        eq(ResultSet.CONCUR_READ_ONLY)))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(false);
+
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(
+                                TablePath.of("yashandb_catalog", "yashandb_schema", "yashandb_tbl"))
+                        .build();
+
+        DIALECT.sampleDataFromColumn(connection, table, "id", 1, 100);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(connection)
+                .prepareStatement(
+                        sqlCaptor.capture(),
+                        eq(ResultSet.TYPE_FORWARD_ONLY),
+                        eq(ResultSet.CONCUR_READ_ONLY));
+        // The sample must be ordered by the database collation, not re-sorted on the Java
+        // side: chunk boundaries are later compared by the database in its own collation.
+        Assertions.assertEquals(
+                "SELECT \"id\" FROM \"yashandb_schema\".\"yashandb_tbl\" ORDER BY \"id\"",
+                sqlCaptor.getValue());
+    }
+
+    @Test
+    public void testSampleDataFromColumnOrdersByDatabaseCollationForQuery() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.prepareStatement(
+                        anyString(),
+                        eq(ResultSet.TYPE_FORWARD_ONLY),
+                        eq(ResultSet.CONCUR_READ_ONLY)))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(false);
+
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(
+                                TablePath.of("yashandb_catalog", "yashandb_schema", "yashandb_tbl"))
+                        .query("SELECT id FROM custom_src WHERE x = 1")
+                        .build();
+
+        DIALECT.sampleDataFromColumn(connection, table, "id", 1, 100);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(connection)
+                .prepareStatement(
+                        sqlCaptor.capture(),
+                        eq(ResultSet.TYPE_FORWARD_ONLY),
+                        eq(ResultSet.CONCUR_READ_ONLY));
+        Assertions.assertEquals(
+                "SELECT \"id\" FROM (SELECT id FROM custom_src WHERE x = 1) T ORDER BY \"id\"",
+                sqlCaptor.getValue());
     }
 
     @Test
