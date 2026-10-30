@@ -244,12 +244,15 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
      * <ol>
      *   <li>Start a streaming job with {@code parallelism=2}. {@code split.read-interval} keeps
      *       FakeSource alive long enough to trigger several checkpoints.
-     *   <li>Wait 9 s — at least 3 checkpoints complete and their snapshots land in Iceberg.
+     *   <li>Wait until at least one checkpoint has been committed and its snapshots have landed in
+     *       Iceberg — bounded polling on committed state, not a fixed sleep.
      *   <li>Savepoint the job (stops it and persists the last committed state).
      *   <li>Record the set of {@code seatunnel.checkpoint-id} values already present in the table.
      *   <li>Restore the job from the savepoint. {@code IcebergAggregatedCommitter.restoreCommit()}
      *       must detect the already-committed checkpoint via the snapshot summary and skip it.
-     *   <li>Let the restored job run and produce additional checkpoints, then verify:
+     *   <li>Wait until the restored job commits a checkpoint-id that was absent before the
+     *       savepoint — this proves the restored run is live before any uniqueness claims — then
+     *       verify:
      *       <ul>
      *         <li>Every snapshot in the table has a <em>unique</em> checkpoint-id — no checkpoint
      *             was committed more than once.
@@ -304,14 +307,34 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                 "At least one checkpoint must have been committed before the savepoint");
         log.info("Checkpoint-ids committed before savepoint: {}", checkpointIdsBefore);
 
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        return container.restoreJob(recoveryConf, String.valueOf(jobId));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoreRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(recoveryConf, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        // The pre-savepoint snapshot set already satisfies every uniqueness and occurrence
+        // assertion below, so those checks alone cannot prove the restored run did anything.
+        // Wait until the restored job commits a checkpoint-id that was absent before the
+        // savepoint before making any recovery claims.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Set<String> current = collectCheckpointIds(loadRecoveryTable());
+                            current.removeAll(checkpointIdsBefore);
+                            Assertions.assertFalse(
+                                    current.isEmpty(),
+                                    "The restored job must commit at least one new checkpoint-id"
+                                            + " before recovery can be verified");
+                        });
+
+        Assertions.assertEquals(0, restoreRun.get().getExitCode(), "restoreJob should succeed");
 
         // Wait long enough for the restored job to finish (4 splits × 3 s + buffer)
         given().ignoreExceptions()
