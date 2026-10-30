@@ -186,7 +186,10 @@ public class LanceSinkWriter
                     sourceTableSchema);
             return;
         }
-        SinkWriter.super.applySchemaChange(event);
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Lance sink does not support schema evolution for table %s.",
+                        event.tablePath()));
     }
 
     @Override

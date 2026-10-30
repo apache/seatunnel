@@ -616,6 +616,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 引擎行为变更
 
+- **[BREAKING] 不支持的 Sink Schema 变更现在会明确失败**
+  - **影响范围**：Zeta 和 Flink 的 Sink Schema 变更分发，包括多表 Sink、`iceberg.table.schema-evolution-enabled=false`（默认值）的 Iceberg，以及 Lance 的实时 Schema 变更。
+  - **变更说明**：仅继承已废弃的空实现 `SinkWriter.applySchemaChange()` 的写入器不再静默丢弃 `SchemaChangeEvent`，而是抛出 `UnsupportedOperationException`。显式重写旧接口的写入器仍受支持。Iceberg 在关闭 Schema 演进时也会拒绝实时 Schema 变更；Lance 拒绝实时 Schema 变更，但保留从检查点恢复运行时 Schema 的能力。
+  - **影响**：已有作业此前忽略 Schema 变更后仍继续运行，升级后在不支持的 Sink 收到该事件时会失败。多表作业仍遵循已有的表失败处理策略。没有 Schema 变更事件的作业不受影响。Iceberg 即使关闭实时 Schema 演进，仍支持从检查点恢复运行时 Schema。Checkpoint/savepoint 格式不变。
+  - **检查点恢复兼容性**：设置 `schema-changes.enabled=true` 时，如果检查点中的 Schema 与重新加载的源表 Schema 不同，CDC 恢复过程可能在重放实时 DDL 之前发出 `RestoreTableSchemaEvent`。仅继承空实现的写入器现在也会拒绝该事件，因此已有作业可能在重启时失败。恢复事件不会豁免能力检查，因为静默忽略事件无法刷新写入器的运行时行布局。具有明确恢复处理逻辑的写入器（包括 Iceberg 和 Lance）仍会接收该事件，且不会重放物理 DDL。
+  - **迁移指南**：升级 CDC 作业前，确认每个 Sink 支持 Source 发出的 Schema 变更，包括从检查点恢复运行时 Schema。需要实时 Schema 演进的 Iceberg 作业应设置 `iceberg.table.schema-evolution-enabled=true`，并确认目标变更受支持。对于不支持的 Sink，请改用支持 Schema 演进的 Sink，或先停止作业，再协调源端 DDL、更新目标表与作业 Schema，并使用预期的检查点验证重启。自定义写入器应实现 `SupportSchemaEvolutionSinkWriter` 并提供实际的 Schema 变更处理逻辑；处理 `RestoreTableSchemaEvent` 时应刷新运行时布局，不能执行物理 DDL。没有恢复静默忽略行为的配置项。
+
 - **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
   - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
   - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
