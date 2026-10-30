@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -596,6 +598,185 @@ public class IncrementalSourceStreamFetcherTest {
 
         SourceRecord record = createDataEventWithSource();
         Assertions.assertFalse(fetcher.shouldEmit(record));
+    }
+
+    @Test
+    public void testShouldEmitRestoredTableChangesWhileAddedTableIsSnapshotting() {
+        // Restored after a savepoint that captured old_table, with new_table added to the
+        // configuration: the re-created split only carries snapshot info for new_table.
+        TableId oldTable = new TableId("testdb", "public", "old_table");
+        TableId newTable = new TableId("testdb", "public", "new_table");
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Arrays.asList(oldTable, newTable),
+                        new TestOffset(100),
+                        null,
+                        Collections.singletonList(completedSnapshotSplitInfo(newTable, 140, 150)));
+
+        IncrementalSourceStreamFetcher fetcher = submitExactlyOnceTask(split);
+        try {
+            Assertions.assertTrue(
+                    fetcher.shouldEmit(createDataEventWithSource(oldTable, 120)),
+                    "change of the restored table between its checkpoint offset and the added table's high watermark was dropped");
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(oldTable, 160)));
+            Assertions.assertFalse(fetcher.shouldEmit(createDataEventWithSource(newTable, 120)));
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(newTable, 160)));
+        } finally {
+            fetcher.close();
+        }
+    }
+
+    @Test
+    public void testShouldEmitRegroupedRestoredTablesFromTheirOwnOffsets() {
+        // With incremental.parallelism > 1, table1 and table2 were read by different splits and
+        // checkpointed at 100 and 200. After the restore they share one split that starts at 100.
+        TableId table1 = new TableId("testdb", "public", "table1");
+        TableId table2 = new TableId("testdb", "public", "table2");
+        TableId newTable = new TableId("testdb", "public", "new_table");
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Arrays.asList(table1, table2, newTable),
+                        new TestOffset(100),
+                        null,
+                        Collections.singletonList(completedSnapshotSplitInfo(newTable, 140, 150)),
+                        null,
+                        Collections.emptyMap(),
+                        Collections.singletonMap(table2, new TestOffset(200)));
+
+        IncrementalSourceStreamFetcher fetcher = submitTask(exactlyOnceTaskContext(), split);
+        try {
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(table1, 120)));
+            Assertions.assertFalse(
+                    fetcher.shouldEmit(createDataEventWithSource(table2, 150)),
+                    "change of table2 already emitted before the checkpoint was emitted again");
+            Assertions.assertFalse(fetcher.shouldEmit(createDataEventWithSource(table2, 199)));
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(table2, 200)));
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(table2, 250)));
+            Assertions.assertFalse(fetcher.shouldEmit(createDataEventWithSource(newTable, 120)));
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(newTable, 160)));
+        } finally {
+            fetcher.close();
+        }
+    }
+
+    @Test
+    public void testShouldNotEmitSnapshotRangeChangesBeforeRestoredTableOffset() {
+        // The table was checkpointed at 200 before its split entered the pure incremental phase,
+        // and is regrouped into a split that starts earlier.
+        TableId table = new TableId("testdb", "public", "table1");
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(table),
+                        new TestOffset(100),
+                        null,
+                        Collections.singletonList(completedSnapshotSplitInfo(table, 140, 150)),
+                        null,
+                        Collections.emptyMap(),
+                        Collections.singletonMap(table, new TestOffset(200)));
+        FetchTask.Context taskContext = exactlyOnceTaskContext();
+        when(taskContext.isRecordBetween(any(), any(), any())).thenReturn(true);
+
+        IncrementalSourceStreamFetcher fetcher = submitTask(taskContext, split);
+        try {
+            Assertions.assertFalse(fetcher.shouldEmit(createDataEventWithSource(table, 170)));
+            Assertions.assertTrue(fetcher.shouldEmit(createDataEventWithSource(table, 200)));
+        } finally {
+            fetcher.close();
+        }
+    }
+
+    private static IncrementalSourceStreamFetcher submitExactlyOnceTask(IncrementalSplit split) {
+        return submitTask(exactlyOnceTaskContext(), split);
+    }
+
+    private static FetchTask.Context exactlyOnceTaskContext() {
+        FetchTask.Context taskContext = mock(FetchTask.Context.class);
+        when(taskContext.isExactlyOnce()).thenReturn(true);
+        when(taskContext.isDataChangeRecord(any())).thenReturn(true);
+        when(taskContext.getStreamOffset(any()))
+                .thenAnswer(
+                        invocation -> {
+                            SourceRecord record = invocation.getArgument(0);
+                            return new TestOffset(
+                                    Long.parseLong((String) record.sourceOffset().get("pos")));
+                        });
+        return taskContext;
+    }
+
+    private static IncrementalSourceStreamFetcher submitTask(
+            FetchTask.Context taskContext, IncrementalSplit split) {
+        FetchTask<SourceSplitBase> fetchTask = mock(FetchTask.class);
+        when(fetchTask.getSplit()).thenReturn(split);
+
+        IncrementalSourceStreamFetcher fetcher =
+                new IncrementalSourceStreamFetcher(taskContext, 0, null);
+        fetcher.submitTask(fetchTask);
+        return fetcher;
+    }
+
+    private static CompletedSnapshotSplitInfo completedSnapshotSplitInfo(
+            TableId tableId, long lowWatermark, long highWatermark) {
+        String splitId = tableId + ":0";
+        return new CompletedSnapshotSplitInfo(
+                splitId,
+                tableId,
+                null,
+                null,
+                null,
+                new SnapshotSplitWatermark(
+                        splitId, new TestOffset(lowWatermark), new TestOffset(highWatermark)));
+    }
+
+    static SourceRecord createDataEventWithSource(TableId tableId, long position) {
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .name("io.debezium.connector.postgresql.Source")
+                        .field("db", Schema.STRING_SCHEMA)
+                        .field("schema", Schema.STRING_SCHEMA)
+                        .field("table", Schema.STRING_SCHEMA)
+                        .field(DEBEZIUM_CONNECTOR_KEY, Schema.STRING_SCHEMA)
+                        .build();
+        Struct sourceStruct = new Struct(sourceSchema);
+        sourceStruct.put("db", tableId.catalog());
+        sourceStruct.put("schema", tableId.schema());
+        sourceStruct.put("table", tableId.table());
+        sourceStruct.put(DEBEZIUM_CONNECTOR_KEY, "postgresql");
+
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .field(Envelope.FieldName.SOURCE, sourceSchema)
+                        .field(Envelope.FieldName.OPERATION, Schema.STRING_SCHEMA)
+                        .build();
+        Struct value = new Struct(valueSchema);
+        value.put(Envelope.FieldName.SOURCE, sourceStruct);
+        value.put(Envelope.FieldName.OPERATION, "u");
+        return new SourceRecord(
+                Collections.emptyMap(),
+                Collections.singletonMap("pos", String.valueOf(position)),
+                tableId.toString(),
+                null,
+                null,
+                valueSchema,
+                value);
+    }
+
+    static class TestOffset extends Offset {
+        private static final long serialVersionUID = 1L;
+
+        private final long position;
+
+        TestOffset(long position) {
+            this.position = position;
+            this.offset = Collections.singletonMap("pos", String.valueOf(position));
+        }
+
+        @Override
+        public int compareTo(Offset o) {
+            return Long.compare(position, ((TestOffset) o).position);
+        }
     }
 
     public static class TestConnectorConfig extends CommonConnectorConfig {

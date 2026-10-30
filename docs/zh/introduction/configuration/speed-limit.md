@@ -6,6 +6,10 @@ SeaTunnel提供了强大的速度控制功能允许你管理数据同步的速�
 速度控制主要由两个关键参数控制：`read_limit.rows_per_second` 和 `read_limit.bytes_per_second`。
 本文档将指导您如何使用这些参数以及如何有效地利用它们。
 
+在 Zeta 中，字节限速使用 SeaTunnel 的行大小估算值，而不是精确的序列化大小或网络传输字节数。
+对于 Map 数组或 Row 数组，null 元素按零计算，非 null 元素按其内容计算。
+修正此前遗漏的 Row 数组内容后，报告的字节指标可能增大，在相同字节限速下吞吐量可能降低。
+
 ## 支持这些引擎
 
 > SeaTunnel Zeta<br/>
