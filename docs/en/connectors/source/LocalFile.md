@@ -249,6 +249,10 @@ Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column
 
 The read column list of the data source, user can use it to implement field projection.
 
+For Parquet files, the reader also skips unselected top-level column data. Selected nested fields
+are read in full, and output column order is unchanged. Explicit Hadoop Parquet projections, reader
+schemas and record filters retain their existing behavior and disable automatic column pruning.
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
