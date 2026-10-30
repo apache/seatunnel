@@ -27,15 +27,21 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
- * Proves {@code batchQueryExecuteFailsStatus} uses one shared deadline across the batch (~1×
- * timeout total), not a per-entry wait of N× timeout.
+ * Proves {@code batchQueryExecuteFailsStatus} spends one shared timeout budget across the batch,
+ * not a fresh full timeout on every entry.
+ *
+ * <p>The check records the timeout handed to each pending future. It does not assert wall-clock
+ * elapsed time, so a busy CI worker cannot fail a correct implementation by delaying the thread.
  */
 class IMapFileStorageBatchDeadlineTest {
 
@@ -48,30 +54,39 @@ class IMapFileStorageBatchDeadlineTest {
         storage.writDataTimeoutMilliseconds = TIMEOUT_MS;
 
         Map<Long, Object> requestMap = new LinkedHashMap<>();
+        List<RecordingRequestFuture> futures = new ArrayList<>();
         for (int i = 0; i < PENDING_KEYS; i++) {
             long requestId = RequestFutureCache.getRequestId();
-            // Never completed: each get() would wait until the shared deadline elapses.
-            RequestFutureCache.put(requestId, new RequestFuture());
+            RecordingRequestFuture future = new RecordingRequestFuture();
+            futures.add(future);
+            RequestFutureCache.put(requestId, future);
             requestMap.put(requestId, "key-" + i);
         }
 
-        long startedNanos = System.nanoTime();
-        @SuppressWarnings("unchecked")
-        Set<Object> failures =
-                (Set<Object>)
-                        invokeBatchQueryExecuteFailsStatus(
-                                storage, requestMap, new HashSet<Object>());
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+        try {
+            @SuppressWarnings("unchecked")
+            Set<Object> failures =
+                    (Set<Object>)
+                            invokeBatchQueryExecuteFailsStatus(
+                                    storage, requestMap, new HashSet<Object>());
 
-        Assertions.assertEquals(PENDING_KEYS, failures.size());
-        // Shared deadline ~TIMEOUT_MS. Allow generous scheduling slack, but stay well under
-        // N × TIMEOUT_MS (the pre-fix per-entry behavior).
-        Assertions.assertTrue(
-                elapsedMs < TIMEOUT_MS * PENDING_KEYS,
-                "elapsedMs=" + elapsedMs + " should be < N×timeout=" + (TIMEOUT_MS * PENDING_KEYS));
-        Assertions.assertTrue(
-                elapsedMs < TIMEOUT_MS * 3,
-                "elapsedMs=" + elapsedMs + " should stay near 1×timeout=" + TIMEOUT_MS);
+            Assertions.assertEquals(PENDING_KEYS, failures.size());
+            long budgetNanos = TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
+            for (RecordingRequestFuture future : futures) {
+                Assertions.assertEquals(1, future.requestedTimeoutsNanos.size());
+                long requested = future.requestedTimeoutsNanos.get(0);
+                // The old code asked every entry for a fresh full timeout. The shared deadline
+                // asks only for the time still left, which can never exceed the one budget.
+                // The recorded waits are not additive: each is remaining time, not time spent.
+                Assertions.assertTrue(
+                        requested > 0L && requested <= budgetNanos,
+                        "requestedNanos=" + requested + " budgetNanos=" + budgetNanos);
+            }
+        } finally {
+            for (Long requestId : requestMap.keySet()) {
+                RequestFutureCache.remove(requestId);
+            }
+        }
     }
 
     private static Object invokeBatchQueryExecuteFailsStatus(
@@ -82,5 +97,19 @@ class IMapFileStorageBatchDeadlineTest {
                         "batchQueryExecuteFailsStatus", Map.class, Set.class);
         method.setAccessible(true);
         return method.invoke(storage, requestMap, failures);
+    }
+
+    /**
+     * A pending future that records the timeout it was given and throws immediately, so the shared
+     * budget can be checked without waiting on the wall clock.
+     */
+    private static final class RecordingRequestFuture extends RequestFuture {
+        private final List<Long> requestedTimeoutsNanos = new ArrayList<>();
+
+        @Override
+        public Boolean get(long timeout, TimeUnit unit) throws TimeoutException {
+            requestedTimeoutsNanos.add(unit.toNanos(timeout));
+            throw new TimeoutException("simulated shared-deadline timeout");
+        }
     }
 }

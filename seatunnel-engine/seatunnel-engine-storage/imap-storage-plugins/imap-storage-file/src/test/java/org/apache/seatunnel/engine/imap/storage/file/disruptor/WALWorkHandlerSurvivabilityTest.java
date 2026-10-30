@@ -76,7 +76,7 @@ class WALWorkHandlerSurvivabilityTest {
                         })
                 .when(failingWriter)
                 .write(any(IMapFileData.class));
-        setWriter(handler, failingWriter);
+        replaceWriter(handler, failingWriter);
 
         assertFailCloseAfterFirstWriteFailure(handler, failingWriter, writeCalls);
     }
@@ -112,7 +112,7 @@ class WALWorkHandlerSurvivabilityTest {
                         })
                 .when(flushFailingWriter)
                 .write(any(IMapFileData.class));
-        setWriter(handler, flushFailingWriter);
+        replaceWriter(handler, flushFailingWriter);
 
         assertFailCloseAfterFirstWriteFailure(handler, flushFailingWriter, writeCalls);
         // Failure originated from flush/sync, after bytes were handed to the stream.
@@ -133,58 +133,70 @@ class WALWorkHandlerSurvivabilityTest {
             WALWorkHandler handler, WALWriter failingWriter, AtomicInteger writeCalls)
             throws Exception {
         long failedRequestId = RequestFutureCache.getRequestId();
-        RequestFuture failedFuture = new RequestFuture();
-        RequestFutureCache.put(failedRequestId, failedFuture);
-
         long blockedRequestId = RequestFutureCache.getRequestId();
-        RequestFuture blockedFuture = new RequestFuture();
-        RequestFutureCache.put(blockedRequestId, blockedFuture);
+        try {
+            RequestFuture failedFuture = new RequestFuture();
+            RequestFutureCache.put(failedRequestId, failedFuture);
 
-        IMapFileData data =
-                IMapFileData.builder()
-                        .deleted(false)
-                        .key("k".getBytes())
-                        .keyClassName(String.class.getName())
-                        .value("v".getBytes())
-                        .valueClassName(String.class.getName())
-                        .timestamp(System.nanoTime())
-                        .build();
+            RequestFuture blockedFuture = new RequestFuture();
+            RequestFutureCache.put(blockedRequestId, blockedFuture);
 
-        // Must return normally: an escaping exception would kill the Disruptor worker.
-        Assertions.assertDoesNotThrow(
-                () ->
-                        handler.onEvent(
-                                FileWALEvent.builder()
-                                        .data(data)
-                                        .type(WALEventType.APPEND)
-                                        .requestId(failedRequestId)
-                                        .build()));
-        Assertions.assertTrue(failedFuture.isDone());
-        Assertions.assertFalse(failedFuture.get());
+            IMapFileData data =
+                    IMapFileData.builder()
+                            .deleted(false)
+                            .key("k".getBytes())
+                            .keyClassName(String.class.getName())
+                            .value("v".getBytes())
+                            .valueClassName(String.class.getName())
+                            .timestamp(System.nanoTime())
+                            .build();
 
-        // Fail-closed: second APPEND must complete with false without touching the writer again.
-        Assertions.assertDoesNotThrow(
-                () ->
-                        handler.onEvent(
-                                FileWALEvent.builder()
-                                        .data(data)
-                                        .type(WALEventType.APPEND)
-                                        .requestId(blockedRequestId)
-                                        .build()));
-        Assertions.assertTrue(blockedFuture.isDone());
-        Assertions.assertFalse(blockedFuture.get());
-        Assertions.assertEquals(1, writeCalls.get());
-        verify(failingWriter, times(1)).write(any(IMapFileData.class));
-        Assertions.assertTrue(
-                handler.isAppendBlockedAfterWriteFailure(),
-                "fail-close must be sticky for the handler lifetime");
+            // Must return normally: an escaping exception would kill the Disruptor worker.
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(failedRequestId)
+                                            .build()));
+            Assertions.assertTrue(failedFuture.isDone());
+            Assertions.assertFalse(failedFuture.get());
 
-        RequestFutureCache.remove(failedRequestId);
-        RequestFutureCache.remove(blockedRequestId);
+            // Fail-closed: second APPEND must complete with false without touching the writer
+            // again.
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(blockedRequestId)
+                                            .build()));
+            Assertions.assertTrue(blockedFuture.isDone());
+            Assertions.assertFalse(blockedFuture.get());
+            Assertions.assertEquals(1, writeCalls.get());
+            verify(failingWriter, times(1)).write(any(IMapFileData.class));
+            Assertions.assertTrue(
+                    handler.isAppendBlockedAfterWriteFailure(),
+                    "fail-close must be sticky for the handler lifetime");
+        } finally {
+            RequestFutureCache.remove(failedRequestId);
+            RequestFutureCache.remove(blockedRequestId);
+        }
     }
 
-    private static void setWriter(WALWorkHandler handler, WALWriter writer) throws Exception {
-        setField(handler, "writer", writer);
+    /** Closes the real WAL stream before the test replaces it with a mock. */
+    private static void replaceWriter(WALWorkHandler handler, WALWriter replacement)
+            throws Exception {
+        Field field = WALWorkHandler.class.getDeclaredField("writer");
+        field.setAccessible(true);
+        WALWriter opened = (WALWriter) field.get(handler);
+        try {
+            opened.close();
+        } finally {
+            field.set(handler, replacement);
+        }
     }
 
     private static void setField(Object target, String fieldName, Object value) throws Exception {
