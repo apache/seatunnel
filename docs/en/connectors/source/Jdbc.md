@@ -53,7 +53,7 @@ The origin verification depends on the driver reporting the origin table of ever
 
 | Database | Query-only merge | Notes |
 |----------|------------------|-------|
-| MySQL family (MySQL, OceanBase MySQL mode, TiDB, etc.) | Supported | Verified against real databases; column and table comments are preserved. |
+| MySQL family (MySQL, OceanBase MySQL mode, TiDB, etc.) | Supported | Verified on MySQL against a real database; column and table comments are preserved. Other MySQL-protocol databases (OceanBase MySQL mode, TiDB) are expected to behave the same because they use the same driver metadata, but are not covered by tests here. |
 | PostgreSQL | Not resolved yet | The driver reports the table name but no catalog/schema, so the origin cannot be resolved; use `table_path` + `query`. |
 | Oracle, SQL Server, DuckDB | Not resolved yet | The drivers leave the origin table name blank, so the origin cannot be verified; use `table_path` + `query` (note their catalogs do not expose the table comment). |
 | SAP HANA | Excluded | This catalog maps namespaces differently from the generic origin path, so the merge is disabled for it; use `table_path` + `query`. |

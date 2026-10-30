@@ -53,7 +53,7 @@ sh bin/install-plugin.sh
 
 | 数据库 | query-only 合并 | 说明 |
 |--------|----------------|------|
-| MySQL 家族（MySQL、OceanBase MySQL 模式、TiDB 等） | 支持 | 已在真实数据库上验证；字段注释和表注释可保留。 |
+| MySQL 家族（MySQL、OceanBase MySQL 模式、TiDB 等） | 支持 | 已在真实数据库上验证 MySQL 的行为；字段注释和表注释可保留。其他 MySQL 协议数据库（OceanBase MySQL 模式、TiDB）使用相同的驱动元数据，预期行为一致，但未在本仓库的测试覆盖范围内。 |
 | PostgreSQL | 暂不支持 | 驱动只报告表名，不报告 catalog/schema，无法解析来源；请使用 `table_path` + `query`。 |
 | Oracle、SQL Server、DuckDB | 暂不支持 | 驱动不报告来源表名，无法验证来源；请使用 `table_path` + `query`（注意其 catalog 不暴露表注释）。 |
 | SAP HANA | 已排除 | 该 catalog 的命名空间映射与通用来源路径不一致，已对其禁用合并；请使用 `table_path` + `query`。 |
