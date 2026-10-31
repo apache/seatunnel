@@ -28,11 +28,12 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
  *
  * <p>Each guard is attached to one option of the source option rule, so a configuration that uses
  * specific startup offsets is validated with the same rules the runtime source applies: the offsets
- * are only accepted when the {@code startup.mode} is (or defaults to) {@code specific}, the binlog
+ * are only accepted when the {@code startup.mode} is {@code specific} or {@code mixed}, the binlog
  * file and position must be configured together, and the value domains (non-blank / non-negative)
  * match the runtime checks. The {@code startup.mode} option itself carries a guard as well, so
- * {@code specific} without any anchor is rejected before the job starts. A valid anchor with
- * optional GTID / skip metadata, and a configuration without any specific offset, remain accepted.
+ * {@code specific} or {@code mixed} without any anchor is rejected before the job starts. A valid
+ * anchor with optional GTID / skip metadata, and a configuration without any specific offset,
+ * remain accepted.
  *
  * <p>Runtime behavior is unchanged; the guards only surface the same failures before the job is
  * started. The errors reuse the wording of the runtime error messages so that operators see the
@@ -86,11 +87,11 @@ public final class MySqlSpecificOffsetGuards {
             StartupMode mode =
                     config.getOptional(startupModeOption)
                             .orElseGet(startupModeOption::defaultValue);
-            if (mode != StartupMode.SPECIFIC) {
+            if (!usesSpecificOffsets(mode)) {
                 throw new OptionValidationException(
                         String.format(
                                 "'startup.specific-offset.*' options can only be used when '%s' is"
-                                        + " 'specific', but current mode is '%s'.",
+                                        + " 'specific' or 'mixed', but current mode is '%s'.",
                                 startupModeOption.key(), mode.name()));
             }
         }
@@ -101,10 +102,18 @@ public final class MySqlSpecificOffsetGuards {
                 throw new OptionValidationException(
                         String.format(
                                 "'%s' and '%s' must be configured together when '%s' is"
-                                        + " 'specific'.",
+                                        + " 'specific' or 'mixed'.",
                                 guardedKey, otherKey, startupModeOption.key()));
             }
         }
+    }
+
+    /**
+     * The mixed startup mode streams every non-snapshot table from the same specific offset, so it
+     * shares the specific-offset options and their validation with the specific mode.
+     */
+    static boolean usesSpecificOffsets(StartupMode mode) {
+        return mode == StartupMode.SPECIFIC || mode == StartupMode.MIXED;
     }
 
     /**
@@ -132,21 +141,24 @@ public final class MySqlSpecificOffsetGuards {
                     + fileOption.key()
                     + "' with '"
                     + posOption.key()
-                    + "' when the mode is 'specific'";
+                    + "' when the mode is 'specific' or 'mixed'";
         }
 
         @Override
         public boolean evaluate(ReadonlyConfig config, StartupMode value) {
             StartupMode mode = value != null ? value : startupModeOption.defaultValue();
-            if (mode != StartupMode.SPECIFIC) {
+            if (!usesSpecificOffsets(mode)) {
                 return true;
             }
             if (!config.getOptional(fileOption).isPresent()
                     && !config.getOptional(posOption).isPresent()) {
                 throw new OptionValidationException(
                         String.format(
-                                "'%s' requires '%s' with '%s' when the mode is 'specific'.",
-                                startupModeOption.key(), fileOption.key(), posOption.key()));
+                                "'%s' requires '%s' with '%s' when the mode is '%s'.",
+                                startupModeOption.key(),
+                                fileOption.key(),
+                                posOption.key(),
+                                mode.name().toLowerCase()));
             }
             return true;
         }
@@ -165,7 +177,7 @@ public final class MySqlSpecificOffsetGuards {
         public String description() {
             return "can only be used when '"
                     + startupModeOption.key()
-                    + "' is 'specific', must not be blank and must be paired with '"
+                    + "' is 'specific' or 'mixed', must not be blank and must be paired with '"
                     + posOption.key()
                     + "'";
         }
@@ -197,7 +209,7 @@ public final class MySqlSpecificOffsetGuards {
         public String description() {
             return "can only be used when '"
                     + startupModeOption.key()
-                    + "' is 'specific' and must be paired with '"
+                    + "' is 'specific' or 'mixed' and must be paired with '"
                     + fileOption.key()
                     + "'";
         }
@@ -219,7 +231,7 @@ public final class MySqlSpecificOffsetGuards {
         public String description() {
             return "can only be used when '"
                     + startupModeOption.key()
-                    + "' is 'specific' and must not be blank";
+                    + "' is 'specific' or 'mixed' and must not be blank";
         }
 
         @Override
@@ -242,7 +254,7 @@ public final class MySqlSpecificOffsetGuards {
         public String description() {
             return "can only be used when '"
                     + startupModeOption.key()
-                    + "' is 'specific' and must be greater than or equal to 0";
+                    + "' is 'specific' or 'mixed' and must be greater than or equal to 0";
         }
 
         @Override
