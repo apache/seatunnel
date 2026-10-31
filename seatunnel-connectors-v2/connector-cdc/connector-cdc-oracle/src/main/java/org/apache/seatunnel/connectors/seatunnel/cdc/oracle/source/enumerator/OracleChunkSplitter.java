@@ -66,8 +66,7 @@ public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws Exception {
-        return OracleUtils.skipReadAndSortSampleData(
-                jdbc, tableId, columnName, inverseSamplingRate);
+        return OracleUtils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override

@@ -23,10 +23,43 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 public class MySqlUtilsTest {
+
+    @Test
+    public void testSampleDataFromColumnOrdersByDatabaseCollation() throws Exception {
+        Connection connection = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        JdbcConnection jdbc = mock(JdbcConnection.class);
+        when(jdbc.connection()).thenReturn(connection);
+        when(connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(false);
+
+        MySqlUtils.sampleDataFromColumn(jdbc, TableId.parse("db1.table1"), "id", 1000);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(stmt).executeQuery(sqlCaptor.capture());
+        // The sample must be ordered by the database collation, not re-sorted on the Java
+        // side: chunk boundaries are later compared by the database in its own collation.
+        Assertions.assertEquals(
+                "SELECT `id` FROM `db1`.`table1` ORDER BY `id`", sqlCaptor.getValue());
+    }
 
     @Test
     public void testSplitScanQuery() {
