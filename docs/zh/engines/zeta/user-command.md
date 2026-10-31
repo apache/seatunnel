@@ -317,3 +317,14 @@ sh bin/stop-seatunnel-cluster.sh
 # 停止指定名称的集群
 sh bin/stop-seatunnel-cluster.sh -cn my_cluster
 ```
+
+### 本地 Hazelcast 端口
+
+使用 `--master local --hazelcast-port <port>`（简写为 `-port`）指定嵌入式 Hazelcast
+成员的端口。有效范围为 `0` 到 `65535`；`0` 表示由操作系统分配端口。显式指定的非零端口
+必须可用，端口被占用时不会回退到其他端口。客户端连接该成员实际公布的地址和选定的端口。
+
+未指定此选项时，本地模式保留 `hazelcast.yaml` 中配置的端口和 TCP/IP 成员列表，
+并沿用原有的端口自动递增行为。显式指定端口会清空该本地实例的 TCP/IP 加入成员列表。
+集群模式不接受此选项。该配置不会改变 REST 端口或网络接口绑定；这两项需要在引擎配置中
+分别设置。

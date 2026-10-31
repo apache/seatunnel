@@ -301,3 +301,17 @@ sh bin/stop-seatunnel-cluster.sh
 # Stop a cluster with specified name
 sh bin/stop-seatunnel-cluster.sh -cn my_cluster
 ```
+
+### Local Hazelcast port
+
+Use `--master local --hazelcast-port <port>` (short form `-port`) to choose the
+embedded Hazelcast member port. Values range from `0` to `65535`; `0` requests an
+operating-system-assigned port. An explicit nonzero port must be available; it
+does not fall back to another port. The client connects to the actual member
+address and selected port.
+
+Without this option, local mode retains the configured `hazelcast.yaml` port and
+TCP/IP member list, including its existing port auto-increment behavior. An
+explicit override clears the TCP/IP join members for that local instance. The
+option is rejected in cluster mode. This setting does not change the REST port
+or network interface binding; configure those separately in the engine config.
