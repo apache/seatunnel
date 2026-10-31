@@ -51,6 +51,9 @@
         <module>connector-file-gcs-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
+        <module>connector-asana-e2e</module>
+        <module>connector-intercom-e2e</module>
+        <module>connector-typeform-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-paypal-e2e</module>
         <module>connector-tiktok-ads-e2e</module>
@@ -80,6 +83,7 @@
         <module>connector-google-analytics4-e2e</module>
         <module>connector-snmp-e2e</module>
         <module>connector-azure-queue-storage-e2e</module>
+        <module>connector-azure-event-hubs-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
@@ -95,6 +99,7 @@
         <module>connector-milvus-e2e</module>
         <module>connector-activemq-e2e</module>
         <module>connector-prometheus-e2e</module>
+        <module>connector-sentry-e2e</module>
         <module>connector-qdrant-e2e</module>
         <module>connector-sls-e2e</module>
         <module>connector-socket-e2e</module>
@@ -115,6 +120,7 @@
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
         <module>connector-firebase-e2e</module>
+        <module>connector-websocket-e2e</module>
     </modules>
 
     <properties>

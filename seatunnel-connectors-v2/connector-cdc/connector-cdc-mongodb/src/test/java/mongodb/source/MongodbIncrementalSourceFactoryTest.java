@@ -17,7 +17,12 @@
 
 package mongodb.source;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -25,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfigProvider;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
@@ -34,7 +40,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.Chang
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MongodbIncrementalSourceFactoryTest {
     @Test
@@ -217,5 +227,180 @@ public class MongodbIncrementalSourceFactoryTest {
                 () ->
                         MongodbSourceConfigProvider.newBuilder()
                                 .stopOptions(new StopConfig(StopMode.LATEST, null, null, null)));
+    }
+
+    @Test
+    public void testOptionRuleAcceptsValidValueDomains() {
+        assertValid(basicOptions());
+    }
+
+    @Test
+    public void testOptionRuleAcceptsBoundaryNumericOptions() {
+        Map<String, Object> options = basicOptions();
+        options.put(MongodbIncrementalSourceOptions.BATCH_SIZE.key(), 0);
+        options.put(MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE.key(), 1);
+        options.put(MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS.key(), 1);
+        options.put(MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS.key(), 0);
+        options.put(MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.key(), 1);
+        assertValid(options);
+    }
+
+    @Test
+    public void testOptionRuleRejectsOutOfRangeNumericOptions() {
+        Object[][] invalidValues = {
+            {MongodbIncrementalSourceOptions.BATCH_SIZE, -1, ">= 0"},
+            {MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE, 0, "> 0"},
+            {MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS, 0, "> 0"},
+            {MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS, -1, ">= 0"},
+            {MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB, 0, "> 0"},
+        };
+        for (Object[] invalidValue : invalidValues) {
+            Option<?> option = (Option<?>) invalidValue[0];
+            String operator = (String) invalidValue[2];
+            Map<String, Object> options = basicOptions();
+            options.put(option.key(), invalidValue[1]);
+            OptionValidationException error = assertValidationFails(options);
+            Assertions.assertTrue(
+                    error.getMessage().contains(option.key())
+                            && error.getMessage().contains(operator),
+                    () ->
+                            option.key()
+                                    + " must be rejected by '"
+                                    + operator
+                                    + "': "
+                                    + error.getMessage());
+        }
+    }
+
+    @Test
+    public void testOptionRuleAcceptsTableConfigsInsteadOfSchema() {
+        Map<String, Object> options = basicOptions();
+        options.remove(MongodbIncrementalSourceOptions.SCHEMA.key());
+        options.put(
+                MongodbIncrementalSourceOptions.TABLE_CONFIGS.key(),
+                Collections.singletonList(schemaEntry()));
+        assertValid(options);
+    }
+
+    @Test
+    public void testOptionRuleRejectsEmptySchema() {
+        Map<String, Object> options = basicOptions();
+        options.put(MongodbIncrementalSourceOptions.SCHEMA.key(), new HashMap<String, Object>());
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(error.getMessage().contains("is not empty"), error.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleRejectsEmptyTableConfigs() {
+        Map<String, Object> options = basicOptions();
+        options.remove(MongodbIncrementalSourceOptions.SCHEMA.key());
+        options.put(
+                MongodbIncrementalSourceOptions.TABLE_CONFIGS.key(),
+                new ArrayList<Map<String, Object>>());
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(error.getMessage().contains("is not empty"), error.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleKeepsSchemaAndTableConfigsExclusive() {
+        Map<String, Object> options = basicOptions();
+        options.put(
+                MongodbIncrementalSourceOptions.TABLE_CONFIGS.key(),
+                Collections.singletonList(schemaEntry()));
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage().contains("mutually exclusive"), error.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleRejectsMissingSchemaAndTableConfigs() {
+        Map<String, Object> options = basicOptions();
+        options.remove(MongodbIncrementalSourceOptions.SCHEMA.key());
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage().contains("exactly one option must be set"), error.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleRequiresStopTimestampWhenStopModeIsTimestamp() {
+        // stop.timestamp is required when stop.mode is timestamp; the range check added along with
+        // it must not shadow that requirement.
+        Map<String, Object> options = basicOptions();
+        options.put(MongodbIncrementalSourceOptions.STOP_MODE.key(), "timestamp");
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage().contains(SourceOptions.STOP_TIMESTAMP.key()),
+                error.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleAcceptsTimestampRange() {
+        assertValid(timestampRangeOptions(1_700_000_000_000L, 1_700_000_001_000L));
+    }
+
+    @Test
+    public void testOptionRuleRejectsTimestampRangeThatDoesNotAdvance() {
+        long startupTimestamp = 1_700_000_000_000L;
+
+        // Comparing raw milliseconds would accept both of these; the positions they resolve to are
+        // what matters, and a change-stream timestamp only carries second precision.
+        OptionValidationException sameSecond =
+                assertValidationFails(
+                        timestampRangeOptions(startupTimestamp, startupTimestamp + 500L));
+        Assertions.assertTrue(
+                sameSecond.getMessage().contains("second precision"), sameSecond.getMessage());
+        assertValidationFails(timestampRangeOptions(startupTimestamp, startupTimestamp));
+        assertValidationFails(timestampRangeOptions(startupTimestamp, startupTimestamp - 1000L));
+    }
+
+    @Test
+    public void testOptionRuleIgnoresTimestampRangeWhenStartupModeIsNotTimestamp() {
+        Map<String, Object> options = timestampRangeOptions(1_700_000_000_000L, 1_700_000_000_000L);
+        options.put(MongodbIncrementalSourceOptions.STARTUP_MODE.key(), "latest");
+        options.remove(SourceOptions.STARTUP_TIMESTAMP.key());
+        assertValid(options);
+    }
+
+    private static OptionRule optionRule() {
+        return new MongodbIncrementalSourceFactory().optionRule();
+    }
+
+    private static Map<String, Object> basicOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(MongodbIncrementalSourceOptions.HOSTS.key(), "localhost:27017");
+        options.put(
+                MongodbIncrementalSourceOptions.DATABASE.key(),
+                Collections.singletonList("inventory"));
+        options.put(
+                MongodbIncrementalSourceOptions.COLLECTION.key(),
+                Collections.singletonList("products"));
+        options.put(MongodbIncrementalSourceOptions.SCHEMA.key(), schemaEntry());
+        return options;
+    }
+
+    private static Map<String, Object> schemaEntry() {
+        Map<String, Object> table = new HashMap<>();
+        table.put("fields", Collections.singletonMap("id", "string"));
+        return Collections.singletonMap("inventory.products", table);
+    }
+
+    private static Map<String, Object> timestampRangeOptions(
+            long startupTimestamp, long stopTimestamp) {
+        Map<String, Object> options = basicOptions();
+        options.put(MongodbIncrementalSourceOptions.STARTUP_MODE.key(), "timestamp");
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), startupTimestamp);
+        options.put(MongodbIncrementalSourceOptions.STOP_MODE.key(), "timestamp");
+        options.put(SourceOptions.STOP_TIMESTAMP.key(), stopTimestamp);
+        return options;
+    }
+
+    private static void assertValid(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(optionRule());
+    }
+
+    private static OptionValidationException assertValidationFails(Map<String, Object> options) {
+        return Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(optionRule()));
     }
 }
