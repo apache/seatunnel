@@ -223,6 +223,41 @@ describe('managers', () => {
     // The table is refetched after the mutation instead of trusting the response.
     expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
   })
+  test('keeps untouched tag strings verbatim and only parses edited lines', async () => {
+    // Server tags are arbitrary strings: a key may contain "=", a value may carry whitespace and
+    // "__proto__" is an ordinary key. Saving must not rewrite entries the operator did not touch,
+    // because the server replaces the whole map and scheduling matches tags exactly.
+    const existingTags = Object.fromEntries([
+      ['zone=region', 'prod'],
+      ['note', ' a=b '],
+      ['__proto__', 'literal']
+    ] as const)
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor(), uuid: 'worker-1', localMember: true, tags: existingTags }
+    ])
+    const { wrapper } = await setup()
+    await flushPromises()
+    await wrapper
+      .findAllComponents(NButton)
+      .find((button) => button.text() === 'Select')!
+      .trigger('click')
+    const textarea = wrapper.find('textarea')
+    expect(textarea.element.value).toBe('zone=region=prod\nnote= a=b \n__proto__=literal')
+    await textarea.setValue(`${textarea.element.value}\nowner=team=data`)
+    const onPositiveClick = wrapper.findAllComponents(NPopconfirm)[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).toHaveBeenCalledTimes(1)
+    const sentTags = vi.mocked(managerService.updateTags).mock.calls[0][0].tags
+    expect(Object.entries(sentTags)).toEqual([
+      ['zone=region', 'prod'],
+      ['note', ' a=b '],
+      ['__proto__', 'literal'],
+      ['owner', 'team=data']
+    ])
+  })
   test('rejects duplicate tag keys before calling the server', async () => {
     vi.mocked(managerService.getMonitors).mockResolvedValue([
       { ...monitor(), uuid: 'worker-1', localMember: true, tags: {} }

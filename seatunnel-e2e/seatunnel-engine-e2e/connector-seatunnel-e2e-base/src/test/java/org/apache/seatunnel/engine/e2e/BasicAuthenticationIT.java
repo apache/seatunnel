@@ -244,10 +244,11 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                 .then()
                 .statusCode(400)
                 .body("status", equalTo("fail"))
+                // The shared ExceptionHandlingFilter prefixes the message with the exception type.
                 .body(
                         "message",
                         equalTo(
-                                "Target member uuid must match the REST node serving this request."));
+                                "IllegalArgumentException: Target member uuid must match the REST node serving this request."));
     }
 
     /** Test submitting a job via REST API with correct credentials. */

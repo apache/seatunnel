@@ -1122,6 +1122,8 @@ public class RestApiIT {
                 1, members.stream().filter(m -> Boolean.TRUE.equals(m.get("localMember"))).count());
         String remoteUuid = node2.getCluster().getLocalMember().getUuid().toString();
 
+        // The Jetty ExceptionHandlingFilter serializes commons-lang3 ExceptionUtils.getMessage(e),
+        // so every 400 raised by the servlet validation carries the "<ExceptionType>: " prefix.
         given().body(tagRequest(remoteUuid, "{\"zone\": \"prod\"}"))
                 .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
                 .then()
@@ -1130,7 +1132,7 @@ public class RestApiIT {
                 .body(
                         "message",
                         equalTo(
-                                "Target member uuid must match the REST node serving this request."));
+                                "IllegalArgumentException: Target member uuid must match the REST node serving this request."));
         given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
                 .then()
                 .statusCode(200)
@@ -1145,7 +1147,7 @@ public class RestApiIT {
                 .then()
                 .statusCode(400)
                 .body("status", equalTo("fail"))
-                .body("message", equalTo("Tag values must be strings."));
+                .body("message", equalTo("IllegalArgumentException: Tag values must be strings."));
         given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?node=node1")
                 .then()
                 .statusCode(200)
@@ -1191,7 +1193,9 @@ public class RestApiIT {
                 .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
                 .then()
                 .statusCode(400)
-                .body("message", equalTo("The tags field must be an object."));
+                .body(
+                        "message",
+                        equalTo("IllegalArgumentException: The tags field must be an object."));
     }
 
     private static String tagRequest(String uuid, String tagsJson) {

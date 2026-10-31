@@ -121,6 +121,49 @@ describe('jobs', () => {
     })
     wrapper.unmount()
   })
+  test('Running Jobs does not restart polling when a job action completes after unmount', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.spyOn(JobsService, 'getRunningJobs').mockResolvedValue({
+        data: [
+          {
+            jobId: '888413907541032961',
+            jobName: 'SeaTunnel_Job',
+            jobStatus: 'RUNNING',
+            errorMsg: '',
+            createTime: '2024-09-17 21:19:41',
+            finishTime: ''
+          }
+        ] as Job[],
+        total: 1
+      } as JobPage)
+      let resolveStop!: (value: Awaited<ReturnType<typeof JobsService.stopJob>>) => void
+      vi.spyOn(JobsService, 'stopJob').mockImplementation(
+        () =>
+          new Promise<Awaited<ReturnType<typeof JobsService.stopJob>>>((resolve) => {
+            resolveStop = resolve
+          })
+      )
+      const wrapper = mount(runningJobs, { global: { plugins: [i18n] } })
+      await flushPromises()
+      expect(JobsService.getRunningJobs).toHaveBeenCalledTimes(1)
+      const confirmations = wrapper.findAllComponents(NPopconfirm)
+      const onPositiveClick = confirmations[0].props('onPositiveClick') as (
+        event: MouseEvent
+      ) => Promise<void>
+      const pendingAction = onPositiveClick(new MouseEvent('click'))
+      // Navigate away while the stop request is still pending, then let it succeed.
+      wrapper.unmount()
+      resolveStop({ jobId: '888413907541032961' })
+      await pendingAction
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(15_000)
+      // The success continuation must neither refetch nor re-arm the five second polling loop.
+      expect(JobsService.getRunningJobs).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
   test('Finished Jobs component', async () => {
     const mockData = {
       data: [

@@ -45,7 +45,14 @@ export default defineComponent({
 
     let timer: ReturnType<typeof setTimeout> | undefined
     let fetchVersion = 0
+    // Set once the component is unmounted. The version counter only invalidates requests that were
+    // already in flight; a job action whose POST settles after navigation would otherwise call
+    // fetch() again and re-arm the polling loop for a component that no longer exists.
+    let disposed = false
     const fetch = async () => {
+      if (disposed) {
+        return
+      }
       if (timer) {
         clearTimeout(timer)
         timer = undefined
@@ -66,12 +73,13 @@ export default defineComponent({
           }
         }
       } finally {
-        if (currentVersion === fetchVersion) {
+        if (!disposed && currentVersion === fetchVersion) {
           timer = setTimeout(fetch, 5000)
         }
       }
     }
     onUnmounted(() => {
+      disposed = true
       fetchVersion++
       if (timer) {
         clearTimeout(timer)

@@ -62,6 +62,11 @@ export default defineComponent({
     const tagMessage = ref('')
     const tagError = ref('')
     const tagLoading = ref(false)
+    // Existing tags are arbitrary server strings that the key=value line format cannot always
+    // represent unambiguously: a key may itself contain "=" and a value may carry surrounding
+    // whitespace. Each entry is remembered under the exact line it was serialized to, so a line
+    // the operator did not touch is sent back as the original pair instead of being re-parsed.
+    let existingTagLines = new Map<string, [string, string]>()
     let timer: ReturnType<typeof setTimeout> | undefined
     let generation = 0
     let disposed = false
@@ -146,26 +151,34 @@ export default defineComponent({
       document.removeEventListener('visibilitychange', onVisibilityChange)
     })
 
+    // New or edited lines split on the first "=" only; the key is trimmed, the value is kept
+    // verbatim because the server accepts any string and trimming would silently change it.
+    const parseTagLine = (line: string): [string, string] => {
+      const separatorIndex = line.indexOf('=')
+      const key = line.substring(0, separatorIndex).trim()
+      if (!key) {
+        throw new Error(t('managers.tagEditor.invalid'))
+      }
+      return [key, line.substring(separatorIndex + 1)]
+    }
+
     const parseTags = () => {
-      const tags: Record<string, string> = {}
-      const tagKeys = new Set<string>()
+      // Collected in a Map and converted with Object.fromEntries so that a literal "__proto__" key
+      // becomes an own property instead of reaching the prototype setter of a plain object.
+      const tags = new Map<string, string>()
       for (const rawLine of tagContent.value.split('\n')) {
-        const line = rawLine.trim()
-        if (!line) {
+        if (!rawLine.trim()) {
           continue
         }
-        const separatorIndex = line.indexOf('=')
-        const key = line.substring(0, separatorIndex).trim()
-        if (!key) {
-          throw new Error(t('managers.tagEditor.invalid'))
-        }
-        if (tagKeys.has(key)) {
+        // A line that still reads exactly as serialized by selectMonitor is the untouched original
+        // entry and keeps its exact key and value; only other lines are parsed.
+        const [key, value] = existingTagLines.get(rawLine) ?? parseTagLine(rawLine)
+        if (tags.has(key)) {
           throw new Error(t('managers.tagEditor.duplicate'))
         }
-        tagKeys.add(key)
-        tags[key] = line.substring(separatorIndex + 1).trim()
+        tags.set(key, value)
       }
-      return tags
+      return Object.fromEntries(tags)
     }
 
     // The poll loop allows one request in flight at a time. If a poll is already running it may
@@ -223,9 +236,13 @@ export default defineComponent({
 
     const selectMonitor = (monitor: Monitor) => {
       selectedMonitor.value = monitor
-      tagContent.value = Object.entries(monitor.tags || {})
-        .map(([key, value]) => `${key}=${value}`)
-        .join('\n')
+      existingTagLines = new Map(
+        Object.entries(monitor.tags || {}).map(([key, value]): [string, [string, string]] => [
+          `${key}=${value}`,
+          [key, value]
+        ])
+      )
+      tagContent.value = Array.from(existingTagLines.keys()).join('\n')
       tagMessage.value = ''
       tagError.value = ''
     }
