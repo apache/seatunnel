@@ -77,6 +77,20 @@ Read external data source data through JDBC.
 | TIMESTAMP(s)<br/>TIMESTAMPTZ(s)                                                                  | TIMESTAMP(s)                                                                                                                                   |
 | TIME(s)<br/>TIMETZ(s)                                                                            | TIME(s)                                                                                                                                        |
 | DATE<br/>                                                                                        | DATE                                                                                                                                           |
+| vector, vector(N) | FLOAT_VECTOR |
+
+### pgvector
+
+With the SeaTunnel Zeta engine, PostgreSQL `vector` and `vector(N)` columns map to
+`FLOAT_VECTOR`. Install the pgvector extension on the database server and enable
+it in each source and target database with `CREATE EXTENSION IF NOT EXISTS vector`.
+The pgvector integration tests cover SeaTunnel Zeta; Flink and Spark require separate validation.
+
+Catalog discovery preserves `N`. For a query source, the dimension is resolved
+from the physical table and column reported by the PostgreSQL JDBC driver. If
+that provenance is unavailable (for example, a computed expression), the type
+remains unconstrained `vector`; SQL text is not used to guess a table. See the
+[JDBC sink pgvector guidance](../sink/Jdbc.md#postgresql-pgvector) for writing.
 
 ## Options
 

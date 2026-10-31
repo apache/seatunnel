@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -100,6 +101,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_UUID = "uuid";
     public static final String PG_GEOMETRY = "geometry";
     public static final String PG_GEOGRAPHY = "geography";
+    public static final String PG_VECTOR = "vector";
     public static final String PG_DATE = "date";
     public static final String PG_INTERVAL = "interval";
 
@@ -249,6 +251,35 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_VARCHAR_ARRAY:
             case PG_TEXT_ARRAY:
                 builder.dataType(ArrayType.STRING_ARRAY_TYPE);
+                break;
+            case PG_VECTOR:
+                builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
+                builder.sourceType(PG_VECTOR);
+                if (typeDefine.getColumnType() != null
+                        && !PG_VECTOR.equalsIgnoreCase(typeDefine.getColumnType().trim())) {
+                    String columnType = typeDefine.getColumnType().trim();
+                    try {
+                        if (!columnType.startsWith(PG_VECTOR + "(") || !columnType.endsWith(")")) {
+                            throw new NumberFormatException("Invalid vector type modifier");
+                        }
+                        int dimension =
+                                Integer.parseInt(
+                                        columnType
+                                                .substring(
+                                                        PG_VECTOR.length() + 1,
+                                                        columnType.length() - 1)
+                                                .trim());
+                        if (dimension <= 0) {
+                            throw new NumberFormatException("Vector dimension must be positive");
+                        }
+                        builder.scale(dimension);
+                        // Native PostgreSQL DDL reuses sourceType instead of reconverting scale.
+                        builder.sourceType(PG_VECTOR + "(" + dimension + ")");
+                    } catch (NumberFormatException e) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                identifier(), typeDefine.getColumnType(), typeDefine.getName());
+                    }
+                }
                 break;
             case PG_BYTEA:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -425,6 +456,16 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case BYTES:
                 builder.columnType(PG_BYTEA);
                 builder.dataType(PG_BYTEA);
+                break;
+            case FLOAT_VECTOR:
+                int vectorDim =
+                        column.getScale() != null && column.getScale() > 0 ? column.getScale() : 0;
+                if (vectorDim > 0) {
+                    builder.columnType(String.format("%s(%s)", PG_VECTOR, vectorDim));
+                } else {
+                    builder.columnType(PG_VECTOR);
+                }
+                builder.dataType(PG_VECTOR);
                 break;
             case STRING:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
