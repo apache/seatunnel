@@ -273,6 +273,11 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | DSQL      |              |          |
 | YashanDB  |              |          |
+
+SAP HANA auto-created tables keep the existing `STRING` mapping to `NVARCHAR` (length up to 5000) or `CLOB`,
+including columns whose source type is `CHAR`. The source type name alone does not identify its database
+of origin, so the sink does not recreate it as HANA ASCII `CHAR`.
+
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

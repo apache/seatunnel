@@ -273,6 +273,9 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | DSQL      |            |          |
 | YashanDB  |            |          |
 
+SAP HANA 自动建表沿用现有的 `STRING` 映射，使用 `NVARCHAR`（长度不超过 5000）或 `CLOB`，
+包括源类型名为 `CHAR` 的字段。仅凭源类型名无法确认来源数据库，因此接收器不会把它重建为 HANA 的 ASCII `CHAR`。
+
 ### database [string]
 
 自动生成 SQL 模式下的目标 database 或 catalog。`generate_sink_sql = true` 时必填，不能与 `query` 同时使用。
