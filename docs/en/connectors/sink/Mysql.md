@@ -235,7 +235,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"
@@ -279,7 +279,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"

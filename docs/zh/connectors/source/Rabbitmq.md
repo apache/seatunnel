@@ -30,6 +30,19 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 :::
 
+## 连接预检查
+
+使用自己的作业配置执行 `bin/seatunnel.sh --config <your-job.conf> --dry-run connect`。
+
+Source 支持连接、身份认证及已有队列的元数据检查。预检查复用正常 Source 的 URI 优先级、虚拟主机、TLS 配置，以及单表或 `tables_configs` 的 schema 构建逻辑，不创建 reader。
+
+- 对每个配置队列执行被动声明，不创建或删除队列，不注册消费者，不读取、确认或发布消息。
+- 即使 `passive = false`，队列也必须事先存在。正常作业可以创建缺失队列，但预检查不会创建。其他连接持有的独占队列无法检查。
+- 检查成功**不代表**具备消费/读取权限、队列声明属性兼容、消息格式与 schema 匹配，或运行时交付保证。被动声明可能刷新队列的过期计时器。
+- Socket 连接、AMQP 握手及 channel RPC 各自最多等待 10 秒；保留更小的正数 `connection_timeout`，零值在预检查中也受到限制。队列按顺序检查，因此整个命令并非最多 10 秒。DNS 解析由 JVM 解析器控制。
+- 仅临时连接禁用自动恢复和拓扑恢复。成功或失败后均终止该连接，清理等待上限为 1 秒。正常 Source 的配置及行为不变。
+- 校验错误不包含原始连接字符串、服务端原始错误或含凭据的异常原因。Sink 连通性仍不支持。
+
 ## 选项
 
 | 参数名                        | 类型      | 必须 | 默认值   | 描述                                                                          |
@@ -351,6 +364,15 @@ RabbitMQ Source 默认支持 JSON。当 `format` 设置为 `protobuf` 时支持 
 ### 任务发生故障时未确认的消息如何处理？
 
 当 SeaTunnel 任务失败或异常退出时，与 RabbitMQ 的连接会断开，RabbitMQ 会自动将所有未确认（unacknowledged）的消息重新入队（requeue）。在任务从检查点恢复后，Reader 可以重新处理这些消息，避免数据丢失。
+
+## 恢复旧版本检查点
+
+当前 RabbitMQ source 可以读取 SeaTunnel 2.3.13 序列化的旧版 `RabbitmqSourceState`。
+旧状态没有保存已分配的队列 split，因此恢复时先建立空的分配映射，再重新发现当前配置中的队列。
+升级时应保留队列配置和 broker 数据；此兼容层不会重建旧检查点中原本没有的消息位点或确认信息。
+
+当前版本的检查点会保存已分配的 split。故障前尚未确认的 broker 消息可能重新投递，
+旧状态兼容本身不提供额外的 Exactly-Once 保证。
 
 ## 变更日志
 

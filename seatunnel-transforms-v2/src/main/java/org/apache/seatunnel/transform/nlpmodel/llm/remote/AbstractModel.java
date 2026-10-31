@@ -31,6 +31,7 @@ import org.apache.seatunnel.format.json.RowToJsonConverters;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public abstract class AbstractModel implements Model {
 
@@ -120,6 +121,6 @@ public abstract class AbstractModel implements Model {
             throws IOException;
 
     protected String convertData(String data) {
-        return outputType == SqlType.BOOLEAN ? data.toLowerCase() : data;
+        return outputType == SqlType.BOOLEAN ? data.toLowerCase(Locale.ROOT) : data;
     }
 }

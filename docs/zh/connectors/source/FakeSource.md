@@ -67,6 +67,12 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 | double.min                | double   | 否       | 0                      | 连接器生成的 double 数据的最小值                                                                                                                                                                  |
 | double.max                | double   | 否       | 0x1.fffffffffffffP+1023 | 连接器生成的 double 数据的最大值                                                                                                                                                                  |
 | double.template           | list     | 否       | -                      | 连接器生成的 double 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
+| date.year.template        | list     | 否       | -                      | 日期年份的模板列表（如 `yyyy`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                              |
+| date.month.template       | list     | 否       | -                      | 日期月份的模板列表（如 `MM`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| date.day.template         | list     | 否       | -                      | 日期天数的模板列表（如 `dd`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.hour.template        | list     | 否       | -                      | 时间小时的模板列表（如 `HH`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.minute.template      | list     | 否       | -                      | 时间分钟的模板列表（如 `mm`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
+| time.second.template      | list     | 否       | -                      | 时间秒数的模板列表（如 `ss`），如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                |
 | vector.dimension          | int      | 否       | 4                      | 生成的向量的维度，不包括二进制向量                                                                                                                                                                   |
 | binary.vector.dimension   | int      | 否       | 8                      | 生成的二进制向量的维度                                                                                                                                                                            |
 | vector.float.min          | float    | 否       | 0                      | 连接器生成的向量中 float 数据的最小值                                                                                                                                                              |
@@ -386,24 +392,6 @@ rows = [
     fields = [1, "A_1", 100]
   }
 ]
-```
-
-### `table-names` 选项示例
-
-```hocon
-source {
-  # 这是一个示例源插件，**仅用于测试和演示源插件功能**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
 ```
 
 ### `defaultValue` 选项示例

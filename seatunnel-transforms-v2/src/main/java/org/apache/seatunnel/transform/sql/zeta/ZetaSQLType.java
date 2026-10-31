@@ -66,6 +66,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class ZetaSQLType {
@@ -320,13 +321,14 @@ public class ZetaSQLType {
     }
 
     private SeaTunnelDataType<?> getFunctionType(Function function) {
-        switch (function.getName().toUpperCase()) {
+        switch (function.getName().toUpperCase(Locale.ROOT)) {
             case ZetaSQLFunction.CHAR:
             case ZetaSQLFunction.CHR:
             case ZetaSQLFunction.CONCAT:
             case ZetaSQLFunction.CONCAT_WS:
             case ZetaSQLFunction.HEXTORAW:
             case ZetaSQLFunction.RAWTOHEX:
+            case ZetaSQLFunction.MD5:
             case ZetaSQLFunction.TO_BASE64:
             case ZetaSQLFunction.FROM_BASE64:
             case ZetaSQLFunction.INSERT:
@@ -357,6 +359,9 @@ public class ZetaSQLType {
             case ZetaSQLFunction.FROM_UNIXTIME:
             case ZetaSQLFunction.UUID:
             case ZetaSQLFunction.TRIM_SCALE:
+            case ZetaSQLFunction.AES_ENCRYPT:
+            case ZetaSQLFunction.AES_DECRYPT:
+            case ZetaSQLFunction.GET_JSON_OBJECT:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
@@ -567,7 +572,7 @@ public class ZetaSQLType {
     }
 
     private SeaTunnelDataType<?> getTimeKeyExprType(TimeKeyExpression timeKeyExpression) {
-        switch (timeKeyExpression.getStringValue().toUpperCase()) {
+        switch (timeKeyExpression.getStringValue().toUpperCase(Locale.ROOT)) {
             case ZetaSQLFunction.CURRENT_DATE:
             case ZetaSQLFunction.CURRENT_DATE_P:
                 return LocalTimeType.LOCAL_DATE_TYPE;

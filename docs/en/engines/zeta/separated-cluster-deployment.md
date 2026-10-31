@@ -316,14 +316,24 @@ map:
         fs.oss.endpoint: OSS endpoint
 ```
 
+To use OSS credentials from environment variables, remove `fs.oss.accessKeyId` and
+`fs.oss.accessKeySecret` and add:
+
+```yaml
+        fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+The provider reads `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET`, plus optional
+`OSS_SESSION_TOKEN`.
+
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
 The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
@@ -356,6 +366,11 @@ map:
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
 ```
 
+For environment-variable credentials, remove `fs.s3a.access.key` and `fs.s3a.secret.key` and use
+`fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider`.
+The provider reads `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, plus optional
+`AWS_SESSION_TOKEN`.
+
 Notice: When using S3, make sure that the following jars are in the lib directory.
 
 Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project:
@@ -367,6 +382,34 @@ The version follows the `${library.version}-${seatunnel.shade.version}` format (
 ```
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
+```
+
+If you use GCS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # optional, Application Default Credentials (e.g. GKE Workload Identity) are used when absent
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+Notice: The IMap WAL writer rewrites its current object on every update (the same as for S3 and OSS), and GCS allows about one write per second to the same object name. GCS IMap persistence is therefore best suited to low or moderate IMap update rates.
+
+Notice: When using GCS, make sure that the following jars are in the lib directory.
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
 ### 4.7 Job Scheduling Strategy
@@ -398,14 +441,16 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 **max-thread-num**
 
-The max job count can be executed at same time
+The maximum number of threads in the coordinator service executor (the `maximumPoolSize` of its thread pool). The default is `Integer.MAX_VALUE`.
 
 Example
 
 ```yaml
-coordinator-service:
-  core-thread-num: 30
-  max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.9 Job Metrics Partition Count (This parameter is invalid on the Worker node)
@@ -541,6 +586,10 @@ mkdir -p $SEATUNNEL_HOME/logs
 ```
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
+
+> A Worker started before any Master will keep retrying the configured master addresses for up to
+> `hazelcast.max.join.seconds` (default 300s) and log `This lite member cannot assume the master
+> role ...` while waiting.
 
 ## 8. Submit And Manage Jobs
 
