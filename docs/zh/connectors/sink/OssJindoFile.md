@@ -98,7 +98,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅当 `file_format_type` 为 `parquet` 时使用。                                                                                                    |
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。要写入文件的字符集，通过 `Charset.forName(encoding)` 解析。                                                  |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当 `file_format_type` 为 `canal_json`、`debezium_json`、`maxwell_json` 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                       |
-| schema_evolution_enabled              | boolean | 否  | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 `true` 时，来自上游的 `ADD/DROP/RENAME/MODIFY` 列事件无需重启作业即可应用到 Sink。不支持 `binary` 格式。                                                  |
+| enable_header_write                   | boolean | 否  | false                                      | 仅当 `file_format_type` 为 `text`、`csv` 时使用。`false`：不写表头，`true`：写表头。                                                                                          |
 
 ### path [string]
 
@@ -268,37 +268,6 @@ Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink
 ### merge_update_event [boolean]
 
 仅当 `file_format_type` 为 `canal_json`、`debezium_json`、`maxwell_json` 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。
-
-### schema_evolution_enabled [boolean]
-
-设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
-
-**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
-
-**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
-
-**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
-
-**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
-
-CDC 管道中的使用示例：
-
-```hocon
-OssJindoFile {
-    path = "/tmp/cdc/${table_name}"
-    bucket = "oss://tyrantlucifer-image-bed"
-    access_key = "xxxxxxxxxxxxxxxxx"
-    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
-    endpoint = "oss-cn-beijing.aliyuncs.com"
-    file_format_type = "parquet"
-    schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
-}
-```
 
 ## 例子
 

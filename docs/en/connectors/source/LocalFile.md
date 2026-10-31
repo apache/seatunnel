@@ -58,7 +58,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | yes       | -                                    |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                                 |

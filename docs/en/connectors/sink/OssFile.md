@@ -604,8 +604,12 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true
