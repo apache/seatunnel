@@ -41,14 +41,17 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -123,6 +126,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // ---------------------------Compatible Format Parameter---------------------------------------
     private static final String COMPATIBLE_DATA_PATH = "/compatible/compatible_data.txt";
     private static final String COMPATIBLE_KAFKA_SOURCE_TOPIC = "jdbc_source_record";
+    private static final String COMPATIBLE_TOMBSTONE_CONFIG =
+            "/compatibleFormatIT/kafkasource_jdbc_record_tombstone_to_pgsql.conf";
 
     // ---------------------------Debezium Format Parameter  ---------------------------------------
     private static final String DEBEZIUM_KAFKA_SINK_TOPIC = "test-debezium-sink";
@@ -441,6 +446,80 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
         // Check Compatible
         checkCompatibleFormat();
+    }
+
+    /**
+     * A tombstone, a record carrying a key and a {@code null} value, has to produce no row and let
+     * the source carry on past it. The guard that makes that happen sits at the top of {@code
+     * CompatibleKafkaConnectDeserializationSchema.deserialize}, before {@code convertToSinkRecord},
+     * which is the same branch the format module unit tests cover.
+     *
+     * <p>Restricted to Zeta because the committed offset assertion needs the offsets to be
+     * committed when a batch job finishes, which the other engines do not do.
+     */
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink and spark won't commit offset when batch job finished")
+    @TestTemplate
+    public void testFormatCompatibleTombstoneCheck(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+
+        LOG.info("======================  Check Compatible Tombstone ====================== ");
+        // The broker is shared by every test in this class, so this one publishes to its own
+        // topic under its own consumer group. Putting a tombstone on jdbc_source_record would
+        // change the fixture testFormatCompatibleCheck reads, and a shared group would carry
+        // committed offsets in from the other lanes.
+        String topic =
+                COMPATIBLE_KAFKA_SOURCE_TOPIC + "_tombstone_" + container.identifier().name();
+        createKafkaTopic(topic);
+
+        // The envelopes the compatible fixture already carries, with a tombstone inserted before
+        // the last one. Everything after the tombstone still has to arrive, so the expectation
+        // stays exactly the one testFormatCompatibleCheck asserts.
+        List<String> envelopes = readCompatibleEnvelopes();
+        try (KafkaProducer<String, String> producer =
+                new KafkaProducer<>(kafkaProducerProperties())) {
+            for (int i = 0; i < envelopes.size() - 1; i++) {
+                producer.send(new ProducerRecord<>(topic, null, envelopes.get(i))).get();
+            }
+            producer.send(new ProducerRecord<>(topic, "tombstone-key", null)).get();
+            producer.send(new ProducerRecord<>(topic, null, envelopes.get(envelopes.size() - 1)))
+                    .get();
+            producer.flush();
+        }
+        // One record per envelope, plus the tombstone.
+        long endOffset = envelopes.size() + 1L;
+
+        // Both values of format_error_handle_way. The guard returns before any format specific
+        // parsing runs, so nothing is thrown, the emitter's catch block is never entered, and
+        // the mode stops deciding what a tombstone does.
+        for (String errorHandleWay : Arrays.asList("FAIL", "SKIP")) {
+            // A group per run, so the second run has to commit an offset of its own instead of
+            // passing on the one the first run already left behind.
+            String consumerGroup = topic + "_group_" + errorHandleWay;
+            Container.ExecResult execCompatibleTombstoneResultToPgSql =
+                    container.executeJob(
+                            COMPATIBLE_TOMBSTONE_CONFIG,
+                            Arrays.asList(
+                                    "topic=" + topic,
+                                    "consumerGroup=" + consumerGroup,
+                                    "errorHandleWay=" + errorHandleWay));
+            Assertions.assertEquals(
+                    0,
+                    execCompatibleTombstoneResultToPgSql.getExitCode(),
+                    "format_error_handle_way="
+                            + errorHandleWay
+                            + ": "
+                            + execCompatibleTombstoneResultToPgSql.getStderr());
+
+            // The tombstone produced no row and every real record still arrived.
+            checkCompatibleFormat();
+
+            // And the offset moved past the tombstone, so a restart does not replay it. A row
+            // count on its own would not catch that, which is why this assertion is here.
+            assertCommittedOffsetReached(topic, consumerGroup, endOffset, errorHandleWay);
+        }
     }
 
     @TestTemplate
@@ -888,6 +967,96 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(expected, actual);
     }
 
+    /**
+     * Reads the envelopes the compatible format fixture already carries, so the tombstone test
+     * publishes the same payload shape and can reuse {@link #checkCompatibleFormat()} as its
+     * expectation.
+     */
+    private List<String> readCompatibleEnvelopes() throws IOException {
+        InputStream inputStream = KafkaFormatIT.class.getResourceAsStream(COMPATIBLE_DATA_PATH);
+        Assertions.assertNotNull(inputStream, "missing fixture " + COMPATIBLE_DATA_PATH);
+        List<String> envelopes = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                envelopes.add(line);
+            }
+        }
+        Assertions.assertTrue(
+                envelopes.size() > 1,
+                "the compatible fixture needs at least two records to place a tombstone between");
+        return envelopes;
+    }
+
+    private void createKafkaTopic(String topicName) {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Set<String> existingTopics = adminClient.listTopics().names().get(30, TimeUnit.SECONDS);
+            if (existingTopics.contains(topicName)) {
+                return;
+            }
+            adminClient
+                    .createTopics(Arrays.asList(new NewTopic(topicName, 1, (short) 1)))
+                    .all()
+                    .get(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while creating Kafka topic " + topicName, e);
+        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+            throw new RuntimeException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /**
+     * Asserts the consumer group committed an offset past the tombstone. The source commits from
+     * {@code notifyCheckpointComplete}, which runs once the job has already reported success, so
+     * this polls instead of reading the offset once.
+     */
+    private void assertCommittedOffsetReached(
+            String topic, String consumerGroup, long expectedOffset, String errorHandleWay) {
+        TopicPartition topicPartition = new TopicPartition(topic, 0);
+        ListConsumerGroupOffsetsOptions options =
+                new ListConsumerGroupOffsetsOptions()
+                        .topicPartitions(Arrays.asList(topicPartition));
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Map<TopicPartition, OffsetAndMetadata> committed =
+                                        adminClient
+                                                .listConsumerGroupOffsets(consumerGroup, options)
+                                                .partitionsToOffsetAndMetadata()
+                                                .get(30, TimeUnit.SECONDS);
+                                OffsetAndMetadata offsetAndMetadata = committed.get(topicPartition);
+                                Assertions.assertNotNull(
+                                        offsetAndMetadata,
+                                        "format_error_handle_way="
+                                                + errorHandleWay
+                                                + ": no committed offset for "
+                                                + topicPartition);
+                                Assertions.assertEquals(
+                                        expectedOffset,
+                                        offsetAndMetadata.offset(),
+                                        "format_error_handle_way="
+                                                + errorHandleWay
+                                                + ": the committed offset must sit past the"
+                                                + " tombstone");
+                            });
+        }
+    }
+
+    private Properties kafkaProducerProperties() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", KAFKA_CONTAINER.getBootstrapServers());
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("linger.ms", 1);
+        props.put("buffer.memory", 33554432);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        return props;
+    }
+
     // Initialize the kafka Consumer
     private void initKafkaConsumer() {
         Properties prop = new Properties();
@@ -1025,18 +1194,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     // Initialize ogg data to kafka
     private void initLocalDataToKafka() {
-        String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
-        Properties props = new Properties();
-
-        props.put("bootstrap.servers", bootstrapServers);
-        props.put("acks", "all");
-        props.put("retries", 0);
-        props.put("linger.ms", 1);
-        props.put("buffer.memory", 33554432);
-        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-
-        KafkaProducer<String, String> producer = new KafkaProducer<>(props);
+        KafkaProducer<String, String> producer = new KafkaProducer<>(kafkaProducerProperties());
         for (String localPath : LOCAL_DATA_TO_KAFKA_MAPPING.keySet()) {
             String kafkaTopic = LOCAL_DATA_TO_KAFKA_MAPPING.get(localPath);
             InputStream inputStream = KafkaFormatIT.class.getResourceAsStream(localPath);
