@@ -42,6 +42,6 @@ public class VectorNormFunction implements CalciteUdf {
             return null;
         }
         Float[] vector = VectorUtils.toFloatArray(ByteBuffer.wrap(v));
-        return Math.sqrt(Arrays.stream(vector).mapToDouble(val -> val * val).sum());
+        return Math.sqrt(Arrays.stream(vector).mapToDouble(val -> (double) val * val).sum());
     }
 }
