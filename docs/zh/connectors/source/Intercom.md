@@ -29,6 +29,16 @@ import ChangeLog from '../changelog/connector-http-intercom.md';
 | retry_backoff_multiplier_ms | Int | 否 | `100` | 退避倍数（毫秒）。 |
 | retry_backoff_max_ms | Int | 否 | `10000` | 最大退避时间（毫秒）。 |
 
+### api_key
+只会通过 `Authorization: Bearer <token>` 请求头发送。连接器不会在日志中输出请求头或配置，也不会
+持久化任何状态，因此该令牌不会进入检查点。引擎在打印作业配置时是否对 `api_key` 做脱敏处理，
+不在本连接器的控制范围内。
+
+### retry
+HTTP 429 和 5xx 的最大重试次数（基础 HTTP 客户端中还包括 IOException）。退避时间从
+`retry_backoff_multiplier_ms` 开始翻倍，直到 `retry_backoff_max_ms`。不会遵循 `Retry-After` 响应头。
+Intercom 的默认限流为每个应用每分钟 10,000 次调用（每个工作区 25,000 次），按 10 秒窗口执行限制。
+
 ## 输出列
 
 `id`、`role`、`email`、`name`、`phone`、`external_id`（均为 STRING，后三者可为 null），
