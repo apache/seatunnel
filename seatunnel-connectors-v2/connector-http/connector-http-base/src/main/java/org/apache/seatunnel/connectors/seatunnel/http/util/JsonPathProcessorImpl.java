@@ -102,28 +102,39 @@ public class JsonPathProcessorImpl implements JsonPathProcessor {
     /**
      * Flips a matrix of results so that rows become columns and vice versa.
      *
+     * <p>The per-path lists may legitimately have different lengths when {@code
+     * json_filed_missed_return_null} is enabled (a missing field yields an empty list, and that is
+     * why {@link #validateResultsConsistency} is skipped). The flipped matrix therefore has one row
+     * per element of the <em>longest</em> path, and shorter paths are padded with {@code null}
+     * rather than shifting or throwing.
+     *
      * @param results The original data matrix
      * @return The flipped data matrix
      */
     protected List<List<String>> dataFlip(List<List<String>> results) {
         List<List<String>> datas = new ArrayList<>();
+        if (results == null || results.isEmpty()) {
+            return datas;
+        }
 
-        for (int i = 0; i < results.size(); i++) {
-            List<String> result = results.get(i);
-            if (i == 0) {
-                for (Object o : result) {
-                    String val = o == null ? null : o.toString();
-                    List<String> row = new ArrayList<>(results.size());
-                    row.add(val);
-                    datas.add(row);
-                }
-            } else {
-                for (int j = 0; j < result.size(); j++) {
-                    Object o = result.get(j);
-                    String val = o == null ? null : o.toString();
-                    List<String> row = datas.get(j);
-                    row.add(val);
-                }
+        int rowCount = 0;
+        for (List<String> result : results) {
+            if (result != null && result.size() > rowCount) {
+                rowCount = result.size();
+            }
+        }
+
+        for (int i = 0; i < rowCount; i++) {
+            datas.add(new ArrayList<>(results.size()));
+        }
+
+        for (int pathIndex = 0; pathIndex < results.size(); pathIndex++) {
+            List<String> result = results.get(pathIndex);
+            int size = result == null ? 0 : result.size();
+            for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                Object o = rowIndex < size ? result.get(rowIndex) : null;
+                String val = o == null ? null : o.toString();
+                datas.get(rowIndex).add(val);
             }
         }
 
