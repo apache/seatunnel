@@ -110,13 +110,6 @@ source {
       limit = "50"
       offset = "0"
     }
-    pageing = {
-      page_field = "offset"
-      start_page_number = 0
-      page_step = 50
-      total_page_size = 10
-      use_placeholder_replacement = false
-    }
     format = "json"
     content_field = "$.players[*]"
     schema = {
@@ -132,6 +125,11 @@ source {
   }
 }
 ```
+
+> Note: the HTTP source `pageing` option advances the page index by exactly 1 per request, so it
+cannot express a stride. OneSignal's `offset` is a record offset, not a page number — combining it
+with `pageing` would request overlapping windows (offsets 0, 1, 2, ...), which is why the example
+above issues a single request instead.
 
 ### Extract Fields With JSONPath
 

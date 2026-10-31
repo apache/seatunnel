@@ -53,8 +53,8 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 | BOOLEAN                                                                                              | BOOLEAN             |
 | SMALLINT                                                                                             | SHORT               |
 | INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
-| BIGINT                                                                                               | LONG                |
-| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)      |
+| BIGINT                                                                                               | BIGINT              |
+| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(p,s)        |
 | REAL                                                                                                 | FLOAT               |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |
 | CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB<br/>XML | STRING              |

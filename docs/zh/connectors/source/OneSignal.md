@@ -92,7 +92,7 @@ sink {
 
 ### 读取 Players 列表（分页）
 
-通过 `params` 配合 `pageing` 读取 OneSignal 分页接口：
+通过 `params` 读取 OneSignal 接口：
 
 ```hocon
 env {
@@ -110,13 +110,6 @@ source {
       limit = "50"
       offset = "0"
     }
-    pageing = {
-      page_field = "offset"
-      start_page_number = 0
-      page_step = 50
-      total_page_size = 10
-      use_placeholder_replacement = false
-    }
     format = "json"
     content_field = "$.players[*]"
     schema = {
@@ -132,6 +125,10 @@ source {
   }
 }
 ```
+
+> 注意：HTTP source 的 `pageing` 选项每次请求只会把页码加 1，无法表达步长。OneSignal 的 `offset`
+是记录偏移量而不是页码——与 `pageing` 组合会请求到相互重叠的窗口（offset 0、1、2……），因此上面的示例
+改为单次请求。
 
 ### 通过 JSONPath 抽取字段
 
