@@ -329,6 +329,15 @@ class CheckpointRestoreProgressConcurrencyTest {
         completeCheckpointWhileTimeoutRuns(false);
     }
 
+    /**
+     * Guards the review blocker where an ordinary restore raced a checkpoint still inside storage.
+     * The restore must run on its own thread: {@code completePendingCheckpoint} holds the
+     * coordinator monitor for the whole storage call and {@code restoreCoordinator} needs that
+     * monitor for {@code updateStatus(RUNNING)}, so a restore started from the test thread while
+     * storage is blocked would wait forever for a latch that only the test thread releases. {@code
+     * prepareRestoreProgressTracking} replaces the coordinator future before the monitor is taken,
+     * which is exactly the in-flight replacement the production guard must tolerate.
+     */
     @Test
     void restoreDuringCheckpointStorageStillPublishesCompletion() throws Exception {
         CountDownLatch storing = new CountDownLatch(1);
@@ -355,20 +364,32 @@ class CheckpointRestoreProgressConcurrencyTest {
         CompletableFuture<CheckpointCoordinatorState> completionFuture = coordinatorFuture();
         Future<?> completion =
                 executor.submit(() -> coordinator.completePendingCheckpoint(checkpoint));
+        Future<?> restore;
         try {
             assertTrue(storing.await(5, TimeUnit.SECONDS));
-            coordinator.restoreCoordinator(false);
+            restore = executor.submit(() -> coordinator.restoreCoordinator(false));
+            // The future swap happens before the restore blocks on the coordinator monitor, so
+            // observing it proves the restore raced the in-flight storage call.
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(() -> coordinatorFuture() != completionFuture);
             assertNotSame(completionFuture, coordinatorFuture());
         } finally {
             releaseStorage.countDown();
         }
         completion.get(5, TimeUnit.SECONDS);
+        restore.get(5, TimeUnit.SECONDS);
 
+        // The stored savepoint was published into the lifecycle the restore installed: tasks were
+        // notified, it became the latest completed checkpoint and the new future carries SUSPEND.
         verify(manager, times(1)).sendOperationToMemberNode(any());
-        assertEquals(CheckpointCoordinatorStatus.SUSPEND, states.get("checkpoint_state_1_1"));
+        assertTrue(coordinator.isCompleted());
         assertEquals(
                 CheckpointCoordinatorStatus.SUSPEND,
                 coordinatorFuture().join().getCheckpointCoordinatorStatus());
+        // The restore only reaches updateStatus(RUNNING) after the completion released the
+        // monitor, so its status write is the last one; a SUSPEND here would mean the restore
+        // wrote status before the completion, which the coordinator monitor forbids.
+        assertEquals(CheckpointCoordinatorStatus.RUNNING, states.get("checkpoint_state_1_1"));
     }
 
     @Test
