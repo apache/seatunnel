@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.event.StainTraceEvent;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -394,6 +397,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        // initialize dirty record collector
+        DirtyRecordCollector dirtyCollector = createDirtyRecordCollector();
+
         initRowErrorCollectorIfNeed();
         this.writerContext =
                 new SinkWriterContext(
@@ -401,14 +407,39 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         indexID,
                         metricsContext,
                         eventListener,
-                        stageRowErrorCollector);
+                        stageRowErrorCollector,
+                        dirtyCollector);
         if (states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(writerContext);
+            this.writer =
+                    wrapWriterIfNeeded(
+                            sinkAction.getSink().createWriter(writerContext), dirtyCollector);
         } else {
-            this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
+            this.writer =
+                    wrapWriterIfNeeded(
+                            sinkAction.getSink().restoreWriter(writerContext, states),
+                            dirtyCollector);
         }
         this.deferTerminalWriteOutcomes = writerContext.isDeferredTerminalWriteOutcomesEnabled();
         wrapWriterIfNeed();
+    }
+
+    private DirtyRecordCollector createDirtyRecordCollector() {
+        DirtyRecordCollector collector = sinkAction.getDirtyRecordCollector();
+        if (collector != null) {
+            return collector;
+        }
+        log.debug("No pre-built dirty collector in SinkAction, using NoOp");
+        return NoOpDirtyRecordCollector.INSTANCE;
+    }
+
+    private SinkWriter<T, CommitInfoT, StateT> wrapWriterIfNeeded(
+            SinkWriter<T, CommitInfoT, StateT> rawWriter, DirtyRecordCollector collector) {
+        if (collector == null || collector instanceof NoOpDirtyRecordCollector) {
+            return rawWriter;
+        }
+        CatalogTable catalogTable = sinkAction.getSink().getWriteCatalogTable().orElse(null);
+        return DirtyDataAwareSinkWriter.wrap(
+                rawWriter, collector, indexID, catalogTable, writerContext);
     }
 
     @SuppressWarnings("unchecked")
@@ -423,6 +454,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         StageType.SINK,
                         getJobIdOrDefault(seaTunnelTask));
         this.stageErrorConfig = stageConfig;
+        DirtyRecordCollector dirtyCollector = sinkAction.getDirtyRecordCollector();
+        if (stageConfig.getMode() != ErrorHandlerMode.DISABLE
+                && dirtyCollector != null
+                && !(dirtyCollector instanceof NoOpDirtyRecordCollector)) {
+            IllegalArgumentException failure =
+                    new IllegalArgumentException(
+                            "dirty.collector/dirty.validator cannot be combined with enabled sink error handling");
+            // The pre-built collector is owned by this task even when startup rejects its policy.
+            try {
+                dirtyCollector.close();
+            } catch (Exception closeFailure) {
+                failure.addSuppressed(closeFailure);
+            }
+            throw failure;
+        }
         if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
             return;
         }
@@ -570,6 +616,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             writeOutcome =
                     ((ErrorHandlingSinkWriter<T, CommitInfoT, StateT>) writer)
                             .writeWithOutcome((T) record.getData());
+        } else if (writer instanceof DirtyDataAwareSinkWriter) {
+            boolean written =
+                    ((DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>) writer)
+                            .writeAndReport((T) record.getData());
+            writeOutcome =
+                    written
+                            ? ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                            : ErrorHandlingSinkWriter.WriteOutcome.DROPPED;
         } else {
             writer.write((T) record.getData());
             writeOutcome = ErrorHandlingSinkWriter.WriteOutcome.WRITTEN;

@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -136,94 +139,123 @@ public class SinkExecuteProcessor
         for (int i = 0; i < plugins.size(); i++) {
             Optional<? extends Factory> factory = plugins.get(i);
             Config sinkConfig = pluginConfigs.get(i);
+            Config mergedSinkConfig =
+                    DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(
+                            envConfig, sinkConfig);
             DataStreamTableInfo stream =
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
-            Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
-            List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
-            for (CatalogTable catalogTable : stream.getCatalogTables()) {
-                SeaTunnelSink sink;
-                try {
-                    sink =
-                            FactoryUtil.createAndPrepareSink(
-                                    catalogTable,
-                                    ReadonlyConfig.fromConfig(sinkConfig),
-                                    classLoader,
-                                    sinkConfig.getString(PLUGIN_NAME.key()),
-                                    fallbackCreateSink,
-                                    ((TableSinkFactory) (factory.orElse(null))));
-                    sink.setJobContext(jobContext);
-                } catch (Exception error) {
-                    if (!shouldContinueOtherTables()) {
-                        throw wrapThrowable(error);
-                    }
-                    logSkippedTable(
-                            currentSkippedTables,
-                            skippedTables,
-                            catalogTable,
+            DirtyRecordCollector dirtyCollector =
+                    createDirtyRecordCollector(
+                            envConfig,
                             sinkConfig,
-                            MultiTableFailurePhase.SINK_INIT,
-                            error);
+                            stream.getCatalogTables().isEmpty()
+                                    ? null
+                                    : stream.getCatalogTables().get(0),
+                            stream.getCatalogTables().size());
+            boolean dirtyCollectorClosed = false;
+            try {
+                Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+                List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
+                for (CatalogTable catalogTable : stream.getCatalogTables()) {
+                    SeaTunnelSink sink;
+                    try {
+                        sink =
+                                FactoryUtil.createAndPrepareSink(
+                                        catalogTable,
+                                        ReadonlyConfig.fromConfig(mergedSinkConfig),
+                                        classLoader,
+                                        sinkConfig.getString(PLUGIN_NAME.key()),
+                                        fallbackCreateSink,
+                                        ((TableSinkFactory) (factory.orElse(null))));
+                        sink.setJobContext(jobContext);
+                    } catch (Exception error) {
+                        if (!shouldContinueOtherTables()) {
+                            throw wrapThrowable(error);
+                        }
+                        logSkippedTable(
+                                currentSkippedTables,
+                                skippedTables,
+                                catalogTable,
+                                sinkConfig,
+                                MultiTableFailurePhase.SINK_INIT,
+                                error);
+                        continue;
+                    }
+                    DirtyCollectorConfigProcessor.validateSinkSupport(mergedSinkConfig, sink);
+                    try {
+                        handleSaveMode(sink);
+                        TableIdentifier tableId = catalogTable.getTableId();
+                        sinks.put(tableId.toTablePath(), sink);
+                    } catch (Exception error) {
+                        if (!shouldContinueOtherTables()) {
+                            throw wrapThrowable(error);
+                        }
+                        logSkippedTable(
+                                currentSkippedTables,
+                                skippedTables,
+                                catalogTable,
+                                sinkConfig,
+                                MultiTableFailurePhase.SAVE_MODE,
+                                error);
+                    }
+                }
+                if (sinks.isEmpty()) {
+                    dirtyCollectorClosed = true;
+                    DirtyCollectorConfigProcessor.closeAfterPlanningFailure(dirtyCollector, null);
                     continue;
                 }
-                try {
-                    handleSaveMode(sink);
-                    TableIdentifier tableId = catalogTable.getTableId();
-                    sinks.put(tableId.toTablePath(), sink);
-                } catch (Exception error) {
-                    if (!shouldContinueOtherTables()) {
-                        throw wrapThrowable(error);
-                    }
-                    logSkippedTable(
-                            currentSkippedTables,
-                            skippedTables,
-                            catalogTable,
-                            sinkConfig,
-                            MultiTableFailurePhase.SAVE_MODE,
-                            error);
-                }
-            }
-            if (sinks.isEmpty()) {
-                continue;
-            }
-            SeaTunnelSink sink =
-                    tryGenerateMultiTableSink(
-                            sinks,
-                            MultiTableFailureHelper.withFailedTables(
-                                    MultiTableFailureHelper.mergeOptions(
-                                            ReadonlyConfig.fromConfig(sinkConfig),
-                                            ReadonlyConfig.fromConfig(envConfig)),
-                                    currentSkippedTables),
-                            classLoader);
-            createdAnySink = true;
-            boolean sinkParallelism = sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
-            boolean envParallelism = envConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
-            int parallelism =
-                    sinkParallelism
-                            ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                            : envParallelism
-                                    ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                                    : 1;
+                SeaTunnelSink sink =
+                        tryGenerateMultiTableSink(
+                                sinks,
+                                MultiTableFailureHelper.withFailedTables(
+                                        MultiTableFailureHelper.mergeOptions(
+                                                ReadonlyConfig.fromConfig(sinkConfig),
+                                                ReadonlyConfig.fromConfig(envConfig)),
+                                        currentSkippedTables),
+                                classLoader);
+                createdAnySink = true;
+                boolean sinkParallelism = sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
+                boolean envParallelism = envConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
+                int parallelism =
+                        sinkParallelism
+                                ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
+                                : envParallelism
+                                        ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
+                                        : 1;
 
-            boolean isStreaming =
-                    envConfig.hasPath("job.mode")
-                            && STREAMING
-                                    .toString()
-                                    .equalsIgnoreCase(envConfig.getString("job.mode"));
-            DataStream<SeaTunnelRow> ds = stream.getDataStream();
-            if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
-                // insert broadcast-based schema operator to handle schema changes
-                ds =
-                        ds.transform(
-                                        "BroadcastSchemaHandler",
-                                        TypeInformation.of(SeaTunnelRow.class),
-                                        new BroadcastSchemaSinkOperator())
-                                .name("BroadcastSchemaHandler")
-                                .setParallelism(parallelism);
+                boolean isStreaming =
+                        envConfig.hasPath("job.mode")
+                                && STREAMING
+                                        .toString()
+                                        .equalsIgnoreCase(envConfig.getString("job.mode"));
+                DataStream<SeaTunnelRow> ds = stream.getDataStream();
+                if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
+                    // insert broadcast-based schema operator to handle schema changes
+                    ds =
+                            ds.transform(
+                                            "BroadcastSchemaHandler",
+                                            TypeInformation.of(SeaTunnelRow.class),
+                                            new BroadcastSchemaSinkOperator())
+                                    .name("BroadcastSchemaHandler")
+                                    .setParallelism(parallelism);
+                }
+
+                DataStreamSink<SeaTunnelRow> dataStreamSink =
+                        ds.sinkTo(
+                                        new FlinkSink<>(
+                                                sink,
+                                                stream.getCatalogTables(),
+                                                parallelism,
+                                                dirtyCollector))
+                                .name(String.format("%s-Sink", sink.getPluginName()));
+                dataStreamSink.setParallelism(parallelism);
+            } catch (RuntimeException | Error failure) {
+                if (!dirtyCollectorClosed) {
+                    DirtyCollectorConfigProcessor.closeAfterPlanningFailure(
+                            dirtyCollector, failure);
+                }
+                throw failure;
             }
-            DataStreamSink<SeaTunnelRow> dataStreamSink =
-                    ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
-                            .name(String.format("%s-Sink", sink.getPluginName()));
-            dataStreamSink.setParallelism(parallelism);
         }
         if (!createdAnySink && !skippedTables.isEmpty()) {
             throw new TaskExecuteException(
@@ -238,6 +270,36 @@ public class SinkExecuteProcessor
         }
         // the sink is the last stream
         return null;
+    }
+
+    /**
+     * Resolves the optional dirty policy for an input without explicit catalog metadata.
+     *
+     * <p>Explicit configuration errors propagate; only the absent configuration path may retain the
+     * no-op behavior expected by older starter integrations.
+     */
+    protected DirtyRecordCollector createDirtyRecordCollector(Config envConfig, Config sinkConfig) {
+        return createDirtyRecordCollector(envConfig, sinkConfig, null, 1);
+    }
+
+    /**
+     * Validates the input boundary and initializes its optional dirty policy during planning.
+     *
+     * <p>This runs before connector preparation or save-mode effects. The caller owns cleanup until
+     * the policy is transferred to the successfully constructed sink path.
+     */
+    protected DirtyRecordCollector createDirtyRecordCollector(
+            Config envConfig, Config sinkConfig, CatalogTable catalogTable, int inputTableCount) {
+        try {
+            return DirtyCollectorConfigProcessor.processConfig(
+                    envConfig, sinkConfig, catalogTable, inputTableCount);
+        } catch (Exception e) {
+            if (DirtyCollectorConfigProcessor.hasDirtyHandlingConfig(envConfig, sinkConfig)) {
+                throw e;
+            }
+            LOGGER.warn("Failed to create dirty record collector, using NoOp collector", e);
+            return NoOpDirtyRecordCollector.INSTANCE;
+        }
     }
 
     // if not support multi table, rollback

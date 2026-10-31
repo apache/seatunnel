@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.DistributedCounter;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
 
@@ -33,14 +37,28 @@ import java.lang.reflect.Method;
 @Slf4j
 public class FlinkSinkWriterContext implements SinkWriter.Context {
 
+    private static final String DIRTY_RECORD_COUNT_METRIC = "dirtyRecordCount";
+
     private final WriterInitContext initContext;
     private final int parallelism;
     private final EventListener eventListener;
+    private final DirtyRecordCollector dirtyRecordCollector;
+    private MetricsContext metricsContext;
 
     public FlinkSinkWriterContext(WriterInitContext initContext, int parallelism) {
+        this(initContext, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public FlinkSinkWriterContext(
+            WriterInitContext initContext,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.initContext = initContext;
         this.parallelism = parallelism;
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(initContext));
+        this.dirtyRecordCollector = dirtyRecordCollector;
+
+        setupDistributedDirtyRecordCounter();
     }
 
     @Override
@@ -55,7 +73,10 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        return new FlinkMetricContext(getRuntimeContext());
+        if (metricsContext == null) {
+            initMetricsContext();
+        }
+        return metricsContext;
     }
 
     @Override
@@ -63,11 +84,23 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         return eventListener;
     }
 
+    @Override
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
+    }
+
     public RuntimeContext getRuntimeContext() {
         try {
             return tryGetFromInitContextBase(initContext);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private void initMetricsContext() {
+        RuntimeContext runtimeContext = getRuntimeContext();
+        if (runtimeContext != null) {
+            this.metricsContext = new FlinkMetricContext(runtimeContext);
         }
     }
 
@@ -99,6 +132,35 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         } catch (Exception e) {
             log.warn("Get flink job id failed", e);
             return null;
+        }
+    }
+
+    private void setupDistributedDirtyRecordCounter() {
+        if (dirtyRecordCollector == null
+                || dirtyRecordCollector instanceof NoOpDirtyRecordCollector) {
+            return;
+        }
+        try {
+            Counter dirtyCounter = getMetricsContext().counter(DIRTY_RECORD_COUNT_METRIC);
+            dirtyRecordCollector.setDistributedCounter(
+                    new DistributedCounter() {
+                        private static final long serialVersionUID = 1L;
+
+                        @Override
+                        public void add(long delta) {
+                            dirtyCounter.inc(delta);
+                        }
+
+                        @Override
+                        public long value() {
+                            return dirtyCounter.getCount();
+                        }
+                    });
+            log.info(
+                    "Set up Flink distributed counter for dirty record counting (subtask {})",
+                    initContext.getTaskInfo().getIndexOfThisSubtask());
+        } catch (Exception e) {
+            log.warn("Failed to set up Flink distributed counter for dirty record counting", e);
         }
     }
 }

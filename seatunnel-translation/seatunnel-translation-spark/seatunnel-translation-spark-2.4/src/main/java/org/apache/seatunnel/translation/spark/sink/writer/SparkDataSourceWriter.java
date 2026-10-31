@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.translation.spark.sink.writer;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
@@ -50,6 +52,7 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
     protected final CatalogTable[] catalogTables;
     protected final String jobId;
     protected final int parallelism;
+    protected final DirtyRecordCollector dirtyRecordCollector;
 
     private MultiTableResourceManager resourceManager;
 
@@ -57,15 +60,19 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
             String jobId,
-            int parallelism)
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector)
             throws IOException {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector =
+                dirtyRecordCollector != null
+                        ? dirtyRecordCollector
+                        : NoOpDirtyRecordCollector.INSTANCE;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (sinkAggregatedCommitter != null) {
-            // TODO close it
             if (this.sinkAggregatedCommitter instanceof SupportResourceShare) {
                 resourceManager =
                         ((SupportResourceShare) this.sinkAggregatedCommitter)
@@ -81,7 +88,8 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
+        return new SparkDataWriterFactory<>(
+                sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
     }
 
     @Override
