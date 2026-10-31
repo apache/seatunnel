@@ -129,6 +129,16 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                     + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
                     + ");";
 
+    private static final String UNICODE_TABLE = "unicode_column_table";
+    private static final String CREATE_UNICODE_TABLE_SQL =
+            "CREATE TABLE IF NOT EXISTS %s\n"
+                    + "(\n"
+                    + "    `c_id`       int(11)     NOT NULL,\n"
+                    + "    `c_varchar`  varchar(64) DEFAULT NULL,\n"
+                    + "    `straße`     varchar(64) DEFAULT NULL,\n"
+                    + "    `c_int`      int(11)     DEFAULT NULL\n"
+                    + ");";
+
     private MySQLContainer mysqlContainer;
     private Connection connection;
 
@@ -146,6 +156,8 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         createTables(SOURCE_DATABASE, TABLES);
         createTables(SINK_DATABASE, TABLES);
         initSourceTablesData();
+        createUnicodeTables();
+        initUnicodeTableData();
     }
 
     @TestTemplate
@@ -326,6 +338,81 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 statement.executeBatch();
             }
         }
+    }
+
+    private void createUnicodeTables() throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            CREATE_UNICODE_TABLE_SQL, SOURCE_DATABASE + "." + UNICODE_TABLE));
+            statement.execute(
+                    String.format(CREATE_UNICODE_TABLE_SQL, SINK_DATABASE + "." + UNICODE_TABLE));
+        }
+    }
+
+    private void initUnicodeTableData() throws SQLException {
+        String sql =
+                "INSERT INTO "
+                        + SOURCE_DATABASE
+                        + "."
+                        + UNICODE_TABLE
+                        + " (c_id, c_varchar, `straße`, c_int) VALUES (?, ?, ?, ?)";
+        Object[][] rows = {
+            {1, "alpha", "süd", 5},
+            {2, "beta", "nord", -1},
+            {3, "gamma", "ost", 0},
+        };
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (Object[] row : rows) {
+                for (int i = 0; i < row.length; i++) {
+                    statement.setObject(i + 1, row[i]);
+                }
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
+    private void clearUnicodeSinkTable() throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("truncate table " + SINK_DATABASE + "." + UNICODE_TABLE);
+        }
+    }
+
+    private void assertUnicodeTableProjection() {
+        String projection = "c_id, c_varchar, `straße`, c_int";
+        List<List<Object>> expected =
+                query(
+                        String.format(
+                                "SELECT %s FROM %s WHERE c_int >= 0 ORDER BY c_id",
+                                projection, SOURCE_DATABASE + "." + UNICODE_TABLE));
+        List<List<Object>> actual =
+                query(
+                        String.format(
+                                "SELECT %s FROM %s ORDER BY c_id",
+                                projection, SINK_DATABASE + "." + UNICODE_TABLE));
+        Assertions.assertEquals(
+                2, expected.size(), "fixture should keep exactly the two non-negative rows");
+        Assertions.assertEquals(expected.size(), actual.size());
+        Assertions.assertIterableEquals(expected, actual);
+    }
+
+    @TestTemplate
+    public void testMysqlJdbcWhereConditionWildcardAndInsertedColumn(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearUnicodeSinkTable();
+
+        Container.ExecResult wildcardResult =
+                container.executeJob("/jdbc_mysql_where_condition_wildcard.conf");
+        Assertions.assertEquals(0, wildcardResult.getExitCode(), wildcardResult.getStderr());
+        assertUnicodeTableProjection();
+
+        clearUnicodeSinkTable();
+
+        Container.ExecResult insertedResult =
+                container.executeJob("/jdbc_mysql_where_condition_inserted_column.conf");
+        Assertions.assertEquals(0, insertedResult.getExitCode(), insertedResult.getStderr());
+        assertUnicodeTableProjection();
     }
 
     private List<List<Object>> query(String sql) {
