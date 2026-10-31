@@ -27,7 +27,7 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 
 | Datasource |                                                                  Supported versions                                                                  |          Driver          |               Url                |                                Maven                                 |
 |------------|------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.alibabacloud.com/help/en/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x, 8.4.x, 9.0.x </li><li> [RDS MySQL](https://www.alibabacloud.com/help/en/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## Using Dependency
 
@@ -179,7 +179,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | DATE                                                                                           | DATE                |
 | TIME(s)                                                                                        | TIME(s)             |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
+| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY<br/>VECTOR | BYTES               |
 
 ## Source Options
 

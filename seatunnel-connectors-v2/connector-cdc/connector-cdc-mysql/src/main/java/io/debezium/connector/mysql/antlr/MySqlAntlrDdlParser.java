@@ -102,7 +102,7 @@ public class MySqlAntlrDdlParser extends AntlrDdlParser<MySqlLexer, MySqlParser>
 
     @Override
     protected MySqlLexer createNewLexerInstance(CharStream charStreams) {
-        return new MySqlLexer(charStreams);
+        return new MySqlVectorTypeLexer(charStreams);
     }
 
     @Override
