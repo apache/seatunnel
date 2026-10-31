@@ -24,15 +24,22 @@ import {
   NDescriptionsItem,
   NDrawer,
   NDrawerContent,
+  NForm,
+  NFormItem,
+  NInput,
   NLayout,
   NLayoutContent,
-  NSpace
+  NPopconfirm,
+  NSpace,
+  NTag,
+  NTooltip
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { managerService } from '@/service/manager'
 import type { Monitor, WorkerResource, WorkerResourceSnapshot } from '@/service/manager/types'
+import { isRequestOutcomeUnknown } from '@/service/service'
 import { bytesValue, joinResources, numberValue, ratioValue } from './resources'
 import type { NodeResources } from './resources'
 
@@ -48,6 +55,18 @@ export default defineComponent({
     const collectedAt = ref<number>()
     const selectedAddress = ref<string>()
     const selected = computed(() => rows.value.find((row) => row.address === selectedAddress.value))
+    // Tag editor state. Only the member that serves the current REST request can be edited, so the
+    // selection is keyed by member UUID and re-resolved after every refresh.
+    const selectedMonitor = ref<Monitor | null>(null)
+    const tagContent = ref('')
+    const tagMessage = ref('')
+    const tagError = ref('')
+    const tagLoading = ref(false)
+    // Existing tags are arbitrary server strings that the key=value line format cannot always
+    // represent unambiguously: a key may itself contain "=" and a value may carry surrounding
+    // whitespace. Each entry is remembered under the exact line it was serialized to, so a line
+    // the operator did not touch is sent back as the original pair instead of being re-parsed.
+    let existingTagLines = new Map<string, [string, string]>()
     let timer: ReturnType<typeof setTimeout> | undefined
     let generation = 0
     let disposed = false
@@ -81,6 +100,12 @@ export default defineComponent({
             available && Number.isFinite(snapshot!.collectedAt) && snapshot!.collectedAt > 0
               ? snapshot!.collectedAt
               : undefined
+          if (selectedMonitor.value) {
+            selectedMonitor.value =
+              monitors.find(
+                (monitor) => monitor?.uuid && monitor.uuid === selectedMonitor.value?.uuid
+              ) || null
+          }
         }
       } finally {
         loading.value = false
@@ -109,6 +134,10 @@ export default defineComponent({
         clearTimeout(timer)
         rows.value = []
         selectedAddress.value = undefined
+        selectedMonitor.value = null
+        tagContent.value = ''
+        tagMessage.value = ''
+        tagError.value = ''
         collectedAt.value = undefined
         monitorUnavailable.value = false
         resourceUnavailable.value = false
@@ -122,7 +151,119 @@ export default defineComponent({
       document.removeEventListener('visibilitychange', onVisibilityChange)
     })
 
-    const monitorValue = (row: NodeResources, field: keyof Monitor) => row.monitor?.[field] ?? '—'
+    // New or edited lines split on the first "=" only; the key is trimmed, the value is kept
+    // verbatim because the server accepts any string and trimming would silently change it.
+    const parseTagLine = (line: string): [string, string] => {
+      const separatorIndex = line.indexOf('=')
+      const key = line.substring(0, separatorIndex).trim()
+      if (!key) {
+        throw new Error(t('managers.tagEditor.invalid'))
+      }
+      return [key, line.substring(separatorIndex + 1)]
+    }
+
+    const parseTags = () => {
+      // Collected in a Map and converted with Object.fromEntries so that a literal "__proto__" key
+      // becomes an own property instead of reaching the prototype setter of a plain object.
+      const tags = new Map<string, string>()
+      for (const rawLine of tagContent.value.split('\n')) {
+        if (!rawLine.trim()) {
+          continue
+        }
+        // A line that still reads exactly as serialized by selectMonitor is the untouched original
+        // entry and keeps its exact key and value; only other lines are parsed.
+        const [key, value] = existingTagLines.get(rawLine) ?? parseTagLine(rawLine)
+        if (tags.has(key)) {
+          throw new Error(t('managers.tagEditor.duplicate'))
+        }
+        tags.set(key, value)
+      }
+      return Object.fromEntries(tags)
+    }
+
+    // The poll loop allows one request in flight at a time. If a poll is already running it may
+    // have sampled the member before the update was applied, so discard it and poll again instead
+    // of trusting the mutation response.
+    const refreshAfterTagUpdate = async () => {
+      if (loading.value) {
+        generation++
+        return
+      }
+      await refresh()
+    }
+
+    const updateTags = async (clear = false) => {
+      if (tagLoading.value) {
+        return
+      }
+      tagMessage.value = ''
+      tagError.value = ''
+      if (!selectedMonitor.value?.uuid) {
+        tagError.value = t('managers.tagEditor.workerRequired')
+        return
+      }
+      if (!clear && !tagContent.value.trim()) {
+        tagError.value = t('managers.tagEditor.contentRequired')
+        return
+      }
+      let tags: Record<string, string>
+      try {
+        tags = clear ? {} : parseTags()
+      } catch (error) {
+        tagError.value = error instanceof Error ? error.message : t('managers.tagEditor.invalid')
+        return
+      }
+
+      tagLoading.value = true
+      try {
+        await managerService.updateTags({
+          uuid: selectedMonitor.value.uuid,
+          tags
+        })
+        if (clear) {
+          tagContent.value = ''
+        }
+        tagMessage.value = t('managers.tagEditor.success')
+        await refreshAfterTagUpdate()
+      } catch (error) {
+        tagError.value = isRequestOutcomeUnknown(error)
+          ? t('managers.tagEditor.outcomeUnknown')
+          : t('managers.tagEditor.failed')
+      } finally {
+        tagLoading.value = false
+      }
+    }
+
+    const selectMonitor = (monitor: Monitor) => {
+      selectedMonitor.value = monitor
+      existingTagLines = new Map(
+        Object.entries(monitor.tags || {}).map(([key, value]): [string, [string, string]] => [
+          `${key}=${value}`,
+          [key, value]
+        ])
+      )
+      tagContent.value = Array.from(existingTagLines.keys()).join('\n')
+      tagMessage.value = ''
+      tagError.value = ''
+    }
+
+    const formatTags = (tags?: Record<string, string>) => {
+      const entries = Object.entries(tags || {})
+      if (!entries.length) {
+        return '—'
+      }
+      return entries.map(([key, value]) => `${key}=${value}`).join(', ')
+    }
+
+    const monitorValue = (
+      row: NodeResources,
+      field: Exclude<keyof Monitor, 'tags' | 'localMember'>
+    ) => row.monitor?.[field] ?? '—'
+    // Monitoring values are flat strings except the member tags, which are a structured map.
+    const monitorFieldText = (field: string, value: unknown) =>
+      field === 'tags' && value && typeof value === 'object'
+        ? formatTags(value as Record<string, string>)
+        : String(value ?? '—')
     const slots = (resource?: WorkerResource) => {
       if (typeof resource?.dynamicSlot !== 'boolean') return '—'
       if (resource.dynamicSlot) {
@@ -133,6 +274,39 @@ export default defineComponent({
         total: numberValue(resource.totalSlots),
         free: numberValue(resource.freeSlots)
       })
+    }
+    const renderTags = (row: NodeResources) => {
+      const monitor = row.monitor
+      const isSelected = Boolean(monitor?.uuid && selectedMonitor.value?.uuid === monitor.uuid)
+      return (
+        <NSpace size="small" align="center">
+          <span>{formatTags(monitor?.tags)}</span>
+          {monitor?.localMember && (
+            <NTag bordered={false} type="success">
+              {t('managers.tagEditor.local')}
+            </NTag>
+          )}
+          {!isMaster.value && monitor && (
+            <NButton
+              size="small"
+              tertiary
+              disabled={!monitor.localMember || !monitor.uuid}
+              type={isSelected ? 'primary' : 'default'}
+              onClick={() => selectMonitor(monitor)}
+            >
+              {t('managers.tagEditor.select')}
+            </NButton>
+          )}
+          {!isMaster.value && monitor && !monitor.localMember && (
+            <NTooltip>
+              {{
+                trigger: () => <NTag bordered={false}>{t('managers.tagEditor.remote')}</NTag>,
+                default: () => t('managers.tagEditor.remoteHint')
+              }}
+            </NTooltip>
+          )}
+        </NSpace>
+      )
     }
     const columns = computed<DataTableColumns<NodeResources>>(() => [
       { title: t('managers.address'), key: 'address' },
@@ -174,9 +348,15 @@ export default defineComponent({
           ]
         : []),
       {
+        title: t('managers.tags'),
+        key: 'tags',
+        width: isMaster.value ? undefined : 260,
+        render: (row) => renderTags(row)
+      },
+      {
         title: t('managers.details'),
         key: 'details',
-        fixed: isMaster.value ? 'right' : undefined,
+        fixed: isMaster.value ? ('right' as const) : undefined,
         width: 95,
         render: (row) => (
           <NButton
@@ -212,6 +392,85 @@ export default defineComponent({
     return () => (
       <NLayout>
         <NLayoutContent>
+          {!isMaster.value && (
+            <div class="w-full bg-white p-6 border border-gray-100 rounded-xl mb-6">
+              <NSpace justify="space-between" align="center" class="pb-6">
+                <h2 class="font-bold text-2xl">{t('managers.tagEditor.title')}</h2>
+                <span>
+                  {selectedMonitor.value
+                    ? `${selectedMonitor.value.host}:${selectedMonitor.value.port}`
+                    : t('managers.tagEditor.noWorkerSelected')}
+                </span>
+              </NSpace>
+              {tagMessage.value && (
+                <NAlert
+                  class="mb-4"
+                  type="success"
+                  closable
+                  onClose={() => (tagMessage.value = '')}
+                >
+                  {tagMessage.value}
+                </NAlert>
+              )}
+              {tagError.value && (
+                <NAlert class="mb-4" type="error" closable onClose={() => (tagError.value = '')}>
+                  {tagError.value}
+                </NAlert>
+              )}
+              <NForm labelPlacement="left" labelWidth={100}>
+                <NFormItem label={t('managers.tagEditor.content')}>
+                  <NInput
+                    value={tagContent.value}
+                    type="textarea"
+                    placeholder={t('managers.tagEditor.placeholder')}
+                    autosize={{ minRows: 3, maxRows: 8 }}
+                    onUpdateValue={(value) => {
+                      tagContent.value = value
+                    }}
+                  />
+                </NFormItem>
+                <NSpace justify="end">
+                  <NPopconfirm
+                    positiveText={t('managers.tagEditor.confirm')}
+                    negativeText={t('managers.tagEditor.cancelConfirm')}
+                    onPositiveClick={() => updateTags(true)}
+                  >
+                    {{
+                      trigger: () => (
+                        <NButton
+                          loading={tagLoading.value}
+                          disabled={!selectedMonitor.value || tagLoading.value}
+                        >
+                          {t('managers.tagEditor.clear')}
+                        </NButton>
+                      ),
+                      default: () => t('managers.tagEditor.clearConfirmMessage')
+                    }}
+                  </NPopconfirm>
+                  <NPopconfirm
+                    positiveText={t('managers.tagEditor.confirm')}
+                    negativeText={t('managers.tagEditor.cancelConfirm')}
+                    onPositiveClick={() => updateTags()}
+                  >
+                    {{
+                      trigger: () => (
+                        <NButton
+                          type="primary"
+                          loading={tagLoading.value}
+                          disabled={
+                            !selectedMonitor.value || !tagContent.value.trim() || tagLoading.value
+                          }
+                        >
+                          {t('managers.tagEditor.update')}
+                        </NButton>
+                      ),
+                      default: () => t('managers.tagEditor.updateConfirmMessage')
+                    }}
+                  </NPopconfirm>
+                </NSpace>
+              </NForm>
+            </div>
+          )}
           <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
             <NSpace justify="space-between">
               <h2 class="font-bold text-2xl pb-6">{t('managers.managers')}</h2>
@@ -244,7 +503,7 @@ export default defineComponent({
               rowKey={(row: NodeResources) => row.address}
               pagination={{ pageSize: 20 }}
               tableLayout={isMaster.value ? 'auto' : 'fixed'}
-              scrollX={1200}
+              scrollX={isMaster.value ? 1200 : 1460}
               bordered={false}
             />
             <NDrawer
@@ -275,7 +534,7 @@ export default defineComponent({
                   <NDescriptions column={1} bordered>
                     {Object.entries(selected.value.monitor).map(([field, value]) => (
                       <NDescriptionsItem key={field} label={field}>
-                        {String(value ?? '—')}
+                        {monitorFieldText(field, value)}
                       </NDescriptionsItem>
                     ))}
                   </NDescriptions>

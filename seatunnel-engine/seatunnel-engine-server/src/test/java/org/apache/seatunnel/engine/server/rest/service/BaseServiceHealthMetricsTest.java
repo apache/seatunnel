@@ -19,15 +19,19 @@ package org.apache.seatunnel.engine.server.rest.service;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.InternalCompletableFuture;
 
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -48,6 +52,14 @@ public class BaseServiceHealthMetricsTest {
             future.complete(value);
         }
         return future;
+    }
+
+    private static Member member(String uuid, boolean local, Map<String, String> tags) {
+        Member member = Mockito.mock(Member.class);
+        Mockito.when(member.getUuid()).thenReturn(UUID.fromString(uuid));
+        Mockito.when(member.localMember()).thenReturn(local);
+        Mockito.when(member.getAttributes()).thenReturn(tags);
+        return member;
     }
 
     /** Avoids the live SeaTunnelServer config lookup by pinning a short timeout. */
@@ -154,5 +166,51 @@ public class BaseServiceHealthMetricsTest {
         Assertions.assertEquals("127.0.0.1", entry.get("host").asString());
         Assertions.assertEquals(5801, entry.get("port").asInt());
         Assertions.assertEquals("dispatch-failure", entry.get("error").asString());
+    }
+
+    /**
+     * The Web UI tag editor targets a member by UUID and only enables editing for the member that
+     * served the request, so every entry must carry uuid, localMember and tags, including entries
+     * for members that timed out.
+     */
+    @Test
+    public void testMemberIdentityIsAppendedToCollectedAndTimedOutEntries() throws Exception {
+        String localUuid = "11111111-1111-1111-1111-111111111111";
+        String remoteUuid = "22222222-2222-2222-2222-222222222222";
+        Map<Address, InternalCompletableFuture<Object>> futures = new LinkedHashMap<>();
+        futures.put(address(5801), future("isMaster=false, host=127.0.0.1, port=5801"));
+        futures.put(address(5802), future(null));
+        Map<Address, Member> members = new LinkedHashMap<>();
+        members.put(address(5801), member(localUuid, true, Collections.singletonMap("zone", "a")));
+        members.put(address(5802), member(remoteUuid, false, Collections.emptyMap()));
+
+        JsonArray values = new TestService().collectHealthMetrics(futures, members);
+
+        Assertions.assertEquals(2, values.size());
+        JsonObject local = values.get(0).asObject();
+        Assertions.assertEquals("false", local.get("isMaster").asString());
+        Assertions.assertEquals(localUuid, local.get("uuid").asString());
+        Assertions.assertTrue(local.get("localMember").asBoolean());
+        Assertions.assertEquals("a", local.get("tags").asObject().get("zone").asString());
+        JsonObject remote = values.get(1).asObject();
+        assertTimeoutEntry(remote, "127.0.0.1", 5802);
+        Assertions.assertEquals(remoteUuid, remote.get("uuid").asString());
+        Assertions.assertFalse(remote.get("localMember").asBoolean());
+        Assertions.assertEquals(0, remote.get("tags").asObject().size());
+    }
+
+    @Test
+    public void testEntriesWithoutKnownMemberCarryNoIdentity() throws Exception {
+        Map<Address, InternalCompletableFuture<Object>> futures = new LinkedHashMap<>();
+        futures.put(address(5801), future("isMaster=true, host=127.0.0.1, port=5801"));
+
+        JsonArray values = new TestService().collectHealthMetrics(futures);
+
+        Assertions.assertEquals(1, values.size());
+        JsonObject entry = values.get(0).asObject();
+        Assertions.assertEquals("true", entry.get("isMaster").asString());
+        Assertions.assertNull(entry.get("uuid"));
+        Assertions.assertNull(entry.get("localMember"));
+        Assertions.assertNull(entry.get("tags"));
     }
 }
