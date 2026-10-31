@@ -230,9 +230,10 @@ def _exclusive_lock(config_dir: str) -> Iterator[None]:
 def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str) -> List[str]:
     """Enable *connectors* in ``config/plugin_config`` and run ``bin/install-plugin.sh <version>``.
 
-    Supported on Linux and macOS only. ``bin/install-plugin.cmd`` does not report download
-    failures through its exit code, so it cannot be used with the rollback below, and a
-    WSL or Git ``bash`` cannot run the script from a Windows path.
+    Supported on Linux and macOS only; :func:`select_plugins` works on any platform.
+    ``bin/install-plugin.cmd`` does not report download failures through its exit code, so
+    it cannot be used with the rollback below, and a WSL or Git ``bash`` cannot run the
+    script from a Windows path.
 
     The script's output is not captured, so download progress is shown to the user.
     Environment variables such as ``SEATUNNEL_PLUGIN_DOWNLOAD_METHOD`` and
