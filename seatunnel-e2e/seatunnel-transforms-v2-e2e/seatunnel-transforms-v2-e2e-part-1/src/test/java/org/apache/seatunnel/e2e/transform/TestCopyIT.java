@@ -50,4 +50,13 @@ public class TestCopyIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/copy_transform_json_type.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
+
+    /** Table-only rules must chain in order while unmatched tables pass through unchanged. */
+    @TestTemplate
+    public void testCopyTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

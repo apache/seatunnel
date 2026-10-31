@@ -306,8 +306,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 writeTime(statement, statementIndex, (LocalTime) value);
                 break;
             case TIMESTAMP:
-                LocalDateTime localDateTime = (LocalDateTime) value;
-                statement.setTimestamp(statementIndex, Timestamp.valueOf(localDateTime));
+                writeTimestamp(statement, statementIndex, (LocalDateTime) value);
                 break;
             case TIMESTAMP_TZ:
                 OffsetDateTime offsetDateTime = (OffsetDateTime) value;
@@ -362,5 +361,14 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected void writeTime(PreparedStatement statement, int index, LocalTime time)
             throws SQLException {
         statement.setTime(index, java.sql.Time.valueOf(time));
+    }
+
+    /**
+     * Binds a local timestamp using the legacy JDBC representation. Dialects may override this
+     * method when their driver supports binding the local date/time fields directly.
+     */
+    protected void writeTimestamp(PreparedStatement statement, int index, LocalDateTime value)
+            throws SQLException {
+        statement.setTimestamp(index, Timestamp.valueOf(value));
     }
 }

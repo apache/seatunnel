@@ -35,7 +35,7 @@ StarRocks native `JSON` columns map to the SeaTunnel `JSON` logical type. JSON v
 | table_list              | array  | no       | -                 | Tables to read. Required when `table` is not configured. Each entry can define its own `schema` and filter. |
 | schema                  | config | no       | -                 | Output schema. Configure it at the top level for `table`, or inside each `table_list` entry for multi-table reads. |
 | scan_filter             | string | no       | ""                | Source-side filter expression passed to StarRocks.                                                      |
-| request_tablet_size     | int    | no       | Integer.MAX_VALUE | Maximum tablets in one SeaTunnel split. Smaller values can create more splits.                          |
+| request_tablet_size     | int    | no       | Integer.MAX_VALUE | Maximum tablets in one SeaTunnel split. Smaller values create more splits.                              |
 | scan_connect_timeout_ms | int    | no       | 1000              | Timeout in milliseconds when connecting to StarRocks BE for scan.                                       |
 | scan_query_timeout_sec  | int    | no       | 3600              | Query timeout in seconds. `-1` means no timeout.                                                        |
 | scan_keep_alive_min     | int    | no       | 10                | Keep-alive time of the query task, in minutes.                                                          |
@@ -50,15 +50,15 @@ StarRocks native `JSON` columns map to the SeaTunnel `JSON` logical type. JSON v
 
 ### username [string]
 
-`StarRocks` user username
+`StarRocks` user username.
 
 ### password [string]
 
-`StarRocks` user password
+`StarRocks` user password.
 
 ### database [string]
 
-The name of StarRocks database
+The name of StarRocks database.
 
 ### table [string]
 
@@ -161,8 +161,8 @@ The parameter of the scan data from be
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_source"
     scan_batch_rows = 10
@@ -197,8 +197,8 @@ source {
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table_list = [
     {

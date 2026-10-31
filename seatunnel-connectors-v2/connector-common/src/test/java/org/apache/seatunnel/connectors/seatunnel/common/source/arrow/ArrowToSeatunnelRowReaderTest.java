@@ -34,8 +34,10 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.IntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.SmallIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeMicroVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TinyIntVector;
@@ -43,6 +45,9 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.VarBinaryVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.ListVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.MapVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.StructVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.holders.TimeMilliHolder;
@@ -53,7 +58,10 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Field;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Schema;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -70,6 +78,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -90,6 +99,19 @@ public class ArrowToSeatunnelRowReaderTest {
     private static final LocalDateTime localDateTime =
             LocalDateTime.parse(
                     "2025-02-15 02:21:23", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    private static final LocalDateTime localDateTimeMicro =
+            LocalDateTime.parse(
+                    "2025-02-15 02:21:23.123456",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+    private static final LocalDateTime localDateTimeNano =
+            LocalDateTime.parse(
+                    "2025-02-15 02:21:23.123456789",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS"));
+
+    private static final ZoneId timestampTzZoneId =
+            ZoneId.systemDefault().equals(ZoneId.of("Asia/Shanghai"))
+                    ? ZoneId.of("America/New_York")
+                    : ZoneId.of("Asia/Shanghai");
 
     private static final List<String> stringData = new ArrayList<>();
     private static final List<Byte> byteData = new ArrayList<>();
@@ -128,6 +150,8 @@ public class ArrowToSeatunnelRowReaderTest {
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSec", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSecTz", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("map", 0));
+        seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampMicroTz", 0));
+        seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampNanoTz", 0));
     }
 
     private static VectorSchemaRoot buildVectorSchemaRoot(
@@ -162,6 +186,22 @@ public class ArrowToSeatunnelRowReaderTest {
                                     new ArrowType.Timestamp(
                                             TimeUnit.MILLISECOND, ZoneId.systemDefault().getId())),
                             rootAllocator));
+            // Microsecond timestamp with timezone
+            vectors.add(
+                    new TimeStampMicroTZVector(
+                            Field.nullable(
+                                    "timestampMicroTz",
+                                    new ArrowType.Timestamp(
+                                            TimeUnit.MICROSECOND, timestampTzZoneId.getId())),
+                            rootAllocator));
+            // Nanosecond timestamp with timezone
+            vectors.add(
+                    new TimeStampNanoTZVector(
+                            Field.nullable(
+                                    "timestampNanoTz",
+                                    new ArrowType.Timestamp(
+                                            TimeUnit.NANOSECOND, timestampTzZoneId.getId())),
+                            rootAllocator));
             vectors.add(new TimeMicroVector("time", rootAllocator));
             vectors.add(new DateMilliVector("date1", rootAllocator));
             vectors.add(new DateDayVector("date2", rootAllocator));
@@ -186,6 +226,12 @@ public class ArrowToSeatunnelRowReaderTest {
         vectors.forEach(FieldVector::allocateNew);
         long epochMilli = localDateTime.atZone(zoneId).toInstant().toEpochMilli();
         long epochSecond = localDateTime.atZone(zoneId).toInstant().getEpochSecond();
+
+        Instant microInstant = localDateTimeMicro.atZone(timestampTzZoneId).toInstant();
+        long epochMicro =
+                microInstant.getEpochSecond() * 1_000_000L + microInstant.getNano() / 1_000;
+        Instant nanoInstant = localDateTimeNano.atZone(timestampTzZoneId).toInstant();
+        long epochNano = nanoInstant.getEpochSecond() * 1_000_000_000L + nanoInstant.getNano();
 
         byte byteStart = 'a';
 
@@ -240,6 +286,21 @@ public class ArrowToSeatunnelRowReaderTest {
                             ((TimeStampSecVector) vector).setSafe(i, epochSecond);
                         } else if (vector instanceof TimeStampSecTZVector) {
                             ((TimeStampSecTZVector) vector).setSafe(i, epochSecond);
+                        } else if (vector instanceof TimeStampMicroTZVector) {
+                            TimeStampMicroTZVector timestampVector =
+                                    (TimeStampMicroTZVector) vector;
+                            if (i == 0) {
+                                timestampVector.setNull(i);
+                            } else {
+                                timestampVector.setSafe(i, epochMicro);
+                            }
+                        } else if (vector instanceof TimeStampNanoTZVector) {
+                            TimeStampNanoTZVector timestampVector = (TimeStampNanoTZVector) vector;
+                            if (i == 0) {
+                                timestampVector.setNull(i);
+                            } else {
+                                timestampVector.setSafe(i, epochNano);
+                            }
                         }
                     }
                 });
@@ -415,11 +476,26 @@ public class ArrowToSeatunnelRowReaderTest {
                     rows.stream().map(s -> s.getField(19)).distinct().collect(Collectors.toList());
             Assertions.assertEquals(
                     Collections.singletonList(localDateTime), actualTimestampSecTzData);
-
             // todo check map
             // The java api has problems building MapVectors,and there are no examples on the
             // official website
             // @see https://github.com/apache/arrow/issues/44664
+
+            // Check null microsecond timestamp with timezone
+            Assertions.assertNull(rows.get(0).getField(21));
+
+            // Check non-null microsecond timestamps with timezone
+            for (int i = 1; i < rows.size(); i++) {
+                Assertions.assertEquals(localDateTimeMicro, rows.get(i).getField(21));
+            }
+
+            // Check null nanosecond timestamp with timezone
+            Assertions.assertNull(rows.get(0).getField(22));
+
+            // Check non-null nanosecond timestamps with timezone
+            for (int i = 1; i < rows.size(); i++) {
+                Assertions.assertEquals(localDateTimeNano, rows.get(i).getField(22));
+            }
         }
     }
 
@@ -498,6 +574,407 @@ public class ArrowToSeatunnelRowReaderTest {
                 Assertions.assertEquals(count, rows.size());
             }
         }
+    }
+
+    /**
+     * An arrow stream may carry more than one record batch. Every batch after the first used to
+     * fail, because the conversion loop was bounded by the cumulative size of the accumulated row
+     * list rather than by the row count of the batch in hand, and it indexed the arrow vector by
+     * the absolute row number although the vector only ever holds the current batch.
+     *
+     * <p>The values are asserted in order, not just the row count. Correcting only the loop bound
+     * leaves the vector indexed past its end, which arrow answers with null rather than an
+     * exception, so a row count on its own would still pass while later rows came back empty.
+     *
+     * <p>The batch sizes are 2, then 0, then 3. The empty middle batch covers the skip branch of
+     * {@link ArrowToSeatunnelRowReader#readArrow()}, which must not advance the read row count. One
+     * cell of the last batch is deliberately null, so a genuine null is distinguishable from an
+     * out-of-range read. A list column and a timestamp column are written across the boundary
+     * because list offsets are resolved against the batch in hand, and the timestamp converters
+     * read the vector through the same per-batch index. The read row count is asserted too, since
+     * that is the value {@code DorisValueReader} and {@code StarRocksBeReadClient} use to advance
+     * their scan offset.
+     *
+     * <p>This builds its own vectors rather than calling {@link #buildVectorSchemaRoot}, because
+     * that helper appends to the static expectation lists shared with {@link #testSeatunnelRow}.
+     */
+    @Test
+    public void testMultipleRecordBatchesAreReadInFull() throws Exception {
+        // Absolute row 3, the second row of the final batch, is deliberately null in the long
+        // column only, while its string and array stay populated. Arrow answers an index past a
+        // vector's populated range with null rather than an exception, so without a known-null
+        // cell a genuine null and the old out-of-range read would look the same.
+        List<Long> expectedLongs = Arrays.asList(10L, 11L, 20L, null, 22L);
+        List<String> expectedStrings = Arrays.asList("s0", "s1", "s2", "s3", "s4");
+        // Absolute row 4, the last row of the final batch, is null in the array column. A null
+        // complex cell after the boundary is what separates a genuine null from the old
+        // out-of-range read for the list dispatch, the same way the long column does for the
+        // scalar one, and it lands on a different row so neither null masks the other.
+        List<List<Integer>> expectedArrays =
+                Arrays.asList(
+                        Arrays.asList(0),
+                        Arrays.asList(1, 1),
+                        Arrays.asList(2, 2, 2),
+                        Arrays.asList(3),
+                        null);
+        List<LocalDateTime> expectedTimestamps =
+                Arrays.asList(
+                        LocalDateTime.parse("2026-01-01T00:00:00"),
+                        LocalDateTime.parse("2026-01-02T01:02:03"),
+                        LocalDateTime.parse("2026-01-03T04:05:06"),
+                        LocalDateTime.parse("2026-01-04T07:08:09"),
+                        LocalDateTime.parse("2026-01-05T10:11:12"));
+        // The zero-row batch in the middle exercises the continue branch of readArrow(), which
+        // skips the batch without advancing readRowCount.
+        int[] batchPlan = {2, 0, 3};
+
+        byte[] payload;
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+            BigIntVector longVector = new BigIntVector("multi_batch_long", allocator);
+            VarCharVector stringVector = new VarCharVector("multi_batch_string", allocator);
+            ListVector arrayVector = ListVector.empty("multi_batch_array", allocator);
+            TimeStampMicroVector timestampVector =
+                    new TimeStampMicroVector("multi_batch_timestamp", allocator);
+            List<FieldVector> vectors =
+                    Arrays.asList(longVector, stringVector, arrayVector, timestampVector);
+
+            // The first batch is populated before the schema is derived, because a ListVector's
+            // child type is only established once a value has gone through its writer. Deriving
+            // the field from an untouched ListVector produces a stream the reader rejects.
+            fillBatch(
+                    longVector,
+                    stringVector,
+                    arrayVector,
+                    timestampVector,
+                    0,
+                    batchPlan[0],
+                    expectedLongs,
+                    expectedStrings,
+                    expectedArrays,
+                    expectedTimestamps);
+            List<Field> fields =
+                    vectors.stream().map(FieldVector::getField).collect(Collectors.toList());
+
+            try (VectorSchemaRoot multiBatchRoot =
+                            new VectorSchemaRoot(new Schema(fields), vectors, batchPlan[0]);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(
+                                    multiBatchRoot,
+                                    /*DictionaryProvider=*/ null,
+                                    Channels.newChannel(out))) {
+                writer.start();
+                int written = 0;
+                for (int batchIndex = 0; batchIndex < batchPlan.length; batchIndex++) {
+                    int batchSize = batchPlan[batchIndex];
+                    if (batchIndex > 0) {
+                        fillBatch(
+                                longVector,
+                                stringVector,
+                                arrayVector,
+                                timestampVector,
+                                written,
+                                batchSize,
+                                expectedLongs,
+                                expectedStrings,
+                                expectedArrays,
+                                expectedTimestamps);
+                    }
+                    // setRowCount propagates the value count to every child vector.
+                    multiBatchRoot.setRowCount(batchSize);
+                    writer.writeBatch();
+                    written += batchSize;
+                }
+                writer.end();
+                out.flush();
+                payload = out.toByteArray();
+            }
+        }
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "multi_batch_long",
+                            "multi_batch_string",
+                            "multi_batch_array",
+                            "multi_batch_timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.LONG_TYPE,
+                            BasicType.STRING_TYPE,
+                            ArrayType.INT_ARRAY_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        List<Object> actualLongs = new ArrayList<>();
+        List<Object> actualStrings = new ArrayList<>();
+        List<Object> actualArrays = new ArrayList<>();
+        List<Object> actualTimestamps = new ArrayList<>();
+        int readRowCount;
+        try (ArrowToSeatunnelRowReader reader =
+                new ArrowToSeatunnelRowReader(payload, rowType).readArrow()) {
+            while (reader.hasNext()) {
+                SeaTunnelRow row = reader.next();
+                actualLongs.add(row.getField(0));
+                actualStrings.add(row.getField(1));
+                // Kept null-tolerant on purpose: an out-of-range vector read comes back as a
+                // null array, and the assertions below report that far more clearly than a
+                // NullPointerException raised while collecting the rows would.
+                Integer[] array = (Integer[]) row.getField(2);
+                actualArrays.add(array == null ? null : Arrays.asList(array));
+                actualTimestamps.add(row.getField(3));
+            }
+            readRowCount = reader.getReadRowCount();
+        }
+
+        Assertions.assertEquals(
+                expectedLongs,
+                actualLongs,
+                "every record batch must be read, in order, with the values of its own batch");
+        Assertions.assertEquals(
+                expectedStrings,
+                actualStrings,
+                "a second column must follow the same batch boundaries");
+        Assertions.assertEquals(
+                expectedArrays,
+                actualArrays,
+                "a list column resolves offsets against its own batch, so it must cross the "
+                        + "boundary with the rest");
+        Assertions.assertEquals(
+                expectedTimestamps,
+                actualTimestamps,
+                "a timestamp column is read through the same per-batch index, so it must cross "
+                        + "the boundary with the rest");
+        Assertions.assertNull(
+                actualLongs.get(3), "the deliberately null cell must still read as null");
+        Assertions.assertNotNull(
+                actualStrings.get(3), "a null in one column must not blank its neighbours");
+        Assertions.assertNull(
+                actualArrays.get(4),
+                "the deliberately null list cell must still read as null after the empty batch");
+        Assertions.assertNotNull(
+                actualLongs.get(4), "a null list must not blank the scalars in its own row");
+        // DorisValueReader and StarRocksBeReadClient advance the BE scan offset with this value,
+        // so it has to match the number of rows actually surfaced.
+        Assertions.assertEquals(
+                expectedLongs.size(),
+                readRowCount,
+                "getReadRowCount must count every row surfaced across all batches");
+    }
+
+    /**
+     * A struct and a map column must also cross a record batch boundary. Both resolve the row index
+     * against their own per-batch child and offset buffers, so they exercise the convertRow and
+     * convertMap dispatch rather than the scalar path the other cases cover.
+     */
+    @Test
+    public void testStructAndMapCrossRecordBatches() throws Exception {
+        List<Integer> expectedStructIds = Arrays.asList(100, 101, 200, 201, 202);
+        List<String> expectedStructLabels = Arrays.asList("a0", "a1", "b0", "b1", "b2");
+        // Same {2, 0, 3} shape as the scalar case, so the empty middle batch exercises the
+        // continue branch of readArrow() for the complex dispatch too.
+        //
+        // Null cells after the boundary are covered in the scalar case, by the long column and
+        // by the list column. They are left out here because a null struct and a null map are
+        // mishandled by their own converters today, which is a separate defect from the batch
+        // boundary this test is about.
+        int[] batchPlan = {2, 0, 3};
+
+        byte[] payload;
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+            StructVector structVector = StructVector.empty("multi_batch_struct", allocator);
+            MapVector mapVector = MapVector.empty("multi_batch_map", allocator, false);
+            List<FieldVector> vectors = Arrays.asList(structVector, mapVector);
+
+            // Both children must be written once before the schema is derived, for the same
+            // reason the list column is: an untouched complex vector has no child type yet.
+            fillComplexBatch(
+                    structVector,
+                    mapVector,
+                    allocator,
+                    0,
+                    batchPlan[0],
+                    expectedStructIds,
+                    expectedStructLabels);
+            List<Field> fields =
+                    vectors.stream().map(FieldVector::getField).collect(Collectors.toList());
+
+            try (VectorSchemaRoot complexRoot =
+                            new VectorSchemaRoot(new Schema(fields), vectors, batchPlan[0]);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(
+                                    complexRoot,
+                                    /*DictionaryProvider=*/ null,
+                                    Channels.newChannel(out))) {
+                writer.start();
+                int written = 0;
+                for (int batchIndex = 0; batchIndex < batchPlan.length; batchIndex++) {
+                    int batchSize = batchPlan[batchIndex];
+                    if (batchIndex > 0) {
+                        fillComplexBatch(
+                                structVector,
+                                mapVector,
+                                allocator,
+                                written,
+                                batchSize,
+                                expectedStructIds,
+                                expectedStructLabels);
+                    }
+                    complexRoot.setRowCount(batchSize);
+                    writer.writeBatch();
+                    written += batchSize;
+                }
+                writer.end();
+                out.flush();
+                payload = out.toByteArray();
+            }
+        }
+
+        SeaTunnelRowType structType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "label"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"multi_batch_struct", "multi_batch_map"},
+                        new SeaTunnelDataType[] {
+                            structType, new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+
+        List<Object> actualStructs = new ArrayList<>();
+        List<Object> actualMaps = new ArrayList<>();
+        int readRowCount;
+        try (ArrowToSeatunnelRowReader reader =
+                new ArrowToSeatunnelRowReader(payload, rowType).readArrow()) {
+            while (reader.hasNext()) {
+                SeaTunnelRow row = reader.next();
+                actualStructs.add(row.getField(0));
+                actualMaps.add(row.getField(1));
+            }
+            readRowCount = reader.getReadRowCount();
+        }
+
+        Assertions.assertEquals(
+                expectedStructIds.size(),
+                actualStructs.size(),
+                "every struct row of every batch must be surfaced");
+        for (int i = 0; i < expectedStructIds.size(); i++) {
+            // An out-of-range vector read comes back as null rather than throwing, so assert
+            // presence first: that is the regression, and it should not surface as a bare NPE.
+            Assertions.assertNotNull(
+                    actualStructs.get(i),
+                    "struct at absolute row " + i + " must be read from its own batch, not null");
+            // convertRow hands the struct back as a field-name keyed map, not a SeaTunnelRow.
+            Map<?, ?> struct = (Map<?, ?>) actualStructs.get(i);
+            Assertions.assertEquals(
+                    expectedStructIds.get(i),
+                    struct.get("id"),
+                    "struct id at absolute row " + i + " must come from its own batch");
+            Assertions.assertEquals(
+                    expectedStructLabels.get(i),
+                    struct.get("label"),
+                    "struct label at absolute row " + i + " must come from its own batch");
+        }
+        for (int i = 0; i < expectedStructIds.size(); i++) {
+            Assertions.assertNotNull(
+                    actualMaps.get(i),
+                    "map at absolute row " + i + " must be read from its own batch, not null");
+            Map<?, ?> map = (Map<?, ?>) actualMaps.get(i);
+            Assertions.assertEquals(
+                    Collections.singletonMap("k" + i, i),
+                    map,
+                    "map entry at absolute row " + i + " must come from its own batch");
+        }
+        Assertions.assertEquals(
+                expectedStructIds.size(),
+                readRowCount,
+                "getReadRowCount must count every row surfaced across all batches");
+    }
+
+    /** Replaces the contents of the struct and map vectors with one batch of rows. */
+    private static void fillComplexBatch(
+            StructVector structVector,
+            MapVector mapVector,
+            BufferAllocator allocator,
+            int firstRow,
+            int batchSize,
+            List<Integer> structIds,
+            List<String> structLabels) {
+        structVector.reset();
+        mapVector.reset();
+        NullableStructWriter structWriter = structVector.getWriter();
+        UnionMapWriter mapWriter = mapVector.getWriter();
+        for (int i = 0; i < batchSize; i++) {
+            int row = firstRow + i;
+            structWriter.setPosition(i);
+            structWriter.start();
+            structWriter.integer("id").writeInt(structIds.get(row));
+            byte[] label = structLabels.get(row).getBytes(StandardCharsets.UTF_8);
+            ArrowBuf labelBuffer = allocator.buffer(label.length);
+            labelBuffer.writeBytes(label);
+            structWriter.varChar("label").writeVarChar(0, label.length, labelBuffer);
+            labelBuffer.close();
+            structWriter.end();
+
+            mapWriter.setPosition(i);
+            mapWriter.startMap();
+            mapWriter.startEntry();
+            byte[] key = ("k" + row).getBytes(StandardCharsets.UTF_8);
+            ArrowBuf keyBuffer = allocator.buffer(key.length);
+            keyBuffer.writeBytes(key);
+            mapWriter.key().varChar().writeVarChar(0, key.length, keyBuffer);
+            keyBuffer.close();
+            mapWriter.value().integer().writeInt(row);
+            mapWriter.endEntry();
+            mapWriter.endMap();
+        }
+    }
+
+    /** Replaces the contents of the four vectors with one batch of {@code batchSize} rows. */
+    private static void fillBatch(
+            BigIntVector longVector,
+            VarCharVector stringVector,
+            ListVector arrayVector,
+            TimeStampMicroVector timestampVector,
+            int firstRow,
+            int batchSize,
+            List<Long> longs,
+            List<String> strings,
+            List<List<Integer>> arrays,
+            List<LocalDateTime> timestamps) {
+        longVector.reset();
+        stringVector.reset();
+        arrayVector.reset();
+        timestampVector.reset();
+        UnionListWriter arrayWriter = arrayVector.getWriter();
+        for (int i = 0; i < batchSize; i++) {
+            int row = firstRow + i;
+            Long value = longs.get(row);
+            if (value == null) {
+                longVector.setNull(i);
+            } else {
+                longVector.setSafe(i, value);
+            }
+            stringVector.setSafe(i, strings.get(row).getBytes(StandardCharsets.UTF_8));
+            arrayWriter.setPosition(i);
+            if (arrays.get(row) == null) {
+                arrayWriter.writeNull();
+            } else {
+                arrayWriter.startList();
+                for (int element : arrays.get(row)) {
+                    arrayWriter.writeInt(element);
+                }
+                arrayWriter.endList();
+            }
+            // The converter reads the stored micros as UTC and shifts them into the default zone,
+            // so the value is written through the same zone to round-trip on any host.
+            timestampVector.setSafe(
+                    i,
+                    timestamps.get(row).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            * 1000);
+        }
+        arrayWriter.setValueCount(batchSize);
     }
 
     private SeaTunnelRowType getSeatunnelRowType(boolean allType) {

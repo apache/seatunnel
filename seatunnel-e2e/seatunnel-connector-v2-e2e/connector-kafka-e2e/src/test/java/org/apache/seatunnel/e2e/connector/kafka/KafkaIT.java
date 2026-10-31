@@ -46,6 +46,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -102,6 +103,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1846,6 +1848,165 @@ public class KafkaIT extends AbstractKafkaIT {
                 });
     }
 
+    /**
+     * Row type of the opt-in nullable ROW round trip: a scalar id, a scalar string, and a ROW field
+     * that itself holds a nested ROW. The nesting lets the test cover a null ROW field and a null
+     * ROW two levels deep, both of which the default Avro layout cannot represent.
+     */
+    private static final SeaTunnelRowType AVRO_NULLABLE_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "c_string", "c_row"},
+                    new SeaTunnelDataType<?>[] {
+                        BasicType.LONG_TYPE,
+                        BasicType.STRING_TYPE,
+                        new SeaTunnelRowType(
+                                new String[] {"c_int", "c_sub_row"},
+                                new SeaTunnelDataType<?>[] {
+                                    BasicType.INT_TYPE,
+                                    new SeaTunnelRowType(
+                                            new String[] {"c_string"},
+                                            new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE})
+                                })
+                    });
+
+    /**
+     * Round-trips the opt-in nullable ROW layout through the Kafka source and the Kafka sink.
+     *
+     * <p>The messages on the source topic are written by the test itself with {@code
+     * avro_row_nullable = true}, one of them with a null ROW field and one with a null ROW nested
+     * two levels deep. Both connectors have to honour the option for the job to succeed: the source
+     * cannot decode the nullable layout without it, and the sink cannot re-encode a null ROW
+     * without it, so the exit code plus the decoded values are the assertion.
+     *
+     * <p>Both topics carry the engine container name because the engine containers of one run share
+     * the broker: a topic reused across engines would already hold the rows of the previous engine
+     * when the next one starts.
+     */
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroNullableRowRoundTrip(TestContainer container)
+            throws IOException, InterruptedException {
+        String sourceTopic = avroNullableRowTopic(container, "source");
+        String sinkTopic = avroNullableRowTopic(container, "sink");
+        createKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
+        produceNullableRowAvroData(sourceTopic);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/kafka_avro_nullable_row_to_kafka.conf",
+                        Arrays.asList("source_topic=" + sourceTopic, "sink_topic=" + sinkTopic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("", "", "", "test", AVRO_NULLABLE_ROW_TYPE);
+        AvroDeserializationSchema avroDeserializationSchema =
+                new AvroDeserializationSchema(catalogTable, null, false, true);
+        List<SeaTunnelRow> rows =
+                getKafkaSTRow(
+                        sinkTopic,
+                        value -> {
+                            try {
+                                return avroDeserializationSchema.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Assertions.assertEquals(3, rows.size());
+        // Rows are compared by id: the assertions below must not depend on delivery order.
+        rows.sort(Comparator.comparingLong(row -> (Long) row.getField(0)));
+
+        SeaTunnelRow rowWithNullRow = rows.get(0);
+        Assertions.assertEquals(1L, rowWithNullRow.getField(0));
+        Assertions.assertEquals("row-1", rowWithNullRow.getField(1));
+        Assertions.assertNull(rowWithNullRow.getField(2));
+
+        SeaTunnelRow rowWithNullNestedRow = rows.get(1);
+        Assertions.assertEquals(2L, rowWithNullNestedRow.getField(0));
+        SeaTunnelRow nestedRow = (SeaTunnelRow) rowWithNullNestedRow.getField(2);
+        Assertions.assertEquals(2, nestedRow.getField(0));
+        Assertions.assertNull(nestedRow.getField(1));
+
+        SeaTunnelRow rowWithPresentRow = rows.get(2);
+        Assertions.assertEquals(3L, rowWithPresentRow.getField(0));
+        SeaTunnelRow presentRow = (SeaTunnelRow) rowWithPresentRow.getField(2);
+        Assertions.assertEquals(3, presentRow.getField(0));
+        SeaTunnelRow presentNestedRow = (SeaTunnelRow) presentRow.getField(1);
+        Assertions.assertEquals("nested", presentNestedRow.getField(0));
+    }
+
+    private String avroNullableRowTopic(TestContainer container, String role) {
+        return "test_avro_nullable_row_"
+                + role
+                + "_"
+                + container.identifier().name().toLowerCase(Locale.ROOT);
+    }
+
+    private void produceNullableRowAvroData(String sourceTopic) {
+        AvroSerializationSchema serializationSchema =
+                new AvroSerializationSchema(AVRO_NULLABLE_ROW_TYPE, true);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(new SeaTunnelRow(new Object[] {1L, "row-1", null}));
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {2L, "row-2", new SeaTunnelRow(new Object[] {2, null})}));
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {
+                            3L,
+                            "row-3",
+                            new SeaTunnelRow(
+                                    new Object[] {3, new SeaTunnelRow(new Object[] {"nested"})})
+                        }));
+        for (SeaTunnelRow row : rows) {
+            try {
+                producer.send(new ProducerRecord<>(sourceTopic, serializationSchema.serialize(row)))
+                        .get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while producing Avro test data", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Failed to produce Avro test data", e);
+            }
+        }
+        producer.flush();
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testKafkaAvroTombstoneToAssert(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        // The Kafka broker is shared across all engine variants in this class, so this test
+        // needs its own topic. With a fixed name every later template run would also read the
+        // records written by the earlier ones and trip the exact-100-row assertion.
+        String topic = startModeTopic(container, "avro-tombstone");
+        createKafkaTopic(topic);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        topic,
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
+
+        // A tombstone in the middle of the topic. The reader has to carry on past the
+        // record that has no value, so all 100 real records must still arrive. Leaving the
+        // offset on the tombstone would make it be replayed after every restart instead.
+        generateTestData(row -> serializer.serializeRow(row), 0, 50);
+        producer.send(
+                        new ProducerRecord<>(
+                                topic, "tombstone-key".getBytes(StandardCharsets.UTF_8), null))
+                .get();
+        generateTestData(row -> serializer.serializeRow(row), 50, 100);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/kafka_avro_tombstone_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @TestTemplate
     public void testFakeSourceToKafkaProtobufFormat(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
@@ -2215,25 +2376,41 @@ public class KafkaIT extends AbstractKafkaIT {
         String consumerTopic = "kafka_topic_exactly_batch_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceData);
+        Properties transactionalProperties = new Properties();
+        transactionalProperties.put(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        transactionalProperties.put(
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        transactionalProperties.put(
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        transactionalProperties.put(
+                ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                "batch-completion-" + container.identifier().name());
+        // Commit/abort markers advance offsets without becoming visible READ_COMMITTED rows.
+        try (KafkaProducer<byte[], byte[]> transactionalProducer =
+                new KafkaProducer<>(transactionalProperties)) {
+            transactionalProducer.initTransactions();
+            transactionalProducer.beginTransaction();
+            for (int i = 0; i < 10; i++) {
+                transactionalProducer.send(
+                        new ProducerRecord<>(
+                                producerTopic, null, sourceData.getBytes(StandardCharsets.UTF_8)));
+            }
+            transactionalProducer.commitTransaction();
+            transactionalProducer.beginTransaction();
+            transactionalProducer.send(
+                    new ProducerRecord<>(
+                            producerTopic, null, "aborted-row".getBytes(StandardCharsets.UTF_8)));
+            transactionalProducer.flush();
+            transactionalProducer.abortTransaction();
         }
-        Long endOffset;
-        KafkaConsumer<String, String> consumer = null;
-        try {
-            consumer = new KafkaConsumer<>(kafkaConsumerConfig());
-            consumer.subscribe(Arrays.asList(producerTopic));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(producerTopic, 0)));
-            endOffset = offsets.entrySet().iterator().next().getValue();
-            Container.ExecResult execResult =
-                    container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
-            Assertions.assertEquals(0, execResult.getExitCode());
-            // wait for data written to kafka
-            Assertions.assertTrue(checkData(consumerTopic, sinkStartOffset, endOffset, sourceData));
-        } finally {
-            closeKafkaConsumer(consumer);
-        }
+        long expectedVisibleRows = getKafkaConsumerListData(producerTopic, 0L).size();
+        Assertions.assertTrue(expectedVisibleRows >= 10, "Committed source rows must be visible");
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                checkData(consumerTopic, sinkStartOffset, expectedVisibleRows, sourceData));
     }
 
     // Compare the values of data fields obtained from consumers

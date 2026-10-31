@@ -466,6 +466,10 @@ public class JsonToRowConverters implements Serializable {
         return new JsonToObjectConverter() {
             @Override
             public Object convert(JsonNode jsonNode, String fieldName) {
+                if (!jsonNode.isArray()) {
+                    throw new JsonParseException(
+                            String.format("Field '%s' expects an array for ARRAY.", fieldName));
+                }
                 Object arr =
                         Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
                 for (int i = 0; i < jsonNode.size(); i++) {
@@ -482,6 +486,10 @@ public class JsonToRowConverters implements Serializable {
         return new JsonToObjectConverter() {
             @Override
             public Object convert(JsonNode jsonNode, String fieldName) {
+                if (!jsonNode.isObject()) {
+                    throw new JsonParseException(
+                            String.format("Field '%s' expects an object for MAP.", fieldName));
+                }
                 Map<Object, Object> value = new HashMap<>();
                 jsonNode.fields()
                         .forEachRemaining(

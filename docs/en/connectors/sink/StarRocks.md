@@ -43,8 +43,8 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | database                    | string  | yes      | -                            | The name of StarRocks database                                                                                                                                                                                    |
 | table                       | string  | no       | -                            | The name of StarRocks table, If not set, the table name will be the name of the upstream table                                                                                                                    |
 | labelPrefix                 | string  | no       | -                            | The prefix of StarRocks stream load label                                                                                                                                                                         |
-| batch_max_rows              | long    | no       | 1024                         | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
-| batch_max_bytes             | int     | no       | 5 * 1024 * 1024              | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
+| batch_max_rows              | int     | no       | 1024                         | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
+| batch_max_bytes             | long    | no       | 5 * 1024 * 1024              | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
 | max_retries                 | int     | no       | -                            | The number of retries to flush failed                                                                                                                                                                             |
 | retry_backoff_multiplier_ms | int     | no       | -                            | Using as a multiplier for generating the next delay for backoff                                                                                                                                                   |
 | max_retry_backoff_ms        | int     | no       | -                            | The amount of time to wait before attempting to retry a request to `StarRocks`                                                                                                                                    |
@@ -52,10 +52,12 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | save_mode_create_template   | string  | no       | see below                    | see below                                                                                                                                                                                                         |
 | starrocks.config            | map     | no       | -                            | The parameter of the stream load `data_desc`                                                                                                                                                                      |
 | http_socket_timeout_ms      | int     | no       | 180000                       | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
+| label_state_timeout_ms      | long    | no       | 180000                       | Total time the sink polls `get_load_state` to resolve a non-final stream load outcome (`Publish Timeout`, `Label Already Exists`, reused-label failure) to `VISIBLE`/`COMMITTED`/`ABORTED` before failing the flush. Default is 3 minutes; keep it below the job's checkpoint timeout. |
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
 | table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| multi_table_sink_replica    | int     | no       | 1                            | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                            |
 
 ### save_mode_create_template
 
@@ -159,7 +161,7 @@ sink {
     base-url = "jdbc:mysql://127.0.0.1:9030"
     nodeUrls = ["127.0.0.1:8030"]
     username = "root"
-    password = ""
+    password = "secret"
     database = "test"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     table_options = {
@@ -169,6 +171,18 @@ sink {
   }
 }
 ```
+
+### Non-final stream load outcomes
+
+A stream load response such as `Publish Timeout`, `Label Already Exists`, a reused-label failure, or an unrecognized status does not confirm the transaction outcome: a publish that timed out may still be aborted later (for example after a front-end restart). Instead of releasing the batch right away, the sink polls `get_load_state` for the batch label until the state is terminal:
+
+- `VISIBLE`/`COMMITTED`: the transaction is confirmed and the batch is released.
+- `ABORTED`: the batch never became durable and is resent under a new label.
+- anything else (`PREPARE`, `UNKNOWN`, unreadable response): polling continues until `label_state_timeout_ms` expires, then the flush fails and the job replays the batch from its last checkpoint.
+
+The poll runs synchronously on the checkpoint path, and the sink retry loop can repeat it up to `max_retries + 1` times, so the worst-case blocking time is roughly `(max_retries + 1) * label_state_timeout_ms`. Keep `label_state_timeout_ms` below the job's checkpoint timeout so an unresolved transaction surfaces as a checkpoint failure instead of holding the barrier for minutes.
+
+Because a failed flush is replayed from the checkpoint, batches that were already visible earlier in the same window can be submitted again. The sink remains at-least-once: DUPLICATE KEY tables may see duplicate rows after a replay, while Primary Key tables absorb them.
 
 ### Zeta Timer Flush
 
@@ -191,8 +205,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     batch_max_rows = 10000
@@ -273,8 +287,8 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -292,8 +306,8 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     ...
@@ -311,8 +325,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -331,8 +345,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -352,8 +366,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
@@ -493,8 +507,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "${database_name}_test"
     table = "${table_name}_test"
     ...
@@ -538,8 +552,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "${schema_name}_test"
     table = "${table_name}_test"
     ...
@@ -578,8 +592,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     labelPrefix = "unique-job-label"
