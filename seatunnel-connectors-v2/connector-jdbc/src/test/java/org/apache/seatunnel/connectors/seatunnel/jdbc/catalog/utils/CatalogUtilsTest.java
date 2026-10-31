@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -54,6 +55,35 @@ public class CatalogUtilsTest {
         Optional<PrimaryKey> primaryKey =
                 CatalogUtils.getPrimaryKey(new TestDatabaseMetaData(), TablePath.of("test.test"));
         Assertions.assertEquals("testfdawe_", primaryKey.get().getPrimaryKey());
+    }
+
+    @Test
+    void testFieldIdeDoesNotDependOnTheDefaultLocale() {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                Locale.setDefault(locale);
+                // JdbcSink passes "original" when field_ide is not set, and resolves the sink
+                // table with it when the writer is created, so this call runs for every JDBC sink.
+                Assertions.assertEquals(
+                        "orders", CatalogUtils.quoteTableIdentifier("orders", "original"));
+                Assertions.assertEquals(
+                        "user_id", CatalogUtils.getFieldIde("USER_ID", "lowercase"));
+                Assertions.assertEquals(
+                        "USER_ID", CatalogUtils.getFieldIde("user_id", "uppercase"));
+                Assertions.assertEquals(
+                        "test.PRICE", CatalogUtils.quoteTableIdentifier("test.price", "uppercase"));
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 
     @Test

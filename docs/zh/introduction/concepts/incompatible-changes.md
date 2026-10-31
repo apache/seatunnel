@@ -4,6 +4,13 @@
 
 ## dev
 
+### JDBC Sink：`field_ide` 在任何语言环境下按相同规则转换大小写
+
+- **行为变更：`field_ide` 不再跟随工作节点的默认语言环境**
+  - **描述**：JDBC Sink 此前使用 JVM 默认语言环境解析 `field_ide` 并转换标识符大小写。在土耳其语或阿塞拜疆语默认语言环境下，`i` 和 `I` 会转换为带点的 `İ` 和不带点的 `ı`：`UPPERCASE` 会把 `user_id` 转为 `USER_İD`，`LOWERCASE` 会把 `USER_ID` 转为 `user_ıd`，而未设置 `field_ide` 或设置为 `ORIGINAL` 的 Sink 会在创建 writer 时失败，报错 `No enum constant ...FieldIdeEnum.ORİGİNAL`。现在这两处转换都使用 `Locale.ROOT`。
+  - **影响**：仅影响默认语言环境为土耳其语或阿塞拜疆语的工作节点。在这些节点上，`UPPERCASE` 和 `LOWERCASE` 现在分别生成 `USER_ID` 和 `user_id`，而此前生成 `USER_İD` 和 `user_ıd`；未设置 `field_ide` 或设置为 `ORIGINAL` 的 Sink 现在可以正常启动。其他默认语言环境的工作节点不受影响。
+  - **迁移指南**：无需修改配置。在这类节点上，如果 Sink 因 `field_ide` 创建或写入了名称中含有 `İ` 或 `ı` 的表或列，请在升级前将其重命名为 ASCII 拼写，否则 Sink 会访问不同的名称。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
