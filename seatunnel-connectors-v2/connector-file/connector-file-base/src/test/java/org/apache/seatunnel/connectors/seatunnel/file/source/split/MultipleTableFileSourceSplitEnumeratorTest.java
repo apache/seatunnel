@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -52,8 +53,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 class MultipleTableFileSourceSplitEnumeratorTest {
@@ -261,6 +264,150 @@ class MultipleTableFileSourceSplitEnumeratorTest {
         Assertions.assertEquals(1, CountingFileSystem.listStatusCount);
         Assertions.assertEquals(1, CountingFileSystem.closeCount);
         Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void restoredSplitsWaitForReaderRegistration() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(2);
+        Set<Integer> readers = new HashSet<>();
+        Mockito.when(context.registeredReaders()).thenAnswer(invocation -> new HashSet<>(readers));
+        List<FileSourceSplit> files = recoveryFiles();
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(context, files, new HashSet<>(files));
+        enumerator.open();
+
+        // Native readers return checkpointed splits before registering with the enumerator.
+        enumerator.addSplitsBack(Collections.singletonList(files.get(1)), 0);
+        readers.add(0);
+        enumerator.registerReader(0);
+        enumerator.addSplitsBack(Collections.singletonList(files.get(2)), 1);
+        Mockito.verify(context, Mockito.never()).assignSplit(Mockito.anyInt(), Mockito.anyList());
+        Mockito.verify(context, Mockito.never()).signalNoMoreSplits(Mockito.anyInt());
+
+        readers.add(1);
+        enumerator.registerReader(1);
+        Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
+        enumerator.run();
+        ArgumentCaptor<List> assignments = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(context, Mockito.times(2))
+                .assignSplit(Mockito.anyInt(), assignments.capture());
+        List<FileSourceSplit> delivered = new ArrayList<>();
+        assignments.getAllValues().forEach(delivered::addAll);
+        Assertions.assertEquals(2, delivered.size());
+        Assertions.assertEquals(new HashSet<>(files.subList(1, 3)), new HashSet<>(delivered));
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void restoreDoesNotReplayCheckpointCompletedFiles() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(2);
+        List<FileSourceSplit> files = recoveryFiles();
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(context, files, new HashSet<>(files));
+        enumerator.open();
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+        enumerator.run();
+        Mockito.verify(context, Mockito.times(2))
+                .assignSplit(Mockito.anyInt(), Mockito.eq(Collections.emptyList()));
+        Mockito.verify(context).signalNoMoreSplits(0);
+        Mockito.verify(context).signalNoMoreSplits(1);
+    }
+
+    @Test
+    void checkpointStateDoesNotChangeAfterLaterAssignment() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(1);
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(context, recoveryFiles(), Collections.emptySet());
+        enumerator.open();
+        FileSourceState checkpoint = enumerator.snapshotState(1L);
+        enumerator.run();
+        Assertions.assertTrue(checkpoint.getAssignedSplit().isEmpty());
+        Assertions.assertEquals(3, enumerator.snapshotState(2L).getAssignedSplit().size());
+    }
+
+    @Test
+    void lateReturnedSplitsAreAssignedWithoutReplayingOtherFiles() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(2);
+        Mockito.when(context.registeredReaders()).thenReturn(new HashSet<>(Arrays.asList(0, 1)));
+        List<FileSourceSplit> files = recoveryFiles();
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(context, files, Collections.emptySet());
+        enumerator.open();
+        enumerator.run();
+        Mockito.clearInvocations(context);
+
+        // The reporting subtask need not be the split's route after redistribution.
+        enumerator.addSplitsBack(Collections.singletonList(files.get(1)), 0);
+        ArgumentCaptor<List> assignments = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(context, Mockito.atLeastOnce())
+                .assignSplit(Mockito.anyInt(), assignments.capture());
+        List<FileSourceSplit> delivered = new ArrayList<>();
+        assignments.getAllValues().forEach(delivered::addAll);
+        Assertions.assertEquals(Collections.singletonList(files.get(1)), delivered);
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void completedFilesMissingFromListingDoNotMakePendingCountNegative() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(1);
+        List<FileSourceSplit> files = recoveryFiles();
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(
+                        context, Collections.singletonList(files.get(0)), new HashSet<>(files));
+        enumerator.open();
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+        enumerator.run();
+        Mockito.verify(context).assignSplit(0, Collections.emptyList());
+    }
+
+    @Test
+    void repeatedRunDoesNotAssignFilesAgain() throws Exception {
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(2);
+        MultipleTableFileSourceSplitEnumerator enumerator =
+                recoveryEnumerator(context, recoveryFiles(), Collections.emptySet());
+        enumerator.open();
+        enumerator.run();
+        Mockito.clearInvocations(context);
+        enumerator.run();
+        Mockito.verify(context, Mockito.times(2))
+                .assignSplit(Mockito.anyInt(), Mockito.eq(Collections.emptyList()));
+    }
+
+    private static List<FileSourceSplit> recoveryFiles() {
+        return Arrays.asList(
+                new FileSourceSplit("catalog.test.files", "0.txt"),
+                new FileSourceSplit("catalog.test.files", "1.txt"),
+                new FileSourceSplit("catalog.test.files", "2.txt"));
+    }
+
+    private static MultipleTableFileSourceSplitEnumerator recoveryEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
+            List<FileSourceSplit> files,
+            Set<FileSourceSplit> checkpointAssigned) {
+        BaseFileSourceConfig file = Mockito.mock(BaseFileSourceConfig.class);
+        CatalogTable table = CatalogTableUtil.buildSimpleTextTable();
+        Mockito.when(file.getCatalogTable()).thenReturn(table);
+        Mockito.when(file.getFilePathsForSplitEnumerator())
+                .thenReturn(Collections.singletonList("input"));
+        BaseMultipleTableFileSourceConfig config =
+                Mockito.mock(BaseMultipleTableFileSourceConfig.class);
+        Mockito.when(config.getFileSourceConfigs()).thenReturn(Collections.singletonList(file));
+        FileSplitStrategy strategy = Mockito.mock(FileSplitStrategy.class);
+        Mockito.when(strategy.split(Mockito.anyString(), Mockito.eq("input"))).thenReturn(files);
+        return new MultipleTableFileSourceSplitEnumerator(
+                context, config, strategy, new FileSourceState(checkpointAssigned));
     }
 
     private int allocateFiles(int id, int parallelism, int fileSize) {

@@ -23,13 +23,13 @@ connector-starrocks
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(file-local|starrocks)'
+ls connectors | grep -E 'connector-(file-local|starrocks)'
 ```
 
 3. 把 StarRocks sink 依赖的 MySQL JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 4. 先准备本地输入文件，并确保 SeaTunnel 进程能读到它：

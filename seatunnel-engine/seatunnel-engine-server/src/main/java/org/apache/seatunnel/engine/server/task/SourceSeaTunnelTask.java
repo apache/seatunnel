@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -162,6 +164,16 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     public void receivedSourceSplit(List<SplitT> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
+    }
+
+    /**
+     * Returns whether the source metadata identifies an unbounded reader. Missing metadata is
+     * treated as unknown, so master-switch restore cannot classify it as an idle-closed reader.
+     */
+    public boolean isUnboundedSourceTask() {
+        SourceAction<?, ?, ?> action = sourceFlow == null ? null : sourceFlow.getAction();
+        SeaTunnelSource<?, ?, ?> source = action == null ? null : action.getSource();
+        return source != null && Boundedness.UNBOUNDED.equals(source.getBoundedness());
     }
 
     public void receivedSourceEvent(SourceEvent sourceEvent) {
