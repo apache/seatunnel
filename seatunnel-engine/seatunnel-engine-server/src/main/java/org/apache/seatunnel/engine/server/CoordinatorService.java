@@ -139,6 +139,11 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
+    /**
+     * The current history view, returned by the Lombok getter including after coordinator teardown.
+     * Closing the view only deregisters listeners; reads remain valid for requests already in
+     * flight. Every activation constructs a fresh instance in {@link #initCoordinatorService()}.
+     */
     @Getter private JobHistoryService jobHistoryService;
 
     /**
@@ -632,6 +637,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        // Never reuse the previous history view: teardown removes its listener registrations,
+        // while requests already holding that view may still finish their reads.
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -1304,6 +1311,10 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        // Capture the service owned by the coordinator generation being cleared before shutdown
+        // waits, so a concurrent re-activation during node shutdown does not make this cleanup
+        // close listeners that belong to a later generation.
+        JobHistoryService closingJobHistoryService = jobHistoryService;
         pendingJobScheduleEpoch.incrementAndGet();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
@@ -1343,6 +1354,16 @@ public class CoordinatorService {
             Thread.currentThread().interrupt();
             logger.info(
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
+        }
+
+        // The finished-job IMaps are cluster-wide, so the expiration listeners registered by the
+        // current JobHistoryService are not released automatically when this node leaves the
+        // active master role. Deregister them here, otherwise repeated master role switches
+        // accumulate stale listeners that keep old service instances reachable and duplicate
+        // finished-job expiration side effects. The instance itself is kept because read paths
+        // may still use it until a new active master creates a fresh one.
+        if (closingJobHistoryService != null) {
+            closingJobHistoryService.close();
         }
 
         ResourceManager manager = resourceManager;
