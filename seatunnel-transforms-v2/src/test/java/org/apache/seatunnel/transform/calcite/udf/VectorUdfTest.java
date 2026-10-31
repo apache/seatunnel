@@ -21,10 +21,79 @@ import org.apache.seatunnel.common.utils.VectorUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 class VectorUdfTest {
+
+    @ParameterizedTest
+    @ValueSource(
+            floats = {Float.MAX_VALUE, 1e20f, 1e-30f, Float.MIN_NORMAL, Float.MIN_VALUE, 3f, 0.1f})
+    void testFiniteVectorArithmetic(float value) {
+        byte[] left = toBytes(new Float[] {value, -value});
+        byte[] right = toBytes(new Float[] {-value, value});
+        BigDecimal exact = new BigDecimal((double) value);
+        double squaredNorm = exact.multiply(exact).multiply(BigDecimal.valueOf(2)).doubleValue();
+        double norm = Math.hypot(value, value);
+        double distance = exact.multiply(BigDecimal.valueOf(4)).doubleValue();
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(norm, VectorNormFunction.eval(left), norm * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                -squaredNorm,
+                                InnerProductFunction.eval(left, right),
+                                squaredNorm * 1e-14),
+                () -> Assertions.assertEquals(2.0, CosineDistanceFunction.eval(left, right), 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                distance, L1DistanceFunction.eval(left, right), distance * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                2 * norm, L2DistanceFunction.eval(left, right), norm * 1e-14),
+                () -> {
+                    Float[] normalized = fromBytes(VectorNormalizeFunction.eval(left));
+                    Assertions.assertEquals(1 / Math.sqrt(2), normalized[0], 1e-7);
+                    Assertions.assertEquals(-1 / Math.sqrt(2), normalized[1], 1e-7);
+                });
+    }
+
+    @Test
+    void testLargeProductsCancelWithoutOverflow() {
+        byte[] left = toBytes(new Float[] {Float.MAX_VALUE, Float.MAX_VALUE});
+        byte[] right = toBytes(new Float[] {Float.MAX_VALUE, -Float.MAX_VALUE});
+        Assertions.assertEquals(0.0, InnerProductFunction.eval(left, right));
+        Assertions.assertEquals(1.0, CosineDistanceFunction.eval(left, right));
+    }
+
+    @Test
+    void testVectorArithmeticSpecialValues() {
+        byte[] zero = toBytes(new Float[] {0f, -0f});
+        byte[] empty = toBytes(new Float[] {});
+        Assertions.assertEquals(0.0, VectorNormFunction.eval(zero));
+        Assertions.assertEquals(1.0, CosineDistanceFunction.eval(zero, zero));
+        Assertions.assertEquals(1.0, CosineDistanceFunction.eval(empty, empty));
+        Assertions.assertSame(zero, VectorNormalizeFunction.eval(zero));
+        Assertions.assertSame(empty, VectorNormalizeFunction.eval(empty));
+        Assertions.assertTrue(
+                Double.isNaN(
+                        CosineDistanceFunction.eval(
+                                toBytes(new Float[] {Float.MIN_VALUE}),
+                                toBytes(new Float[] {Float.POSITIVE_INFINITY}))));
+        for (float value :
+                new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            byte[] vector = toBytes(new Float[] {value});
+            Assertions.assertTrue(Double.isNaN(CosineDistanceFunction.eval(vector, vector)));
+            Assertions.assertTrue(Double.isNaN(L1DistanceFunction.eval(vector, vector)));
+            Assertions.assertTrue(Double.isNaN(L2DistanceFunction.eval(vector, vector)));
+            double norm = VectorNormFunction.eval(vector);
+            Assertions.assertTrue(
+                    Float.isNaN(value) ? Double.isNaN(norm) : norm == Double.POSITIVE_INFINITY);
+            Assertions.assertTrue(Float.isNaN(fromBytes(VectorNormalizeFunction.eval(vector))[0]));
+        }
+    }
 
     private static byte[] toBytes(Float[] floats) {
         ByteBuffer buf = VectorUtils.toByteBuffer(floats);
