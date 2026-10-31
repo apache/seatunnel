@@ -39,11 +39,15 @@ import org.testcontainers.utility.DockerImageName;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryResult;
+import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Ulimit;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -67,6 +71,13 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_COLLECTION = "test_collection";
     private static final String COUCHBASE_COLLECTION_TIMER_FLUSH = "test_collection_timer_flush";
 
+    /**
+     * Couchbase 7.1 requires the couchbase user inside the container to have at least 200000 open
+     * files. Configure a slightly higher per-container limit so GitHub-hosted Docker starts the
+     * server reliably.
+     */
+    private static final int COUCHBASE_CONTAINER_NOFILE_LIMIT = 262144;
+
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
 
@@ -85,6 +96,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(COUCHBASE_CONTAINER_HOST)
+                        .withCreateContainerCmdModifier(this::applyCouchbaseFileLimit)
                         .withCredentials(COUCHBASE_USERNAME, COUCHBASE_PASSWORD)
                         .withBucket(
                                 new BucketDefinition(COUCHBASE_BUCKET)
@@ -339,6 +351,10 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    /**
+     * Verifies buffered rows become visible while the streaming job is still running. The exact
+     * ten-row assertion must succeed before cancellation can trigger an end-of-input flush.
+     */
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -352,8 +368,8 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION_TIMER_FLUSH));
 
         String jobId = String.valueOf(System.currentTimeMillis());
-        java.util.concurrent.CompletableFuture<Container.ExecResult> jobFuture =
-                java.util.concurrent.CompletableFuture.supplyAsync(
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
                         () -> {
                             try {
                                 return container.executeJob(
@@ -390,5 +406,27 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             }
         }
+    }
+
+    /**
+     * Applies the minimum open-file limit required by the Couchbase image inside Docker.
+     *
+     * <p>GitHub-hosted runners expose a lower default limit (65536) to containers, which causes the
+     * Couchbase bootstrap script to exit before Testcontainers can finish the cluster
+     * initialization sequence.
+     */
+    private void applyCouchbaseFileLimit(CreateContainerCmd command) {
+        HostConfig hostConfig =
+                command.getHostConfig() == null
+                        ? HostConfig.newHostConfig()
+                        : command.getHostConfig();
+        hostConfig.withUlimits(
+                new Ulimit[] {
+                    new Ulimit(
+                            "nofile",
+                            COUCHBASE_CONTAINER_NOFILE_LIMIT,
+                            COUCHBASE_CONTAINER_NOFILE_LIMIT)
+                });
+        command.withHostConfig(hostConfig);
     }
 }
