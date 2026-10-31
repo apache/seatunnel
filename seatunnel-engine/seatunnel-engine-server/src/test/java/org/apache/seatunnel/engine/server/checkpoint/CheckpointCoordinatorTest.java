@@ -24,33 +24,56 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+import org.apache.seatunnel.engine.server.common.statestore.checkpoint.hazelcast.HazelcastCheckpointOverviewStateStore;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.persistence.FileMapStore;
+import org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.config.JoinConfig;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.MapStoreConfig;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.impl.MapContainer;
+import com.hazelcast.map.impl.MapService;
+import com.hazelcast.map.impl.MapServiceContext;
+import com.hazelcast.map.impl.MapStoreWrapper;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +82,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,6 +99,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
@@ -1005,6 +1031,11 @@ public class CheckpointCoordinatorTest
      * mocked, so the test never touches Hazelcast / Hadoop I/O.
      */
     private CheckpointCoordinator buildMinimalCoordinator(ExecutorService executorService) {
+        return buildMinimalCoordinator(executorService, null);
+    }
+
+    private CheckpointCoordinator buildMinimalCoordinator(
+            ExecutorService executorService, CheckpointMonitorService checkpointMonitorService) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
 
@@ -1033,7 +1064,7 @@ public class CheckpointCoordinatorTest
                 executorService,
                 mockIMap,
                 false,
-                null);
+                checkpointMonitorService);
     }
 
     @Test
@@ -1220,6 +1251,317 @@ public class CheckpointCoordinatorTest
                     1,
                     pendingCounter.get(),
                     "pendingCounter must not be decremented when notifyCompleted fails");
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * After FileMapStore fails loudly on WAL errors, {@code onCheckpointCompleted} can throw {@link
+     * IMapStorageException} even though the real checkpoint payload was already persisted. The
+     * coordinator must log and continue bookkeeping instead of escalating to {@code FAILED}.
+     */
+    @Test
+    void testCompletePendingCheckpointContinuesWhenMonitorThrows() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+            Mockito.doThrow(new IMapStorageException("overview WAL fail-closed"))
+                    .when(monitorService)
+                    .onCheckpointCompleted(Mockito.any(), Mockito.anyLong());
+
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, monitorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            long checkpointId = 1L;
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Assertions.assertDoesNotThrow(
+                    () -> spy.completePendingCheckpoint(completedCheckpoint),
+                    "monitor/overview failure must not abort completePendingCheckpoint");
+            Assertions.assertEquals(
+                    0,
+                    pendingCounter.get(),
+                    "pendingCounter must still be decremented after monitor failure");
+            Assertions.assertFalse(
+                    pendingCheckpoints.containsKey(checkpointId),
+                    "pending checkpoint must still be cleaned up after monitor failure");
+            Mockito.verify(monitorService)
+                    .onCheckpointCompleted(Mockito.eq(completedCheckpoint), Mockito.anyLong());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * A real {@code engine_checkpoint_monitor} FileMapStore, not a mocked monitor, fails its next
+     * write-through put. The coordinator still finishes the checkpoint that was already stored, and
+     * a later node-shutdown signal from the same monitor path still stops the dying master.
+     */
+    @Test
+    void testRealMonitorMapStoreFailureKeepsCheckpointBookkeepingAndPropagatesShutdown(
+            @TempDir Path walDir) throws Exception {
+        String clusterName = "checkpoint-monitor-mapstore-" + System.nanoTime();
+        HazelcastInstance node =
+                Hazelcast.newHazelcastInstance(monitorHazelcastConfig(clusterName, walDir));
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            IMap<Long, CheckpointOverview> overviewMap =
+                    node.getMap(EngineStateStoreNames.CHECKPOINT_MONITOR);
+            long durableJobId = 999L;
+            overviewMap.put(durableJobId, new CheckpointOverview(durableJobId));
+            FileMapStore store = monitorMapStore(node);
+            failNextMonitorAppend(store);
+
+            CheckpointMonitorService monitorService =
+                    new CheckpointMonitorService(
+                            new HazelcastCheckpointOverviewStateStore(overviewMap), 8);
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, monitorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            long checkpointId = 1L;
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Assertions.assertDoesNotThrow(
+                    () -> spy.completePendingCheckpoint(completedCheckpoint),
+                    "a real monitor MapStore failure must not abort checkpoint bookkeeping");
+            Assertions.assertEquals(
+                    0,
+                    pendingCounter.get(),
+                    "pendingCounter must still be decremented after the real monitor write fails");
+            Assertions.assertFalse(
+                    pendingCheckpoints.containsKey(checkpointId),
+                    "the pending checkpoint must still be cleaned up after the real monitor write fails");
+            Assertions.assertTrue(
+                    overviewMap.containsKey(durableJobId),
+                    "the successful write-through entry must stay after the failed monitor put");
+            Assertions.assertFalse(
+                    overviewMap.containsKey(completedCheckpoint.getJobId()),
+                    "the failed monitor write-through put must not publish the overview entry");
+
+            // The node is going down. The next monitor write is the real map call, and Hazelcast
+            // reports the inactive instance before the MapStore runs. That must still stop the
+            // dying master instead of finishing a checkpoint the new master will redo.
+            node.shutdown();
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+            pendingCounter.set(1);
+            Assertions.assertThrows(
+                    HazelcastInstanceNotActiveException.class,
+                    () -> spy.completePendingCheckpoint(completedCheckpoint),
+                    "the dying master's shutdown path must still stop instead of completing the checkpoint");
+            Assertions.assertEquals(
+                    1,
+                    pendingCounter.get(),
+                    "pendingCounter must not be decremented after the shutdown signal propagates");
+        } finally {
+            executorService.shutdownNow();
+            if (node.getLifecycleService().isRunning()) {
+                node.shutdown();
+            }
+        }
+    }
+
+    private static Config monitorHazelcastConfig(String clusterName, Path walDir) {
+        Properties properties = new Properties();
+        properties.setProperty("type", "hdfs");
+        properties.setProperty("fs.defaultFS", "file:///");
+        properties.setProperty("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
+        properties.setProperty(FileConstants.FileInitProperties.BUSINESS_KEY, "test");
+        properties.setProperty(FileConstants.FileInitProperties.NAMESPACE_KEY, walDir.toString());
+        properties.setProperty(FileConstants.FileInitProperties.CLUSTER_NAME, clusterName);
+        MapStoreConfig mapStoreConfig =
+                new MapStoreConfig()
+                        .setEnabled(true)
+                        .setInitialLoadMode(MapStoreConfig.InitialLoadMode.EAGER)
+                        .setFactoryClassName(FileMapStoreFactory.class.getName())
+                        .setProperties(properties);
+        Config config = new Config();
+        config.setClusterName(clusterName);
+        JoinConfig join = config.getNetworkConfig().getJoin();
+        join.getMulticastConfig().setEnabled(false);
+        join.getAutoDetectionConfig().setEnabled(false);
+        config.addMapConfig(
+                new MapConfig(EngineStateStoreNames.CHECKPOINT_MONITOR)
+                        .setMapStoreConfig(mapStoreConfig));
+        return config;
+    }
+
+    private static FileMapStore monitorMapStore(HazelcastInstance node) {
+        HazelcastInstanceImpl impl =
+                node instanceof HazelcastInstanceProxy
+                        ? ((HazelcastInstanceProxy) node).getOriginal()
+                        : (HazelcastInstanceImpl) node;
+        NodeEngine nodeEngine = impl.node.getNodeEngine();
+        MapService mapService = nodeEngine.getService(MapService.SERVICE_NAME);
+        MapServiceContext context = mapService.getMapServiceContext();
+        MapContainer container = context.getMapContainer(EngineStateStoreNames.CHECKPOINT_MONITOR);
+        MapStoreWrapper wrapper = container.getMapStoreContext().getMapStoreWrapper();
+        Assertions.assertInstanceOf(FileMapStore.class, wrapper.getMapStore());
+        return (FileMapStore) wrapper.getMapStore();
+    }
+
+    /** Makes the next durable append fail without replacing the real file MapStore. */
+    private static void failNextMonitorAppend(FileMapStore store) throws Exception {
+        java.lang.reflect.Field field = FileMapStore.class.getDeclaredField("mapStorage");
+        field.setAccessible(true);
+        IMapStorage storage = Mockito.spy((IMapStorage) field.get(store));
+        field.set(store, storage);
+        Mockito.doReturn(true).when(storage).isAppendPermanentlyBlocked();
+        Mockito.doReturn(false).when(storage).store(any(), any(), anyLong());
+    }
+
+    /**
+     * Only {@link IMapStorageException} is isolated from monitor writes. Node-shutdown signals such
+     * as {@code HazelcastInstanceNotActiveException} must propagate exactly as on {@code dev}: a
+     * dying master stops processing the ack instead of completing a checkpoint that the new master
+     * will redo after failover (regression:
+     * CheckpointCoordinatorFailoverIT#testBatchJobCompletesAfterMasterFailoverDuringCloseHandshake
+     * saw 10 extra table_fast rows when this exception was swallowed).
+     */
+    @Test
+    void testCompletePendingCheckpointPropagatesNodeShutdownExceptionFromMonitor() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+            Mockito.doThrow(new HazelcastInstanceNotActiveException())
+                    .when(monitorService)
+                    .onCheckpointCompleted(Mockito.any(), Mockito.anyLong());
+
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, monitorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            long checkpointId = 1L;
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Assertions.assertThrows(
+                    HazelcastInstanceNotActiveException.class,
+                    () -> spy.completePendingCheckpoint(completedCheckpoint),
+                    "node-shutdown exceptions from monitor writes must propagate, not be swallowed");
+            // The success path must not run after the propagated exception.
+            Assertions.assertEquals(
+                    1,
+                    pendingCounter.get(),
+                    "pendingCounter must not be decremented after a propagated node-shutdown exception");
         } finally {
             executorService.shutdownNow();
         }

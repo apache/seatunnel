@@ -50,6 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
@@ -93,6 +95,9 @@ public class IMapFileStorage implements IMapStorage {
     public String clusterName;
 
     public long writDataTimeoutMilliseconds;
+
+    /** Clock for the shared batch deadline. Tests inject a deterministic clock. */
+    private LongSupplier nanoTimeSource = System::nanoTime;
 
     /** We used disruptor to implement the asynchronous write. */
     WALDisruptor walDisruptor;
@@ -187,6 +192,17 @@ public class IMapFileStorage implements IMapStorage {
         return queryExecuteStatus(requestId);
     }
 
+    /**
+     * Exposes WAL fail-close so MapStore adapters can fail the write-through call instead of
+     * treating a blocked APPEND as a silent success.
+     *
+     * @return true after the WAL worker has permanently fail-closed APPEND; cleared only by restart
+     */
+    @Override
+    public boolean isAppendPermanentlyBlocked() {
+        return walDisruptor != null && walDisruptor.isAppendBlockedAfterWriteFailure();
+    }
+
     @Override
     public Set<Object> storeAll(Map<Object, Object> map) {
         Map<Object, ExpirableValue> values = new HashMap<>(map.size());
@@ -235,9 +251,10 @@ public class IMapFileStorage implements IMapStorage {
                 key -> {
                     try {
                         IMapFileData data = buildDeleteIMapFileData(key);
+                        // sendToDisruptorQueue already publishes APPEND; do not double-publish.
                         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-                        walDisruptor.tryAppendPublish(data, requestId);
-                        requestMap.put(requestId, data);
+                        // Match storeAll: failure set / exception detail must carry caller keys.
+                        requestMap.put(requestId, key);
                     } catch (IOException e) {
                         log.error("parse to IMapFileData error", e);
                         failures.add(key);
@@ -276,6 +293,14 @@ public class IMapFileStorage implements IMapStorage {
             throw new IMapStorageException(
                     e, "load all keys error parent path is {}", e, businessRootPath);
         }
+    }
+
+    /**
+     * Replaces the batch-deadline clock. Production keeps {@link System#nanoTime()}; tests use a
+     * clock that does not depend on the wall clock.
+     */
+    void setNanoTimeSource(LongSupplier nanoTimeSource) {
+        this.nanoTimeSource = nanoTimeSource;
     }
 
     @Override
@@ -347,13 +372,19 @@ public class IMapFileStorage implements IMapStorage {
 
     private boolean queryExecuteStatus(long requestId, long timeout) {
         RequestFuture requestFuture = RequestFutureCache.get(requestId);
+        long waitStartedNanos = System.nanoTime();
         try {
-            if (requestFuture.isDone()
-                    || Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS))) {
-                return true;
-            }
+            return Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS));
+        } catch (TimeoutException e) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+            log.warn(
+                    "wait for write status timed out for requestId {} after {} ms (limit {} ms)",
+                    requestId,
+                    elapsedMs,
+                    timeout);
+            log.debug("wait for write status timed out for requestId {}", requestId, e);
         } catch (Exception e) {
-            log.error("wait for write status error", e);
+            log.error("wait for write status error for requestId {}", requestId, e);
         } finally {
             RequestFutureCache.remove(requestId);
         }
@@ -362,15 +393,44 @@ public class IMapFileStorage implements IMapStorage {
 
     private Set<Object> batchQueryExecuteFailsStatus(
             Map<Long, Object> requestMap, Set<Object> failures) {
+        // Shared deadline across the batch so a stuck worker cannot block storeAll/deleteAll for
+        // N × writDataTimeoutMilliseconds. Computed once before the loop; each timed get uses the
+        // remaining time clamped to a non-negative value (skip wait when already expired).
+        long waitStartedNanos = nanoTimeSource.getAsLong();
+        long deadlineNanos =
+                waitStartedNanos + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
             try {
-                if (requestFuture.isDone() || Boolean.TRUE.equals(requestFuture.get())) {
-                    success = true;
+                long remainingNanos = Math.max(0L, deadlineNanos - nanoTimeSource.getAsLong());
+                if (remainingNanos == 0L) {
+                    long elapsedMs =
+                            TimeUnit.NANOSECONDS.toMillis(
+                                    nanoTimeSource.getAsLong() - waitStartedNanos);
+                    log.warn(
+                            "shared batch write deadline exceeded before waiting for requestId {} (elapsed {} ms, limit {} ms)",
+                            entry.getKey(),
+                            elapsedMs,
+                            this.writDataTimeoutMilliseconds);
+                } else {
+                    success =
+                            Boolean.TRUE.equals(
+                                    requestFuture.get(remainingNanos, TimeUnit.NANOSECONDS));
                 }
+            } catch (TimeoutException e) {
+                // Expected when the shared batch deadline elapses; avoid an ERROR stack per key.
+                long elapsedMs =
+                        TimeUnit.NANOSECONDS.toMillis(
+                                nanoTimeSource.getAsLong() - waitStartedNanos);
+                log.warn(
+                        "wait for write status timed out for requestId {} after {} ms (shared limit {} ms)",
+                        entry.getKey(),
+                        elapsedMs,
+                        this.writDataTimeoutMilliseconds);
+                log.debug("wait for write status timed out for requestId {}", entry.getKey(), e);
             } catch (Exception e) {
-                log.error("wait for write status error", e);
+                log.error("wait for write status error for requestId {}", entry.getKey(), e);
             } finally {
                 RequestFutureCache.remove(entry.getKey());
             }
