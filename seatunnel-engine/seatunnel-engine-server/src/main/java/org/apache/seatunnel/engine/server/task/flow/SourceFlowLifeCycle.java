@@ -897,6 +897,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new IOException("Rejected dynamic lookup fact gate state class: " + className);
         }
 
+        /**
+         * Proxy descriptors are resolved outside {@link #resolveClass}, so reject them explicitly
+         * like the Kafka gate and dimension-state streams do; the gate state graph has no proxies.
+         */
+        @Override
+        protected Class<?> resolveProxyClass(String[] interfaces) throws IOException {
+            throw new IOException("Dynamic lookup fact gate state must not contain proxy classes");
+        }
+
         private static boolean isAllowedClass(String className) {
             return className.equals("[B")
                     || className.equals("java.lang.String")

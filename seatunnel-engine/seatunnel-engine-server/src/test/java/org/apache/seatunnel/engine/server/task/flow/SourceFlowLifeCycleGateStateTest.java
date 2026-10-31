@@ -25,6 +25,10 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.Collections;
@@ -64,20 +68,8 @@ class SourceFlowLifeCycleGateStateTest {
 
     @Test
     void shouldRejectUnlistedClassEvenWithValidEnvelopeDigest() throws Exception {
-        ByteArrayOutputStream payload = new ByteArrayOutputStream();
-        try (ObjectOutputStream output = new ObjectOutputStream(payload)) {
-            output.writeObject(new HashMap<>());
-        }
-        byte[] bytes = payload.toByteArray();
         // A correct frame and checksum must not bypass the class allowlist.
-        byte[] envelope =
-                ByteBuffer.allocate(Integer.BYTES * 3 + bytes.length + 32)
-                        .putInt(0x53544754)
-                        .putInt(1)
-                        .putInt(bytes.length)
-                        .put(bytes)
-                        .put(MessageDigest.getInstance("SHA-256").digest(bytes))
-                        .array();
+        byte[] envelope = validEnvelope(new HashMap<>());
 
         IOException error =
                 Assertions.assertThrows(
@@ -85,6 +77,43 @@ class SourceFlowLifeCycleGateStateTest {
                         () -> SourceFlowLifeCycle.deserializeSourceGateState(envelope));
         Assertions.assertEquals(
                 "Rejected dynamic lookup fact gate state class: java.util.HashMap",
+                error.getMessage());
+    }
+
+    @Test
+    void shouldRejectArrayDescriptorsOtherThanByteArray() throws Exception {
+        // Empty arrays prove the descriptor itself is rejected before any element is visited. The
+        // gate state only carries byte[] split bytes, so even an array of the allowlisted String
+        // class stays outside the graph.
+        for (Object array : new Object[] {new String[0], new HashMap<?, ?>[0]}) {
+            byte[] envelope = validEnvelope(array);
+
+            IOException error =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> SourceFlowLifeCycle.deserializeSourceGateState(envelope));
+            Assertions.assertEquals(
+                    "Rejected dynamic lookup fact gate state class: " + array.getClass().getName(),
+                    error.getMessage());
+        }
+    }
+
+    @Test
+    void shouldRejectProxyClassesBeforeResolvingTheirHandler() throws Exception {
+        // Proxy descriptors bypass resolveClass, so the stream needs its own proxy rejection.
+        Object proxy =
+                Proxy.newProxyInstance(
+                        SourceFlowLifeCycleGateStateTest.class.getClassLoader(),
+                        new Class<?>[] {Serializable.class},
+                        new SerializableProxyHandler());
+        byte[] envelope = validEnvelope(proxy);
+
+        IOException error =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> SourceFlowLifeCycle.deserializeSourceGateState(envelope));
+        Assertions.assertEquals(
+                "Dynamic lookup fact gate state must not contain proxy classes",
                 error.getMessage());
     }
 
@@ -101,5 +130,34 @@ class SourceFlowLifeCycleGateStateTest {
                         () -> SourceFlowLifeCycle.deserializeSourceGateState(envelope));
         Assertions.assertEquals(
                 "Dynamic lookup fact gate state SHA-256 digest mismatch", error.getMessage());
+    }
+
+    /**
+     * Frames an arbitrary Java-serialized payload exactly like production, so that only the class
+     * allowlist and proxy checks can reject it rather than the magic, version or digest checks.
+     */
+    private static byte[] validEnvelope(Object payload) throws Exception {
+        ByteArrayOutputStream payloadStream = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(payloadStream)) {
+            output.writeObject(payload);
+        }
+        byte[] bytes = payloadStream.toByteArray();
+        return ByteBuffer.allocate(Integer.BYTES * 3 + bytes.length + 32)
+                .putInt(0x53544754)
+                .putInt(1)
+                .putInt(bytes.length)
+                .put(bytes)
+                .put(MessageDigest.getInstance("SHA-256").digest(bytes))
+                .array();
+    }
+
+    /** Benign serializable handler so a proxy instance can be written into a valid envelope. */
+    private static final class SerializableProxyHandler implements InvocationHandler, Serializable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) {
+            return null;
+        }
     }
 }

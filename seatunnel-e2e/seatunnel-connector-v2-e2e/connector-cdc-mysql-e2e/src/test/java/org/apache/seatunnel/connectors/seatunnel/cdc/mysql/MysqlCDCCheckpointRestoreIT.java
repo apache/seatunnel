@@ -445,11 +445,10 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                 }
             }
             // Restart the same container without deleting checkpoint volumes or connector jars.
-            dockerClient.startContainerCmd(engineServer.getContainerId()).exec();
-            Awaitility.await()
-                    .ignoreExceptions()
-                    .atMost(2, TimeUnit.MINUTES)
-                    .until(() -> container.getCompletedCheckpointCount("0") == 0);
+            // The wrapper re-resolves the host ports and waits for the new engine process: after
+            // docker kill + start the ports cached at first start point at the dead process, so
+            // polling REST through the old mapping could only end in a timeout.
+            container.restartServer();
             failed.handle((result, error) -> null).get(2, TimeUnit.MINUTES);
             // A storage backend may automatically recover the previous job on server restart.
             // Stop that instance before explicitly restoring its checkpoint under a new job id.
