@@ -36,6 +36,7 @@ import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -170,7 +171,8 @@ class Db2IncrementalSourceFactoryTest {
         raw.put("enable_concurrent_read", false);
         ReadonlyConfig original = ReadonlyConfig.fromMap(raw);
 
-        ReadonlyConfig normalized = Db2IncrementalSourceFactory.normalizeDb2Options(original);
+        ReadonlyConfig normalized =
+                Db2IncrementalSourceFactory.normalizeDb2Options(original, tablePath -> true);
         JdbcSourceTableConfig table =
                 normalized.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0);
 
@@ -201,7 +203,8 @@ class Db2IncrementalSourceFactoryTest {
         Map<String, Object> raw = new HashMap<>();
         raw.put("table-pattern", "e2e.DB2INST1.Customer.*");
         ReadonlyConfig normalized =
-                Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw));
+                Db2IncrementalSourceFactory.normalizeDb2Options(
+                        ReadonlyConfig.fromMap(raw), tablePath -> true);
         Assertions.assertEquals(
                 "e2e.DB2INST1.Customer.*", normalized.get(ConnectorCommonOptions.TABLE_PATTERN));
         Assertions.assertFalse(
@@ -209,10 +212,45 @@ class Db2IncrementalSourceFactoryTest {
 
         raw.remove("table-pattern");
         raw.put("table-names", Collections.singletonList("E2E.DB2INST1.\"Customers\""));
-        normalized = Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw));
+        normalized =
+                Db2IncrementalSourceFactory.normalizeDb2Options(
+                        ReadonlyConfig.fromMap(raw), tablePath -> true);
         Assertions.assertEquals(
                 Collections.singletonList("E2E.DB2INST1.\"Customers\""),
                 normalized.get(ConnectorCommonOptions.TABLE_NAMES));
+    }
+
+    /**
+     * Objects created with quoted lowercase identifiers were matched by unquoted lowercase
+     * configuration before folding existed. When only the configured spelling exists, both {@code
+     * table-names} and {@code table-names-config.table} must keep it; otherwise the upgraded job
+     * fails at startup with a table that is no longer found or captured.
+     */
+    @Test
+    void shouldKeepConfiguredSpellingWhenOnlyLowercaseCreatedObjectExists() {
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("table", "e2e.db2inst1.customers");
+        tableConfig.put("primaryKeys", Collections.singletonList("id"));
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("table-names", Arrays.asList("e2e.db2inst1.customers", "e2e.db2inst1.orders"));
+        raw.put("table-names-config", Collections.singletonList(tableConfig));
+        TablePath lowercaseCustomers = TablePath.of("e2e", "db2inst1", "customers");
+        TablePath uppercaseOrders = TablePath.of("e2e", "DB2INST1", "ORDERS");
+
+        ReadonlyConfig normalized =
+                Db2IncrementalSourceFactory.normalizeDb2Options(
+                        ReadonlyConfig.fromMap(raw),
+                        tablePath ->
+                                tablePath.equals(lowercaseCustomers)
+                                        || tablePath.equals(uppercaseOrders));
+
+        Assertions.assertEquals(
+                Arrays.asList("e2e.db2inst1.customers", "e2e.DB2INST1.ORDERS"),
+                normalized.get(ConnectorCommonOptions.TABLE_NAMES));
+        JdbcSourceTableConfig table =
+                normalized.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0);
+        Assertions.assertEquals("e2e.db2inst1.customers", table.getTable());
+        Assertions.assertEquals(Collections.singletonList("id"), table.getPrimaryKeys());
     }
 
     @Test
@@ -225,7 +263,8 @@ class Db2IncrementalSourceFactoryTest {
         raw.put("enable_concurrent_read", false);
         Db2SourceConfigFactory factory = new Db2SourceConfigFactory();
         factory.fromReadonlyConfig(
-                Db2IncrementalSourceFactory.normalizeDb2Options(ReadonlyConfig.fromMap(raw)));
+                Db2IncrementalSourceFactory.normalizeDb2Options(
+                        ReadonlyConfig.fromMap(raw), tablePath -> true));
         factory.hostname("localhost").port(50000).databaseList("e2e");
         Db2SourceConfig config = factory.create(0);
 

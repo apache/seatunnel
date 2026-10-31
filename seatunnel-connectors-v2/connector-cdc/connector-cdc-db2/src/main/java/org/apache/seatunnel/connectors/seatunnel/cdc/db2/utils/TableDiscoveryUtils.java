@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /** Utilities to discovery matched tables. */
@@ -73,7 +75,14 @@ public class TableDiscoveryUtils {
                         .collect(Collectors.toSet());
         List<String> missingTables = new ArrayList<>();
         for (String configuredTable : configuredTables) {
-            if (!normalizedCapturedTables.contains(toConfiguredDb2TableId(configuredTable))) {
+            // Accept the DB2 folded spelling first and the configured spelling as a fallback, so
+            // an object created with quoted lowercase identifiers that was matched unquoted before
+            // folding was introduced still passes startup validation.
+            TableId foldedTableId =
+                    toConfiguredDb2TableId(normalizeConfiguredTableName(configuredTable));
+            TableId configuredTableId = toConfiguredDb2TableId(configuredTable);
+            if (!normalizedCapturedTables.contains(foldedTableId)
+                    && !normalizedCapturedTables.contains(configuredTableId)) {
                 missingTables.add(configuredTable);
             }
         }
@@ -90,7 +99,6 @@ public class TableDiscoveryUtils {
      * so startup validation needs to drop that catalog part before comparing with capture tables.
      */
     static TableId toConfiguredDb2TableId(String configuredTable) {
-        configuredTable = normalizeConfiguredTableName(configuredTable);
         int firstDot = configuredTable.indexOf('.');
         int secondDot = configuredTable.indexOf('.', firstDot + 1);
         if (firstDot < 0 || secondDot < 0 || secondDot == configuredTable.length() - 1) {
@@ -116,6 +124,29 @@ public class TableDiscoveryUtils {
         int databaseEnd = configuredTable.indexOf('.') + 1;
         return configuredTable.substring(0, databaseEnd)
                 + configuredTable.substring(databaseEnd).toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Resolves the spelling that catalog lookup, capture filtering and SeaTunnel table identity
+     * share for one configured table.
+     *
+     * <p>DB2 folds unquoted identifiers to uppercase, so the folded name wins whenever such an
+     * object exists. Releases up to 3.0.0 passed the configured text through unchanged, which let
+     * an unquoted lowercase name match an object created with quoted lowercase identifiers; that
+     * spelling is kept when only it exists, so those jobs keep working after an upgrade. When
+     * neither exists the folded name is returned and the existing lookups fail fast with it. Quoted
+     * names and names that folding leaves unchanged never consult {@code tableExists}.
+     */
+    public static String resolveConfiguredTableName(
+            String configuredTable, Predicate<TablePath> tableExists) {
+        String foldedTable = normalizeConfiguredTableName(configuredTable);
+        if (foldedTable.equals(configuredTable) || tableExists.test(TablePath.of(foldedTable))) {
+            return foldedTable;
+        }
+        if (tableExists.test(TablePath.of(configuredTable))) {
+            return configuredTable;
+        }
+        return foldedTable;
     }
 
     /**

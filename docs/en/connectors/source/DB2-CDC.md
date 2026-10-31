@@ -201,8 +201,11 @@ source {
 Active Capture registrations remain readable as `CD_NEW_SYNCHPOINT` advances.
 `CD_OLD_SYNCHPOINT` is the readable starting point, not a stop watermark.
 Unquoted schema and table components in `table-names` and `table-names-config.table` are
-normalized to uppercase before catalog lookup and capture filtering. The database component
-retains its configured spelling, and `table-pattern` is kept unchanged.
+normalized to uppercase before catalog lookup and capture filtering when an object with the
+uppercase name exists. If only an object with the configured spelling exists, for example a
+table created with quoted lowercase identifiers that earlier releases matched without quotes,
+the configured spelling is kept. Quote a component to select one spelling explicitly. The
+database component retains its configured spelling, and `table-pattern` is kept unchanged.
 
 Savepoint recovery must preserve the schema component of DB2's two-part table identifiers.
 A restored job can catch up changes committed while it was stopped and discover a newly
