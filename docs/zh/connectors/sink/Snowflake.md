@@ -43,14 +43,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT<br/>INTEGER                                                             | INT                |
 | BIGINT                                                                      | LONG               |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
-| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES              |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP          |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ       |
+| BINARY<br/>VARBINARY                                                        | BYTES              |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
+
+当 Sink 自动建表时，`p > 38` 的 SeaTunnel `DECIMAL(p, s)` 列会被收缩为精度 38，小数位按超出量同步缩减。SeaTunnel `BYTES` 列会建为 Snowflake `GEOMETRY`。
 
 ## 选项
 
@@ -61,6 +64,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                      | String  | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
 | password                      | String  | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
 | query                         | String  | 否       | -       | 写入上游数据的 SQL。优先级高于 `database`/`table` 自动生成的 SQL；设置后会关闭基于目录的优化（无法生成 `MERGE` upsert）。                                                          |
+| generate_sink_sql            | Boolean | 否       | false   | 是否根据 `database`、`table` 和 `primary_keys` 自动生成写入 SQL，而不是使用 `query`。                                                                                              |
 | database                      | String  | 否       | -       | 数据库名。`generate_sink_sql = true` 时与 `table` 一起用于生成 `INSERT`/`MERGE` SQL；与 `query` 互斥，同时设置时 `query` 优先生。                          |
 | table                         | String  | 否       | -       | 目标表名。与 `database` 一起配合 `generate_sink_sql` 生成写入语句。                                                                                                                  |
 | primary_keys                  | Array   | 否       | -       | 主键列。`generate_sink_sql = true` 且 `enable_upsert = true` 时用于构建 `MERGE` upsert 语句。                                                                                       |

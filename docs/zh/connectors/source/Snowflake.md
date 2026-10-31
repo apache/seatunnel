@@ -45,16 +45,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT<br/>INTEGER                                                             | INT                |
 | BIGINT                                                                      | LONG               |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
-| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP          |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ       |
 | BINARY<br/>VARBINARY                                                        | BYTES              |
-| GEOGRAPHY (WKB 或 EWKB)<br/>GEOMETRY (WKB 或 EWKB)                          | BYTES              |
-| GEOGRAPHY (GeoJSON, WKT 或 EWKT)<br/>GEOMETRY (GeoJSON, WKB 或 EWKB)        | STRING             |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
 
 ## 源选项
 
@@ -151,7 +150,7 @@ source {
 - Snowflake 任务使用 `Jdbc` 插件名，并设置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
 - 运行任务前请把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
 - 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound` 和 `partition_num` 必须描述同一数值列的范围。
-- Snowflake 地理空间列的字节/字符串返回形式由 Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）决定。
+- Snowflake 的 `GEOGRAPHY`/`GEOMETRY` 列始终映射为 SeaTunnel 的 `STRING` 类型；返回的文本表示形式由 Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）决定。
 
 ## 变更日志
 

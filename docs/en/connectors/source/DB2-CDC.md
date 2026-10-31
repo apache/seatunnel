@@ -87,6 +87,7 @@ UPDATE and DELETE changes after the initial snapshot is finished.
 | chunk-key.even-distribution.factor.upper-bound | Double | No | 100 | The upper bound used to decide whether a split key is evenly distributed. |
 | chunk-key.even-distribution.factor.lower-bound | Double | No | 0.05 | The lower bound used to decide whether a split key is evenly distributed. |
 | sample-sharding.threshold | int | No | 1000 | The estimated shard count threshold that triggers sample-based sharding for unevenly distributed split keys. |
+| split.allow-sampling | Boolean | No | true | Whether to allow the sample-based sharding strategy. When set to `false`, the splitter always falls back to uniform sharding (iterative queries), regardless of the estimated shard count. |
 | inverse-sampling.rate | int | No | 1000 | The inverse sampling rate used by sample-based sharding. |
 | exactly_once | Boolean | No | false | Enable exactly-once semantics for initial snapshot handoff. |
 | debezium.* | config | No | - | Pass-through Debezium DB2 connector properties. |

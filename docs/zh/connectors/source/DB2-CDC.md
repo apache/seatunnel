@@ -86,6 +86,7 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 | chunk-key.even-distribution.factor.upper-bound | Double | 否 | 100 | 用于判断分块键是否均匀分布的上界。 |
 | chunk-key.even-distribution.factor.lower-bound | Double | 否 | 0.05 | 用于判断分块键是否均匀分布的下界。 |
 | sample-sharding.threshold | int | 否 | 1000 | 分块键分布不均时触发采样分片策略的估计分片数阈值。 |
+| split.allow-sampling | Boolean | 否 | true | 是否启用基于采样的分片策略。设置为 `false` 时，无论预估分片数是否超过阈值，都会回退到非均匀分片方式（迭代查询方式）。 |
 | inverse-sampling.rate | int | 否 | 1000 | 采样分片策略使用的采样率倒数。 |
 | exactly_once | Boolean | 否 | false | 启用初始快照切换增量阶段时的精确一次语义。 |
 | debezium.* | config | 否 | - | 透传给 Debezium DB2 连接器的配置项。 |
