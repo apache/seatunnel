@@ -66,6 +66,14 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
 
+### Iceberg Sink：writer 轮换后带有 equality delete 的 checkpoint 拆成多个快照提交
+
+- **行为变更：Iceberg Sink 可能把一个 checkpoint 按顺序提交为多个快照**
+  - **影响组件**：`seatunnel-connectors-v2/connector-iceberg`
+  - **描述**：此前 Sink 把一个 checkpoint 的所有文件放在一个快照中提交。当 task writer 在 checkpoint 中途完成时（开启 `iceberg.table.schema-evolution-enabled` 后发生 schema 变更，以及现在新增的 `flush_row_size` 选项），之后写出的 equality delete 会和它要删除的行落在同一个快照里。Iceberg 不会把 equality delete 应用到相同序列号的数据文件上，因此对同一 checkpoint 中先前写入的行做 upsert、更新或删除时，旧行会留在表中。现在这样的 checkpoint 会按 task writer 完成的顺序拆成多个快照提交。每个快照带有 `seatunnel.checkpoint-id`，以及 `seatunnel.commit-group` 和 `seatunnel.commit-group-count`。
+  - **影响**：只影响在 checkpoint 内轮换了 task writer 的 upsert 和 CDC 写入；纯追加写入和没有轮换的 checkpoint 仍然只产生一个快照。读端可能逐个看到这样一个 checkpoint 的多个快照，每个 checkpoint 的快照数随轮换次数增加。
+  - **迁移指南**：无需修改配置。从旧版本提交的 checkpoint 恢复的作业处理方式不变：带有 checkpoint id 但没有 `seatunnel.commit-group` 的快照视为整个 checkpoint。如果作业在提交一个被拆成多个快照的 checkpoint 时中断，请用当前或更新的版本恢复。旧版本只要找到该 checkpoint 的任意一个快照，就会跳过整个 checkpoint，剩下的快照将不会再提交。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
