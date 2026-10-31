@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.ASSIGN_PARTITIONS;
@@ -68,7 +69,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private static final int PREFIX_RANGE = 10000;
     private static final Pattern WRITER_NAMESPACE_PATTERN =
-            Pattern.compile("(?:\\d+|g[0-9a-z]+w\\d+)");
+            Pattern.compile("(g[0-9a-z]+)w(\\d+)((?:r\\d+)*)");
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
@@ -220,12 +221,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     /**
      * Builds an engine-neutral restore plan from the states assigned to this writer.
      *
-     * <p>A restoring writer adopts one non-legacy namespace from its own assigned states. Since the
-     * engine assigns each old writer state to exactly one new writer, no sibling can adopt or clean
-     * that namespace concurrently. If there is no writer-specific state, a fresh namespace is
-     * derived from a sink-level generation token and the current stable subtask index. The token is
-     * serialized with the sink, so task retries reuse it, while a later rescale cannot collide with
-     * an old namespace that another writer adopted.
+     * <p>A restoring writer selects one non-legacy namespace from its own assigned states. Since
+     * the engine assigns each old writer state to exactly one new writer, no sibling can select or
+     * clean that namespace concurrently. A same-generation base namespace that moved to another
+     * writer is deterministically relocated after cleanup, so a later stateless writer can safely
+     * reuse its base slot. If there is no writer-specific state, a fresh namespace is derived from
+     * a sink-level generation token and the current stable subtask index. The token is serialized
+     * with the sink, so task retries reuse it.
      */
     private RestorePlan restoreState(
             List<KafkaSinkState> states, String newWriterNamespace, int currentWriterIndex) {
@@ -247,14 +249,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                         .filter(
                                 transaction ->
                                         transaction.transactionIdPrefix.equals(
-                                                        generateWriterTransactionPrefix(
-                                                                transaction.transactionPrefix,
-                                                                newWriterNamespace))
-                                                || transaction.transactionIdPrefix.equals(
-                                                        generateWriterTransactionPrefix(
-                                                                transaction.transactionPrefix,
-                                                                Integer.toString(
-                                                                        currentWriterIndex))))
+                                                generateWriterTransactionPrefix(
+                                                        transaction.transactionPrefix,
+                                                        newWriterNamespace)))
                         .min(Comparator.comparing(transaction -> transaction.transactionIdPrefix));
         Optional<RestoredTransaction> adoptedWriterNamespace =
                 matchingWriterNamespace.isPresent()
@@ -272,6 +269,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         if (adoptedWriterNamespace.isPresent()) {
             RestoredTransaction adopted = adoptedWriterNamespace.get();
             this.transactionPrefix = adopted.transactionPrefix;
+            if (shouldRelocateWriterNamespace(adopted.writerNamespace, newWriterNamespace)) {
+                String relocatedWriterNamespace =
+                        relocateWriterNamespace(
+                                adopted.writerNamespace, currentWriterIndex, restoredTransactions);
+                return new RestorePlan(
+                        generateWriterTransactionPrefix(
+                                this.transactionPrefix, relocatedWriterNamespace),
+                        1L,
+                        restoredTransactions);
+            }
             long nextTransactionSequence =
                     restoredTransactions.stream()
                                     .filter(
@@ -295,6 +302,35 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 generateWriterTransactionPrefix(this.transactionPrefix, newWriterNamespace),
                 1L,
                 restoredTransactions);
+    }
+
+    private static boolean shouldRelocateWriterNamespace(
+            String restoredWriterNamespace, String newWriterNamespace) {
+        Matcher restoredMatcher = WRITER_NAMESPACE_PATTERN.matcher(restoredWriterNamespace);
+        Matcher newMatcher = WRITER_NAMESPACE_PATTERN.matcher(newWriterNamespace);
+        if (!restoredMatcher.matches() || !newMatcher.matches()) {
+            throw new IllegalStateException("Cannot compare Kafka writer namespaces");
+        }
+        return restoredMatcher.group(1).equals(newMatcher.group(1))
+                && restoredMatcher.group(3).isEmpty()
+                && !restoredWriterNamespace.equals(newWriterNamespace);
+    }
+
+    private static String relocateWriterNamespace(
+            String restoredWriterNamespace,
+            int currentWriterIndex,
+            List<RestoredTransaction> restoredTransactions) {
+        String relocatedWriterNamespace = restoredWriterNamespace + "r" + currentWriterIndex;
+        while (containsWriterNamespace(restoredTransactions, relocatedWriterNamespace)) {
+            relocatedWriterNamespace += "r" + currentWriterIndex;
+        }
+        return relocatedWriterNamespace;
+    }
+
+    private static boolean containsWriterNamespace(
+            List<RestoredTransaction> restoredTransactions, String writerNamespace) {
+        return restoredTransactions.stream()
+                .anyMatch(transaction -> writerNamespace.equals(transaction.writerNamespace));
     }
 
     /**
@@ -352,9 +388,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                             transactionId, restoredTransactionPrefix));
         }
         boolean legacy = restoredPrefix.equals(restoredTransactionPrefix);
+        String writerNamespace = null;
         if (!legacy) {
-            String writerNamespace =
-                    restoredPrefix.substring(restoredTransactionPrefix.length() + 1);
+            writerNamespace = restoredPrefix.substring(restoredTransactionPrefix.length() + 1);
             if (!WRITER_NAMESPACE_PATTERN.matcher(writerNamespace).matches()) {
                 throw new IllegalStateException(
                         String.format(
@@ -363,7 +399,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             }
         }
         return new RestoredTransaction(
-                restoredTransactionPrefix, restoredPrefix, transactionSequence, legacy);
+                restoredTransactionPrefix,
+                restoredPrefix,
+                writerNamespace,
+                transactionSequence,
+                legacy);
     }
 
     private static final class RestorePlan {
@@ -384,16 +424,19 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private static final class RestoredTransaction {
         private final String transactionPrefix;
         private final String transactionIdPrefix;
+        private final String writerNamespace;
         private final long transactionSequence;
         private final boolean legacy;
 
         private RestoredTransaction(
                 String transactionPrefix,
                 String transactionIdPrefix,
+                String writerNamespace,
                 long transactionSequence,
                 boolean legacy) {
             this.transactionPrefix = transactionPrefix;
             this.transactionIdPrefix = transactionIdPrefix;
+            this.writerNamespace = writerNamespace;
             this.transactionSequence = transactionSequence;
             this.legacy = legacy;
         }

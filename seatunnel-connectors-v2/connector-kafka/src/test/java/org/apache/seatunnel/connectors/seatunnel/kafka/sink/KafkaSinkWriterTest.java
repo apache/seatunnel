@@ -97,7 +97,8 @@ class KafkaSinkWriterTest {
                     currentId,
                     "New transactions must leave the legacy shared namespace");
             Assertions.assertFalse(
-                    initializedIds.stream().anyMatch(id -> id.startsWith(PREFIX + "-1-")),
+                    initializedIds.stream()
+                            .anyMatch(id -> id.startsWith(freshWriterPrefix(PREFIX, 1) + "-")),
                     "Restore must not fence another current writer");
         }
     }
@@ -138,11 +139,13 @@ class KafkaSinkWriterTest {
     @Test
     void shouldFenceContiguouslyAssignedFlinkNamespacesAfterScaleDown() {
         List<String> initializedIds = new ArrayList<>();
-        Set<String> unfinishedIds = Set.of(PREFIX + "-0-5", PREFIX + "-1-5");
+        String firstWriterPrefix = freshWriterPrefix(PREFIX, 0);
+        String secondWriterPrefix = freshWriterPrefix(PREFIX, 1);
+        Set<String> unfinishedIds = Set.of(firstWriterPrefix + "-5", secondWriterPrefix + "-5");
         List<KafkaSinkState> states =
                 List.of(
-                        new KafkaSinkState(PREFIX + "-0-4", PREFIX, 4, new Properties()),
-                        new KafkaSinkState(PREFIX + "-1-4", PREFIX, 4, new Properties()));
+                        new KafkaSinkState(firstWriterPrefix + "-4", PREFIX, 4, new Properties()),
+                        new KafkaSinkState(secondWriterPrefix + "-4", PREFIX, 4, new Properties()));
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, unfinishedIds);
                 TestWriter writer = writer(0, 2, states)) {
@@ -150,7 +153,7 @@ class KafkaSinkWriterTest {
                     initializedIds.containsAll(unfinishedIds),
                     "A Flink 3-to-2 restore must fence both contiguously assigned namespaces");
             Assertions.assertEquals(
-                    PREFIX + "-0-5", writer.prepareCommit().get().getTransactionId());
+                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -172,21 +175,23 @@ class KafkaSinkWriterTest {
     @Test
     void shouldFenceEveryAssignedWriterNamespaceAfterScaleDown() {
         List<String> initializedIds = new ArrayList<>();
-        Set<String> unfinishedIds = Set.of(PREFIX + "-0-5", PREFIX + "-2-5");
+        String firstWriterPrefix = freshWriterPrefix(PREFIX, 0);
+        String thirdWriterPrefix = freshWriterPrefix(PREFIX, 2);
+        Set<String> unfinishedIds = Set.of(firstWriterPrefix + "-5", thirdWriterPrefix + "-5");
         List<KafkaSinkState> states =
                 List.of(
-                        new KafkaSinkState(PREFIX + "-0-4", PREFIX, 4, new Properties()),
-                        new KafkaSinkState(PREFIX + "-2-4", PREFIX, 4, new Properties()));
+                        new KafkaSinkState(firstWriterPrefix + "-4", PREFIX, 4, new Properties()),
+                        new KafkaSinkState(thirdWriterPrefix + "-4", PREFIX, 4, new Properties()));
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, unfinishedIds);
                 TestWriter writer = writer(0, 2, states)) {
             Assertions.assertTrue(
                     initializedIds.containsAll(unfinishedIds),
                     "A 3-to-2 restore must fence both namespaces assigned to writer zero");
-            Assertions.assertTrue(initializedIds.contains(PREFIX + "-0-6"));
-            Assertions.assertTrue(initializedIds.contains(PREFIX + "-2-6"));
+            Assertions.assertTrue(initializedIds.contains(firstWriterPrefix + "-6"));
+            Assertions.assertTrue(initializedIds.contains(thirdWriterPrefix + "-6"));
             Assertions.assertEquals(
-                    PREFIX + "-0-5", writer.prepareCommit().get().getTransactionId());
+                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -194,37 +199,49 @@ class KafkaSinkWriterTest {
     void shouldRestoreMixedGeneratedPrefixesAfterScaleDown() {
         String firstPrefix = "SeaTunnel0001";
         String secondPrefix = "SeaTunnel0002";
+        String firstWriterPrefix = freshWriterPrefix(firstPrefix, 0);
+        String thirdWriterPrefix = freshWriterPrefix(secondPrefix, 2);
         List<String> initializedIds = new ArrayList<>();
-        Set<String> unfinishedIds = Set.of(firstPrefix + "-0-5", secondPrefix + "-2-5");
+        Set<String> unfinishedIds = Set.of(firstWriterPrefix + "-5", thirdWriterPrefix + "-5");
         List<KafkaSinkState> states =
                 List.of(
-                        new KafkaSinkState(firstPrefix + "-0-4", firstPrefix, 4, new Properties()),
                         new KafkaSinkState(
-                                secondPrefix + "-2-4", secondPrefix, 4, new Properties()));
+                                firstWriterPrefix + "-4", firstPrefix, 4, new Properties()),
+                        new KafkaSinkState(
+                                thirdWriterPrefix + "-4", secondPrefix, 4, new Properties()));
 
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, unfinishedIds);
                 TestWriter writer = writerWithoutConfiguredPrefix(0, 2, states)) {
             Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
             Assertions.assertEquals(
-                    firstPrefix + "-0-5", writer.prepareCommit().get().getTransactionId());
+                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
             Assertions.assertEquals(
                     firstPrefix, writer.snapshotState(5).get(0).getTransactionIdPrefix());
         }
     }
 
     @Test
-    void shouldKeepFreshNamespaceDistinctAfterScaleDownThenScaleUp() {
+    void shouldRelocateSameGenerationNamespaceBeforeScaleUp() {
         List<String> initializedIds = new ArrayList<>();
+        String reassignedWriterPrefix = freshWriterPrefix(PREFIX, 2);
+        String relocatedWriterPrefix = reassignedWriterPrefix + "r1";
         List<KafkaSinkState> adoptedState =
                 Collections.singletonList(
-                        new KafkaSinkState(PREFIX + "-2-4", PREFIX, 4, new Properties()));
+                        new KafkaSinkState(
+                                reassignedWriterPrefix + "-4", PREFIX, 4, new Properties()));
 
         try (MockedConstruction<KafkaInternalProducer> producers =
-                        mockProducers(initializedIds, Collections.emptySet());
-                TestWriter adoptedWriter = writer(1, 3, adoptedState)) {
+                        mockProducers(
+                                initializedIds,
+                                Collections.singleton(relocatedWriterPrefix + "-1"));
+                TestWriter adoptedWriter = writer(1, 2, adoptedState)) {
             String adoptedTransactionId =
                     adoptedWriter.prepareCommit().orElseThrow().getTransactionId();
+            Assertions.assertTrue(
+                    initializedIds.contains(relocatedWriterPrefix + "-1"),
+                    "A retry must fence its deterministic relocated namespace");
+            Assertions.assertEquals(relocatedWriterPrefix + "-1", adoptedTransactionId);
             initializedIds.clear();
 
             try (TestWriter freshWriter = writer(2, 3, Collections.emptyList())) {
@@ -236,8 +253,9 @@ class KafkaSinkWriterTest {
                         transactionIdPrefix(freshTransactionId),
                         "A stateless writer must not reuse a namespace adopted after scale-down");
                 Assertions.assertFalse(
-                        initializedIds.stream().anyMatch(id -> id.startsWith(PREFIX + "-2-")),
-                        "Fresh-writer cleanup must not fence the adopted old namespace");
+                        initializedIds.stream()
+                                .anyMatch(id -> id.startsWith(relocatedWriterPrefix + "-")),
+                        "Fresh-writer cleanup must not fence the relocated live namespace");
             }
         }
     }
@@ -318,10 +336,11 @@ class KafkaSinkWriterTest {
     @Test
     void shouldFenceAllUnfinishedTransactionsInItsOwnNamespace() {
         List<String> initializedIds = new ArrayList<>();
-        Set<String> unfinishedIds = Set.of(PREFIX + "-2-5", PREFIX + "-2-6");
+        String writerPrefix = freshWriterPrefix(PREFIX, 2);
+        Set<String> unfinishedIds = Set.of(writerPrefix + "-5", writerPrefix + "-6");
         List<KafkaSinkState> state =
                 Collections.singletonList(
-                        new KafkaSinkState(PREFIX + "-2-4", PREFIX, 4, new Properties()));
+                        new KafkaSinkState(writerPrefix + "-4", PREFIX, 4, new Properties()));
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, unfinishedIds);
                 TestWriter writer = writer(2, state)) {
@@ -329,10 +348,10 @@ class KafkaSinkWriterTest {
                     initializedIds.containsAll(unfinishedIds),
                     "Recovery must fence every unfinished transaction in the writer namespace");
             Assertions.assertTrue(
-                    initializedIds.contains(PREFIX + "-2-7"),
+                    initializedIds.contains(writerPrefix + "-7"),
                     "Recovery must probe the next unused transaction before it stops");
             Assertions.assertEquals(
-                    PREFIX + "-2-5", writer.prepareCommit().get().getTransactionId());
+                    writerPrefix + "-5", writer.prepareCommit().get().getTransactionId());
         }
     }
 
