@@ -377,6 +377,8 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE'
 表示转换为大写，'LOWERCASE' 表示转换为小写
 
+转换使用与语言环境无关的规则（`Locale.ROOT`），因此无论工作节点的默认语言环境是什么，结果都相同。例如在默认语言环境为土耳其语的节点上，'UPPERCASE' 同样会把 `user_id` 转为 `USER_ID`。
+
 ### properties
 
 附加连接配置参数，当属性和URL具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，属性配置优先于 URL。

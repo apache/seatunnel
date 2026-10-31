@@ -381,6 +381,8 @@ The field "field_ide" is used to identify whether the field needs to be converte
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
 conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 
+The conversion uses a locale-independent rule (`Locale.ROOT`), so it gives the same result on every worker, whatever its default locale. For example, "UPPERCASE" turns `user_id` into `USER_ID` on a worker with a Turkish default locale too.
+
 ### properties
 
 Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
