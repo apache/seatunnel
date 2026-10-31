@@ -624,6 +624,12 @@ AWS IAM 认证中所需要的secret_access_key。 该参考仅适用于 dialect=
 ### region [String]
 Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 
+## 刷新失败与关闭行为
+
+正常关闭时，writer 会先刷新待写入的数据，再按事务模式提交。发生终止性的刷新失败后，后续刷新和关闭会继续报告已记录的失败，不会在清理资源时隐式再次执行失败批次；语句和连接仍会关闭。配置的 SQL 重试仍属于最初那次刷新过程。
+
+启用行级错误处理后，只有成功丢弃失败批次并回滚其事务，writer 才能继续处理后续数据。提交结果不确定时仍会终止。避免清理阶段重放本身不提供 exactly-once 保证，XA 的前提条件和重试限制仍然适用。
+
 ## Exactly-once 前置条件
 
 `is_exactly_once = true` 时，JDBC Sink 使用 XA 事务。启用前请确认：
