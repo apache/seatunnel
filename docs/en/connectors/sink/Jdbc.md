@@ -211,6 +211,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | enable_upsert                             | Boolean | No       | true                         |
 | is_primary_key_updated                    | Boolean | No       | true                         |
 | support_upsert_by_insert_only             | Boolean | No       | false                        |
+| upsert_batch_key_ordered                  | Boolean | No       | false                        |
 | table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
@@ -327,7 +328,7 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 
 ### max_retries [int]
 
-The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
+The number of retries after a failed JDBC `executeBatch`. In auto-commit mode, transaction conflicts such as PostgreSQL `40P01` keep the existing generic retry behavior. On manual-commit connections, conflicts are retried only when the sink can roll back and replay the complete flush transaction; otherwise they are propagated. When a checkpoint transaction spans multiple flushes, checkpoint recovery replays the complete transaction safely. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
 A non-XA manual-commit failure at `Connection.commit()` is treated as a system error, even with SQLState class `22` or `23`. The failed writer cannot retry the commit as if it restored the transaction. With checkpointing enabled, any flushed work sharing that transaction is marked unsafe, and other writers on the same queue also refuse to commit until recovery.
 
@@ -591,6 +592,10 @@ Whether primary key fields are included when generating update statements. Keep 
 ### support_upsert_by_insert_only [boolean]
 
 Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
+
+### upsert_batch_key_ordered [boolean]
+
+Sorts standard primary-key upsert and delete entries in each flush by a deterministic primary-key order before executing them. This reduces lock-order deadlocks between concurrent JDBC writers. A batch that mixes upserts and deletes may execute more child batches when the change flag alternates. The option defaults to `false` for compatibility and applies to the generated primary-key upsert path; custom `query` statements keep their configured ordering. Sorting only orders records within one flush and cannot replace transaction conflict handling.
 
 ### use_copy_statement [boolean]
 
