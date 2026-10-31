@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -71,7 +72,7 @@ class SourceAssignmentTrackerTest {
     void restoreShouldNotClaimCoordinatorOwnerThread() throws Exception {
         SourceAssignmentTracker source = new SourceAssignmentTracker(10, 16_384L);
         recordAssignment(source, "command-1", 1L, 0, "attempt-1");
-        List<SourceAssignmentTracker.Entry> checkpointEntries = source.entries();
+        Collection<SourceAssignmentTracker.Entry> checkpointEntries = source.entries();
 
         SourceAssignmentTracker restored = new SourceAssignmentTracker(10, 16_384L);
         ExecutorService restoreExecutor = Executors.newSingleThreadExecutor();
