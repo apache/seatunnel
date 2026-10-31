@@ -27,7 +27,7 @@ Linear 源连接器用于读取 [Linear](https://linear.app/) GraphQL API 数据
 | headers                      | Map     | 否   | -          | 额外的 HTTP 请求头。此处任何 `Authorization` 条目都会被 `api_key` 的值覆盖。                                      |
 | params                       | Map     | 否   | -          | 请求附带的查询参数。                                                                             |
 | body                         | String  | 否   | -          | HTTP 请求体，通常与 `method = "POST"` 一起使用以发送 GraphQL 查询。                                    |
-| format                       | String  | 否   | text       | 响应格式，`json` 时需要配合 `schema`；`text` 时返回原始响应。共享的 HTTP 选项也接受 `binary`，但 `Linear` 源连接器不支持 `binary`，`binary_chunk_size` 在此处无效。 |
+| format                       | String  | 否   | text       | 响应格式，`json` 时需要配合 `schema`；`text` 时返回原始响应。共享的 HTTP 选项（包括 `binary` 格式和 `binary_chunk_size`）继承自 HTTP 源连接器，在此处同样生效。 |
 | schema                       | Config  | 否   | -          | 输出数据结构，`format = "json"` 时必填。                                                             |
 | schema.fields                | Config  | 否   | -          | 字段名与 SeaTunnel 数据类型，用于解析 JSON 响应。                                                      |
 | content_field                | String  | 否   | -          | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON，例如 `$.data.issues.nodes.*`。                      |
@@ -54,7 +54,7 @@ Linear 源连接器用于读取 [Linear](https://linear.app/) GraphQL API 数据
 - 需要带类型的 SeaTunnel 数据行时，请设置 `format = "json"` 并配置 `schema`。
 - 响应带有 GraphQL 外层结构时，先用 `content_field`（例如 `$.data.issues.nodes.*`）解包，再交给 `schema` 解析。
 - 仅当每个输出字段需要独立的 JSONPath 时才使用 `json_field`。
-- 该连接器不支持分页，每个作业只读取单次请求返回的数据；HTTP 的 `pageing` 配置块及其选项在此无效。
+- 该连接器继承了 HTTP 源连接器的分页能力，行为一致：如需读取单次请求以外的更多数据，请配置 HTTP 的 `pageing` 配置块及其选项。
 - `api_key` 会原样作为 `Authorization` 请求头的值发送，并始终覆盖 `headers` 中的任何 `Authorization` 条目，其余自定义请求头放在 `headers` 中即可。
 
 ## 任务示例

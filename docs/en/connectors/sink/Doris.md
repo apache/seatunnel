@@ -705,7 +705,8 @@ align the target schema explicitly rather than relying on undocumented options.
 
 ### What data format does Doris Stream Load use?
 
-Doris Sink uses JSON format for Stream Load by default. Configure it explicitly if needed:
+Doris Sink requires an explicit Stream Load `format` in `doris.config` (`json` or `csv`);
+there is no default and the job fails to start without it:
 
 ```hocon
 doris.config {

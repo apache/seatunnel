@@ -27,7 +27,7 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行读取](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)

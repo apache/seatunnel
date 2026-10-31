@@ -55,13 +55,14 @@ semantics (using XA transaction guarantee).
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
+| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(precision, 0) |
+| NUMBER(scale != 0)                                                                   | DECIMAL(precision, scale) |
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
 | DATE                                                                                 | TIMESTAMP           |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP(s)                                                           | TIMESTAMP(s)        |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                          | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
 ## Options
