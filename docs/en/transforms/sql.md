@@ -32,6 +32,46 @@ or `select c_row.c_inner_row.column_b` to query the inline struct column that na
 
 The SQL engine used by this transform. Supported values are `ZETA` and `INTERNAL`. If this option is not configured, `ZETA` is used.
 
+## Numeric comparisons
+
+Comparisons preserve numeric precision when both evaluated operands are integral
+types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) or `DECIMAL`. This applies to `=`,
+`!=`, `<>`, `<`, `<=`, `>` and `>=`, numeric `IN` and `NOT IN` membership checks,
+and comparisons in searched and simple `CASE` expressions.
+For example, a `BIGINT` value of `9007199254740993` does not match
+`WHERE id = 9007199254740992`.
+
+If either operand is `FLOAT` or `DOUBLE`, comparisons continue to use
+floating-point conversion, retaining the existing behavior for NaN, infinity
+and signed zero. Numeric literals containing a decimal point are evaluated as
+`DOUBLE`, not `DECIMAL`: comparing a `DECIMAL` column to
+`123456789012345678.98` can still match `123456789012345678.99`. Integer literals
+evaluated as integral values, such as `-9007199254740993`, use the exact path
+when the other operand is also exact. Unary minus preserves `DECIMAL` precision,
+so both `-decimal_col` and `-CAST('...' AS DECIMAL(p, s))` retain exact decimal
+comparison semantics when the other operand is also exact.
+
+For an exact decimal constant, use a quoted string with sufficient scale, for
+example `amount = CAST('123456789012345678.99' AS DECIMAL(38, 2))`.
+For a negative constant, either `CAST('-123456789012345678.99' AS DECIMAL(38, 2))`
+or `-CAST('123456789012345678.99' AS DECIMAL(38, 2))` preserves decimal precision.
+Existing CAST rounding is unchanged: converting a string or `DECIMAL` to
+`DECIMAL(p, s)` uses `CEILING` (toward positive infinity) if scale is reduced,
+so `CAST('1.231' AS DECIMAL(10, 2))` is `1.24` and
+`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.23`. Negating after CAST instead gives
+`-1.24` for `-CAST('1.239' AS DECIMAL(10, 2))`: reducing scale rounds before
+negation, so the two forms are not interchangeable in that case. Converting
+`FLOAT` or `DOUBLE` uses `HALF_UP`; casting a fractional numeric literal cannot recover precision
+already lost during its evaluation as `DOUBLE`.
+
+The exact-or-floating choice is made for each operand pair, including each
+element of an `IN` list. For `id = 9007199254740993`,
+`id IN (9007199254740992)` is false, but
+`id IN (9007199254740992, 9007199254740992.0)` is true because the second
+comparison uses `DOUBLE`. Equality is therefore not necessarily transitive
+across mixed exact and floating types; use exact operands consistently when
+precision matters. These rules apply to both `ZETA` and `INTERNAL`.
+
 ## Example
 
 The data read from source is a table like this:
@@ -154,6 +194,12 @@ sink {
   }
 }
 ```
+
+## Collection expressions
+
+ARRAY and MAP arguments may use unary `+`/`-` and parentheses. For example, `ARRAY(-1, +2, (3))` produces `[-1, 2, 3]`, and `MAP('negative', (-1))` produces a map with value `-1`.
+
+Signed collection expressions retain the numeric element type and propagate NULL operands. TINYINT arrays now use `ARRAY<TINYINT>` rather than the previous incorrect `ARRAY<STRING>` schema.
 
 ## Changelog
 

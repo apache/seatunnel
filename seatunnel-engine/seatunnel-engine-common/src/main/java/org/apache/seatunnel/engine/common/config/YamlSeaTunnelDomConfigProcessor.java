@@ -396,6 +396,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 checkpointConfig.setRestoreProgressFailFast(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setMonitorHistorySize(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CHECKPOINT_MONITOR_HISTORY_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions
                     .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .key()
