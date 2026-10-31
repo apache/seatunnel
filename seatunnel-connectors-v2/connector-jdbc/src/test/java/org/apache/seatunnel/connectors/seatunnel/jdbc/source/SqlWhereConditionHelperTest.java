@@ -1559,4 +1559,69 @@ public class SqlWhereConditionHelperTest {
             restoreDefaultLocales(saved);
         }
     }
+
+    // ==================== Tests for Unicode uppercase expansion (#12998) ====================
+
+    @Test
+    public void testHasTopLevelSelectWildcard_UnicodeUppercaseExpansion() {
+        // 'ß' uppercases to "SS", which shifts every later index when keyword matching is done
+        // on an uppercased copy of the SQL.
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("select id as maß, t.* from t"),
+                "t.* after a column whose uppercase form is longer should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_UnicodeUppercaseExpansion_UppercaseKeywords() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT id AS maß, t.* FROM t"),
+                "t.* should be detected regardless of keyword case");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_UnicodeUppercaseExpansion_NoWildcard() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard(
+                        "select id, count(maß) as cnt from t"),
+                "Unicode uppercase expansion should not create a false wildcard match");
+    }
+
+    @Test
+    public void
+            testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_KeepsWildcardProjection() {
+        String sql = "select id as maß, t.* from t";
+        String whereCondition = "name = 'x'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertEquals(
+                "SELECT * FROM (select id as maß, t.* from t) tmp WHERE name = 'x'",
+                result,
+                "The wildcard projection already provides name, so no field should be added");
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_UnicodeUppercaseExpansion_InsertsBeforeMainFrom() {
+        String sql = "select id as maß from t";
+        String whereCondition = "name = 'x'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertEquals(
+                "SELECT * FROM (select id as maß , name from t) tmp WHERE name = 'x'",
+                result,
+                "The missing field should be inserted before the main FROM clause");
+
+        // Same shape as an ASCII alias: the insertion point and spacing must not depend on
+        // whether the projection contains a character whose uppercase form is longer.
+        String asciiResult =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                        "select id as x from t", whereCondition, true);
+        Assertions.assertEquals(
+                "SELECT * FROM (select id as x , name from t) tmp WHERE name = 'x'",
+                asciiResult,
+                "An ASCII alias should produce the same shape");
+    }
 }
