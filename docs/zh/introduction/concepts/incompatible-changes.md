@@ -36,6 +36,30 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
   - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
 
+### ORC sink：无法放入目标列的 decimal 现在会失败，而不再被写成 NULL
+
+- **行为变更：超出范围的 `DECIMAL` 会导致写入失败，而不再静默变成 `NULL`**
+  - **受影响组件**：`seatunnel-connectors-v2`，`connector-file-base`，`OrcWriteStrategy`
+  - **说明**：ORC sink 此前通过 `decimalColumnVector.set(row, HiveDecimal.create(value))` 转换
+    `BigDecimal`。这两步都是返回 `null` 而不是报错：当精度超过 ORC 的最大精度 38 时，
+    `HiveDecimal.create` 返回 `null`；而 `DecimalColumnVector.set` 内部会调用
+    `enforcePrecisionScale`，当值无法放入列实际声明的 precision/scale 时同样返回 `null`。
+    两者的结果都没有被检查，因此该行会被写入，而值被替换为 `NULL`，既没有异常，也没有告警或日志。
+    现在该转换会失败，并在消息中给出该值与目标列。
+  - **影响**：此前静默丢弃数据的作业，现在会在出问题的那一行失败。可达的场景是值只是比其声明的列更宽，
+    这会出现在 JDBC 精度偏窄或由系统推断、按采样推断模式、无模式来源，或 SQL transform 对 decimal
+    做乘法等情况下。范围内的值不受影响，写入结果与此前完全一致。
+  - **与 Parquet sink 保持一致**：同一模块中的 Parquet sink 本来就会对同样的溢出明确报错
+    （`AvroTypeException: Cannot encode decimal with precision 39 as max precision 38`）。
+    两个 sink 不再对“丢数据是否可接受”给出相互矛盾的行为。
+  - **未改变的部分**：声明的 precision 超过 38 在构建模式时本来就会被拒绝，因此本条目针对的是“值”，
+    而不是“声明”。不涉及任何配置项、模式或文件格式的变化。
+  - **仍然舍入而不是失败**：`enforcePrecisionScale` 会对超出声明 scale 的小数位做舍入，而不是拒绝，
+    因此写入 `decimal(10,2)` 列的 `1.239` 仍会存成 `1.24`（HALF_UP），与本次变更之前一致。
+    只有整数部分放不下声明的 precision，或值超过 ORC 的最大精度 38，才会失败。
+  - **迁移指南**：请扩大声明的 precision 或 scale 以容纳该值，或在数据进入 sink 之前先做舍入。
+    升级前如需排查受影响的数据，可将已写入的 ORC 数据与来源对比，查找非预期的 `NULL` decimal。
+
 ### Doris Sink：`TIMESTAMP_TZ` 按 Doris 会话时区转换后写入
 
 - **行为变更：Doris Sink 将 `TIMESTAMP_TZ` 转换为会话时区下的 wall-clock `DATETIME` 后存储**
