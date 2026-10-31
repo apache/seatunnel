@@ -550,6 +550,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 data,
                 nodeEngine,
                 jobMasterTestExecutor,
+                server.getCoordinatorService().getLineageEmissionExecutor(),
                 server.getCoordinatorService().getResourceManager(),
                 server.getCoordinatorService().getJobHistoryService(),
                 runningJobStateIMap,

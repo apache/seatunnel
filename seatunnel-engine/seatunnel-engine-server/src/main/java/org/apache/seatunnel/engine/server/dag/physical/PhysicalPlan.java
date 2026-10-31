@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.ZetaLineageReporter;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -90,6 +91,8 @@ public class PhysicalPlan {
     private boolean makeJobEndWhenPipelineEnded = true;
 
     private volatile boolean isRunning = false;
+
+    private boolean lineageStartReported;
 
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
@@ -442,6 +445,16 @@ public class PhysicalPlan {
             }
         } catch (Exception e) {
             log.warn("Failed to report job {} state event", jobId, e);
+        }
+        try {
+            if (jobStatus != JobStatus.RUNNING || !lineageStartReported) {
+                if (jobStatus == JobStatus.RUNNING) {
+                    lineageStartReported = true;
+                }
+                ZetaLineageReporter.reportJobState(jobMaster, jobStatus);
+            }
+        } catch (Throwable e) {
+            log.warn("Failed to report lineage for job {}", jobId, e);
         }
     }
 
