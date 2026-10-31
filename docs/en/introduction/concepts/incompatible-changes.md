@@ -5,6 +5,19 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### REST job submission: reserved `variables` key in JSON bodies
+
+The top-level `variables` key in a JSON `/submit-job` body, or in each `/submit-jobs` item,
+is now reserved for the substitution variables object. It is consumed before the job
+configuration is built; a non-null, non-object value is rejected with HTTP 400. A `null`
+value is removed without adding substitution variables. Previously, this key was passed
+through as part of the job configuration.
+
+If an existing JSON configuration uses a top-level `variables` field for another purpose,
+rename that field and update its references before upgrading. Requests without this field
+retain their existing behavior. This reservation does not apply to fields nested inside
+connector or transform configurations.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

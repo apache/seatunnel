@@ -4,6 +4,16 @@
 
 ## dev
 
+### REST 作业提交：JSON 请求体中的 `variables` 保留字段
+
+JSON 格式的 `/submit-job` 请求体顶层字段 `variables`，以及 `/submit-jobs` 每个作业项的
+顶层字段 `variables`，现在用于传入变量替换对象。构建作业配置前会移除此字段；如果非 `null` 的值不是
+对象，请求将返回 HTTP 400。值为 `null` 时会移除此字段，但不添加替换变量。此前该字段会作为
+作业配置的一部分传入。
+
+如果现有 JSON 配置将顶层 `variables` 字段用于其他用途，请在升级前重命名该字段并更新其引用。
+不包含此字段的请求保持原有行为。连接器或转换配置内部的同名嵌套字段不受此限制。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
