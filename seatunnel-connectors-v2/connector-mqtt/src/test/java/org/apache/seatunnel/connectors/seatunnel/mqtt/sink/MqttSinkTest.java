@@ -77,13 +77,12 @@ class MqttSinkTest {
 
     @Test
     void testSinkConfigValuesSurviveJavaSerialization() {
-        // qos 2 is not a legal MQTT QoS for this connector and MqttSinkWriter rejects it, but
-        // MqttSink itself does not validate, so the sink builds fine and only a writer surfaces
-        // it. That makes it an observable, non-default value: MqttSinkOptions.QOS defaults to 1,
-        // so a pluginConfig that came back empty would yield a legal qos and the writer would
-        // build without complaint. The rejection below only happens if the 2 travelled.
+        // Unsupported formats are still rejected when the writer creates its serializer, before
+        // connecting to MQTT. Unlike qos validation, this check remains in the writer after the
+        // OptionRule migration. The default format is json, so this rejection proves that the
+        // non-default xml value survived serialization.
         Map<String, Object> config = baseConfig();
-        config.put("qos", 2);
+        config.put("format", "xml");
         MqttSink sink = newSink(config);
 
         MqttSink restored = SerializationUtils.deserialize(SerializationUtils.serialize(sink));
@@ -93,9 +92,7 @@ class MqttSinkTest {
                     Assertions.assertThrows(
                             IllegalArgumentException.class,
                             () -> restored.createWriter(Mockito.mock(SinkWriter.Context.class)));
-            Assertions.assertTrue(
-                    exception.getMessage().contains("got: 2"),
-                    "expected the restored qos in the message, got: " + exception.getMessage());
+            Assertions.assertEquals("Unsupported MQTT sink format: xml", exception.getMessage());
         }
     }
 
