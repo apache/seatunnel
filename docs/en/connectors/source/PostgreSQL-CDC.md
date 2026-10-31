@@ -28,8 +28,7 @@ once from `information_schema.tables`. The connector deduplicates discovered tab
 qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
 
 On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
-visible on the source connection's `search_path`. This does not change cached names or add source
-type namespaces to downstream `ADD COLUMN` statements.
+visible on the source connection's `search_path`. This does not change cached names.
 
 ## Supported DataSource Info
 
@@ -190,6 +189,17 @@ PostgreSQL does not put the original `ALTER TABLE` SQL text in the logical repli
 With `pgoutput`, SeaTunnel detects the changed table definition from the RELATION message, emits an
 `ADD COLUMN` event before the following row event, and updates the downstream table schema. A table
 must therefore receive a row change after the DDL before the schema change can be observed.
+
+An added column of a user-defined enum, range or multirange type gets the type name PostgreSQL
+itself uses in DDL, the result of `format_type(oid, NULL)`: names that need quoting stay quoted
+(`"JobStatus"`, `"order"`), and a type whose schema is not on the source connection's
+`search_path` is qualified with that schema (`inv.mood`). A PostgreSQL sink uses this name in
+`ALTER TABLE ... ADD`, so the sink database must already have the type: in the same schema when
+the name is qualified, otherwise on the sink connection's `search_path`. To write enum values, add
+`stringtype=unspecified` to the sink `url`. By default Debezium does not emit values of a
+user-defined range column, so such a column is added but stays NULL. If the column type names cannot be read from
+`pg_type`, or a column type no longer exists, the job fails with error `POSTGRES-05`. Composite
+types, domains and arrays of user-defined types keep the bare type name.
 
 If a RELATION message contains a row-schema change other than `ADD COLUMN`, the job fails before
 processing rows with that schema. Restoring the same checkpoint will encounter the change again;

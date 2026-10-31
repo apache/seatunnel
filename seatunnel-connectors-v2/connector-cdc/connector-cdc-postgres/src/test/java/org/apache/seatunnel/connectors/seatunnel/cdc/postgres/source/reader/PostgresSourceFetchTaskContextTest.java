@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.Postgres
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
@@ -30,17 +31,25 @@ import io.debezium.connector.postgresql.connection.ServerInfo;
 import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
+import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +59,7 @@ public class PostgresSourceFetchTaskContextTest {
 
     private static final String SLOT_NAME = "seatunnel";
     private static final String PLUGIN_NAME = "pgoutput";
+    private static final int JOB_STATUS_OID = 24776;
 
     private final PostgresConnectorConfig connectorConfig =
             new PostgresConnectorConfig(
@@ -121,6 +131,82 @@ public class PostgresSourceFetchTaskContextTest {
                         snapshotter, connectorConfig, null, dataConnection));
         verify(dataConnection).rollback();
         Assertions.assertSame(slotState, snapshotter.slotState);
+    }
+
+    @Test
+    public void testTypeNameLookupIsCommitted() throws SQLException {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(true, false);
+        when(resultSet.getLong("oid")).thenReturn((long) JOB_STATUS_OID);
+        when(resultSet.getString("typname")).thenReturn("JobStatus");
+        when(resultSet.getString("typtype")).thenReturn("e");
+        when(resultSet.getString("type_name")).thenReturn("\"JobStatus\"");
+        PreparedStatement statement = mock(PreparedStatement.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        Connection connection = mock(Connection.class);
+        when(connection.createArrayOf(anyString(), any())).thenReturn(mock(Array.class));
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        PostgresConnection dataConnection = mock(PostgresConnection.class);
+        when(dataConnection.connection()).thenReturn(connection);
+
+        Table qualified =
+                PostgresSourceFetchTaskContext.qualifyTypeNames(
+                        dataConnection, relationWithJobStatusColumn());
+
+        Assertions.assertEquals("\"JobStatus\"", qualified.columnWithName("st2").typeName());
+        InOrder inOrder = inOrder(statement, dataConnection);
+        inOrder.verify(statement).executeQuery();
+        inOrder.verify(dataConnection).commit();
+    }
+
+    @Test
+    public void testFailedTypeNameLookupRollsBackAndNamesTable() throws SQLException {
+        SQLException cause = new SQLException("denied");
+        Connection connection = mock(Connection.class);
+        when(connection.createArrayOf(anyString(), any())).thenReturn(mock(Array.class));
+        when(connection.prepareStatement(anyString())).thenThrow(cause);
+        PostgresConnection dataConnection = mock(PostgresConnection.class);
+        when(dataConnection.connection()).thenReturn(connection);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                PostgresSourceFetchTaskContext.qualifyTypeNames(
+                                        dataConnection, relationWithJobStatusColumn()));
+
+        Assertions.assertEquals(
+                PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(exception.getMessage().contains("public.t5"), exception.getMessage());
+        Assertions.assertSame(cause, exception.getCause());
+        verify(dataConnection).rollback();
+        verify(dataConnection, never()).commit();
+    }
+
+    private static Table relationWithJobStatusColumn() {
+        return Table.editor()
+                .tableId(new TableId(null, "public", "t5"))
+                .setPrimaryKeyNames(Collections.singletonList("id"))
+                .setColumns(
+                        Arrays.asList(
+                                Column.editor()
+                                        .name("id")
+                                        .jdbcType(Types.INTEGER)
+                                        .nativeType(23)
+                                        .type("int4", "int4")
+                                        .position(1)
+                                        .optional(false)
+                                        .create(),
+                                Column.editor()
+                                        .name("st2")
+                                        .jdbcType(Types.VARCHAR)
+                                        .nativeType(JOB_STATUS_OID)
+                                        .type("JobStatus", "JobStatus")
+                                        .position(2)
+                                        .optional(true)
+                                        .create()))
+                .create();
     }
 
     private static PostgresConnection connectionReturningSlot(String invalidationReason)

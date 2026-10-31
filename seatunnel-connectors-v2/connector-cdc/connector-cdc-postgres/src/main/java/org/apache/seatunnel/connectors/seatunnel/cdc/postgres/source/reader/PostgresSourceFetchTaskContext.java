@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.Postgres
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaChangeResolver;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaRecord;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresRelationTypeNames;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
 import org.apache.kafka.connect.data.Struct;
@@ -414,7 +415,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         SourceRecord record =
                 PostgresRelationSchemaRecord.create(
-                        table,
+                        qualifyTypeNames(dataConnection, table),
                         partition.getSourcePartition(),
                         new HashMap<>(offsetContext.getOffset()),
                         topicSelector.topicNameFor(table.id()));
@@ -424,6 +425,29 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             Thread.currentThread().interrupt();
             throw new DebeziumException(
                     "Interrupted while dispatching PostgreSQL relation change for " + table.id(),
+                    e);
+        }
+    }
+
+    /**
+     * Give user-defined column types their DDL spelling before a PostgreSQL sink copies them into
+     * {@code ALTER TABLE ... ADD}. Debezium's own table keeps the bare names it resolves types by.
+     */
+    static Table qualifyTypeNames(PostgresConnection dataConnection, Table table) {
+        try {
+            Table qualified = PostgresRelationTypeNames.qualify(dataConnection.connection(), table);
+            // The connection does not auto-commit; do not keep the lookup transaction open.
+            dataConnection.commit();
+            return qualified;
+        } catch (SQLException e) {
+            try {
+                dataConnection.rollback();
+            } catch (SQLException rollbackException) {
+                e.addSuppressed(rollbackException);
+            }
+            throw new SeaTunnelRuntimeException(
+                    PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
+                    "Failed to read the column type names of table " + table.id(),
                     e);
         }
     }
