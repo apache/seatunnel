@@ -343,6 +343,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         getMixedSnapshotTables(remainingTables, isTableIdCaseSensitive);
                 Map<TableId, Offset> tableStartOffsets =
                         createMixedTableStartOffsets(sourceConfig, remainingTables, snapshotTables);
+                logMixedStartupPolicy("Creating", snapshotTables, tableStartOffsets);
                 splitAssigner =
                         new MixedSplitAssigner<>(
                                 assignerContext,
@@ -410,10 +411,21 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
 
         final SplitAssigner splitAssigner;
-        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.MIXED
+        StartupMode restoredStartupMode = sourceConfig.getStartupConfig().getStartupMode();
+        if (restoredStartupMode == StartupMode.MIXED
                 && !(checkpointState instanceof MixedPendingSplitsState)) {
             throw new IllegalArgumentException(
                     "The restored checkpoint was not created with the mixed startup mode.");
+        }
+        // The reverse direction must fail explicitly as well: a mixed checkpoint carries per-table
+        // policies that no other startup mode can honor, so restoring it under another mode would
+        // either fail later with a misleading message or silently keep the mixed semantics.
+        if (restoredStartupMode != StartupMode.MIXED
+                && checkpointState instanceof MixedPendingSplitsState) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The restored checkpoint was created with the mixed startup mode, but the current startup mode is '%s'.",
+                            restoredStartupMode.name().toLowerCase()));
         }
         if (checkpointState instanceof MixedPendingSplitsState) {
             MixedPendingSplitsState mixedCheckpointState =
@@ -427,6 +439,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             sourceConfig, new ArrayList<>(capturedTables), snapshotTables);
             validateMixedRestore(
                     capturedTables, snapshotTables, tableStartOffsets, mixedCheckpointState);
+            logMixedStartupPolicy("Restoring", snapshotTables, tableStartOffsets);
             SnapshotPhaseState checkpointSnapshotState =
                     mixedCheckpointState.getSnapshotPhaseState();
             SplitAssigner.Context<C> assignerContext =
@@ -530,6 +543,22 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         Map<TableId, Offset> tableStartOffsets = new HashMap<>();
         incrementalTables.forEach(tableId -> tableStartOffsets.put(tableId, startupOffset));
         return tableStartOffsets;
+    }
+
+    /**
+     * Logs the resolved mixed startup policy once per enumerator creation or restore, so a
+     * misconfigured {@code startup.snapshot-table-names} can be diagnosed from the job log without
+     * inspecting checkpoint state. Only table names and the binlog offset are logged.
+     */
+    private void logMixedStartupPolicy(
+            String action, Set<TableId> snapshotTables, Map<TableId, Offset> tableStartOffsets) {
+        Offset specificOffset = tableStartOffsets.values().stream().findFirst().orElse(null);
+        log.info(
+                "{} mixed startup split assigner: snapshot tables {}, tables streamed from offset {}: {}",
+                action,
+                snapshotTables,
+                specificOffset,
+                tableStartOffsets.keySet());
     }
 
     /**
