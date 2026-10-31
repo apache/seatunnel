@@ -1253,6 +1253,12 @@ CAST(FLAG AS BOOLEAN)
 小数值只能通过 COALESCE 或 IFNULL 到达整型目标（这两者的目标类型是推断出来的，而不是显式写出的），
 此时会向零截断：当 `int_col` 为 NULL 时，`COALESCE(int_col, double_col)` 对 `5.7` 得到 `5`。
 
+BIGINT | LONG 也会以同样方式做范围检查，但只有超出范围的字符串来源会以 cast 的形式到达，例如
+`CAST('9223372036854775808' AS BIGINT)`，此时 TRY_CAST 返回 NULL。DECIMAL 与 DOUBLE 来源在语句准备
+阶段就会被拒绝，因此它们只能通过 COALESCE 或 IFNULL 到达 BIGINT：当 `bigint_col` 为 NULL 时，
+`COALESCE(bigint_col, decimal_col)` 对 `18446744073709551616` 现在会失败，而不再返回 `0`。
+由于其中不涉及 cast，TRY_CAST 无法把这种情况转成 NULL。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
@@ -1271,6 +1277,8 @@ TRY_CAST(NAME AS INT)
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`COALESCE(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
+
 示例:
 
 COALESCE(A, B, C)
@@ -1285,9 +1293,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
+
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`IFNULL(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `IFNULL(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
 
 示例:
 
@@ -1426,6 +1436,12 @@ SELECT * FROM dual
 ```
 
 ## 向量函数
+
+`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、`L2_DISTANCE` 和
+`VECTOR_NORMALIZE` 对 float 向量元素使用 double 精度计算中间乘积和差值，
+避免有限的大数或小数在 float 中间运算中溢出或下溢。`VECTOR_NORMALIZE` 仍返回 float
+元素，输出表示仍可能发生舍入或下溢。空输入和实际零向量的处理方式保持不变。
+未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
 
 向量函数不会消耗或修改输入向量缓冲区。同一个向量字段可以用于多个表达式，也可以同时作为距离函数的两个参数，并且仍可供下游转换和接收器读取。
 

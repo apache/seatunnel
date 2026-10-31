@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.databend;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.seatunnel.databend.util.DatabendTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -26,6 +30,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,6 +171,38 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
             Assertions.assertTrue(
                     columnNames.contains("email"),
                     "Table should have 'email' column after schema evolution");
+        }
+    }
+
+    /**
+     * Adds a column with the type DatabendTypeConverter gives a SeaTunnel TIME column, which is the
+     * type the sink puts in the ALTER TABLE ADD COLUMN statement for a schema change event that
+     * adds a TIME column. Databend has no TIME type, so the statement only runs when the converter
+     * maps TIME to a type Databend has.
+     */
+    @Test
+    public void testTimeColumnTypeIsAcceptedByDatabend() throws SQLException {
+        Column timeColumn =
+                PhysicalColumn.builder()
+                        .name("start_time")
+                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
+                        .nullable(true)
+                        .build();
+        String columnType = DatabendTypeConverter.convertToDatabendType(timeColumn).getColumnType();
+
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS time_column_table");
+            statement.execute("CREATE TABLE time_column_table (id INT)");
+            statement.execute("ALTER TABLE time_column_table ADD COLUMN start_time " + columnType);
+
+            List<String> columnNames = new ArrayList<>();
+            try (ResultSet resultSet = statement.executeQuery("DESC time_column_table")) {
+                while (resultSet.next()) {
+                    columnNames.add(resultSet.getString("field"));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("id", "start_time"), columnNames);
         }
     }
 
