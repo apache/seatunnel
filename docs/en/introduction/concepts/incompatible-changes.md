@@ -71,6 +71,18 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
   - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
 
+### Doris source: LARGEINT is declared as DECIMAL(39, 0)
+
+- **Schema change: Doris `LARGEINT` columns are now declared as `DECIMAL(39, 0)` instead of `DECIMAL(20, 0)`**
+  - **Description**: `LARGEINT` is a signed 128-bit integer with up to 39 digits, but the Doris source declared it as `DECIMAL(20, 0)`. The new type covers the whole range. This applies to scalar `LARGEINT` columns, `ARRAY<LARGEINT>` elements and `LARGEINT` map keys and values.
+  - **Impact**:
+    - A sink that auto-creates its table from the schema now creates a wider column. For example, MySQL gets `DECIMAL(39,0)` instead of `DECIMAL(20,0)`.
+    - Sinks whose decimal precision is capped at 38, such as Oracle and SQL Server, create `DECIMAL(38,0)` and log a warning that the precision was reduced. Values with 39 digits still do not fit in those columns, but values up to 38 digits now do, where the old type only held 20.
+    - Doris to Doris auto-create keeps `LARGEINT` for `ARRAY<LARGEINT>` columns and for `LARGEINT` map keys and values, where it previously created `DECIMALV3(20, 0)`. Scalar `LARGEINT` columns were already kept as `LARGEINT`.
+    - Tables that already exist downstream are not altered.
+    - **Spark**: Spark supports decimal precision up to 38. A top-level `LARGEINT` column, or one inside a `ROW`, is carried through Spark as decimal text and restored to `DECIMAL(39, 0)` for transforms and sinks. A `LARGEINT` inside an `ARRAY` or `MAP` (for example `ARRAY<LARGEINT>` or `MAP<SMALLINT, LARGEINT>`) now fails at job start with `SPARK-TRANSLATION-01`, naming the table and the column path. Before this change such columns worked on Spark as `DECIMAL(20, 0)`.
+  - **Migration Guide**: No change is needed for jobs that write into existing tables. To write values beyond 20 digits into a column that was created as `DECIMAL(20,0)`, widen that column in the sink database. To keep the old `DECIMAL(20, 0)` type in the schema, for example for auto-created tables, add an SQL transform with `CAST(col AS DECIMAL(20, 0))`. For Spark jobs that read `ARRAY` or `MAP` columns holding `LARGEINT`, leave those columns out with `doris.read.field`, or run the job on Zeta or Flink; an SQL transform cannot help there because the job fails while Spark builds the source schema.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
