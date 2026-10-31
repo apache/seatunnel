@@ -66,7 +66,8 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
 
     @Override
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId) {
-        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
+        // partitionId is stable across task attempts; taskId changes on every retry.
+        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, partitionId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

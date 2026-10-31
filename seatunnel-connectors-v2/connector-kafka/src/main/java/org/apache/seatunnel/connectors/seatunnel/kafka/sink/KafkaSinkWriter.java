@@ -32,7 +32,11 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
@@ -46,10 +50,15 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 /** KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka. */
 public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
 
-    private final SinkWriter.Context context;
-
+    /** Job-level prefix persisted in every checkpoint for legacy restore compatibility. */
     private String transactionPrefix;
-    private long lastCheckpointId = 0;
+
+    /** Transaction namespace exclusively adopted by this writer from its assigned restore state. */
+    private final String writerTransactionPrefix;
+
+    /** Sequence of the transaction currently open in {@link #writerTransactionPrefix}. */
+    private long currentTransactionSequence;
+
     private SeaTunnelRowType seaTunnelRowType;
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
@@ -62,7 +71,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             SeaTunnelRowType seaTunnelRowType,
             ReadonlyConfig pluginConfig,
             List<KafkaSinkState> kafkaStates) {
-        this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
 
         if (pluginConfig.get(TRANSACTION_PREFIX) != null) {
@@ -72,20 +80,21 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
         }
 
-        restoreState(kafkaStates);
+        RestorePlan restorePlan = restoreState(context, kafkaStates);
+        this.writerTransactionPrefix = restorePlan.writerTransactionPrefix;
+        this.currentTransactionSequence = restorePlan.nextTransactionSequence;
         this.seaTunnelRowSerializer = KafkaSinkSerializer.create(pluginConfig, seaTunnelRowType);
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
-            this.kafkaProducerSender =
+            KafkaTransactionSender<byte[], byte[]> transactionSender =
                     new KafkaTransactionSender<>(
-                            this.transactionPrefix, getKafkaProperties(pluginConfig));
-            // abort all transaction number bigger than current transaction, because they maybe
-            // already start
-            //  transaction.
-            if (!kafkaStates.isEmpty()) {
-                this.kafkaProducerSender.abortTransaction(kafkaStates.get(0).getCheckpointId() + 1);
-            }
+                            this.transactionPrefix,
+                            this.writerTransactionPrefix,
+                            getKafkaProperties(pluginConfig));
+            this.kafkaProducerSender = transactionSender;
+            abortRestoredTransactions(transactionSender, restorePlan);
             this.kafkaProducerSender.beginTransaction(
-                    generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
+                    generateTransactionId(
+                            this.writerTransactionPrefix, this.currentTransactionSequence));
         } else {
             this.kafkaProducerSender =
                     new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
@@ -102,9 +111,10 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
         List<KafkaSinkState> states = kafkaProducerSender.snapshotState(checkpointId);
-        this.lastCheckpointId = checkpointId;
+        this.currentTransactionSequence++;
         this.kafkaProducerSender.beginTransaction(
-                generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
+                generateTransactionId(
+                        this.writerTransactionPrefix, this.currentTransactionSequence));
         return states;
     }
 
@@ -161,14 +171,186 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         return KafkaSemantics.NON;
     }
 
-    protected static String generateTransactionId(String transactionPrefix, long checkpointId) {
-        return transactionPrefix + "-" + checkpointId;
+    protected static String generateTransactionId(
+            String transactionPrefix, long transactionSequence) {
+        return transactionPrefix + "-" + transactionSequence;
     }
 
-    private void restoreState(List<KafkaSinkState> states) {
-        if (!states.isEmpty()) {
-            this.transactionPrefix = states.get(0).getTransactionIdPrefix();
-            this.lastCheckpointId = states.get(0).getCheckpointId();
+    /**
+     * Builds an engine-neutral restore plan from the states assigned to this writer.
+     *
+     * <p>A restoring writer adopts one non-legacy namespace from its own assigned states. Since the
+     * engine assigns each old writer state to exactly one new writer, no sibling can adopt or clean
+     * that namespace concurrently. If there is no writer-specific state, a fresh namespace is
+     * derived from the current stable subtask index.
+     */
+    private RestorePlan restoreState(SinkWriter.Context context, List<KafkaSinkState> states) {
+        List<RestoredTransaction> restoredTransactions = new ArrayList<>(states.size());
+        for (KafkaSinkState state : states) {
+            restoredTransactions.add(parseRestoredTransaction(state));
+        }
+
+        if (restoredTransactions.isEmpty()) {
+            return new RestorePlan(
+                    this.transactionPrefix + "-" + context.getIndexOfSubtask(),
+                    1L,
+                    restoredTransactions);
+        }
+
+        int currentWriterIndex = context.getIndexOfSubtask();
+        Optional<RestoredTransaction> matchingWriterNamespace =
+                restoredTransactions.stream()
+                        .filter(transaction -> !transaction.legacy)
+                        .filter(
+                                transaction ->
+                                        transaction.transactionIdPrefix.equals(
+                                                transaction.transactionPrefix
+                                                        + "-"
+                                                        + currentWriterIndex))
+                        .min(Comparator.comparing(transaction -> transaction.transactionIdPrefix));
+        Optional<RestoredTransaction> adoptedWriterNamespace =
+                matchingWriterNamespace.isPresent()
+                        ? matchingWriterNamespace
+                        : restoredTransactions.stream()
+                                .filter(transaction -> !transaction.legacy)
+                                .min(
+                                        Comparator.comparing(
+                                                        (RestoredTransaction transaction) ->
+                                                                transaction.transactionIdPrefix)
+                                                .thenComparing(
+                                                        transaction ->
+                                                                transaction.transactionPrefix));
+
+        if (adoptedWriterNamespace.isPresent()) {
+            RestoredTransaction adopted = adoptedWriterNamespace.get();
+            this.transactionPrefix = adopted.transactionPrefix;
+            long nextTransactionSequence =
+                    restoredTransactions.stream()
+                                    .filter(
+                                            transaction ->
+                                                    transaction.transactionIdPrefix.equals(
+                                                            adopted.transactionIdPrefix))
+                                    .mapToLong(transaction -> transaction.transactionSequence)
+                                    .max()
+                                    .orElseThrow(IllegalStateException::new)
+                            + 1;
+            return new RestorePlan(
+                    adopted.transactionIdPrefix, nextTransactionSequence, restoredTransactions);
+        }
+
+        RestoredTransaction adoptedLegacyPrefix =
+                restoredTransactions.stream()
+                        .min(Comparator.comparing(transaction -> transaction.transactionPrefix))
+                        .orElseThrow(IllegalStateException::new);
+        this.transactionPrefix = adoptedLegacyPrefix.transactionPrefix;
+        return new RestorePlan(
+                this.transactionPrefix + "-" + currentWriterIndex, 1L, restoredTransactions);
+    }
+
+    /**
+     * Fences every unfinished transaction namespace assigned to this writer by the engine's state
+     * redistribution, plus this writer's current namespace. Transaction sequences are contiguous,
+     * so probing until the first unused ID also covers transactions opened by a failed attempt
+     * after its last completed checkpoint.
+     */
+    private void abortRestoredTransactions(
+            KafkaTransactionSender<byte[], byte[]> transactionSender, RestorePlan restorePlan) {
+        Map<String, Long> nextSequenceByPrefix = new LinkedHashMap<>();
+        for (RestoredTransaction transaction : restorePlan.restoredTransactions) {
+            nextSequenceByPrefix.merge(
+                    transaction.transactionIdPrefix,
+                    transaction.transactionSequence + 1,
+                    Math::min);
+        }
+        nextSequenceByPrefix.merge(
+                restorePlan.writerTransactionPrefix,
+                restorePlan.nextTransactionSequence,
+                Math::min);
+        nextSequenceByPrefix.forEach(transactionSender::abortTransaction);
+    }
+
+    private RestoredTransaction parseRestoredTransaction(KafkaSinkState state) {
+        String transactionId = state.getTransactionId();
+        int transactionSequenceSeparator =
+                transactionId == null ? -1 : transactionId.lastIndexOf('-');
+        if (transactionSequenceSeparator < 0
+                || transactionSequenceSeparator == transactionId.length() - 1) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot restore Kafka transaction [%s] for checkpoint [%d]",
+                            transactionId, state.getCheckpointId()));
+        }
+        final long transactionSequence;
+        try {
+            transactionSequence =
+                    Long.parseLong(transactionId.substring(transactionSequenceSeparator + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot restore Kafka transaction [%s] for checkpoint [%d]",
+                            transactionId, state.getCheckpointId()),
+                    e);
+        }
+        String restoredPrefix = transactionId.substring(0, transactionSequenceSeparator);
+        String restoredTransactionPrefix = state.getTransactionIdPrefix();
+        if (restoredTransactionPrefix == null
+                || (!restoredPrefix.equals(restoredTransactionPrefix)
+                        && !restoredPrefix.startsWith(restoredTransactionPrefix + "-"))) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Restored Kafka transaction [%s] does not belong to prefix [%s]",
+                            transactionId, restoredTransactionPrefix));
+        }
+        boolean legacy = restoredPrefix.equals(restoredTransactionPrefix);
+        if (!legacy) {
+            String writerIndexSuffix =
+                    restoredPrefix.substring(restoredTransactionPrefix.length() + 1);
+            try {
+                if (Integer.parseInt(writerIndexSuffix) < 0) {
+                    throw new NumberFormatException("negative writer index");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Cannot determine the writer owner of Kafka transaction prefix [%s]",
+                                restoredPrefix),
+                        e);
+            }
+        }
+        return new RestoredTransaction(
+                restoredTransactionPrefix, restoredPrefix, transactionSequence, legacy);
+    }
+
+    private static final class RestorePlan {
+        private final String writerTransactionPrefix;
+        private final long nextTransactionSequence;
+        private final List<RestoredTransaction> restoredTransactions;
+
+        private RestorePlan(
+                String writerTransactionPrefix,
+                long nextTransactionSequence,
+                List<RestoredTransaction> restoredTransactions) {
+            this.writerTransactionPrefix = writerTransactionPrefix;
+            this.nextTransactionSequence = nextTransactionSequence;
+            this.restoredTransactions = restoredTransactions;
+        }
+    }
+
+    private static final class RestoredTransaction {
+        private final String transactionPrefix;
+        private final String transactionIdPrefix;
+        private final long transactionSequence;
+        private final boolean legacy;
+
+        private RestoredTransaction(
+                String transactionPrefix,
+                String transactionIdPrefix,
+                long transactionSequence,
+                boolean legacy) {
+            this.transactionPrefix = transactionPrefix;
+            this.transactionIdPrefix = transactionIdPrefix;
+            this.transactionSequence = transactionSequence;
+            this.legacy = legacy;
         }
     }
 }
