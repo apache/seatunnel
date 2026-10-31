@@ -45,6 +45,9 @@ import java.util.Properties;
  * entry. Hazelcast does not delete an entry from the map store when it expires, so the expiration
  * time is stored with the entry and handed back on load; otherwise an entry put with a TTL would be
  * loaded again after a restart and never expire.
+ *
+ * <p>The auxiliary observability maps, {@link EngineStateStoreNames#RUNNING_JOB_METRICS} and {@link
+ * EngineStateStoreNames#CHECKPOINT_MONITOR}, are never persisted, whatever the map-store config.
  */
 @Slf4j
 public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecycleSupport {
@@ -53,11 +56,11 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
-        if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
+        if (isAuxiliaryObservabilityMap(mapName)) {
             this.mapStorage = NoOpMapStorage.INSTANCE;
             log.info(
-                    "Skip persistence for map '{}' because runtime metrics snapshots are auxiliary "
-                            + "observability state and should not write to persistent IMAP storage.",
+                    "Skip persistence for map '{}' because it holds auxiliary observability state "
+                            + "and should not write to persistent IMAP storage.",
                     mapName);
             return;
         }
@@ -146,6 +149,18 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
     @Override
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
+    }
+
+    /**
+     * Returns whether the map only holds observability state that nothing on the recovery path
+     * reads. Running jobs refill these maps after a restart: workers report runtime metrics again,
+     * and the checkpoint monitor records the next checkpoint. Persisting them only grows the
+     * append-only storage; the checkpoint monitor alone rewrites a job's whole overview on every
+     * checkpoint trigger, subtask acknowledgement and completion.
+     */
+    private static boolean isAuxiliaryObservabilityMap(String mapName) {
+        return EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)
+                || EngineStateStoreNames.CHECKPOINT_MONITOR.equals(mapName);
     }
 
     private static final class NoOpMapStorage implements IMapStorage {
