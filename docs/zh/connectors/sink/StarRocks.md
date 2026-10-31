@@ -43,8 +43,8 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | database                    | string  | 是    | -                            | 目标 StarRocks 表所在的数据库名称                                                                                             |
 | table                       | string  | 否    | -                            | 目标 StarRocks 表名。如果没有设置，则表名与上游表名相同                                                                                 |
 | labelPrefix                 | string  | 否    | -                            | StarRocks Stream Load 作业标签前缀                                                                                        |
-| batch_max_rows              | long    | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
-| batch_max_bytes             | int     | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_rows              | int     | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_bytes             | long    | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
 | max_retries                 | int     | 否    | -                            | 数据写入 StarRocks 失败后的重试次数                                                                                           |
 | retry_backoff_multiplier_ms | int     | 否    | -                            | 用作生成下一次退避延迟的乘数                                                                                                      |
 | max_retry_backoff_ms        | int     | 否    | -                            | 向 StarRocks 发送重试请求前的等待时长                                                                                            |
@@ -52,10 +52,12 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | save_mode_create_template   | string  | 否    | 参见表下方的说明                     | 自动建表模板，详见表下方说明                                                                                                      |
 | starrocks.config            | map     | 否    | -                            | Stream Load `data_desc` 参数                                                                                           |
 | http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
+| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。 |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
 | custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
+| multi_table_sink_replica    | int     | 否    | 1                            | 多表写入作业中每张表使用的写入器副本数，最小为 1                                                                                           |
 
 ### save_mode_create_template
 
@@ -154,7 +156,7 @@ sink {
     base-url = "jdbc:mysql://127.0.0.1:9030"
     nodeUrls = ["127.0.0.1:8030"]
     username = "root"
-    password = ""
+    password = "secret"
     database = "test"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     table_options = {
@@ -164,6 +166,18 @@ sink {
   }
 }
 ```
+
+### 非终态 Stream Load 结果
+
+当 Stream Load 返回 `Publish Timeout`、`Label Already Exists`、复用 label 的失败或无法识别的状态时，事务结果尚未确认：发布超时的导入之后仍可能被中止（例如前端重启后）。接收器不会立即释放该批数据，而是持续查询该批次 label 的 `get_load_state`，直到状态变为终态：
+
+- `VISIBLE`/`COMMITTED`：事务已确认，释放该批数据。
+- `ABORTED`：该批数据未持久化，使用新 label 重新发送。
+- 其他状态（`PREPARE`、`UNKNOWN`、响应不可读）：持续轮询直到超过 `label_state_timeout_ms`，随后刷新失败，作业从上一个 checkpoint 重放该批数据。
+
+该轮询在 checkpoint 路径上同步执行，且 sink 的重试循环最多会重复 `max_retries + 1` 次，最坏阻塞时间约为 `(max_retries + 1) * label_state_timeout_ms`。请将 `label_state_timeout_ms` 配置为小于作业的 checkpoint 超时时间，使未决事务尽早以 checkpoint 失败的形式暴露，而不是长时间阻塞 barrier。
+
+由于失败的刷新会从 checkpoint 重放，同一窗口内先前已可见的批次可能被再次提交。Sink 保持至少一次语义：DUPLICATE KEY 表在重放后可能出现重复行，Primary Key 表可以吸收这些重复。
 
 ### Zeta 定时刷新
 
@@ -186,8 +200,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     batch_max_rows = 10000
@@ -266,8 +280,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -286,8 +300,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     ...
@@ -305,8 +319,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -326,8 +340,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -347,8 +361,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
@@ -359,6 +373,187 @@ sink {
       column_separator = "\\x01"
       row_delimiter = "\\x02"
     }
+  }
+}
+```
+
+### CDC 与 Schema 变更
+
+下面的示例演示 MySQL-CDC 以 `schema-changes.enabled = true` 的方式写入 StarRocks，这样上游 MySQL 的 DDL 变更
+（新增列、类型加宽等）会同步应用到目标 StarRocks 主键表上。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products", "shop.orders", "shop.customers"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_cdc_e2e:8040"]
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "${table_name}"
+    max_retries = 3
+    enable_upsert_delete = true
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    save_mode_create_template = """
+    CREATE TABLE IF NOT EXISTS shop.`${table_name}` (
+        ${rowtype_primary_key},
+        ${rowtype_fields}
+    ) ENGINE=OLAP
+    PRIMARY KEY (${rowtype_primary_key})
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES (
+        "replication_num" = "1",
+        "in_memory" = "false",
+        "enable_persistent_index" = "true",
+        "replicated_storage" = "true",
+        "compression" = "LZ4"
+    )
+    """
+  }
+}
+```
+
+### MySQL-CDC 与定时刷新
+
+下面的示例在流式作业中配置了 `sink.flush.interval`，使 StarRocks Sink 每隔 500 ms 刷新一次缓冲区，
+不再受 `batch_max_rows` 和 `batch_max_bytes` 的限制。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5670
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_starrocks_timer_flush_e2e:3306/shop"
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_timer_flush_e2e:8030"]
+    base-url = "jdbc:mysql://starrocks_timer_flush_e2e:9030/timer_flush"
+    username = root
+    password = ""
+    database = "timer_flush"
+    table = "starrocks_timer_flush"
+    labelPrefix = "timer-flush-"
+    batch_max_rows = 100000
+    batch_max_bytes = 104857600
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    starrocks.config = {
+      format = "JSON"
+    }
+  }
+}
+```
+
+### 多表
+
+#### 示例1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // 支持 upsert/delete 事件同步（enable_upsert_delete=true），仅支持 PrimaryKey 模型。
+    enable_upsert_delete = true
+  }
+}
+```
+
+#### 示例2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // 支持 upsert/delete 事件同步（enable_upsert_delete=true），仅支持 PrimaryKey 模型。
+    enable_upsert_delete = true
   }
 }
 ```
@@ -391,8 +586,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     labelPrefix = "unique-job-label"
