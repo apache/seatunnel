@@ -78,6 +78,16 @@ The Job Detail page contains four main tabs:
 - **Configuration**: shows the runtime job configuration exposed by the engine.
 - **Log**: shows job log files returned by the engine log API.
 
+The Overview runtime context shows the vertex and edge counts, checkpoint counts across pipelines,
+the latest completed checkpoint, failed checkpoint and savepoint, and a compact job error message.
+If the checkpoint API fails or the monitor has no snapshot for the job, the UI clears its previous
+snapshot and displays an unavailable warning instead of zero counts. Overlapping requests cannot
+replace the latest request's result with an older response.
+For graphs with more than 80 vertices or 120 edges, a summary also lists up to five busy vertices
+and five blocked downstream inputs, ranked by busyness and by the greater of downstream wait ratio
+or queue fill ratio, respectively. These summaries use the same realtime metrics as the DAG and
+require observability to be enabled; they supplement the full graph rather than replacing it.
+
 #### Realtime Observability
 
 On the Job Detail page, the DAG view can display realtime metrics for the recent window (3 minutes by default, up to 10 minutes):
