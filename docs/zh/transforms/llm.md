@@ -19,6 +19,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | model                  | string | yes      |             |
 | api_key                    | string | yes      |             |
 | api_path               | string | no       |             |
+| process_batch_size     | int    | no       | 100         |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
 | custom_request_headers | map    | no       |             |
