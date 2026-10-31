@@ -86,6 +86,19 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
 
+### Engine / Zeta
+
+- **破坏性变更：默认 Slot 模式由动态改为静态**
+  - **影响范围**：Zeta 引擎 Slot 服务（`seatunnel-engine`、`ServerConfigOptions.DYNAMIC_SLOT`、随发行版附带的 `seatunnel.yaml` 模板）
+  - **变更说明**：`dynamic-slot` 的默认值由 `true` 改为 `false`。Zeta 现在默认使用静态 Slot：每个 Worker 在启动时预创建固定数量的 Slot（未设置 `slot-num` 时默认为 `2 × availableProcessors()`），而不再按需动态生成。随发行版附带的 `seatunnel.yaml` 模板（`seatunnel-engine-common`、`config/`、`deploy/kubernetes/`）已同步翻转为 `dynamic-slot: false`。
+  - **影响**：
+    - 以前依靠按需动态生成 Slot 即可运行的任务，现在在达到固定 Slot 上限时可能在提交阶段失败并抛出 `NoEnoughResourceException`。在默认的 `job-schedule-strategy: REJECT` 下，这类任务会立即失败而非运行。
+    - 如果您显式设置了 `job-schedule-strategy: WAIT`，该配置现在会真正生效（作业进入队列并每 3 秒重试），而不再被静默覆盖为 `REJECT`（只要 `dynamic-slot: true` 就会发生此覆盖）。对于从未意识到 `WAIT` 一直被忽略的用户，这是一次集群级的提交行为变更。
+    - 滚动重启期间，动态/静态混部的 Worker 可能在心跳中上报不一致的 `dynamicSlot`，建议采用协调式（非滚动）重启。
+    - `seatunnel.sh -e local` 会加载发行包自带的 `config/seatunnel.yaml`，因此单机内嵌的 master-worker 节点现在以固定 `2 × availableProcessors()` 个 Slot 启动。在默认的 `job-schedule-strategy: REJECT` 下，所需 Slot 数超过该上限（N = 2 + P > slot-num）的任务会在提交时抛出 `NoEnoughResourceException`，而不再无上限运行。本地如需更大并行度，请在 `config/seatunnel.yaml` 中调大 `slot-num`，或在该文件中设置 `dynamic-slot: true`。
+    - 升级或 master active 切换后，从 `runningJobInfoIMap` 恢复的任务会与新提交的任务一样经过固定 Slot 上限的资源检查，而不会被无条件恢复。过去依靠动态生成 Slot 运行的任务可能在启用新默认值后的第一次重启时被标记为 `FAILED`（checkpoint 保持完好）。重启前请按需要持续运行的任务规模评估 `slot-num`，或设置 `dynamic-slot: true`。容量要按每个并发作业的协调组与物理任务组分别计数，而不是只看聚合并行度：在简单的单枚举器/单提交器场景下，每个作业约需 `2 + P_j` 个 Slot（两个独立的 P=1 作业约需 6 个而不是 4 个）；没有聚合提交器的 Sink、或多 Source/多 Pipeline 的作业计划还需要更多。
+  - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请按每个 Worker 上实际的并发物理任务组评估 `slot-num`（简单单枚举器/单提交器场景约为每个作业 `Σ (2 + P_j)`；部分 Sink 没有聚合提交器、多 Source/多 Pipeline 的作业计划需要更多——仅凭聚合计数并不能保证放置），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
+
 ### PostgreSQL CDC pgoutput 表结构
 
 - **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
