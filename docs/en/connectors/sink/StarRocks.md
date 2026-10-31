@@ -240,7 +240,7 @@ sink {
 
 The supported formats include CSV and JSON
 
-Native StarRocks `JSON` columns require JSON Stream Load. Set `starrocks.config.format = "JSON"`; CSV Stream Load does not support JSON-formatted columns.
+Native StarRocks `JSON` columns require JSON Stream Load. Set `starrocks.config.format = "JSON"`; CSV Stream Load does not support JSON-formatted columns. The sink checks this when it is created: if the upstream schema contains `JSON` columns and the Stream Load format is CSV (the default), the job fails at submission with a message that names the JSON columns, instead of failing at the first Stream Load. Either switch the format to JSON or convert the field to `STRING` upstream (for example `CAST(field AS VARCHAR)` in a Calcite Transform).
 
 ## Task Example
 

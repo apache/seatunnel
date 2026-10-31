@@ -158,6 +158,8 @@ columns = [
 | map          | `java.util.Map`                                    | Map 是将键映射到值的对象。 键类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
 | array        | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `json` `boolean` `tinyint` `smallint` `bigint` `float` `double` `map` 以及嵌套的 `array`。                                                                                                                                                                                        |
 
+> **`json` 类型保证什么。** `json` 是逻辑类型，物理值是 `java.lang.String`。SeaTunnel 不会在类型系统或行数据链路上校验 JSON 文本，因此该类型保证的是表示形式（JSON 文本、Java `null` 表示 SQL 空值、字符串 `null` 表示 JSON null），而不是文本的合法性。合法性在真正解析文本的边界处强制校验：JSON Format 会拒绝空、不完整、格式错误和带有多余 token 的输入；StarRocks JSON Stream Load 序列化器会在导入前拒绝非法 JSON；Snowflake 在服务端执行 `PARSE_JSON`。其他 Sink 会原样透传文本，因此生成合法 JSON 是产生该值的 Source 或 Transform 的责任，原生 JSON Sink 则负责拒绝它无法存储的内容。
+
 #### 如何声明支持的类型
 
 SeaTunnel 提供了一种简单直接的方式来声明基本类型。基本类型的关键字包括：`string`, `json`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, 和 `null`。基本类型的关键字名称可以直接用作类型声明，并且SeaTunnel对类型关键字不区分大小写。 例如，如果您需要声明一个整数类型的字段，您可以简单地将字段定义为`int`或`"int"`。

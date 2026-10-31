@@ -81,6 +81,7 @@ Base configuration:
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
+| handle_json_as_string            | boolean | no      | false      | If true, Doris `JSON`/`JSONB` columns are exposed as `STRING` instead of the `JSON` logical type (the schema produced before the `JSON` logical type was introduced). |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
 Table list configuration:

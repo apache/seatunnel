@@ -17,18 +17,29 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SnowflakeDialect implements JdbcDialect {
+
+    /** Snowflake function that turns JSON text into a structured VARIANT value. */
+    private static final String PARSE_JSON_FUNCTION = "PARSE_JSON";
+
     @Override
     public String dialectName() {
         return DatabaseIdentifier.SNOWFLAKE;
@@ -98,6 +109,34 @@ public class SnowflakeDialect implements JdbcDialect {
         return String.format(
                 "UPDATE %s SET %s WHERE %s",
                 tableIdentifier(database, tableName), setClause, conditionClause);
+    }
+
+    /**
+     * A user-defined query bypasses the generated PARSE_JSON wrapping. Binding JSON text through a
+     * plain placeholder makes Snowflake store an escaped string in the VARIANT column instead of a
+     * parsed JSON value, so the sink refuses to start unless the query applies PARSE_JSON itself.
+     */
+    @Override
+    public void validateUserDefinedQuery(String query, TableSchema tableSchema) {
+        if (StringUtils.isBlank(query)) {
+            return;
+        }
+        List<String> jsonFields =
+                tableSchema.getColumns().stream()
+                        .filter(column -> column.getDataType().getSqlType() == SqlType.JSON)
+                        .map(Column::getName)
+                        .collect(Collectors.toList());
+        if (jsonFields.isEmpty() || query.toUpperCase(Locale.ROOT).contains(PARSE_JSON_FUNCTION)) {
+            return;
+        }
+        throw new JdbcConnectorException(
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                String.format(
+                        "Snowflake sink: the user-defined `query` does not apply %s to the JSON field(s) %s. "
+                                + "A plain placeholder stores an escaped string in the VARIANT column instead of a "
+                                + "parsed JSON value. Wrap each JSON placeholder with %s(?) in the query, or remove "
+                                + "`query` so SeaTunnel generates the INSERT statement with %s automatically.",
+                        PARSE_JSON_FUNCTION, jsonFields, PARSE_JSON_FUNCTION, PARSE_JSON_FUNCTION));
     }
 
     /** Returns the Snowflake bind expression for a field. */

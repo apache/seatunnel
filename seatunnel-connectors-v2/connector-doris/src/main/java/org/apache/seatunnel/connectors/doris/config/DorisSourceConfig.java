@@ -35,6 +35,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DO
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_REQUEST_QUERY_TIMEOUT_S;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_REQUEST_READ_TIMEOUT_MS;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_REQUEST_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.HANDLE_JSON_AS_STRING;
 
 @Data
 @SuperBuilder
@@ -51,6 +52,13 @@ public class DorisSourceConfig implements Serializable {
     private Boolean deserializeArrowAsync;
     private int deserializeQueueSize;
     private boolean useOldApi;
+
+    /**
+     * When true, Doris JSON/JSONB columns are exposed as STRING to keep the pre-JSON-type schema
+     * for existing pipelines. See {@link DorisSourceOptions#HANDLE_JSON_AS_STRING}.
+     */
+    private boolean handleJsonAsString;
+
     private List<DorisTableConfig> tableConfigList;
 
     public static DorisSourceConfig of(ReadonlyConfig config) {
@@ -66,6 +74,7 @@ public class DorisSourceConfig implements Serializable {
         builder.requestRetries(config.get(DORIS_REQUEST_RETRIES));
         builder.deserializeArrowAsync(config.get(DORIS_DESERIALIZE_ARROW_ASYNC));
         builder.deserializeQueueSize(config.get(DORIS_DESERIALIZE_QUEUE_SIZE));
+        builder.handleJsonAsString(config.get(HANDLE_JSON_AS_STRING));
         return builder.build();
     }
 }

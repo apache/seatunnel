@@ -101,4 +101,13 @@ public class DorisSourceOptions extends DorisBaseOptions {
                     .longType()
                     .defaultValue(DORIS_EXEC_MEM_LIMIT_DEFAULT)
                     .withDescription("");
+
+    public static final Option<Boolean> HANDLE_JSON_AS_STRING =
+            Options.key("handle_json_as_string")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If true, Doris JSON and JSONB columns are exposed as STRING instead of the "
+                                    + "JSON logical type, which is the schema produced before the JSON "
+                                    + "logical type was introduced.");
 }

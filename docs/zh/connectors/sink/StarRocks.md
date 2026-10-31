@@ -235,7 +235,7 @@ sink {
 
 StarRocks数据接收器支持的格式有CSV和JSON格式。
 
-StarRocks 原生 `JSON` 列必须使用 JSON Stream Load，需设置 `starrocks.config.format = "JSON"`；CSV Stream Load 不支持 JSON 格式的列。
+StarRocks 原生 `JSON` 列必须使用 JSON Stream Load，需设置 `starrocks.config.format = "JSON"`；CSV Stream Load 不支持 JSON 格式的列。Sink 在创建时就会检查这一点：如果上游 Schema 包含 `JSON` 列且 Stream Load 格式为 CSV（默认值），作业会在提交时失败并在报错信息中列出 JSON 列，而不是等到第一次 Stream Load 才失败。请改用 JSON 格式，或在上游把字段转换为 `STRING`（例如在 Calcite Transform 中使用 `CAST(field AS VARCHAR)`）。
 
 ## 任务示例
 

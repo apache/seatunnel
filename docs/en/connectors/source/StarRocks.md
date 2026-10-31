@@ -21,7 +21,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 ## Data Type Mapping
 
-StarRocks native `JSON` columns map to the SeaTunnel `JSON` logical type. JSON values are represented as valid JSON text inside SeaTunnel.
+StarRocks native `JSON` columns map to the SeaTunnel `JSON` logical type. JSON values are represented as valid JSON text inside SeaTunnel. The StarRocks source always reads the user-declared `schema`, so declare the column as `json` to use the logical type, or as `string` to keep the pre-`JSON`-type behavior; there is no inferred mapping to opt out of.
 
 ## Options
 

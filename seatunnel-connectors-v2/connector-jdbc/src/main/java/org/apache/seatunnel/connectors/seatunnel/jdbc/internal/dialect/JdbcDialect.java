@@ -961,6 +961,16 @@ public interface JdbcDialect extends Serializable {
     }
 
     /**
+     * Validates a user-defined sink {@code query} against the sink table schema when the sink is
+     * created, so dialect-specific limitations of custom statements surface at job submission
+     * instead of mid-run. The default implementation accepts every query.
+     *
+     * @param query the user-defined sink query; null or blank when SeaTunnel generates the SQL
+     * @param tableSchema the sink table schema
+     */
+    default void validateUserDefinedQuery(String query, TableSchema tableSchema) {}
+
+    /**
      * Validate sink table options for auto-create mode.
      *
      * <p>Default behavior is fail-fast for any non-empty table options. Dialects should override

@@ -53,7 +53,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
 | BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES               |
 
-When SeaTunnel generates the insert statement, JSON fields are wrapped with `PARSE_JSON` so their JSON structure is stored in Snowflake `VARIANT`. For a user-defined `query`, add the required Snowflake conversion function to the query explicitly.
+When SeaTunnel generates the insert statement, JSON fields are wrapped with `PARSE_JSON` so their JSON structure is stored in Snowflake `VARIANT`. For a user-defined `query`, SeaTunnel cannot rewrite the statement, so wrap each JSON placeholder with `PARSE_JSON(?)` yourself, for example `INSERT INTO t (id, payload) VALUES (?, PARSE_JSON(?))`. If the sink schema contains JSON fields and the custom `query` does not reference `PARSE_JSON`, the sink fails when it is created (at job submission) with a message naming the JSON fields, instead of storing escaped strings in the `VARIANT` column.
 
 ## Sink Options
 

@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.common.util.LegacyJsonTypeUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
@@ -87,6 +88,7 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.SOCKET_TIMEOUT_MS,
                         JdbcSourceOptions.HANDLE_BLOB_AS_STRING,
+                        JdbcSourceOptions.HANDLE_JSON_AS_STRING,
                         JdbcSourceOptions.USE_KERBEROS,
                         JdbcSourceOptions.KERBEROS_PRINCIPAL,
                         JdbcSourceOptions.KERBEROS_KEYTAB_PATH,
@@ -143,6 +145,13 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         config.getMultiTableFailurePolicy())
                 .values().stream()
                 .map(JdbcSourceTable::getCatalogTable)
+                // Keep the dry-run schema identical to the runtime schema when the JSON opt-out
+                // is enabled.
+                .map(
+                        catalogTable ->
+                                config.isHandleJsonAsString()
+                                        ? LegacyJsonTypeUtil.mapJsonColumnsToString(catalogTable)
+                                        : catalogTable)
                 .collect(Collectors.toList());
     }
 

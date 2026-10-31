@@ -168,6 +168,14 @@ public class QdrantBatchWriter {
                 return ValueFactory.value(value.toString());
             case BOOLEAN:
                 return ValueFactory.value(Boolean.parseBoolean(value.toString()));
+            case JSON:
+                // No payload mapping exists for the JSON logical type yet. Falling through to the
+                // null branch would silently drop the column, so reject the field explicitly.
+                throw new QdrantConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Qdrant sink does not support the JSON logical type as a payload field. "
+                                + "Convert the field to STRING upstream (for example `CAST(field AS VARCHAR)` "
+                                + "in a Calcite Transform) or enable `handle_json_as_string` on the source.");
             default:
                 return null;
         }
