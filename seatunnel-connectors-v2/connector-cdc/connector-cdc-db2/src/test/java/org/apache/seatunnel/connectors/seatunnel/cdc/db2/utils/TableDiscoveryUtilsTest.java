@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.Assertions;
@@ -65,5 +66,81 @@ class TableDiscoveryUtilsTest {
                                 Collections.singletonList("testdb.DB2INST1.CUSTOMERS"),
                                 Collections.singletonList(
                                         new TableId("", "DB2INST1", "CUSTOMERS"))));
+    }
+
+    @Test
+    void shouldFoldConfiguredUnquotedNamesAndKeepCapturedCase() {
+        Assertions.assertEquals(
+                "e2e.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.normalizeConfiguredTableName("e2e.db2inst1.customers"));
+        Assertions.assertEquals(
+                "testdb.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.normalizeConfiguredTableName("testdb.DB2INST1.CUSTOMERS"));
+        Assertions.assertEquals(
+                new TableId("", "DB2INST1", "CUSTOMERS"),
+                TableDiscoveryUtils.toConfiguredDb2TableId(
+                        TableDiscoveryUtils.normalizeConfiguredTableName(
+                                "e2e.db2inst1.customers")));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        TableDiscoveryUtils.validateExplicitCaptureTables(
+                                Collections.singletonList("e2e.db2inst1.customers"),
+                                Collections.singletonList(
+                                        new TableId("", "DB2INST1", "CUSTOMERS"))));
+        Assertions.assertEquals(
+                new TableId("", "MixedSchema", "Customers"),
+                TableDiscoveryUtils.normalizeCapturedTableId(
+                        new TableId("E2E", "MixedSchema", "Customers")));
+        SeaTunnelException error =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                TableDiscoveryUtils.validateExplicitCaptureTables(
+                                        Collections.singletonList("e2e.db2inst1.orders"),
+                                        Collections.singletonList(
+                                                new TableId("", "DB2INST1", "CUSTOMERS"))));
+        Assertions.assertTrue(error.getMessage().contains("e2e.db2inst1.orders"));
+    }
+
+    /**
+     * A table created with quoted lowercase identifiers and configured unquoted in lowercase was
+     * captured before folding existed. The resolver must keep that spelling when only the lowercase
+     * object exists, prefer the folded object when it exists, and startup validation must accept
+     * the lowercase capture metadata for the lowercase configuration.
+     */
+    @Test
+    void shouldKeepCapturingLowercaseCreatedObjectConfiguredUnquoted() {
+        TablePath lowercaseCustomers = TablePath.of("e2e", "db2inst1", "customers");
+        TablePath uppercaseCustomers = TablePath.of("e2e", "DB2INST1", "CUSTOMERS");
+
+        Assertions.assertEquals(
+                "e2e.db2inst1.customers",
+                TableDiscoveryUtils.resolveConfiguredTableName(
+                        "e2e.db2inst1.customers", lowercaseCustomers::equals));
+        Assertions.assertEquals(
+                "e2e.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.resolveConfiguredTableName(
+                        "e2e.db2inst1.customers",
+                        tablePath ->
+                                tablePath.equals(lowercaseCustomers)
+                                        || tablePath.equals(uppercaseCustomers)));
+        Assertions.assertEquals(
+                "e2e.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.resolveConfiguredTableName(
+                        "e2e.db2inst1.customers", tablePath -> false));
+        Assertions.assertEquals(
+                "e2e.db2inst1.\"customers\"",
+                TableDiscoveryUtils.resolveConfiguredTableName(
+                        "e2e.db2inst1.\"customers\"",
+                        tablePath -> {
+                            throw new AssertionError("quoted names must not query the catalog");
+                        }));
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        TableDiscoveryUtils.validateExplicitCaptureTables(
+                                Collections.singletonList("e2e.db2inst1.customers"),
+                                Collections.singletonList(
+                                        new TableId("", "db2inst1", "customers"))));
     }
 }

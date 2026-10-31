@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
@@ -33,13 +36,23 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils.TableDiscoveryUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 
@@ -114,12 +127,12 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
             } catch (Exception e) {
                 log.warn("Failed to load JDBC driver {}", DRIVER_CLASS_NAME, e);
             }
+            ReadonlyConfig options =
+                    resolveDb2Options(context.getOptions(), context.getClassLoader());
             List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(
-                            context.getOptions(), context.getClassLoader());
+                    CatalogTableUtil.getCatalogTables(options, context.getClassLoader());
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions()
-                            .getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG);
+                    options.getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(
@@ -127,7 +140,100 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
                                 tableConfigs.get(),
                                 text -> TablePath.of(text, true));
             }
-            return new Db2IncrementalSource(context.getOptions(), catalogTables);
+            return new Db2IncrementalSource(options, catalogTables);
         };
+    }
+
+    /**
+     * Resolves configured table names against the DB2 catalog before they are used anywhere.
+     *
+     * <p>The catalog is opened only when folding would change at least one unquoted name. That
+     * keeps uppercase and quoted configurations on the previous single-connection path, while
+     * lowercase unquoted names get one additional short-lived connection to decide between the
+     * folded spelling and the configured spelling. Without a DB2 catalog factory the names are
+     * folded unconditionally, which is the behavior before this fallback existed.
+     */
+    static ReadonlyConfig resolveDb2Options(ReadonlyConfig options, ClassLoader classLoader) {
+        boolean foldingChangesAnyName =
+                Stream.concat(
+                                options.getOptional(ConnectorCommonOptions.TABLE_NAMES)
+                                        .map(List::stream)
+                                        .orElseGet(Stream::empty),
+                                options.getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                                        .map(
+                                                tables ->
+                                                        tables.stream()
+                                                                .map(
+                                                                        JdbcSourceTableConfig
+                                                                                ::getTable))
+                                        .orElseGet(Stream::empty))
+                        .anyMatch(
+                                name ->
+                                        !TableDiscoveryUtils.normalizeConfiguredTableName(name)
+                                                .equals(name));
+        if (!foldingChangesAnyName) {
+            return normalizeDb2Options(options, tablePath -> true);
+        }
+        Optional<Catalog> optionalCatalog =
+                FactoryUtil.createOptionalCatalog(
+                        DatabaseIdentifier.DB_2, options, classLoader, DatabaseIdentifier.DB_2);
+        if (!optionalCatalog.isPresent()) {
+            return normalizeDb2Options(options, tablePath -> true);
+        }
+        try (Catalog catalog = optionalCatalog.get()) {
+            catalog.open();
+            return normalizeDb2Options(options, catalog::tableExists);
+        }
+    }
+
+    /**
+     * Keeps catalog lookup, per-table overrides and capture filters in the same identifier space.
+     * Each distinct configured name is resolved once through {@code tableExists}; see {@link
+     * TableDiscoveryUtils#resolveConfiguredTableName(String, Predicate)} for the precedence. Table
+     * patterns are regular expressions and must not be case-folded here.
+     */
+    static ReadonlyConfig normalizeDb2Options(
+            ReadonlyConfig options, Predicate<TablePath> tableExists) {
+        Map<String, String> resolvedNames = new HashMap<>();
+        Function<String, String> resolver =
+                name ->
+                        resolvedNames.computeIfAbsent(
+                                name,
+                                configuredTable ->
+                                        TableDiscoveryUtils.resolveConfiguredTableName(
+                                                configuredTable, tableExists));
+        Map<String, Object> normalized = new LinkedHashMap<>(options.getSourceMap());
+        options.getOptional(ConnectorCommonOptions.TABLE_NAMES)
+                .ifPresent(
+                        names ->
+                                normalized.put(
+                                        ConnectorCommonOptions.TABLE_NAMES.key(),
+                                        names.stream().map(resolver).collect(Collectors.toList())));
+        options.getOptional(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .ifPresent(
+                        tables ->
+                                normalized.put(
+                                        Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG.key(),
+                                        tables.stream()
+                                                .map(table -> normalizeTableConfig(table, resolver))
+                                                .collect(Collectors.toList())));
+        return ReadonlyConfig.fromMap(normalized);
+    }
+
+    /**
+     * Preserves user-configured primary keys and split-column override while resolving the table
+     * name with the same resolver as {@code table-names}.
+     */
+    private static Map<String, Object> normalizeTableConfig(
+            JdbcSourceTableConfig config, Function<String, String> resolver) {
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("table", resolver.apply(config.getTable()));
+        if (config.getPrimaryKeys() != null) {
+            normalized.put("primaryKeys", new ArrayList<>(config.getPrimaryKeys()));
+        }
+        if (config.getSnapshotSplitColumn() != null) {
+            normalized.put("snapshotSplitColumn", config.getSnapshotSplitColumn());
+        }
+        return normalized;
     }
 }
