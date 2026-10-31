@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -111,7 +112,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         super(catalogTable);
         this.query = config.get(KEY_QUERY);
         if (config.getOptional(KEY_ENGINE).isPresent()) {
-            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase());
+            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase(Locale.ROOT));
         } else {
             this.engineType = ZETA;
         }
