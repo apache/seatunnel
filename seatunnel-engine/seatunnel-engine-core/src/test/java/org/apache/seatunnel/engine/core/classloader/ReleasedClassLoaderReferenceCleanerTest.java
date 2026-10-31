@@ -23,6 +23,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,6 +48,8 @@ public class ReleasedClassLoaderReferenceCleanerTest {
     private static final String POOL = FixtureBufferPool.class.getName();
     private static final String COMPARATOR = FixtureWritableComparator.class.getName();
     private static final String CODEC_POOL = FixtureCodecPool.class.getName();
+    private static final String FAILING_POOL = FixtureFailingBufferPool.class.getName();
+    private static final String WITNESS = FixtureInitializationWitness.class.getName();
 
     private final ReleasedClassLoaderReferenceCleaner cleaner =
             new ReleasedClassLoaderReferenceCleaner(POOL, COMPARATOR, CODEC_POOL);
@@ -77,15 +80,57 @@ public class ReleasedClassLoaderReferenceCleanerTest {
 
     /**
      * Guards other jobs: a pool defined by an ancestor loader is shared process-wide, so releasing
-     * one job must not stop the pruner that the remaining jobs still rely on.
+     * one job must not stop the pruner that the remaining jobs still rely on. The job loads the
+     * pool class first, so it is the ownership check and not the loaded-class gate that keeps it.
      */
     @Test
-    void keepsPrunerOfPoolDefinedByAncestorLoader() {
+    void keepsPrunerOfPoolDefinedByAncestorLoader() throws Exception {
         ClassLoader released = new SeaTunnelChildFirstClassLoader(Collections.emptyList());
+        Class<?> poolType = Class.forName(POOL, true, released);
+        Assertions.assertNotSame(released, poolType.getClassLoader());
 
         cleaner.clean(released);
 
         Assertions.assertTrue(FixtureBufferPool.DEFAULT.getAsBoolean());
+    }
+
+    /**
+     * Guards against the cleaner creating what it is meant to remove: a job that never loaded the
+     * pool class has no pruner, so the released loader must neither get the class defined into it
+     * nor have its static initializer (which starts the pruner thread in the real driver) run.
+     */
+    @Test
+    void leavesPoolClassUnloadedWhenReleasedLoaderNeverUsedIt() throws Exception {
+        SeaTunnelChildFirstClassLoader released = newLoaderOwning("java.", WITNESS);
+        int initializationsBefore = FixtureInitializationWitness.POOL_INITIALIZATIONS.get();
+
+        cleaner.clean(released);
+
+        Assertions.assertEquals(
+                initializationsBefore, FixtureInitializationWitness.POOL_INITIALIZATIONS.get());
+        Assertions.assertNull(findLoadedClass(released, POOL));
+    }
+
+    /**
+     * Guards the best-effort contract: an Error raised by one root (here the pool's static
+     * initializer, like a Metaspace OutOfMemoryError on a starved worker) must not escape clean()
+     * and must not stop the Hadoop roots of the same loader from being cleaned.
+     */
+    @Test
+    void cleansRemainingRootsWhenOneRootThrowsAnError() throws Exception {
+        ReleasedClassLoaderReferenceCleaner failingPoolCleaner =
+                new ReleasedClassLoaderReferenceCleaner(FAILING_POOL, COMPARATOR, CODEC_POOL);
+        SeaTunnelChildFirstClassLoader released = newLoaderOwning("java.", COMPARATOR, CODEC_POOL);
+        // The job loaded the pool class but its static initializer has not run yet.
+        Class.forName(FAILING_POOL, false, released);
+        Class<?> ownedKey = Class.forName(FixtureKey.class.getName(), false, released);
+        FixtureWritableComparator.define(ownedKey);
+        FixtureCodecPool.lease(ownedKey);
+
+        failingPoolCleaner.clean(released);
+
+        Assertions.assertFalse(FixtureWritableComparator.isRegistered(ownedKey));
+        Assertions.assertFalse(FixtureCodecPool.isTrackedInAny(ownedKey));
     }
 
     /**
@@ -207,6 +252,32 @@ public class ReleasedClassLoaderReferenceCleanerTest {
     }
 
     /**
+     * Guards the operator kill switch: with the cleaner disabled the service must still release
+     * loaders normally and leave the library references alone.
+     */
+    @Test
+    void serviceReleasesWithoutCleaningWhenCleanerIsDisabled() {
+        DefaultClassLoaderService service = new DefaultClassLoaderService(false, null, null);
+        ClassLoader loader = service.getClassLoader(9L, Collections.emptyList());
+        FixtureWritableComparator comparator = FixtureWritableComparator.define(String.class);
+        FixtureWritableComparator.get(String.class, new FixtureConfiguration(loader));
+
+        service.releaseClassLoader(9L, Collections.emptyList());
+
+        Assertions.assertNotNull(comparator.getConf());
+        Assertions.assertFalse(
+                service.queryClassLoaderById(9L, Collections.emptyList()).isPresent());
+    }
+
+    /** Asks the loader itself whether it already loaded a class, without loading it. */
+    private static Class<?> findLoadedClass(ClassLoader loader, String className) throws Exception {
+        Method findLoadedClass =
+                ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
+        findLoadedClass.setAccessible(true);
+        return (Class<?>) findLoadedClass.invoke(loader, className);
+    }
+
+    /**
      * Creates a child-first loader that defines its own copy of the fixtures, which is what the
      * connector jars do for the real libraries. Classes whose name starts with one of the given
      * prefixes still come from the parent.
@@ -218,9 +289,17 @@ public class ReleasedClassLoaderReferenceCleanerTest {
                 Collections.singletonList(testClasses), parentFirstPrefixes);
     }
 
-    /** Mirrors com.mongodb.internal.connection.PowerOfTwoBufferPool. */
+    /**
+     * Mirrors com.mongodb.internal.connection.PowerOfTwoBufferPool, whose static initializer starts
+     * the pruner thread. Every initialization is counted in the witness so a test can prove that
+     * the initializer did not run.
+     */
     public static final class FixtureBufferPool implements BooleanSupplier {
         public static final FixtureBufferPool DEFAULT = new FixtureBufferPool();
+
+        static {
+            FixtureInitializationWitness.POOL_INITIALIZATIONS.incrementAndGet();
+        }
 
         private volatile boolean pruning = true;
 
@@ -234,6 +313,29 @@ public class ReleasedClassLoaderReferenceCleanerTest {
         public boolean getAsBoolean() {
             return pruning;
         }
+    }
+
+    /**
+     * Counts initializations of {@link FixtureBufferPool}. Loaded parent-first by the tests that
+     * need it, so the copy of the pool class defined by a job loader reports to the shared counter.
+     */
+    public static final class FixtureInitializationWitness {
+        public static final AtomicInteger POOL_INITIALIZATIONS = new AtomicInteger();
+    }
+
+    /**
+     * A pool whose static initializer fails with an Error, which is what a Metaspace
+     * OutOfMemoryError in the real pool's initializer looks like to the cleaner: the Error leaves
+     * {@code Field.get} unwrapped.
+     */
+    public static final class FixtureFailingBufferPool {
+        public static final Object DEFAULT = failInitialization();
+
+        private static Object failInitialization() {
+            throw new OutOfMemoryError("simulated Metaspace exhaustion in the pool initializer");
+        }
+
+        void disablePruning() {}
     }
 
     /** Mirrors org.apache.hadoop.io.WritableComparator. */
