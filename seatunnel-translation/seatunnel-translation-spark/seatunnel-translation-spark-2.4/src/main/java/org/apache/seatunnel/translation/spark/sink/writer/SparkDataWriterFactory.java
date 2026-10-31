@@ -65,7 +65,8 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
+                // partitionId is stable across task attempts; taskId changes on every retry.
+                new DefaultSinkWriterContext(jobId, partitionId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

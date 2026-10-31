@@ -31,6 +31,7 @@ import org.mockito.MockedConstruction;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -110,20 +111,37 @@ class KafkaSinkWriterTest {
     }
 
     @Test
-    void shouldRejectStateAssignedToTheWrongWriter() {
+    void shouldFenceContiguouslyAssignedFlinkNamespacesAfterScaleDown() {
         List<String> initializedIds = new ArrayList<>();
-        List<KafkaSinkState> state =
-                Collections.singletonList(
+        Set<String> unfinishedIds = Set.of(PREFIX + "-0-5", PREFIX + "-1-5");
+        List<KafkaSinkState> states =
+                List.of(
+                        new KafkaSinkState(PREFIX + "-0-4", PREFIX, 4, new Properties()),
                         new KafkaSinkState(PREFIX + "-1-4", PREFIX, 4, new Properties()));
-        try (MockedConstruction<KafkaInternalProducer> producers = mockProducers(initializedIds)) {
-            IllegalStateException exception =
-                    Assertions.assertThrows(IllegalStateException.class, () -> writer(2, 3, state));
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, unfinishedIds);
+                TestWriter writer = writer(0, 2, states)) {
             Assertions.assertTrue(
-                    exception.getMessage().contains("does not own that restored state"));
-            Assertions.assertTrue(
-                    initializedIds.isEmpty(),
-                    "Ownership must be validated before any transaction is fenced or started");
+                    initializedIds.containsAll(unfinishedIds),
+                    "A Flink 3-to-2 restore must fence both contiguously assigned namespaces");
+            Assertions.assertEquals(
+                    PREFIX + "-0-5", writer.prepareCommit().get().getTransactionId());
         }
+    }
+
+    @Test
+    void shouldRejectMalformedRestoredWriterNamespace() {
+        List<KafkaSinkState> states =
+                Collections.singletonList(
+                        new KafkaSinkState(PREFIX + "-writer-4", PREFIX, 4, new Properties()));
+
+        IllegalStateException exception =
+                Assertions.assertThrows(IllegalStateException.class, () -> writer(0, 2, states));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Cannot determine the writer owner of Kafka transaction prefix"));
     }
 
     @Test
@@ -144,6 +162,59 @@ class KafkaSinkWriterTest {
             Assertions.assertTrue(initializedIds.contains(PREFIX + "-2-6"));
             Assertions.assertEquals(
                     PREFIX + "-0-5", writer.prepareCommit().get().getTransactionId());
+        }
+    }
+
+    @Test
+    void shouldRestoreMixedGeneratedPrefixesAfterScaleDown() {
+        String firstPrefix = "SeaTunnel0001";
+        String secondPrefix = "SeaTunnel0002";
+        List<String> initializedIds = new ArrayList<>();
+        Set<String> unfinishedIds = Set.of(firstPrefix + "-0-5", secondPrefix + "-2-5");
+        List<KafkaSinkState> states =
+                List.of(
+                        new KafkaSinkState(firstPrefix + "-0-4", firstPrefix, 4, new Properties()),
+                        new KafkaSinkState(
+                                secondPrefix + "-2-4", secondPrefix, 4, new Properties()));
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, unfinishedIds);
+                TestWriter writer = writerWithoutConfiguredPrefix(0, 2, states)) {
+            Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
+            Assertions.assertEquals(
+                    firstPrefix + "-0-5", writer.prepareCommit().get().getTransactionId());
+            Assertions.assertEquals(
+                    firstPrefix, writer.snapshotState(5).get(0).getTransactionIdPrefix());
+        }
+    }
+
+    @Test
+    void shouldKeepTransactionSequenceContiguousWhenCheckpointIdsJump() {
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(new ArrayList<>(), Collections.emptySet());
+                TestWriter writer = writer(0, Collections.emptyList())) {
+            List<KafkaSinkState> state = writer.snapshotState(9);
+
+            Assertions.assertEquals(PREFIX + "-0-1", state.get(0).getTransactionId());
+            Assertions.assertEquals(
+                    PREFIX + "-0-2", writer.prepareCommit().get().getTransactionId());
+        }
+    }
+
+    @Test
+    void shouldFenceEveryStatelessWriterTransactionAfterScaleUpRetry() {
+        List<String> initializedIds = new ArrayList<>();
+        Set<String> unfinishedIds = Set.of(PREFIX + "-2-1", PREFIX + "-2-2");
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, unfinishedIds);
+                TestWriter writer = writer(2, 3, Collections.emptyList())) {
+            Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
+            Assertions.assertTrue(
+                    initializedIds.contains(PREFIX + "-2-3"),
+                    "Recovery must probe the first unused contiguous transaction ID");
+            Assertions.assertEquals(
+                    PREFIX + "-2-1", writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -200,22 +271,31 @@ class KafkaSinkWriterTest {
     }
 
     private static TestWriter writer(int index, int parallelism, List<KafkaSinkState> state) {
+        return writer(index, parallelism, state, true);
+    }
+
+    private static TestWriter writerWithoutConfiguredPrefix(
+            int index, int parallelism, List<KafkaSinkState> state) {
+        return writer(index, parallelism, state, false);
+    }
+
+    private static TestWriter writer(
+            int index,
+            int parallelism,
+            List<KafkaSinkState> state,
+            boolean configureTransactionPrefix) {
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         when(context.getIndexOfSubtask()).thenReturn(index);
         when(context.getNumberOfParallelSubtasks()).thenReturn(parallelism);
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Map.of(
-                                "bootstrap.servers",
-                                "unused:9092",
-                                "topic",
-                                "test",
-                                "format",
-                                "text",
-                                "semantics",
-                                "EXACTLY_ONCE",
-                                "transaction_prefix",
-                                PREFIX));
+        Map<String, Object> configValues = new HashMap<>();
+        configValues.put("bootstrap.servers", "unused:9092");
+        configValues.put("topic", "test");
+        configValues.put("format", "text");
+        configValues.put("semantics", "EXACTLY_ONCE");
+        if (configureTransactionPrefix) {
+            configValues.put("transaction_prefix", PREFIX);
+        }
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configValues);
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});

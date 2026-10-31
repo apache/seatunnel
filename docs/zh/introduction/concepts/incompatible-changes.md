@@ -13,7 +13,7 @@
 
 ### Kafka Sink：Writer 独立的事务 ID
 
-使用 `semantics = EXACTLY_ONCE` 时，事务 ID 从 `<transaction_prefix>-<checkpoint>` 改为包含子任务索引的 `<transaction_prefix>-<subtask>-<checkpoint>`，防止共享配置前缀的并行 Writer 触发 `ProducerFencedException`。配置项和 checkpoint 序列化格式保持不变。
+使用 `semantics = EXACTLY_ONCE` 时，事务 ID 从 `<transaction_prefix>-<checkpoint>` 改为包含 Writer 命名空间和连续事务序号的 `<transaction_prefix>-<writer>-<sequence>`，既防止共享配置前缀的并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。配置项和 checkpoint 序列化格式保持不变。
 
 如果 Kafka 事务 ID 的 ACL 或监控规则依赖旧的 ID 格式，请相应调整。恢复 checkpoint 前应停止旧的作业实例；恢复或调整并行度时，会清理 checkpoint 分配给当前 Writer 的所有未完成事务命名空间，包括本次变更之前的 ID。每个并发作业仍应使用不同的配置前缀。
 
