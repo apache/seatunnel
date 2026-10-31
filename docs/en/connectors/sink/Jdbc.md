@@ -780,6 +780,10 @@ sink {
 }
 ```
 
+### PostgreSQL enum columns
+
+A scalar enum and an enum array are written with the PostgreSQL type name taken from catalog metadata. Quotes, spaces, and the schema stay in that name, for example `"ChapterElementType"`, `"Order Status"`, and `tenant."Role"[]`. A built-in string type such as `json` or `jsonb` is still written with `setString`. A `jsonb` column needs `stringtype=unspecified` on the JDBC URL. The target column must already exist as that enum. Creating the column from a STRING field builds `text`, not the enum.
+
 ### PostgreSQL 9.5 and earlier CDC compatibility
 
 For PostgreSQL versions 9.5 and below, setting `compatible_mode` to `postgresLow` to enable support for PostgreSQL Change Data Capture (CDC) operations.

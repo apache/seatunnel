@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -35,6 +36,8 @@ import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
 
 import java.math.BigDecimal;
+import java.sql.Array;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -45,7 +48,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.mockito.Mockito.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -364,5 +368,196 @@ public class PostgresJdbcRowConverterTest {
         PGobject pg = (PGobject) arg;
         Assertions.assertEquals("geography", pg.getType());
         Assertions.assertEquals("0102FF", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedMixedCaseEnumType() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("elementType", BasicType.STRING_TYPE, "\"ChapterElementType\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "paragraph"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        Assertions.assertTrue(captor.getValue() instanceof PGobject);
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"ChapterElementType\"", pg.getType());
+        Assertions.assertEquals("paragraph", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedEnumAfterSchemaQualifier() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema(
+                        "elementType", BasicType.STRING_TYPE, "public.\"ChapterElementType\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "paragraph"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("public.\"ChapterElementType\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsSchemaQualifiedQuotedEnum() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("roles", BasicType.STRING_TYPE, "tenant.\"Role\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "ADMIN"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("tenant.\"Role\"", pg.getType());
+        Assertions.assertEquals("ADMIN", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedEnumWithSpace() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("status", BasicType.STRING_TYPE, "\"Order Status\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"Order Status\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsEscapedQuoteInEnumName() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("status", BasicType.STRING_TYPE, "\"Order\"\"Status\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"Order\"\"Status\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsUserSchemaTypeNamedText() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("label", BasicType.STRING_TYPE, "tenant.\"text\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "literal"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("tenant.\"text\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedUppercaseTextAsUserType() throws SQLException {
+        TableSchema tableSchema = createTableSchema("label", BasicType.STRING_TYPE, "\"TEXT\"");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "literal"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("\"TEXT\"", pg.getType());
+    }
+
+    @Test
+    public void testToExternalLeavesPgCatalogTextOnStringBinding() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("body", BasicType.STRING_TYPE, "pg_catalog.text");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "plain"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setString(2, "plain");
+    }
+
+    @Test
+    public void testToExternalBindsUnquotedEnumType() throws SQLException {
+        TableSchema tableSchema = createTableSchema("state", BasicType.STRING_TYPE, "ticket_state");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "open"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        PGobject pg = (PGobject) captor.getValue();
+        Assertions.assertEquals("ticket_state", pg.getType());
+        Assertions.assertEquals("open", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalLeavesJsonbOnStringBinding() throws SQLException {
+        TableSchema tableSchema = createTableSchema("input", BasicType.STRING_TYPE, "jsonb");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "{\"a\":1}"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setString(2, "{\"a\":1}");
+    }
+
+    @Test
+    public void testToExternalKeepsQuotedEnumArrayElementType() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("roles", ArrayType.STRING_ARRAY_TYPE, "\"Role\"[]");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, new String[] {"ADMIN"}});
+        PreparedStatement statement = mock(PreparedStatement.class);
+        Connection connection = mock(Connection.class);
+        Array sqlArray = mock(Array.class);
+        when(statement.getConnection()).thenReturn(connection);
+        when(connection.createArrayOf(eq("\"Role\""), any(Object[].class))).thenReturn(sqlArray);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setArray(2, sqlArray);
+    }
+
+    @Test
+    public void testToExternalKeepsSchemaQualifiedEnumArray() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("roles", ArrayType.STRING_ARRAY_TYPE, "tenant.\"Role\"[]");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, new String[] {"ADMIN"}});
+        PreparedStatement statement = mock(PreparedStatement.class);
+        Connection connection = mock(Connection.class);
+        Array sqlArray = mock(Array.class);
+        when(statement.getConnection()).thenReturn(connection);
+        when(connection.createArrayOf(eq("tenant.\"Role\""), any(Object[].class)))
+                .thenReturn(sqlArray);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        verify(statement).setArray(2, sqlArray);
     }
 }
