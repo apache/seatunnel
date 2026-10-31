@@ -43,6 +43,12 @@ Please download and put the MySQL driver and `tikv-client-java` in the directory
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
+## Clustered primary keys
+
+For TiDB clustered non-integer or composite primary keys, missing primary-key values are restored from the complete record key during both snapshot and streaming reads. Values already present in the row image are preserved, including original strings under new collations. Integer primary keys and non-clustered primary keys keep their existing decoding behavior.
+
+The connector uses the existing JDBC connection options to read the table's `TIDB_PK_TYPE` metadata once during source creation; no additional configuration is required. TiDB versions before 5.0 do not support common handles and retain the integer-handle behavior.
+
 ## Data Type Mapping
 
 | MySQL Data Type                                                                              | SeaTunnel Data Type |
