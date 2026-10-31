@@ -320,7 +320,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                                                 cell.getCellType(),
                                                                 cell,
                                                                 formulaEvaluator,
-                                                                formatter),
+                                                                formatter,
+                                                                fieldTypes[i]),
                                                         fieldTypes[i],
                                                         null));
                             }
@@ -437,7 +438,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             CellType cellType,
             Cell cell,
             FormulaEvaluator formulaEvaluator,
-            DataFormatter formatter) {
+            DataFormatter formatter,
+            SeaTunnelDataType<?> fieldType) {
         switch (cellType) {
             case STRING:
                 return cell.getStringCellValue();
@@ -446,6 +448,11 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getLocalDateTimeCellValue();
+                }
+                if (ExcelCellUtils.NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
+                    // The displayed text is rounded by the cell format ("General" keeps about 10
+                    // significant digits), so numeric columns read the stored double instead.
+                    return cell.getNumericCellValue();
                 }
                 return formatter.formatCellValue(cell);
             case BLANK:

@@ -40,6 +40,7 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -172,8 +173,7 @@ public class ExcelGenerator {
                     cell.setCellStyle(wholeNumberCellStyle);
                     break;
                 case DECIMAL:
-                    cell.setCellValue(Double.parseDouble(value.toString()));
-                    cell.setCellStyle(wholeNumberCellStyle);
+                    setDecimalCellValue((BigDecimal) value, cell);
                     break;
                 case BYTES:
                     List<String> arrayData = new ArrayList<>();
@@ -213,6 +213,23 @@ public class ExcelGenerator {
                     throw CommonError.unsupportedDataType(
                             "Excel", type.getSqlType().toString(), fieldName);
             }
+        }
+    }
+
+    /**
+     * Excel stores numbers as IEEE 754 doubles. A decimal that round-trips through a double (its
+     * shortest decimal form, {@link Double#toString(double)}, equals the value) is written as a
+     * number cell; any other decimal is written as text so that no digit is lost.
+     */
+    private void setDecimalCellValue(BigDecimal value, Cell cell) {
+        double doubleValue = value.doubleValue();
+        if (!Double.isInfinite(doubleValue)
+                && new BigDecimal(Double.toString(doubleValue)).compareTo(value) == 0) {
+            cell.setCellValue(doubleValue);
+            cell.setCellStyle(wholeNumberCellStyle);
+        } else {
+            cell.setCellValue(value.toPlainString());
+            cell.setCellStyle(stringCellStyle);
         }
     }
 

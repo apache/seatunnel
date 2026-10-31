@@ -23,16 +23,28 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
+
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import lombok.Getter;
 
@@ -48,6 +60,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.zip.CRC32;
@@ -55,6 +68,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ExcelReadStrategyTest {
 
@@ -596,6 +611,163 @@ public class ExcelReadStrategyTest {
         excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
 
         Assertions.assertEquals(5, testCollector.getRows().size());
+    }
+
+    @Test
+    public void testPoiReadKeepsNumericPrecision() throws IOException {
+        File excelFile = writeNumericExcel();
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "schema { fields { c_double = double, c_decimal = \"decimal(20, 4)\","
+                                + " c_bigint = bigint, c_string = string } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(2, rows.size());
+        // "General" display format would have produced 10.28571429 and 1012345.67
+        Assertions.assertEquals(10.285714285, rows.get(0).getField(0));
+        Assertions.assertEquals(new BigDecimal("1012345.6699"), rows.get(0).getField(1));
+        Assertions.assertEquals(1234567890123L, rows.get(0).getField(2));
+        // A numeric cell read into a string column keeps its displayed text
+        Assertions.assertEquals("42", rows.get(0).getField(3));
+        // The sink writes a decimal that a double cannot hold as a text cell
+        Assertions.assertEquals(new BigDecimal("9215784885957046.9450"), rows.get(1).getField(1));
+    }
+
+    /**
+     * DOUBLE and DECIMAL values written by the Excel sink are read back unchanged by both engines.
+     * The DECIMAL values cover a number cell, a value with trailing zeros, a negative and a small
+     * value, and a value with more digits than a double holds, which the sink writes as text.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testSinkOutputRoundTripsDoubleAndDecimal(String excelEngine) throws IOException {
+        Object[][] values = {
+            {10.285714285, new BigDecimal("1012345.6699")},
+            {7.142857142, new BigDecimal("5000.0000")},
+            {-0.1, new BigDecimal("-3.2500")},
+            {1.0E-5, new BigDecimal("0.0001")},
+            {123456789.123, new BigDecimal("9215784885957046.9450")},
+            // 17 significant digits: more than the 15 EasyExcel rounds its number value to
+            {0.30000000000000004, new BigDecimal("12.5000")}
+        };
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_double", "c_decimal"},
+                        new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE, new DecimalType(20, 4)});
+        File excelFile = writeWithExcelSink(rowType, values);
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_double = double,"
+                                + " c_decimal = \"decimal(20, 4)\" } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(values.length, rows.size());
+        for (int i = 0; i < values.length; i++) {
+            Assertions.assertEquals(values[i][0], rows.get(i).getField(0), "c_double row " + i);
+            // compareTo: the number cell path keeps the value but not trailing zeros of the scale
+            BigDecimal expected = (BigDecimal) values[i][1];
+            BigDecimal actual = (BigDecimal) rows.get(i).getField(1);
+            Assertions.assertEquals(
+                    0, expected.compareTo(actual), "c_decimal row " + i + ": " + actual);
+        }
+    }
+
+    /**
+     * With {@code excel_use_header_line} the columns are mapped by header name, so the reader
+     * schema can list them in another order; the stored numbers are still read in full.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testHeaderMappedReadKeepsNumericPrecision(String excelEngine) throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_double", "c_decimal"},
+                        new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE, new DecimalType(20, 4)});
+        File excelFile =
+                writeWithExcelSink(
+                        rowType, new Object[][] {{10.285714285, new BigDecimal("1012345.6699")}});
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "excel_use_header_line = true\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_decimal = \"decimal(20, 4)\","
+                                + " c_double = double } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(
+                0, new BigDecimal("1012345.6699").compareTo((BigDecimal) rows.get(0).getField(0)));
+        Assertions.assertEquals(10.285714285, rows.get(0).getField(1));
+    }
+
+    private File writeWithExcelSink(SeaTunnelRowType rowType, Object[][] values)
+            throws IOException {
+        FileSinkConfig fileSinkConfig = mock(FileSinkConfig.class);
+        when(fileSinkConfig.getMaxRowsInMemory()).thenReturn(100);
+        when(fileSinkConfig.getSheetName()).thenReturn("Sheet1");
+        when(fileSinkConfig.getSheetMaxRows()).thenReturn(1048576);
+        when(fileSinkConfig.getFieldDelimiter()).thenReturn(",");
+        when(fileSinkConfig.getDateFormat()).thenReturn(DateUtils.Formatter.YYYY_MM_DD);
+        when(fileSinkConfig.getDatetimeFormat())
+                .thenReturn(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        when(fileSinkConfig.getTimeFormat()).thenReturn(TimeUtils.Formatter.HH_MM_SS);
+        ExcelGenerator excelGenerator =
+                new ExcelGenerator(Arrays.asList(0, 1), rowType, fileSinkConfig);
+        for (Object[] row : values) {
+            excelGenerator.writeData(new SeaTunnelRow(row));
+        }
+        File excelFile = File.createTempFile("excel_sink_round_trip_", ".xlsx");
+        excelFile.deleteOnExit();
+        try (FileOutputStream output = new FileOutputStream(excelFile)) {
+            excelGenerator.flushAndCloseExcel(output);
+        }
+        return excelFile;
+    }
+
+    private File writeNumericExcel() throws IOException {
+        File excelFile = File.createTempFile("excel_numeric_precision_", ".xlsx");
+        excelFile.deleteOnExit();
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("c_double");
+            header.createCell(1).setCellValue("c_decimal");
+            header.createCell(2).setCellValue("c_bigint");
+            header.createCell(3).setCellValue("c_string");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(10.285714285);
+            row.createCell(1).setCellValue(1012345.6699);
+            row.createCell(2).setCellValue(1234567890123L);
+            row.createCell(3).setCellValue(42);
+            Row wide = sheet.createRow(2);
+            wide.createCell(0).setCellValue(1.5);
+            wide.createCell(1).setCellValue("9215784885957046.9450");
+            wide.createCell(2).setCellValue(1);
+            wide.createCell(3).setCellValue("x");
+            workbook.write(output);
+        }
+        return excelFile;
+    }
+
+    private List<SeaTunnelRow> readExcel(File excelFile, Config pluginConfig) throws IOException {
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        excelReadStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+        TestCollector testCollector = new TestCollector();
+        excelReadStrategy.read(excelFile.getAbsolutePath(), "", testCollector);
+        return testCollector.getRows();
     }
 
     private void testLargeExcelRead(String filePath, String configPath, int rowCount)

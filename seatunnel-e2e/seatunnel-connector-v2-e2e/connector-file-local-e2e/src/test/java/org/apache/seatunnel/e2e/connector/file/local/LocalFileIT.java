@@ -83,6 +83,9 @@ import java.util.zip.ZipOutputStream;
 @Slf4j
 public class LocalFileIT extends TestSuiteBase {
 
+    /** Shared by the Flink job manager and task manager, see fake_to_local_excel_numeric.conf */
+    private static final String EXCEL_NUMERIC_DIR = "/tmp/seatunnel_mnt/excel_numeric";
+
     private GenericContainer<?> baseContainer;
 
     /** Copy data files to container */
@@ -373,6 +376,19 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+
+                // Start empty; the Flink task manager runs as a non-root user and must write here
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf "
+                                + EXCEL_NUMERIC_DIR
+                                + " && mkdir -p "
+                                + EXCEL_NUMERIC_DIR
+                                + "/output "
+                                + EXCEL_NUMERIC_DIR
+                                + "/pending && chmod -R 777 "
+                                + EXCEL_NUMERIC_DIR);
             };
 
     @TestTemplate
@@ -405,6 +421,9 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/special_excel_to_assert.conf");
         helper.execute("/excel/local_filter_excel_to_assert.conf");
         helper.execute("/excel/local_filter_regex_excel_to_assert.conf");
+        helper.execute("/excel/fake_to_local_excel_numeric.conf");
+        helper.execute("/excel/local_excel_numeric_poi_to_assert.conf");
+        helper.execute("/excel/local_excel_numeric_easyexcel_to_assert.conf");
     }
 
     @TestTemplate
