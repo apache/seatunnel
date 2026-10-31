@@ -213,23 +213,41 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
      */
     private static final long JOB_TIMEOUT_MINUTES = 30;
 
+    /**
+     * Upper bound, enforced on the host, for one thread dump request. The request is itself a
+     * {@code docker exec}; if the Docker transport stalls instead of failing, an unbounded request
+     * would block the test past {@link #JOB_TIMEOUT_MINUTES} and recreate the silent workflow-level
+     * cancellation this class exists to prevent. The in-container command only needs a few seconds
+     * (signal the JVMs, then sleep 5 so HotSpot can write the dumps), so a request that misses this
+     * deadline is abandoned and logged. Stopping the containers in teardown remains the cleanup
+     * boundary for whatever the abandoned exec left behind.
+     */
+    private static final long THREAD_DUMP_TIMEOUT_SECONDS = 60;
+
+    /**
+     * Shell command that asks every JVM in a container for a thread dump. SIGQUIT makes HotSpot
+     * print the dump to the process's own stdout, which testcontainers already forwards into the
+     * test log, so this works on images without jstack or jcmd. The JVMs are found through /proc
+     * because the Flink images do not ship pgrep.
+     */
+    private static final String THREAD_DUMP_COMMAND =
+            "for proc in /proc/[0-9]*; do"
+                    + " if [ \"$(cat \"$proc/comm\" 2>/dev/null)\" = java ]; then"
+                    + " kill -QUIT \"${proc#/proc/}\"; fi; done; sleep 5";
+
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        ExecutorService executor =
-                Executors.newSingleThreadExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "flink-e2e-job-" + identifier());
-                            thread.setDaemon(true);
-                            return thread;
-                        });
+        ExecutorService executor = newDaemonExecutor("flink-e2e-job-" + identifier());
         Future<Container.ExecResult> result =
                 executor.submit(() -> executeJob(jobManager, confFile, null, variables));
         try {
-            return result.get(JOB_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+            return result.get(getJobTimeout().toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            // Capture the state of both JVMs before anything is torn down; see dumpJvmThreads.
+            // Capture the state of both JVMs before anything is torn down. Each request is bounded
+            // on the host (see THREAD_DUMP_TIMEOUT_SECONDS), so a stalled first request cannot
+            // prevent the second one or the timeout failure below.
             dumpJvmThreads("jobmanager", jobManager);
             dumpJvmThreads("taskmanager", taskManager);
             result.cancel(true);
@@ -237,7 +255,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "SeaTunnel job "
                             + confFile
                             + " did not finish within "
-                            + JOB_TIMEOUT_MINUTES
+                            + getJobTimeout().toMinutes()
                             + " minutes on "
                             + identifier()
                             + "; thread dumps of the JobManager and TaskManager JVMs were"
@@ -261,29 +279,69 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     /**
-     * Asks every JVM in the container for a thread dump. SIGQUIT makes HotSpot print the dump to
-     * the process's own stdout, which testcontainers already forwards into the test log, so this
-     * works on images without jstack or jcmd. The JVMs are found through /proc because the Flink
-     * images do not ship pgrep.
+     * How long {@link #executeJob} waits for the job before treating it as hung. Overridden by unit
+     * tests so the timeout path can be exercised without a real 30-minute job.
+     */
+    Duration getJobTimeout() {
+        return Duration.ofMinutes(JOB_TIMEOUT_MINUTES);
+    }
+
+    /**
+     * How long {@link #dumpJvmThreads} waits for one thread dump request on the host side.
+     * Overridden by unit tests so a stalled request can be simulated within a test budget.
+     */
+    Duration getThreadDumpTimeout() {
+        return Duration.ofSeconds(THREAD_DUMP_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Requests thread dumps from every JVM in the container and waits at most {@link
+     * #getThreadDumpTimeout()} for the request to return. Failures and timeouts are only logged:
+     * the dumps are diagnostics for the job timeout, and must never replace or delay it.
      */
     private void dumpJvmThreads(String role, GenericContainer<?> container) {
+        ExecutorService executor = newDaemonExecutor("flink-e2e-thread-dump-" + role);
+        Future<Container.ExecResult> dump =
+                executor.submit(() -> container.execInContainer("bash", "-c", THREAD_DUMP_COMMAND));
         try {
-            Container.ExecResult dump =
-                    container.execInContainer(
-                            "bash",
-                            "-c",
-                            "for proc in /proc/[0-9]*; do"
-                                    + " if [ \"$(cat \"$proc/comm\" 2>/dev/null)\" = java ]; then"
-                                    + " kill -QUIT \"${proc#/proc/}\"; fi; done; sleep 5");
+            Container.ExecResult result =
+                    dump.get(getThreadDumpTimeout().toMillis(), TimeUnit.MILLISECONDS);
             log.warn(
                     "Requested thread dumps from the {} JVMs (exit code {}) {}{}",
                     role,
-                    dump.getExitCode(),
-                    dump.getStdout(),
-                    dump.getStderr());
+                    result.getExitCode(),
+                    result.getStdout(),
+                    result.getStderr());
+        } catch (TimeoutException e) {
+            log.warn(
+                    "Thread dump request to the {} JVMs did not return within {}; abandoning it so"
+                            + " the job timeout can still be reported",
+                    role,
+                    getThreadDumpTimeout());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while requesting thread dumps from the {} JVMs", role, e);
         } catch (Exception e) {
             log.warn("Could not request thread dumps from the {} JVMs", role, e);
+        } finally {
+            // Also interrupts a request that missed the deadline, so the daemon thread does not
+            // keep a stalled docker exec alive for the rest of the JVM's life.
+            dump.cancel(true);
+            executor.shutdownNow();
         }
+    }
+
+    /**
+     * Daemon threads keep a stalled docker exec from pinning the JVM after the test has already
+     * failed; the surefire/failsafe fork must still be able to exit.
+     */
+    private static ExecutorService newDaemonExecutor(String threadName) {
+        return Executors.newSingleThreadExecutor(
+                runnable -> {
+                    Thread thread = new Thread(runnable, threadName);
+                    thread.setDaemon(true);
+                    return thread;
+                });
     }
 
     @Override
