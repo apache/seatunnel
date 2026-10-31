@@ -22,6 +22,8 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 public class ConfigValidationResultTest {
 
     @Test
@@ -61,6 +63,21 @@ public class ConfigValidationResultTest {
                 JsonUtils.readTree(
                                 result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
                         .at("/errors/0/ruleCategory")
+                        .asText());
+    }
+
+    @Test
+    void escapesSpecialCharactersInErrorMessages() throws Exception {
+        String message = "Invalid value: \"quoted\"\nnext line\tcontrol";
+        ConfigValidationResult result =
+                ConfigValidationResult.failure(
+                        "static",
+                        new ConfigValidationError(null, null, null, "validation", message));
+
+        Assertions.assertEquals(
+                message,
+                JsonUtils.readTree(result.toJson().getBytes(StandardCharsets.UTF_8))
+                        .at("/errors/0/message")
                         .asText());
     }
 }

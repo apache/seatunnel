@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
@@ -28,6 +29,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.beust.jcommander.ParameterException;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -79,6 +82,28 @@ public class ClientCommandArgsTest {
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
         Assertions.assertEquals(DryRun.STATIC, clientCommandArgs.getDryRun());
+    }
+
+    @Test
+    public void testJsonFormatRequiresValidationCommand() {
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", "app.conf", "--format", "json"},
+                        new ClientCommandArgs(),
+                        "seatunnel-client",
+                        true);
+        Assertions.assertThrows(ParameterException.class, args::buildCommand);
+    }
+
+    @Test
+    public void testJsonFormatIsAcceptedForCheck() {
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", "app.conf", "--check", "--format", "json"},
+                        new ClientCommandArgs(),
+                        "seatunnel-client",
+                        true);
+        Assertions.assertEquals(OutputFormat.JSON, args.getOutputFormat());
     }
 
     @Test
