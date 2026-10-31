@@ -232,7 +232,9 @@ When an initial consistent snapshot is made for large databases, your establishe
 
 `scan.newly-added-table.enabled` is evaluated only on checkpoint/savepoint restore. The default `true` preserves the existing hybrid-restore behavior: newly matched tables enter the snapshot phase before binlog reading resumes. Set it to `false` to retain only the checkpointed table set. This is independent of runtime binlog discovery, which remains disabled by default.
 
-`scan.binlog.newly-added-table.enabled` works while the job is already reading binlog. It registers table metadata from the `CREATE TABLE` schema record and then reads following DML records for that table. It does not backfill rows that existed before the `CREATE TABLE` binlog position. Runtime-registered tables and their writer states are retained in the checkpoint and restored without a new snapshot.
+`scan.binlog.newly-added-table.enabled` works while the job is already reading binlog. It registers table metadata from the `CREATE TABLE` schema record and then reads following DML records for that table. It does not backfill rows that existed before the `CREATE TABLE` binlog position. Runtime-registered tables and their writer states are retained in the checkpoint and restored without a new snapshot: on restore the checkpointed schema of such a table is re-admitted even though the submitted catalog predates it, the table joins the captured set so its binlog schema history is recovered, and its `CREATE` event is sent again before its first resumed row (JDBC applies it as create-if-missing). A runtime table that was dropped or no longer matches the capture pattern while the job was stopped is not re-admitted. Restoring with `scan.binlog.newly-added-table.enabled = false` drops runtime-registered tables from the produced schema again.
+
+`schema-changes.include` / `schema-changes.exclude` do not apply to runtime table registration. The `CREATE` event of an admitted table is always sent downstream because the table's rows follow it; the lists only filter column-level DDL of captured tables.
 
 JDBC runtime tables require `is_exactly_once = false` and `generate_sink_sql = true`, without a custom `query`. A sink that has not opted in fails the job rather than silently dropping CREATE events. The sink's configured database/table template determines the target; a source CREATE cannot override those options. Grant the sink account only the permissions needed for that target.
 
@@ -418,6 +420,8 @@ Precedence is deterministic:
 1. if `schema-changes.include` is set, only included event types are eligible;
 2. `schema-changes.exclude` is then applied;
 3. **exclude wins** when a type appears in both lists.
+
+Runtime table registration events produced by `scan.binlog.newly-added-table.enabled` are control events and are never filtered by these lists; see [Newly Added Tables](#newly-added-tables).
 
 ```hocon
 source {

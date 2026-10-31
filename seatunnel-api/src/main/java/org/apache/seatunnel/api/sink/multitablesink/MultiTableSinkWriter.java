@@ -736,6 +736,20 @@ public class MultiTableSinkWriter
      * <p>The table identifier stored in the multi-table writer map always follows the upstream
      * source table path. Individual sink writers are responsible for translating it to their
      * physical target naming rules.
+     *
+     * <p>Lock-ordering contract: this method only runs on the schema-change barrier dispatcher,
+     * that is the last queue worker to reach {@code SchemaChangeBarrier#reachBarrier()}. At that
+     * moment every queue worker, the dispatcher included, is parked inside {@link
+     * MultiTableWriterRunnable#run()} while holding its own runnable monitor, and every coordinator
+     * path that mutates the per-queue writer registries ({@link #snapshotState(long)}, {@link
+     * #prepareCommit(long)}, {@code aggregatedFlush}, {@link #close()}, {@code removeTableWriters})
+     * blocks on those monitors until the barrier latch is released. The barrier therefore already
+     * gives the dispatcher exclusive access to those registries. Acquiring {@code runnable.get(i)}
+     * here would instead wait for a monitor held by a parked worker that itself waits for this
+     * dispatcher to count the latch down, a deterministic lock/latch cycle as soon as more than one
+     * queue exists ({@code multi_table_sink_replica > 1}). Registration must never take a runnable
+     * monitor; the latch count-down inside the barrier publishes the new writer to the parked
+     * workers before they resume consuming rows.
      */
     private void registerNewlyCreatedTable(CreateTableEvent event) throws IOException {
         CatalogTable catalogTable = event.getChangeAfter();
@@ -752,11 +766,9 @@ public class MultiTableSinkWriter
             }
             SinkIdentifier sinkIdentifier =
                     SinkIdentifier.of(tableIdentifier, sinkWriterTemplate.getWriterIndex());
-            boolean alreadyRegistered;
-            synchronized (runnable.get(i)) {
-                alreadyRegistered = sinkWritersWithIndex.get(i).containsKey(sinkIdentifier);
-            }
-            if (alreadyRegistered) {
+            // A replayed CREATE (retry or restore replay) must reuse the installed writer instead
+            // of creating another one. No monitor is taken for this read; see the method contract.
+            if (sinkWritersWithIndex.get(i).containsKey(sinkIdentifier)) {
                 continue;
             }
             SinkWriter.Context baseContext = sinkWriterTemplate.getContext();
@@ -786,31 +798,24 @@ public class MultiTableSinkWriter
                 }
                 throw failure;
             }
-            boolean installed = false;
-            synchronized (runnable.get(i)) {
-                if (!sinkWritersWithIndex.get(i).containsKey(sinkIdentifier)) {
-                    sinkWriters.put(sinkIdentifier, newWriter);
-                    sinkWritersWithIndex.get(i).put(sinkIdentifier, newWriter);
-                    proxyContexts.put(sinkIdentifier, context);
-                    sinkIdentifiersByTable
-                            .computeIfAbsent(
-                                    tableIdentifier,
-                                    key -> Collections.synchronizedList(new ArrayList<>()))
-                            .add(sinkIdentifier);
-                    sinkWritersContext.put(sinkIdentifier, baseContext);
-                    runnable.get(i).registerWriter(tableIdentifier, newWriter);
-                    sinkPrimaryKeys.put(tableIdentifier, newMultiTableWriter.primaryKey());
-                    runtimeCreatedTables.put(tableIdentifier, catalogTable);
-                    log.info(
-                            "Registered runtime sink writer for newly created table {} on sub-writer {}",
-                            tableIdentifier,
-                            i);
-                    installed = true;
-                }
-            }
-            if (!installed) {
-                newWriter.close();
-            }
+            // Install without taking the runnable monitor: while every queue worker is parked at
+            // the barrier, the dispatcher is the only thread that can touch these registries, and
+            // taking runnable.get(i) here is exactly the lock/latch cycle described above.
+            sinkWriters.put(sinkIdentifier, newWriter);
+            sinkWritersWithIndex.get(i).put(sinkIdentifier, newWriter);
+            proxyContexts.put(sinkIdentifier, context);
+            sinkIdentifiersByTable
+                    .computeIfAbsent(
+                            tableIdentifier, key -> Collections.synchronizedList(new ArrayList<>()))
+                    .add(sinkIdentifier);
+            sinkWritersContext.put(sinkIdentifier, baseContext);
+            runnable.get(i).registerWriterAtSchemaChangeBarrier(tableIdentifier, newWriter);
+            sinkPrimaryKeys.put(tableIdentifier, newMultiTableWriter.primaryKey());
+            runtimeCreatedTables.put(tableIdentifier, catalogTable);
+            log.info(
+                    "Registered runtime sink writer for newly created table {} on sub-writer {}",
+                    tableIdentifier,
+                    i);
         }
     }
 

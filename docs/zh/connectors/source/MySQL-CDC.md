@@ -231,7 +231,9 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 
 `scan.newly-added-table.enabled` 仅在 checkpoint/savepoint 恢复时生效。默认 `true` 保留既有 hybrid 恢复行为：新匹配的表先进入快照阶段，再继续读取 binlog。设置为 `false` 时仅保留 checkpoint 中的表集合。该开关与默认关闭的运行期 binlog 新表发现相互独立。
 
-`scan.binlog.newly-added-table.enabled` 在任务已经读取 binlog 时生效。它会根据 `CREATE TABLE` schema record 注册新表结构，然后读取该表之后的 DML 记录。它不会补齐 `CREATE TABLE` binlog 位置之前已经存在的数据。运行期注册的表及其 writer state 会被写入 checkpoint，并在恢复时直接重建，不会重新做快照。
+`scan.binlog.newly-added-table.enabled` 在任务已经读取 binlog 时生效。它会根据 `CREATE TABLE` schema record 注册新表结构，然后读取该表之后的 DML 记录。它不会补齐 `CREATE TABLE` binlog 位置之前已经存在的数据。运行期注册的表及其 writer state 会被写入 checkpoint，并在恢复时直接重建，不会重新做快照：恢复时即使提交的 catalog 早于该表，checkpoint 中的表结构也会被重新接纳，该表会加入捕获集合以恢复其 binlog schema history，并在其第一条恢复数据行之前重新发送 `CREATE` 事件（JDBC 按不存在才创建处理）。任务停止期间被删除或不再匹配捕获规则的运行期表不会被重新接纳。以 `scan.binlog.newly-added-table.enabled = false` 恢复时，运行期注册的表会再次从产出 schema 中移除。
+
+`schema-changes.include` / `schema-changes.exclude` 不作用于运行期新表注册。被接纳表的 `CREATE` 事件总是发送到下游，因为该表的数据行紧随其后；这两个列表只过滤已捕获表的列级 DDL。
 
 JDBC 运行期新表要求 `is_exactly_once = false`、`generate_sink_sql = true`，且不配置自定义 `query`。未声明支持该能力的 Sink 会使任务失败，不会静默丢弃 CREATE 事件。目标由 Sink 配置的 database/table 模板决定，源端 CREATE 不能覆盖这些选项；账号仅应授予目标所需权限。
 
@@ -417,6 +419,8 @@ sink {
 1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
 2. 然后应用 `schema-changes.exclude`；
 3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+由 `scan.binlog.newly-added-table.enabled` 产生的运行期新表注册事件属于控制事件，不受这两个列表过滤；详见[运行期新增表](#运行期新增表)。
 
 ```hocon
 source {

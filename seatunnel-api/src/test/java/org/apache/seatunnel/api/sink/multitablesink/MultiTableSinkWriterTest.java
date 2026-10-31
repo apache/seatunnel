@@ -55,7 +55,9 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -203,16 +205,27 @@ public class MultiTableSinkWriterTest {
     /**
      * Failed runtime registration either fails the task or checkpoints the table quarantine; no
      * path may continue as though the rejected table had a working writer.
+     *
+     * <p>The sink starts with one healthy table so CONTINUE_OTHER_TABLES really has another table
+     * to continue with. Without it the quarantined runtime table would be the only table the sink
+     * knows, and the pre-existing all-tables-isolated rule of the coordinator reports that state as
+     * an isolated-failure IOException instead of continuing.
      */
     @Test
     public void testRuntimeRegistrationFailurePolicy() throws Exception {
         for (MultiTableFailurePolicy policy : MultiTableFailurePolicy.values()) {
+            DynamicTestSinkWriter.WRITTEN_ROWS.clear();
             AtomicInteger attempts = new AtomicInteger();
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+            SinkIdentifier healthyIdentifier = SinkIdentifier.of("db1.healthy", 0);
+            sinkWriters.put(healthyIdentifier, new DynamicTestSinkWriter("db1.healthy"));
+            sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
             MultiTableSinkWriter writer =
                     new MultiTableSinkWriter(
-                            new HashMap<>(),
+                            sinkWriters,
                             1,
-                            new HashMap<>(),
+                            sinkWritersContext,
                             policy,
                             JobMode.STREAMING,
                             Collections.emptyList(),
@@ -232,9 +245,8 @@ public class MultiTableSinkWriterTest {
                 Assertions.assertEquals(1, attempts.get());
             } else {
                 writer.applySchemaChange(event);
-                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
-                row.setTableId(table.getTablePath().getFullName());
-                writer.write(row);
+                writer.write(buildRow(table.getTablePath().getFullName(), 1));
+                writer.write(buildRow("db1.healthy", 1));
                 List<MultiTableState> states = writer.snapshotState(1);
                 Assertions.assertEquals(3, attempts.get());
                 Assertions.assertEquals(1, states.get(0).getFailedTables().size());
@@ -243,6 +255,12 @@ public class MultiTableSinkWriterTest {
                         states.get(0).getFailedTables().get(0).getTablePath());
                 Assertions.assertEquals(
                         Collections.emptyList(), states.get(0).getRuntimeCreatedTables());
+                // The quarantine isolates the rejected table only; the healthy table keeps writing
+                // and no row of the rejected table reaches any writer.
+                Assertions.assertEquals(
+                        1, DynamicTestSinkWriter.WRITTEN_ROWS.get("db1.healthy").size());
+                Assertions.assertNull(
+                        DynamicTestSinkWriter.WRITTEN_ROWS.get(table.getTablePath().getFullName()));
             }
             try {
                 writer.close();
@@ -252,6 +270,54 @@ public class MultiTableSinkWriterTest {
                 }
             }
         }
+    }
+
+    /**
+     * Two queue workers park at the schema-change barrier while each holds its own runnable
+     * monitor; the dispatcher must install the runtime writers without waiting for those monitors.
+     * Registration that synchronizes on every runnable hangs forever with two replicas, so the
+     * whole flow runs under a preemptive timeout and the timeout is the failure signal.
+     */
+    @Test
+    public void testRuntimeCreateTableRegistersOnEveryQueueWithoutDeadlock() {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.clear();
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        new HashMap<>(),
+                        2,
+                        new HashMap<>(),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Arrays.asList(
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 0),
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 1)),
+                        (table, context) ->
+                                new DynamicTestSinkWriter(table.getTablePath().getFullName()));
+        CatalogTable table = catalogTable(TablePath.of("db1", "two_replica_table"));
+        String tableId = table.getTablePath().getFullName();
+
+        Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(30),
+                () -> {
+                    writer.applySchemaChange(new CreateTableEvent(table.getTableId(), table));
+                    // Primary-key values 0 and 1 hash to queue 0 and queue 1, so both rows are
+                    // only written when both per-queue runtime writers were registered.
+                    writer.write(buildRow(tableId, 0));
+                    writer.write(buildRow(tableId, 1));
+                    List<MultiTableState> states = writer.snapshotState(1L);
+                    Assertions.assertEquals(2, states.get(0).getStates().size());
+                    Assertions.assertEquals(1, states.get(0).getRuntimeCreatedTables().size());
+                    writer.close();
+                });
+
+        Assertions.assertEquals(2, DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get(tableId).size());
+        Assertions.assertEquals(2, DynamicTestSinkWriter.WRITTEN_ROWS.get(tableId).size());
     }
 
     @Test
