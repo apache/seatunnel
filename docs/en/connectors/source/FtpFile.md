@@ -59,9 +59,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
-| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
+| read_partitions | list | no | - |
 | parse_partition_from_path   | boolean | no       | true                        |
 | date_format                 | string  | no       | yyyy-MM-dd                  |
 | datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss         |
@@ -73,7 +74,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |
 | xml_use_attr_format         | boolean | no       | -                           |
-| csv_use_header_line         | boolean | no       | -                           |
+| csv_use_header_line         | boolean | no       | false                           |
 | file_filter_pattern         | string  | no       | -                           |
 | filename_extension          | string  | no       | -                           |
 | compress_codec              | string  | no       | none                        |
@@ -300,7 +301,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -679,8 +680,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
     password = tianchao
     file_format_type = "text"
     schema = {
-      name = string
-      age = int
+      fields {
+        name = string
+        age = int
+      }
     }
     field_delimiter = "#"
   }
@@ -905,30 +908,9 @@ sink {
 }
 ```
 
-### Reading via SFTP (SSH File Transfer)
+### Reading from an SFTP server
 
-`FtpFile` reads from FTP and SFTP servers through the same Hadoop FileSystem URI scheme; switch to `sftp://` to use SSH instead of plain FTP. SFTP requires an SSH key (or a password) for authentication, and the host key must be trusted by the running JVM (either via `~/.ssh/known_hosts` or a custom `known_hosts` file passed through `ftp_properties`).
-
-```hocon
-source {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "csv"
-    delimiter = ","
-    ftp_properties = {
-      "fs.sftp.user." = "seatunnel"
-      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"   = "sftp.example.example.com"
-      "fs.sftp.port"   = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
-
-If the SFTP server uses a self-signed host key, add it to `known_hosts` ahead of time — otherwise the first read throws a `SftpException` complaining about host verification. The connector does not cache or refresh `known_hosts` itself; updating the file and restarting the job is enough.
+The `FtpFile` connector only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To read files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) connector instead, which configures the server through `host`/`port`/`user`/`password` (and optional SSH `keyfile`) options.
 
 ## Changelog
 
