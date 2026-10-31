@@ -26,7 +26,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | SeaTunnel Data Type |      Kudu Data Type      |
 |---------------------|--------------------------|
 | BOOLEAN             | BOOL                     |
-| INT                 | INT8<br/>INT16<br/>INT32 |
+| TINYINT             | INT8                     |
+| SMALLINT            | INT16                    |
+| INT                 | INT32                    |
 | BIGINT              | INT64                    |
 | DECIMAL             | DECIMAL                  |
 | FLOAT               | FLOAT                    |
