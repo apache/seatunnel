@@ -108,6 +108,9 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
+| sslmode                                   | String   | 否   | -        | Debezium PostgreSQL 复制连接与数据连接的 SSL 模式，可选值：`disable`、`require`、`verify-ca`、`verify-full`。需显式开启：仅在配置该参数时才会写入 `database.sslmode`，并覆盖 `debezium.database.sslmode`。未配置时不修改 `database.sslmode`（不会沿用 JDBC `url` 中的 `sslmode` 查询参数），若配置了 `debezium.database.sslmode` 则以其为准，否则实际默认值为 Debezium 默认的 `disable`。 |
+| publication.name                          | String   | 否   | -        | 使用 `pgoutput` 插件时的 PostgreSQL 发布（Publication）名称，未配置时默认为 `dbz_publication`。Publication 用于在数据库服务端定义允许逻辑复制输出的表名单（仅作表范围过滤，不记录消费进度）。仅当 `decoding.plugin.name = "pgoutput"`（默认）时生效。                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| publication.autocreate.mode               | String   | 否   | -        | 控制连接器如何创建或使用 `publication.name` 指定的发布（仅 `pgoutput` 插件生效，默认 `all_tables`）：<br/> `all_tables`：若发布不存在，自动执行 `CREATE PUBLICATION ... FOR ALL TABLES`（需要数据库 Superuser 权限），数据库会输出全库所有表的变更。<br/> `filtered`：若发布不存在，仅针对当前任务监控的表自动执行 `CREATE PUBLICATION ... FOR TABLE ...`（需要当前库 `CREATE` 权限及监控表的 Owner 权限），数据库仅输出监控表的变更。多个任务使用 `filtered` 时请配置不同的 `publication.name`，避免互相覆盖表清单。<br/> `disabled`：不自动创建或修改发布，直接使用数据库中已存在的 `publication.name`（不存在则报错）。适合生产环境由管理员预先建好 `FOR TABLE` 发布的最小权限场景；多个任务可安全共用同一个已包含所需表的发布。 |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -225,6 +228,33 @@ source {
   }
 }
 ```
+
+### 配置 publication
+
+在云数据库（RDS）或权限受控的生产环境中，CDC 账号通常没有数据库 Superuser 权限，无法自动执行 `CREATE PUBLICATION ... FOR ALL TABLES`。此时可由管理员预先在 PostgreSQL 中按表创建发布：
+
+```sql
+CREATE PUBLICATION seatunnel_pub FOR TABLE inventory.postgres_cdc_table_1;
+```
+
+然后在任务中指定 `publication.name = "seatunnel_pub"` 与 `publication.autocreate.mode = "disabled"`：
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://localhost:5432/postgres_cdc"
+    slot.name = "seatunnel_postgres_cdc"
+    publication.name = "seatunnel_pub"
+    publication.autocreate.mode = "disabled"
+  }
+}
+```
+
+若同时使用 `debezium.heartbeat.action.query`，且 `publication.autocreate.mode` 为 `disabled` 或 `filtered`，请确保心跳表也包含在发布中。
 
 ### 配置 Debezium 心跳
 
@@ -362,6 +392,11 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
 
 同时需要在 `postgresql.conf` 中设置 `wal_level = logical`，并在 `pg_hba.conf` 中添加允许该用户复制连接的条目。
 
+若使用默认的 `pgoutput` 插件，还需根据 `publication.autocreate.mode` 注意发布（Publication）权限：
+- `disabled`（生产推荐，权限最小）：由管理员预先执行 `CREATE PUBLICATION <publication.name> FOR TABLE ...;`，CDC 用户无需额外建对象权限。
+- `filtered`：CDC 用户需要当前数据库的 `CREATE` 权限，且为监控表的 Owner。
+- `all_tables`（默认）：若目标发布不存在，CDC 用户需要 Superuser（或云数据库的 `rds_superuser`）权限以创建 `FOR ALL TABLES` 发布。
+
 ### 支持哪些逻辑解码插件？
 
 SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
@@ -408,6 +443,21 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
+### PostgreSQL CDC 在连接被重置或网络中断后如何恢复？
+
+在流式读取阶段，连接器会按 `status.update.interval.ms`（Debezium 默认 10 秒，可通过 `debezium {}` 配置）
+探测 JDBC 元数据连接。探测失败时，连接器会关闭并原地重连该连接一次；数据库恢复可达后继续读取。
+
+如果重连时数据库或网络仍不可用，或者逻辑复制（walsender）连接已断开，原地重连无法恢复，
+source task 会失败；Zeta 引擎会按照 `job.retry.times`（默认 `3`）和
+`job.retry.interval.seconds`（默认 `3`）从最近一次成功的 checkpoint 恢复 pipeline。
+流式 CDC 任务请保持 `checkpoint.interval` 开启，不要设置 `job.retry.times = 0`。
+重试次数是 pipeline 生命周期内的累计值，请按需要承受的最长断网时间设置。
+
+从 checkpoint 恢复会从最近提交的 LSN 继续，不会重新执行快照；恢复后写入的数据会继续被消费。
+`debezium.heartbeat.interval.ms` 和 `status.update.interval.ms` 可以让复制连接和元数据连接保持活跃，
+同时建议在 JDBC URL 中设置 `tcpKeepAlive=true`。
 
 ## 另请参阅
 
