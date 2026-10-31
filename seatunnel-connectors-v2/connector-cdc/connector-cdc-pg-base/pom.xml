@@ -29,6 +29,17 @@
     <artifactId>connector-cdc-pg-base</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : PG Base</name>
 
+    <properties>
+        <!--
+            This module compiles against Debezium (PgBaseIncrementalSource and its test use
+            io.debezium.jdbc/relational classes) but does not ship a Debezium runtime itself: its
+            consumers connector-cdc-postgres and connector-cdc-opengauss package their own copy.
+            The version is declared here, as in every other CDC module, so it stays visible; keep
+            it in step with those two connectors.
+        -->
+        <debezium.version>1.9.8.Final</debezium.version>
+    </properties>
+
     <dependencies>
         <!--
             Must stay 'provided', like every other connector-cdc-* module. connector-cdc-base is
@@ -41,6 +52,24 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
             <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--
+            connector-cdc-base no longer exports Debezium transitively (its Debezium dependencies are
+            provided, and provided is not transitive), so the classes this module imports must be
+            declared here. Scope is provided: compile and test only, never bundled, so the
+            consuming connectors stay the single owner of the Debezium runtime on the plugin
+            classpath.
+        -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -66,6 +66,24 @@
             <scope>provided</scope>
         </dependency>
 
+        <!--
+            Debezium runtime owned by this connector. connector-cdc-base declares these as provided,
+            so the copies packaged into connector-cdc-sqlserver are the ones this connector runs on,
+            at the ${debezium.version} declared above.
+        -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-sqlserver</artifactId>
