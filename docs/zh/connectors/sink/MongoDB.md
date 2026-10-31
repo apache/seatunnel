@@ -37,6 +37,21 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 
 缓存、重试以及可选的事务都可以通过下文的配置项进行调节。
 
+## 连通性 Dry Run
+
+`--dry-run connect` 使用短生命周期客户端，向 `database` 发送 `ping` 命令，检查连通性并
+验证 `uri` 中配置的凭据。由于 Sink 向主节点写入，该命令使用 primary 读取偏好。URI 中的
+认证、TLS 和拓扑设置保持不变。允许匿名访问的部署不需要提供凭据；未配置凭据时，即使
+服务端要求写入时认证，此检查也只验证连通性。
+
+检查不会读取文档、创建 writer、启动事务或执行保存模式操作，也不会验证集合是否存在、
+字段兼容性、写入权限或事务支持。数据库或集合可以尚不存在，检查也不会创建它们。
+特别是，`DROP_DATA` 和 `ERROR_WHEN_DATA_EXISTS` 不会检查或修改已有数据。
+
+服务端选择、Socket 连接/读取以及连接池等待的超时时间分别限制为最多 30 秒，并保留 URI
+中更短的正数超时。验证客户端对每个服务端的连接池最多使用一个连接。这些限制并非整体
+执行期限，DNS 解析可能需要额外时间。正常作业执行及其连接设置不受影响。
+
 ## 支持的数据源信息
 
 要使用 MongoDB 连接器，需要以下依赖。可以通过 `install-plugin.sh` 下载，也可以从 Maven
@@ -90,6 +105,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | primary-key           | List     | 否       | -              | 用于 upsert 或更新的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
+| multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### 提示
@@ -296,6 +312,66 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name", "status"]
+  }
+}
+```
+
+### CDC 变更日志写入
+
+当上游是变更日志类数据源时，可以将 `upsert-enable` 设为 `true` 并配置 `primary-key`，让 `UPDATE`、`DELETE`
+事件匹配已有文档而不是作为新文档重复插入。接收端还提供 `buffer-flush.max-rows`、`buffer-flush.interval` 和
+`retry.max` 用于控制批量刷新与重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### 事务写入（MongoDB 4.2+）
+
+将 `transaction` 设为 `true` 时，批量写入会被包装成 MongoDB 多文档事务。该选项需要 MongoDB 4.2 及以上版本，
+并按 checkpoint 边界提交。注意在事务模式下，引擎层的定时刷新会被自动禁用，以保证 checkpoint 提交边界不被
+打散。
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
   }
 }
 ```
