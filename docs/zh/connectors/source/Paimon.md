@@ -52,21 +52,21 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ## 配置选项
 
-| 名称                      | 类型       | 是否必须   | 默认值 |
-|-------------------------|----------|--------|---------------|
-| warehouse               | String   | 是      | -             |
-| catalog_name            | String   | 否      | paimon        |
-| catalog_type            | String   | 否      | filesystem    |
-| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 时是 | -             |
-| database                | String   | 是      | -             |
-| table                   | String   | 未配置 `table_list` 时是 | -             |
-| table_list              | array    | 未配置 `table` 时是 | -             |
-| user                    | String   | 否      | -             |
-| password                | String   | 否      | -             |
-| hdfs_site_path          | String   | 否      | -             |
-| query                   | String   | 否      | -             |
-| paimon.hadoop.conf      | Map      | 否      | -             |
-| paimon.hadoop.conf-path | String   | 否      | -             |
+| 名称                      | 类型       | 是否必须   | 默认值 | 描述 |
+|-------------------------|----------|--------|---------------|---|
+| warehouse               | String   | 是      | -             | Paimon warehouse 路径，不能为空白字符串。 |
+| catalog_name            | String   | 否      | paimon        | Paimon Catalog 名称。 |
+| catalog_type            | String   | 否      | filesystem    | Paimon Catalog 类型，支持 `filesystem` 和 `hive`。 |
+| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 时是 | -             | Paimon Catalog URI；`catalog_type` 为 `hive` 时必须配置。 |
+| database                | String   | 是      | -             | 需要访问的数据库。 |
+| table                   | String   | 未配置 `table_list` 时是 | -             | 需要访问的表；必须在 `table` 和 `table_list` 中选择一个配置。 |
+| table_list              | array    | 未配置 `table` 时是 | -             | 需要读取的表列表；每项必须包含 `database` 和 `table`，可单独配置 `query`。 |
+| user                    | String   | 否      | -             | 访问 Paimon 表的用户名。 |
+| password                | String   | 否      | -             | 访问 Paimon 表的密码，需要与 `user` 一起配置。 |
+| hdfs_site_path          | String   | 否      | -             | 已弃用的 `hdfs-site.xml` 路径；建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`。 |
+| query                   | String   | 否      | -             | 读取表时使用的过滤查询；未配置时读取所有行。 |
+| paimon.hadoop.conf      | Map      | 否      | -             | 应用到 Hadoop 配置的属性。 |
+| paimon.hadoop.conf-path | String   | 否      | -             | `core-site.xml`、`hdfs-site.xml` 和 `hive-site.xml` 的加载路径。 |
 
 ### warehouse [string]
 
@@ -278,7 +278,7 @@ source {
 }
 ```
 
-## Changelog
+## 读取 Paimon 表的 changelog
 
 如果要读取 paimon 表的 changelog，首先要为 Paimon 源表设置 `changelog-producer`，然后使用 SeaTunnel 流任务读取。
 
@@ -290,7 +290,7 @@ source {
 ```hocon
 env {
   parallelism = 1
-  job.mode = "Streaming"
+  job.mode = "STREAMING"
 }
 
 source {
@@ -319,7 +319,7 @@ SeaTunnel Paimon 源连接器支持批处理快照读取与流式 changelog 消�
 
 ### 如何配置 Paimon 的存储路径与 Catalog？
 
-通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `paimon.catalog.type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
+通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `catalog_type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
 
 ### Paimon 源连接器是否支持列投影？
 

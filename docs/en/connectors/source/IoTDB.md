@@ -276,7 +276,7 @@ The data format loaded to SeaTunnelRow is as follows:
 
 The split rule is:
 
-- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound)` is used as a single partition.
+- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound]` is used as a single partition.
 - Otherwise the range is divided into `num_partitions` equal slices. If `upper_bound - lower_bound < num_partitions`, the connector falls back to `upper_bound - lower_bound` partitions.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, and `num_partitions = 2` against the SQL `select * from test where age > 0 and age < 10`, the connector generates:
