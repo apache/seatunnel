@@ -57,7 +57,10 @@ class DefaultReaderTornTrailingRecordTest {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", "file:///");
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        FileSystem fs = FileSystem.getLocal(conf);
+        FileSystem fs = privateLocalFileSystem(conf);
+        // Private instance: do not change the checksum flag of the shared getLocal() cache.
+        // ChecksumFileSystem defaults writeChecksum to true and exposes no getter, so the default
+        // is restored in finally instead of a captured value.
         fs.setWriteChecksum(false);
         Serializer serializer = new ProtoStuffSerializer();
         Path parentPath = new Path(tempDir.resolve("wal").toUri());
@@ -92,14 +95,27 @@ class DefaultReaderTornTrailingRecordTest {
             out.write(firstFrame);
             out.write(secondFrame, 0, tornLength);
             out.hsync();
+        } finally {
+            fs.setWriteChecksum(true);
         }
 
-        DefaultReader reader = new DefaultReader();
-        reader.initialize(fs, serializer);
-        List<IMapFileData> loaded = reader.readAllData(parentPath);
+        try {
+            DefaultReader reader = new DefaultReader();
+            reader.initialize(fs, serializer);
+            List<IMapFileData> loaded = reader.readAllData(parentPath);
 
-        Assertions.assertEquals(1, loaded.size());
-        Assertions.assertArrayEquals(first.getKey(), loaded.get(0).getKey());
-        Assertions.assertArrayEquals(first.getValue(), loaded.get(0).getValue());
+            Assertions.assertEquals(1, loaded.size());
+            Assertions.assertArrayEquals(first.getKey(), loaded.get(0).getKey());
+            Assertions.assertArrayEquals(first.getValue(), loaded.get(0).getValue());
+        } finally {
+            fs.close();
+        }
+    }
+
+    /** A local file system that is not the shared instance returned by {@code getLocal()}. */
+    private static FileSystem privateLocalFileSystem(Configuration conf) throws Exception {
+        FileSystem fs = new org.apache.hadoop.fs.LocalFileSystem();
+        fs.initialize(java.net.URI.create("file:///"), conf);
+        return fs;
     }
 }

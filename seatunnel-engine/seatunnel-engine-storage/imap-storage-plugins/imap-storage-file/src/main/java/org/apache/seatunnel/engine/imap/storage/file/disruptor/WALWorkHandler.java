@@ -103,9 +103,10 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
                 executeResponse(requestId, false);
                 return;
             }
-            // Catch all failures so RequestFuture.done() is always published. Narrowing this to
-            // IOException previously allowed RuntimeException to kill the single WAL worker and
-            // leave callers blocked until their wait timeout.
+            // Catch every failure, including non-IO exceptions, so RequestFuture.done() is always
+            // published. The writer is not reused after that: fail-close is permanent until process
+            // restart. Narrowing this to IOException previously allowed RuntimeException to kill
+            // the single WAL worker and leave callers blocked until their wait timeout.
             try {
                 writer.write(iMapFileData);
             } catch (Exception e) {

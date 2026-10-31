@@ -63,7 +63,7 @@ class WALWorkHandlerSurvivabilityTest {
     @TempDir java.nio.file.Path tempDir;
 
     @Test
-    void nonIoExceptionFromWriteShouldNotKillWorkerAndSubsequentAppendIsFailClosed()
+    void nonIoExceptionFromWriteShouldNotKillWorkerAndWriterStaysPermanentlyFailClosed()
             throws Exception {
         WALWorkHandler handler = newHandler("wal-non-io");
 

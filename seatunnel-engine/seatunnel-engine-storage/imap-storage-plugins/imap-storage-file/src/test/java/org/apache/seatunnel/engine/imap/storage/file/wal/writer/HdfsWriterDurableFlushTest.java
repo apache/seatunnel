@@ -60,45 +60,62 @@ class HdfsWriterDurableFlushTest {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", "file:///");
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        FileSystem fs = FileSystem.getLocal(conf);
+        FileSystem fs = privateLocalFileSystem(conf);
         // Match production IMapFileStorage: without this, ChecksumFileSystem buffers writes and
         // mid-stream read-back from a second handle can see 0 records until close().
+        // This is a private instance, so the shared FileSystem.getLocal() cache is untouched.
+        // ChecksumFileSystem defaults writeChecksum to true and exposes no getter, so the default
+        // is restored in finally instead of a captured value.
         fs.setWriteChecksum(false);
         Serializer serializer = new ProtoStuffSerializer();
         Path parentPath = new Path(tempDir.resolve("wal").toUri());
         WALReader reader = new WALReader(fs, FileConfiguration.HDFS, serializer);
 
-        try (HdfsWriter writer = new HdfsWriter()) {
-            writer.initialize(fs, parentPath, serializer);
-            for (int index = 0; index < 8; index++) {
-                writer.write(
-                        IMapFileData.builder()
-                                .key(serializer.serialize("key-" + index))
-                                .keyClassName(String.class.getName())
-                                .value(serializer.serialize(index))
-                                .valueClassName(Integer.class.getName())
-                                .timestamp(System.nanoTime())
-                                .deleted(false)
-                                .build());
+        try {
+            try (HdfsWriter writer = new HdfsWriter()) {
+                writer.initialize(fs, parentPath, serializer);
+                for (int index = 0; index < 8; index++) {
+                    writer.write(
+                            IMapFileData.builder()
+                                    .key(serializer.serialize("key-" + index))
+                                    .keyClassName(String.class.getName())
+                                    .value(serializer.serialize(index))
+                                    .valueClassName(Integer.class.getName())
+                                    .timestamp(System.nanoTime())
+                                    .deleted(false)
+                                    .build());
 
-                // Assert durability after each append, before close(), so the test covers the
-                // write-through wait path rather than only close-time visibility.
-                if (index == 3 || index == 7) {
-                    Map<Object, Object> loaded = reader.loadAllData(parentPath, new HashSet<>());
-                    Assertions.assertEquals(index + 1, loaded.size());
-                    for (int verified = 0; verified <= index; verified++) {
-                        Assertions.assertEquals(verified, loaded.get("key-" + verified));
+                    // Assert durability after each append, before close(), so the test covers the
+                    // write-through wait path rather than only close-time visibility.
+                    if (index == 3 || index == 7) {
+                        Map<Object, Object> loaded =
+                                reader.loadAllData(parentPath, new HashSet<>());
+                        Assertions.assertEquals(index + 1, loaded.size());
+                        for (int verified = 0; verified <= index; verified++) {
+                            Assertions.assertEquals(verified, loaded.get("key-" + verified));
+                        }
                     }
                 }
             }
-        }
 
-        Assertions.assertTrue(Files.exists(tempDir.resolve("wal").resolve(IFileWriter.FILE_NAME)));
+            Assertions.assertTrue(
+                    Files.exists(tempDir.resolve("wal").resolve(IFileWriter.FILE_NAME)));
 
-        Map<Object, Object> loadedAfterClose = reader.loadAllData(parentPath, new HashSet<>());
-        Assertions.assertEquals(8, loadedAfterClose.size());
-        for (int index = 0; index < 8; index++) {
-            Assertions.assertEquals(index, loadedAfterClose.get("key-" + index));
+            Map<Object, Object> loadedAfterClose = reader.loadAllData(parentPath, new HashSet<>());
+            Assertions.assertEquals(8, loadedAfterClose.size());
+            for (int index = 0; index < 8; index++) {
+                Assertions.assertEquals(index, loadedAfterClose.get("key-" + index));
+            }
+        } finally {
+            fs.setWriteChecksum(true);
+            fs.close();
         }
+    }
+
+    /** A local file system that is not the shared instance returned by {@code getLocal()}. */
+    private static FileSystem privateLocalFileSystem(Configuration conf) throws Exception {
+        FileSystem fs = new org.apache.hadoop.fs.LocalFileSystem();
+        fs.initialize(java.net.URI.create("file:///"), conf);
+        return fs;
     }
 }

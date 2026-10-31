@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
@@ -94,6 +95,9 @@ public class IMapFileStorage implements IMapStorage {
     public String clusterName;
 
     public long writDataTimeoutMilliseconds;
+
+    /** Clock for the shared batch deadline. Tests inject a deterministic clock. */
+    private LongSupplier nanoTimeSource = System::nanoTime;
 
     /** We used disruptor to implement the asynchronous write. */
     WALDisruptor walDisruptor;
@@ -291,6 +295,14 @@ public class IMapFileStorage implements IMapStorage {
         }
     }
 
+    /**
+     * Replaces the batch-deadline clock. Production keeps {@link System#nanoTime()}; tests use a
+     * clock that does not depend on the wall clock.
+     */
+    void setNanoTimeSource(LongSupplier nanoTimeSource) {
+        this.nanoTimeSource = nanoTimeSource;
+    }
+
     @Override
     public void destroy(boolean deleteAllFileFlag) {
         log.info(
@@ -384,17 +396,18 @@ public class IMapFileStorage implements IMapStorage {
         // Shared deadline across the batch so a stuck worker cannot block storeAll/deleteAll for
         // N × writDataTimeoutMilliseconds. Computed once before the loop; each timed get uses the
         // remaining time clamped to a non-negative value (skip wait when already expired).
-        long waitStartedNanos = System.nanoTime();
+        long waitStartedNanos = nanoTimeSource.getAsLong();
         long deadlineNanos =
                 waitStartedNanos + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
             try {
-                long remainingNanos = Math.max(0L, deadlineNanos - System.nanoTime());
+                long remainingNanos = Math.max(0L, deadlineNanos - nanoTimeSource.getAsLong());
                 if (remainingNanos == 0L) {
                     long elapsedMs =
-                            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+                            TimeUnit.NANOSECONDS.toMillis(
+                                    nanoTimeSource.getAsLong() - waitStartedNanos);
                     log.warn(
                             "shared batch write deadline exceeded before waiting for requestId {} (elapsed {} ms, limit {} ms)",
                             entry.getKey(),
@@ -408,7 +421,8 @@ public class IMapFileStorage implements IMapStorage {
             } catch (TimeoutException e) {
                 // Expected when the shared batch deadline elapses; avoid an ERROR stack per key.
                 long elapsedMs =
-                        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+                        TimeUnit.NANOSECONDS.toMillis(
+                                nanoTimeSource.getAsLong() - waitStartedNanos);
                 log.warn(
                         "wait for write status timed out for requestId {} after {} ms (shared limit {} ms)",
                         entry.getKey(),
