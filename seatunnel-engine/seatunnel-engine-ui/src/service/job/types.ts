@@ -79,6 +79,8 @@ export type JobStatus =
   | 'UNKNOWABLE'
 export interface Job {
   jobId: string
+  /** Present only on the additive unknown-job response; successful payloads omit it. */
+  found?: boolean
   jobName: string
   jobStatus: JobStatus
   errorMsg: string
