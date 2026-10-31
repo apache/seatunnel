@@ -113,9 +113,25 @@ class HttpClientProviderTest {
     }
 
     @Test
+    void testJsonMapBodyDoesNotSetContentEncodingHeader() throws Exception {
+        HttpPost post = new HttpPost("http://localhost:8080");
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
+
+        HttpClientProvider.addBody(post, body);
+
+        Assertions.assertEquals("application/json", post.getFirstHeader("Content-Type").getValue());
+        Assertions.assertNull(post.getFirstHeader("Content-Encoding"));
+        Assertions.assertNull(post.getEntity().getContentEncoding());
+        Assertions.assertTrue(
+                post.getEntity().getContentType().getValue().contains("application/json"));
+    }
+
+    @Test
     void executePreservesNestedJsonBody() throws Exception {
         AtomicReference<String> receivedBody = new AtomicReference<>();
         AtomicReference<String> receivedQuery = new AtomicReference<>();
+        AtomicReference<String> receivedContentEncoding = new AtomicReference<>();
         List<String> receivedContentTypes = Collections.synchronizedList(new ArrayList<>());
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(
@@ -123,6 +139,8 @@ class HttpClientProviderTest {
                 exchange -> {
                     receivedBody.set(readRequestBody(exchange.getRequestBody()));
                     receivedQuery.set(exchange.getRequestURI().getQuery());
+                    receivedContentEncoding.set(
+                            exchange.getRequestHeaders().getFirst("Content-Encoding"));
                     receivedContentTypes.clear();
                     receivedContentTypes.addAll(exchange.getRequestHeaders().get("Content-Type"));
                     exchange.sendResponseHeaders(200, -1);
@@ -148,6 +166,8 @@ class HttpClientProviderTest {
         Assertions.assertEquals(200, response.getCode());
         Assertions.assertEquals(body, receivedBody.get());
         Assertions.assertEquals("traceId=123", receivedQuery.get());
+        Assertions.assertNull(
+                receivedContentEncoding.get(), "JSON is a content type, not a content encoding");
         // The caller-supplied Content-Type must not be duplicated. Otherwise the request
         // would carry two Content-Type headers, which RFC 7230 §3.2.2 forbids for
         // non-list headers and yields implementation-defined behaviour on the receiver.

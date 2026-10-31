@@ -20,11 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -156,6 +161,63 @@ public class JdbcOutputFormatTest {
         format.resetAfterRowError();
         Assertions.assertDoesNotThrow(() -> format.writeRecord("good"));
         Assertions.assertEquals(2, executor.executeBatchCount);
+    }
+
+    /**
+     * A restored format opens a new connection and reconstructs its transient transaction state.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testDeserializedFormatInitializesTransactionStateOnOpen() throws Exception {
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:sqlite::memory:")
+                        .driverName("org.sqlite.JDBC")
+                        .autoCommit(false)
+                        .batchSize(1)
+                        .build();
+        JdbcConnectionProvider provider = new SimpleJdbcConnectionProvider(config);
+        JdbcOutputFormat<String, CountingExecutor> original =
+                new JdbcOutputFormat<>(provider, config, CountingExecutor::new);
+        try {
+            original.open();
+            original.writeRecord("before restore");
+            original.markRolledBack(provider.getConnection(), false);
+            JdbcConnectorException lost =
+                    Assertions.assertThrows(
+                            JdbcConnectorException.class,
+                            () -> original.checkUncommittedBatchesOn(provider.getConnection()));
+            Assertions.assertTrue(
+                    lost.getMessage().contains("Flushed but uncommitted JDBC batches were lost"));
+
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+                output.writeObject(original);
+            }
+            JdbcOutputFormat<String, CountingExecutor> restored;
+            try (ObjectInputStream input =
+                    new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+                restored = (JdbcOutputFormat<String, CountingExecutor>) input.readObject();
+            }
+            try {
+                restored.open();
+                Assertions.assertDoesNotThrow(
+                        () ->
+                                restored.checkUncommittedBatchesOn(
+                                        restored.connectionProvider.getConnection()));
+                restored.writeRecord("after restore");
+                Connection replacement = mock(Connection.class);
+                JdbcConnectorException pending =
+                        Assertions.assertThrows(
+                                JdbcConnectorException.class,
+                                () -> restored.checkUncommittedBatchesOn(replacement));
+                Assertions.assertTrue(pending.getMessage().contains("before commit"));
+            } finally {
+                restored.close();
+            }
+        } finally {
+            original.close();
+        }
     }
 
     private static void setLastFlushTimeMs(JdbcOutputFormat<?, ?> outputFormat, long value)
