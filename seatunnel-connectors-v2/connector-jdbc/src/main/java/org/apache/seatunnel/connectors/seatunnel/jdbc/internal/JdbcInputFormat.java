@@ -77,7 +77,8 @@ public class JdbcInputFormat implements Serializable {
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getDialect(),
-                        config.getCompatibleMode()),
+                        config.getCompatibleMode(),
+                        config.getJdbcConnectionConfig()),
                 ChunkSplitter.create(config),
                 tables,
                 config.getJdbcConnectionConfig().isAutoCommit());

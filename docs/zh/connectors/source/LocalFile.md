@@ -49,6 +49,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 :::
 
+## 检查点恢复
+
+对于 Zeta 批处理作业，恢复时会等待读取器注册后再分配未完成的文件分片，并跳过检查点中已经完成的文件。恢复期间，输入文件应保持不变，且仍可通过相同路径访问。最终写入语义仍取决于所选 Sink 及其检查点支持。
+
 ## 选项
 
 | 名称                         | 类型      | 是否必须 | 默认值                 |
@@ -64,9 +68,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss |
 | time_format                | string  | 否    | HH:mm:ss            |
 | skip_header_row_number     | long    | 否    | 0                   |
-| schema                     | config  | 否    | -                   |
+| schema                     | config  | 视情况而定 | -                   |
 | sheet_name                 | string  | 否    | -                   |
 | excel_engine               | string  | 否    | POI                 |
+| excel_use_header_line      | boolean | 否    | false               |
 | poi_excel_max_file_size    | long    | 否    | 52428800            |
 | xml_row_tag                | string  | 否    | -                   |
 | xml_use_attr_format        | boolean | 否    | -                   |
@@ -156,23 +161,11 @@ schema {
 |------|-------------|---------|
 | 200  | get success | true    |
 
-如果您将文件类型指定为 `parquet` `orc`，则不需要 schema 选项，连接器可以自动找到上游数据的 schema。
+如果您将文件类型指定为 `parquet` 或 `orc`，则不需要 schema 选项，因为连接器可以从文件元数据中读取 schema。
 
-如果您将文件类型指定为 `text` `csv`，您可以选择指定或不指定 schema 信息。
+如果您将文件类型指定为 `json`、`excel` 或 `xml`，则必须指定 schema，因为这些格式不提供 SeaTunnel 所需的字段类型。
 
-例如，上游数据如下：
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-如果您不指定数据 schema，连接器将把上游数据视为如下：
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+对于 `text` 和 `csv`，schema 是可选的。未配置 schema 时，连接器会将每个输入行读取为一个 string 类型的 `content` 字段；此模式不支持 `read_columns`。如果需要有类型的字段或列映射，请配置 schema。
 
 如果您指定数据 schema，除了 CSV 文件类型外，您还应该指定选项 `field_delimiter`
 
@@ -212,7 +205,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`（`ARRAY<STRING>`）：直接子元素的 ID；叶子元素为空数组。
 
 当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
@@ -314,7 +307,7 @@ PDF 特有的解析行为如下：
 
 ### skip_header_row_number [long]
 
-跳过前几行，但仅适用于 txt 和 csv。
+跳过 text、CSV 或 Excel 文件的前几行。
 
 例如，设置如下：
 
@@ -322,9 +315,14 @@ PDF 特有的解析行为如下：
 
 然后 SeaTunnel 将跳过源文件的前 2 行
 
+对于设置了 `enable_file_split = false` 的 CSV 文件，此参数跳过的是 CSV 解析之前的物理行。如果设置了
+`csv_use_header_line = true`，跳过这些行之后的第一条 CSV 记录将作为表头。
+`skip_header_row_number` 只应包含表头之前的说明行，不要将表头本身计入；
+如果表头之前没有说明行，请保持默认值 `0`。
+
 ### schema [config]
 
-仅在 file_format_type 为 text、json、excel、xml 或 csv（或其他我们无法从元数据读取 schema 的格式）时需要配置。
+当 `file_format_type` 为 `json`、`excel` 或 `xml` 时必须配置。对于 `text` 和 `csv`，schema 是可选的；未配置时，每个输入行会被读取为一个 string 类型的 `content` 字段，并且不支持 `read_columns`。
 
 #### fields [Config]
 
@@ -357,6 +355,12 @@ PDF 特有的解析行为如下：
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
 
+### excel_use_header_line [boolean]
+
+仅用于 `file_format_type` 为 `excel` 的源。默认值为 `false`，因此即使设置了 `skip_header_row_number`，Excel 仍按列位置读取。
+
+设置 `excel_use_header_line = true` 后，第一行作为表头，按列名映射到 schema 字段，并跳过第一行。如果同时设置了 `skip_header_row_number`，则以 `excel_use_header_line` 为准。表头中缺少的字段将产生 null 值并记录警告。
+
 ### poi_excel_max_file_size [long]
 
 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
@@ -384,7 +388,7 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 
 ### csv_use_header_line [boolean]
 
-是否使用标题行解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用
+启用后，连接器会将第一个符合 RFC 4180 的 CSV 记录作为标题行，并按列名映射到已配置 `schema` 中的字段。此选项不会推断 schema 或字段类型。不要再使用 `skip_header_row_number` 跳过同一个标题行。
 
 ### file_filter_pattern [string]
 
