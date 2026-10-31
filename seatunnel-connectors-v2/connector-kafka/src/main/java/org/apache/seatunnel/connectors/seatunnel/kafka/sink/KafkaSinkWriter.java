@@ -40,6 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.BOOTSTRAP_SERVERS;
@@ -65,22 +67,37 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
 
     private static final int PREFIX_RANGE = 10000;
+    private static final Pattern WRITER_NAMESPACE_PATTERN =
+            Pattern.compile("(?:\\d+|g[0-9a-z]+w\\d+)");
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
             SeaTunnelRowType seaTunnelRowType,
             ReadonlyConfig pluginConfig,
             List<KafkaSinkState> kafkaStates) {
+        this(
+                context,
+                seaTunnelRowType,
+                pluginConfig,
+                kafkaStates,
+                resolveTransactionPrefix(pluginConfig),
+                generateWriterNamespaceGeneration());
+    }
+
+    KafkaSinkWriter(
+            SinkWriter.Context context,
+            SeaTunnelRowType seaTunnelRowType,
+            ReadonlyConfig pluginConfig,
+            List<KafkaSinkState> kafkaStates,
+            String transactionPrefix,
+            String writerNamespaceGeneration) {
         this.seaTunnelRowType = seaTunnelRowType;
+        this.transactionPrefix = transactionPrefix;
 
-        if (pluginConfig.get(TRANSACTION_PREFIX) != null) {
-            this.transactionPrefix = pluginConfig.get(TRANSACTION_PREFIX);
-        } else {
-            Random random = new Random();
-            this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
-        }
-
-        RestorePlan restorePlan = restoreState(context, kafkaStates);
+        String newWriterNamespace =
+                generateWriterNamespace(writerNamespaceGeneration, context.getIndexOfSubtask());
+        RestorePlan restorePlan =
+                restoreState(kafkaStates, newWriterNamespace, context.getIndexOfSubtask());
         this.writerTransactionPrefix = restorePlan.writerTransactionPrefix;
         this.currentTransactionSequence = restorePlan.nextTransactionSequence;
         this.seaTunnelRowSerializer = KafkaSinkSerializer.create(pluginConfig, seaTunnelRowType);
@@ -176,15 +193,42 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         return transactionPrefix + "-" + transactionSequence;
     }
 
+    static String resolveTransactionPrefix(ReadonlyConfig pluginConfig) {
+        if (pluginConfig.get(TRANSACTION_PREFIX) != null) {
+            return pluginConfig.get(TRANSACTION_PREFIX);
+        }
+        Random random = new Random();
+        return String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
+    }
+
+    static String generateWriterNamespaceGeneration() {
+        return "g"
+                + Long.toUnsignedString(
+                        UUID.randomUUID().getLeastSignificantBits(), Character.MAX_RADIX);
+    }
+
+    private static String generateWriterNamespace(
+            String writerNamespaceGeneration, int writerIndex) {
+        return writerNamespaceGeneration + "w" + writerIndex;
+    }
+
+    private static String generateWriterTransactionPrefix(
+            String transactionPrefix, String writerNamespace) {
+        return transactionPrefix + "-" + writerNamespace;
+    }
+
     /**
      * Builds an engine-neutral restore plan from the states assigned to this writer.
      *
      * <p>A restoring writer adopts one non-legacy namespace from its own assigned states. Since the
      * engine assigns each old writer state to exactly one new writer, no sibling can adopt or clean
      * that namespace concurrently. If there is no writer-specific state, a fresh namespace is
-     * derived from the current stable subtask index.
+     * derived from a sink-level generation token and the current stable subtask index. The token is
+     * serialized with the sink, so task retries reuse it, while a later rescale cannot collide with
+     * an old namespace that another writer adopted.
      */
-    private RestorePlan restoreState(SinkWriter.Context context, List<KafkaSinkState> states) {
+    private RestorePlan restoreState(
+            List<KafkaSinkState> states, String newWriterNamespace, int currentWriterIndex) {
         List<RestoredTransaction> restoredTransactions = new ArrayList<>(states.size());
         for (KafkaSinkState state : states) {
             restoredTransactions.add(parseRestoredTransaction(state));
@@ -192,21 +236,25 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
         if (restoredTransactions.isEmpty()) {
             return new RestorePlan(
-                    this.transactionPrefix + "-" + context.getIndexOfSubtask(),
+                    generateWriterTransactionPrefix(this.transactionPrefix, newWriterNamespace),
                     1L,
                     restoredTransactions);
         }
 
-        int currentWriterIndex = context.getIndexOfSubtask();
         Optional<RestoredTransaction> matchingWriterNamespace =
                 restoredTransactions.stream()
                         .filter(transaction -> !transaction.legacy)
                         .filter(
                                 transaction ->
                                         transaction.transactionIdPrefix.equals(
-                                                transaction.transactionPrefix
-                                                        + "-"
-                                                        + currentWriterIndex))
+                                                        generateWriterTransactionPrefix(
+                                                                transaction.transactionPrefix,
+                                                                newWriterNamespace))
+                                                || transaction.transactionIdPrefix.equals(
+                                                        generateWriterTransactionPrefix(
+                                                                transaction.transactionPrefix,
+                                                                Integer.toString(
+                                                                        currentWriterIndex))))
                         .min(Comparator.comparing(transaction -> transaction.transactionIdPrefix));
         Optional<RestoredTransaction> adoptedWriterNamespace =
                 matchingWriterNamespace.isPresent()
@@ -244,7 +292,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                         .orElseThrow(IllegalStateException::new);
         this.transactionPrefix = adoptedLegacyPrefix.transactionPrefix;
         return new RestorePlan(
-                this.transactionPrefix + "-" + currentWriterIndex, 1L, restoredTransactions);
+                generateWriterTransactionPrefix(this.transactionPrefix, newWriterNamespace),
+                1L,
+                restoredTransactions);
     }
 
     /**
@@ -303,18 +353,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         boolean legacy = restoredPrefix.equals(restoredTransactionPrefix);
         if (!legacy) {
-            String writerIndexSuffix =
+            String writerNamespace =
                     restoredPrefix.substring(restoredTransactionPrefix.length() + 1);
-            try {
-                if (Integer.parseInt(writerIndexSuffix) < 0) {
-                    throw new NumberFormatException("negative writer index");
-                }
-            } catch (NumberFormatException e) {
+            if (!WRITER_NAMESPACE_PATTERN.matcher(writerNamespace).matches()) {
                 throw new IllegalStateException(
                         String.format(
                                 "Cannot determine the writer owner of Kafka transaction prefix [%s]",
-                                restoredPrefix),
-                        e);
+                                restoredPrefix));
             }
         }
         return new RestoredTransaction(

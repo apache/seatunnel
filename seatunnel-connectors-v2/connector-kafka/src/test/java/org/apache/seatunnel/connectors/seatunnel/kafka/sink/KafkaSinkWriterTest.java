@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,6 +49,7 @@ import static org.mockito.Mockito.when;
 class KafkaSinkWriterTest {
 
     private static final String PREFIX = "shared-prefix-7";
+    private static final String GENERATION = "gtest";
 
     @Test
     void shouldKeepParallelWritersIsolatedAcrossCheckpoints() {
@@ -107,6 +111,27 @@ class KafkaSinkWriterTest {
             Assertions.assertNotEquals(
                     first.prepareCommit().get().getTransactionId(),
                     second.prepareCommit().get().getTransactionId());
+        }
+    }
+
+    @Test
+    void shouldKeepLegacyPrefixWhenConfiguredPrefixWasOmitted() {
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                mockProducers(new ArrayList<>())) {
+            List<KafkaSinkState> migratedState;
+            try (TestWriter migrated = writerWithoutConfiguredPrefix(2, 3, legacyState())) {
+                migratedState = migrated.snapshotState(5);
+                Assertions.assertEquals(PREFIX, migratedState.get(0).getTransactionIdPrefix());
+                Assertions.assertEquals(
+                        freshWriterPrefix(PREFIX, 2) + "-1",
+                        migratedState.get(0).getTransactionId());
+            }
+
+            try (TestWriter restored = writerWithoutConfiguredPrefix(2, 3, migratedState)) {
+                Assertions.assertEquals(
+                        freshWriterPrefix(PREFIX, 2) + "-2",
+                        restored.prepareCommit().orElseThrow().getTransactionId());
+            }
         }
     }
 
@@ -189,32 +214,104 @@ class KafkaSinkWriterTest {
     }
 
     @Test
+    void shouldKeepFreshNamespaceDistinctAfterScaleDownThenScaleUp() {
+        List<String> initializedIds = new ArrayList<>();
+        List<KafkaSinkState> adoptedState =
+                Collections.singletonList(
+                        new KafkaSinkState(PREFIX + "-2-4", PREFIX, 4, new Properties()));
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, Collections.emptySet());
+                TestWriter adoptedWriter = writer(1, 3, adoptedState)) {
+            String adoptedTransactionId =
+                    adoptedWriter.prepareCommit().orElseThrow().getTransactionId();
+            initializedIds.clear();
+
+            try (TestWriter freshWriter = writer(2, 3, Collections.emptyList())) {
+                String freshTransactionId =
+                        freshWriter.prepareCommit().orElseThrow().getTransactionId();
+
+                Assertions.assertNotEquals(
+                        transactionIdPrefix(adoptedTransactionId),
+                        transactionIdPrefix(freshTransactionId),
+                        "A stateless writer must not reuse a namespace adopted after scale-down");
+                Assertions.assertFalse(
+                        initializedIds.stream().anyMatch(id -> id.startsWith(PREFIX + "-2-")),
+                        "Fresh-writer cleanup must not fence the adopted old namespace");
+            }
+        }
+    }
+
+    @Test
     void shouldKeepTransactionSequenceContiguousWhenCheckpointIdsJump() {
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(new ArrayList<>(), Collections.emptySet());
                 TestWriter writer = writer(0, Collections.emptyList())) {
             List<KafkaSinkState> state = writer.snapshotState(9);
 
-            Assertions.assertEquals(PREFIX + "-0-1", state.get(0).getTransactionId());
             Assertions.assertEquals(
-                    PREFIX + "-0-2", writer.prepareCommit().get().getTransactionId());
+                    freshWriterPrefix(PREFIX, 0) + "-1", state.get(0).getTransactionId());
+            Assertions.assertEquals(
+                    freshWriterPrefix(PREFIX, 0) + "-2",
+                    writer.prepareCommit().get().getTransactionId());
         }
     }
 
     @Test
     void shouldFenceEveryStatelessWriterTransactionAfterScaleUpRetry() {
         List<String> initializedIds = new ArrayList<>();
-        Set<String> unfinishedIds = Set.of(PREFIX + "-2-1", PREFIX + "-2-2");
+        String writerPrefix = freshWriterPrefix(PREFIX, 2);
+        Set<String> unfinishedIds = Set.of(writerPrefix + "-1", writerPrefix + "-2");
 
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, unfinishedIds);
                 TestWriter writer = writer(2, 3, Collections.emptyList())) {
             Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
             Assertions.assertTrue(
-                    initializedIds.contains(PREFIX + "-2-3"),
+                    initializedIds.contains(writerPrefix + "-3"),
                     "Recovery must probe the first unused contiguous transaction ID");
             Assertions.assertEquals(
-                    PREFIX + "-2-1", writer.prepareCommit().get().getTransactionId());
+                    writerPrefix + "-1", writer.prepareCommit().get().getTransactionId());
+        }
+    }
+
+    @Test
+    void shouldReuseGeneratedPrefixWhenStatelessWriterRetries() throws Exception {
+        ReadonlyConfig config = config(false);
+        SeaTunnelRowType rowType = rowType();
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        KafkaSink sink = new KafkaSink(config, catalogTable);
+        SinkWriter.Context context = context(2, 3);
+        String abandonedTransactionId;
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                mockProducers(new ArrayList<>(), Collections.emptySet())) {
+            KafkaSinkWriter firstAttempt = (KafkaSinkWriter) sink.createWriter(context);
+            try {
+                abandonedTransactionId =
+                        firstAttempt.prepareCommit().orElseThrow().getTransactionId();
+            } finally {
+                firstAttempt.close();
+            }
+        }
+
+        DefaultSerializer<KafkaSink> sinkSerializer = new DefaultSerializer<>();
+        KafkaSink retrySink = sinkSerializer.deserialize(sinkSerializer.serialize(sink));
+        List<String> initializedIds = new ArrayList<>();
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                mockProducers(initializedIds, Collections.singleton(abandonedTransactionId))) {
+            KafkaSinkWriter retry = (KafkaSinkWriter) retrySink.createWriter(context);
+            try {
+                Assertions.assertTrue(
+                        initializedIds.contains(abandonedTransactionId),
+                        "A retry must fence the abandoned generated-prefix transaction");
+                Assertions.assertEquals(
+                        abandonedTransactionId,
+                        retry.prepareCommit().orElseThrow().getTransactionId());
+            } finally {
+                retry.close();
+            }
         }
     }
 
@@ -284,9 +381,25 @@ class KafkaSinkWriterTest {
             int parallelism,
             List<KafkaSinkState> state,
             boolean configureTransactionPrefix) {
+        SinkWriter.Context context = context(index, parallelism);
+        ReadonlyConfig config = config(configureTransactionPrefix);
+        return new TestWriter(
+                context,
+                rowType(),
+                config,
+                state,
+                configureTransactionPrefix ? PREFIX : "SeaTunnel9999",
+                GENERATION);
+    }
+
+    private static SinkWriter.Context context(int index, int parallelism) {
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         when(context.getIndexOfSubtask()).thenReturn(index);
         when(context.getNumberOfParallelSubtasks()).thenReturn(parallelism);
+        return context;
+    }
+
+    private static ReadonlyConfig config(boolean configureTransactionPrefix) {
         Map<String, Object> configValues = new HashMap<>();
         configValues.put("bootstrap.servers", "unused:9092");
         configValues.put("topic", "test");
@@ -295,11 +408,20 @@ class KafkaSinkWriterTest {
         if (configureTransactionPrefix) {
             configValues.put("transaction_prefix", PREFIX);
         }
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configValues);
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
-        return new TestWriter(context, rowType, config, state);
+        return ReadonlyConfig.fromMap(configValues);
+    }
+
+    private static SeaTunnelRowType rowType() {
+        return new SeaTunnelRowType(
+                new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+    }
+
+    private static String freshWriterPrefix(String transactionPrefix, int writerIndex) {
+        return transactionPrefix + "-" + GENERATION + "w" + writerIndex;
+    }
+
+    private static String transactionIdPrefix(String transactionId) {
+        return transactionId.substring(0, transactionId.lastIndexOf('-'));
     }
 
     /** Adapt the writer's close lifecycle to try-with-resources without changing its SPI. */
@@ -308,8 +430,10 @@ class KafkaSinkWriterTest {
                 SinkWriter.Context context,
                 SeaTunnelRowType rowType,
                 ReadonlyConfig config,
-                List<KafkaSinkState> state) {
-            super(context, rowType, config, state);
+                List<KafkaSinkState> state,
+                String transactionPrefix,
+                String writerNamespaceGeneration) {
+            super(context, rowType, config, state, transactionPrefix, writerNamespaceGeneration);
         }
     }
 

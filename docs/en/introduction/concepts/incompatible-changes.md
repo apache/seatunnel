@@ -14,7 +14,7 @@ You need to check this document before you upgrade to related version.
 
 ### Kafka sink: writer-specific transactional IDs
 
-With `semantics = EXACTLY_ONCE`, transactional IDs now include a writer namespace and contiguous transaction sequence: `<transaction_prefix>-<writer>-<sequence>` instead of `<transaction_prefix>-<checkpoint>`. This prevents parallel writers sharing a configured prefix from fencing each other and lets retries clean every later transaction without sequence gaps. Configuration keys and checkpoint serialization are unchanged.
+With `semantics = EXACTLY_ONCE`, transactional IDs now include an opaque writer namespace and contiguous transaction sequence: `<transaction_prefix>-<writer>-<sequence>` instead of `<transaction_prefix>-<checkpoint>`. The writer component is stable across task retries but is not guaranteed to equal the current subtask index because namespaces can survive rescaling. This prevents parallel writers sharing a configured prefix from fencing each other and lets retries clean every later transaction without sequence gaps. Configuration keys and checkpoint serialization are unchanged.
 
 Update Kafka transactional-ID ACLs or monitoring rules that depend on the old ID shape. Stop the previous job attempt before restoring a checkpoint; recovery and rescaling fence every unfinished writer namespace assigned by the checkpoint, including IDs written before this change. Keep a distinct configured prefix for every concurrent job.
 
