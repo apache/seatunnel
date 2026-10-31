@@ -24,12 +24,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
-import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.common.utils.PlaceholderUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import lombok.NonNull;
@@ -37,18 +38,20 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.common.utils.PlaceholderUtils.replacePlaceholders;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.isStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
+import static org.apache.seatunnel.common.utils.PlaceholderUtils.hasOnlyOnePlaceholder;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -57,7 +60,6 @@ public class ConfigBuilder {
     public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
 
-    private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
     private static final String MASKED_VALUE = "******";
     private static final String CONFIG_PATH_SEPARATOR = ".";
     // Treat common option separators as equivalent when matching config paths in logs.
@@ -256,7 +258,8 @@ public class ConfigBuilder {
 
         Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
 
-        processVariablesMap(resolvedConfigMap, userConfigMap);
+        Map<String, String> defaultConfigMap = new HashMap<>();
+        processVariablesMap(resolvedConfigMap, userConfigMap, defaultConfigMap);
 
         return ConfigFactory.parseMap(resolvedConfigMap);
     }
@@ -270,9 +273,7 @@ public class ConfigBuilder {
                                         Collectors.toMap(
                                                 Map.Entry::getKey,
                                                 entry ->
-                                                        ConfigValueUtils.parseValue(
-                                                                        entry.getValue())
-                                                                .unwrapped())));
+                                                        parseValue(entry.getValue()).unwrapped())));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -355,44 +356,58 @@ public class ConfigBuilder {
     }
 
     private static void processVariablesMap(
-            Map<String, Object> mapValue, Map<String, String> userConfigMap) {
+            Map<String, Object> mapValue,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processVariablesMap((Map<String, Object>) innerValue, userConfigMap);
+                        processVariablesMap(
+                                (Map<String, Object>) innerValue, userConfigMap, defaultConfigMap);
                     } else if (innerValue instanceof List) {
                         mapValue.put(
                                 innerKey,
-                                processVariablesList((List<?>) innerValue, userConfigMap));
+                                processVariablesList(
+                                        (List<?>) innerValue, userConfigMap, defaultConfigMap));
                     } else {
-                        processVariable(innerKey, innerValue, mapValue, userConfigMap);
+                        processVariable(
+                                innerKey, innerValue, mapValue, userConfigMap, defaultConfigMap);
                     }
                 });
     }
 
-    private static List<?> processVariablesList(List<?> list, Map<String, String> userConfigMap) {
+    private static List<?> processVariablesList(
+            List<?> list, Map<String, String> userConfigMap, Map<String, String> defaultConfigMap) {
         return list.stream()
                 .map(
                         variable -> {
                             if (variable instanceof String) {
                                 String variableString = (String) variable;
-                                return extractPlaceholder(variableString).stream()
-                                        .reduce(
+
+                                String replacedValue =
+                                        PlaceholderUtils.processPlaceholders(
                                                 variableString,
-                                                (result, placeholder) -> {
-                                                    String value =
-                                                            userConfigMap.containsKey(placeholder)
-                                                                    ? userConfigMap.get(placeholder)
-                                                                    : System.getProperty(
-                                                                            placeholder);
-                                                    return replacePlaceholders(
-                                                            result, placeholder, value, null);
-                                                });
+                                                TablePlaceholder::isSystemPlaceholder,
+                                                userConfigMap,
+                                                defaultConfigMap);
+                                if (!replacedValue.equals(variableString)) {
+                                    if (hasOnlyOnePlaceholder(variableString)
+                                            && isStructured(replacedValue)) {
+                                        return parseStructured(replacedValue);
+                                    } else {
+                                        return StringUtils.unwrap(replacedValue, "\"");
+                                    }
+                                }
+
                             } else if (variable instanceof Map) {
-                                processVariablesMap((Map<String, Object>) variable, userConfigMap);
+                                processVariablesMap(
+                                        (Map<String, Object>) variable,
+                                        userConfigMap,
+                                        defaultConfigMap);
                                 return variable;
                             } else if (variable instanceof List) {
-                                return processVariablesList((List<?>) variable, userConfigMap);
+                                return processVariablesList(
+                                        (List<?>) variable, userConfigMap, defaultConfigMap);
                             }
                             return variable;
                         })
@@ -403,37 +418,27 @@ public class ConfigBuilder {
             String variableKey,
             Object variableValue,
             Map<String, Object> parentMap,
-            Map<String, String> userConfigMap) {
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         if (Objects.isNull(variableValue)) {
             return;
         }
         String variableString = variableValue.toString();
-        List<String> placeholders = extractPlaceholder(variableString);
+        String replacedValue =
+                PlaceholderUtils.processPlaceholders(
+                        variableString,
+                        TablePlaceholder::isSystemPlaceholder,
+                        userConfigMap,
+                        defaultConfigMap);
 
-        for (String placeholder : placeholders) {
-            String value =
-                    userConfigMap.containsKey(placeholder)
-                            ? userConfigMap.get(placeholder)
-                            : System.getProperty(placeholder);
-
-            variableString = replacePlaceholders(variableString, placeholder, value, null);
+        if (!replacedValue.equals(variableString)) {
+            if (hasOnlyOnePlaceholder(variableString) && isStructured(replacedValue)) {
+                variableValue = parseStructured(replacedValue);
+            } else {
+                variableValue = StringUtils.unwrap(replacedValue, "\"");
+            }
+            parentMap.put(variableKey, variableValue);
         }
-
-        if (!placeholders.isEmpty()) {
-            parentMap.put(variableKey, variableString);
-        }
-    }
-
-    public static List<String> extractPlaceholder(String input) {
-        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
-        Matcher matcher = pattern.matcher(input);
-        List<String> placeholders = new ArrayList<>();
-
-        while (matcher.find()) {
-            placeholders.add(matcher.group(1));
-        }
-
-        return placeholders;
     }
 
     public static String mapToString(Map<String, Object> configMap) {
