@@ -629,6 +629,12 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
 
+## Flush failure and close behavior
+
+A healthy writer flushes its pending rows before closing and commits them according to its transaction mode. After a terminal flush failure, later flush and close calls report the retained failure instead of implicitly executing the failed batch again; statement and connection resources are still closed. Configured SQL retries remain part of the original flush attempt.
+
+When row-level error handling is enabled, the writer can continue only after the failed batch is discarded and its transaction is rolled back successfully. An uncertain commit result remains fatal. Avoiding cleanup replay alone does not provide exactly-once delivery; XA prerequisites and retry restrictions still apply.
+
 ## Exactly-once prerequisites
 
 When `is_exactly_once = true`, JDBC Sink uses XA transactions. Before enabling it:
