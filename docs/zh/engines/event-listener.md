@@ -119,6 +119,11 @@ seatunnel:
       report-non-terminal-job-state: false
 ```
 
+请直接配置最终的事件上报 URL：客户端不会跟随重定向，因此不会将配置的请求头转发到重定向目标。
+端点必须接受 POST 请求并返回成功的 2xx 响应。HTTPS 端点必须支持 TLS 1.2 或 TLS 1.3，
+并使用 SeaTunnel JVM 支持的协议和密码套件。请升级仅支持 TLS 1.0/1.1 的收集器或网关；
+客户端保留更强的默认 TLS 策略。普通 HTTP 端点不受此 TLS 要求影响。
+
 #### report-non-terminal-job-state
 
 - 类型：boolean
