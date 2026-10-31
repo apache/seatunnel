@@ -89,7 +89,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 `precombine_field` The precombine field of hudi table, its are used in preCombining before actual write. 
 
-### index_type [string]
+### index_type [enum]
 
 `index_type` The index type of hudi table. Currently, `BLOOM`, `SIMPLE`, and `GLOBAL_BLOOM` are supported.
 

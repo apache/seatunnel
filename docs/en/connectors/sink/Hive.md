@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, CSV, parquet, ORC, JSON) to HDFS (or S3/OSS when configured). By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
 
 :::tip
 
@@ -28,12 +28,10 @@ If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [x] file format
+- [x] file format (detected from the Hive table's `STORED AS` clause)
   - [x] text
-  - [x] csv
   - [x] parquet
   - [x] orc
-  - [x] json
 - [x] compress codec
   - [x] lzo
 
@@ -116,8 +114,6 @@ Hadoop remote user name used when connecting to HDFS/Hive storage without Kerber
 ### krb5_path [string]
 
 The path of `krb5.conf`, used to authentication kerberos
-
-The path of `hive-site.xml`, used to authentication hive metastore
 
 ### kerberos_principal [string]
 
@@ -627,18 +623,17 @@ sink {
 
 ### What file formats does Hive Sink support?
 
-Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
+Hive Sink supports `TEXT`, `PARQUET`, and `ORC` tables. The format is detected automatically from the Hive table's `STORED AS` clause (or from `save_mode_create_template` when the table is auto-created); there is no connector option to override it. Tables stored in any other format are rejected with `Hive connector only support [text parquet orc] table now`.
 
 ### Does Hive Sink support partitioned tables?
 
-Yes. For partitioned tables, specify the partition fields using `partition_by`. SeaTunnel writes data into the correct partition directories automatically:
+Yes. The partition columns are read from the Hive Metastore table definition (or from the `PARTITIONED BY` clause of `save_mode_create_template` when the table is auto-created), and SeaTunnel writes data into the correct partition directories automatically. There is no `partition_by` option on the Hive sink; the partition keys always come from the table definition:
 
 ```hocon
 sink {
   Hive {
     table_name = "mydb.sales"
     metastore_uri = "thrift://hive-metastore:9083"
-    partition_by = ["dt", "region"]
   }
 }
 ```

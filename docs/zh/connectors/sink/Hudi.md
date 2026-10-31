@@ -89,7 +89,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 `precombine_field` Hudi 表的预合并字段,它用于在写入前进行预合并.
 
-### index_type [string]
+### index_type [enum]
 
 `index_type` Hudi 表的索引类型。当前支持 `BLOOM`、`SIMPLE`、`GLOBAL_BLOOM`。
 

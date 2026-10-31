@@ -21,32 +21,32 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 接收器选项
 
-|             名称             |   类型    | 是否必须 |  默认值  |
-|----------------------------|---------|------|-------|
-| host                       | string  | 是    | -     |
-| port                       | int     | 是    | -     |
-| virtual_host               | string  | 是    | -     |
-| username                   | string  | 否    | -     |
-| password                   | string  | 否    | -     |
-| queue_name                 | string  | 是    | -     |
-| format                     | string  | 否    | json  |
-| protobuf_schema            | string  | 否    | -     |
-| protobuf_message_name      | string  | 否    | -     |
-| url                        | string  | 否    | -     |
-| uri                        | string  | 否    | -     |
-| ssl                        | boolean | 否    | false |
-| routing_key                | string  | 否    | -     |
-| exchange                   | string  | 否    | -     |
-| network_recovery_interval  | int     | 否    | -     |
-| topology_recovery_enabled  | boolean | 否    | -     |
-| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     |
-| connection_timeout         | int     | 否    | -     |
-| rabbitmq.config            | map     | 否    | -     |
-| durable                    | boolean | 否    | true  |
-| exclusive                  | boolean | 否    | false |
-| auto_delete                | boolean | 否    | false |
-| passive                    | boolean | 否    | false |
-| common-options             |         | 否    | -     |
+|             名称             |   类型    | 是否必须 |  默认值  | 描述 |
+|----------------------------|---------|------|-------|---|
+| host                       | string  | 是    | -     | RabbitMQ 服务器地址。 |
+| port                       | int     | 是    | -     | RabbitMQ 服务器端口。 |
+| virtual_host               | string  | 是    | -     | 连接 Broker 时使用的 virtual host。 |
+| username                   | string  | 否    | -     | 连接 Broker 时使用的用户名。 |
+| password                   | string  | 否    | -     | 连接时使用的密码；需要与 `username` 一起配置。 |
+| queue_name                 | string  | 是    | -     | 目标队列名；未配置 `routing_key` 时通过默认 exchange 写入。 |
+| format                     | string  | 否    | json  | 消息体格式，支持 `json` 和 `protobuf`。 |
+| protobuf_schema            | string  | 否    | -     | `format` 为 `protobuf` 时使用的 Protobuf Schema。 |
+| protobuf_message_name      | string  | 否    | -     | `format` 为 `protobuf` 时使用的 Protobuf 消息名称。 |
+| url                        | string  | 否    | -     | 使用 AMQP URI 配置主机、端口、用户名、密码和 virtual host。 |
+| uri                        | string  | 否    | -     | `url` 的兼容别名，两者只能配置一个。 |
+| ssl                        | boolean | 否    | false | 通过主机和端口连接时是否启用 SSL/TLS。 |
+| routing_key                | string  | 否    | -     | 发送消息使用的 routing key，与 `exchange` 一起配置。 |
+| exchange                   | string  | 否    | -     | 配置 `routing_key` 时使用的 exchange。 |
+| network_recovery_interval  | int     | 否    | -     | 自动恢复连接的重试间隔，单位为毫秒。 |
+| topology_recovery_enabled  | boolean | 否    | -     | 是否启用拓扑恢复。 |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     | 是否启用连接恢复；配置键使用大写。 |
+| connection_timeout         | int     | 否    | -     | TCP 建连超时，单位为毫秒；`0` 表示无限等待。 |
+| rabbitmq.config            | map     | 否    | -     | 额外的 RabbitMQ 客户端配置。 |
+| durable                    | boolean | 否    | true  | 是否声明持久化队列，在服务器重启后保留。 |
+| exclusive                  | boolean | 否    | false | 是否声明仅当前连接使用、连接关闭后删除的队列。 |
+| auto_delete                | boolean | 否    | false | 是否在最后一个消费者取消订阅后自动删除队列。 |
+| passive                    | boolean | 否    | false | 是否只检查队列已存在，不主动声明队列。 |
+| common-options             |         | 否    | -     | Sink 插件通用配置，参见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### host [string]
 
@@ -150,6 +150,8 @@ TCP连接建立的超时时间，单位为毫秒；0代表不限制。
 
 除了上面提及必须设置的RabbitMQ客户端参数，你也还可以为客户端指定多个非强制参数，参见 [RabbitMQ官方文档参数设置](https://www.rabbitmq.com/configure.html)。
 
+注意：Sink 目前仅解析该配置项，但不会将其中的参数应用到 RabbitMQ 客户端。如需调优连接行为，请使用上文的专用选项，例如 `connection_timeout`、`network_recovery_interval`、`AUTOMATIC_RECOVERY_ENABLED` 和 `topology_recovery_enabled`。
+
 ### common options
 
 Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
@@ -193,10 +195,6 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -234,10 +232,6 @@ sink {
           durable = true
           exclusive = false
           auto_delete = false
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -272,7 +266,7 @@ sink {
 
 ### RabbitMQ Sink 如何处理网络重连和超时？
 
-可以通过 `rabbitmq.config` 配置块调优客户端连接参数（如 `connection-timeout`、`requested-heartbeat` 等），以应对网络短暂抖动并提高连接稳定性。
+使用专用选项调优客户端连接能力：`AUTOMATIC_RECOVERY_ENABLED` 用于启用自动连接恢复，`network_recovery_interval` 设置重连前的等待时长（毫秒），`topology_recovery_enabled` 用于启用拓扑恢复，`connection_timeout` 限制 TCP 连接建立的超时时间（毫秒）。`rabbitmq.config` 配置块仅为兼容旧配置保留，其中的参数目前不会被 Sink 应用。
 
 ## 变更日志
 

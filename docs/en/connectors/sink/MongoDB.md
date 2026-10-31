@@ -111,6 +111,7 @@ The following table lists the field data type mapping from SeaTunnel data type t
 | primary-key           | List     | No       | -             | The primary keys used for upsert/update. The list format is `["id","name",...]`.                                                                                                                                                                                                      |
 | transaction           | Boolean  | No       | false         | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                                      |
 | data_save_mode        | Enum     | No       | APPEND_DATA   | The data saving mode for the MongoDB collection. Supported values: `DROP_DATA` (truncate the collection before writing), `APPEND_DATA` (append to existing data), `ERROR_WHEN_DATA_EXISTS` (fail if the collection already has data).                                                    |
+| multi_table_sink_replica | Int   | No       | 1             | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                                                                                                 |
 | common-options        |          | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                            |
 
 ### Tips
@@ -325,6 +326,66 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name", "status"]
+  }
+}
+```
+
+### CDC Changelog Sink
+
+When the upstream is a changelog source, configure `upsert-enable = true` and `primary-key` so `UPDATE` and
+`DELETE` events map to existing documents instead of being inserted as duplicates. The sink also exposes
+`buffer-flush.max-rows`, `buffer-flush.interval`, and `retry.max` to control the batch flush and retry behaviour.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### Transactional Sink (MongoDB 4.2+)
+
+Set `transaction = true` to wrap the bulk writes into a MongoDB multi-document transaction. This option requires
+MongoDB 4.2 or later and is committed at checkpoint boundaries. Note that timer flush is automatically disabled
+in transaction mode so that the checkpoint-driven commit boundary is preserved.
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
   }
 }
 ```

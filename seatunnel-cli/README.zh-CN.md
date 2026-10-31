@@ -174,7 +174,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **默认行为：** 如果未设置 `SEATUNNEL_HOME`，CLI 会根据自身包位置自动检测。在发行版压缩包中，CLI 位于 `cli/seatunnel_cli/`，因此会向上解析两级到压缩包根目录：
 
 ```
-apache-seatunnel-3.0.1/          <-- 自动检测为 SEATUNNEL_HOME
+apache-seatunnel-3.1.0/          <-- 自动检测为 SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI 包位置
@@ -263,10 +263,9 @@ SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 8523626707716669
 
 ```
 Job 852362670771666945 mysql-to-doris — RUNNING
-  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
-            It is failing and being restored repeatedly, so the job looks alive while
-            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
-            since the last restore)
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
 ```
 
 它会报告：失败作业解析出的错误码与根因、反复重启的 pipeline（以及是否已用尽
@@ -301,7 +300,8 @@ acknowledged it`），指向具体的某一环而不是整个作业。
   `FAILED` 的只在重启预算用尽时以过去时报告；正在关停的则把重启次数作为历史
   记录输出。只有当 pipeline 处于两次尝试之间、或距上次重启运行不足 10 分钟时，
   才会判定为重启循环——因此每次尝试都能存活超过 10 分钟的循环会被当作历史
-  记录，而不是当前故障。
+  记录，而不是当前故障。有一个例外：重启预算已经用尽的 pipeline 即使只重启过
+  一次也会被报告，`job.retry.times = 1` 的作业就会遇到这种情况。
 - 行数规则要等作业进入 RUNNING 满两分钟后才生效；对 `job.mode = STREAMING`
   的作业，源端空闲只作为提示而非告警——安静的 topic 和配错的 topic 在这里
   读数完全相同。
@@ -313,9 +313,12 @@ acknowledged it`），指向具体的某一环而不是整个作业。
 - checkpoint 卡住的判定阈值是进行中超过 2 分钟，高于打包配置里的
   `checkpoint.timeout`（60 秒）。默认配置下挂死的 checkpoint 会先超时、以失败
   的形式报出，因此这条规则主要服务于调高了该超时的集群。
-- 时长以引擎自己的时钟为基准计算（作业规则用 `diagnostics.generatedAt`，
-  checkpoint 规则用 `updatedAt`），客户端时钟与集群不一致时不会凭空造出一个
-  "卡住"的作业。
+- 时长以引擎自己的时钟为基准计算：作业规则和 checkpoint 规则都使用
+  `/job-info` 响应里的 `diagnostics.generatedAt`（由 master 在构造响应时打上），
+  因此客户端时钟与集群不一致时不会凭空造出一个"卡住"的作业。checkpoint
+  overview 自带的 `updatedAt` 刻意不使用——引擎只在记录 checkpoint 事件时才
+  写入它，所以当某个 checkpoint 卡在最后一个 subtask 上时它就不再前进，反而
+  会把这条规则本该发现的卡死隐藏掉。
 
 ### CLI 参数
 

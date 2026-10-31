@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -45,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -74,6 +76,8 @@ public class ResourceRequestHandler {
 
     private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final AtomicBoolean completionStarted = new AtomicBoolean(false);
+
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
@@ -92,12 +96,16 @@ public class ResourceRequestHandler {
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
-        requestSlotWithRetry(resourceProfile, MAX_RETRY_TIMES, tags);
+        List<Integer> requestIndexes = new ArrayList<>();
+        for (int i = 0; i < resourceProfile.size(); i++) {
+            requestIndexes.add(i);
+        }
+        requestSlotWithRetry(requestIndexes, MAX_RETRY_TIMES, tags);
         return completableFuture;
     }
 
     private CompletableFuture<SlotAndWorkerProfile> requestSlotWithRetry(
-            List<ResourceProfile> request, int retryTimes, Map<String, String> tags) {
+            List<Integer> requestIndexes, int retryTimes, Map<String, String> tags) {
         if (retryTimes <= 0) {
             LOGGER.fine("can't apply resource request with retry times: " + MAX_RETRY_TIMES);
             return CompletableFuture.supplyAsync(
@@ -107,7 +115,8 @@ public class ResourceRequestHandler {
                                         + MAX_RETRY_TIMES);
                     });
         }
-        List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = requestSlots(request);
+        List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture =
+                requestSlots(requestIndexes);
         // all resource preCheck done, also had sent request to worker
         return getAllOfFuture(allRequestFuture)
                 .whenComplete(
@@ -116,14 +125,15 @@ public class ResourceRequestHandler {
                                 (unused, error) -> {
                                     if (error != null) {
                                         completeRequestWithException(toExternalException(error));
+                                        return;
                                     } else {
-                                        List<ResourceProfile> needRequestResource =
-                                                stillNeedRequestResource();
-                                        if (!needRequestResource.isEmpty()) {
+                                        List<Integer> needRequestIndexes =
+                                                stillNeedRequestIndexes();
+                                        if (!needRequestIndexes.isEmpty()) {
                                             Exception requestSlotWithRetryError = null;
                                             try {
                                                 requestSlotWithRetry(
-                                                                needRequestResource,
+                                                                needRequestIndexes,
                                                                 retryTimes - 1,
                                                                 tags)
                                                         .get();
@@ -162,14 +172,14 @@ public class ResourceRequestHandler {
                                 }));
     }
 
-    private List<ResourceProfile> stillNeedRequestResource() {
-        List<ResourceProfile> needRequestResource = new ArrayList<>();
+    private List<Integer> stillNeedRequestIndexes() {
+        List<Integer> needRequestIndexes = new ArrayList<>();
         for (int i = 0; i < resourceProfile.size(); i++) {
             if (!resultSlotProfiles.containsKey(i)) {
-                needRequestResource.add(resourceProfile.get(i));
+                needRequestIndexes.add(i);
             }
         }
-        return needRequestResource;
+        return needRequestIndexes;
     }
 
     private int findNullIndexInResultSlotProfiles() {
@@ -182,42 +192,46 @@ public class ResourceRequestHandler {
     }
 
     private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
-            List<ResourceProfile> requestProfile) {
+            List<Integer> requestIndexes) {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
 
-        for (int i = 0; i < requestProfile.size(); i++) {
-            ResourceProfile r = requestProfile.get(i);
+        for (int index : requestIndexes) {
+            ResourceProfile r = resourceProfile.get(index);
             Optional<WorkerProfile> workerProfile = preCheckWorkerResource(r);
             if (workerProfile.isPresent()) {
                 // request slot to member
                 CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture =
-                        singleResourceRequestToMember(i, r, workerProfile.get());
+                        singleResourceRequestToMember(index, r, workerProfile.get());
                 allRequestFuture.add(internalCompletableFuture);
             } else {
-                // if no worker can provide the resource, we should return a failed future
+                // Leave the original index unassigned so retry or dynamic-worker provisioning can
+                // handle it after all in-flight slot requests finish.
                 LOGGER.fine("pre check worker resource failed, can't apply resource request: " + r);
-                allRequestFuture.add(
-                        CompletableFuture.supplyAsync(
-                                () -> {
-                                    throw new NoEnoughResourceException(
-                                            "can't apply resource request: " + r);
-                                }));
             }
         }
         return allRequestFuture;
     }
 
     private void completeRequestWithException(Throwable e) {
-        if (completableFuture.completeExceptionally(e)) {
-            releaseAllResourceInternal();
+        if (!completionStarted.compareAndSet(false, true)) {
+            return;
         }
+        releaseAllResourceInternal()
+                .whenComplete(
+                        (ignored, releaseError) -> {
+                            if (releaseError != null) {
+                                e.addSuppressed(releaseError);
+                            }
+                            completableFuture.completeExceptionally(e);
+                        });
     }
 
     private void addSlotToCacheMap(int index, SlotProfile slotProfile) {
         // null value means the slot request failed, no suitable slot found
         if (null != slotProfile) {
             resultSlotProfiles.put(index, slotProfile);
-            if (resultSlotProfiles.size() == resourceProfile.size()) {
+            if (resultSlotProfiles.size() == resourceProfile.size()
+                    && completionStarted.compareAndSet(false, true)) {
                 List<SlotProfile> value = new ArrayList<>();
                 for (int i = 0; i < resultSlotProfiles.size(); i++) {
                     value.add(resultSlotProfiles.get(i));
@@ -303,7 +317,7 @@ public class ResourceRequestHandler {
     private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
-        for (int i = 0; i < resultSlotProfiles.size(); i++) {
+        for (int i = 0; i < resourceProfile.size(); i++) {
             if (!resultSlotProfiles.containsKey(i)) {
                 needApplyResource.add(resourceProfile.get(i));
                 needApplyIndex.add(i);
@@ -326,7 +340,7 @@ public class ResourceRequestHandler {
                                 }));
     }
 
-    private void releaseAllResourceInternal() {
+    private CompletableFuture<Void> releaseAllResourceInternal() {
         int appliedCount = resultSlotProfiles.size();
         int requiredCount = resourceProfile.size();
 
@@ -345,19 +359,60 @@ public class ResourceRequestHandler {
                                 + "releasing slots: [%s], remaining: %d slots not assigned",
                         jobId, requiredCount, appliedCount, slotIds, requiredCount - appliedCount));
 
-        new ArrayList<>(resultSlotProfiles.keySet())
-                .forEach(
-                        index -> {
-                            SlotProfile profile = resultSlotProfiles.remove(index);
-                            if (profile == null) {
-                                return;
-                            }
-                            LOGGER.fine(
-                                    String.format(
-                                            "Releasing slot %d for job %d from worker %s",
-                                            profile.getSlotID(), jobId, profile.getWorker()));
-                            resourceManager.releaseResource(jobId, profile);
-                        });
+        List<SlotProfile> acquiredSlots =
+                resultSlotProfiles.values().stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+        acquiredSlots.forEach(
+                profile ->
+                        LOGGER.fine(
+                                String.format(
+                                        "Releasing slot %d for job %d from worker %s",
+                                        profile.getSlotID(), jobId, profile.getWorker())));
+        List<CompletableFuture<Void>> releaseFutures =
+                acquiredSlots.stream()
+                        .map(
+                                profile ->
+                                        releaseResourceWithRetry(
+                                                profile, Constant.OPERATION_RETRY_TIME))
+                        .collect(Collectors.toList());
+        return getAllOfFuture(releaseFutures);
+    }
+
+    private CompletableFuture<Void> releaseResourceWithRetry(
+            SlotProfile slotProfile, int remainingAttempts) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        CompletableFuture<Void> releaseFuture;
+        try {
+            releaseFuture = resourceManager.releaseResource(jobId, slotProfile);
+        } catch (Exception e) {
+            releaseFuture = new CompletableFuture<>();
+            releaseFuture.completeExceptionally(e);
+        }
+        releaseFuture.whenComplete(
+                (ignored, error) -> {
+                    if (error == null) {
+                        result.complete(null);
+                    } else if (remainingAttempts > 1) {
+                        LOGGER.warning(
+                                String.format(
+                                        "Release slot %d for job %d failed, retrying (%d attempts left)",
+                                        slotProfile.getSlotID(), jobId, remainingAttempts - 1),
+                                error);
+                        releaseResourceWithRetry(slotProfile, remainingAttempts - 1)
+                                .whenComplete(
+                                        (retryIgnored, retryError) -> {
+                                            if (retryError == null) {
+                                                result.complete(null);
+                                            } else {
+                                                result.completeExceptionally(retryError);
+                                            }
+                                        });
+                    } else {
+                        result.completeExceptionally(error);
+                    }
+                });
+        return result;
     }
 
     private NoEnoughResourceException toExternalException(Throwable error) {

@@ -105,6 +105,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | primary-key           | List     | 否       | -              | 用于 upsert 或更新的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
+| multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### 提示
@@ -311,6 +312,66 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name", "status"]
+  }
+}
+```
+
+### CDC 变更日志写入
+
+当上游是变更日志类数据源时，可以将 `upsert-enable` 设为 `true` 并配置 `primary-key`，让 `UPDATE`、`DELETE`
+事件匹配已有文档而不是作为新文档重复插入。接收端还提供 `buffer-flush.max-rows`、`buffer-flush.interval` 和
+`retry.max` 用于控制批量刷新与重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### 事务写入（MongoDB 4.2+）
+
+将 `transaction` 设为 `true` 时，批量写入会被包装成 MongoDB 多文档事务。该选项需要 MongoDB 4.2 及以上版本，
+并按 checkpoint 边界提交。注意在事务模式下，引擎层的定时刷新会被自动禁用，以保证 checkpoint 提交边界不被
+打散。
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
   }
 }
 ```
