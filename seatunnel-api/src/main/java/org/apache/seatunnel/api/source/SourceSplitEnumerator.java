@@ -40,9 +40,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
     void open();
 
     /**
-     * Executes engine setup steps in a fixed, non‑concurrent sequence.
+     * Executes engine setup steps.
      *
-     * <p>Before the first {@link #run()} invocation, methods are called in this order:
+     * <p>Methods are typically called in this order before the first {@link #run()} invocation:
      *
      * <ol>
      *   <li>{@link #open()}
@@ -50,10 +50,15 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      *   <li>{@link #registerReader(int)}
      * </ol>
      *
-     * <p>{@implNote The engine guarantees this invocation order and ensures there are no
-     * concurrency issues between these calls. When {@link Context#isManagedCoordinatorRuntime()}
-     * returns {@code true}, this method must return promptly and move any blocking discovery to the
-     * engine-owned {@link CoordinatorScheduler}.}
+     * <p>The engine only guarantees that {@link #run()} is invoked after {@link #open()} and after
+     * every reader has been registered. It does not guarantee the order listed above: restored
+     * splits may be returned via {@link #addSplitsBack(List, int)} at any point of the source
+     * lifecycle, for example after a checkpoint restore, before or after {@link #run()}. How such
+     * late returned splits are dispatched to readers is left to the implementation.
+     *
+     * <p>{@implNote When {@link Context#isManagedCoordinatorRuntime()} returns {@code true}, this
+     * method must return promptly and move any blocking discovery to the engine-owned {@link
+     * CoordinatorScheduler}.}
      */
     void run() throws Exception;
 

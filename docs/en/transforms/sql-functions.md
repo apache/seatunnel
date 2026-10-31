@@ -351,6 +351,17 @@ Example:
 MURMUR64('hello world')
 MURMUR64(NAME)
 
+### MD5
+
+```MD5(string|binary) -> STRING```
+
+Calculate the MD5 hash of the input string or binary value and return the result as a 32-character lowercase hexadecimal string, compatible with Hive's `md5` function. This method returns null if the input parameter is null.
+
+Example:
+
+MD5('hello world')
+MD5(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -432,6 +443,22 @@ ACOS(D)
 
 The MAX function returns the maximum value of the expression.
 
+For the `Sql` transform with `engine = ZETA` (the default) or `INTERNAL`, integral
+arrays (including BIGINT), DECIMAL arrays and mixtures of those values are
+compared without conversion to floating point. This applies on Zeta, Flink and
+Spark execution engines; the SQL engine option is separate from the execution
+engine. The result retains the selected
+element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
+empty or all-null array returns null. Equal values retain the first element.
+FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
+other values, and positive zero is greater than negative zero.
+Arrays containing only Byte, Short, Integer and Long values use exact integral
+comparison. If BigDecimal is also present, those integral values are compared as
+exact decimals. If any Float, Double or other Number subtype (including
+BigInteger) is present, the whole array retains the existing double-based
+comparison and can lose precision for large or close values. This does not change
+array construction, declared element types or input coercion.
+
 Example:
 
 ARRAY_MAX(I)
@@ -441,6 +468,10 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 The MIN function returns the minimum value of the expression.
+
+The `Sql` transform with `engine = ZETA` or `INTERNAL` uses the same precision,
+null handling and ordering rules as
+`ARRAY_MAX`, selecting the minimum element instead.
 
 Example:
 
@@ -1154,6 +1185,43 @@ AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
 
 AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
 
+## JSON Functions
+
+### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Available in both the Zeta and Calcite SQL transforms.
+
+Supported path syntax:
+
+- `$` — the root document
+- `.field` — object field access
+- `[n]` — array index (non-negative integer)
+- `['field']` / `["field"]` — bracket field access (for keys containing `.` or `[`)
+
+Wildcards (`[*]`, `.*`), recursive descent (`..`) and filter expressions (`[?(...)]`) are not supported.
+
+Return semantics:
+
+- Any null input (`json` or `path`) → `null`
+- Invalid JSON → `null`
+- Path does not match / array index out of bounds → `null`
+- A JSON `null` value → `null`
+- A string value → the unquoted string content
+- A number or boolean → the value rendered as text
+- An object or array → the raw (compact) JSON text of that node
+
+Example:
+
+GET_JSON_OBJECT('{"a":"hello","b":[10,20]}', '$.a')
+
+GET_JSON_OBJECT('{"a":{"b":1}}', '$.a')
+
+GET_JSON_OBJECT('{"b":[10,20]}', '$.b[1]')
+
+SELECT CASE WHEN GET_JSON_OBJECT(name, '$.key1') = 'value1' THEN 'A' ELSE 'B' END AS r FROM dual
+
 ## System Functions
 
 ### CAST
@@ -1174,6 +1242,26 @@ Converts a value to a BOOLEAN data type according to the following rules:
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
+NOTE:
+Casting to `INT` | `INTEGER` throws a `TransformException` when the source value is outside the
+target's range, for example `CAST(3000000000 AS INT)`. `TINYINT` and `SMALLINT` behave the same way
+for a string source, such as `CAST('300' AS TINYINT)`. Use `TRY_CAST` to get `NULL` instead of an
+error.
+
+A narrowing or floating-point source is rejected earlier, while the statement is prepared rather
+than while a row is read: `CAST(double_col AS INT)` and `CAST(bigint_col AS TINYINT)` both fail with
+`Unsupported CAST FROM ... AS type: ...`, and `TRY_CAST` does not turn those into `NULL`. A
+fractional value reaches an integral target only through `COALESCE` or `IFNULL`, where the target
+type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
+`NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
+
+`BIGINT` | `LONG` is range-checked the same way, but only an overflowing string source reaches it as
+a cast, such as `CAST('9223372036854775808' AS BIGINT)`, where `TRY_CAST` returns `NULL`. A `DECIMAL`
+or `DOUBLE` source is refused while the statement is prepared, so it reaches `BIGINT` only through
+`COALESCE` or `IFNULL`: when `bigint_col` is `NULL`, `COALESCE(bigint_col, decimal_col)` on
+`18446744073709551616` now fails instead of returning `0`. `TRY_CAST` cannot turn that into `NULL`,
+because no cast is involved.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
@@ -1192,6 +1280,8 @@ TRY_CAST(NAME AS INT)
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `COALESCE(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
+
 Example:
 
 COALESCE(A, B, C)
@@ -1206,9 +1296,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
+
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `IFNULL(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `IFNULL(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
 
 Example:
 
@@ -1350,6 +1442,15 @@ SELECT * FROM dual
 ```
 
 ## Vector Functions
+
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` perform intermediate products and differences in double precision
+for float vector elements. This avoids float overflow or underflow for finite large
+or small elements. `VECTOR_NORMALIZE` still returns float elements; rounding and
+underflow in the output representation remain possible. Null inputs and actual zero
+vectors retain their handling. No non-finite input validation or sanitization is
+added; corrected finite intermediates can also affect results when mixed with
+non-finite elements.
 
 Vector functions do not consume or modify their input vector buffers. The same vector field can be used in multiple expressions or as both arguments to a distance function, and remains available to downstream transforms and sinks.
 

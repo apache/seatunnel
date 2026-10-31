@@ -45,6 +45,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.ManagedSourceCom
 import org.apache.seatunnel.engine.server.task.operation.source.ManagedSourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
@@ -114,13 +115,15 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int REPORT_METRICS_OPERATION = 28;
 
-    public static final int MANAGED_SOURCE_COMMAND_OPERATION = 29;
+    public static final int SOURCE_ENUMERATOR_EVENT_TYPE = 29;
 
-    public static final int MANAGED_SOURCE_REGISTER_OPERATION = 30;
+    public static final int MANAGED_SOURCE_COMMAND_OPERATION = 30;
 
-    public static final int MANAGED_COORDINATOR_COMMAND_OPERATION = 31;
+    public static final int MANAGED_SOURCE_REGISTER_OPERATION = 31;
 
-    public static final int MANAGED_SOURCE_ADMISSION_ACK = 32;
+    public static final int MANAGED_COORDINATOR_COMMAND_OPERATION = 32;
+
+    public static final int MANAGED_SOURCE_ADMISSION_ACK = 33;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -182,6 +185,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanTaskGroupContextOperation();
                 case SOURCE_READER_EVENT_OPERATOR:
                     return new SourceReaderEventOperation();
+                case SOURCE_ENUMERATOR_EVENT_TYPE:
+                    return new SourceEnumeratorEventOperation();
                 case CHECK_TASKGROUP_IS_EXECUTING:
                     return new CheckTaskGroupIsExecutingOperation();
                 case GET_METRICS_OPERATION:

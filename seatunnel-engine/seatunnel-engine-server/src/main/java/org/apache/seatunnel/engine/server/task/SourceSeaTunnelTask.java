@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -174,6 +177,20 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     /** Transfers operation-owned split bytes to the managed Reader owner thread. */
     public void receivedSerializedSourceSplit(List<byte[]> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSerializedSplits(splits);
+    }
+
+    /**
+     * Returns whether the source metadata identifies an unbounded reader. Missing metadata is
+     * treated as unknown, so master-switch restore cannot classify it as an idle-closed reader.
+     */
+    public boolean isUnboundedSourceTask() {
+        SourceAction<?, ?, ?> action = sourceFlow == null ? null : sourceFlow.getAction();
+        SeaTunnelSource<?, ?, ?> source = action == null ? null : action.getSource();
+        return source != null && Boundedness.UNBOUNDED.equals(source.getBoundedness());
+    }
+
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSourceEvent(sourceEvent);
     }
 
     @Override

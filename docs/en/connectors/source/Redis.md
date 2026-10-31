@@ -61,6 +61,8 @@ downloaded from Maven Central.
 | db_num         | int    | no                      | 0             | Redis database index |
 | mode           | string | no                      | single        | Redis mode: `single` or `cluster` |
 | nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
+| keys           | string | yes when tables_configs is absent | -   | Redis key pattern to scan. Supports fuzzy matching; users need to ensure the matched keys have the same type. Mutually exclusive with `tables_configs`. |
+| data_type      | string | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
@@ -589,6 +591,34 @@ sink {
   Console {}
 }
 ```
+### Read With Custom Key And Value Field Names
+
+Use `key_field_name`, `single_field_name`, and `read_key_enabled = true` to include the Redis key in the output and
+control how its value maps to a schema column. For primitive value types (`string`, `list`, `set`, `zset`) you
+must set `single_field_name` so the connector knows which schema column receives the value.
+
+```hocon
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    keys = "string_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        { name = "custom_key",   type = "string" }
+        { name = "custom_value", type = "string" }
+      ]
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

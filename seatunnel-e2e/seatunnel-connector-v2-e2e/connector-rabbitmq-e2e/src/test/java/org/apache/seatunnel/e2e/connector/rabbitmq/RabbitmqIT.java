@@ -21,6 +21,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -41,6 +45,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSource;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
@@ -51,12 +58,14 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufSerializationSchema;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -66,6 +75,7 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -80,13 +90,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -145,6 +158,116 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
             rabbitmqClient.write(
                     new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
                             .getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    /**
+     * Exercises the released checkpoint bytes through the production serializer and restore hook.
+     *
+     * <p>The restored queue is assigned once, consumed from the real broker, and checkpoint-acked;
+     * the resulting current state must not rediscover the already assigned split on restore.
+     */
+    @Test
+    public void testLegacyCheckpointRestoreConsumesReassignedQueue() throws Exception {
+        // Captured from RabbitmqSourceState in SeaTunnel 2.3.13, before assigned-split state
+        // existed.
+        byte[] legacy =
+                Base64.getDecoder()
+                        .decode(
+                                "rO0ABXNyAE1vcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5yYWJiaXRtcS5zb3VyY2UuUmFiYml0bXFTb3VyY2VTdGF0ZfAgVqbzFPa2AgAAeHA=");
+        String queue = "legacy-restore-" + UUID.randomUUID();
+        try (Connection connection = dryRunConnection();
+                Channel channel = connection.createChannel()) {
+            channel.queueDeclare(queue, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+            try {
+                channel.confirmSelect();
+                channel.basicPublish(
+                        "",
+                        queue,
+                        new AMQP.BasicProperties.Builder().correlationId(queue).build(),
+                        "{\"name\":\"legacy-restored\"}".getBytes(StandardCharsets.UTF_8));
+                channel.waitForConfirmsOrDie(5000);
+                RabbitmqSource source =
+                        new RabbitmqSource(ReadonlyConfig.fromMap(dryRunOptions(queue)));
+                RabbitmqSplitEnumeratorState oldState =
+                        source.getEnumeratorStateSerializer().deserialize(legacy);
+                Assertions.assertNotNull(oldState.getAssignedSplits());
+                Assertions.assertTrue(oldState.getAssignedSplits().isEmpty());
+                @SuppressWarnings("unchecked")
+                SourceSplitEnumerator.Context<RabbitmqSplit> context =
+                        Mockito.mock(SourceSplitEnumerator.Context.class);
+                Mockito.when(context.registeredReaders()).thenReturn(Collections.singleton(0));
+                List<RabbitmqSplit> assigned = new ArrayList<>();
+                Mockito.doAnswer(
+                                invocation -> {
+                                    assigned.add(invocation.getArgument(1));
+                                    return null;
+                                })
+                        .when(context)
+                        .assignSplit(Mockito.eq(0), Mockito.any(RabbitmqSplit.class));
+                try (SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> enumerator =
+                        source.restoreEnumerator(context, oldState)) {
+                    enumerator.open();
+                    enumerator.run();
+                    enumerator.registerReader(0);
+                    Assertions.assertEquals(1, assigned.size());
+                    Assertions.assertEquals(queue, assigned.get(0).splitId());
+                    Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+                    List<SeaTunnelRow> rows = new ArrayList<>();
+                    Collector<SeaTunnelRow> collector =
+                            new Collector<SeaTunnelRow>() {
+                                @Override
+                                public void collect(SeaTunnelRow row) {
+                                    rows.add(row);
+                                }
+
+                                @Override
+                                public Object getCheckpointLock() {
+                                    return rows;
+                                }
+                            };
+                    SourceReader.Context readerContext = Mockito.mock(SourceReader.Context.class);
+                    Mockito.when(readerContext.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+                    try (SourceReader<SeaTunnelRow, RabbitmqSplit> reader =
+                            source.createReader(readerContext)) {
+                        reader.open();
+                        reader.addSplits(assigned);
+                        Awaitility.await()
+                                .atMost(Duration.ofSeconds(30))
+                                .untilAsserted(
+                                        () -> {
+                                            reader.pollNext(collector);
+                                            Assertions.assertEquals(1, rows.size());
+                                            Assertions.assertEquals(
+                                                    "legacy-restored", rows.get(0).getField(0));
+                                        });
+                        reader.snapshotState(1L);
+                        reader.notifyCheckpointComplete(1L);
+                    }
+                    Assertions.assertNull(
+                            channel.basicGet(queue, true),
+                            "checkpoint-acked data must not be redelivered after reader close");
+                    RabbitmqSplitEnumeratorState current =
+                            source.getEnumeratorStateSerializer()
+                                    .deserialize(
+                                            source.getEnumeratorStateSerializer()
+                                                    .serialize(enumerator.snapshotState(1L)));
+                    Assertions.assertEquals(
+                            Collections.singleton(queue), current.getAssignedSplits().keySet());
+                    assigned.clear();
+                    try (SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState>
+                            restored = source.restoreEnumerator(context, current)) {
+                        restored.open();
+                        restored.run();
+                        Assertions.assertEquals(0, restored.currentUnassignedSplitSize());
+                        Assertions.assertTrue(
+                                assigned.isEmpty(),
+                                "current assigned state must not assign the queue twice");
+                    }
+                }
+            } finally {
+                channel.queueDelete(queue);
+            }
         }
     }
 
@@ -373,7 +496,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 BigDecimal.valueOf(11, 1),
                                 "test".getBytes(),
                                 LocalDate.now(),
-                                LocalDateTime.now()
+                                LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
                             });
             rows.add(row);
         }
@@ -420,7 +543,16 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
-        Thread.sleep(3000);
+        // Poll until the published messages are visible on the queue instead of a
+        // fixed sleep, so the job cannot start consuming before the data is there.
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () ->
+                                sourceClient.getChannel().messageCount(sourceQueueName)
+                                        >= TEST_DATASET.getValue().size());
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
@@ -532,10 +664,19 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sendData(queue1, type1, 10);
         sendData(queue2, type2, 10);
 
-        // Wait briefly to ensure all messages are fully persisted and available in the RabbitMQ
-        // broker
-        // before the SeaTunnel job starts consuming.
-        Thread.sleep(5000);
+        // Poll until the published messages are visible on both queues instead of
+        // a fixed sleep, so the job cannot start consuming before the data is there.
+        try (RabbitmqClient probe1 = getRabbitmqClient(queue1);
+                RabbitmqClient probe2 = getRabbitmqClient(queue2)) {
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .until(
+                            () ->
+                                    probe1.getChannel().messageCount(queue1) >= 10
+                                            && probe2.getChannel().messageCount(queue2) >= 10);
+        }
 
         // Execute the SeaTunnel synchronization job.
         // The job uses a multi-table configuration to consume from both queues simultaneously.

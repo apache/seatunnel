@@ -99,9 +99,11 @@ Current connector support differs by file connector:
 | SmbFile | Yes | Handles existing SMB directories and files. |
 | S3File | Yes | Handles existing S3 paths and objects through the file sink save mode flow. |
 | OssFile | Yes | Handles existing OSS paths and objects through the file sink save mode flow. |
+| GcsFile | Yes | Handles existing GCS paths and objects through the file sink save mode flow. |
 | ObsFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
 | CosFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
 | BosFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
+| OssJindoFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
 
 If a file connector page does not list `schema_save_mode` or `data_save_mode`, do not assume the option is accepted by that connector.
 
@@ -176,7 +178,7 @@ Check whether the sink uses `query`. JDBC custom query mode does not apply save 
 
 ### A file sink rejects `data_save_mode`
 
-Check the specific connector option table. `S3File`, `OssFile`, `HdfsFile`, `FtpFile`, `SftpFile`, and `LocalFile` expose file save mode options. `ObsFile`, `CosFile`, and `BosFile` currently do not.
+Check the specific connector option table. `LocalFile`, `HdfsFile`, `FtpFile`, `SftpFile`, `SmbFile`, `S3File`, `OssFile`, and `GcsFile` expose file save mode options. `ObsFile`, `CosFile`, `BosFile`, and `OssJindoFile` currently do not.
 
 ### I only want to create the target table
 
