@@ -169,7 +169,7 @@ class ConnectorItShardingTest(unittest.TestCase):
         expected_modules = {
             "connector-assert-e2e",
             "connector-cdc-sqlserver-e2e",
-            "connector-http-e2e",
+            "connector-normal-e2e",
         }
         modules = ",".join(
             ["", *sorted(expected_modules), *ALL_CONNECTORS_DEDICATED_SHARD_MODULES]
@@ -248,6 +248,28 @@ class ConnectorItShardingTest(unittest.TestCase):
             expected_workflow_modules - workflow_modules,
             f"Missing dedicated workflow modules: {sorted(expected_workflow_modules - workflow_modules)}",
         )
+
+    def test_new_dedicated_suites_have_exact_job_ownership(self) -> None:
+        workflow = self.workflow_text()
+        for connector in ("http", "mongodb", "clickhouse"):
+            with self.subTest(connector=connector):
+                module = f"connector-{connector}-e2e"
+                self.assertIn(module, ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES)
+                job = re.search(
+                    rf"^  {connector}-connector-it:\n(.*?)(?=^  [a-zA-Z0-9_-]+:|\Z)",
+                    workflow,
+                    re.MULTILINE | re.DOTALL,
+                )
+                self.assertIsNotNone(job, f"Missing dedicated job for {module}")
+                self.assertIn(f"-pl :{module} -am -Pci", job.group(1))
+                self.assertIn(
+                    "contains(fromJSON(needs.changes.outputs.it-modules), "
+                    f"'{module}')",
+                    job.group(1),
+                )
+                self.assertIn("needs.changes.outputs.api == 'true'", job.group(1))
+                self.assertIn("needs.changes.outputs.engine == 'true'", job.group(1))
+                self.assertIn("RUN_ENGINES:", job.group(1))
 
     def test_dedicated_job_conditions_match_json_module_tokens(self) -> None:
         workflow = self.workflow_text()
