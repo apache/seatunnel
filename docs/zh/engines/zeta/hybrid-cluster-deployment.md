@@ -339,6 +339,11 @@ map:
 WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
 report 重新构建。
 
+`engine_checkpoint-id-map` 也会以同样的方式被排除在持久化 IMAP 存储之外。它保存每个 pipeline 的
+checkpoint ID 计数器，每次触发 checkpoint 都会写入。Engine 重启后，恢复的作业会根据 checkpoint
+storage 中最新完成的 checkpoint 重建计数器，并从该处继续 checkpoint ID；没有已完成 checkpoint 的
+pipeline 会从 1 重新开始。
+
 如果您使用 OSS，可以像这样配置：
 
 ```yaml
