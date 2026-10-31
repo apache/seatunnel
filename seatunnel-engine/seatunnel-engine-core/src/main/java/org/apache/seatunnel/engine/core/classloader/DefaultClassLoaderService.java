@@ -43,7 +43,17 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, ClassLoader>> classLoaderCache;
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
+    private final ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner;
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
+
+    /**
+     * Environment switch that turns off the reflective cleanup of library references (MongoDB,
+     * Hadoop) when a job class loader is released. It is an operator kill switch, in the style of
+     * {@link #SKIP_CHECK_JAR}, for a classpath on which the cleanup misbehaves; with the cleanup
+     * off the Metaspace leak of apache/seatunnel#12456 returns in non-cache mode.
+     */
+    public static final String SKIP_RELEASED_REFERENCE_CLEANUP =
+            "CLASSLOADER_SERVICE_SKIP_RELEASED_REFERENCE_CLEANUP";
 
     /**
      * Creates the classloader service of one node.
@@ -52,11 +62,38 @@ public class DefaultClassLoaderService implements ClassLoaderService {
      * @param nodeEngine owning node for local artifact checks, or null when no node is available
      */
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
+        this(
+                cacheMode,
+                nodeEngine,
+                Boolean.parseBoolean(
+                                System.getenv()
+                                        .getOrDefault(SKIP_RELEASED_REFERENCE_CLEANUP, "false"))
+                        ? null
+                        : new ReleasedClassLoaderReferenceCleaner());
+    }
+
+    /**
+     * Creates the classloader service with an explicit cleaner.
+     *
+     * @param releasedClassLoaderReferenceCleaner cleaner that runs when the last reference of a
+     *     loader is released, or null to release loaders without cleaning library references
+     */
+    @VisibleForTesting
+    DefaultClassLoaderService(
+            boolean cacheMode,
+            NodeEngine nodeEngine,
+            ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;
+        this.releasedClassLoaderReferenceCleaner = releasedClassLoaderReferenceCleaner;
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
         log.info("start classloader service" + (cacheMode ? " with cache mode" : ""));
+        if (releasedClassLoaderReferenceCleaner == null) {
+            log.info(
+                    "Cleanup of library references of released classloaders is disabled by {}",
+                    SKIP_RELEASED_REFERENCE_CLEANUP);
+        }
     }
 
     @SneakyThrows
@@ -125,15 +162,40 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         if (cacheMode) {
             return;
         }
+        ClassLoader releasedClassLoader = null;
         if (referenceCount == 0) {
-            ClassLoader classLoader = classLoaderMap.remove(key);
+            releasedClassLoader = classLoaderMap.remove(key);
             log.info("Release classloader for job {} with jars {}", jobId, jars);
             classLoaderReferenceCount.get(jobId).remove(key);
-            recycleClassLoaderFromThread(classLoader);
+            recycleClassLoaderFromThread(releasedClassLoader);
         }
         if (classLoaderMap.isEmpty()) {
             classLoaderCache.remove(jobId);
             classLoaderReferenceCount.remove(jobId);
+        }
+        // The loader is no longer used by any job, drop the references that libraries such as
+        // MongoDB and Hadoop keep in statics and background threads, otherwise the loader and its
+        // Metaspace are never collected. Cache mode never reaches this point. This runs after the
+        // bookkeeping above and never throws, so the maps of this service stay consistent and the
+        // caller can go on releasing the other loaders of the task group whatever the cleanup does.
+        if (releasedClassLoader != null) {
+            cleanReleasedClassLoaderReferences(releasedClassLoader);
+        }
+    }
+
+    private void cleanReleasedClassLoaderReferences(ClassLoader releasedClassLoader) {
+        if (releasedClassLoaderReferenceCleaner == null) {
+            return;
+        }
+        try {
+            releasedClassLoaderReferenceCleaner.clean(releasedClassLoader);
+        } catch (Throwable e) {
+            // Best-effort by contract: the cleaner touches classes of the released loader, which on
+            // a Metaspace-starved worker can fail with an Error that must not abort the release.
+            log.warn(
+                    "Failed to clean library references of released classloader {}",
+                    releasedClassLoader,
+                    e);
         }
     }
 
