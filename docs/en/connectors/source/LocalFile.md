@@ -49,6 +49,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
+## Checkpoint recovery
+
+For bounded Zeta jobs, restore resumes pending file splits after readers register and skips files already completed in the checkpoint. Keep input files unchanged and accessible at the same paths while restoring. Sink delivery guarantees still depend on the selected sink and its checkpoint support.
+
 ## Options
 
 | name                       | type    | required | default value                        |
@@ -56,16 +60,18 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | path                       | string  | yes      | -                                    |
 | file_format_type           | string  | yes      | -                                    |
 | read_columns               | list    | no       | -                                    |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| read_partitions | list | no | - |
+| delimiter/field_delimiter  | string  | no       | \001                                 |
 | row_delimiter              | string  | no       | \n                                   |
 | parse_partition_from_path  | boolean | no       | true                                 |
 | date_format                | string  | no       | yyyy-MM-dd                           |
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
 | time_format                | string  | no       | HH:mm:ss                             |
 | skip_header_row_number     | long    | no       | 0                                    |
-| schema                     | config  | no       | -                                    |
+| schema                     | config  | conditionally yes | -                               |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| excel_use_header_line      | boolean | no       | false                                |
 | poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
@@ -93,7 +99,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | retention_max_age          | string  | no       | -                                    |
 | retention_check_interval   | string  | no       | 1H                                   |
 | common-options             |         | no       | -                                    |
-| tables_configs             | list    | no       | used to define a multiple table task |
+| tables_configs             | list    | no       | -                                    |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
 | enable_file_split          | boolean | no       | false                                | 
@@ -155,23 +161,11 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you assign file type to `json`, `excel`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
 
-For example, upstream data is the following:
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+For `text` and `csv`, the schema is optional. Without a schema, the connector reads each input line into a single `content` field of type string; `read_columns` is not supported in this mode. Configure a schema when you need typed fields or column mapping.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -211,7 +205,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -313,7 +307,7 @@ default `HH:mm:ss`
 
 ### skip_header_row_number [long]
 
-Skip the first few lines, but only for the txt and csv.
+Skip the first few lines for text, CSV, and Excel.
 
 For example, set like following:
 
@@ -321,9 +315,15 @@ For example, set like following:
 
 then SeaTunnel will skip the first 2 lines from source files
 
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
+
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
+Required when `file_format_type` is `json`, `excel`, or `xml`. Optional for `text` and `csv`; when omitted, each input line is read into a single `content` field of type string and `read_columns` is not supported.
 
 #### fields [Config]
 
@@ -356,6 +356,12 @@ The default Excel reading engine is POI. POI keeps the historical read behavior,
 
 You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
 
+### excel_use_header_line [boolean]
+
+Only used when `file_format_type` is `excel`. The default is `false`, so Excel columns are read by position even when `skip_header_row_number` is set.
+
+Set `excel_use_header_line = true` to use the first row as the header and map schema fields by name. This skips the first row; when both options are set, `excel_use_header_line` takes precedence over `skip_header_row_number`. Fields missing from the header produce null values and a warning.
+
 ### poi_excel_max_file_size [long]
 
 Only used when `file_format` is excel and `excel_engine` is POI.
@@ -383,7 +389,7 @@ For security reasons (XXE hardening), XML files (`file_format_type = xml`) conta
 
 ### csv_use_header_line [boolean]
 
-Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+When enabled, the connector consumes the first RFC 4180 CSV record as the header and maps its column names to the fields in the configured `schema`. This option does not infer the schema or field types. Do not also use `skip_header_row_number` to skip the same header row.
 
 ### file_filter_pattern [string]
 

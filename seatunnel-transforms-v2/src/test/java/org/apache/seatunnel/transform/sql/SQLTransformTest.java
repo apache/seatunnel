@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -39,10 +40,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class SQLTransformTest {
 
@@ -1234,5 +1238,29 @@ public class SQLTransformTest {
         // age = -1 -> ARRAY(-1,1,2) but filtered out by age >= 0
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
         Assertions.assertNull(result);
+    }
+
+    @Test
+    public void testEngineOptionValueIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "internal".toUpperCase() is "\u0130NTERNAL", which EngineType.valueOf
+            // rejects.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            HashMap<String, Object> options = new HashMap<>();
+            options.put("query", "select id, name, age from dual");
+            options.put("engine", "internal");
+
+            SQLTransform sqlTransform =
+                    new SQLTransform(ReadonlyConfig.fromMap(options), getCatalogTable());
+            Assertions.assertEquals(
+                    Arrays.asList("id", "name", "age"),
+                    sqlTransform.transformTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toList()));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

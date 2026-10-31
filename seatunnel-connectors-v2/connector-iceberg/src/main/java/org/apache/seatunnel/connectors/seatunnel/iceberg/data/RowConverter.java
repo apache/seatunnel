@@ -210,6 +210,13 @@ public class RowConverter {
                 return convertTimeValue(value);
             case TIMESTAMP:
                 return convertTimestampValue(value, (Types.TimestampType) type);
+            case TIMESTAMP_NANO:
+                return checkNanosecondRange(
+                        convertTimestampValue(
+                                value, ((Types.TimestampNanoType) type).shouldAdjustToUTC()));
+            case UNKNOWN:
+                throw new IllegalArgumentException(
+                        "Cannot write a non-null value to an Iceberg unknown type column");
         }
         throw new UnsupportedOperationException("Unsupported type: " + type.typeId());
     }
@@ -415,7 +422,30 @@ public class RowConverter {
     }
 
     protected Temporal convertTimestampValue(Object value, Types.TimestampType type) {
-        if (type.shouldAdjustToUTC()) {
+        return convertTimestampValue(value, type.shouldAdjustToUTC());
+    }
+
+    /** timestamp_ns stores nanoseconds since the epoch in a long: years 1677 to 2262. */
+    private Temporal checkNanosecondRange(Temporal value) {
+        try {
+            if (value instanceof OffsetDateTime) {
+                DateTimeUtil.nanosFromTimestamptz((OffsetDateTime) value);
+            } else {
+                DateTimeUtil.nanosFromTimestamp((LocalDateTime) value);
+            }
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(
+                    "Timestamp "
+                            + value
+                            + " is outside the range of Iceberg timestamp_ns and timestamptz_ns"
+                            + " (years 1677 to 2262)",
+                    e);
+        }
+        return value;
+    }
+
+    private Temporal convertTimestampValue(Object value, boolean adjustToUTC) {
+        if (adjustToUTC) {
             return convertOffsetDateTime(value);
         }
         return convertLocalDateTime(value);

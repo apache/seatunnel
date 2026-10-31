@@ -27,7 +27,12 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisSchemaChangeException;
@@ -36,11 +41,19 @@ import org.apache.seatunnel.connectors.doris.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -397,7 +410,15 @@ public class DorisSinkWriterTest {
     }
 
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC, String format) {
-        Map<String, Object> options = new HashMap<>();
+        return createSinkConfig(directToBe, enable2PC, format, Collections.emptyMap());
+    }
+
+    private DorisSinkConfig createSinkConfig(
+            boolean directToBe,
+            boolean enable2PC,
+            String format,
+            Map<String, Object> extraOptions) {
+        Map<String, Object> options = new HashMap<>(extraOptions);
         options.put("fenodes", "fe1:8030");
         options.put("benodes", "be1:8040");
         options.put("direct_to_be", directToBe);
@@ -479,5 +500,221 @@ public class DorisSinkWriterTest {
         private List<String> getCreatedHosts() {
             return createdHosts;
         }
+    }
+
+    @Test
+    void testTimestampTzZoneWarningNamesColumnsAndJvmZoneWhenZoneUnset() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "created_at", "updated_at", "local_ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.LONG_TYPE,
+                            LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                            LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        Optional<String> warning =
+                DorisSinkWriter.timestampTzZoneWarning(
+                        TablePath.of("db", "orders"), rowType, null, ZoneId.of("UTC"));
+
+        Assertions.assertTrue(warning.isPresent());
+        Assertions.assertTrue(warning.get().contains("db.orders"), warning.get());
+        Assertions.assertTrue(warning.get().contains("[created_at, updated_at]"), warning.get());
+        Assertions.assertTrue(warning.get().contains("JVM default zone UTC"), warning.get());
+        Assertions.assertFalse(warning.get().contains("local_ts"), warning.get());
+    }
+
+    @Test
+    void testNoTimestampTzZoneWarningWhenZoneSetOrNoTimestampTzColumn() {
+        SeaTunnelRowType withTz =
+                new SeaTunnelRowType(
+                        new String[] {"created_at"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        SeaTunnelRowType withoutTz =
+                new SeaTunnelRowType(
+                        new String[] {"id", "local_ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.LONG_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        TablePath tablePath = TablePath.of("db", "orders");
+
+        Assertions.assertFalse(
+                DorisSinkWriter.timestampTzZoneWarning(
+                                tablePath, withTz, ZoneId.of("Asia/Shanghai"), ZoneId.of("UTC"))
+                        .isPresent());
+        Assertions.assertFalse(
+                DorisSinkWriter.timestampTzZoneWarning(tablePath, withoutTz, null, ZoneId.of("UTC"))
+                        .isPresent());
+    }
+
+    @Test
+    void testTimestampTzZoneWarningFindsNestedColumns() {
+        SeaTunnelRowType payload =
+                new SeaTunnelRowType(
+                        new String[] {"name", "created_at"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE
+                        });
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "payload", "events", "attrs"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.LONG_TYPE,
+                            payload,
+                            ArrayType.OFFSET_DATE_TIME_ARRAY_TYPE,
+                            new MapType<>(
+                                    BasicType.STRING_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        });
+
+        Optional<String> warning =
+                DorisSinkWriter.timestampTzZoneWarning(
+                        TablePath.of("db", "orders"), rowType, null, ZoneId.of("UTC"));
+
+        Assertions.assertTrue(warning.isPresent());
+        Assertions.assertTrue(
+                warning.get().contains("[payload.created_at, events[], attrs.<value>]"),
+                warning.get());
+    }
+
+    @Test
+    void testTimestampTzZoneWarningLoggedOnceWhenWriterCreatedWithTimestampTzColumn()
+            throws Exception {
+        List<String> warnings =
+                captureTimestampTzZoneWarnings(
+                        () -> {
+                            DorisSinkWriter writer =
+                                    new DorisSinkWriter(
+                                            new DefaultSinkWriterContext(0, 1),
+                                            new ArrayList<>(),
+                                            mockCatalogTable(timestampTzColumn("created_at")),
+                                            createSinkConfig(false, false),
+                                            "job_1",
+                                            frontendOnlyFactory());
+                            try {
+                                writer.setSchemaChangeManager(mock(SchemaChangeManager.class));
+                                writer.applySchemaChange(addTimestampTzColumnEvent("updated_at"));
+                            } finally {
+                                writer.close();
+                            }
+                        });
+
+        Assertions.assertEquals(1, warnings.size(), warnings.toString());
+        Assertions.assertTrue(
+                warnings.get(0)
+                        .contains("test_db.test_table has TIMESTAMP_TZ columns [created_at]"),
+                warnings.get(0));
+    }
+
+    @Test
+    void testTimestampTzZoneWarningLoggedOnceWhenSchemaChangeAddsTimestampTzColumn()
+            throws Exception {
+        List<String> warnings =
+                captureTimestampTzZoneWarnings(
+                        () -> {
+                            DorisSinkWriter writer =
+                                    new DorisSinkWriter(
+                                            new DefaultSinkWriterContext(0, 1),
+                                            new ArrayList<>(),
+                                            mockCatalogTable(),
+                                            createSinkConfig(false, false),
+                                            "job_1",
+                                            frontendOnlyFactory());
+                            try {
+                                writer.setSchemaChangeManager(mock(SchemaChangeManager.class));
+                                writer.applySchemaChange(addColumnEvent());
+                                writer.applySchemaChange(addTimestampTzColumnEvent("created_at"));
+                                writer.applySchemaChange(addTimestampTzColumnEvent("updated_at"));
+                            } finally {
+                                writer.close();
+                            }
+                        });
+
+        Assertions.assertEquals(1, warnings.size(), warnings.toString());
+        Assertions.assertTrue(
+                warnings.get(0).contains("TIMESTAMP_TZ columns [created_at]"), warnings.get(0));
+    }
+
+    @Test
+    void testNoTimestampTzZoneWarningLoggedWhenZoneConfigured() throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("sink.datetime-timezone", "Asia/Shanghai");
+        List<String> warnings =
+                captureTimestampTzZoneWarnings(
+                        () ->
+                                new DorisSinkWriter(
+                                                new DefaultSinkWriterContext(0, 1),
+                                                new ArrayList<>(),
+                                                mockCatalogTable(timestampTzColumn("created_at")),
+                                                createSinkConfig(false, false, "json", options),
+                                                "job_1",
+                                                frontendOnlyFactory())
+                                        .close());
+
+        Assertions.assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
+    private List<String> captureTimestampTzZoneWarnings(RunnableWithException action)
+            throws Exception {
+        List<String> warnings = Collections.synchronizedList(new ArrayList<>());
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "timestamp-tz-zone-warning", null, null, true, Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        String message = event.getMessage().getFormattedMessage();
+                        if (event.getLevel() == Level.WARN
+                                && message.contains("'sink.datetime-timezone' is not set")) {
+                            warnings.add(message);
+                        }
+                    }
+                };
+        appender.start();
+        Logger logger = (Logger) LogManager.getLogger(DorisSinkWriter.class);
+        Level originalLevel = logger.getLevel();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try {
+            action.run();
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+        return new ArrayList<>(warnings);
+    }
+
+    private PhysicalColumn timestampTzColumn(String name) {
+        return PhysicalColumn.of(
+                name, LocalTimeType.OFFSET_DATE_TIME_TYPE, (Long) null, true, null, null);
+    }
+
+    private AlterTableAddColumnEvent addTimestampTzColumnEvent(String name) {
+        return AlterTableAddColumnEvent.add(
+                TableIdentifier.of("doris", "test_db", null, "test_table"),
+                timestampTzColumn(name));
+    }
+
+    private RecordingStreamLoadFactory frontendOnlyFactory() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        when(frontendLoad.stopLoad()).thenReturn(successRespContent(41L));
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+        return factory;
+    }
+
+    private CatalogTable mockCatalogTable(PhysicalColumn extraColumn) {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.LONG_TYPE, (Long) null, true, null, null))
+                        .column(extraColumn)
+                        .build();
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        when(catalogTable.getTablePath()).thenReturn(TablePath.of("test_db", "test_table"));
+        when(catalogTable.getTableSchema()).thenReturn(tableSchema);
+        when(catalogTable.getSeaTunnelRowType()).thenReturn(tableSchema.toPhysicalRowDataType());
+        return catalogTable;
     }
 }

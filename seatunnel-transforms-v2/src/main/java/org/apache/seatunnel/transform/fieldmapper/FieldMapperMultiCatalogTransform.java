@@ -44,6 +44,12 @@ public class FieldMapperMultiCatalogTransform extends AbstractMultiCatalogMapTra
         return new FieldMapperTransform(FieldMapperTransformConfig.of(config), inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, FieldMapperTransformConfig.FIELD_MAPPER);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);
