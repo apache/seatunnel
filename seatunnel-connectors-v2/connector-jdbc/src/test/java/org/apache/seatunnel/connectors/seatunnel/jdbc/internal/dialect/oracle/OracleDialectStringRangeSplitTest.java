@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -196,6 +197,44 @@ public class OracleDialectStringRangeSplitTest {
     }
 
     @Test
+    public void testRejectsNullableSplitColumn() throws SQLException {
+        Connection connection = mock(Connection.class);
+        Statement nlsStatement = mock(Statement.class);
+        Statement sampleStatement = mock(Statement.class);
+        PreparedStatement columnStatement = mock(PreparedStatement.class);
+        ResultSet columnResultSet = mock(ResultSet.class);
+        PreparedStatement encodingStatement = mock(PreparedStatement.class);
+        ResultSet encodingResultSet = mock(ResultSet.class);
+        ResultSet sampleResultSet = mock(ResultSet.class);
+        when(connection.createStatement()).thenReturn(nlsStatement, sampleStatement);
+        // Build the NLS result set before it is used as a stubbed return value: creating and
+        // stubbing a mock inside thenReturn(...) leaves the outer stubbing unfinished and
+        // Mockito rejects it with UnfinishedStubbingException.
+        ResultSet nlsResultSet = binaryNlsResultSet();
+        when(nlsStatement.executeQuery(anyString())).thenReturn(nlsResultSet);
+        when(connection.prepareStatement(anyString()))
+                .thenReturn(encodingStatement, columnStatement);
+        stubAsciiCompatibleEncoding(encodingStatement, encodingResultSet);
+        when(columnStatement.executeQuery()).thenReturn(columnResultSet);
+        when(columnResultSet.next()).thenReturn(true);
+        when(columnResultSet.getString(1)).thenReturn("BINARY");
+        when(columnResultSet.getString(2)).thenReturn("Y");
+        // Samples that would pass every other check, so only the nullability gate can reject.
+        when(sampleStatement.executeQuery(anyString())).thenReturn(sampleResultSet);
+        when(sampleResultSet.next()).thenReturn(true, true, false);
+        when(sampleResultSet.getString(1)).thenReturn("A000", "A001");
+
+        StringRangeSplitDecision decision =
+                new OracleDialect()
+                        .validateStringRangeSplit(connection, physicalTable(), "ORDER_ID", 2);
+
+        assertFalse(decision.isSafe());
+        assertTrue(decision.getReason().contains("ORDER_ID is nullable"));
+        // Planning must stop before sampling: a nullable key is rejected without reading data.
+        verify(sampleStatement, never()).executeQuery(anyString());
+    }
+
+    @Test
     public void testDerivedOracleDialectDoesNotAdvertiseRangeSplitSupport() throws SQLException {
         OracleDialect dialect = new DerivedOracleDialect();
 
@@ -214,6 +253,7 @@ public class OracleDialectStringRangeSplitTest {
         when(collationStatement.executeQuery()).thenReturn(collationResultSet);
         when(collationResultSet.next()).thenReturn(true);
         when(collationResultSet.getString(1)).thenReturn("BINARY");
+        when(collationResultSet.getString(2)).thenReturn("N");
     }
 
     private void stubAsciiCompatibleEncoding(

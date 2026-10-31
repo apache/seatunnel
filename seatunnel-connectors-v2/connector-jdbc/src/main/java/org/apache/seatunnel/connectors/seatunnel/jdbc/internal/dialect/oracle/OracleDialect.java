@@ -78,6 +78,9 @@ public class OracleDialect implements JdbcDialect {
 
     private static final String USING_NLS_COMP_COLLATION = "USING_NLS_COMP";
 
+    /** ALL_TAB_COLUMNS.NULLABLE value reported only for columns declared NOT NULL. */
+    private static final String NOT_NULL_FLAG = "N";
+
     /** Oracle PCTFREE legal range (inclusive). */
     private static final int PCTFREE_MIN = 0;
 
@@ -325,10 +328,10 @@ public class OracleDialect implements JdbcDialect {
         if (!sessionDecision.isSafe()) {
             return sessionDecision;
         }
-        StringRangeSplitDecision collationDecision =
-                validateStringRangeSplitColumnCollation(connection, table, columnName);
-        if (!collationDecision.isSafe()) {
-            return collationDecision;
+        StringRangeSplitDecision columnDecision =
+                validateStringRangeSplitColumnMetadata(connection, table, columnName);
+        if (!columnDecision.isSafe()) {
+            return columnDecision;
         }
 
         List<String> samples = sampleStringValues(connection, table, columnName, sampleSize);
@@ -454,12 +457,18 @@ public class OracleDialect implements JdbcDialect {
     /**
      * Oracle 12.2+ can attach a data-bound collation to a column, which overrides the session order
      * used by range predicates. Accept only a binary collation or one governed by NLS_COMP.
+     *
+     * <p>The same ALL_TAB_COLUMNS row also reports nullability. Range predicates compare the split
+     * key against the split boundaries and a NULL key matches none of them, so rows holding a NULL
+     * split key would be silently skipped by every split. Only a column declared NOT NULL is
+     * accepted; a nullable column fails closed here so that an explicit range strategy is rejected
+     * and auto falls back, mirroring the collation and encoding checks.
      */
-    private StringRangeSplitDecision validateStringRangeSplitColumnCollation(
+    private StringRangeSplitDecision validateStringRangeSplitColumnMetadata(
             Connection connection, JdbcSourceTable table, String columnName) throws SQLException {
         TablePath tablePath = table.getTablePath();
         String sql =
-                "SELECT COLLATION FROM ALL_TAB_COLUMNS "
+                "SELECT COLLATION, NULLABLE FROM ALL_TAB_COLUMNS "
                         + "WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tablePath.getDatabaseName().toUpperCase(Locale.ROOT));
@@ -476,9 +485,19 @@ public class OracleDialect implements JdbcDialect {
                     return StringRangeSplitDecision.unsafe(
                             String.format("column collation %s is not binary", collation));
                 }
+                // NULLABLE is 'N' only when a NOT NULL constraint exists; treat 'Y' and any
+                // unexpected value as nullable so the decision stays fail-closed.
+                String nullable = resultSet.getString(2);
+                if (!NOT_NULL_FLAG.equalsIgnoreCase(nullable)) {
+                    return StringRangeSplitDecision.unsafe(
+                            String.format(
+                                    "column %s is nullable and rows with a NULL split key would be skipped by range predicates",
+                                    columnName));
+                }
             }
         }
-        return StringRangeSplitDecision.safe("column collation preserves binary comparison");
+        return StringRangeSplitDecision.safe(
+                "column collation preserves binary comparison and the column is NOT NULL");
     }
 
     private List<String> sampleStringValues(
