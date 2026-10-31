@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.slf4j.Logger;
@@ -40,7 +42,8 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 /** Assigner for Hybrid split which contains snapshot splits and incremental splits. */
-public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigner {
+public class HybridSplitAssigner<C extends SourceConfig>
+        implements SplitAssigner, CdcEnumeratorProgressSource {
 
     private static final Logger LOG = LoggerFactory.getLogger(HybridSplitAssigner.class);
 
@@ -172,5 +175,11 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
                         incrementalSplitAssigner.completedSnapshotPhase(tableIds))
                 .stream()
                 .allMatch(Predicate.isEqual(true));
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
+            String connectorType, String positionType) {
+        return snapshotSplitAssigner.getCdcEnumeratorProgress(connectorType, positionType);
     }
 }
