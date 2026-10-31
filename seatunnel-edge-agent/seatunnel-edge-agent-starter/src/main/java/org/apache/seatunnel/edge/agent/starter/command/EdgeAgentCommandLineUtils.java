@@ -32,21 +32,21 @@ public class EdgeAgentCommandLineUtils {
             jCommander.parse(args);
         } catch (ParameterException e) {
             System.err.println(e.getLocalizedMessage());
-            exit(jCommander, obj);
+            exit(jCommander, obj, EdgeAgentStarterConstants.USAGE_EXIT_CODE);
         }
 
         if (obj.isHelp()) {
-            exit(jCommander, obj);
+            exit(jCommander, obj, EdgeAgentStarterConstants.HELP_EXIT_CODE);
         }
         return obj;
     }
 
-    private static void exit(JCommander jCommander, EdgeAgentCommandArgs args) {
+    private static void exit(JCommander jCommander, EdgeAgentCommandArgs args, int exitCode) {
         if (args instanceof org.apache.seatunnel.edge.agent.starter.command.db.DbCommandArgs) {
             EdgeAgentDbUsage.printUsage(System.out);
         } else {
             EdgeAgentUsage.printUsage(System.out);
         }
-        System.exit(EdgeAgentStarterConstants.USAGE_EXIT_CODE);
+        System.exit(exitCode);
     }
 }
