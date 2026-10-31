@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -38,6 +39,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -83,32 +86,36 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
                     return null;
                 });
 
-        // Wait for the task to start
-        Thread.sleep(15000);
+        // Wait for the tasks to be listed by the client AND to report RUNNING instead of
+        // waiting a fixed time: the job history lists jobs in CREATED/PENDING/SCHEDULED as
+        // well, so being listed alone is not a RUNNING readiness signal and the cancel step
+        // below must not race a still-starting job.
+        AtomicReference<List<String>> runningJobIdRef = new AtomicReference<>();
+        Awaitility.await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<String> listed = listBatchCancelJobIds(container);
+                            Assertions.assertEquals(
+                                    2, listed.size(), "Both batch cancel tasks should be listed");
+                            for (String jobId : listed) {
+                                Assertions.assertEquals(
+                                        "RUNNING",
+                                        jobStatus(container, jobId),
+                                        "Job " + jobId + " should be RUNNING before cancel");
+                            }
+                            runningJobIdRef.set(listed);
+                        });
 
-        // Get the task id
-        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
-        String regex = "(\\d+)\\s+";
-        Pattern pattern = Pattern.compile(regex);
-        List<String> runningJobId =
-                Arrays.stream(execResult.getStdout().toString().split("\n"))
-                        .filter(s -> s.contains("batch_cancel_task"))
-                        .map(
-                                s -> {
-                                    Matcher matcher = pattern.matcher(s);
-                                    return matcher.find() ? matcher.group(1) : null;
-                                })
-                        .filter(jobId -> jobId != null)
-                        .collect(Collectors.toList());
+        // Get the verified task ids (both listed and observed RUNNING)
+        List<String> runningJobId = runningJobIdRef.get();
+        Assertions.assertNotNull(runningJobId);
         Assertions.assertEquals(2, runningJobId.size());
 
         // Verify that the status is Running
         for (String jobId : runningJobId) {
-            Container.ExecResult execResult1 =
-                    container.executeBaseCommand(new String[] {"-j", jobId});
-            String stdout = execResult1.getStdout();
-            ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
-            Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "RUNNING");
+            Assertions.assertEquals("RUNNING", jobStatus(container, jobId));
         }
 
         // Execute batch cancellation tasks
@@ -119,11 +126,30 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
 
         // Verify whether the cancellation is successful
         for (String jobId : runningJobId) {
-            Container.ExecResult execResult1 =
-                    container.executeBaseCommand(new String[] {"-j", jobId});
-            String stdout = execResult1.getStdout();
-            ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
-            Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "CANCELED");
+            Assertions.assertEquals("CANCELED", jobStatus(container, jobId));
         }
+    }
+
+    private String jobStatus(TestContainer container, String jobId)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-j", jobId});
+        ObjectNode jsonNodes = JsonUtils.parseObject(execResult.getStdout());
+        return jsonNodes.get("jobStatus").asText();
+    }
+
+    private List<String> listBatchCancelJobIds(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
+        String regex = "(\\d+)\\s+";
+        Pattern pattern = Pattern.compile(regex);
+        return Arrays.stream(execResult.getStdout().toString().split("\n"))
+                .filter(s -> s.contains("batch_cancel_task"))
+                .map(
+                        s -> {
+                            Matcher matcher = pattern.matcher(s);
+                            return matcher.find() ? matcher.group(1) : null;
+                        })
+                .filter(jobId -> jobId != null)
+                .collect(Collectors.toList());
     }
 }
