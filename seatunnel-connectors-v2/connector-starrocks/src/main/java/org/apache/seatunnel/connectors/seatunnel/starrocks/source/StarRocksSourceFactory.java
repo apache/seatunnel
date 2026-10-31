@@ -59,7 +59,8 @@ public class StarRocksSourceFactory implements TableSourceFactory {
                         StarRocksSourceOptions.SCAN_QUERY_TIMEOUT_SEC,
                         StarRocksSourceOptions.SCAN_KEEP_ALIVE_MIN,
                         StarRocksSourceOptions.SCAN_BATCH_ROWS,
-                        StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT)
+                        StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT,
+                        StarRocksSourceOptions.BE_HOST_PORT_MAPPING)
                 .exclusive(StarRocksSourceOptions.TABLE, CatalogOptions.TABLE_LIST)
                 .build();
     }
