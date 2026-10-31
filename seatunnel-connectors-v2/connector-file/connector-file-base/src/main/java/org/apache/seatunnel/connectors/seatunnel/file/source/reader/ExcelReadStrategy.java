@@ -107,6 +107,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             String currentFileName)
             throws IOException {
         String tableId = split.getTableId();
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         if (skipHeaderNumber > Integer.MAX_VALUE || skipHeaderNumber < Integer.MIN_VALUE) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
@@ -135,7 +136,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
         ExcelEngine excelEngine = getExcelEngine();
         if (ExcelEngine.EASY_EXCEL.equals(excelEngine)) {
-            readByEasyExcel(tableId, output, inputStream, excelCellUtils);
+            readByEasyExcel(tableId, output, inputStream, excelCellUtils, metadata);
         } else {
             readByPoi(
                     split,
@@ -144,7 +145,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     inputStream,
                     partitionsMap,
                     currentFileName,
-                    excelCellUtils);
+                    excelCellUtils,
+                    metadata);
         }
     }
 
@@ -177,13 +179,15 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
      * @param tableId table identifier
      * @param output row collector
      * @param inputStream Excel input stream
+     * @param metadata metadata resolved once for the current file
      * @param excelCellUtils cell conversion utility
      */
     private void readByEasyExcel(
             String tableId,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
-            ExcelCellUtils excelCellUtils) {
+            ExcelCellUtils excelCellUtils,
+            Map<String, Object> metadata) {
         log.info("Parsing Excel with EasyExcel");
 
         ExcelReaderBuilder read =
@@ -195,7 +199,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                 excelCellUtils,
                                 seaTunnelRowType,
                                 indexes,
-                                useHeaderLine));
+                                useHeaderLine,
+                                metadata));
         if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
             read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
                     .headRowNumber((int) skipHeaderNumber)
@@ -215,6 +220,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
      * @param inputStream Excel input stream
      * @param partitionsMap partition values inferred from the path
      * @param currentFileName file name used to select the workbook type
+     * @param metadata metadata resolved once for the current file
      * @param excelCellUtils cell conversion utility
      * @throws IOException if the file size or workbook cannot be read
      */
@@ -225,7 +231,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             InputStream inputStream,
             Map<String, String> partitionsMap,
             String currentFileName,
-            ExcelCellUtils excelCellUtils)
+            ExcelCellUtils excelCellUtils,
+            Map<String, Object> metadata)
             throws IOException {
         // For archived reads (ZIP/TAR/TAR_GZ/GZ) the entry-level guard
         // (assertArchiveEntrySize + bounded copy) already rejected oversized
@@ -330,7 +337,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setField(index++, value);
                                 }
                             }
-                            seaTunnelRow.setTableId(tableId);
+                            applyRowMetadata(seaTunnelRow, tableId, metadata);
                             output.collect(seaTunnelRow);
                         });
     }

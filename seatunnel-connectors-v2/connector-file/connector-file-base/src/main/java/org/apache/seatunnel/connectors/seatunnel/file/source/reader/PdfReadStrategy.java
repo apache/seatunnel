@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.PDFStreamEngine;
@@ -129,6 +130,8 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
         Path tempPdfPath = null;
         try {
+            Map<String, Object> fileMetadata =
+                    buildFileMetadata(new FileSourceSplit(tableId, path), path);
             tempPdfPath = createTempPdfPath();
             try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
                 Files.copy(inputStream, tempPdfPath, StandardCopyOption.REPLACE_EXISTING);
@@ -146,13 +149,15 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
                 int chunkIndex = 1;
                 for (DocumentElement element : elements) {
-                    output.collect(
+                    SeaTunnelRow row =
                             toSeaTunnelRow(
                                     element,
                                     sourceUri,
                                     documentId,
                                     chunkIndex++,
-                                    pdfRagMetadataEnabled));
+                                    pdfRagMetadataEnabled);
+                    applyRowMetadata(row, tableId, fileMetadata);
+                    output.collect(row);
                 }
             }
         } catch (Exception e) {
