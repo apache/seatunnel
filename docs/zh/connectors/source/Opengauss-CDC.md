@@ -205,6 +205,42 @@ transform {
 }
 ```
 
+## FAQ
+
+### 复制槽如何管理？
+
+SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。未使用的复制槽会持续占用
+磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC 任务永久下线时，应在 Opengauss 侧手动删除
+不再使用的复制槽。
+
+当 `exactly_once = true` 且 `startup.mode = initial` 时，SeaTunnel 会在任何快照 reader
+记录低水位线之前先准备好 `slot.name` 指定的流式复制槽。每个快照 reader 随后会使用一个
+由 `slot.name` 和 reader subtask id 派生出来的短生命周期 backfill 复制槽，读取快照低水位线
+到高水位线之间的有界 WAL。生成的 backfill 复制槽名称会控制在 PostgreSQL 兼容的 63 字节
+标识符限制内。快照 reader 会在正常完成或已捕获的失败路径中显式删除 backfill 复制槽。该
+复制槽在 reader 运行期间是服务端持久复制槽，因此进程崩溃或节点丢失可能遗留未激活的
+`*_st_backfill_*` 复制槽。确认没有存活 reader 持有后，应手动删除此类孤儿复制槽以释放其
+保留的 WAL。
+
+快照枚举器不会删除配置的流式复制槽，因为 initial 任务的增量阶段会继续使用它。如需让
+Debezium 增量 reader 在正常关闭时尝试删除配置的复制槽，请使用以下 SeaTunnel 透传配置。
+进程或节点异常退出时，该配置无法保证复制槽一定被删除。
+
+```hocon
+debezium {
+  slot.drop.on.stop = true
+}
+```
+
+快照启动期间，运维人员可能会在 `pg_replication_slots` 中同时看到配置的 `slot.name` 和生成的
+`*_st_backfill_*` 复制槽。
+
+由于每个快照 reader 都会创建自己的 backfill 复制槽，当 source 并行度为 N 时，exactly-once
+initial snapshot 任务会瞬时占用至少 N+1 个复制槽（1 个配置的流式复制槽加上 N 个 backfill
+复制槽）。请确保 `max_replication_slots` 至少能容纳 `并行度 + 1` 个复制槽，并为同一服务器
+上的其他复制槽使用方预留额外容量，否则快照启动阶段会报
+`ERROR: all replication slots are in use`。
+
 ## 变更日志
 
 <ChangeLog />
