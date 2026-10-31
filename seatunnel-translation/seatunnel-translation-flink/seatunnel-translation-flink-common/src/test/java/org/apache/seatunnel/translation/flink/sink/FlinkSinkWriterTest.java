@@ -17,14 +17,29 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
+
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,7 +51,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
+/**
+ * Protects Flink sink coordination acknowledgements, policy failure, and writer compatibility.
+ *
+ * <p>The real coordinator observes both successful metadata drops and deterministic negative
+ * acknowledgements without sink mutation.
+ */
 class FlinkSinkWriterTest {
 
     @Test
@@ -101,12 +129,7 @@ class FlinkSinkWriterTest {
                 AlterTableAddColumnEvent.add(
                         TableIdentifier.of("catalog", "database", "table"),
                         PhysicalColumn.of(
-                                "added_col",
-                                org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE,
-                                64L,
-                                true,
-                                null,
-                                null));
+                                "added_col", BasicType.STRING_TYPE, 64L, true, null, null));
         event.setJobId("job-under-test");
         SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
         Map<String, Object> options = new LinkedHashMap<>();
@@ -125,6 +148,167 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
         Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
         Assertions.assertEquals(event, delegate.appliedSchemaChanges.get(0));
+    }
+
+    @Test
+    void testInheritedNoOpWriterDropsSchemaChangeDuringCompatibilityWindow() throws Exception {
+        RecordingSinkWriter delegate = new RecordingSinkWriter();
+        RecordingContext context = new RecordingContext();
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context);
+
+        flinkSinkWriter.write(createSchemaChangeRow(createAddColumnEvent()), null);
+
+        Assertions.assertTrue(delegate.writtenRows.isEmpty());
+    }
+
+    @Test
+    void testExplicitDeprecatedSchemaChangeOverrideRemainsSupported() throws Exception {
+        LegacySchemaChangeWriter delegate = new LegacySchemaChangeWriter();
+        RecordingContext context = new RecordingContext();
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context);
+
+        flinkSinkWriter.write(createSchemaChangeRow(createAddColumnEvent()), null);
+
+        Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
+    }
+
+    @Test
+    void testSchemaChangeEventFailsWhenSinkApplyFails() {
+        FailingSchemaAwareSinkWriter delegate = new FailingSchemaAwareSinkWriter();
+        RecordingContext context = new RecordingContext();
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context);
+
+        SinkWriterSchemaException error =
+                Assertions.assertThrows(
+                        SinkWriterSchemaException.class,
+                        () ->
+                                flinkSinkWriter.write(
+                                        createSchemaChangeRow(createAddColumnEvent()), null));
+
+        Assertions.assertTrue(error.getMessage().contains("Failed to apply schema change"));
+        Assertions.assertTrue(delegate.writtenRows.isEmpty());
+    }
+
+    @Test
+    void testUnsupportedCommentAcknowledgesWithoutSinkMutation() throws Exception {
+        SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
+        FlinkSinkWriter<SeaTunnelRow, String, String> writer =
+                new FlinkSinkWriter<>(
+                        delegate,
+                        7L,
+                        new RecordingContext(),
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN));
+        TableIdentifier table = TableIdentifier.of("catalog", "database", "table");
+        SchemaChangeEvent[] events = {
+            AlterTableCommentEvent.of(table, "old", "new"),
+            new AlterTableColumnsEvent(
+                    table,
+                    Collections.singletonList(
+                            AlterColumnCommentEvent.of(table, "id", "old", "new")))
+        };
+        for (SchemaChangeEvent event : events) {
+            event.setJobId(UUID.randomUUID().toString());
+            LocalSchemaCoordinator coordinator =
+                    LocalSchemaCoordinator.getInstance(event.getJobId());
+            coordinator.registerSinkStateProvider(0, ignoredTable -> null);
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                Future<Boolean> coordinated =
+                        executor.submit(
+                                () ->
+                                        coordinator.requestSchemaChange(
+                                                event.tableIdentifier(),
+                                                event.getCreatedTime(),
+                                                5000));
+                awaitPendingCoordination(coordinator);
+                writer.write(createSchemaChangeRow(event), null);
+                Assertions.assertTrue(coordinated.get(5, TimeUnit.SECONDS));
+                Assertions.assertTrue(delegate.appliedSchemaChanges.isEmpty());
+                Assertions.assertTrue(delegate.writtenRows.isEmpty());
+            } finally {
+                coordinator.unregisterSinkSubtask(0);
+                executor.shutdownNow();
+            }
+        }
+    }
+
+    @Test
+    void testSchemaChangeEventFailsWithoutRestartAndNegativelyAcknowledges() throws Exception {
+        SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
+        FlinkSinkWriter<SeaTunnelRow, String, String> writer =
+                new FlinkSinkWriter<>(
+                        delegate,
+                        7L,
+                        new RecordingContext(),
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN));
+        AlterTableAddColumnEvent event = createAddColumnEvent();
+        event.setJobId(UUID.randomUUID().toString());
+        LocalSchemaCoordinator coordinator = LocalSchemaCoordinator.getInstance(event.getJobId());
+        coordinator.registerSinkStateProvider(0, ignoredTable -> null);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<Boolean> coordinated =
+                    executor.submit(
+                            () ->
+                                    coordinator.requestSchemaChange(
+                                            event.tableIdentifier(), event.getCreatedTime(), 5000));
+            awaitPendingCoordination(coordinator);
+            SuppressRestartsException error =
+                    Assertions.assertThrows(
+                            SuppressRestartsException.class,
+                            () -> writer.write(createSchemaChangeRow(event), null));
+            Assertions.assertInstanceOf(SchemaChangePolicyException.class, error.getCause());
+            Assertions.assertTrue(
+                    error.getCause().getMessage().contains("not supported end to end"));
+            Assertions.assertThrows(
+                    ExecutionException.class, () -> coordinated.get(5, TimeUnit.SECONDS));
+            Assertions.assertTrue(delegate.writtenRows.isEmpty());
+            Assertions.assertTrue(delegate.appliedSchemaChanges.isEmpty());
+        } finally {
+            coordinator.unregisterSinkSubtask(0);
+            executor.shutdownNow();
+        }
+    }
+
+    private static void awaitPendingCoordination(LocalSchemaCoordinator coordinator) {
+        Map<?, ?> requests =
+                (Map<?, ?>)
+                        ReflectionUtils.getField(coordinator, "pendingRequests")
+                                .orElseThrow(
+                                        () -> new AssertionError("pending request map missing"));
+        Map<?, ?> acknowledgements =
+                (Map<?, ?>)
+                        ReflectionUtils.getField(coordinator, "receivedAcks")
+                                .orElseThrow(
+                                        () -> new AssertionError("acknowledgement map missing"));
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (requests.isEmpty() || acknowledgements.isEmpty()) {
+            Assertions.assertTrue(
+                    System.nanoTime() < deadline, "coordination request was not registered");
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+        }
+    }
+
+    private static AlterTableAddColumnEvent createAddColumnEvent() {
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+        event.setJobId("job-under-test");
+        return event;
+    }
+
+    private static SeaTunnelRow createSchemaChangeRow(SchemaChangeEvent event) {
+        SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("schema_change_event", event);
+        options.put("schema_subtask_id", 0L);
+        schemaEvent.setOptions(options);
+        return schemaEvent;
     }
 
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
@@ -166,13 +350,29 @@ class FlinkSinkWriterTest {
     private static class SchemaAwareRecordingSinkWriter extends RecordingSinkWriter
             implements SupportSchemaEvolutionSinkWriter {
 
-        private final List<org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent>
-                appliedSchemaChanges = new ArrayList<>();
+        private final List<SchemaChangeEvent> appliedSchemaChanges = new ArrayList<>();
 
         @Override
-        public void applySchemaChange(
-                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+        public void applySchemaChange(SchemaChangeEvent event) {
             appliedSchemaChanges.add(event);
+        }
+    }
+
+    private static class LegacySchemaChangeWriter extends RecordingSinkWriter {
+        private final List<SchemaChangeEvent> appliedSchemaChanges = new ArrayList<>();
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) {
+            appliedSchemaChanges.add(event);
+        }
+    }
+
+    private static class FailingSchemaAwareSinkWriter extends RecordingSinkWriter
+            implements SupportSchemaEvolutionSinkWriter {
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+            throw new IOException("apply failed");
         }
     }
 
@@ -197,8 +397,8 @@ class FlinkSinkWriterTest {
     private static class NoopMetricsContext implements MetricsContext {
 
         @Override
-        public org.apache.seatunnel.api.common.metrics.Counter counter(String name) {
-            return new org.apache.seatunnel.api.common.metrics.Counter() {
+        public Counter counter(String name) {
+            return new Counter() {
                 @Override
                 public void inc() {}
 
@@ -225,21 +425,20 @@ class FlinkSinkWriterTest {
                 }
 
                 @Override
-                public org.apache.seatunnel.api.common.metrics.Unit unit() {
-                    return org.apache.seatunnel.api.common.metrics.Unit.COUNT;
+                public Unit unit() {
+                    return Unit.COUNT;
                 }
             };
         }
 
         @Override
-        public <C extends org.apache.seatunnel.api.common.metrics.Counter> C counter(
-                String name, C counter) {
+        public <C extends Counter> C counter(String name, C counter) {
             return counter;
         }
 
         @Override
-        public org.apache.seatunnel.api.common.metrics.Meter meter(String name) {
-            return new org.apache.seatunnel.api.common.metrics.Meter() {
+        public Meter meter(String name) {
+            return new Meter() {
                 @Override
                 public void markEvent() {}
 
@@ -262,15 +461,14 @@ class FlinkSinkWriterTest {
                 }
 
                 @Override
-                public org.apache.seatunnel.api.common.metrics.Unit unit() {
-                    return org.apache.seatunnel.api.common.metrics.Unit.COUNT;
+                public Unit unit() {
+                    return Unit.COUNT;
                 }
             };
         }
 
         @Override
-        public <M extends org.apache.seatunnel.api.common.metrics.Meter> M meter(
-                String name, M meter) {
+        public <M extends Meter> M meter(String name, M meter) {
             return meter;
         }
     }

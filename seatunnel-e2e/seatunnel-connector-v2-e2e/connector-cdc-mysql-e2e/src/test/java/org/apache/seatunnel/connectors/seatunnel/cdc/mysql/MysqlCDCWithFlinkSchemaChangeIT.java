@@ -36,6 +36,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -50,8 +51,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -84,11 +88,15 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    private static final String SINK_TABLE_IGNORE =
+            "mysql_cdc_e2e_sink_table_with_schema_change_ignore";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
+    private static final String MYSQL_SOURCE_USER_NAME = "st_user_source";
 
     private static final String DESC = "desc %s.%s";
+    private static final String QUERY = "select * from %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s order by id;";
 
@@ -182,12 +190,70 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
+    @Order(3)
+    @TestTemplate
+    public void testStrictSchemaChangeBehaviorFailsOnSchemaChange(TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () ->
+                                executeJob(
+                                        container,
+                                        "/mysqlcdc_to_mysql_with_flink_schema_change_strict.conf"));
+
+        awaitBinlogReaderStarted(jobFuture);
+        if (!jobFuture.isDone()) {
+            shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        }
+
+        Container.ExecResult result = awaitJobFinished(jobFuture);
+        Assertions.assertNotEquals(
+                0,
+                result.getExitCode(),
+                "strict schema change behavior should fail when a schema change event is observed");
+        Assertions.assertTrue(
+                result.getStderr().contains("Schema change behavior is STRICT")
+                        || result.getStdout().contains("Schema change behavior is STRICT"),
+                "strict failure should report the schema change behavior contract");
+    }
+
+    @Order(4)
+    @TestTemplate
+    public void testIgnoreSchemaChangeBehaviorDropsCommentOnlySchemaChange(
+            TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture.runAsync(
+                () ->
+                        executeJob(
+                                container,
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_ignore.conf"));
+
+        awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        awaitIncrementalStreamingReady(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
+
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+        // Rows inserted after the final comment DDL must arrive before checking the unchanged sink.
+        Assertions.assertFalse(
+                query(
+                                "select id from "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE_IGNORE
+                                        + " where id = 114")
+                        .isEmpty());
+        assertSourceTableComment(MYSQL_DATABASE, SINK_TABLE_IGNORE, "");
+    }
+
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
         awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
@@ -273,6 +339,7 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+
         awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
@@ -336,6 +403,59 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                         database, sourceTable, sinkTable, null));
     }
 
+    private void awaitInitialSnapshot(String sinkTable) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
+
+    private void awaitBinlogReaderStarted(CompletableFuture<Container.ExecResult> jobFuture) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .until(() -> jobFuture.isDone() || binlogReaderStarted());
+    }
+
+    private boolean binlogReaderStarted() {
+        try {
+            return query(
+                            "select COMMAND from information_schema.processlist where USER = '"
+                                    + MYSQL_SOURCE_USER_NAME
+                                    + "'")
+                    .stream()
+                    .flatMap(List::stream)
+                    .filter(command -> command != null)
+                    .map(command -> command.toString().toLowerCase(Locale.ROOT))
+                    .anyMatch(command -> command.contains("binlog dump"));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private Container.ExecResult executeJob(TestContainer container, String jobConfigFile) {
+        try {
+            return container.executeJob(jobConfigFile);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Container.ExecResult awaitJobFinished(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            return jobFuture.get(180, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (TimeoutException e) {
+            throw new RuntimeException(
+                    "Timed out waiting for schema change policy job to finish", e);
+        }
+    }
+
     /**
      * Waits until the incremental binlog reader is active before issuing schema changes.
      *
@@ -364,6 +484,15 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, "id = 100"));
+    }
+
+    private void executeUpdate(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -481,15 +610,6 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                     expectedComment,
                     rs.getString("TABLE_COMMENT"),
                     "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executeUpdate(String sql) {
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

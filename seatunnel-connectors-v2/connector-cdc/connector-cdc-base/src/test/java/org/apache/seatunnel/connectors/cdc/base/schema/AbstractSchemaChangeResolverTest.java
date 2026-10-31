@@ -24,11 +24,17 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,7 +45,69 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.mockito.Mockito.mock;
+
 public class AbstractSchemaChangeResolverTest {
+
+    @Test
+    void releasedTableEventOverrideIsInvokedByResolve() {
+        TableIdentifier tableId = TableIdentifier.of(null, "test_db", "test_table");
+        AlterTableCommentEvent comment = AlterTableCommentEvent.of(tableId, "old", "new");
+        AbstractSchemaChangeResolver resolver =
+                new AbstractSchemaChangeResolver(mock(JdbcSourceConfig.class)) {
+                    @Override
+                    protected DdlParser createDdlParser(TablePath tablePath) {
+                        return mock(DdlParser.class);
+                    }
+
+                    @Override
+                    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
+                        return Collections.singletonList(comment);
+                    }
+
+                    @Override
+                    protected String getSourceDialectName() {
+                        return "mysql";
+                    }
+                };
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .field("db", Schema.STRING_SCHEMA)
+                        .field("table", Schema.STRING_SCHEMA)
+                        .build();
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .field("source", sourceSchema)
+                        .field("ddl", Schema.STRING_SCHEMA)
+                        .build();
+        Struct source = new Struct(sourceSchema).put("db", "test_db").put("table", "test_table");
+        Struct value =
+                new Struct(valueSchema)
+                        .put("source", source)
+                        .put("ddl", "ALTER TABLE test_table COMMENT = 'new'");
+        SourceRecord record =
+                new SourceRecord(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        "schema-change",
+                        null,
+                        null,
+                        valueSchema,
+                        value);
+        CatalogTable table =
+                CatalogTable.of(
+                        tableId,
+                        TableSchema.builder().build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "old",
+                        null);
+        SchemaChangeEvent resolved = resolver.resolve(record, Collections.singletonList(table));
+        Assertions.assertInstanceOf(AlterTableCommentEvent.class, resolved);
+        Assertions.assertEquals("new", ((AlterTableCommentEvent) resolved).getNewComment());
+        Assertions.assertEquals(
+                "mysql", ((AlterTableCommentEvent) resolved).getSourceDialectName());
+    }
 
     @Test
     void testCompletionEvent() {
@@ -67,9 +135,10 @@ public class AbstractSchemaChangeResolverTest {
                         null,
                         null);
 
-        List<AlterTableColumnEvent> events =
-                resolver.completionEvent(
-                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable));
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        List<AlterTableEvent> events =
+                resolver.completeSchemaChangeEvents(
+                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable), tablePath);
         changeColumnEvent = (AlterTableChangeColumnEvent) events.get(0);
         Assertions.assertEquals("mysql", changeColumnEvent.getSourceDialectName());
         Assertions.assertEquals(BasicType.STRING_TYPE, changeColumnEvent.getColumn().getDataType());
@@ -293,14 +362,15 @@ public class AbstractSchemaChangeResolverTest {
     }
 
     private AbstractSchemaChangeResolver createResolver() {
-        return new AbstractSchemaChangeResolver(null) {
+        JdbcSourceConfig config = mock(JdbcSourceConfig.class);
+        return new AbstractSchemaChangeResolver(config) {
             @Override
             protected DdlParser createDdlParser(TablePath tablePath) {
                 return null;
             }
 
             @Override
-            protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+            protected List<AlterTableEvent> getAndClearAlterTableEvents() {
                 return Collections.emptyList();
             }
 

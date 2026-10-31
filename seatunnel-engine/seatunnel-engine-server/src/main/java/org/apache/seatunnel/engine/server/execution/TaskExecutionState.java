@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
+
+    private static final long serialVersionUID = -108652017022658969L;
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -29,20 +32,31 @@ public class TaskExecutionState implements Serializable {
 
     private final String throwableMsg;
 
+    private final boolean nonRetryable;
+
     public TaskExecutionState(
             TaskGroupLocation taskGroupLocation,
             ExecutionState executionState,
             Throwable throwable) {
-        this(
-                taskGroupLocation,
-                executionState,
-                throwable == null ? "" : ExceptionUtils.getMessage(throwable));
+        this(taskGroupLocation, executionState, throwable, false);
+    }
+
+    public TaskExecutionState(
+            TaskGroupLocation taskGroupLocation,
+            ExecutionState executionState,
+            Throwable throwable,
+            boolean nonRetryable) {
+        this.taskGroupLocation = taskGroupLocation;
+        this.executionState = executionState;
+        this.throwableMsg = throwable == null ? "" : ExceptionUtils.getMessage(throwable);
+        this.nonRetryable = nonRetryable || containsNonRetryableException(throwable);
     }
 
     public TaskExecutionState(TaskGroupLocation taskGroupLocation, ExecutionState executionState) {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
         this.throwableMsg = null;
+        this.nonRetryable = false;
     }
 
     public TaskExecutionState(
@@ -52,6 +66,7 @@ public class TaskExecutionState implements Serializable {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
         this.throwableMsg = throwableMsg;
+        this.nonRetryable = false;
     }
 
     public ExecutionState getExecutionState() {
@@ -64,5 +79,20 @@ public class TaskExecutionState implements Serializable {
 
     public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
+    }
+
+    public boolean isNonRetryable() {
+        return nonRetryable;
+    }
+
+    private static boolean containsNonRetryableException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof NonRetryableException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

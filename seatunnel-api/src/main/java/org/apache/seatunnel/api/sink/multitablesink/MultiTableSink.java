@@ -163,7 +163,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
@@ -231,7 +232,8 @@ public class MultiTableSink
                         getJobMode(),
                         effectiveFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
@@ -434,6 +436,24 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
+    }
+
+    private Map<String, List<SchemaChangeType>> getSupportedSchemaChangeTypesByTable() {
+        Map<String, List<SchemaChangeType>> supportedTypesByTable = new HashMap<>();
+        sinks.forEach(
+                (tablePath, sink) -> {
+                    List<SchemaChangeType> supportedTypes = null;
+                    if (sink instanceof SupportSchemaEvolutionSink) {
+                        supportedTypes = ((SupportSchemaEvolutionSink) sink).supports();
+                        if (supportedTypes == null) {
+                            supportedTypes = Collections.emptyList();
+                        }
+                    }
+                    // Null preserves only unadvertised legacy writers; an empty modern list is
+                    // strict.
+                    supportedTypesByTable.put(tablePath.toString(), supportedTypes);
+                });
+        return supportedTypesByTable;
     }
 
     private JobMode getJobMode() {
