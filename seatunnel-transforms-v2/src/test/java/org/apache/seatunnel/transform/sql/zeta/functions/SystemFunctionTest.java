@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -203,15 +204,59 @@ public class SystemFunctionTest {
 
     @Test
     public void testCastAsDecimalRounding() {
-        List<Object> args = new ArrayList<>();
-        args.add("1.234");
-        args.add("DECIMAL");
-        args.add(5);
-        args.add(2);
-
-        Object result = SystemFunction.castAs(args);
+        Object result = castAsDecimal("1.234", 5, 2);
         Assertions.assertTrue(result instanceof BigDecimal);
-        Assertions.assertEquals(new BigDecimal("1.24"), result);
+        Assertions.assertEquals(new BigDecimal("1.23"), result);
+    }
+
+    @Test
+    public void testCastAsDecimalRoundsHalfAwayFromZeroForEverySourceType() {
+        // CAST rounds half away from zero whatever the source type. A DECIMAL or STRING
+        // source used to round with CEILING instead, so 1.21 became 1.3 while the same value
+        // from a DOUBLE became 1.2. The DOUBLE cases below are not near a rounding boundary
+        // in binary, see testCastAsDecimalRoundsDoubleFromItsExactBinaryValue.
+        String[][] cases = {
+            {"1.21", "1.2"},
+            {"1.25", "1.3"},
+            {"1.29", "1.3"},
+            {"-1.21", "-1.2"},
+            {"-1.25", "-1.3"},
+            {"-1.29", "-1.3"},
+            {"0.04", "0.0"},
+            {"5", "5.0"}
+        };
+        for (String[] c : cases) {
+            BigDecimal expected = new BigDecimal(c[1]);
+            Assertions.assertEquals(
+                    expected, castAsDecimal(new BigDecimal(c[0]), 10, 1), "DECIMAL " + c[0]);
+            Assertions.assertEquals(expected, castAsDecimal(c[0], 10, 1), "STRING " + c[0]);
+            Assertions.assertEquals(
+                    expected, castAsDecimal(Double.parseDouble(c[0]), 10, 1), "DOUBLE " + c[0]);
+        }
+        Assertions.assertEquals(new BigDecimal("42.00"), castAsDecimal(42, 10, 2));
+        Assertions.assertEquals(new BigDecimal("-42.00"), castAsDecimal(-42L, 10, 2));
+    }
+
+    @Test
+    public void testCastAsDecimalRoundsDoubleFromItsExactBinaryValue() {
+        // 1.15d is 1.149999999999999911182158029987... in binary, so at scale 1 it rounds to
+        // 1.1, while the same digits as STRING or DECIMAL round to 1.2.
+        Assertions.assertEquals(new BigDecimal("1.1"), castAsDecimal(1.15d, 10, 1));
+        Assertions.assertEquals(new BigDecimal("-1.1"), castAsDecimal(-1.15d, 10, 1));
+        Assertions.assertEquals(new BigDecimal("1.2"), castAsDecimal("1.15", 10, 1));
+        Assertions.assertEquals(
+                new BigDecimal("1.2"), castAsDecimal(new BigDecimal("1.15"), 10, 1));
+        Assertions.assertEquals(new BigDecimal("2.67"), castAsDecimal(2.675d, 10, 2));
+        Assertions.assertEquals(new BigDecimal("2.68"), castAsDecimal("2.675", 10, 2));
+    }
+
+    private static Object castAsDecimal(Object value, int precision, int scale) {
+        List<Object> args = new ArrayList<>();
+        args.add(value);
+        args.add("DECIMAL");
+        args.add(precision);
+        args.add(scale);
+        return SystemFunction.castAs(args);
     }
 
     @Test
@@ -349,6 +394,77 @@ public class SystemFunctionTest {
                         rowType,
                         126.752251f);
         Assertions.assertEquals(new BigDecimal("126.752251"), issueRow.getField(0));
+    }
+
+    @Test
+    public void testCastDecimalAndStringToDecimalViaSqlEngineRoundsLikeDouble() {
+        // These values produce the same DECIMAL whether they arrive as DECIMAL, STRING or
+        // DOUBLE, because 1.21d and -1.25d are not near a rounding boundary in binary.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_dec", "c_str", "c_dbl"},
+                        new SeaTunnelDataType[] {
+                            new DecimalType(20, 2), BasicType.STRING_TYPE, BasicType.DOUBLE_TYPE
+                        });
+        String query =
+                "SELECT CAST(c_dec AS DECIMAL(6,1)) AS d_dec, CAST(c_str AS DECIMAL(6,1)) AS d_str,"
+                        + " CAST(c_dbl AS DECIMAL(6,1)) AS d_dbl FROM dual";
+
+        SeaTunnelRow positive = runSql(query, rowType, new BigDecimal("1.21"), "1.21", 1.21d);
+        for (int i = 0; i < 3; i++) {
+            Assertions.assertEquals(new BigDecimal("1.2"), positive.getField(i), "field " + i);
+        }
+        SeaTunnelRow negative = runSql(query, rowType, new BigDecimal("-1.25"), "-1.25", -1.25d);
+        for (int i = 0; i < 3; i++) {
+            Assertions.assertEquals(new BigDecimal("-1.3"), negative.getField(i), "field " + i);
+        }
+    }
+
+    @Test
+    public void testCastOfNumericAndQuotedLiteralsViaSqlEngine() {
+        // A numeric literal with a decimal point is a DOUBLE source and a quoted literal is a
+        // STRING source, as the compatibility note says.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        String query =
+                "SELECT CAST(1.21 AS DECIMAL(10,1)) AS d1, CAST('1.21' AS DECIMAL(10,1)) AS d2,"
+                        + " CAST(1.15 AS DECIMAL(10,1)) AS d3, CAST('1.15' AS DECIMAL(10,1)) AS d4"
+                        + " FROM dual";
+
+        SeaTunnelRow row = runSql(query, rowType, 1);
+
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(0));
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(1));
+        Assertions.assertEquals(new BigDecimal("1.1"), row.getField(2));
+        Assertions.assertEquals(new BigDecimal("1.2"), row.getField(3));
+    }
+
+    @Test
+    public void testCoalesceAndIfNullRoundInferredDecimalLikeCast() {
+        // COALESCE and IFNULL convert the result to the type of their first argument that is not
+        // a NULL literal, through the same DECIMAL branch as CAST, so a dropped digit rounds half
+        // away from zero there too: 1.2345 into DECIMAL(20,2) is 1.23 (it was 1.24 with CEILING).
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dec2_col", "dec4_col"},
+                        new SeaTunnelDataType[] {new DecimalType(20, 2), new DecimalType(20, 4)});
+
+        SeaTunnelRow coalesced =
+                runSql(
+                        "SELECT COALESCE(dec2_col, dec4_col) AS r FROM dual",
+                        rowType,
+                        null,
+                        new BigDecimal("1.2345"));
+        Assertions.assertEquals(new BigDecimal("1.23"), coalesced.getField(0));
+
+        SeaTunnelRow ifNull =
+                runSql(
+                        "SELECT IFNULL(dec2_col, dec4_col) AS r FROM dual",
+                        rowType,
+                        null,
+                        new BigDecimal("-1.2350"));
+        Assertions.assertEquals(new BigDecimal("-1.24"), ifNull.getField(0));
     }
 
     @Test
