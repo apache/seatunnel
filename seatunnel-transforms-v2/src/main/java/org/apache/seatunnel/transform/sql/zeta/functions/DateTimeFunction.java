@@ -375,7 +375,7 @@ public class DateTimeFunction {
         return localDate.getDayOfYear();
     }
 
-    public static Integer extract(List<Object> args) {
+    public static Number extract(List<Object> args) {
         Temporal datetime = (Temporal) args.get(0);
         if (datetime == null) {
             return null;
@@ -449,39 +449,47 @@ public class DateTimeFunction {
                 }
                 break;
             case "MILLISECOND":
+            case "MILLISECONDS":
                 if (datetime instanceof LocalTime) {
-                    return ((LocalTime) datetime).getNano() / 1000_000;
+                    LocalTime time = (LocalTime) datetime;
+                    return extractMilliseconds(time.getSecond(), time.getNano());
                 }
                 if (datetime instanceof LocalDateTime) {
-                    return ((LocalDateTime) datetime).getNano() / 1000_000;
+                    LocalDateTime dateTime = (LocalDateTime) datetime;
+                    return extractMilliseconds(dateTime.getSecond(), dateTime.getNano());
                 }
                 if (datetime instanceof OffsetDateTime) {
-                    return ((OffsetDateTime) datetime).getNano() / 1000_000;
+                    OffsetDateTime dateTime = (OffsetDateTime) datetime;
+                    return extractMilliseconds(dateTime.getSecond(), dateTime.getNano());
                 }
                 break;
+            case "MICROSECOND":
             case "MICROSECONDS":
                 if (datetime instanceof LocalTime) {
-                    return ((LocalTime) datetime).getNano() / 1000;
+                    LocalTime time = (LocalTime) datetime;
+                    return extractMicroseconds(time.getSecond(), time.getNano());
                 }
                 if (datetime instanceof LocalDateTime) {
-                    return ((LocalDateTime) datetime).getNano() / 1000;
+                    LocalDateTime dateTime = (LocalDateTime) datetime;
+                    return extractMicroseconds(dateTime.getSecond(), dateTime.getNano());
                 }
                 if (datetime instanceof OffsetDateTime) {
-                    return ((OffsetDateTime) datetime).getNano() / 1000;
+                    OffsetDateTime dateTime = (OffsetDateTime) datetime;
+                    return extractMicroseconds(dateTime.getSecond(), dateTime.getNano());
                 }
                 break;
             case "EPOCH":
                 if (datetime instanceof LocalDateTime) {
                     ZoneOffset offset = ZoneOffset.UTC;
-                    return (int) ((LocalDateTime) datetime).toEpochSecond(offset);
+                    return ((LocalDateTime) datetime).toEpochSecond(offset);
                 }
                 if (datetime instanceof LocalDate) {
                     LocalDateTime ldt = LocalDateTime.of((LocalDate) datetime, LocalTime.MIDNIGHT);
                     ZoneOffset offset = ZoneOffset.UTC;
-                    return (int) ldt.toEpochSecond(offset);
+                    return ldt.toEpochSecond(offset);
                 }
                 if (datetime instanceof OffsetDateTime) {
-                    return (int) ((OffsetDateTime) datetime).toEpochSecond();
+                    return ((OffsetDateTime) datetime).toEpochSecond();
                 }
                 break;
             case "QUARTER":
@@ -605,6 +613,26 @@ public class DateTimeFunction {
                                 datetimeField, ZetaSQLFunction.EXTRACT));
         }
         return null;
+    }
+
+    /**
+     * Converts the EXTRACT milliseconds field to the SQL-standard whole-seconds-based value.
+     *
+     * <p>This keeps the seconds component in the result instead of returning only the fractional
+     * remainder.
+     */
+    private static int extractMilliseconds(int second, int nano) {
+        return second * 1000 + nano / 1000_000;
+    }
+
+    /**
+     * Converts the EXTRACT microseconds field to the SQL-standard whole-seconds-based value.
+     *
+     * <p>This keeps the seconds component in the result instead of returning only the fractional
+     * remainder.
+     */
+    private static int extractMicroseconds(int second, int nano) {
+        return second * 1000_000 + nano / 1000;
     }
 
     public static String formatdatetime(List<Object> args) {

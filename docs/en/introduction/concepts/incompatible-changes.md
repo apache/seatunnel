@@ -649,6 +649,11 @@ or state format migration is required.
 
 ### Transform Changes
 
+- **Breaking Change: SQL `EXTRACT(EPOCH|MILLISECOND(S)|MICROSECOND(S))` now follows documented semantics**
+  - **Affected component**: `seatunnel-transforms-v2` SQL Transform (`EXTRACT` in Zeta SQL)
+  - **Description**: `EXTRACT(EPOCH FROM ...)` now returns a `BIGINT`-compatible value instead of truncating the epoch seconds to `INT`. `EXTRACT(MILLISECOND(S) FROM ...)` and `EXTRACT(MICROSECOND(S) FROM ...)` now include the whole-seconds field, matching the SQL-standard behavior already documented in `sql-functions.md`, instead of returning only the fractional remainder.
+  - **Impact**: Downstream typed sinks or schema assertions that previously expected `INT` for `EPOCH` may now see `BIGINT`. Pipelines that relied on the old fractional-only millisecond or microsecond value will now receive `seconds * 10^n + fractional_part`.
+  - **Migration Guide**: If your downstream schema still expects an integer-sized epoch value, cast it explicitly after confirming the values fit your range. If you need the old fractional-only millisecond or microsecond behavior, use `MOD(EXTRACT(MILLISECONDS FROM ts), 1000)` or `MOD(EXTRACT(MICROSECONDS FROM ts), 1000000)`.
 - **Behavior change: AMAZON embedding honors retry options**
   - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
   - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.

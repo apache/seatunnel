@@ -556,6 +556,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 转换变更
 
+- **破坏性变更：SQL `EXTRACT(EPOCH|MILLISECOND(S)|MICROSECOND(S))` 现在与文档语义保持一致**
+  - **影响范围**：`seatunnel-transforms-v2` SQL Transform（Zeta SQL 中的 `EXTRACT`）
+  - **变更说明**：`EXTRACT(EPOCH FROM ...)` 现在返回兼容 `BIGINT` 的值，不再把 epoch 秒数截断成 `INT`。`EXTRACT(MILLISECOND(S) FROM ...)` 和 `EXTRACT(MICROSECOND(S) FROM ...)` 现在会把整秒部分一起折算进结果，和 `sql-functions.md` 中已公开的 SQL 标准语义保持一致，而不是只返回小数秒余数。
+  - **影响**：如果下游 typed sink 或 schema 断言以前假定 `EPOCH` 输出是 `INT`，升级后可能看到 `BIGINT`。如果已有任务依赖旧的“仅小数部分”毫秒/微秒值，升级后将收到 `秒数 * 10^n + 小数部分` 的新结果。
+  - **迁移指南**：如果下游 schema 仍要求整数大小的 epoch 值，请在确认数值范围后显式做类型转换。如果您需要旧的“仅小数部分”毫秒/微秒行为，可以使用 `MOD(EXTRACT(MILLISECONDS FROM ts), 1000)` 或 `MOD(EXTRACT(MICROSECONDS FROM ts), 1000000)`。
 - **行为变更：AMAZON 向量化遵循重试选项**
   - **影响范围**：配置 `model_provider = AMAZON` 的 `Embedding` 转换。
   - **变更说明**：配置的 SeaTunnel 重试和退避选项现在会传递到 Bedrock 运行时。此前 Transform 忽略这些设置，只执行一次 SeaTunnel 尝试。
