@@ -35,7 +35,9 @@ seatunnel:
 
 Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
-OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
+OpenMetrics 的指标文本可通过 `http://{instanceHost}:8080/openmetrics` 获取。
+
+相同的内容也在 Hazelcast REST 端点 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 上提供，该端点还需要在 `hazelcast.yaml` 的 `hazelcast.network.rest-api` 下设置 `rest-api.enabled: true`（发行包模板中默认关闭）。
 
 可用的指标包括以下类别。
 
@@ -260,12 +262,13 @@ scrape_configs:
   # 默认分配给抓取指标的作业名称。
   - job_name: 'seatunnel'
     scrape_interval: 5s
-    # 指标导出路径 
-    metrics_path: /hazelcast/rest/instance/metrics
+    # 指标导出路径（由 Jetty HTTP 服务器提供；仅当开启了 Hazelcast rest-api 时，
+    # 才使用 5801 端口上的 /hazelcast/rest/instance/metrics）
+    metrics_path: /metrics
     # 此作业静态配置的目标列表。
     static_configs:
       # 静态配置中指定的目标。
-      - targets: [ 'localhost:5801' ]
+      - targets: [ 'localhost:8080' ]
       # 为从目标抓取的所有指标分配的标签。
       # labels: [<labelName>:<labelValue>]
 ```
