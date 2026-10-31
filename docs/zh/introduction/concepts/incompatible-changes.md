@@ -66,6 +66,18 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
 
+### JDBC MySQL 兼容模式 DECIMAL 精度映射
+
+- **行为变更：MySQL JDBC 和 OceanBase MySQL 兼容模式的 DECIMAL 元数据现在保留声明的精度和小数位数**
+  - **影响组件**：`connector-jdbc` 的 MySQL、OceanBase MySQL 兼容模式类型转换，`connector-cdc-mysql` 的 source schema，以及自动生成的 MySQL/OceanBase sink DDL
+  - **说明**：精度大于 38 的 MySQL `DECIMAL(p, s)` 列，以及 OceanBase MySQL 兼容模式中的对应列，此前会被转换为 `DECIMAL(38, 18)`，现在会在数据库限制范围内保留 `p` 和 `s`，最大精度为 65，最大小数位数为 30。超过上限时会进行截断；精度超过 65 时会按需减少小数位，以保留整数位。`UNSIGNED` 不会增加一位数字：
+    `DECIMAL(p, s) UNSIGNED` 映射为相同的 SeaTunnel decimal 精度和小数位数，因为 MySQL 的 precision
+    表示总位数，`UNSIGNED` 只改变符号范围。
+  - **影响**：宽精度 decimal 的 source schema 会发生变化，自动生成的 MySQL/OceanBase sink 表会使用声明的类型，
+    例如 `DECIMAL(65, 0)` 或 `DECIMAL(50, 30)`。现有目标表不会被修改。依赖旧有缩窄行为或其舍入结果的
+    作业可能看到更宽的值，或出现不同的 sink 兼容性结果。Spark 的 decimal 类型和 Iceberg decimal 列支持的精度上限为 38，因此宽精度 decimal 可能在 Spark schema 转换或 Iceberg 建表时失败；其他精度上限较低的 sink 也可能拒绝或收窄该 schema。
+  - **迁移指南**：升级前检查下游 schema 和现有目标表。如果必须保留旧的 `DECIMAL(38, 18)` schema，请显式创建目标表，或在 `query` 中将源列转换为所需的精度和小数位。对于 Spark、Iceberg 或其他精度上限为 38 的 sink，请在 schema 转换前将宽精度源列转换为不超过 38 的精度，并确认小数位能够表示所需的数据。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
