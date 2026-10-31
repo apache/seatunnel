@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -430,6 +431,14 @@ public class ClickhouseValueReader implements Serializable {
         private AtomicBoolean eos = new AtomicBoolean(false);
         private final List<String> sqlList;
 
+        /**
+         * Failure of the asynchronous read thread, if any. The thread itself cannot report a
+         * failure to the reader: it only flips {@link #eos} in its finally block, which the
+         * consumer would otherwise observe as a normal end of stream and silently truncate the
+         * split.
+         */
+        private final AtomicReference<Throwable> asyncFailure = new AtomicReference<>();
+
         public StreamValueReader() {
             this.rowQueue = new LinkedBlockingDeque<>(clickhouseSourceTable.getBatchSize());
             this.sqlList = buildSqlList();
@@ -475,11 +484,16 @@ public class ClickhouseValueReader implements Serializable {
                                         }
                                     }
                                 } catch (ClickHouseException e) {
-                                    throw new ClickhouseConnectorException(
-                                            ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
-                                            String.format(
-                                                    "Failed to execute query: %s", executeSql),
-                                            e);
+                                    asyncFailure.compareAndSet(
+                                            null,
+                                            new ClickhouseConnectorException(
+                                                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                                                    String.format(
+                                                            "Failed to execute query: %s",
+                                                            executeSql),
+                                                    e));
+                                } catch (Exception e) {
+                                    asyncFailure.compareAndSet(null, e);
                                 } finally {
                                     eos.set(true);
                                     log.info("StreamValueReader finished reading data");
@@ -500,13 +514,19 @@ public class ClickhouseValueReader implements Serializable {
                             return true;
                         }
                     } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         throw new ClickhouseConnectorException(
                                 ClickhouseConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                     }
                 } else {
                     try {
                         Thread.sleep(10);
-                    } catch (InterruptedException ignored) {
+                    } catch (InterruptedException e) {
+                        // Report the interrupt instead of swallowing it: clearing the flag here
+                        // would drop the cancellation signal and keep polling for a batch forever.
+                        Thread.currentThread().interrupt();
+                        throw new ClickhouseConnectorException(
+                                ClickhouseConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                     }
                 }
             }
@@ -514,6 +534,19 @@ public class ClickhouseValueReader implements Serializable {
             if (!rows.isEmpty()) {
                 rowBatch = rows;
                 return true;
+            }
+
+            // Report the read failure instead of returning a clean end of stream, otherwise the job
+            // succeeds with the rows after the failed query silently missing.
+            Throwable failure = asyncFailure.get();
+            if (failure != null) {
+                if (failure instanceof ClickhouseConnectorException) {
+                    throw (ClickhouseConnectorException) failure;
+                }
+                throw new ClickhouseConnectorException(
+                        ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                        "Failed to read data in stream mode",
+                        failure);
             }
 
             return false;
