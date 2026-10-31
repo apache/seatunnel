@@ -51,6 +51,14 @@ public class ProtobufDeserializationSchema implements DeserializationSchema<SeaT
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        if (message == null) {
+            // A Kafka tombstone carries a null value to mark its key deleted. That is a
+            // deletion marker rather than a malformed message, so it produces no row and the
+            // source moves past it, as the json and maxwell_json formats already do. A zero
+            // length payload is deliberately not covered: protobuf defines it as a valid
+            // message whose every field holds its default value.
+            return null;
+        }
         Descriptors.Descriptor descriptor = this.converter.getDescriptor();
         DynamicMessage dynamicMessage = DynamicMessage.parseFrom(descriptor, message);
         return convertToRow(dynamicMessage);
