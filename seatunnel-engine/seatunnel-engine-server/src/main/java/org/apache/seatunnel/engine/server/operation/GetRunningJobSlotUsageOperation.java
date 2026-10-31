@@ -18,28 +18,28 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 import org.apache.seatunnel.engine.server.trace.RunningJobSlotUsageBuilder;
 
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 
-/** Master operation that returns slot ownership summaries for all running jobs. */
-public class GetRunningJobSlotUsageOperation extends Operation
-        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+/**
+ * Master operation that returns slot ownership summaries for all running jobs.
+ *
+ * <p>The cluster-wide aggregation is handed to a named executor and the Hazelcast operation thread
+ * is released immediately: {@link AsyncOperation} declares {@code returnsResponse() == false} and
+ * sends the success or failure response from the completion callback of the returned future, so no
+ * generic operation thread waits for the aggregation to finish.
+ */
+public class GetRunningJobSlotUsageOperation extends AsyncOperation
+        implements AllowedDuringPassiveState {
 
-    private String response;
-
-    @Override
-    public int getFactoryId() {
-        return ClientToServerOperationDataSerializerHook.FACTORY_ID;
-    }
+    static final String EXECUTOR_NAME = "get_running_job_slot_usage_operation";
 
     @Override
     public int getClassId() {
@@ -47,34 +47,24 @@ public class GetRunningJobSlotUsageOperation extends Operation
     }
 
     /**
-     * Builds the response on the master member where running job and owned slot maps are current.
+     * Schedules the aggregation on the master member where running job and owned slot maps are
+     * current, and returns without waiting for it.
      */
     @Override
-    public void run() {
+    protected PassiveCompletableFuture<String> doRun() {
         SeaTunnelServer service = getService();
-        CompletableFuture<String> future =
-                CompletableFuture.supplyAsync(
-                        () -> JsonUtils.toJsonString(RunningJobSlotUsageBuilder.build(service)),
-                        getNodeEngine()
-                                .getExecutionService()
-                                .getExecutor("get_running_job_slot_usage_operation"));
-
-        response = awaitResponse(future);
+        Executor executor = getNodeEngine().getExecutionService().getExecutor(EXECUTOR_NAME);
+        // A failure inside buildResponse completes the future exceptionally; AsyncOperation peels
+        // the CompletionException and sends the original exception back to the caller.
+        return new PassiveCompletableFuture<>(
+                CompletableFuture.supplyAsync(() -> buildResponse(service), executor));
     }
 
-    static String awaitResponse(CompletableFuture<String> future) {
-        try {
-            return future.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw ExceptionUtil.rethrow(e.getCause());
-        }
-    }
-
-    @Override
-    public Object getResponse() {
-        return response;
+    /**
+     * Builds the JSON response on the executor thread, never on the operation thread. Kept
+     * package-private so the operation lifecycle test can replace the cluster-wide aggregation.
+     */
+    String buildResponse(SeaTunnelServer service) {
+        return JsonUtils.toJsonString(RunningJobSlotUsageBuilder.build(service));
     }
 }

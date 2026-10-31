@@ -18,31 +18,98 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-/** Tests response waiting behavior for the running-job slot usage operation. */
+import com.hazelcast.internal.util.executor.ManagedExecutorService;
+import com.hazelcast.jet.impl.LiveOperationRegistry;
+import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.executionservice.ExecutionService;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * Verifies the asynchronous response lifecycle of {@link GetRunningJobSlotUsageOperation}: the
+ * operation thread must be released while the aggregation is still pending, and exactly one success
+ * or failure response must be sent once the aggregation completes.
+ */
 class GetRunningJobSlotUsageOperationTest {
 
-    @Test
-    void shouldUnwrapRetryableExceptionsFromAsyncExecution() {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        future.completeExceptionally(new SeaTunnelEngineRetryableException("retryable"));
+    private final List<Runnable> pendingTasks = new ArrayList<>();
+    private final List<Object> responses = new ArrayList<>();
 
-        SeaTunnelEngineRetryableException exception =
-                Assertions.assertThrows(
-                        SeaTunnelEngineRetryableException.class,
-                        () -> GetRunningJobSlotUsageOperation.awaitResponse(future));
-        Assertions.assertEquals("retryable", exception.getMessage());
+    @Test
+    void shouldReleaseOperationThreadBeforeAggregationCompletes() {
+        GetRunningJobSlotUsageOperation operation = prepareOperation(service -> "[]");
+
+        // The deferred executor never runs the task on its own, so run() can only return when it
+        // does not wait on the aggregation future.
+        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(5), operation::run);
+        Assertions.assertEquals(1, pendingTasks.size());
+        Assertions.assertTrue(responses.isEmpty());
+
+        pendingTasks.get(0).run();
+
+        Assertions.assertEquals(Collections.singletonList("[]"), responses);
     }
 
     @Test
-    void shouldReturnSuccessfulResponse() {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        future.complete("ok");
+    void shouldSendBuilderFailureAsExceptionalResponse() {
+        SeaTunnelEngineRetryableException failure =
+                new SeaTunnelEngineRetryableException("retryable");
+        GetRunningJobSlotUsageOperation operation =
+                prepareOperation(
+                        service -> {
+                            throw failure;
+                        });
 
-        Assertions.assertEquals("ok", GetRunningJobSlotUsageOperation.awaitResponse(future));
+        operation.run();
+        pendingTasks.get(0).run();
+
+        // The original exception reaches the caller, not the CompletionException wrapper.
+        Assertions.assertEquals(1, responses.size());
+        Assertions.assertSame(failure, responses.get(0));
+    }
+
+    private GetRunningJobSlotUsageOperation prepareOperation(
+            Function<SeaTunnelServer, String> responseBuilder) {
+        ManagedExecutorService executor = Mockito.mock(ManagedExecutorService.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            pendingTasks.add(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(executor)
+                .execute(Mockito.any());
+        ExecutionService executionService = Mockito.mock(ExecutionService.class);
+        Mockito.when(executionService.getExecutor(GetRunningJobSlotUsageOperation.EXECUTOR_NAME))
+                .thenReturn(executor);
+        NodeEngine nodeEngine = Mockito.mock(NodeEngine.class);
+        Mockito.when(nodeEngine.getExecutionService()).thenReturn(executionService);
+        Mockito.when(nodeEngine.getLogger(Mockito.any(Class.class)))
+                .thenReturn(Logger.getLogger(GetRunningJobSlotUsageOperationTest.class));
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.getLiveOperationRegistry())
+                .thenReturn(Mockito.mock(LiveOperationRegistry.class));
+
+        GetRunningJobSlotUsageOperation operation =
+                new GetRunningJobSlotUsageOperation() {
+                    @Override
+                    String buildResponse(SeaTunnelServer service) {
+                        return responseBuilder.apply(service);
+                    }
+                };
+        operation.setNodeEngine(nodeEngine);
+        operation.setService(server);
+        operation.setOperationResponseHandler((op, response) -> responses.add(response));
+        return operation;
     }
 }
