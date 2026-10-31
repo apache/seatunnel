@@ -24,7 +24,7 @@ support version >= 2.x and <= 8.x.
 | name                    | type    | required | default value                                                  |
 |-------------------------|---------|----------|----------------------------------------------------------------|
 | hosts                   | array   | yes      | -                                                              |
-| auth_type               | string  | no       | basic                                                          |
+| auth_type               | enum    | no       | basic                                                          |
 | username                | string  | no       | -                                                              |
 | password                | string  | no       | -                                                              |
 | auth.api_key_id         | string  | no       | -                                                              |

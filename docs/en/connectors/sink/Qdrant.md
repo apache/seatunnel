@@ -20,7 +20,7 @@ The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Norma
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [multimodal](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
