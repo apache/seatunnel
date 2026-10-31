@@ -110,6 +110,8 @@ public class JdbcSink
         this.dataSaveMode = dataSaveMode;
         this.catalogTable = catalogTable;
         this.tableSchema = catalogTable.getTableSchema();
+        // Fail at sink creation (job submission) rather than when the first batch is flushed.
+        dialect.validateUserDefinedQuery(jdbcSinkConfig.getSimpleSql(), this.tableSchema);
     }
 
     @Override

@@ -17,14 +17,29 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class SnowflakeDialect implements JdbcDialect {
+
+    /** Snowflake function that turns JSON text into a structured VARIANT value. */
+    private static final String PARSE_JSON_FUNCTION = "PARSE_JSON";
+
     @Override
     public String dialectName() {
         return DatabaseIdentifier.SNOWFLAKE;
@@ -38,6 +53,97 @@ public class SnowflakeDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new SnowflakeTypeMapper();
+    }
+
+    /**
+     * Wraps JSON parameters with PARSE_JSON so JSON text is stored as a structured VARIANT value.
+     */
+    @Override
+    public String getInsertIntoStatement(
+            String database, String tableName, TableSchema tableSchema) {
+        String[] fieldNames = tableSchema.getFieldNames();
+        String columns =
+                Arrays.stream(fieldNames)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(", "));
+        String placeholders =
+                Arrays.stream(fieldNames)
+                        .map(fieldName -> parameterExpression(tableSchema, fieldName))
+                        .collect(Collectors.joining(", "));
+        return String.format(
+                "INSERT INTO %s (%s) VALUES (%s)",
+                tableIdentifier(database, tableName), columns, placeholders);
+    }
+
+    /** Wraps JSON parameters with PARSE_JSON in both update values and conditions. */
+    @Override
+    public String getUpdateStatement(
+            String database,
+            String tableName,
+            TableSchema tableSchema,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+        String setClause =
+                Arrays.stream(tableSchema.getFieldNames())
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = %s",
+                                                quoteIdentifier(fieldName),
+                                                parameterExpression(tableSchema, fieldName)))
+                        .collect(Collectors.joining(", "));
+        String conditionClause =
+                Arrays.stream(conditionFields)
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = %s",
+                                                quoteIdentifier(fieldName),
+                                                parameterExpression(tableSchema, fieldName)))
+                        .collect(Collectors.joining(" AND "));
+        return String.format(
+                "UPDATE %s SET %s WHERE %s",
+                tableIdentifier(database, tableName), setClause, conditionClause);
+    }
+
+    /**
+     * A user-defined query bypasses the generated PARSE_JSON wrapping. Binding JSON text through a
+     * plain placeholder makes Snowflake store an escaped string in the VARIANT column instead of a
+     * parsed JSON value, so the sink refuses to start unless the query applies PARSE_JSON itself.
+     */
+    @Override
+    public void validateUserDefinedQuery(String query, TableSchema tableSchema) {
+        if (StringUtils.isBlank(query)) {
+            return;
+        }
+        List<String> jsonFields =
+                tableSchema.getColumns().stream()
+                        .filter(column -> column.getDataType().getSqlType() == SqlType.JSON)
+                        .map(Column::getName)
+                        .collect(Collectors.toList());
+        if (jsonFields.isEmpty() || query.toUpperCase(Locale.ROOT).contains(PARSE_JSON_FUNCTION)) {
+            return;
+        }
+        throw new JdbcConnectorException(
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                String.format(
+                        "Snowflake sink: the user-defined `query` does not apply %s to the JSON field(s) %s. "
+                                + "A plain placeholder stores an escaped string in the VARIANT column instead of a "
+                                + "parsed JSON value. Wrap each JSON placeholder with %s(?) in the query, or remove "
+                                + "`query` so SeaTunnel generates the INSERT statement with %s automatically.",
+                        PARSE_JSON_FUNCTION, jsonFields, PARSE_JSON_FUNCTION, PARSE_JSON_FUNCTION));
+    }
+
+    /** Returns the Snowflake bind expression for a field. */
+    private String parameterExpression(TableSchema tableSchema, String fieldName) {
+        return tableSchema.getColumn(fieldName).getDataType().getSqlType() == SqlType.JSON
+                ? "PARSE_JSON(:" + fieldName + ")"
+                : ":" + fieldName;
     }
 
     @Override

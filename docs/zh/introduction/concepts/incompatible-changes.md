@@ -375,6 +375,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### API 变更
 
+- **破坏性变更：原生半结构化列映射为 `JSON` 逻辑类型**
+  - **影响范围**：Snowflake JDBC（`VARIANT`）、Doris（`JSON`/`JSONB`）和 StarRocks（`JSON`）的 Source 与 Catalog。
+  - **变更说明**：这些原生列以前在 SeaTunnel Schema 中表示为 `STRING`，现在表示为以字符串作为物理值的 `JSON` 逻辑类型，使支持该类型的 Sink 和 Format 能保留原生 JSON 语义。
+  - **影响**：会检查 Source Schema 的任务，或写入尚不支持 `JSON` 的 Sink 的任务，可能观察到类型变化或收到不支持类型的异常。本版本中 Calcite SQL、Copy、JsonPath、CSV、Avro、JSON Format、Spark Translation、Snowflake、Doris 和 StarRocks 已支持该逻辑类型。没有 JSON 映射的 Sink 行为如下：Qdrant 会以不支持类型异常拒绝 JSON payload 字段，Databend 会建成 `STRING` 列并输出告警日志，Easysearch 会把该字段映射为其字符串类型。
+  - **退出选项**：在 Doris Source 或 Jdbc Source（Snowflake `VARIANT`）上设置 `handle_json_as_string = true`，这些列会继续以 `STRING` 暴露，与变更前完全一致。StarRocks Source 始终使用用户声明的 `schema`，因此把列声明为 `string` 即可保持原行为；StarRocks 的映射变更只影响 StarRocks Catalog（`StarRocksCatalog`）和自动建表。
+  - **迁移指南**：如果下游组件尚不支持 `JSON`，请在该组件之前增加 Calcite Transform，例如 `SELECT CAST(payload AS VARCHAR) AS payload, ... FROM source_table`。这会恢复以前以字符串表示的 Schema 和值行为。当目标是已支持的原生 JSON/VARIANT 列时不要进行该转换，因为转换会主动移除 JSON 类型语义。
+
 - **破坏性变更：Engine REST 表级指标 key 格式变化**
   - **影响范围**：SeaTunnel Engine REST API（`/job-info` 返回的 job metrics 中的表级指标）
   - **变更说明**：为支持多个 Source/Sink/Transform 同时处理同一张表，表级指标的 key 格式从 `{tableName}` 变更为 `{VertexIdentifier}.{tableName}`（例如 `Sink[0].fake.user_table`）。

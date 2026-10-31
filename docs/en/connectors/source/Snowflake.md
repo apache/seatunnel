@@ -47,8 +47,9 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
 | DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, 18)     |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
-| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
+| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT<br/>                       | DOUBLE              |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>OBJECT              | STRING              |
+| VARIANT                                                                    | JSON                |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
@@ -72,6 +73,7 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | partition_num                | Int        | No       | 10      | Number of source splits used in parallel reading. Defaults to `10`. Increase this value if `env.parallelism` is larger and you want one split per reader task.                                                                                                |
 | fetch_size                   | Int        | No       | 0       | JDBC fetch size for the query. `0` means use the JDBC driver default. Use a positive value to reduce database round-trips for large result sets.                                                                                                              |
 | properties                   | Map        | No       | -       | Extra JDBC connection properties. When the same key appears in both `properties` and `url`, the precedence is driver-specific.                                                                                                                               |
+| handle_json_as_string        | Boolean    | No       | false   | If true, `VARIANT` columns are exposed as `STRING` instead of the `JSON` logical type (the schema produced before the `JSON` logical type was introduced).                                                                                                 |
 | common-options               |            | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                            |
 
 ### Tips

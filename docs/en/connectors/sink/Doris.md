@@ -180,7 +180,7 @@ You can use the following placeholders
 | STRING          | STRING                                  |
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
-| JSON            | STRING                                  |
+| JSON<br/>JSONB  | JSON                                    |
 | VARIANT         | STRING                                  |
 | IPV4<br/>IPV6   | STRING                                  |
 | HLL             | Not supported yet                       |

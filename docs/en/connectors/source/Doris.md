@@ -60,6 +60,7 @@ Used to read data from Apache Doris.
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+| JSON<br/>JSONB                       | JSON                                                                                                                                                |
 
 `IPV4` and `IPV6` are read as their text form, for example `192.168.0.1` and `2001:db8::1`. They are recognized only when the Doris version reports them in `information_schema.columns` (verified on Doris 4.0.6; Doris 2.1.0 reports these columns as `unknown`).
 
@@ -80,6 +81,7 @@ Base configuration:
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
+| handle_json_as_string            | boolean | no      | false      | If true, Doris `JSON`/`JSONB` columns are exposed as `STRING` instead of the `JSON` logical type (the schema produced before the `JSON` logical type was introduced). |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
 Table list configuration:

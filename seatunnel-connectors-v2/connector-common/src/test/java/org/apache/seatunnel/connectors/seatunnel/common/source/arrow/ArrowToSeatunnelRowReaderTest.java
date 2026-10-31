@@ -499,6 +499,46 @@ public class ArrowToSeatunnelRowReaderTest {
         }
     }
 
+    /**
+     * Verifies that Arrow text values use the JSON runtime contract of Java strings while nullable
+     * values remain null.
+     */
+    @Test
+    public void testJsonValueConversion() throws Exception {
+        String json = "{\"id\":1,\"nested\":[true,2]}";
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+                VarCharVector jsonVector = new VarCharVector("json", allocator)) {
+            jsonVector.allocateNew();
+            jsonVector.setSafe(0, json.getBytes(StandardCharsets.UTF_8));
+            jsonVector.setNull(1);
+            jsonVector.setValueCount(2);
+            try (VectorSchemaRoot jsonRoot =
+                            new VectorSchemaRoot(
+                                    Collections.singletonList(jsonVector.getField()),
+                                    Collections.singletonList(jsonVector),
+                                    2);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(
+                                    jsonRoot,
+                                    /*DictionaryProvider=*/ null,
+                                    Channels.newChannel(out))) {
+                writer.writeBatch();
+                out.flush();
+
+                SeaTunnelRowType rowType =
+                        new SeaTunnelRowType(
+                                new String[] {"json"},
+                                new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+                try (ArrowToSeatunnelRowReader reader =
+                        new ArrowToSeatunnelRowReader(out.toByteArray(), rowType).readArrow()) {
+                    Assertions.assertEquals(json, reader.next().getField(0));
+                    Assertions.assertNull(reader.next().getField(0));
+                }
+            }
+        }
+    }
+
     @Test
     public void testConvertArrowSpeed() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();

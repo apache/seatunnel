@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | STRING         | STRING                                  |
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
-| JSON           | STRING                                  |
+| JSON<br/>JSONB | JSON                                    |
 | VARIANT        | STRING                                  |
 | IPV4<br/>IPV6  | STRING                                  |
 | HLL            | 尚不支持                                    |

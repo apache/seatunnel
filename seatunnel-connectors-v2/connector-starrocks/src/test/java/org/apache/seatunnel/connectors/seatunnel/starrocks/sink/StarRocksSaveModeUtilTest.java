@@ -28,6 +28,25 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class StarRocksSaveModeUtilTest {
+
+    /**
+     * Verifies auto-created StarRocks columns keep the native JSON type.
+     *
+     * <p>The generated DDL must not degrade SeaTunnel JSON to a string column.
+     */
+    @Test
+    void returnsNativeJsonType() {
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn(null);
+        when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.JSON_TYPE);
+        when(column.getName()).thenReturn("payload");
+        when(column.isNullable()).thenReturn(true);
+
+        String result = StarRocksSaveModeUtil.INSTANCE.columnToConnectorType(column);
+
+        assertEquals("`payload` JSON NULL ", result);
+    }
+
     @Test
     void returnsReconvertedTypeWhenSinkTypeNotNull() {
         Column column = mock(Column.class);

@@ -46,11 +46,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>OBJECT               | STRING             |
+| VARIANT                                                                     | JSON               |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
 | BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES              |
+
+SeaTunnel 自动生成插入语句时，会使用 `PARSE_JSON` 包装 JSON 字段，使其 JSON 结构存入 Snowflake `VARIANT`。使用自定义 `query` 时，SeaTunnel 无法改写该语句，需要自行用 `PARSE_JSON(?)` 包装每个 JSON 占位符，例如 `INSERT INTO t (id, payload) VALUES (?, PARSE_JSON(?))`。如果 Sink Schema 包含 JSON 字段且自定义 `query` 中没有出现 `PARSE_JSON`，Sink 会在创建时（作业提交阶段）失败并在报错信息中列出 JSON 字段，而不是把转义后的字符串写入 `VARIANT` 列。
 
 ## 选项
 

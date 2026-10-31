@@ -48,7 +48,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>OBJECT               | STRING             |
+| VARIANT                                                                     | JSON               |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
@@ -72,6 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_num                | Int        | 否       | 10      | 并行读取时的拆分数量，默认值为 `10`。如果 `env.parallelism` 更大并希望每个读取任务一个拆分，可适当上调。                                                                              |
 | fetch_size                   | Int        | 否       | 0       | JDBC 读取时的 fetch size。`0` 表示使用驱动默认值；返回大量行时可设为正值以减少数据库往返。                                                                                          |
 | properties                   | Map        | 否       | -       | 额外的 JDBC 连接参数。`properties` 与 `url` 包含相同键时，优先级由驱动决定。                                                                                                        |
+| handle_json_as_string        | Boolean    | 否       | false   | 为 true 时，`VARIANT` 列以 `STRING` 而不是 `JSON` 逻辑类型暴露（即引入 `JSON` 逻辑类型之前的 Schema）。                                                                              |
 | common-options               |            | 否       | -       | Source 插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                                                                                                |
 
 ### 小贴士
