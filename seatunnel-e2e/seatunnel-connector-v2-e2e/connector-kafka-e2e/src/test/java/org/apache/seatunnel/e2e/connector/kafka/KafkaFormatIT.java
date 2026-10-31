@@ -93,6 +93,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -498,6 +499,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             // A group per run, so the second run has to commit an offset of its own instead of
             // passing on the one the first run already left behind.
             String consumerGroup = topic + "_group_" + errorHandleWay;
+            awaitGroupCoordinator(consumerGroup);
+            // Reading the sink table also truncates it, so the check below sees only the rows
+            // this run writes.
+            getPostgreSinkTableList(PG_SINK_TABLE1);
             Container.ExecResult execCompatibleTombstoneResultToPgSql =
                     container.executeJob(
                             COMPATIBLE_TOMBSTONE_CONFIG,
@@ -1001,8 +1006,29 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while creating Kafka topic " + topicName, e);
-        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+        } catch (ExecutionException | TimeoutException e) {
             throw new RuntimeException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /**
+     * Waits until the broker can coordinate the consumer group. A new group that commits first in a
+     * fresh broker races the creation of {@code __consumer_offsets}: the commit fails with {@code
+     * CoordinatorNotAvailableException} and the source only logs it. The admin client retries the
+     * coordinator lookup itself, and this commits nothing for the group.
+     */
+    private void awaitGroupCoordinator(String consumerGroup) {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient
+                    .describeConsumerGroups(Arrays.asList(consumerGroup))
+                    .all()
+                    .get(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(
+                    "Interrupted while waiting for the coordinator of " + consumerGroup, e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new RuntimeException("No coordinator for consumer group " + consumerGroup, e);
         }
     }
 
