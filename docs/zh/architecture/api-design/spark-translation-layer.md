@@ -102,6 +102,24 @@ Spark 转换层对 schema 转换非常敏感，因为 Spark 本身依赖严格�
 - 嵌套类型
 - nullability
 
+### 精度超过 38 的 DECIMAL
+
+Spark 的 `DecimalType` 精度最大为 38。`TypeConverterUtils` 对 `p > 38` 的 SeaTunnel `DecimalType(p, s)` 按下表映射，做法与 `TIME`、`TIMESTAMP_TZ` 借助 metadata 标记传递相同：
+
+| 宽 DECIMAL 的位置 | Spark schema |
+|---|---|
+| 顶层字段，或路径上所有容器都是 `ROW` 时 `ROW` 内的字段 | `StringType`，`StructField` metadata 为 `seatunnel_decimal_precision = p` 和 `seatunnel_decimal_scale = s`（均为 long） |
+| `ARRAY` 或 `MAP` 内任意位置 | 以 `SPARK-TRANSLATION-01` 拒绝 |
+
+规则：
+
+- `MultiTableManager` 在 `mergeSchema` 之前检查每个 Source 的 `CatalogTable`，因为合并后列名会变成 `column0..N`。报错信息包含表名、列路径（`.element`、`.key`、`.value`）、声明的类型、上限 38 以及绕过办法。
+- 写入（`InternalRowConverter` 和 `SeaTunnelRowConverter`）：`null` 保持为 `null`。值先用 `setScale(s, RoundingMode.UNNECESSARY)` 补齐小数位，再用 `toPlainString()` 输出。需要四舍五入或位数超过 `p` 的值以 `SPARK-TRANSLATION-02` 拒绝。
+- 读取：文本必须匹配 `-?\d+(\.\d+)?`，小数位数必须正好是 `s`，总位数不超过 `p`。其他情况一律以 `SPARK-TRANSLATION-02` 拒绝，不会重新调整小数位数。
+- Schema 回读（`TypeConverterUtils.convert(StructType)`）：带有两个 metadata 键的 `StringType` 字段会还原为 `DecimalType(p, s)`。只有一个键、键出现在其他类型上或 `p <= 38` 时，以 `SPARK-TRANSLATION-03` 拒绝。
+
+行数据按 SeaTunnel 的行类型转换，因此 Transform 和 Sink 看到的始终是 `DecimalType(p, s)`。
+
 ## 版本拆分
 
 SeaTunnel 的 Spark 转换层是按版本线拆分的。Spark 2.4 和 Spark 3.x 的 datasource API 不完全一致，因此仓库里保留了不同 major 版本的独立适配模块。
