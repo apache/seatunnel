@@ -635,11 +635,7 @@ LN(A)
 
 ```LOG(baseNumeric, numeric) -> DOUBLE```
 
-Calculates the logarithm with specified base. Argument and base must be positive numeric values. Base cannot be equal to 1.
-
-The default base is e (natural logarithm), in the PostgreSQL mode the default base is base 10. In MSSQLServer mode the optional base is specified after the argument.
-
-Single-argument variant of LOG function is deprecated, use LN or LOG10 instead.
+Calculates the logarithm with the specified base. Both arguments must be positive numeric values and the base cannot be 1. `LOG` requires exactly two arguments; use `LN` for the natural logarithm and `LOG10` for base 10.
 
 Example:
 
@@ -699,7 +695,7 @@ POWER(A, B)
 
 ```RAND | RANDOM([ int ]) -> DOUBLE```
 
-Calling the function without parameter returns the next a pseudo random number. Calling it with an parameter seeds the session's random number generator. This method returns a double between 0 (including) and 1 (excluding).
+Returns a pseudo random double between 0 (including) and 1 (excluding). Each call uses a new generator; when an argument is provided it is used as the seed for that call, so the result is deterministic for the same seed.
 
 Example:
 
@@ -1404,7 +1400,7 @@ select ARRAY(1,2,3) as arrays
 select ARRAY('c_1',2,3.12) as arrays
 select ARRAY(column1,column2,column3) as arrays
 
-notes: Currently only string, double, long, int types are supported
+notes: Element types are unified following the numeric/string promotion rules, so string, tinyint, smallint, int, bigint, float and double elements are supported. See the [Collection expressions](sql.md) section for details.
 
 ### MAP
 
