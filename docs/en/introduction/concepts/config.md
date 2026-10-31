@@ -141,6 +141,10 @@ When a job contains multiple sources, transforms, or sinks, SeaTunnel needs a wa
 
 In simple one-source jobs, you can often omit them because SeaTunnel uses a default convention and passes the previous module's output forward automatically.
 
+### Config Keys And Path Expressions
+
+SeaTunnel's config path separator is `->`, so `a->b = 1` defines the nested `a.b`, while the dot in `job.mode` is part of the key name; every config file load runs keys through that path parser, including configs read by a config adapter and the internal re-parse that serves `-i` variable substitution even when no `-i` value is passed. A key that is a valid path expression is still parsed as a path (quotes are dropped and surrounding unquoted whitespace is trimmed), so a quoted `"a->b" = 1` is stored as the nested `a.b`; a key the parser rejects stays a single literal key instead of failing the load, for example the regex field name `^t_nova_.*$` or a key containing `$`, `:` or `${...}`. HOCON also treats some of those characters as syntax, so quote such keys in the file itself: write `"$systemId" = "string"`, not `$systemId = "string"`. REST submissions follow the same rules, see [REST API V2](../../engines/zeta/rest-api-v2.md).
+
 ## Multi-line Support
 
 In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
