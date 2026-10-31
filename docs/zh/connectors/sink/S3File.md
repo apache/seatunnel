@@ -51,7 +51,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 > 如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 2.x。
 >
 > 如果您使用 SeaTunnel引擎，当您下载并安装 SeaTunnel引擎时，它会自动集成 Hadoop jar 包。您可以在 `${SEATUNNEL_HOME}/lib` 下检查 jar 包以确认这一点。
-> 要使用此连接器，您需要将 `hadoop-aws-3.1.4.jar` 和 `aws-java-sdk-bundle-1.12.692.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录下。
+> 要使用此连接器，您需要将 `hadoop-aws-3.1.4.jar` 和 `aws-java-sdk-bundle-1.12.770.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录下。
 
 ## 数据类型映射
 
