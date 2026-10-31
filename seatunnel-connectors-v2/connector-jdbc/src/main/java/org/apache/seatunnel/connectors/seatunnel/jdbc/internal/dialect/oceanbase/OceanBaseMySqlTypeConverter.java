@@ -35,6 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 @Slf4j
 @AutoService(TypeConverter.class)
 public class OceanBaseMySqlTypeConverter
@@ -121,7 +123,7 @@ public class OceanBaseMySqlTypeConverter
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        String mysqlDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
@@ -299,7 +301,7 @@ public class OceanBaseMySqlTypeConverter
                 builder.scale(typeDefine.getScale());
                 break;
             case VECTOR_NAME:
-                String columnType = typeDefine.getColumnType().toUpperCase();
+                String columnType = typeDefine.getColumnType().toUpperCase(Locale.ROOT);
                 if (columnType.startsWith("VECTOR(") && columnType.endsWith(")")) {
                     Integer number =
                             Integer.parseInt(
