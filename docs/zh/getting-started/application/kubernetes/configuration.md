@@ -30,6 +30,9 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 
 | 名称 | 类型 | 是否必须 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
+| `kubernetes.ha.enabled` | boolean | 否 | `false` | 启用双 Master 原生 Zeta HA；见[架构](architecture.md)。 |
+| `kubernetes.master.replicas` | int | 否 | `1` | 非 HA 必须为 1，HA 必须为 2。 |
+| `kubernetes.ha.backup-count` | int | 否 | HA 中为 `1` | HA 必须使用一个原生同步备份。 |
 | `kubernetes.namespace` | string | no | `default` | 所有 application 资源所在的已有 Namespace。 |
 | `kubernetes.image` | string | yes | - | 包含 SeaTunnel、provider 和作业插件的镜像。 |
 | `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`、`IfNotPresent` 或 `Never`。 |
@@ -83,7 +86,8 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `application.startup-timeout-millis` | long | no | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
 
 :::note
-每个 Pod 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
+Master 和 Worker 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
+HA observer 的独立内存上限为 256Mi，JVM 堆为 96Mi。
 :::
 
 :::note
@@ -490,3 +494,5 @@ bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 Pod request 与 limit 相同。需要同时规划 Worker 数、slot 数、作业并行度、Namespace
 ResourceQuota、LimitRange 和节点容量。Master 不提供 task slot。
 :::
+
+HA 模式下 Master 和 Worker 共享运行时装饰器；checkpoint PVC 仅挂载到 Master。owner 不接收作业配置、Secret 或运行时挂载。上述权限表描述默认单 Master 模式；启用 HA 时还须遵循[HA 架构权限](architecture.md)。

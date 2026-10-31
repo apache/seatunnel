@@ -539,6 +539,106 @@ class KubernetesResourceManagerDriverTest {
                                                         .equals(mount.getSubPath())));
     }
 
+    @Test
+    void coordinatorDetachmentPreservesExistingHaWorkers() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        KubernetesJob owner = job();
+        owner.getInternalResource()
+                .getMetadata()
+                .setAnnotations(java.util.Map.of("seatunnel.apache.org/submission", "requested"));
+        when(api.getJob("app")).thenReturn(owner);
+        KubernetesPod existing = pod("app-worker-0", "Running");
+        existing.getInternalResource()
+                .getMetadata()
+                .addOwnerReferencesItem(
+                        new V1OwnerReference().kind("Job").name("app").uid("uid-1"));
+        when(api.listPods(anyString())).thenReturn(java.util.Collections.singletonList(existing));
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api, haParameters(), "app", "isolated-app", "uid-1")) {
+            driver.initialize(
+                    mock(ResourceEventHandler.class),
+                    mainThreadExecutor,
+                    ioExecutor,
+                    () -> "10.0.0.1:5801");
+            KubernetesWorkerNode worker =
+                    driver.requestWorker(specification().getWorkerSpecification())
+                            .get(5, TimeUnit.SECONDS);
+            assertEquals("app-worker-0", worker.getResourceID().getResourceIdString());
+            driver.releaseWorker(worker).get();
+            driver.stopWorkers();
+        }
+        verify(api, never()).createPod(any());
+        verify(api, never()).deletePod(anyString());
+        verify(api, never()).deleteWorkers(anyString());
+        verify(api).close();
+    }
+
+    @Test
+    void haDoesNotRecreateAnAbsentWorkerOrAttachAnotherOwnersPod() throws Exception {
+        for (boolean foreign : new boolean[] {false, true}) {
+            KubernetesClient api = mock(KubernetesClient.class);
+            KubernetesJob owner = job();
+            owner.getInternalResource()
+                    .getMetadata()
+                    .setAnnotations(
+                            java.util.Map.of("seatunnel.apache.org/submission", "requested"));
+            when(api.getJob("app")).thenReturn(owner);
+            when(api.listPods(anyString()))
+                    .thenReturn(
+                            foreign
+                                    ? java.util.Collections.singletonList(
+                                            pod("app-worker-0", "Running"))
+                                    : java.util.Collections.emptyList());
+            try (KubernetesResourceManagerDriver driver =
+                    new KubernetesResourceManagerDriver(
+                            api, haParameters(), "app", "isolated-app", "uid-1")) {
+                driver.initialize(
+                        mock(ResourceEventHandler.class),
+                        mainThreadExecutor,
+                        ioExecutor,
+                        () -> "10.0.0.1:5801");
+                assertThrows(
+                        java.util.concurrent.ExecutionException.class,
+                        () ->
+                                driver.requestWorker(specification().getWorkerSpecification())
+                                        .get(5, TimeUnit.SECONDS));
+            }
+            verify(api, never()).createPod(any());
+            verify(api, never()).deletePod(anyString());
+            verify(api, never()).deleteWorkers(anyString());
+        }
+    }
+
+    @Test
+    void haDriverRejectsReplacementOwnerBeforeWatchingOrCreatingWorkers() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getJob("app")).thenReturn(job());
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api, haParameters(), "app", "isolated-app", "old-uid")) {
+            assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                            driver.initialize(
+                                    mock(ResourceEventHandler.class),
+                                    mainThreadExecutor,
+                                    ioExecutor,
+                                    () -> "10.0.0.1:5801"));
+        }
+        verify(api, never()).watchPods(anyString(), any());
+        verify(api, never()).createPod(any());
+        verify(api, never()).deleteWorkers(anyString());
+    }
+
+    private static KubernetesApplicationConfig haParameters() {
+        Map<String, String> values = options();
+        values.put(KubernetesOptions.HA_ENABLED.key(), "true");
+        values.put(KubernetesOptions.MASTER_REPLICAS.key(), "2");
+        return KubernetesApplicationConfig.from(
+                specification(), ReadonlyConfig.fromMap(new HashMap<>(values)));
+    }
+
     private static Map<String, String> options() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");

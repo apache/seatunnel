@@ -446,6 +446,36 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testExplicitCancelOfFailingPipelineSurvivesRetryAndWorkerLoss() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PhysicalPlan physicalPlan = createPhysicalPlan(jobId).physicalPlan;
+        physicalPlan.setJobMaster(mockJobMaster());
+        physicalPlan.initStateFuture();
+        SubPlan subPlan = physicalPlan.getPipelineList().get(0);
+        subPlan.updatePipelineState(PipelineStatus.RUNNING);
+        physicalPlan.startJob();
+        subPlan.makePipelineFailing(new IllegalStateException("earlier task failure"));
+
+        physicalPlan.cancelJob();
+        physicalPlan.cancelJob();
+
+        List<PhysicalVertex> vertices = new ArrayList<>(subPlan.getPhysicalVertexList());
+        vertices.addAll(subPlan.getCoordinatorVertexList());
+        for (PhysicalVertex vertex : vertices) {
+            vertex.startPhysicalVertex();
+            vertex.updateStateByExecutionService(
+                    new TaskExecutionState(
+                            vertex.getTaskGroupLocation(), ExecutionState.FAILED, "worker lost"));
+        }
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> PipelineStatus.CANCELED.equals(subPlan.getPipelineState()));
+        subPlan.startSubPlanStateProcess();
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> JobStatus.CANCELED.equals(physicalPlan.getJobStatus()));
+        Assertions.assertEquals(PipelineStatus.CANCELED, subPlan.getPipelineState());
+    }
+
+    @Test
     void testWorkerFailureDuringCancelResolvesToCanceled() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);

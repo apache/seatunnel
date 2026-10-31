@@ -336,14 +336,19 @@ public class PhysicalVertex {
     }
 
     @VisibleForTesting
-    public TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
+    public synchronized TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
         List<Data> tasksData =
                 this.taskGroup.getTasks().stream()
                         .map(task -> (Data) nodeEngine.getSerializationService().toData(task))
                         .collect(Collectors.toList());
+        Long executionId = (Long) runningJobStateIMap.get(getExecutionIdKey());
+        if (executionId == null || executionId == 0L) {
+            executionId = flakeIdGenerator.newId();
+            runningJobStateIMap.set(getExecutionIdKey(), executionId);
+        }
         return new TaskGroupImmutableInformation(
                 this.taskGroup.getTaskGroupLocation().getJobId(),
-                flakeIdGenerator.newId(),
+                executionId,
                 this.taskGroup.getTaskGroupType(),
                 this.taskGroup.getTaskGroupLocation(),
                 this.taskGroup.getTaskGroupName(),
@@ -564,8 +569,25 @@ public class PhysicalVertex {
         }
     }
 
-    public void reset() {
+    public synchronized void reset() {
         resetExecutionState();
+        // Invalidate the previous attempt before the retry delay, including on a new master.
+        runningJobStateIMap.set(getExecutionIdKey(), 0L);
+    }
+
+    public String getExecutionIdKey() {
+        return "task_execution_"
+                + taskGroupLocation.getJobId()
+                + "_"
+                + taskGroupLocation.getPipelineId()
+                + "_"
+                + taskGroupLocation.getTaskGroupId();
+    }
+
+    public synchronized boolean acceptsExecutionReport(TaskExecutionState state) {
+        // Untagged reports retain the legacy protocol behavior. New workers always tag reports.
+        return state.getExecutionId() == null
+                || state.getExecutionId().equals(runningJobStateIMap.get(getExecutionIdKey()));
     }
 
     public String getTaskFullName() {

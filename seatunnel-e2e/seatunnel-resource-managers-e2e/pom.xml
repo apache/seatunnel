@@ -29,6 +29,11 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-e2e-common</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
@@ -37,6 +42,23 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-starter</artifactId>
+            <version>${project.version}</version>
+            <!-- Keep the launcher in the reactor without putting its shaded classes on either
+                 the test compiler or test JVM classpath. The staging plugin copies its jar. -->
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <!-- The staged starter is excluded from the test JVM: its shaded classes can shadow
+             JUnit and Kubernetes SDK dependencies. Use native engine modules in the test JVM. -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-client</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-server</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -49,6 +71,13 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-console</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Only the unchanged transactional sink is used by the HA batch test. -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-local</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -116,6 +145,11 @@
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+                                    <destFileName>seatunnel-shade-hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
                                     <artifactId>seatunnel-starter</artifactId>
                                     <version>${project.version}</version>
                                     <destFileName>seatunnel-starter.jar</destFileName>
@@ -131,6 +165,12 @@
                                     <artifactId>connector-console</artifactId>
                                     <version>${project.version}</version>
                                     <destFileName>connector-console.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>connector-file-local</artifactId>
+                                    <version>${project.version}</version>
+                                    <destFileName>connector-file-local.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.seatunnel</groupId>

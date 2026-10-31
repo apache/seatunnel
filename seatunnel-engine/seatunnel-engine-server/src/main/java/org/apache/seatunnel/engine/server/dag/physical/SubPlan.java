@@ -633,6 +633,13 @@ public class SubPlan {
 
     /** restore the pipeline state after new Master Node active */
     public synchronized void restorePipelineState() {
+        if (getPipelineState().isEndState()) {
+            // Task completions were already consumed before this terminal state was persisted.
+            // Replaying them can fail the next attempt after its pipeline state has been reset.
+            // The state processor still decides whether to retry or complete this pipeline.
+            startSubPlanStateProcess();
+            return;
+        }
         // if PipelineStatus is less than RUNNING, we need cancel it and reschedule.
         getPhysicalVertexList()
                 .forEach(

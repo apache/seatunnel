@@ -112,6 +112,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -171,7 +172,7 @@ public class JobMaster {
 
     private final EngineConfig engineConfig;
 
-    private boolean isRunning = true;
+    private volatile boolean isRunning = true;
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
@@ -232,6 +233,7 @@ public class JobMaster {
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
         this.initializationTimestamp = initializationTimestamp;
         this.masterFailoverRestore = restart;
+        checkInitializationActive();
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
@@ -271,6 +273,7 @@ public class JobMaster {
             logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
         }
         try {
+            checkInitializationActive();
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -285,6 +288,11 @@ public class JobMaster {
                                             .setContextClassLoader(
                                                     logicalVertexIdClassLoaderMap.get(
                                                             sink.getId()));
+                                    try {
+                                        checkInitializationActive();
+                                    } catch (InterruptedException retired) {
+                                        ExceptionUtil.sneakyThrow(retired);
+                                    }
                                     JobMaster.handleSaveMode(
                                             ((SinkAction<?, ?, ?, ?>) sink).getSink(),
                                             logicalDag.isStartWithSavePoint());
@@ -292,6 +300,7 @@ public class JobMaster {
                 Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
+            checkInitializationActive();
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                     PlanUtils.fromLogicalDAG(
                             logicalDag,
@@ -323,33 +332,89 @@ public class JobMaster {
         } catch (Exception e) {
             initException = e;
         }
-        this.initStateFuture();
-        if (initException != null) {
-            if (restart) {
-                cancelJob();
+        checkInitializationActive();
+        if (restart) {
+            // These operations touch distributed state and must not hold the global coordinator
+            // monitor. The captured executor rejects publication after retirement.
+            if (initException instanceof InterruptedException) {
+                throw initException;
             }
+            if (initException != null || !needRestore) {
+                neverNeedRestore();
+                this.checkpointManager = createCheckpointManager(false, false);
+                checkInitializationActive();
+                this.initStateFuture();
+                checkInitializationActive();
+                getCoordinatorService().registerRestoringJobAbort(this);
+                checkInitializationActive();
+                physicalPlan.abortRestoringJob(
+                        initException instanceof CancellationException || initException == null
+                                ? null
+                                : initException);
+                if (initException != null) {
+                    throw initException;
+                }
+                throw new CancellationException("Master takeover canceled");
+            }
+        }
+        this.initStateFuture();
+        checkInitializationActive();
+        if (initException != null) {
             throw initException;
         }
     }
 
+    /** Rejects initialization effects after the captured coordinator has retired. */
+    public void checkInitializationActive() throws InterruptedException {
+        checkRecoveryOwnership();
+    }
+
+    /**
+     * Stops takeover initialization when its original coordinator has retired or the user canceled.
+     */
+    public void checkRecoveryActive() throws InterruptedException {
+        checkRecoveryOwnership();
+        if (!needRestore) {
+            throw new CancellationException("Master takeover canceled");
+        }
+    }
+
+    private void checkRecoveryOwnership() throws InterruptedException {
+        // The captured executor is shut down on step-down and never reused by a later activation.
+        if (!isRunning
+                || executorService.isShutdown()
+                || !seaTunnelServer.isMasterNode()
+                || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Master takeover coordinator retired");
+        }
+    }
+
     public void initCheckPointManager(boolean restart) {
+        try {
+            checkInitializationActive();
+        } catch (InterruptedException retired) {
+            ExceptionUtil.sneakyThrow(retired);
+        }
+        this.checkpointManager = createCheckpointManager(restart, true);
+    }
+
+    private CheckpointManager createCheckpointManager(boolean restart, boolean restoreState) {
         CheckpointStorage checkpointStorage = resolveCheckpointStorageOrFallback(restart);
-        this.checkpointManager =
-                new CheckpointManager(
-                        jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isRestoreJob() || restart,
-                        jobImmutableInformation.getRestoreMode(),
-                        jobImmutableInformation.getRestoreSourceJobId(),
-                        restart,
-                        nodeEngine,
-                        this,
-                        checkpointPlanMap,
-                        jobCheckpointConfig,
-                        checkpointStorage,
-                        executorService,
-                        runningJobStateIMap,
-                        seaTunnelServer.getEngineContext(),
-                        seaTunnelServer.getCheckpointMonitorService());
+        return new CheckpointManager(
+                jobImmutableInformation.getJobId(),
+                restoreState && (jobImmutableInformation.isRestoreJob() || restart),
+                jobImmutableInformation.getRestoreMode(),
+                jobImmutableInformation.getRestoreSourceJobId(),
+                restart,
+                nodeEngine,
+                this,
+                checkpointPlanMap,
+                jobCheckpointConfig,
+                checkpointStorage,
+                executorService,
+                runningJobStateIMap,
+                seaTunnelServer.getEngineContext(),
+                seaTunnelServer.getCheckpointMonitorService());
     }
 
     private CheckpointStorage resolveCheckpointStorageOrFallback(boolean restart) {
@@ -870,6 +935,7 @@ public class JobMaster {
                                     .forEach(
                                             coordinator -> {
                                                 stateKeys.add(coordinator.getTaskGroupLocation());
+                                                stateKeys.add(coordinator.getExecutionIdKey());
                                                 timestampKeys.add(
                                                         coordinator.getTaskGroupLocation());
                                             });
@@ -878,6 +944,7 @@ public class JobMaster {
                                     .forEach(
                                             task -> {
                                                 stateKeys.add(task.getTaskGroupLocation());
+                                                stateKeys.add(task.getExecutionIdKey());
                                                 timestampKeys.add(task.getTaskGroupLocation());
                                             });
 
@@ -1069,7 +1136,9 @@ public class JobMaster {
     }
 
     public synchronized void cancelJob() {
-        physicalPlan.cancelJob();
+        if (physicalPlan != null) {
+            physicalPlan.cancelJob();
+        }
     }
 
     public synchronized void stopJob() {
@@ -1364,8 +1433,13 @@ public class JobMaster {
                                                     return;
                                                 }
 
-                                                task.updateStateByExecutionService(
-                                                        taskExecutionState);
+                                                synchronized (task) {
+                                                    if (task.acceptsExecutionReport(
+                                                            taskExecutionState)) {
+                                                        task.updateStateByExecutionService(
+                                                                taskExecutionState);
+                                                    }
+                                                }
                                             });
 
                             pipeline.getPhysicalVertexList()
@@ -1378,14 +1452,20 @@ public class JobMaster {
                                                     return;
                                                 }
 
-                                                task.updateStateByExecutionService(
-                                                        taskExecutionState);
-                                                if (taskExecutionState
-                                                        .getExecutionState()
-                                                        .isEndState()) {
-                                                    releaseTaskGroupResource(
-                                                            pipeline.getPipelineLocation(),
-                                                            task.getTaskGroupLocation());
+                                                synchronized (task) {
+                                                    if (!task.acceptsExecutionReport(
+                                                            taskExecutionState)) {
+                                                        return;
+                                                    }
+                                                    task.updateStateByExecutionService(
+                                                            taskExecutionState);
+                                                    if (taskExecutionState
+                                                            .getExecutionState()
+                                                            .isEndState()) {
+                                                        releaseTaskGroupResource(
+                                                                pipeline.getPipelineLocation(),
+                                                                task.getTaskGroupLocation());
+                                                    }
                                                 }
                                             });
                         });
@@ -1612,7 +1692,9 @@ public class JobMaster {
 
     public void interrupt() {
         isRunning = false;
-        jobMasterCompleteFuture.completeExceptionally(new InterruptedException());
+        if (jobMasterCompleteFuture != null) {
+            jobMasterCompleteFuture.completeExceptionally(new InterruptedException());
+        }
     }
 
     public void neverNeedRestore() {

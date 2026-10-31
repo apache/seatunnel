@@ -20,11 +20,20 @@ package org.apache.seatunnel.engine.server.common.statestore.counter.hazelcast;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,6 +67,7 @@ class HazelcastCounterStateStoreTest {
         assertNull(store.get("missing"));
         assertNull(store.incrementAndGet("missing"));
         assertNull(store.addAndGet("missing", 3L));
+        assertNull(store.advanceToAtLeast("missing", 10L));
         assertFalse(iMap.containsKey("missing"));
     }
 
@@ -94,5 +104,68 @@ class HazelcastCounterStateStoreTest {
 
         assertEquals(12L, store.addAndGet("counter", 5L));
         assertEquals(12L, store.get("counter"));
+    }
+
+    @Test
+    void advanceToAtLeastShouldNeverRewindExistingCounter() {
+        IMap<String, Long> iMap = hazelcastInstance.getMap("counter-state-store-minimum");
+        iMap.clear();
+        HazelcastCounterStateStore<String> store = new HazelcastCounterStateStore<>(iMap);
+
+        store.set("counter", 19L);
+        assertEquals(24L, store.advanceToAtLeast("counter", 24L));
+        assertEquals(24L, store.advanceToAtLeast("counter", 13L));
+        assertEquals(25L, store.incrementAndGet("counter"));
+        assertEquals(25L, store.advanceToAtLeast("counter", 24L));
+        assertEquals(25L, store.get("counter"));
+    }
+
+    @Test
+    void advancementShouldRetryAfterSuccessorWinsCompareAndSet() {
+        List<Long> observed = new ArrayList<>();
+        assertEquals(
+                31L,
+                advanceWithInterference(
+                        "counter-state-store-cas-retry", map -> map.put("counter", 31L), observed));
+        assertEquals(Arrays.asList(19L, 31L), observed);
+        assertEquals(31L, hazelcastInstance.getMap("counter-state-store-cas-retry").get("counter"));
+    }
+
+    @Test
+    void advancementShouldNotRecreateCounterRemovedBeforeCompareAndSet() {
+        List<Long> observed = new ArrayList<>();
+        assertNull(
+                advanceWithInterference(
+                        "counter-state-store-cas-remove", map -> map.remove("counter"), observed));
+        assertEquals(Arrays.asList(19L, null), observed);
+        assertFalse(
+                hazelcastInstance.getMap("counter-state-store-cas-remove").containsKey("counter"));
+    }
+
+    private Long advanceWithInterference(
+            String mapName, Consumer<IMap<String, Long>> interference, List<Long> observed) {
+        IMap<String, Long> backing = hazelcastInstance.getMap(mapName);
+        backing.put("counter", 19L);
+        IMap<String, Long> delayed = Mockito.spy(backing);
+        AtomicBoolean first = new AtomicBoolean(true);
+        Mockito.doAnswer(
+                        call -> {
+                            BiFunction<String, Long, Long> advance = call.getArgument(1);
+                            // Keep Hazelcast's real compute/CAS loop, injecting a competing write
+                            // after its first read and before its conditional replacement.
+                            return backing.compute(
+                                    "counter",
+                                    (key, current) -> {
+                                        observed.add(current);
+                                        Long next = advance.apply(key, current);
+                                        if (first.compareAndSet(true, false)) {
+                                            interference.accept(backing);
+                                        }
+                                        return next;
+                                    });
+                        })
+                .when(delayed)
+                .compute(ArgumentMatchers.eq("counter"), ArgumentMatchers.any());
+        return new HazelcastCounterStateStore<>(delayed).advanceToAtLeast("counter", 24L);
     }
 }

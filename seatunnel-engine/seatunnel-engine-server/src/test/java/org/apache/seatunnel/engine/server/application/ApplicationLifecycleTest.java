@@ -247,6 +247,138 @@ class ApplicationLifecycleTest {
     }
 
     @Test
+    void demotionDetachesRunnerWithoutCancelingOrFinishingApplication() throws Exception {
+        SeaTunnelServer server = mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = mock(CoordinatorService.class);
+        ApplicationResourceManager<?> resources = mock(ApplicationResourceManager.class);
+        when(server.awaitCoordinatorService(anyLong())).thenReturn(coordinator);
+        when(coordinator.getResourceManager()).thenReturn(resources);
+        AtomicBoolean active = new AtomicBoolean(true);
+        when(coordinator.waitForJobComplete(anyLong()))
+                .thenAnswer(
+                        invocation -> {
+                            active.set(false);
+                            return new PassiveCompletableFuture<>(
+                                    new CompletableFuture<JobResult>());
+                        });
+        ApplicationJobRunner.Lifecycle lifecycle =
+                new ApplicationJobRunner.Lifecycle() {
+                    @Override
+                    public boolean submit() {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isCurrent() {
+                        return active.get();
+                    }
+                };
+        new ApplicationJobRunner(server, specification(JOB, 30000), lifecycle).run();
+        verify(coordinator, never()).cancelJob(anyLong());
+        verify(resources, never()).stopApplicationWorkers();
+        verify(resources, never()).finish(any(), any());
+        verify(resources, never()).close();
+    }
+
+    @Test
+    void metadataOutageDoesNotTurnRunningNativeJobIntoFailure() throws Exception {
+        SeaTunnelServer server = mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = mock(CoordinatorService.class);
+        ApplicationResourceManager<?> resources = mock(ApplicationResourceManager.class);
+        when(server.awaitCoordinatorService(anyLong())).thenReturn(coordinator);
+        when(coordinator.getResourceManager()).thenReturn(resources);
+        when(resources.getFailureFuture()).thenReturn(new CompletableFuture<>());
+        when(coordinator.waitForJobComplete(anyLong()))
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<JobResult>()));
+        when(coordinator.getJobStatus(anyLong())).thenReturn(JobStatus.RUNNING);
+        ApplicationJobRunner.Lifecycle lifecycle =
+                new ApplicationJobRunner.Lifecycle() {
+                    @Override
+                    public boolean submit() {
+                        return false;
+                    }
+
+                    @Override
+                    public void running() {
+                        throw new IllegalStateException("metadata API unavailable");
+                    }
+                };
+        assertThrows(
+                ApplicationJobRunner.LifecycleException.class,
+                () -> new ApplicationJobRunner(server, specification(JOB, 30000), lifecycle).run());
+        verify(coordinator, never()).cancelJob(anyLong());
+        verify(resources, never()).stopApplicationWorkers();
+        verify(resources, never()).finish(any(), any());
+    }
+
+    @Test
+    void restoredRunnerRetriesUnknownHistoryWithoutResubmitting() throws Exception {
+        SeaTunnelServer server = mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = mock(CoordinatorService.class);
+        ApplicationResourceManager<?> resources = mock(ApplicationResourceManager.class);
+        when(server.awaitCoordinatorService(anyLong())).thenReturn(coordinator);
+        when(coordinator.getResourceManager()).thenReturn(resources);
+        when(resources.getFailureFuture()).thenReturn(new CompletableFuture<>());
+        when(coordinator.waitForJobComplete(anyLong()))
+                .thenReturn(
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(
+                                        new JobResult(JobStatus.UNKNOWABLE, null))),
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(
+                                        new JobResult(JobStatus.FINISHED, null))));
+        AtomicReference<ApplicationStatus> terminal = new AtomicReference<>();
+        ApplicationJobRunner.Lifecycle lifecycle =
+                new ApplicationJobRunner.Lifecycle() {
+                    @Override
+                    public boolean submit() {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean hasStarted() {
+                        return true;
+                    }
+
+                    @Override
+                    public void finished(ApplicationStatus status) {
+                        terminal.set(status);
+                    }
+                };
+        new ApplicationJobRunner(server, specification(JOB, 30000), lifecycle).run();
+        assertEquals(ApplicationStatus.SUCCEEDED, terminal.get());
+        verify(coordinator, never()).submitJob(anyLong(), any(), eq(false));
+        verify(resources).finish(eq(ApplicationStatus.SUCCEEDED), eq(""));
+    }
+
+    @Test
+    void completedNativeSuccessWinsOverConcurrentWorkerFailure() throws Exception {
+        SeaTunnelServer server = mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = mock(CoordinatorService.class);
+        ApplicationResourceManager<?> resources = mock(ApplicationResourceManager.class);
+        when(server.awaitCoordinatorService(anyLong())).thenReturn(coordinator);
+        when(coordinator.getResourceManager()).thenReturn(resources);
+        CompletableFuture<Void> failed = new CompletableFuture<>();
+        failed.completeExceptionally(new IllegalStateException("worker exited"));
+        when(resources.getFailureFuture()).thenReturn(failed);
+        when(coordinator.waitForJobComplete(anyLong()))
+                .thenReturn(
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(
+                                        new JobResult(JobStatus.FINISHED, null))));
+        ApplicationJobRunner.Lifecycle lifecycle =
+                new ApplicationJobRunner.Lifecycle() {
+                    @Override
+                    public boolean submit() {
+                        return false;
+                    }
+                };
+        new ApplicationJobRunner(server, specification(JOB, 30000), lifecycle).run();
+        verify(resources).finish(eq(ApplicationStatus.SUCCEEDED), eq(""));
+        verify(coordinator, never()).cancelJob(anyLong());
+    }
+
+    @Test
     void malformedJobFailsAndCleansWorker() throws Exception {
         LocalDriver driver = new LocalDriver();
         ApplicationSpecification valid = specification(JOB, 30000);

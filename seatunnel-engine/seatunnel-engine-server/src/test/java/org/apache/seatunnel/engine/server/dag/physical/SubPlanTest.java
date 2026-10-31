@@ -18,7 +18,10 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
@@ -27,6 +30,8 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.hazelcast.map.IMap;
 
@@ -36,17 +41,60 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Covers checkpoint coordinator restore decisions for running pipelines with an intentionally
- * closed idle source reader.
+ * Covers terminal-pipeline completion and checkpoint coordinator restore decisions for running
+ * pipelines with an intentionally closed idle source reader.
  */
 class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
+
+    @ParameterizedTest
+    @EnumSource(
+            value = PipelineStatus.class,
+            names = {"FINISHED", "CANCELED", "FAILED"})
+    void shouldCompleteTerminalPipelineWithoutReplayingVertices(PipelineStatus terminalStatus)
+            throws Exception {
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.isNeedRestore()).thenReturn(false);
+        PhysicalVertex coordinator = mockPhysicalVertex(ExecutionState.FAILED);
+        PhysicalVertex reader = mockPhysicalVertex(ExecutionState.FAILED);
+        when(coordinator.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
+        when(reader.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(reader),
+                            Collections.singletonList(coordinator));
+            subPlan.setJobMaster(jobMaster);
+            subPlan.setCurrPipelineStatus(terminalStatus);
+            PassiveCompletableFuture<PipelineExecutionState> result = subPlan.initStateFuture();
+
+            subPlan.restorePipelineState();
+
+            Assertions.assertEquals(
+                    terminalStatus, result.get(10, TimeUnit.SECONDS).getPipelineStatus());
+            Assertions.assertEquals(terminalStatus, subPlan.getPipelineState());
+            verify(reader, never()).restoreExecutionState();
+            verify(coordinator, never()).restoreExecutionState();
+            verify(jobMaster)
+                    .enqueuePipelineCleanupIfNeeded(subPlan.getPipelineLocation(), terminalStatus);
+            verify(jobMaster).releasePipelineResource(subPlan);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
 
     @Test
     void shouldKeepCheckpointCoordinatorStartedWithFinishedIdlePhysicalTask() {

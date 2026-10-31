@@ -28,6 +28,8 @@ import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
+
 /** Starts one fixed-slot application worker without Kubernetes API access. */
 @Slf4j
 public final class SeatunnelKubernetesApplicationWorker {
@@ -41,18 +43,33 @@ public final class SeatunnelKubernetesApplicationWorker {
      * @param args cluster name, master address and fixed slot count
      */
     public static void main(String[] args) {
-        if (args.length != 3) {
-            throw new IllegalArgumentException("Expected <cluster-name> <master-address> <slots>");
+        if (args.length != 3 && !(args.length == 5 && "--ha".equals(args[3]))) {
+            throw new IllegalArgumentException(
+                    "Expected <cluster-name> <master-addresses> <slots> [--ha <backup-count>]");
         }
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        SeatunnelApplicationConfig.configure(config, args[0], args[1], Integer.parseInt(args[2]));
+        boolean ha = args.length == 5;
+        if (ha) {
+            SeatunnelApplicationConfig.configureHa(
+                    config,
+                    args[0],
+                    Arrays.asList(args[1].split(",")),
+                    true,
+                    Integer.parseInt(args[2]),
+                    Integer.parseInt(args[4]));
+        } else {
+            SeatunnelApplicationConfig.configure(
+                    config, args[0], args[1], Integer.parseInt(args[2]));
+        }
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         HazelcastInstanceImpl worker =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         config, null, new ResourceManagerFactory());
-        worker.getCluster().addMembershipListener(new MasterExitListener());
+        if (!ha) {
+            worker.getCluster().addMembershipListener(new MasterExitListener());
+        }
     }
 
     /**

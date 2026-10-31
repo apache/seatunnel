@@ -214,6 +214,28 @@ public class PhysicalPlan {
         }
     }
 
+    /** Drains retained tasks after takeover initialization aborted, without scheduling new work. */
+    public synchronized void abortRestoringJob(Throwable failure) {
+        if (getJobStatus().isEndState()) {
+            return;
+        }
+        jobMaster.neverNeedRestore();
+        isRunning = true;
+        if (failure == null) {
+            updateJobState(JobStatus.CANCELING);
+            pipelineList.stream()
+                    .filter(pipeline -> !pipeline.getCurrPipelineStatus().isEndState())
+                    .forEach(SubPlan::cancelPipeline);
+        } else {
+            errorBySubPlan.compareAndSet(null, ExceptionUtils.getMessage(failure));
+            pipelineList.stream()
+                    .filter(pipeline -> !pipeline.getCurrPipelineStatus().isEndState())
+                    .forEach(pipeline -> pipeline.makePipelineFailing(failure));
+            updateJobState(JobStatus.FAILING);
+        }
+        pipelineList.forEach(SubPlan::startSubPlanStateProcess);
+    }
+
     public void savepointJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
@@ -412,7 +434,15 @@ public class PhysicalPlan {
                     // the cancel loop has not reached their pipeline yet (#12353).
                     getPipelineList().forEach(SubPlan::markCancelRequested);
                 }
-                getPipelineList().forEach(SubPlan::cancelPipeline);
+                getPipelineList().stream()
+                        // A failing pipeline already cancels its vertices. Reclassifying that
+                        // cleanup as a cancel request would hide the failure that ended the job.
+                        .filter(
+                                pipeline ->
+                                        !JobStatus.FAILING.equals(jobStatus)
+                                                || !PipelineStatus.FAILING.equals(
+                                                        pipeline.getCurrPipelineStatus()))
+                        .forEach(SubPlan::cancelPipeline);
                 break;
             case FAILED:
             case CANCELED:

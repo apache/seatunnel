@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageUnavailableException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
 
@@ -39,7 +40,12 @@ import org.apache.hadoop.io.IOUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -188,24 +194,68 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     @Override
     public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-        String path = getStorageParentDirectory() + jobId;
-        List<String> fileNames = getFileNames(path);
-        if (fileNames.isEmpty()) {
-            log.info("No checkpoint found for job, job id is: " + jobId);
-            return null;
+        CheckpointStorageException disappeared = null;
+        long highestListedVersion = -1;
+        long highestListedCheckpoint = -1;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            List<String> files;
+            try {
+                files = getFileNames(getStorageParentDirectory() + jobId);
+            } catch (CheckpointStorageException failure) {
+                if (attempt == 0 && isTemporaryConnectionFailure(failure.getCause())) {
+                    throw new CheckpointStorageUnavailableException(failure.getMessage(), failure);
+                }
+                throw failure;
+            }
+            String newest = null;
+            long newestVersion = -1;
+            long newestId = -1;
+            for (String file : files) {
+                if (pipelineId.equals(getPipelineIdByFileName(file))) {
+                    long checkpointId = Long.parseLong(getCheckpointIdByFileName(file));
+                    long fileVersion =
+                            Long.parseLong(file.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
+                    if (fileVersion > newestVersion
+                            || fileVersion == newestVersion && checkpointId > newestId) {
+                        newestVersion = fileVersion;
+                        newestId = checkpointId;
+                        newest = file;
+                    }
+                }
+            }
+            if (newest == null) {
+                if (disappeared != null) {
+                    throw disappeared;
+                }
+                return null;
+            }
+            if (newestVersion < highestListedVersion
+                    || newestVersion == highestListedVersion
+                            && newestId < highestListedCheckpoint) {
+                continue;
+            }
+            highestListedVersion = newestVersion;
+            highestListedCheckpoint = newestId;
+            try {
+                PipelineState state = readPipelineState(newest, jobId);
+                if (!jobId.equals(state.getJobId())
+                        || !pipelineId.equals(String.valueOf(state.getPipelineId()))
+                        || state.getCheckpointId() != newestId) {
+                    throw new CheckpointStorageException(
+                            "Checkpoint identity does not match the selected file");
+                }
+                return state;
+            } catch (CheckpointStorageException failure) {
+                if (!(failure.getCause() instanceof FileNotFoundException)) {
+                    throw failure;
+                }
+                disappeared = failure;
+            } catch (RuntimeException failure) {
+                throw new CheckpointStorageException(
+                        "Failed to decode latest checkpoint during recovery", failure);
+            }
         }
-
-        String latestFileName =
-                getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
-        if (latestFileName == null) {
-            log.info(
-                    "No checkpoint found for this job, the job id is: "
-                            + jobId
-                            + ", pipeline id is: "
-                            + pipelineId);
-            return null;
-        }
-        return readPipelineState(latestFileName, jobId);
+        throw new CheckpointStorageException("Checkpoint changed during recovery", disappeared);
     }
 
     @Override
@@ -231,6 +281,13 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     }
                 });
         return pipelineStates;
+    }
+
+    private boolean isTemporaryConnectionFailure(Throwable failure) {
+        return failure instanceof SocketTimeoutException
+                || failure instanceof ConnectException
+                || failure instanceof NoRouteToHostException
+                || failure instanceof SocketException;
     }
 
     @Override

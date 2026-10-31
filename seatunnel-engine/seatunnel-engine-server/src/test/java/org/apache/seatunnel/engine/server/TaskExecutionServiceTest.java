@@ -481,7 +481,13 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Mockito.verify(taskExecutionService, Mockito.timeout(5000))
                 .notifyTaskStatusToMaster(
                         Mockito.eq(location),
-                        Mockito.argThat(state -> state.getExecutionState() == FAILED));
+                        Mockito.argThat(
+                                state ->
+                                        state.getExecutionState() == FAILED
+                                                && Long.valueOf(
+                                                                taskGroupImmutableInformation
+                                                                        .getExecutionId())
+                                                        .equals(state.getExecutionId())));
         testJar.delete();
     }
 
@@ -701,6 +707,21 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         // Before this fix this threw RuntimeException("TaskGroupLocation: ... already exists").
         TaskDeployState secondResult = taskExecutionService.deployTask(data);
         assertEquals(TaskDeployState.success(), secondResult);
+
+        TaskGroupImmutableInformation replacement =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        FLAKE_ID_GENERATOR.newId(),
+                        info.getTaskGroupType(),
+                        location,
+                        "replacement-attempt",
+                        info.getTasksData(),
+                        info.getJars(),
+                        info.getConnectorJarIdentifiers());
+        Assertions.assertFalse(taskExecutionService.deployTask(replacement).isSuccess());
+        assertEquals(
+                info.getExecutionId(),
+                taskExecutionService.getActiveExecutionContext(location).getExecutionId());
 
         // The original task group must still be active — not interrupted by the second deploy.
         Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));

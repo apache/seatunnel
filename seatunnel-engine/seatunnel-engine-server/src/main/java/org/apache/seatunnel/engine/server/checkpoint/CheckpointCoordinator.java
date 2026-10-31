@@ -277,25 +277,25 @@ public class CheckpointCoordinator {
         }
         this.checkpointCoordinatorFuture = new CompletableFuture();
 
-        // For job restore from master node active switch
-        CheckpointCoordinatorStatus checkpointCoordinatorStatus =
-                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
-
-        // This is not a new job
+        // An explicit user restore intentionally restarts the saved pipeline.
         if (isStartWithSavePoint) {
             updateStatus(CheckpointCoordinatorStatus.RUNNING);
             return;
         }
 
-        // If checkpointCoordinatorStatus is not null it means this CheckpointCoordinator is created
-        // by job restore from master node active switch
-        if (checkpointCoordinatorStatus != null) {
-            if (checkpointCoordinatorStatus.isEndState()) {
-                this.checkpointCoordinatorFuture.complete(
-                        new CheckpointCoordinatorState(checkpointCoordinatorStatus, null));
-            } else {
-                updateStatus(CheckpointCoordinatorStatus.RUNNING);
-            }
+        // Native takeover must not undo terminal completion or recreate cleaned state. Keep the
+        // remapping free of side effects because Hazelcast can retry it after a competing write.
+        CheckpointCoordinatorStatus checkpointCoordinatorStatus =
+                (CheckpointCoordinatorStatus)
+                        runningJobStateIMap.computeIfPresent(
+                                checkpointStateImapKey,
+                                (key, current) ->
+                                        ((CheckpointCoordinatorStatus) current).isEndState()
+                                                ? current
+                                                : CheckpointCoordinatorStatus.RUNNING);
+        if (checkpointCoordinatorStatus != null && checkpointCoordinatorStatus.isEndState()) {
+            this.checkpointCoordinatorFuture.complete(
+                    new CheckpointCoordinatorState(checkpointCoordinatorStatus, null));
         }
     }
 
