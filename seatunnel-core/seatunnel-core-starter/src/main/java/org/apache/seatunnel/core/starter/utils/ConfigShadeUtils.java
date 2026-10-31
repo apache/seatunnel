@@ -225,7 +225,7 @@ public final class ConfigShadeUtils {
             configMap.put(Constants.SOURCE, sources);
             configMap.put(Constants.SINK, sinks);
             configMap.put(Constants.TRANSFORM, transforms);
-            return ConfigFactory.parseMap(configMap);
+            return ConfigBuilder.rebuildWithLiteralKeys(configMap);
         } catch (Exception e) {
             // Log desensitized error information
             log.error(

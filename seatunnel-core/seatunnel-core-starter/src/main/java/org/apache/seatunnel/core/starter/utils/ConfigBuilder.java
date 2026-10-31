@@ -104,10 +104,15 @@ public class ConfigBuilder {
         return config;
     }
 
+    /**
+     * Builds a config from an already parsed map, for example the JSON body of the REST submit-job
+     * API. Keys are kept literal, so option maps such as {@code multi_table_config.primary_keys}
+     * can use regex keys.
+     */
     public static Config of(@NonNull Map<String, Object> objectMap) {
         log.info("Loading config file from objectMap");
         Config config =
-                ConfigFactory.parseMap(objectMap)
+                rebuildWithLiteralKeys(objectMap)
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -258,7 +263,27 @@ public class ConfigBuilder {
 
         processVariablesMap(resolvedConfigMap, userConfigMap);
 
-        return ConfigFactory.parseMap(resolvedConfigMap);
+        return rebuildWithLiteralKeys(resolvedConfigMap)
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+    }
+
+    /**
+     * Rebuilds a config from a map whose keys must be taken literally, for example the regex keys
+     * of {@code multi_table_config.primary_keys}. {@link ConfigFactory#parseMap} treats every key
+     * as a path expression and rejects such keys with {@code ConfigException.BadPath}, so the map
+     * is rendered as JSON and parsed with the JSON syntax instead, which keeps the keys as they
+     * are.
+     *
+     * <p>This is shared with {@link ConfigShadeUtils#processConfig} so that both rebuilds of a
+     * loaded config keep literal keys and cannot drift apart.
+     *
+     * @param configMap the config map to rebuild
+     * @return the rebuilt config, with the keys of {@code configMap} kept literal
+     */
+    static Config rebuildWithLiteralKeys(Map<String, Object> configMap) {
+        return ConfigFactory.parseString(
+                JsonUtils.toJsonString(configMap),
+                ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON));
     }
 
     public static Config substituteUserConfig(
