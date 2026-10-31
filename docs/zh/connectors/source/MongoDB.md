@@ -42,6 +42,9 @@ split，实现并行读取。
 |--------|------------|-----------------------------------------------------------------------------------------|
 | MongoDB | 通用版本    | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb)   |
 
+可选的[连通性预检查](#连通性预检查)要求 MongoDB 4.0 或更高版本。
+该要求不改变正常源作业支持的 MongoDB 版本。
+
 ## 数据类型映射
 
 下表列出了从 MongoDB BSON 类型到 SeaTunnel 数据类型的字段映射。
@@ -75,6 +78,23 @@ split，实现并行读取。
 
 > 1. 在 SeaTunnel 中使用 `DECIMAL` 类型时，最大精度不能超过 34 位。建议使用
 >    `decimal(34, 18)` 以满足支持的精度与标度。
+
+## 连通性预检查
+
+Zeta 引擎的 `--dry-run connect` 可以检查 MongoDB 源，而不创建读取器、枚举分片、
+读取文档或写入数据。预检查沿用正常源的配置 schema，通过带有集合名称过滤条件以及
+`nameOnly`、`authorizedCollections` 的 `listCollections` 命令检查集合是否可见。
+仅具有指定集合权限的用户也可以执行，无需集群级 `listDatabases` 权限。
+此元数据检查需要 MongoDB 4.0 或以上版本，不影响正常作业执行。
+
+检查成功仅表示连接、身份认证和集合可见性正常，并不验证文档读取权限、查询/投影表达式
+或已存储文档的数据类型。集合不存在或当前用户不可见时检查失败；已存在的空集合可以通过。
+预检查不会创建集合。
+
+URI 中的认证、TLS 和读取偏好设置保持不变。仅预检查客户端使用单连接池，并将服务器选择、
+建连、套接字读取和连接池等待超时分别限制为最多 30 秒；较短的正值 URI 超时仍然有效。
+元数据命令也具有 30 秒服务端执行限制。这些是各操作的限制，而非总耗时上限
+（例如 DNS 解析由 JVM 控制）。运行时设置不变。
 
 ## 源配置项
 
@@ -350,6 +370,54 @@ sink {
   "c_date": { "$date": { "$numberLong": "1686614400000" } },
   "c_decimal": { "$numberDecimal": "683265300" },
   "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+}
+```
+
+### 基于分区键的并行读取
+
+要在大型集合上加速扫描，可以设置分区键 `partition.split-key` 和目标分片大小 `partition.split-size`，
+连接器会按分区键顺序读取文档，并将每个分片交给并行的读取任务。`fetch.size` 控制每次往返服务端返回的文档数，
+需要和分区大小一起调优。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### 从副本集或分片集群读取
+
+连接器接受任意标准 MongoDB URI。副本集场景使用 `replicaSet=xxx`；如果凭据存储在非默认的 auth 数据库，
+追加 `authSource=admin`。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
 }
 ```
 

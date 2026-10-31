@@ -168,6 +168,37 @@ public class IncrementalSplitStateTest {
                 new IncrementalSplitState(split).toSourceSplit().getTableStartOffsets().isEmpty());
     }
 
+    @Test
+    public void testCheckpointKeepsRestoredTableOffsetsUntilTheSplitReadsPastThem() {
+        TableId table1 = new TableId("db", "schema", "table1");
+        TableId table2 = new TableId("db", "schema", "table2");
+        Map<TableId, Offset> tableStartupOffsets = new HashMap<>();
+        tableStartupOffsets.put(table1, new TestOffset(150));
+        tableStartupOffsets.put(table2, new TestOffset(200));
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "test",
+                        Arrays.asList(table1, table2),
+                        new TestOffset(100),
+                        null,
+                        Collections.emptyList(),
+                        null,
+                        Collections.emptyMap(),
+                        tableStartupOffsets);
+        IncrementalSplitState splitState = new IncrementalSplitState(split);
+
+        Assertions.assertEquals(
+                tableStartupOffsets, splitState.toSourceSplit().getTableStartupOffsets());
+
+        splitState.setStartupOffset(new TestOffset(150));
+        Assertions.assertEquals(
+                Collections.singletonMap(table2, new TestOffset(200)),
+                splitState.toSourceSplit().getTableStartupOffsets());
+
+        splitState.setStartupOffset(new TestOffset(200));
+        Assertions.assertTrue(splitState.toSourceSplit().getTableStartupOffsets().isEmpty());
+    }
+
     private static IncrementalSplit createIncrementalSplit(
             Offset startupOffset, List<CompletedSnapshotSplitInfo> snapshotSplits) {
         return new IncrementalSplit(
