@@ -48,3 +48,6 @@ seatunnel:
       # enable-basic-auth: true
       # basic-auth-username: admin
       # basic-auth-password: admin
+      # Environment variables that REST-submitted HOCON jobs may resolve
+      # hocon-environment-variable-allowlist:
+      #   - JOB_NAME
