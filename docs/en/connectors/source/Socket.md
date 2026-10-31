@@ -44,8 +44,8 @@ Socket source reads each incoming line as a string record.
 
 |      Name      |  Type   | Required | Default |                                                    Description                                                     |
 |----------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------|
-| host           | String  | Yes      | _       | socket server host                                                                                                 |
-| port           | Integer | Yes      | _       | socket server port                                                                                                 |
+| host           | String  | Yes      | -       | socket server host                                                                                                 |
+| port           | Integer | Yes      | -       | socket server port                                                                                                 |
 | common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
 
 :::tip

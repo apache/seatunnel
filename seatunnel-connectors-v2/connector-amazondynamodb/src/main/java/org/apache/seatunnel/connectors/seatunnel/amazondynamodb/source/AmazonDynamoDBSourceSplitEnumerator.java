@@ -43,7 +43,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     private final SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext;
     private final Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
-    private final AmazonDynamoDBConfig amazonDynamoDBConfig;
+    private final List<AmazonDynamoDBSourceTable> tables;
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private final Object stateLock = new Object();
@@ -59,8 +59,19 @@ public class AmazonDynamoDBSourceSplitEnumerator
             Context<AmazonDynamoDBSourceSplit> enumeratorContext,
             AmazonDynamoDBConfig amazonDynamoDBConfig,
             AmazonDynamoDBSourceState sourceState) {
+        this(
+                enumeratorContext,
+                sourceState,
+                Collections.singletonList(
+                        new AmazonDynamoDBSourceTable(null, amazonDynamoDBConfig, null)));
+    }
+
+    AmazonDynamoDBSourceSplitEnumerator(
+            Context<AmazonDynamoDBSourceSplit> enumeratorContext,
+            AmazonDynamoDBSourceState sourceState,
+            List<AmazonDynamoDBSourceTable> tables) {
         this.enumeratorContext = enumeratorContext;
-        this.amazonDynamoDBConfig = amazonDynamoDBConfig;
+        this.tables = tables;
         this.pendingSplits = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -133,13 +144,16 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     private Set<AmazonDynamoDBSourceSplit> discoverySplits() {
         Set<AmazonDynamoDBSourceSplit> allSplit = new HashSet<>();
-        int totalSegments = amazonDynamoDBConfig.parallelScanThreads;
-        int itemLimit = amazonDynamoDBConfig.scanItemLimit;
-        for (int i = 0; i < totalSegments; i++) {
-            AmazonDynamoDBSourceSplit split =
-                    new AmazonDynamoDBSourceSplit(i, totalSegments, itemLimit);
+        for (AmazonDynamoDBSourceTable table : tables) {
+            int totalSegments = table.getConfig().parallelScanThreads;
+            int itemLimit = table.getConfig().scanItemLimit;
+            for (int i = 0; i < totalSegments; i++) {
+                AmazonDynamoDBSourceSplit split =
+                        new AmazonDynamoDBSourceSplit(
+                                i, totalSegments, itemLimit, table.getTableId());
 
-            allSplit.add(split);
+                allSplit.add(split);
+            }
         }
         return allSplit;
     }

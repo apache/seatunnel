@@ -17,13 +17,22 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,8 +46,10 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,17 +59,169 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests the graceful member-removal classification in {@link PhysicalVertex}: the paired
- * message/flag holder, its first-write-wins and concurrency invariants, and the master-failover
- * restore path that reads the graceful-removal marker directly from the Hazelcast map.
+ * Verifies that only intentionally closed unbounded source task groups are recoverable during a
+ * running-pipeline master restore, and tests the graceful member-removal classification in {@link
+ * PhysicalVertex}: the paired message/flag holder, its first-write-wins and concurrency invariants,
+ * and the master-failover restore path that reads the graceful-removal marker directly from the
+ * Hazelcast map.
  */
-public class PhysicalVertexTest {
+class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest> {
 
     private static final long JOB_ID = 1L;
 
     private static final int PIPELINE_ID = 2;
 
     private static final long TASK_GROUP_ID = 3L;
+
+    @Test
+    void shouldTreatFinishedUnboundedSourceTaskGroupAsRecoverable() {
+        SourceSeaTunnelTask<?, ?> sourceTask = mock(SourceSeaTunnelTask.class);
+        when(sourceTask.getTaskID()).thenReturn(11L);
+        when(sourceTask.isUnboundedSourceTask()).thenReturn(true);
+        Task transformTask = mock(Task.class);
+        when(transformTask.getTaskID()).thenReturn(12L);
+
+        PhysicalVertex physicalVertex =
+                newPhysicalVertex(
+                        ExecutionState.FINISHED, "idle-source", sourceTask, transformTask);
+
+        Assertions.assertTrue(
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
+    }
+
+    @Test
+    void shouldRejectFinishedBoundedSourceTaskGroupAsRecoverable() {
+        SourceSeaTunnelTask<?, ?> sourceTask = mock(SourceSeaTunnelTask.class);
+        when(sourceTask.getTaskID()).thenReturn(21L);
+        when(sourceTask.isUnboundedSourceTask()).thenReturn(false);
+
+        PhysicalVertex physicalVertex =
+                newPhysicalVertex(ExecutionState.FINISHED, "bounded-source", sourceTask);
+
+        Assertions.assertFalse(
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
+    }
+
+    @Test
+    void shouldRejectFinishedNonSourceTaskGroupAsRecoverable() {
+        Task transformTask = mock(Task.class);
+        when(transformTask.getTaskID()).thenReturn(31L);
+
+        PhysicalVertex physicalVertex =
+                newPhysicalVertex(ExecutionState.FINISHED, "transform", transformTask);
+
+        Assertions.assertFalse(
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.FINISHED));
+    }
+
+    @Test
+    void shouldRejectRunningSourceTaskGroupAsRecoverable() {
+        SourceSeaTunnelTask<?, ?> sourceTask = mock(SourceSeaTunnelTask.class);
+        when(sourceTask.getTaskID()).thenReturn(41L);
+        when(sourceTask.isUnboundedSourceTask()).thenReturn(true);
+
+        PhysicalVertex physicalVertex =
+                newPhysicalVertex(ExecutionState.RUNNING, "running-source", sourceTask);
+
+        Assertions.assertFalse(
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(
+                        ExecutionState.RUNNING));
+    }
+
+    @Test
+    void shouldRejectEmptyAndMixedBoundedSourceGroups() {
+        Assertions.assertFalse(
+                newPhysicalVertex(ExecutionState.FINISHED, "empty")
+                        .isRecoverableFinishedStateForRunningPipelineRestore(
+                                ExecutionState.FINISHED));
+        SourceSeaTunnelTask<?, ?> unbounded = mock(SourceSeaTunnelTask.class);
+        when(unbounded.getTaskID()).thenReturn(51L);
+        when(unbounded.isUnboundedSourceTask()).thenReturn(true);
+        SourceSeaTunnelTask<?, ?> bounded = mock(SourceSeaTunnelTask.class);
+        when(bounded.getTaskID()).thenReturn(52L);
+        for (Task[] tasks : new Task[][] {{unbounded, bounded}, {bounded, unbounded}}) {
+            Assertions.assertFalse(
+                    newPhysicalVertex(ExecutionState.FINISHED, "mixed", tasks)
+                            .isRecoverableFinishedStateForRunningPipelineRestore(
+                                    ExecutionState.FINISHED));
+        }
+    }
+
+    @Test
+    void shouldClassifyRealSourceMetadataAndRejectUnknownMetadata() {
+        SeaTunnelSource<?, ?, ?> source = mock(SeaTunnelSource.class);
+        SourceAction<?, ?, ?> action = mock(SourceAction.class);
+        when(action.getSource()).thenReturn((SeaTunnelSource) source);
+        PhysicalExecutionFlow flow = new PhysicalExecutionFlow(action);
+        SourceSeaTunnelTask<?, ?> task = newSourceTask(flow);
+        when(source.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        Assertions.assertTrue(task.isUnboundedSourceTask());
+        when(source.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        when(source.getBoundedness()).thenReturn(null);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        when(action.getSource()).thenReturn(null);
+        Assertions.assertFalse(task.isUnboundedSourceTask());
+        Assertions.assertFalse(
+                newSourceTask(new PhysicalExecutionFlow(null)).isUnboundedSourceTask());
+        Assertions.assertFalse(newSourceTask(null).isUnboundedSourceTask());
+    }
+
+    private SourceSeaTunnelTask<?, ?> newSourceTask(PhysicalExecutionFlow flow) {
+        return new SourceSeaTunnelTask<>(
+                1L,
+                new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0),
+                0,
+                flow,
+                Collections.emptyMap());
+    }
+
+    private PhysicalVertex newPhysicalVertex(
+            ExecutionState executionState, String taskGroupName, Task... tasks) {
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(1L, 1, taskGroupName.hashCode() & Integer.MAX_VALUE);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(taskGroupLocation, taskGroupName, Arrays.asList(tasks));
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("physical-vertex-test-running-state-" + UUID.randomUUID());
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("physical-vertex-test-state-timestamps-" + UUID.randomUUID());
+        runningJobStateIMap.put(taskGroupLocation, executionState);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("test");
+        JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
+        when(jobImmutableInformation.getJobId()).thenReturn(1L);
+        when(jobImmutableInformation.getJobConfig()).thenReturn(jobConfig);
+
+        FlakeIdGenerator flakeIdGenerator =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getFlakeIdGenerator("physical-vertex-test-" + UUID.randomUUID());
+
+        return new PhysicalVertex(
+                0,
+                1,
+                taskGroup,
+                flakeIdGenerator,
+                1,
+                1,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                jobImmutableInformation,
+                System.currentTimeMillis(),
+                nodeEngine,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap);
+    }
 
     /**
      * Only the structured graceful-member-removal classification should downgrade the failure log

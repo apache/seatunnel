@@ -216,6 +216,11 @@ azure-queue-storage:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-queue-storage/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-queue-storage)/**'
+azure-event-hubs:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-event-hubs/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-event-hubs)/**'
 google-sheets:
   - all:
       - changed-files:
@@ -358,7 +363,9 @@ selectdb-cloud:
 sentry:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-sentry/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-sentry/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-sentry-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sentry)/**'
 socket:
   - all:
@@ -458,3 +465,21 @@ firebase:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
+
+application:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/**'
+
+application-k8s:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/kubernetes/**'
+
+websocket:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-websocket/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-websocket-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(websocket)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(websocket)-e2e/**'

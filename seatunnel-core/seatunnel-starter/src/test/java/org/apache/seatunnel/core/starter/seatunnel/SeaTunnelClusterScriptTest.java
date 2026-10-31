@@ -22,18 +22,85 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @EnabledOnOs({OS.LINUX, OS.MAC})
 public class SeaTunnelClusterScriptTest {
 
     @TempDir private Path temporaryDirectory;
+
+    /**
+     * Checks that application target parsing loads the same platform selected by Java arguments.
+     */
+    @ParameterizedTest
+    @CsvSource({"--target,KUBERNETES", "-t=,kubernetes"})
+    public void testApplicationScriptLoadsSelectedPlatformAndPreservesArguments(
+            String targetOption, String target) throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        Path script = Paths.get("src/main/bin/seatunnel-application.sh");
+        if (!Files.exists(script)) {
+            script =
+                    Paths.get(
+                            "seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-application.sh");
+        }
+        Path launcher = appDirectory.resolve("bin/seatunnel-application.sh");
+        Files.copy(script, launcher);
+        Path capturedArguments = temporaryDirectory.resolve("application-java-args.txt");
+        Path fakeJavaDirectory = createFakeJava(capturedArguments);
+        List<String> arguments = new ArrayList<>();
+        arguments.add("submit");
+        if (targetOption.endsWith("=")) {
+            arguments.add(targetOption + target);
+        } else {
+            arguments.add(targetOption);
+            arguments.add(target);
+        }
+        arguments.addAll(
+                Arrays.asList(
+                        "-c",
+                        "job config.conf",
+                        "-a",
+                        "application.config",
+                        "-Dapplication.worker-count=3"));
+        List<String> command = new ArrayList<>(Arrays.asList("/bin/bash", launcher.toString()));
+        command.addAll(arguments);
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.environment().put("JAVA_HOME", "");
+        builder.environment()
+                .put(
+                        "PATH",
+                        fakeJavaDirectory + ":" + builder.environment().getOrDefault("PATH", ""));
+        builder.environment().put("CAPTURE_FILE", capturedArguments.toString());
+        Process process = builder.start();
+        try {
+            Assertions.assertTrue(process.waitFor(10, TimeUnit.SECONDS));
+            Assertions.assertEquals(0, process.exitValue());
+        } finally {
+            process.destroyForcibly();
+        }
+        List<String> captured = Files.readAllLines(capturedArguments, StandardCharsets.UTF_8);
+        String classpath = captured.get(captured.indexOf("-cp") + 1);
+        String platform = target.toLowerCase(Locale.ROOT);
+        Assertions.assertTrue(classpath.contains("/resource-managers/" + platform + "/*"));
+        // Server configuration files must not leak into the client JVM through the classpath.
+        Assertions.assertFalse(classpath.contains(appDirectory.resolve("config").toString()));
+        int main =
+                captured.indexOf(
+                        "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication");
+        Assertions.assertEquals(arguments, captured.subList(main + 1, captured.size()));
+    }
 
     /**
      * Verifies that cluster startup publishes the distribution home to Java system properties.
@@ -74,6 +141,24 @@ public class SeaTunnelClusterScriptTest {
     }
 
     /**
+     * Verifies that the foreground start replaces the shell with the JVM, so a SIGTERM sent to the
+     * started process reaches the JVM instead of a shell that ignores it.
+     */
+    @Test
+    public void testClusterScriptExecsServerJvmInForeground() throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        runClusterScript(appDirectory, null);
+
+        List<String> javaParentPid =
+                Files.readAllLines(
+                        temporaryDirectory.resolve("java-args.txt.ppid"), StandardCharsets.UTF_8);
+        Assertions.assertEquals(
+                String.valueOf(ProcessHandle.current().pid()),
+                javaParentPid.get(0).trim(),
+                "The JVM should replace the script process (exec), not run as its child");
+    }
+
+    /**
      * Verifies that the Windows cluster script keeps custom SeaTunnel home values and forwards the
      * effective value before later JVM option appends.
      */
@@ -106,21 +191,6 @@ public class SeaTunnelClusterScriptTest {
         Assertions.assertTrue(
                 seaTunnelHomeJvmOptionIndex < log4jJvmOptionIndex,
                 "SeaTunnel home JVM options should be appended before later JVM options");
-    }
-
-    /**
-     * Verifies that a foreground server replaces the launcher shell, allowing container runtimes to
-     * deliver SIGTERM directly to the JVM shutdown hook.
-     */
-    @Test
-    public void testClusterScriptExecsForegroundServer() throws Exception {
-        String script =
-                new String(Files.readAllBytes(locateClusterScript()), StandardCharsets.UTF_8)
-                        .replace("\r\n", "\n");
-
-        Assertions.assertTrue(
-                script.contains("exec java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}"),
-                "foreground startup should replace the launcher shell with the server JVM");
     }
 
     private List<String> runClusterScript(Path appDirectory, Path seaTunnelHome) throws Exception {
@@ -198,6 +268,7 @@ public class SeaTunnelClusterScriptTest {
         Files.write(
                 fakeJava,
                 ("#!/bin/sh\n"
+                                + "echo \"$PPID\" > \"$CAPTURE_FILE.ppid\"\n"
                                 + "for arg in \"$@\"; do\n"
                                 + "  printf '%s\\n' \"$arg\"\n"
                                 + "done > \"$CAPTURE_FILE\"\n")
