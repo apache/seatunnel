@@ -49,12 +49,13 @@ public class LanceTypeMapper {
             case "int8":
             case "int16":
             case "int32":
-            case "int64":
             case "uint8":
             case "uint16":
             case "uint32":
             case "uint64":
                 return BasicType.INT_TYPE;
+            case "int64":
+                return BasicType.LONG_TYPE;
             case "utf8":
             case "largeutf8":
             case "string":

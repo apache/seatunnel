@@ -188,7 +188,9 @@ public class LanceIT extends TestSuiteBase {
                 IntVector ids = (IntVector) root.getVector("id");
                 BigIntVector bigints = (BigIntVector) root.getVector("c_bigint");
                 for (int i = 0; i < root.getRowCount(); i++) {
-                    values.put(ids.get(i), bigints.get(i));
+                    // A duplicated row would otherwise overwrite the first one unnoticed.
+                    Assertions.assertNull(
+                            values.put(ids.get(i), bigints.get(i)), "duplicate id " + ids.get(i));
                 }
             }
         }
