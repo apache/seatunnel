@@ -710,6 +710,36 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(10.285714285, rows.get(0).getField(1));
     }
 
+    /**
+     * Microsoft Excel stores 5.555 as {@code <v>5.5549999999999997</v>} and 6.666 as {@code
+     * <v>6.6660000000000004</v>} (cells F2 and G2 of this file). Both engines read the value the
+     * user typed, not the 17-digit stored text.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testExcelWrittenNumberReadsAsTypedValue(String excelEngine)
+            throws IOException, URISyntaxException {
+        URL excelFile =
+                ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_formula.xlsx");
+        Assertions.assertNotNull(excelFile);
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "sheet_name = \"Sheet1\"\n"
+                                + "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_bytes = tinyint, c_short = smallint,"
+                                + " c_int = int, c_bigint = bigint, c_string = string,"
+                                + " c_decimal = \"decimal(10, 3)\", c_double = double } }");
+
+        List<SeaTunnelRow> rows = readExcel(new File(excelFile.toURI()), pluginConfig);
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(new BigDecimal("5.555"), rows.get(0).getField(5));
+        Assertions.assertEquals(6.666, rows.get(0).getField(6));
+    }
+
     private File writeWithExcelSink(SeaTunnelRowType rowType, Object[][] values)
             throws IOException {
         FileSinkConfig fileSinkConfig = mock(FileSinkConfig.class);

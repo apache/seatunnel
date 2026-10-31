@@ -122,7 +122,12 @@ public class ExcelCellUtils implements Serializable {
 
         String fieldValue;
         if (isNumericCell(cellRaw, sqlType)) {
-            fieldValue = ((ReadCellData<?>) cellRaw).getOriginalNumberValue().toString();
+            // The original value is the stored text, which Excel may write with 17 significant
+            // digits (5.555 as 5.5549999999999997). Use the shortest text of the same double, as
+            // the POI engine does.
+            fieldValue =
+                    Double.toString(
+                            ((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue());
         } else if (field instanceof String || cellRaw == null) {
             fieldValue = field.toString();
         } else {

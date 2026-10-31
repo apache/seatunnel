@@ -7,7 +7,7 @@
 ### 文件连接器：Excel 保留 DOUBLE 和 DECIMAL 的完整数值
 
 - **行为变更：读写 Excel 文件时不再丢失 DOUBLE 和 DECIMAL 的位数**
-  - **描述**：此前 Excel Sink 会把 DECIMAL 转成 `double` 写入，Excel Source（POI 和 EasyExcel 引擎）按单元格的显示格式读取数值单元格，只保留约 10 位有效数字。DOUBLE 和 DECIMAL 经过 Excel 读写后数值会改变，例如 `10.285714285` 变成 `10.28571428`。现在 Source 对数值列读取数值单元格中存储的原始数值，并直接从文本解析 DECIMAL，不再经过 `double`。Sink 在 `double` 能精确表示该 DECIMAL 时仍写成数值单元格，否则写成文本单元格。
+  - **描述**：此前 Excel Sink 会把 DECIMAL 转成 `double` 写入，Excel Source（POI 和 EasyExcel 引擎）按单元格的显示格式读取数值单元格，只保留约 10 位有效数字。DOUBLE 和 DECIMAL 经过 Excel 读写后数值会改变，例如 `10.285714285` 变成 `10.28571428`。现在 Source 对数值列读取数值单元格中存储的数值，取该 `double` 的最短十进制文本（存有 `5.555` 的单元格读作 `5.555`）；文本单元格中的 DECIMAL 直接从文本解析，不再经过 `double`。Sink 在 DECIMAL 转成 `double` 后的最短十进制文本与原值相等时仍写成数值单元格，否则写成文本单元格。
   - **影响**：从 Excel 读取的数值列可能比之前多出位数。有效位数超过 `double` 精度（约 15 到 17 位，例如很多 `DECIMAL(38, 18)` 的值）的 DECIMAL，在写出的文件中是文本单元格，Excel 会按文本显示，`SUM` 等公式不会计算它。设置了百分比或货币显示格式的数值单元格，读入数值列时现在读取其存储的数值，例如显示为 `50%` 的单元格读取为 `0.5`；此前会解析显示文本，通常会解析失败。
   - **迁移指南**：用 SeaTunnel 读取这些文件无需任何调整。如果需要在表格公式中使用该列，请在 Sink 之前将其转换为 DOUBLE，这样会写成数值单元格，但会有舍入。
 
