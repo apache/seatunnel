@@ -30,6 +30,10 @@
 
     <properties>
         <debezium.version>1.9.8.Final</debezium.version>
+        <!-- Debezium's fork of the binlog client keeps the com.github.shyiko packages and Java 8
+             bytecode, and adds the MySQL 9.0 VECTOR column type that the 0.27.2 client that
+             Debezium 1.9.8 depends on rejects when deserializing row events. -->
+        <mysql-binlog-connector.version>0.40.2</mysql-binlog-connector.version>
     </properties>
 
     <dependencyManagement>
@@ -62,7 +66,17 @@
                         <groupId>io.debezium</groupId>
                         <artifactId>debezium-api</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.zendesk</groupId>
+                        <artifactId>mysql-binlog-connector-java</artifactId>
+                    </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>mysql-binlog-connector-java</artifactId>
+                <version>${mysql-binlog-connector.version}</version>
             </dependency>
 
             <!-- test dependencies on TestContainers -->
@@ -92,6 +106,10 @@
                     <artifactId>mysql-connector-java</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>mysql-binlog-connector-java</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
