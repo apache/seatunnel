@@ -8,6 +8,10 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+### DB2 upsert 的 NULL 处理
+
+生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
+
 ## MySQL 时间值
 
 MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
@@ -331,6 +335,8 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 ### max_retries [int]
 
 JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
+
+非 XA 手动提交连接在 `Connection.commit()` 阶段失败时，一律按系统错误处理，即使 SQLState 属于 `22` 或 `23` 类也不能作为行级错误丢弃。失败的 writer 不能通过再次提交来假定事务已恢复。开启 checkpoint 时，该共享事务中已 flush 的数据会被标记为不安全，同队列的其他 writer 也会拒绝提交，直到作业恢复。
 
 ### batch_size [int]
 
