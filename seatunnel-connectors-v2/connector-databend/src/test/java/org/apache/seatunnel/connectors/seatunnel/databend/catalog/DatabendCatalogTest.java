@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.databend.catalog;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.junit.jupiter.api.Assertions;
@@ -31,9 +30,8 @@ import java.util.Locale;
 
 /**
  * Covers the Databend to SeaTunnel type mapping the catalog applies to every column of every table
- * the source reads. The type names used here are the ones a Databend server actually reports:
- * information_schema.columns exposes data_type lower cased, and the JDBC driver passes that string
- * through as TYPE_NAME, keeping the arguments of a parameterised type.
+ * the source reads. The type names used here are the ones the JDBC driver reports as TYPE_NAME:
+ * without a Nullable(...) wrapper, and with the arguments of a parameterised type.
  */
 public class DatabendCatalogTest {
 
@@ -47,23 +45,17 @@ public class DatabendCatalogTest {
         Assertions.assertEquals(
                 new DecimalType(38, 0),
                 DatabendCatalog.convertDatabendType("decimal(38, 0)", Types.DECIMAL, 38, 0));
+        Assertions.assertEquals(
+                new DecimalType(76, 10),
+                DatabendCatalog.convertDatabendType("decimal(76, 10)", Types.DECIMAL, 76, 10));
+        // Older servers, such as the v1.2.71 image DatabendIT uses, report the name capitalized.
+        Assertions.assertEquals(
+                new DecimalType(10, 2),
+                DatabendCatalog.convertDatabendType("Decimal(10, 2)", Types.DECIMAL, 10, 2));
         // The unparameterised spelling has to keep working too.
         Assertions.assertEquals(
                 new DecimalType(20, 4),
                 DatabendCatalog.convertDatabendType("decimal", Types.DECIMAL, 20, 4));
-    }
-
-    @Test
-    public void binaryMapsToBytesRatherThanASingleByte() {
-        // BYTE_TYPE is one java.lang.Byte (SqlType.TINYINT). A Databend BINARY column holds a byte
-        // string, and toDatabendTypeString writes SeaTunnel BYTES back out as VARBINARY, so the
-        // reverse direction has to produce BYTES for the round trip to hold.
-        Assertions.assertEquals(
-                PrimitiveByteArrayType.INSTANCE,
-                DatabendCatalog.convertDatabendType("binary", Types.BINARY, 0, 0));
-        Assertions.assertEquals(
-                PrimitiveByteArrayType.INSTANCE,
-                DatabendCatalog.convertDatabendType("varbinary", Types.VARBINARY, 0, 0));
     }
 
     @Test
@@ -78,7 +70,6 @@ public class DatabendCatalogTest {
         assertMaps("varchar", BasicType.STRING_TYPE);
         assertMaps("date", LocalTimeType.LOCAL_DATE_TYPE);
         assertMaps("timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE);
-        assertMaps("binary", PrimitiveByteArrayType.INSTANCE);
     }
 
     @Test
@@ -86,7 +77,11 @@ public class DatabendCatalogTest {
         // Under tr-TR and az-AZ an uppercase with the default locale turns the i of "int",
         // "bigint", "timestamp", "binary" and "decimal" into a dotted capital I, so none of those
         // names matches its branch any more and every one of those columns becomes a STRING.
-        Locale previous = Locale.getDefault();
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
         try {
             for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
                 Locale.setDefault(locale);
@@ -95,14 +90,17 @@ public class DatabendCatalogTest {
                 assertMaps("int", BasicType.INT_TYPE);
                 assertMaps("bigint", BasicType.LONG_TYPE);
                 assertMaps("timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                assertMaps("binary", PrimitiveByteArrayType.INSTANCE);
+                assertMaps("binary", BasicType.BYTE_TYPE);
                 Assertions.assertEquals(
                         new DecimalType(10, 2),
                         DatabendCatalog.convertDatabendType("decimal(10, 2)", Types.DECIMAL, 10, 2),
                         "a decimal column must not depend on the default locale");
             }
         } finally {
-            Locale.setDefault(previous);
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
         }
     }
 

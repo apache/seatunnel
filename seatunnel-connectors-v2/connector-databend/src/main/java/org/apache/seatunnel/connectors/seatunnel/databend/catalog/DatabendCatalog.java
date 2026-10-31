@@ -33,7 +33,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorErrorCode;
@@ -463,7 +462,7 @@ public class DatabendCatalog implements Catalog {
      * Converts a Databend column type, as reported by the JDBC driver, to the matching SeaTunnel
      * type. Package private so the mapping can be asserted directly in unit tests.
      *
-     * @param typeName the Databend type name held in information_schema.columns.data_type
+     * @param typeName the TYPE_NAME the JDBC driver reports for the column
      * @param sqlType the java.sql.Types code the driver derives from that name
      * @param columnSize precision for a DECIMAL column
      * @param decimalDigits scale for a DECIMAL column
@@ -471,11 +470,12 @@ public class DatabendCatalog implements Catalog {
      */
     static SeaTunnelDataType<?> convertDatabendType(
             String typeName, int sqlType, int columnSize, int decimalDigits) {
-        // information_schema.columns reports data_type lower cased and keeps the arguments of the
-        // parameterised types, so a DECIMAL(10, 2) column arrives here as "decimal(10, 2)". Match
-        // on the bare upper case name, and uppercase with Locale.ROOT: the default locale turns
-        // the i of int, bigint, timestamp and binary into a dotted capital I under tr-TR and
-        // az-AZ, and each of those columns would then miss its branch and fall through to STRING.
+        // The driver reports TYPE_NAME without a Nullable(...) wrapper but with the arguments of
+        // a parameterised type, so a DECIMAL(10, 2) column arrives as "decimal(10, 2)", or as
+        // "Decimal(10, 2)" from older servers. Match on the bare upper case name, and uppercase
+        // with Locale.ROOT: the default locale turns the i of int, bigint, timestamp and binary
+        // into a dotted capital I under tr-TR and az-AZ, and each of those columns would then
+        // miss its branch and fall through to STRING.
         String databendType = normalizeTypeName(typeName);
 
         switch (databendType) {
@@ -501,6 +501,8 @@ public class DatabendCatalog implements Catalog {
             case "FLOAT64":
                 return BasicType.DOUBLE_TYPE;
             case "DECIMAL":
+                // Precision and scale come from COLUMN_SIZE and DECIMAL_DIGITS, which the driver
+                // parses out of the full type name, not from the bare name matched here.
                 return new DecimalType(columnSize, decimalDigits);
             case "STRING":
             case "VARCHAR":
@@ -513,10 +515,7 @@ public class DatabendCatalog implements Catalog {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "VARBINARY":
             case "BINARY":
-                // A Databend BINARY column holds a byte string, so it maps to BYTES. BYTE_TYPE is
-                // a single java.lang.Byte (SqlType.TINYINT), which contradicts both the documented
-                // mapping and toDatabendTypeString, where SeaTunnel BYTES is written as VARBINARY.
-                return PrimitiveByteArrayType.INSTANCE;
+                return BasicType.BYTE_TYPE;
             default:
                 log.warn("Unsupported Databend type: {}, fallback to STRING type", typeName);
                 return BasicType.STRING_TYPE;

@@ -4,6 +4,13 @@
 
 ## dev
 
+### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
+
+- **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**
+  - **描述**：Databend Source 的所有列类型都来自 `DatabendCatalog`。Catalog 此前用驱动上报的类型名（例如 `decimal(10, 2)`）与不带参数的 `DECIMAL` 比较，因此所有 decimal 列都回退为 `STRING`，其值按文本读取。现在该列会按其自身的 precision 和 scale 映射为 `DECIMAL`。在默认语言环境为土耳其语或阿塞拜疆语的工作节点上，`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`TIMESTAMP` 和 `BINARY` 列此前也会回退为 `STRING`，现在同样得到对应的映射类型。
+  - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
+  - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
