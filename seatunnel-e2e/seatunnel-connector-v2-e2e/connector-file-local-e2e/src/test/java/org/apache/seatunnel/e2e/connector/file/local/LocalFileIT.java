@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.google.common.io.ByteStreams;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -375,6 +376,13 @@ public class LocalFileIT extends TestSuiteBase {
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
+    /**
+     * Exercises CSV source/sink pipelines and checks a committed header file without reserializing
+     * it.
+     *
+     * <p>The exact bytes must retain the configured delimiter and UTF-16LE charset for the header
+     * and both data rows, including their non-ASCII names and values.
+     */
     @TestTemplate
     public void testLocalFileCsv(TestContainer container) throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -383,6 +391,17 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+        helper.execute("/csv/fake_to_local_csv_with_header.conf");
+        Assertions.assertEquals(1, countLocalFiles("/tmp/csv/header_utf16", "*.csv"));
+        Container.ExecResult headerFile =
+                baseContainer.execInContainer(
+                        "find", "/tmp/csv/header_utf16", "-type", "f", "-name", "*.csv");
+        Assertions.assertEquals(0, headerFile.getExitCode(), headerFile.getStderr());
+        byte[] csvBytes =
+                baseContainer.copyFileFromContainer(
+                        headerFile.getStdout().trim(), ByteStreams::toByteArray);
+        Assertions.assertArrayEquals(
+                "id||名称\n1||测试\n2||第二行".getBytes(StandardCharsets.UTF_16LE), csvBytes);
     }
 
     @TestTemplate

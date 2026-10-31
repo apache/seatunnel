@@ -241,6 +241,8 @@ Support writing Parquet INT96 from a 12-byte field, only valid for parquet files
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
+For CSV files, the header uses the same `field_delimiter` and `encoding` as the data rows. For example, `field_delimiter = "||"` produces `id||name` above `1||a`. With `encoding = "UTF-16LE"`, both the header (including non-ASCII column names) and the data rows use UTF-16LE. Consumers that previously compensated for a comma-separated or platform-encoded header with a custom delimiter or encoding should remove that workaround.
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
