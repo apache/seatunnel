@@ -17,6 +17,7 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | secret_key                     | string | 否    | -      | 用于额外验证的密钥。仅 `AMAZON` 和 `QIANFAN` 需要此密钥。                          |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
+| process_batch_size             | int    | 否    | 100    | 每次处理的行批量大小（旧名称：`inference_batch_size`）。
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
 | api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |

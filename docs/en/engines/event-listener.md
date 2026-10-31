@@ -31,10 +31,12 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_ADD_COLUMN`      | Table column addition event     | `AlterTableAddColumnEvent`      |
 | `SCHEMA_CHANGE_DROP_COLUMN`     | Table column deletion event     | `AlterTableDropColumnEvent`     |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`   | Table column modification event | `AlterTableModifyColumnEvent`   |
-| `READER_OPEN`                   | Reader open event               | `ReaderOpenEvent`               |
-| `READER_CLOSE`                  | Reader close event              | `ReaderCloseEvent`              |
-| `WRITER_OPEN`                   | Writer open event               | `WriterOpenEvent`               |
-| `WRITER_CLOSE`                  | Writer close event              | `WriterCloseEvent`              |
+| `LIFECYCLE_ENUMERATOR_OPEN`     | Split enumerator open event     | `EnumeratorOpenEvent`           |
+| `LIFECYCLE_ENUMERATOR_CLOSE`    | Split enumerator close event    | `EnumeratorCloseEvent`          |
+| `LIFECYCLE_READER_OPEN`         | Reader open event               | `ReaderOpenEvent`               |
+| `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
+| `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |
+| `READER_MESSAGE_DELAYED`        | Reader message delayed event    | `MessageDelayedEvent`           |
 
 > Note: Different event types correspond to different event data structures. When customizing an event handler, you need to judge the type through `event.getEventType()` to ensure type-safe conversion.
 
@@ -194,9 +196,9 @@ import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
-import org.apache.seatunnel.api.event.schema.AlterTableAddColumnEvent;
-import org.apache.seatunnel.api.event.source.ReaderOpenEvent;
-import org.apache.seatunnel.api.event.sink.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 
 /**
  * Example of a custom multi-type event handler, including processing logic for multiple events
@@ -216,10 +218,10 @@ public class CustomMultiEventHandler implements EventHandler {
             case SCHEMA_CHANGE_ADD_COLUMN:
                 handleAddColumnEvent((AlterTableAddColumnEvent) event);
                 break;
-            case READER_OPEN:
+            case LIFECYCLE_READER_OPEN:
                 handleReaderOpenEvent((ReaderOpenEvent) event);
                 break;
-            case WRITER_CLOSE:
+            case LIFECYCLE_WRITER_CLOSE:
                 handleWriterCloseEvent((WriterCloseEvent) event);
                 break;
             // Add processing for other event types as needed
@@ -260,8 +262,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle table column addition events
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
-        log.info("Column added to table | Table Name: {}, Added Columns: {}, Time: {}",
-            event.getTableName(), event.getAddedColumns(), event.getEventTime());
+        log.info("Column added to table | Table: {}, Column: {}, Time: {}",
+            event.getTableIdentifier().getTablePath(), event.getColumn(), event.getCreatedTime());
         // Handle table structure change logic
     }
 
@@ -269,8 +271,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle reader open events
      */
     private void handleReaderOpenEvent(ReaderOpenEvent event) {
-        log.info("Reader opened | Plugin ID: {}, Parallelism: {}, Time: {}",
-            event.getPluginId(), event.getParallelism(), event.getEventTime());
+        log.info("Reader opened | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle reader initialization logic
     }
 
@@ -278,8 +280,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle writer close events
      */
     private void handleWriterCloseEvent(WriterCloseEvent event) {
-        log.info("Writer closed | Plugin ID: {}, Processed Record Count: {}, Time: {}",
-            event.getPluginId(), event.getRecordCount(), event.getEventTime());
+        log.info("Writer closed | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle writer resource cleanup logic
     }
 

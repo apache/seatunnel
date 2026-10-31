@@ -84,6 +84,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                      | parquet 格式使用 |
 | parquet_avro_write_fixed_as_int96     | array   | 否   | -                                          | parquet 格式使用 |
 | encoding                              | string  | 否   | "UTF-8"                                    | json/text/csv/xml 格式使用 |
+| enable_header_write | boolean | 否 | false | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
 | common-options                        | object  | 否   | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) |
 
 ## 示例

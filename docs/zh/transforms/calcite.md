@@ -116,6 +116,14 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
 
+### JSON 函数
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+使用 JSON 路径从 JSON 字符串中提取值并返回字符串。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
+
 ### 向量函数
 
 #### COSINE_DISTANCE

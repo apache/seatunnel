@@ -34,9 +34,9 @@ Notion 源连接器用于读取 Notion API 数据。它基于 HTTP 源连接器�
 | content_field               | String  | 否  | -      | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON。                                                            |
 | json_field                  | Config  | 否  | -      | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                                |
 | pageing                     | Config  | 否  | -      | HTTP 分页配置，继承自 HTTP 源连接器。                                                                          |
-| page_type                   | String  | 否  | PageNumber | 分页类型，支持 `PageNumber`（默认）和 `Cursor`。对于返回 `next_cursor` 的 Notion 接口请使用 `Cursor`。                       |
-| cursor_field                | String  | 否  | -      | 携带游标值的请求参数名称，与 `page_type = "Cursor"` 一起使用。                                                         |
-| cursor_response_field       | String  | 否  | -      | 响应体中游标所在的 JSONPath，与 `page_type = "Cursor"` 一起使用。                                                     |
+| pageing.page_type           | String  | 否  | PageNumber | 分页类型，支持 `PageNumber`（默认）和 `Cursor`。对于返回 `next_cursor` 的 Notion 接口请使用 `Cursor`。必须在 `pageing` 配置块内设置。 |
+| pageing.cursor_field        | String  | 否  | -      | 携带游标值的请求参数名称，与 `pageing.page_type = "Cursor"` 一起使用。                                                  |
+| pageing.cursor_response_field | String  | 否  | -      | 响应体中游标所在的 JSONPath，与 `pageing.page_type = "Cursor"` 一起使用。                                             |
 | poll_interval_millis        | int     | 否  | -      | 流模式下的请求间隔（毫秒）。Notion 源连接器当前只支持批处理模式。                                                            |
 | retry                       | int     | 否  | -      | HTTP 请求返回 `IOException` 时的最大重试次数。                                                              |
 | retry_backoff_multiplier_ms | int     | 否  | 100    | HTTP 请求失败时的重试退避倍数（毫秒）。                                                                          |
@@ -65,7 +65,7 @@ Notion 源连接器用于读取 Notion API 数据。它基于 HTTP 源连接器�
 - 当 Notion 把记录嵌套在数组中（例如 `results`）时，使用 `content_field` 抽取数组元素。
 - 只有当不同字段位于不同 JSON 路径时，才需要使用 `json_field`。
 - `password` 和 `version` 会覆盖 `Authorization` 和 `Notion-Version` 请求头，请把其他自定义请求头放在 `headers` 中。
-- 对于 Notion 列表类接口，建议使用 `page_type = "Cursor"` 配合 `cursor_field = "start_cursor"` 与 `cursor_response_field = "$.next_cursor"`。
+- 对于 Notion 列表类接口，建议在 `pageing` 配置块内使用 `page_type = "Cursor"` 配合 `cursor_field = "start_cursor"` 与 `cursor_response_field = "$.next_cursor"`。
 - Notion 源连接器当前只支持批处理模式，`poll_interval_millis` 仅为兼容 HTTP 基类而保留，不会启用流式行为。
 
 ## 任务示例
@@ -124,9 +124,11 @@ source {
     body = "{\"page_size\": 100, \"filter\": {\"value\": \"page\", \"property\": \"object\"}}"
     format = "json"
     content_field = "$.results[*]"
-    page_type = "Cursor"
-    cursor_field = "start_cursor"
-    cursor_response_field = "$.next_cursor"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "start_cursor"
+      cursor_response_field = "$.next_cursor"
+    }
     schema = {
       fields {
         id = string

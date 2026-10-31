@@ -72,6 +72,8 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | time_format                | string  | no       | HH:mm:ss                    |
 | schema                     | config  | no       | -                           |
 | sheet_name                 | string  | no       | -                           |
+| null_format                | string  | no       | -                           |
+| excel_use_header_line      | boolean | no       | false                       |
 | excel_engine               | string  | no       | POI                         |
 | poi_excel_max_file_size    | long    | no       | 52428800                    |
 | xml_row_tag                | string  | no       | -                           |
