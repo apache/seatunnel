@@ -76,8 +76,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | socket_timeout_ms            | Int        | 否  | 86400000        | 从服务器读取数据的 Socket 超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
 | connect_timeout_ms           | Int        | 否  | 86400000        | 建立到服务器的连接超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
 | partition_column             | String     | 否  | -               | 并行分区的列名，仅支持数值类型主键，且只能配置一列。 |
-| partition_lower_bound        | BigDecimal | 否  | -               | 扫描的分区列最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。 |
-| partition_upper_bound        | BigDecimal | 否  | -               | 扫描的分区列最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。 |
+| partition_lower_bound        | String | 否  | -               | 扫描的分区列最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。 |
+| partition_upper_bound        | String | 否  | -               | 扫描的分区列最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。 |
 | partition_num                | Int        | 否  | 10              | 分区数量，仅支持正整数。默认值是 10。 |
 | fetch_size                   | Int        | 否  | 0               | 对于返回大量行的查询，可配置 JDBC 一次获取的行数，通过减少访问数据库的次数来提升性能。`0` 表示使用 JDBC 驱动默认。 |
 | common-options               |            | 否  | -               | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)。 |

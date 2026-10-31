@@ -107,7 +107,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### op_type [enum]
 
-`op_type` The operation type of hudi table. The value is `insert` or `upsert` or `bulk_insert`.
+`op_type` The operation type of hudi table. The value is `INSERT`, `UPSERT`, or `BULK_INSERT`.
 
 ### batch_interval_ms [Int]
 
