@@ -349,17 +349,26 @@ public class SplitClusterFaultToleranceIT {
      * The fix added a fallback right after the retry loop: if the loop exits with the ack still
      * missing and the vertex is still CANCELING, mark it CANCELED locally.
      *
-     * <p>{@code CoordinatorService#failedTaskOnMemberRemoved} also matches CANCELING tasks when a
-     * member is lost, but it cannot be the one to save this race: {@code PhysicalVertex#cancel},
-     * {@code #updateTaskState} and {@code #stateProcess} are all {@code synchronized} on the vertex
-     * itself, and the whole call chain down into {@code noticeTaskExecutionServiceCancel} runs
-     * without releasing that lock. A competing {@code failedTaskOnMemberRemoved} call has to go
-     * through the same {@code synchronized updateTaskState}, so it can only run after the
-     * cancelling thread has already returned - by which point the fixed code has already resolved
-     * the vertex to CANCELED, and the end-state consistency check inside {@code updateTaskState}
-     * rejects any later attempt to move a terminal-state task to FAILED. So the fixed method's own
-     * fallback is the sole, deterministic mechanism that unsticks this specific race, which is why
-     * this test asserts CANCELED rather than FAILED as the outcome.
+     * <p>That fallback only covers the window where the worker leaves <em>before</em> acknowledging
+     * the {@code CancelTaskOperation}. The ack itself is immediate: {@code
+     * TaskExecutionService#cancelTaskGroup} just cancels the task's cancellation future and
+     * returns, and the terminal state only arrives later through the task's own completion
+     * callback. So when the worker dies <em>after</em> acking but before that callback, {@code
+     * noticeTaskExecutionServiceCancel} has already returned normally with the vertex still
+     * CANCELING, and it is {@code CoordinatorService#failedTaskOnMemberRemoved} (driven by the
+     * Hazelcast membership event) that resolves the vertex. That path used to mark a CANCELING
+     * vertex FAILED, which turned this user-cancelled job into a FAILED one whenever the kill below
+     * landed after the ack rather than before it. While the job itself is CANCELING, that path now
+     * resolves every vertex still deployed on the lost worker to CANCELED (see {@code
+     * CoordinatorService#resolveLostMemberState}): the vertex that already entered CANCELING as
+     * well as the siblings that {@code SubPlan#stateProcess}, which cancels vertices one by one,
+     * has not reached yet and that are therefore still RUNNING. A CANCELING vertex of a job the
+     * user did not cancel (the engine cancels tasks itself on a master-switch reschedule, a
+     * checkpoint error or a failing sibling) keeps resolving to FAILED. Since this job is cancelled
+     * by the user, each of its vertices reaches CANCELED on either side of the ack, and the
+     * end-state consistency check inside {@code updateTaskState} rejects any later attempt to move
+     * it elsewhere, which is why this test asserts CANCELED rather than FAILED as the outcome
+     * regardless of where the worker shutdown lands.
      *
      * <p>No existing fault-tolerance test combines "cancel requested" with "worker crashes before
      * the cancel ack arrives": {@link #testStreamJobRunOk()} cancels a job on a fully healthy
