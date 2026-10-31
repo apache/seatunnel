@@ -53,6 +53,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.sql.Connection;
 import java.util.HashMap;
@@ -66,12 +68,16 @@ import java.util.stream.Collectors;
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
+    public boolean supportsNewlyCreatedTable() {
+        return true;
+    }
+
+    @Override
     public String factoryIdentifier() {
         return "Jdbc";
     }
 
-    private ReadonlyConfig getCatalogOptions(TableSinkFactoryContext context) {
-        ReadonlyConfig config = context.getOptions();
+    static ReadonlyConfig getCatalogOptions(ReadonlyConfig config) {
         // TODO Remove obsolete code
         Optional<Map<String, String>> catalogOptions =
                 config.getOptional(ConnectorCommonOptions.CATALOG_OPTIONS);
@@ -83,22 +89,64 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        ReadonlyConfig config = context.getOptions();
-        Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
-        CatalogTable catalogTable = context.getCatalogTable();
-        ReadonlyConfig catalogOptions = getCatalogOptions(context);
-        // source table info
+        ReadonlyConfig baseConfig = context.getOptions();
+        Map<String, String> sinkTableOptions =
+                baseConfig.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
+        ResolvedSinkTable resolvedSinkTable =
+                resolveSinkTable(baseConfig, context.getCatalogTable());
+        final ReadonlyConfig options = resolvedSinkTable.getOptions();
+        CatalogTable catalogTable = resolvedSinkTable.getCatalogTable();
+        // Keep per-table storage options on the resolved catalog table so runtime-created tables
+        // still honor the same JDBC table_options path as statically declared tables.
+        if (sinkTableOptions != null) {
+            catalogTable.getOptions().putAll(sinkTableOptions);
+        }
+        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(options);
+        FieldIdeEnum fieldIdeEnum = options.get(JdbcSinkOptions.FIELD_IDE);
+        catalogTable
+                .getOptions()
+                .put("fieldIde", fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+        JdbcDialect dialect =
+                JdbcDialectLoader.load(
+                        sinkConfig.getJdbcConnectionConfig().getUrl(),
+                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
+                        sinkConfig.getJdbcConnectionConfig().getDialect(),
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+        dialect.connectionUrlParse(
+                sinkConfig.getJdbcConnectionConfig().getUrl(),
+                sinkConfig.getJdbcConnectionConfig().getProperties(),
+                dialect.defaultParameter());
+        CatalogTable finalCatalogTable = catalogTable;
+        DataSaveMode dataSaveMode = options.get(JdbcSinkOptions.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = options.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
+        return () ->
+                new JdbcSink(
+                        baseConfig,
+                        options,
+                        sinkConfig,
+                        dialect,
+                        schemaSaveMode,
+                        dataSaveMode,
+                        finalCatalogTable);
+    }
+
+    /**
+     * Applies the JDBC sink's naming and primary-key rules to an upstream catalog table.
+     *
+     * <p>The returned config is the per-table resolved config used by the runtime writer, while the
+     * input config remains the reusable template for future tables.
+     */
+    static ResolvedSinkTable resolveSinkTable(ReadonlyConfig config, CatalogTable catalogTable) {
+        ReadonlyConfig catalogOptions = getCatalogOptions(config);
         TableIdentifier tableId = catalogTable.getTableId();
-        // sink table info
         TablePath sinkTablePath = resolveSinkTablePath(config, catalogOptions, catalogTable);
-        // rebuild identifier
         TableIdentifier newTableId =
                 TableIdentifier.of(
                         tableId.getCatalogName(),
                         sinkTablePath.getDatabaseName(),
                         sinkTablePath.getSchemaName(),
                         sinkTablePath.getTableName());
-        catalogTable =
+        CatalogTable resolvedCatalogTable =
                 CatalogTable.of(
                         newTableId,
                         catalogTable.getTableSchema(),
@@ -108,17 +156,20 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         catalogTable.getCatalogName());
 
         Map<String, String> map = config.toMap();
-        if (catalogTable.getTableId().getSchemaName() != null) {
+        if (resolvedCatalogTable.getTableId().getSchemaName() != null) {
             map.put(
                     JdbcSinkOptions.TABLE.key(),
-                    catalogTable.getTableId().getSchemaName()
+                    resolvedCatalogTable.getTableId().getSchemaName()
                             + "."
-                            + catalogTable.getTableId().getTableName());
+                            + resolvedCatalogTable.getTableId().getTableName());
         } else {
-            map.put(JdbcSinkOptions.TABLE.key(), catalogTable.getTableId().getTableName());
+            map.put(JdbcSinkOptions.TABLE.key(), resolvedCatalogTable.getTableId().getTableName());
         }
-        map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
-        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        map.put(
+                JdbcSinkOptions.DATABASE.key(),
+                resolvedCatalogTable.getTableId().getDatabaseName());
+        PrimaryKey primaryKey = resolvedCatalogTable.getTableSchema().getPrimaryKey();
+        // Empty and absent primary_keys both inherit the source key, as in existing jobs.
         if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(
@@ -126,7 +177,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         String.join(",", primaryKey.getColumnNames()));
             } else {
                 Optional<ConstraintKey> keyOptional =
-                        catalogTable.getTableSchema().getConstraintKeys().stream()
+                        resolvedCatalogTable.getTableSchema().getConstraintKeys().stream()
                                 .filter(
                                         key ->
                                                 ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
@@ -143,53 +194,37 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                                 .collect(Collectors.joining(","))));
             }
         } else {
-            PrimaryKey configPk =
+            List<String> configuredPrimaryKeys = config.get(JdbcSinkOptions.PRIMARY_KEYS);
+            TableSchema tableSchema = resolvedCatalogTable.getTableSchema();
+            TableSchema.Builder tableSchemaBuilder =
+                    TableSchema.builder()
+                            .constraintKey(tableSchema.getConstraintKeys())
+                            .columns(tableSchema.getColumns());
+            tableSchemaBuilder.primaryKey(
                     PrimaryKey.of(
-                            catalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
-            TableSchema tableSchema = catalogTable.getTableSchema();
-            catalogTable =
+                            resolvedCatalogTable.getTablePath().getTableName() + "_config_pk",
+                            configuredPrimaryKeys));
+            resolvedCatalogTable =
                     CatalogTable.of(
-                            catalogTable.getTableId(),
-                            TableSchema.builder()
-                                    .primaryKey(configPk)
-                                    .constraintKey(tableSchema.getConstraintKeys())
-                                    .columns(tableSchema.getColumns())
-                                    .build(),
-                            catalogTable.getOptions(),
-                            catalogTable.getPartitionKeys(),
-                            catalogTable.getComment(),
-                            catalogTable.getCatalogName());
+                            resolvedCatalogTable.getTableId(),
+                            tableSchemaBuilder.build(),
+                            resolvedCatalogTable.getOptions(),
+                            resolvedCatalogTable.getPartitionKeys(),
+                            resolvedCatalogTable.getComment(),
+                            resolvedCatalogTable.getCatalogName());
         }
-        config = ReadonlyConfig.fromMap(new HashMap<>(map));
-        final ReadonlyConfig options = config;
-        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
-        FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
-        catalogTable.getOptions().putAll(sinkTableOptions);
-        catalogTable
-                .getOptions()
-                .put("fieldIde", fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
-        JdbcDialect dialect =
-                JdbcDialectLoader.load(
-                        sinkConfig.getJdbcConnectionConfig().getUrl(),
-                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        sinkConfig.getJdbcConnectionConfig().getDialect(),
-                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
-        dialect.connectionUrlParse(
-                sinkConfig.getJdbcConnectionConfig().getUrl(),
-                sinkConfig.getJdbcConnectionConfig().getProperties(),
-                dialect.defaultParameter());
-        CatalogTable finalCatalogTable = catalogTable;
-        DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
-        SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
-        return () ->
-                new JdbcSink(
-                        options,
-                        sinkConfig,
-                        dialect,
-                        schemaSaveMode,
-                        dataSaveMode,
-                        finalCatalogTable);
+        return new ResolvedSinkTable(
+                ReadonlyConfig.fromMap(new HashMap<>(map)), resolvedCatalogTable);
+    }
+
+    @Getter
+    @AllArgsConstructor
+    /** Holds the per-table config and catalog table resolved from a template JDBC sink config. */
+    static class ResolvedSinkTable {
+        /** Sink options with table/database/primary-key placeholders resolved for one table. */
+        private final ReadonlyConfig options;
+        /** Target table metadata derived from the upstream table and sink naming rules. */
+        private final CatalogTable catalogTable;
     }
 
     @Override
@@ -358,7 +393,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
      * database/table overrides, dotted table name split, schema option, and prefix/suffix. Keeping
      * a single implementation guarantees dry-run validates exactly the table the runtime writes to.
      */
-    private TablePath resolveSinkTablePath(
+    private static TablePath resolveSinkTablePath(
             ReadonlyConfig config, ReadonlyConfig catalogOptions, CatalogTable upstreamTable) {
         String databaseName =
                 config.getOptional(JdbcSinkOptions.DATABASE)
@@ -394,7 +429,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             return null;
         }
         TablePath tablePath =
-                resolveSinkTablePath(config, getCatalogOptions(context), context.getCatalogTable());
+                resolveSinkTablePath(config, getCatalogOptions(config), context.getCatalogTable());
         if (StringUtils.isBlank(tablePath.getDatabaseName())
                 || StringUtils.isBlank(tablePath.getTableName())) {
             return null;

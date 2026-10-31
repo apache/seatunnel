@@ -72,6 +72,10 @@ public class JdbcSink
                 SupportSchemaEvolutionSink {
 
     private final TableSchema tableSchema;
+    /**
+     * Unresolved sink config reused when runtime-created tables need per-table option resolution.
+     */
+    private final ReadonlyConfig baseConfig;
 
     private JobContext jobContext;
 
@@ -88,6 +92,7 @@ public class JdbcSink
     private final CatalogTable catalogTable;
 
     public JdbcSink(
+            ReadonlyConfig baseConfig,
             ReadonlyConfig config,
             JdbcSinkConfig jdbcSinkConfig,
             JdbcDialect dialect,
@@ -104,6 +109,7 @@ public class JdbcSink
                     e);
         }
         this.config = config;
+        this.baseConfig = baseConfig;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
         this.schemaSaveMode = schemaSaveMode;
@@ -152,8 +158,10 @@ public class JdbcSink
                             tableSchema,
                             getDatabaseTableSchema().orElse(null),
                             primaryKeyIndex,
+                            baseConfig,
                             jobContext == null || jobContext.isEnableCheckpoint());
         }
+        sinkWriter.configureRuntimeTableCreation(catalogTable, schemaSaveMode);
         return sinkWriter;
     }
 
@@ -334,10 +342,16 @@ public class JdbcSink
 
     @Override
     public List<SchemaChangeType> supports() {
-        return Arrays.asList(
-                SchemaChangeType.ADD_COLUMN,
-                SchemaChangeType.DROP_COLUMN,
-                SchemaChangeType.RENAME_COLUMN,
-                SchemaChangeType.UPDATE_COLUMN);
+        List<SchemaChangeType> supportedTypes =
+                new ArrayList<>(
+                        Arrays.asList(
+                                SchemaChangeType.ADD_COLUMN,
+                                SchemaChangeType.DROP_COLUMN,
+                                SchemaChangeType.RENAME_COLUMN,
+                                SchemaChangeType.UPDATE_COLUMN));
+        if (!jdbcSinkConfig.isExactlyOnce()) {
+            supportedTypes.add(0, SchemaChangeType.CREATE_TABLE);
+        }
+        return supportedTypes;
     }
 }
