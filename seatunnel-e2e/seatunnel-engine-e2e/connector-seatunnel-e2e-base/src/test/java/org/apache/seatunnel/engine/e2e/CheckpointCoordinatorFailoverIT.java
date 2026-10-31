@@ -74,9 +74,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class CheckpointCoordinatorFailoverIT {
@@ -1004,6 +1004,14 @@ public class CheckpointCoordinatorFailoverIT {
      * SAVEPOINT_TYPE} {@code PendingCheckpoint} whose completable future is not yet done -- i.e.
      * the barrier has been dispatched but not every subtask has acknowledged it -- before
      * terminating the master.
+     *
+     * <p><b>Proof that the redrive ran:</b> reaching {@code SAVEPOINT_DONE} is necessary but not
+     * sufficient, because the pre-shutdown checks are check-then-act and the old master could in
+     * principle still finish the savepoint in the instant before it goes down. The test therefore
+     * also asserts that the client's own {@code savePointJob} call failed (it is pinned to the old
+     * master's member uuid, so only the old master completing the savepoint could have answered it)
+     * and that the savepoint which ended the job was triggered strictly after the one observed in
+     * flight on the old master, i.e. it was created by the restored master's redrive.
      */
     @Test
     public void testStreamJobResolvesToSavepointDoneAfterMasterFailoverDuringSavepointShutdown()
@@ -1016,7 +1024,7 @@ public class CheckpointCoordinatorFailoverIT {
         HazelcastInstanceImpl masterNode2 = null;
         SeaTunnelClient engineClient = null;
         ExecutorService savepointCaller = Executors.newSingleThreadExecutor();
-        AtomicBoolean masterShutdownStarted = new AtomicBoolean();
+        AtomicReference<Throwable> savepointCallFailure = new AtomicReference<>();
 
         SeaTunnelConfig config1 = ConfigProvider.locateAndGetSeaTunnelConfig();
         config1.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
@@ -1081,46 +1089,45 @@ public class CheckpointCoordinatorFailoverIT {
                             () -> {
                                 try {
                                     finalEngineClient.savePointJob(jobId);
-                                } catch (Exception e) {
-                                    if (!masterShutdownStarted.get()) {
-                                        throw new IllegalStateException(
-                                                "savePointJob failed before master failover", e);
-                                    }
-                                    // Expected: killing masterNode1 below breaks whatever RPC
-                                    // this call is blocked on. Whether the job still reaches
-                                    // SAVEPOINT_DONE afterward is verified independently below,
-                                    // through the client reconnected to masterNode2 -- not
-                                    // through this future's outcome.
+                                } catch (Throwable e) {
+                                    // Recorded, never rethrown: the test thread decides what a
+                                    // failure means. Before masterNode1.shutdown() it is a
+                                    // harness failure and fails the test immediately (see
+                                    // assertSavepointCallStillPending). After the shutdown it
+                                    // is the expected outcome -- the RPC is pinned to
+                                    // masterNode1's member uuid, so the old master dying while
+                                    // it is in flight is the only way this call can end -- and
+                                    // it is asserted below as proof that masterNode1 did not
+                                    // complete the savepoint itself.
+                                    savepointCallFailure.set(e);
                                     log.info(
-                                            "savePointJob call for job {} ended, expected once"
-                                                    + " masterNode1 is killed mid-shutdown: {}",
+                                            "savePointJob call for job {} ended with: {}",
                                             jobId,
                                             e.toString());
                                 }
                             });
 
+            // The poll ends as soon as either the savepoint is observably mid-shutdown or the
+            // client call has already ended. It must not throw for the latter: ignoreExceptions()
+            // (needed because the reflective read below can race the master's own state
+            // transitions) swallows AssertionError too, so a fail-fast raised inside this lambda
+            // would only ever surface as the 30 s ConditionTimeoutException. The verdict on a
+            // finished call is therefore taken on the test thread, right after the poll.
             HazelcastInstanceImpl finalMaster1ForPoll = masterNode1;
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(10, TimeUnit.MILLISECONDS)
                     .ignoreExceptions()
                     .until(
-                            () -> {
-                                if (savepointCall.isDone()) {
-                                    try {
-                                        savepointCall.get();
-                                        Assertions.fail(
-                                                "savePointJob completed before master failover");
-                                    } catch (AssertionError e) {
-                                        throw e;
-                                    } catch (Exception e) {
-                                        throw new AssertionError(
-                                                "savePointJob failed before master failover", e);
-                                    }
-                                }
-                                return isSavepointGenuinelyMidShutdown(
-                                        finalMaster1ForPoll, jobId, SAVEPOINT_TEST_PIPELINE_ID);
-                            });
+                            () ->
+                                    savepointCall.isDone()
+                                            || findInFlightSavepointCheckpoint(
+                                                            finalMaster1ForPoll,
+                                                            jobId,
+                                                            SAVEPOINT_TEST_PIPELINE_ID)
+                                                    != null);
+            assertSavepointCallStillPending(
+                    savepointCall, savepointCallFailure, "before master failover");
 
             log.info(
                     "Observed job {} DOING_SAVEPOINT with an unacknowledged savepoint checkpoint"
@@ -1128,14 +1135,17 @@ public class CheckpointCoordinatorFailoverIT {
                             + " masterNode1.",
                     jobId);
 
-            Assertions.assertFalse(
-                    savepointCall.isDone(),
-                    "savePointJob must still be pending immediately before master shutdown");
-            Assertions.assertTrue(
-                    isSavepointGenuinelyMidShutdown(
-                            finalMaster1ForPoll, jobId, SAVEPOINT_TEST_PIPELINE_ID),
+            assertSavepointCallStillPending(
+                    savepointCall, savepointCallFailure, "immediately before master shutdown");
+            PendingCheckpoint inFlightSavepoint =
+                    findInFlightSavepointCheckpoint(
+                            finalMaster1ForPoll, jobId, SAVEPOINT_TEST_PIPELINE_ID);
+            Assertions.assertNotNull(
+                    inFlightSavepoint,
                     "savepoint checkpoint completed on the old master before shutdown");
-            masterShutdownStarted.set(true);
+            // Captured now so the savepoint that eventually ends the job can be told apart from
+            // this one after the failover (see the assertions following SAVEPOINT_DONE below).
+            long inFlightSavepointTriggeredAt = inFlightSavepoint.getCheckpointTimestamp();
             masterNode1.shutdown();
             masterNode1 = null;
 
@@ -1168,7 +1178,47 @@ public class CheckpointCoordinatorFailoverIT {
                             + " through the wrong terminal status, after a master failover that"
                             + " hit mid-way through a savepoint shutdown");
 
+            // SAVEPOINT_DONE alone does not prove the redrive ran: the checks above are
+            // check-then-act, so masterNode1 could in principle still have finished the savepoint
+            // in the instant before shutdown() took effect. Two independent facts rule that out.
+            // (1) The client's own call failed. It is pinned to masterNode1's member uuid
+            // (SeaTunnelHazelcastClient#requestOnMasterAndGetCompletableFuture), so a normal
+            // return could only have come from masterNode1 answering it, i.e. completing the
+            // savepoint itself.
             savepointCall.get(30, TimeUnit.SECONDS);
+            Assertions.assertNotNull(
+                    savepointCallFailure.get(),
+                    "the client's savePointJob call returned normally, which means masterNode1"
+                            + " completed the savepoint before it was shut down and the"
+                            + " post-failover redrive was never exercised");
+            // (2) The savepoint that ended the job was triggered strictly after the one that was
+            // in flight on masterNode1, so it was created by masterNode2's redrive. The checkpoint
+            // id cannot tell the two apart: CheckpointManager re-seeds the pipeline's id counter
+            // from the latest *completed* checkpoint on restore (StateStoreCheckpointIDCounter
+            // #setCount), so the redriven savepoint normally reuses the dropped one's id. Its
+            // trigger timestamp is taken at creation (CheckpointCoordinator#startSavepoint) and is
+            // therefore the discriminating field.
+            CompletedCheckpoint redrivenSavepoint = latestCompletedCheckpoint(finalMaster2, jobId);
+            Assertions.assertNotNull(
+                    redrivenSavepoint,
+                    "the restored master must have recorded a completed savepoint");
+            Assertions.assertTrue(
+                    redrivenSavepoint.getCheckpointType().isSavepoint(),
+                    () ->
+                            "the checkpoint that ended the job must be a savepoint, but was "
+                                    + redrivenSavepoint.getCheckpointType());
+            Assertions.assertTrue(
+                    redrivenSavepoint.getCheckpointTimestamp() > inFlightSavepointTriggeredAt,
+                    () ->
+                            "the savepoint that ended the job (id "
+                                    + redrivenSavepoint.getCheckpointId()
+                                    + ", triggered at "
+                                    + redrivenSavepoint.getCheckpointTimestamp()
+                                    + ") is the one that was already in flight on masterNode1"
+                                    + " (triggered at "
+                                    + inFlightSavepointTriggeredAt
+                                    + "), so it was completed by the old master and not"
+                                    + " redriven by the restored master");
         } finally {
             savepointCaller.shutdownNow();
             if (engineClient != null) {
@@ -1287,36 +1337,62 @@ public class CheckpointCoordinatorFailoverIT {
     }
 
     /**
-     * Checks whether {@code jobId}'s pipeline {@code pipelineId} on {@code instance} is genuinely
-     * mid-way through a client-triggered savepoint shutdown: the top-level job status has already
-     * flipped to {@link JobStatus#DOING_SAVEPOINT} and the coordinator holds a savepoint {@code
-     * PendingCheckpoint} whose barrier has been dispatched but not yet acknowledged by every
-     * subtask. Used to pick the precise moment to kill the master in {@link
+     * Returns the savepoint checkpoint that is in flight for {@code jobId}'s pipeline {@code
+     * pipelineId} on {@code instance} while a client-triggered savepoint shutdown is genuinely
+     * mid-way: the top-level job status has already flipped to {@link JobStatus#DOING_SAVEPOINT}
+     * and the coordinator holds a savepoint {@code PendingCheckpoint} whose barrier has been
+     * dispatched but not yet acknowledged by every subtask. Used to pick the precise moment to kill
+     * the master in {@link
      * #testStreamJobResolvesToSavepointDoneAfterMasterFailoverDuringSavepointShutdown} -- neither
      * "job status is DOING_SAVEPOINT" alone (the checkpoint might not have been created yet) nor "a
      * savepoint PendingCheckpoint exists" alone (it could already be fully acknowledged) is enough
-     * on its own to prove the shutdown is genuinely in flight.
+     * on its own to prove the shutdown is genuinely in flight. The returned checkpoint's trigger
+     * timestamp is what the test later compares the job-ending savepoint against.
      *
      * @param instance the live master node to inspect
      * @param jobId the job under test
      * @param pipelineId the pipeline to inspect (see {@link #SAVEPOINT_TEST_PIPELINE_ID})
-     * @return true only while the savepoint's shutdown is provably neither un-started nor already
-     *     complete
+     * @return the in-flight savepoint checkpoint, or null unless the savepoint's shutdown is
+     *     provably neither un-started nor already complete
      */
-    private boolean isSavepointGenuinelyMidShutdown(
+    private PendingCheckpoint findInFlightSavepointCheckpoint(
             HazelcastInstanceImpl instance, long jobId, int pipelineId) {
         SeaTunnelServer server =
                 instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
         if (jobMaster == null) {
-            return false;
+            return null;
         }
         if (jobMaster.getPhysicalPlan().getJobStatus() != JobStatus.DOING_SAVEPOINT) {
-            return false;
+            return null;
         }
         CheckpointCoordinator coordinator =
                 jobMaster.getCheckpointManager().getCheckpointCoordinator(pipelineId);
-        return hasUnacknowledgedSavepointCheckpoint(coordinator);
+        return findUnacknowledgedSavepointCheckpoint(coordinator);
+    }
+
+    /**
+     * Fails the test immediately, with the original cause attached, if the asynchronous {@code
+     * savePointJob} call has already ended at a point where it must still be blocked on
+     * masterNode1. A finished call here means either the old master completed the savepoint (the
+     * failover would then never exercise the redrive) or the call failed for an unrelated reason;
+     * both are harness failures that must surface as such instead of as a later, misleading timeout
+     * or a false pass.
+     *
+     * @param savepointCall the future wrapping the client's savePointJob call
+     * @param savepointCallFailure the failure the call recorded, if it ended exceptionally
+     * @param when describes the checkpoint of the test this guard protects, for the message
+     */
+    private static void assertSavepointCallStillPending(
+            Future<?> savepointCall, AtomicReference<Throwable> savepointCallFailure, String when) {
+        if (!savepointCall.isDone()) {
+            return;
+        }
+        Throwable failure = savepointCallFailure.get();
+        if (failure != null) {
+            throw new AssertionError("savePointJob failed " + when, failure);
+        }
+        Assertions.fail("savePointJob completed " + when);
     }
 
     /**
@@ -1331,22 +1407,24 @@ public class CheckpointCoordinatorFailoverIT {
      * that method too.
      *
      * @param coordinator the pipeline's checkpoint coordinator to inspect
-     * @return true if a savepoint checkpoint is currently pending and not yet fully acknowledged
+     * @return the savepoint checkpoint that is currently pending and not yet fully acknowledged, or
+     *     null if there is none
      */
     @SuppressWarnings("unchecked")
-    private boolean hasUnacknowledgedSavepointCheckpoint(CheckpointCoordinator coordinator) {
+    private PendingCheckpoint findUnacknowledgedSavepointCheckpoint(
+            CheckpointCoordinator coordinator) {
         Map<Long, PendingCheckpoint> pendingCheckpoints =
                 (Map<Long, PendingCheckpoint>)
                         ReflectionUtils.getField(coordinator, "pendingCheckpoints").orElse(null);
         if (pendingCheckpoints == null || pendingCheckpoints.isEmpty()) {
-            return false;
+            return null;
         }
         for (PendingCheckpoint pendingCheckpoint : pendingCheckpoints.values()) {
             if (pendingCheckpoint.getCheckpointType().isSavepoint()
                     && !pendingCheckpoint.getCompletableFuture().isDone()) {
-                return true;
+                return pendingCheckpoint;
             }
         }
-        return false;
+        return null;
     }
 }
