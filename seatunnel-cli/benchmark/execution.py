@@ -133,7 +133,9 @@ def docker_engine_available() -> bool:
             capture_output=True, timeout=30,
         )
         return proc.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired):
+        # OSError also covers a docker binary the current user may not execute
+        # (not in the docker group) — a capability probe must report, not raise.
         return False
 
 
