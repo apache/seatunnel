@@ -43,8 +43,8 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | database                    | string  | yes      | -                            | The name of StarRocks database                                                                                                                                                                                    |
 | table                       | string  | no       | -                            | The name of StarRocks table, If not set, the table name will be the name of the upstream table                                                                                                                    |
 | labelPrefix                 | string  | no       | -                            | The prefix of StarRocks stream load label                                                                                                                                                                         |
-| batch_max_rows              | long    | no       | 1024                         | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
-| batch_max_bytes             | int     | no       | 5 * 1024 * 1024              | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
+| batch_max_rows              | int     | no       | 1024                         | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
+| batch_max_bytes             | long    | no       | 5 * 1024 * 1024              | For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks |
 | max_retries                 | int     | no       | -                            | The number of retries to flush failed                                                                                                                                                                             |
 | retry_backoff_multiplier_ms | int     | no       | -                            | Using as a multiplier for generating the next delay for backoff                                                                                                                                                   |
 | max_retry_backoff_ms        | int     | no       | -                            | The amount of time to wait before attempting to retry a request to `StarRocks`                                                                                                                                    |
@@ -57,6 +57,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
 | table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| multi_table_sink_replica    | int     | no       | 1                            | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                            |
 
 ### save_mode_create_template
 
@@ -160,7 +161,7 @@ sink {
     base-url = "jdbc:mysql://127.0.0.1:9030"
     nodeUrls = ["127.0.0.1:8030"]
     username = "root"
-    password = ""
+    password = "secret"
     database = "test"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     table_options = {
@@ -204,8 +205,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     batch_max_rows = 10000
@@ -283,8 +284,8 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -302,8 +303,8 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     ...
@@ -321,8 +322,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -341,8 +342,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -362,8 +363,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
@@ -503,8 +504,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "${database_name}_test"
     table = "${table_name}_test"
     ...
@@ -548,8 +549,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "${schema_name}_test"
     table = "${table_name}_test"
     ...
@@ -588,8 +589,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     labelPrefix = "unique-job-label"

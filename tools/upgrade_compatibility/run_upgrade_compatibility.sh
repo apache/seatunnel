@@ -19,7 +19,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." >/dev/null; pwd)"
-OLD_SEATUNNEL_VERSION="${OLD_SEATUNNEL_VERSION:-2.3.13}"
+OLD_SEATUNNEL_VERSION="${OLD_SEATUNNEL_VERSION:-3.0.0}"
 SCENARIO="${SCENARIO:-generic-fake-localfile}"
 WORK_DIR="${WORK_DIR:-${ROOT_DIR}/target/upgrade-compatibility}"
 CURRENT_DIST_ARCHIVE="${CURRENT_DIST_ARCHIVE:-}"

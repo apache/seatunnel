@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -43,8 +44,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -52,6 +55,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
@@ -379,6 +383,33 @@ class JdbcSinkWriterTest {
     }
 
     /**
+     * In row-error mode, a commit that fails for a reason other than a row-level data error must
+     * roll back before close() closes the connection. Some drivers commit an open transaction on
+     * close, which would commit a partial result.
+     */
+    @Test
+    void testRowErrorCloseRollsBackBeforeClosingWhenCommitIsRefused() throws Exception {
+        WriterFixture fixture = createWriterFixture(false, new AtomicInteger());
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                Mockito.mock(JdbcOutputFormat.class);
+        setOutputFormat(fixture.writer, outputFormat);
+        setIsOpen(fixture.writer, true);
+        doThrow(
+                        new JdbcConnectorException(
+                                JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                                "flushed batches were lost"))
+                .when(outputFormat)
+                .checkUncommittedBatchesOn(any());
+
+        Assertions.assertThrows(IOException.class, fixture.writer::close);
+
+        InOrder inOrder = Mockito.inOrder(fixture.connection, outputFormat);
+        inOrder.verify(fixture.connection).rollback();
+        inOrder.verify(outputFormat).close();
+        verify(fixture.connection, never()).commit();
+    }
+
+    /**
      * A batch_size-triggered flush must carry its own commit when checkpointing (and the engine
      * timer flush) is disabled, or a manual-commit connection such as Oracle would keep every
      * flushed batch in one unbounded transaction until close.
@@ -591,8 +622,12 @@ class JdbcSinkWriterTest {
 
         when(context.getRowErrorCollector()).thenReturn(Optional.of(rowErrorCollector));
         when(dialect.getJdbcConnectionProvider(connectionConfig)).thenReturn(connectionProvider);
+        when(dialect.getRowConverter()).thenReturn(mock(JdbcRowConverter.class));
         try {
             when(connectionProvider.getConnection()).thenReturn(connection);
+            when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+            when(connection.prepareStatement(anyString()))
+                    .thenReturn(mock(PreparedStatement.class));
             when(connection.getAutoCommit()).thenReturn(autoCommit);
             when(connection.getMetaData()).thenReturn(metaData);
             when(metaData.supportsSavepoints()).thenReturn(supportsSavepoints);
@@ -659,6 +694,8 @@ class JdbcSinkWriterTest {
 
     private static void invokeReportAndClearPendingRowsIfCommitted(
             JdbcSinkWriter writer, boolean autoFlushed) throws Exception {
+        // The real auto-flush callback runs only after the output format has been opened.
+        writer.outputFormat.open();
         Method method =
                 JdbcSinkWriter.class.getDeclaredMethod(
                         "reportAndClearPendingRowsIfCommitted", boolean.class);
