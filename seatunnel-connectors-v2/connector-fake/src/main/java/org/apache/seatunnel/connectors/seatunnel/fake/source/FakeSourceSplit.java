@@ -19,12 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
-@AllArgsConstructor
 @EqualsAndHashCode(of = {"tableId", "splitId"})
 public class FakeSourceSplit implements SourceSplit {
 
@@ -34,6 +32,18 @@ public class FakeSourceSplit implements SourceSplit {
     private int splitId;
 
     private int rowNum;
+    private int totalRowNum;
+
+    public FakeSourceSplit(String tableId, int splitId, int rowNum) {
+        this(tableId, splitId, rowNum, rowNum);
+    }
+
+    public FakeSourceSplit(String tableId, int splitId, int rowNum, int totalRowNum) {
+        this.tableId = tableId;
+        this.splitId = splitId;
+        this.rowNum = rowNum;
+        this.totalRowNum = totalRowNum;
+    }
 
     @Override
     public String splitId() {

@@ -301,6 +301,16 @@ Current implementation's Source timing metrics (subdivided by `sourceActionId` u
 - `SourceReadNs#{sourceId}`: Cumulative read time (ns)
 - `SourceIdleNs#{sourceId}`: Cumulative idle time (ns)
 
+When engine observability is enabled, Zeta also registers the following Phase 0 runtime diagnostics:
+
+- Poll: `SourcePollTotal`, `SourcePollNs`, `SourcePollMaxNs`, and `SourcePollBudgetExceededTotal`. A poll exceeds the diagnostic soft budget when the complete `pollNext()` call takes more than 5 ms.
+- Reader control callback: `SourceReaderCallbackTotal`, `SourceReaderCallbackNs`, `SourceReaderCallbackMaxNs`, and `SourceReaderCallbackBudgetExceededTotal`. This boundary currently covers split assignment, no-more-splits, checkpoint-complete, and checkpoint-abort callbacks. A callback exceeds the operation-thread diagnostic soft budget when it takes more than 5 ms.
+- Checkpoint lock: `SourceCheckpointTotal`, `SourceCheckpointLockWaitNs`, and `SourceCheckpointLockWaitMaxNs`. Lock wait starts when the barrier enters `SourceFlowLifeCycle.triggerBarrier()` and ends when it acquires the reader's checkpoint lock.
+- Checkpoint snapshot: `SourceCheckpointSnapshotTotal`, `SourceCheckpointSnapshotNs`, and `SourceCheckpointSnapshotMaxNs`. This stage includes `snapshotState()`, state serialization, and task-state registration.
+- Barrier forwarding: `SourceBarrierForwardNs` and `SourceBarrierForwardMaxNs`. This stage includes checkpoint acknowledgment and downstream barrier forwarding.
+
+All names above use the same `#{sourceId}` suffix. `Total` and `Ns` values are cumulative for one task attempt; `MaxNs` values are per-task-attempt maximums. The 5 ms budgets are diagnostic only: exceeding them neither interrupts a legacy connector nor changes its execution lane.
+
 Notes and suggestions:
 
 - `SourceReadNs` currently uses `pollNext()` call time as measurement; when Source is **directly connected** to downstream without queue (async boundary not configured), `pollNext()` internal `collector.collect()` will synchronously execute downstream logic, causing `SourceReadNs` to include some "write/downstream execution" time.

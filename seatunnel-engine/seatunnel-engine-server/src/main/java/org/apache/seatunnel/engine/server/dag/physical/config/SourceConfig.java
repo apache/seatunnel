@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.engine.server.dag.physical.config;
 
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeMode;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 public class SourceConfig implements FlowConfig {
 
     private TaskLocation enumeratorTask;
+    private ManagedSourceRuntimeMode runtimeMode = ManagedSourceRuntimeMode.LEGACY;
+    private int runtimeProtocolVersion;
+    private int connectorStateVersion;
+    private String capabilityDigest = "";
+    private boolean checkpointEnabled = true;
 
     public TaskLocation getEnumeratorTask() {
         return enumeratorTask;
@@ -29,5 +35,46 @@ public class SourceConfig implements FlowConfig {
 
     public void setEnumeratorTask(TaskLocation enumeratorTask) {
         this.enumeratorTask = enumeratorTask;
+    }
+
+    public ManagedSourceRuntimeMode getRuntimeMode() {
+        // New fields in an older serialized physical plan are restored as JVM defaults.
+        return runtimeMode == null ? ManagedSourceRuntimeMode.LEGACY : runtimeMode;
+    }
+
+    public void setRuntimeMode(ManagedSourceRuntimeMode runtimeMode) {
+        this.runtimeMode = runtimeMode;
+    }
+
+    public int getRuntimeProtocolVersion() {
+        return runtimeProtocolVersion;
+    }
+
+    public void setRuntimeProtocolVersion(int runtimeProtocolVersion) {
+        this.runtimeProtocolVersion = runtimeProtocolVersion;
+    }
+
+    public int getConnectorStateVersion() {
+        return connectorStateVersion;
+    }
+
+    public void setConnectorStateVersion(int connectorStateVersion) {
+        this.connectorStateVersion = connectorStateVersion;
+    }
+
+    public String getCapabilityDigest() {
+        return capabilityDigest == null ? "" : capabilityDigest;
+    }
+
+    public void setCapabilityDigest(String capabilityDigest) {
+        this.capabilityDigest = capabilityDigest;
+    }
+
+    public boolean isCheckpointEnabled() {
+        return checkpointEnabled;
+    }
+
+    public void setCheckpointEnabled(boolean checkpointEnabled) {
+        this.checkpointEnabled = checkpointEnabled;
     }
 }
