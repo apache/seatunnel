@@ -26,7 +26,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 | url                         | String  | Yes      | -       | OneSignal REST API endpoint. Common endpoints include `https://onesignal.com/api/v1/apps` and `https://onesignal.com/api/v1/players`. |
 | password                    | String  | Yes      | -       | OneSignal user auth key. The connector sends it as the HTTP `Authorization: Basic <password>` header. Create one at [OneSignal Accounts and Keys](https://documentation.onesignal.com/docs/accounts-and-keys#user-auth-key). |
 | method                      | String  | No       | get     | HTTP request method. Supported values are `GET` and `POST`. |
-| headers                     | Map     | No       | -       | Extra HTTP headers. Do not put `Authorization` here unless you want to override the header generated from `password`. |
+| headers                     | Map     | No       | -       | Extra HTTP headers. Note: any `Authorization` entry configured here is overwritten by the `Authorization: Basic <password>` header generated from `password`. |
 | params                      | Map     | No       | -       | HTTP query parameters, such as `limit`, `offset`, or other OneSignal API parameters. |
 | body                        | String  | No       | -       | HTTP request body. Useful for endpoints that accept a JSON payload. |
 | format                      | String  | No       | text    | Response format. Use `json` with `schema` to read OneSignal JSON as SeaTunnel rows with named fields. Use `text` to keep the raw response. |
@@ -34,7 +34,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when each output field lives at a different JSON path. |
 | content_field               | String  | No       | -       | JSONPath expression that selects a JSON fragment before `schema` parses it. For example, use `$.players[*]` to flatten a list response. |
-| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. OneSignal paged endpoints use `page` / `per_page` parameters. |
+| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. Currently not effective for OneSignal: the reader is created without pagination support, so a job reads only a single response per request. |
 | poll_interval_millis        | Int     | No       | -       | Request interval in milliseconds for streaming jobs. In batch mode the connector reads once and finishes. |
 | retry                       | Int     | No       | -       | Maximum retry count when an HTTP request fails with `IOException`. |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
@@ -50,7 +50,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 - Set `format = "json"` and define `schema` when you want typed SeaTunnel rows.
 - Use `content_field` when OneSignal wraps records in a nested array such as `$.players[*]`.
 - Use `json_field` only when each output field needs its own JSONPath expression.
-- OneSignal paged endpoints accept `page` and `per_page` query parameters; configure them through `params` and `pageing`.
+- The OneSignal reader currently ignores `pageing`; each job reads a single response. Use `params` (for example `limit`) to control how many records that response returns.
 
 ## Task Examples
 
@@ -90,9 +90,12 @@ sink {
 }
 ```
 
-### Read Players With Pagination
+### Read Players
 
-Use `params` together with `pageing` to walk through paged OneSignal endpoints:
+Query the players endpoint with `params`. Note that the OneSignal reader currently does not
+paginate: a `pageing` block is accepted but ignored, and the job reads only the single response
+returned for the configured `params`. Use `limit` to control how many records that response
+returns:
 
 ```hocon
 env {
@@ -108,14 +111,6 @@ source {
     params = {
       app_id = "<your-app-id>"
       limit = "50"
-      offset = "0"
-    }
-    pageing = {
-      page_field = "offset"
-      start_page_number = 0
-      page_step = 50
-      total_page_size = 10
-      use_placeholder_replacement = false
     }
     format = "json"
     content_field = "$.players[*]"
