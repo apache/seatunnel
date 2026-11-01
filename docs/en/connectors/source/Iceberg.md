@@ -236,6 +236,38 @@ Description:
 - `kerberos_principal`: The principal for Kerberos authentication, in the format of `primary/instance@REALM`.
 - `kerberos_keytab_path`: The path to the keytab file for Kerberos authentication.
 
+### Glue Compatible Catalog with Custom Endpoint and Static Credentials
+
+The provider below supplies Glue credentials and is also the default S3 credential
+fallback. To use different S3 credentials, configure `s3.access-key-id` and
+`s3.secret-access-key` explicitly (`s3.session-token` is optional for session
+credentials); those explicit S3 values take precedence over this provider.
+Store production credentials through [configuration encryption](../../introduction/configuration/config-encryption-decryption.md)
+and restrict access to job configuration; the values below are placeholders.
+
+```hocon
+source {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      warehouse = "s3://your-bucket/warehouse/"
+      catalog-impl = "org.apache.iceberg.aws.glue.GlueCatalog"
+      io-impl = "org.apache.iceberg.aws.s3.S3FileIO"
+      client.region = "your-region"
+      client.credentials-provider = "org.apache.seatunnel.connectors.seatunnel.iceberg.aws.StaticAwsCredentialsProvider"
+      client.credentials-provider.access-key-id = "YOUR_GLUE_ACCESS_KEY"
+      client.credentials-provider.secret-access-key = "YOUR_GLUE_SECRET_ACCESS_KEY"
+      s3.access-key-id = "YOUR_S3_ACCESS_KEY"
+      s3.secret-access-key = "YOUR_S3_SECRET_ACCESS_KEY"
+      glue.endpoint = "https://hostname:port"
+      glue.id = "YOUR_GLUE_CATALOG_ID"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_source_table"
+  }
+}
+```
+
 ### Column Projection
 
 ```hocon
