@@ -363,6 +363,36 @@ def test_the_http_error_body_is_redacted_and_capped(engine):
     # The body is printed, so it needs the same treatment as the findings:
     # it can quote a JDBC URL with a password, and rest.py only bounds it at
     # 8 MiB, which is not a terminal-sized amount of text.
+    #
+    # The bulk of the body goes on its own line: whole-value redaction consumes
+    # the rest of the line an unquoted credential sits on, so text appended to
+    # that line would go with the secret and the body would reach the printer
+    # already short. The cap would then never be exercised here.
+    secret = "jdbc:mysql://db:3306/app?user=root&password=sup3rs3cret"
+    detail = "x" * 5000
+    engine.script = lambda h: (500, f"submit failed for {secret}\n{detail}")
+
+    code, out = _run()
+
+    assert code == 1
+    assert "sup3rs3cret" not in out
+    assert "***REDACTED***" in out
+    # The sanitized body is still longer than the cap, so the printed form is
+    # cut and says so, reporting the size of the whole sanitized body rather
+    # than the size of what was printed.
+    sanitized_len = len(
+        f"submit failed for {secret.replace('sup3rs3cret', '***REDACTED***')}\n{detail}"
+    )
+    assert f"{sanitized_len} chars total" in out
+    assert len(out) < sanitized_len
+
+
+def test_a_body_that_shrinks_below_the_cap_after_redaction_is_not_called_truncated(engine):
+    # Whole-value redaction cannot tell an unquoted value from the prose after
+    # it, and the value is the rest of its line (a documented limit), so a 5 KB
+    # body can arrive at the printer short. The cap bounds what is printed, so
+    # nothing is cut here, and a "[N chars total]" label would report a
+    # truncation that never happened.
     secret = "jdbc:mysql://db:3306/app?user=root&password=sup3rs3cret"
     engine.script = lambda h: (500, f"submit failed for {secret} " + ("x" * 5000))
 
@@ -370,7 +400,10 @@ def test_the_http_error_body_is_redacted_and_capped(engine):
 
     assert code == 1
     assert "sup3rs3cret" not in out
-    assert "chars total" in out
+    assert "chars total" not in out
+    assert (
+        "submit failed for jdbc:mysql://db:3306/app?user=root&password=***REDACTED***" in out
+    )
     assert len(out) < 5000
 
 
