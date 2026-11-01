@@ -77,19 +77,20 @@ public class DebeziumJsonDeserializationSchemaDispatcher
         }
 
         try {
-            JsonNode payload = getPayload(JsonUtils.readTree(message));
+            JsonNode root = JsonUtils.readTree(message);
+            JsonNode payload = getPayload(root);
             JsonNode source = payload.get(SOURCE);
             String database = getNodeValue(source, DATABASE);
             String schema = getNodeValue(source, SCHEMA);
             String table = getNodeValue(source, TABLE);
             TablePath tablePath = TablePath.of(database, schema, table);
             if (tableDeserializationMap.containsKey(tablePath)) {
-                tableDeserializationMap.get(tablePath).parsePayload(out, payload);
+                tableDeserializationMap.get(tablePath).parsePayload(out, root, payload);
             } else {
                 if (isConnectorCanWithOutDB(source.get(CONNECTOR))) {
                     tablePath = TablePath.of(null, schema, table);
                     if (tableDeserializationMap.containsKey(tablePath)) {
-                        tableDeserializationMap.get(tablePath).parsePayload(out, payload);
+                        tableDeserializationMap.get(tablePath).parsePayload(out, root, payload);
                         return;
                     }
                 }
