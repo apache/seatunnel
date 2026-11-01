@@ -73,6 +73,55 @@ public class MaxWellJsonSerDeSchemaTest {
         assertEquals(0, collector.list.size());
     }
 
+    @Test
+    public void testDeserializeUpdateWithNestedFieldInOldImage() throws Exception {
+        final MaxWellJsonDeserializationSchema deserializationSchema =
+                createMaxWellJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        // only weight is changed at the top level, "name" is only changed inside a nested
+        // object of "old", so the before image must keep the unchanged top level name
+        String nestedFieldUpdateMsg =
+                "{\"database\":\"\",\"table\":\"test\",\"type\":\"update\",\"ts\":1596684893,"
+                        + "\"data\":{\"id\":1,\"name\":\"alpha\",\"description\":\"d1\","
+                        + "\"weight\":5.0},"
+                        + "\"old\":{\"meta\":{\"name\":\"nested\"},\"weight\":4.0}}";
+
+        deserializationSchema.deserialize(
+                nestedFieldUpdateMsg.getBytes(StandardCharsets.UTF_8), collector);
+
+        List<String> expected =
+                Arrays.asList(
+                        "SeaTunnelRow{tableId=..test, kind=-U, fields=[1, alpha, d1, 4.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=+U, fields=[1, alpha, d1, 5.0]}");
+        List<String> actual =
+                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testDeserializeUpdateWithNullFieldInOldImage() throws Exception {
+        final MaxWellJsonDeserializationSchema deserializationSchema =
+                createMaxWellJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        // an explicitly null field in "old" is a changed field, the before image keeps the null
+        String nullFieldUpdateMsg =
+                "{\"database\":\"\",\"table\":\"test\",\"type\":\"update\",\"ts\":1596684893,"
+                        + "\"data\":{\"id\":3,\"name\":\"gamma\",\"description\":\"d3\","
+                        + "\"weight\":6.0},"
+                        + "\"old\":{\"description\":null}}";
+
+        deserializationSchema.deserialize(
+                nullFieldUpdateMsg.getBytes(StandardCharsets.UTF_8), collector);
+
+        List<String> expected =
+                Arrays.asList(
+                        "SeaTunnelRow{tableId=..test, kind=-U, fields=[3, gamma, null, 6.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=+U, fields=[3, gamma, d3, 6.0]}");
+        List<String> actual =
+                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+        assertEquals(expected, actual);
+    }
+
     public void runTest(List<String> lines, MaxWellJsonDeserializationSchema deserializationSchema)
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
