@@ -75,7 +75,7 @@ sh bin/install-plugin.sh ${version}
 | collection             | String         | 是       | -          | 目标 Collection 名称。 |
 | ready.timeout          | Integer        | 否       | `30`       | 写入器初始化时等待目标 bucket 就绪的最长时间（秒），必须大于零。 |
 | primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（长度前缀编码：`<长度>:<值>` 分量以 `#` 分隔）。未设置时使用随机 UUID。 |
-| upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。 |
+| upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。必须同时配置 `primary-key`，否则作业启动时会直接报错。 |
 | buffer-flush.max-rows  | Integer        | 否       | `1000`     | 触发批量写入的最大缓冲行数。设为 `-1` 禁用。 |
 | retry.max              | Integer        | 否       | `3`        | 写入失败时的最大重试次数。 |
 | retry.interval         | Long           | 否       | `1000`     | 线性退避基础间隔（毫秒）。第 n 次重试等待 `retry.interval × n` 毫秒。 |

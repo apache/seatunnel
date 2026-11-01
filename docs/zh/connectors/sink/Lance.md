@@ -131,7 +131,7 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | SMALLINT           | int32                  |
 | INT                | int32                  |
 | BIGINT             | int32（超出有符号 32 位范围的值会被截断） |
-| FLOAT              | float32                |
+| FLOAT              | float64（值会被提升为 double）      |
 | DOUBLE             | float64                |
 | DECIMAL            | decimal128             |
 | NULL               | null                   |

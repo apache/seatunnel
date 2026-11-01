@@ -28,14 +28,15 @@ The Github source connector reads data from the GitHub REST API. It is built on 
 | params                      | Map     | No       | -             |
 | body                        | String  | No       | -             |
 | format                      | String  | No       | text          |
+| binary_chunk_size           | long    | No       | 10485760      |
 | schema                      | Config  | No       | -             |
 | schema.fields               | Config  | No       | -             |
 | json_field                  | Config  | No       | -             |
 | content_field               | String  | No       | -             |
 | pageing                     | Config  | No       | -             |
-| page_type                   | String  | No       | PageNumber    |
-| cursor_field                | String  | No       | -             |
-| cursor_response_field       | String  | No       | -             |
+| pageing.page_type           | String  | No       | PageNumber    |
+| pageing.cursor_field        | String  | No       | -             |
+| pageing.cursor_response_field | String | No      | -             |
 | poll_interval_millis        | int     | No       | -             |
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
@@ -43,10 +44,10 @@ The Github source connector reads data from the GitHub REST API. It is built on 
 | enable_multi_lines          | boolean | No       | false         |
 | keep_params_as_form         | boolean | No       | false         |
 | keep_page_param_as_http_param | boolean | No    | false         |
-| batch_size                  | int     | No       | 100           |
-| start_page_number           | long    | No       | 1             |
-| total_page_size             | long    | No       | 0             |
-| use_placeholder_replacement | boolean | No       | false         |
+| pageing.batch_size          | int     | No       | 100           |
+| pageing.start_page_number   | long    | No       | 1             |
+| pageing.total_page_size     | long    | No       | 0             |
+| pageing.use_placeholder_replacement | boolean | No | false         |
 | connect_timeout_ms          | int     | No       | 12000         |
 | socket_timeout_ms           | int     | No       | 60000         |
 | json_filed_missed_return_null | boolean | No     | false         |
@@ -80,6 +81,10 @@ HTTP request body. This is only useful for API endpoints that accept a request b
 
 Response format. Supports `json` and `text`. Use `json` with `schema` when you want SeaTunnel rows with named fields.
 
+### binary_chunk_size [long]
+
+Chunk size in bytes when `format = "binary"`. Large responses are split into multiple rows. Only effective in BATCH mode.
+
 ### schema [Config]
 
 Defines the output row structure when `format = "json"`. For details, see [Schema Feature](../../introduction/concepts/schema-feature.md).
@@ -94,19 +99,19 @@ JSONPath expression used to select a JSON fragment before schema parsing, for ex
 
 ### pageing [Config]
 
-Pagination settings inherited from the HTTP connector. Keep the option name `pageing` in job configs. Configure `page_type = "Cursor"` for cursor-based GitHub pagination when needed.
+Pagination settings inherited from the HTTP connector. All pagination options must be configured inside this `pageing` block; pagination keys set at the top level of the source are ignored. Set `pageing.page_type = "Cursor"` for cursor-based pagination when needed.
 
-### page_type [String]
+### pageing.page_type [String]
 
-Pagination type. Supported values are `PageNumber` (default) and `Cursor`. Use `Cursor` for endpoints that return a `next` cursor in the response.
+Pagination type. Supported values are `PageNumber` (default) and `Cursor`. When `Cursor` is used, the next cursor is read from the response body via `pageing.cursor_response_field`; HTTP response headers are not read.
 
-### cursor_field [String]
+### pageing.cursor_field [String]
 
-The request parameter name that carries the cursor value. Used together with `page_type = "Cursor"`.
+The request parameter name that carries the cursor value. Used together with `pageing.page_type = "Cursor"`.
 
-### cursor_response_field [String]
+### pageing.cursor_response_field [String]
 
-The JSONPath of the cursor in the response body. Used together with `page_type = "Cursor"`.
+The JSONPath of the cursor in the response body. Used together with `pageing.page_type = "Cursor"`.
 
 ### poll_interval_millis [int]
 
@@ -136,19 +141,19 @@ When `true`, request parameters are sent as form-encoded body parameters instead
 
 When `true`, the page parameter remains in the request URL when paginating instead of being replaced inside the body.
 
-### batch_size [int]
+### pageing.batch_size [int]
 
 The number of records returned per page request when the total number of pages is unknown.
 
-### start_page_number [long]
+### pageing.start_page_number [long]
 
 Which page number to start synchronizing from.
 
-### total_page_size [long]
+### pageing.total_page_size [long]
 
-Total page size to read. `0` means use `batch_size` until the API stops returning new pages.
+Total page size to read. `0` means use `pageing.batch_size` until the API stops returning new pages.
 
-### use_placeholder_replacement [boolean]
+### pageing.use_placeholder_replacement [boolean]
 
 When `true`, use `${field}` placeholder replacement for headers, parameters and body values; otherwise use key-based replacement.
 
@@ -174,8 +179,8 @@ Source plugin common parameters. See [Source Common Options](../common-options/s
 - The connector always adds an `Authorization: Bearer <access_token>` header from `access_token`. Put other custom headers in `headers`.
 - Set `format = "json"` and define `schema` when you want typed SeaTunnel rows.
 - Use `content_field` when the GitHub response wraps records in a nested array such as `$.items[*]`.
-- For traditional page-number pagination, keep `page_type = "PageNumber"` and use `params` with `page` / `per_page`.
-- For cursor-based endpoints (such as the GitHub Events API), set `page_type = "Cursor"` and configure `cursor_field` / `cursor_response_field`.
+- For traditional page-number pagination, keep `pageing.page_type = "PageNumber"` (the default) and use `params` with `page` / `per_page`. Pagination options must be nested inside the `pageing` block.
+- For cursor-based endpoints, set `pageing.page_type = "Cursor"` and configure `pageing.cursor_field` / `pageing.cursor_response_field` inside the `pageing` block. The next cursor is read from the response body via `pageing.cursor_response_field`.
 
 ## Task Examples
 
