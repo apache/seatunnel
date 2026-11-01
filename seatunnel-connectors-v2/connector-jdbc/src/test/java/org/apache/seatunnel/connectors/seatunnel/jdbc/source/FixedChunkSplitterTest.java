@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -325,6 +328,96 @@ public class FixedChunkSplitterTest {
         }
     }
 
+    @Test
+    public void testNullSplitKeyRowsAreReadExactlyOnce() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+
+            // code is split by range and name by hash; every 10th row has NULL in both
+            for (JdbcSourceTable table :
+                    Arrays.asList(
+                            tableSplitBy("code", "1", "99"), tableSplitBy("name", null, null))) {
+                Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
+                List<Long> ids = readAllIds(splitter, splits);
+
+                String key = table.getPartitionColumn();
+                assertEquals(100, ids.size(), key + ": every row must be read exactly once");
+                assertEquals(
+                        LongStream.rangeClosed(1, 100).boxed().collect(Collectors.toSet()),
+                        new HashSet<>(ids),
+                        key + ": rows with a NULL split key must be read");
+                assertEquals(
+                        1,
+                        splits.stream().filter(JdbcSourceSplit::isNullSplitKey).count(),
+                        key + ": one split must read the NULL split key rows");
+            }
+        }
+    }
+
+    @Test
+    public void testNotNullSplitKeyAddsNoNullSplitKeySplit() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+
+            Collection<JdbcSourceSplit> splits =
+                    splitter.generateSplits(tableSplitBy("id", "1", "100"));
+
+            assertEquals(4, splits.size());
+            assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
+            assertEquals(100, readAllIds(splitter, splits).size());
+        }
+    }
+
+    private static void createTableWithNullKeys(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE t (id BIGINT NOT NULL, code BIGINT, name VARCHAR)");
+            statement.execute(
+                    "INSERT INTO t SELECT i,"
+                            + " CASE WHEN i % 10 = 0 THEN NULL ELSE i END,"
+                            + " CASE WHEN i % 10 = 0 THEN NULL ELSE 'n' || i END"
+                            + " FROM range(1, 101) r(i)");
+        }
+    }
+
+    private static JdbcSourceTable tableSplitBy(String splitKey, String start, String end) {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.LONG_TYPE, (Long) null, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "code", BasicType.LONG_TYPE, (Long) null, true, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name",
+                                        BasicType.STRING_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        return JdbcSourceTable.builder()
+                .tablePath(TablePath.of("main", "t"))
+                .query("SELECT id, code, name FROM t")
+                .partitionColumn(splitKey)
+                .partitionStart(start)
+                .partitionEnd(end)
+                .partitionNumber(4)
+                .catalogTable(
+                        CatalogTable.of(
+                                TableIdentifier.of("duckdb", "main", "t"),
+                                schema,
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                null))
+                .build();
+    }
+
     private static List<Long> readAllIds(ChunkSplitter splitter, Collection<JdbcSourceSplit> splits)
             throws SQLException {
         List<Long> ids = new ArrayList<>();
@@ -347,6 +440,7 @@ public class FixedChunkSplitterTest {
                                 .url(DUCKDB_URL)
                                 .driverName("org.duckdb.DuckDBDriver")
                                 .build())
+                .enableConcurrentRead(true)
                 .build();
     }
 

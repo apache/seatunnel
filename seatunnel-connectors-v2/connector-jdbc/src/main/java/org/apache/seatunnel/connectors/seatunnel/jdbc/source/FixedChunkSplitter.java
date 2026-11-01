@@ -258,17 +258,19 @@ public class FixedChunkSplitter extends ChunkSplitter {
                         .filter(c -> c.getName().equals(splitKeyName))
                         .findAny()
                         .get();
+        String hashCondition =
+                hashSplitCondition(
+                        table,
+                        splitKeyName,
+                        jdbcDialect.hashModForField(
+                                column.getSourceType(), splitKeyName, table.getPartitionNumber()));
         for (int i = 0; i < table.getPartitionNumber(); i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
                 splitQuery =
                         String.format(
-                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                applyUserWhereCondition(table.getQuery()),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(),
-                                        splitKeyName,
-                                        table.getPartitionNumber()));
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
+                                applyUserWhereCondition(table.getQuery()), hashCondition);
             } else {
                 if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
                     String userQuery =
@@ -277,21 +279,14 @@ public class FixedChunkSplitter extends ChunkSplitter {
                                     jdbcDialect.tableIdentifier(table.getTablePath()));
                     splitQuery =
                             String.format(
-                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                    applyUserWhereCondition(userQuery),
-                                    jdbcDialect.hashModForField(
-                                            column.getSourceType(),
-                                            splitKeyName,
-                                            table.getPartitionNumber()));
+                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
+                                    applyUserWhereCondition(userQuery), hashCondition);
                 } else {
                     splitQuery =
                             String.format(
-                                    "SELECT * FROM %s WHERE %s = ?",
+                                    "SELECT * FROM %s WHERE %s",
                                     jdbcDialect.tableIdentifier(table.getTablePath()),
-                                    jdbcDialect.hashModForField(
-                                            column.getSourceType(),
-                                            splitKeyName,
-                                            table.getPartitionNumber()));
+                                    hashCondition);
                 }
             }
 
