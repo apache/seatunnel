@@ -26,7 +26,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 | 数据源 |                                                                  支持的版本                                                                  |          Driver          |               Url                |                                Maven                                 |
 |------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x, 8.4.x, 9.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## 依赖
 
@@ -178,7 +178,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DATE                                                                                           | DATE          |
 | TIME(s)                                                                                        | TIME(s)       |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
+| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY<br/>VECTOR | BYTES         |
 
 ## 配置参数选项
 

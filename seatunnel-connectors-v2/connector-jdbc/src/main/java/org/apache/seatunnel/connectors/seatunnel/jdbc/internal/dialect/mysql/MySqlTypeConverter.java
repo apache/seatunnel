@@ -105,6 +105,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_BINARY = "BINARY";
     public static final String MYSQL_VARBINARY = "VARBINARY";
     public static final String MYSQL_GEOMETRY = "GEOMETRY";
+    /** MySQL 9.0 type: little-endian 4-byte floats, read and written as raw bytes. */
+    public static final String MYSQL_VECTOR = "VECTOR";
+    /** Dimension MySQL uses when a VECTOR column declares none. */
+    public static final long MYSQL_VECTOR_DEFAULT_DIMENSION = 2048L;
 
     /**
      * Suffix that turns the name of a numeric type into the name of its {@code UNSIGNED} variant,
@@ -351,6 +355,14 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case MYSQL_VARBINARY:
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(1L);
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
+                builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                break;
+            case MYSQL_VECTOR:
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(MYSQL_VECTOR_DEFAULT_DIMENSION * Float.BYTES);
                 } else {
                     builder.columnLength(typeDefine.getLength());
                 }
