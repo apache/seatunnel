@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -93,6 +94,125 @@ class JdbcSinkFactoryTest {
     @Test
     void testValidSinkConfig() {
         Assertions.assertDoesNotThrow(() -> validate(baseConfig()));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteValidConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(duckLakeBulkConfig()));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsUnsafeModes() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("max_retries", 1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("max_retries", 0);
+        cfg.put("auto_commit", false);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("auto_commit", true);
+        cfg.put("batch_size", 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("batch_size", 1000);
+        cfg.put("generate_sink_sql", false);
+        cfg.put("query", "INSERT INTO lake.main.events VALUES (?, ?)");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsDerivedPrimaryKey() {
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> createSinkViaFactoryContext(duckLakeBulkConfig(), true));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsDerivedUniqueKey() {
+        CatalogTable table = createCatalogTable(false);
+        table.getTableSchema()
+                .getConstraintKeys()
+                .add(
+                        ConstraintKey.of(
+                                ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                "unique_id",
+                                Collections.singletonList(
+                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                "id", ConstraintKey.ColumnSortType.ASC))));
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table,
+                        ReadonlyConfig.fromMap(duckLakeBulkConfig()),
+                        getClass().getClassLoader());
+        Assertions.assertThrows(OptionValidationException.class, () -> factory.createSink(context));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteCanExplicitlyIgnoreInheritedPrimaryKey() {
+        CatalogTable table = createCatalogTable(true);
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table, ReadonlyConfig.fromMap(cfg), getClass().getClassLoader());
+        Assertions.assertDoesNotThrow(() -> factory.createSink(context).createSink());
+        Assertions.assertNotNull(table.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                table.getTableSchema().getPrimaryKey().getColumnNames());
+        Assertions.assertFalse(table.getOptions().containsKey("fieldIde"));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteCanExplicitlyIgnoreInheritedUniqueKey() {
+        CatalogTable table = createCatalogTable(false);
+        ConstraintKey unique =
+                ConstraintKey.of(
+                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                        "unique_id",
+                        Collections.singletonList(
+                                ConstraintKey.ConstraintKeyColumn.of(
+                                        "id", ConstraintKey.ColumnSortType.ASC)));
+        table.getTableSchema().getConstraintKeys().add(unique);
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table, ReadonlyConfig.fromMap(cfg), getClass().getClassLoader());
+        Assertions.assertDoesNotThrow(() -> factory.createSink(context).createSink());
+        Assertions.assertEquals(
+                Collections.singletonList(unique), table.getTableSchema().getConstraintKeys());
+        Assertions.assertFalse(table.getOptions().containsKey("fieldIde"));
+    }
+
+    @Test
+    void testIgnoringInheritedKeysRequiresDuckLakeBulkWrite() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write", false);
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    @Test
+    void testIgnoringInheritedKeysDoesNotIgnoreConfiguredPrimaryKeys() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        cfg.put("primary_keys", Collections.singletonList("id"));
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    private Map<String, Object> duckLakeBulkConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:duckdb:");
+        cfg.put("driver", "org.duckdb.DuckDBDriver");
+        cfg.put("schema_save_mode", "IGNORE");
+        cfg.put("data_save_mode", "APPEND_DATA");
+        cfg.put("generate_sink_sql", true);
+        cfg.put("database", "lake");
+        cfg.put("table", "main.events");
+        cfg.put("ducklake_bulk_write", true);
+        return cfg;
     }
 
     @Test
