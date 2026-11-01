@@ -37,11 +37,19 @@ import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
@@ -67,6 +75,9 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     /** Handshake behaviour the fake client should exhibit, set before the call under test. */
     private static final class Server {
         int greetingCode = 220;
+        /** Reply code reported after a refused login, so the failure message is realistic. */
+        int loginReplyCode = 530;
+
         boolean loginAccepted = true;
         /**
          * When set, {@code connect()} throws this instead of succeeding, like a timed-out greeting.
@@ -87,7 +98,13 @@ class SeaTunnelFTPFileSystemTimeoutTest {
                 when(client.login(anyString(), anyString())).thenThrow(loginFailure);
                 return;
             }
-            when(client.login(anyString(), anyString())).thenReturn(loginAccepted);
+            if (loginAccepted) {
+                when(client.login(anyString(), anyString())).thenReturn(true);
+                return;
+            }
+            // A refused login reports the rejection through the reply code, not by throwing.
+            when(client.login(anyString(), anyString())).thenReturn(false);
+            when(client.getReplyCode()).thenReturn(loginReplyCode);
         }
     }
 
@@ -139,8 +156,12 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     @Test
     void clientIsDisconnectedWhenTheServerDoesNotAcceptTheLogin() throws Exception {
         Server server = new Server();
+        // The greeting must stay positive: a nonpositive greeting is rejected by connect() before
+        // login() runs, so a 530 greeting would test the greeting branch twice and never reach
+        // loginAccepted == false.
+        server.greetingCode = 220;
         server.loginAccepted = false;
-        server.greetingCode = 530;
+        server.loginReplyCode = 530;
 
         try (MockedConstruction<FTPClient> mocked = constructing(server)) {
             Assertions.assertThrows(
@@ -149,6 +170,8 @@ class SeaTunnelFTPFileSystemTimeoutTest {
             // The socket is open by now, so leaving it to the garbage collector pins a control
             // connection on the server until the server gives up on it.
             FTPClient client = mocked.constructed().get(0);
+            verify(client).connect(HOST, PORT);
+            verify(client).login(anyString(), anyString());
             verify(client).disconnect();
             // QUIT must not be attempted on a server that just refused the login.
             verify(client, never()).logout();
@@ -277,6 +300,139 @@ class SeaTunnelFTPFileSystemTimeoutTest {
                 hadoopConf.getExtraOptions().get(SeaTunnelFTPFileSystem.FS_FTP_CONTROL_TIMEOUT));
     }
 
+    /**
+     * A real server that accepts the TCP connection and then stays silent, like a stalled peer.
+     *
+     * <p>The {@code FTPClient} is not intercepted here: the point is to exercise commons-net's own
+     * read path so the socket read is genuinely bounded and the connection is genuinely released.
+     * Anything that only asserts that {@code setDefaultTimeout} was called would pass even if the
+     * value never reached the socket.
+     */
+    private static final class SilentFtpServer implements AutoCloseable {
+        private final ServerSocket serverSocket;
+        private final Thread acceptor;
+        private final CountDownLatch accepted = new CountDownLatch(1);
+        private final CountDownLatch peerClosed = new CountDownLatch(1);
+        /** Kept so close() can unblock a client that is still waiting on this connection. */
+        private volatile Socket connection;
+
+        SilentFtpServer() throws IOException {
+            serverSocket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+            acceptor = new Thread(this::serve, "silent-ftp-server");
+            acceptor.setDaemon(true);
+        }
+
+        void start() {
+            acceptor.start();
+        }
+
+        int port() {
+            return serverSocket.getLocalPort();
+        }
+
+        void awaitAccepted() throws InterruptedException {
+            Assertions.assertTrue(
+                    accepted.await(10, TimeUnit.SECONDS),
+                    "The client never opened the control connection");
+        }
+
+        /**
+         * Waits for the client to close its side. A read returning -1 or throwing means the peer
+         * sent FIN or RST; a socket left to the garbage collector would keep this waiting.
+         */
+        void awaitPeerClosed() throws InterruptedException {
+            Assertions.assertTrue(
+                    peerClosed.await(10, TimeUnit.SECONDS),
+                    "The control connection was not closed after the handshake failed");
+        }
+
+        private void serve() {
+            try (Socket socket = serverSocket.accept()) {
+                connection = socket;
+                accepted.countDown();
+                // Never write the 220 greeting. Read forever so a FIN from the client is observed
+                // as end-of-stream here.
+                while (socket.getInputStream().read() != -1) {
+                    // discard anything the client sends; this server never replies
+                }
+            } catch (IOException e) {
+                // A reset from the client is also an observable close.
+            } finally {
+                peerClosed.countDown();
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            serverSocket.close();
+            // Releasing the accepted socket lets a client still blocked in a read (the
+            // control_timeout = 0 case) finish instead of leaking its thread past the test.
+            Socket open = connection;
+            if (open != null) {
+                open.close();
+            }
+        }
+    }
+
+    @Test
+    void stalledGreetingFailsWithinTheConfiguredTimeoutAndClosesTheConnection() throws Exception {
+        try (SilentFtpServer server = new SilentFtpServer()) {
+            server.start();
+            Configuration conf = confFor(server.port());
+            // Short enough to keep the test fast, long enough not to race a slow CI machine.
+            conf.setInt(SeaTunnelFTPFileSystem.FS_FTP_CONTROL_TIMEOUT, 1_000);
+
+            long startedAt = System.nanoTime();
+            SocketTimeoutException failure =
+                    Assertions.assertThrows(
+                            SocketTimeoutException.class,
+                            () -> fileSystem(conf, server.port()).getFileStatus(new Path("/")));
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+
+            server.awaitAccepted();
+            // The bound must be the configured one: a value that never reached the socket would
+            // block until the OS gives up, far past this generous upper limit.
+            Assertions.assertTrue(
+                    elapsedMillis < 10_000,
+                    "The stalled greeting should fail near the configured 1000 ms, took "
+                            + elapsedMillis
+                            + " ms");
+            Assertions.assertNotNull(failure.getMessage());
+            // Direct close, not logout: the server never replies, so QUIT would block again and
+            // the connection would still be open when the exception surfaces.
+            server.awaitPeerClosed();
+        }
+    }
+
+    @Test
+    void zeroControlTimeoutDoesNotBoundTheStalledGreeting() throws Exception {
+        SilentFtpServer server = new SilentFtpServer();
+        server.start();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Configuration conf = confFor(server.port());
+            // 0 restores the previous wait-indefinitely behaviour, so the call must still be
+            // blocked well past the timeout the other test proves is effective.
+            conf.setInt(SeaTunnelFTPFileSystem.FS_FTP_CONTROL_TIMEOUT, 0);
+
+            Future<?> call =
+                    executor.submit(
+                            () -> fileSystem(conf, server.port()).getFileStatus(new Path("/")));
+            server.awaitAccepted();
+            // Comfortably longer than the 1000 ms bound proven in the previous test, so a value
+            // that leaked into the socket would have failed the call by now.
+            Thread.sleep(1_500);
+            Assertions.assertFalse(
+                    call.isDone(),
+                    "control_timeout = 0 must restore the unbounded wait, but the call returned");
+        } finally {
+            // Closing the accepted socket sends FIN, which releases the blocked read.
+            server.close();
+            executor.shutdownNow();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+    }
+
     private static MockedConstruction<FTPClient> constructing(Server server) {
         return mockConstruction(
                 FTPClient.class,
@@ -299,10 +455,30 @@ class SeaTunnelFTPFileSystemTimeoutTest {
         return conf;
     }
 
+    /** Configuration pointing at a real local server instead of the mocked {@link #HOST}. */
+    private static Configuration confFor(int port) {
+        Configuration conf = baseConf();
+        conf.set(SeaTunnelFTPFileSystem.FS_FTP_HOST, "localhost");
+        conf.setInt(SeaTunnelFTPFileSystem.FS_FTP_HOST_PORT, port);
+        conf.set(SeaTunnelFTPFileSystem.FS_FTP_USER_PREFIX + "localhost", "user");
+        conf.set(SeaTunnelFTPFileSystem.FS_FTP_PASSWORD_PREFIX + "localhost", "password");
+        return conf;
+    }
+
+    private static SeaTunnelFTPFileSystem fileSystem(Configuration conf, int port)
+            throws IOException, URISyntaxException {
+        return fileSystem(conf, new URI("ftp://localhost:" + port));
+    }
+
+    private static SeaTunnelFTPFileSystem fileSystem(Configuration conf, URI uri)
+            throws IOException {
+        SeaTunnelFTPFileSystem fs = new SeaTunnelFTPFileSystem();
+        fs.initialize(uri, conf);
+        return fs;
+    }
+
     private static SeaTunnelFTPFileSystem fileSystem(Configuration conf)
             throws IOException, URISyntaxException {
-        SeaTunnelFTPFileSystem fs = new SeaTunnelFTPFileSystem();
-        fs.initialize(new URI("ftp://" + HOST + ":" + PORT), conf);
-        return fs;
+        return fileSystem(conf, new URI("ftp://" + HOST + ":" + PORT));
     }
 }
