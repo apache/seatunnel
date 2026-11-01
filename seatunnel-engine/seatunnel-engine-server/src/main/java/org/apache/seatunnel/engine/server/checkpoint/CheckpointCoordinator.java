@@ -66,6 +66,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -280,6 +281,12 @@ public class CheckpointCoordinator {
         // For job restore from master node active switch
         CheckpointCoordinatorStatus checkpointCoordinatorStatus =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+        // Fresh submissions, especially checkpoint-disabled batch jobs, have no retention history
+        // to restore. Restart is still detected when the coordinator status entry is unavailable.
+        if (coordinatorConfig.isCheckpointEnable()
+                && (isStartWithSavePoint || checkpointCoordinatorStatus != null)) {
+            restoreCompletedCheckpointIds();
+        }
 
         // This is not a new job
         if (isStartWithSavePoint) {
@@ -1420,15 +1427,10 @@ public class CheckpointCoordinator {
                                 .build());
             }
             if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
+                    > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
+                while (completedCheckpointIds.size()
+                        > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                     needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
                 }
                 checkpointStorage.deleteCheckpoint(
@@ -1470,6 +1472,43 @@ public class CheckpointCoordinator {
                 checkpointCoordinatorFuture.complete(
                         new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
             }
+        }
+    }
+
+    /**
+     * Restores persisted checkpoint IDs so retention survives coordinator recreation.
+     *
+     * <p>Ascending IDs are appended at the deque tail so retention removes the oldest checkpoint
+     * first via {@code removeFirst()} when the configured limit is exceeded.
+     */
+    private void restoreCompletedCheckpointIds() {
+        try {
+            Optional<List<Long>> checkpointIds =
+                    checkpointStorage.getCheckpointIdsByJobIdAndPipelineId(
+                            String.valueOf(jobId), String.valueOf(pipelineId));
+            if (!checkpointIds.isPresent()) {
+                // Older storage plugins keep their prior retention behavior until they implement
+                // metadata-only enumeration. Never materialize checkpoint payloads as a fallback.
+                LOG.warn(
+                        "Checkpoint storage {} does not support metadata-only ID enumeration; "
+                                + "pre-recovery checkpoints are excluded from retention bookkeeping "
+                                + "for job {}, pipeline {}",
+                        checkpointStorage.getClass().getName(),
+                        jobId,
+                        pipelineId);
+                return;
+            }
+            checkpointIds.get().stream()
+                    .distinct()
+                    .sorted()
+                    .map(String::valueOf)
+                    .forEach(completedCheckpointIds::addLast);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to restore retained checkpoint IDs, job id: {}, pipeline id: {}",
+                    jobId,
+                    pipelineId,
+                    e);
         }
     }
 
