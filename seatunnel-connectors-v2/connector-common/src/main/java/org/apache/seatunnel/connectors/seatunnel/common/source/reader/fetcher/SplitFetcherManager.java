@@ -55,6 +55,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
     private final AtomicReference<Throwable> uncaughtFetcherException;
     private final Consumer<Throwable> errorHandler;
     private final ExecutorService executors;
+    private volatile Runnable availabilityNotifier = () -> {};
     private volatile boolean closed;
 
     public SplitFetcherManager(
@@ -80,6 +81,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                         // Add the exception to the exception list.
                         uncaughtFetcherException.get().addSuppressed(throwable);
                     }
+                    notifyAvailable();
                 };
         String taskThreadName = Thread.currentThread().getName();
         this.executors =
@@ -109,7 +111,8 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                         () -> {
                             fetchers.remove(fetcherId);
                         },
-                        this.splitFinishedHook);
+                        this.splitFinishedHook,
+                        this::notifyAvailable);
         fetchers.put(fetcherId, splitFetcher);
         return splitFetcher;
     }
@@ -146,5 +149,17 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                     "One or more fetchers have encountered exception",
                     uncaughtFetcherException.get());
         }
+    }
+
+    public void setAvailabilityNotifier(Runnable availabilityNotifier) {
+        this.availabilityNotifier = availabilityNotifier == null ? () -> {} : availabilityNotifier;
+    }
+
+    public void wakeUp() {
+        fetchers.values().forEach(SplitFetcher::wakeUp);
+    }
+
+    private void notifyAvailable() {
+        availabilityNotifier.run();
     }
 }
