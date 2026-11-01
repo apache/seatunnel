@@ -769,6 +769,128 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         mySqlCatalog.close();
     }
 
+    @Test
+    public void testSampleShardingStringKeyBoundariesFollowDatabaseCollation() throws Exception {
+        // MySQL's default collation (utf8mb4_0900_ai_ci) is case-insensitive, so the database
+        // orders mixed-case keys differently from Java byte order. The chunk boundaries come
+        // from the ORDER BY sample; the snapshot reads then filter every chunk range with
+        // WHERE predicates that the database evaluates with its own collation. This test
+        // forces the sampling path (estimated shard count above
+        // split.sample-sharding.threshold) on a mixed-case varchar primary key and replays
+        // the exact chunk predicates against the database: each row must be covered by
+        // exactly one chunk (no duplicate rows, no permanently empty chunks).
+        String collationTable = "split_test_collation";
+        List<String> insertedKeys = new ArrayList<>();
+        for (String prefix : new String[] {"a", "b", "C", "d"}) {
+            for (int i = 1; i <= 6; i++) {
+                insertedKeys.add(prefix + i);
+            }
+        }
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + collationTable
+                            + " (`name` varchar(64) NOT NULL, `c_value` int, PRIMARY KEY (`name`))");
+            for (int i = 0; i < insertedKeys.size(); i++) {
+                statement.execute(
+                        String.format(
+                                "INSERT INTO %s.%s VALUES ('%s', %d)",
+                                MYSQL_DATABASE, collationTable, insertedKeys.get(i), i));
+            }
+            statement.execute("ANALYZE TABLE " + MYSQL_DATABASE + "." + collationTable);
+        }
+        try {
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+            configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+            configMap.put("username", MYSQL_USERNAME);
+            configMap.put("password", MYSQL_PASSWORD);
+            configMap.put("table_path", MYSQL_DATABASE + "." + collationTable);
+            configMap.put("split.size", "4");
+            // 24 rows / split.size 4 = 6 estimated shards > threshold 3: the sampling path runs.
+            configMap.put("split.sample-sharding.threshold", 3);
+
+            TablePath tablePath = TablePath.of(MYSQL_DATABASE, collationTable);
+            MySqlCatalog mySqlCatalog =
+                    new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+            mySqlCatalog.open();
+            CatalogTable table = mySqlCatalog.getTable(tablePath);
+            JdbcSourceTable jdbcSourceTable =
+                    JdbcSourceTable.builder().tablePath(tablePath).catalogTable(table).build();
+            Collection<JdbcSourceSplit> splits =
+                    getDynamicChunkSplitter(configMap).generateSplits(jdbcSourceTable);
+            mySqlCatalog.close();
+
+            Assertions.assertTrue(
+                    splits.size() > 1,
+                    "sampling path should produce more than one chunk, got " + splits.size());
+
+            // Replay the predicates the snapshot reader uses (same shape as
+            // DynamicChunkSplitter#prepareDynamicSplitStatement) so the database evaluates
+            // the chunk ranges with its own collation.
+            List<String> readKeys = new ArrayList<>();
+            for (JdbcSourceSplit split : splits) {
+                Object start = split.getSplitStart();
+                Object end = split.getSplitEnd();
+                StringBuilder sql = new StringBuilder();
+                sql.append("SELECT `name` FROM `")
+                        .append(MYSQL_DATABASE)
+                        .append("`.`")
+                        .append(collationTable)
+                        .append("`");
+                List<Object> params = new ArrayList<>();
+                if (start == null && end == null) {
+                    // The only split covers the whole table; no predicate to bind.
+                } else if (start == null) {
+                    sql.append(" WHERE `name` <= ? AND NOT (`name` = ?)");
+                    params.add(end);
+                    params.add(end);
+                } else if (end == null) {
+                    sql.append(" WHERE `name` >= ?");
+                    params.add(start);
+                } else {
+                    sql.append(" WHERE `name` >= ? AND NOT (`name` = ?) AND `name` <= ?");
+                    params.add(start);
+                    params.add(end);
+                    params.add(end);
+                }
+                try (Connection connection = getJdbcConnection();
+                        PreparedStatement preparedStatement =
+                                connection.prepareStatement(sql.toString())) {
+                    for (int i = 0; i < params.size(); i++) {
+                        preparedStatement.setObject(i + 1, params.get(i));
+                    }
+                    try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                        while (resultSet.next()) {
+                            readKeys.add(resultSet.getString(1));
+                        }
+                    }
+                }
+            }
+
+            Assertions.assertEquals(
+                    insertedKeys.size(),
+                    readKeys.size(),
+                    "chunk ranges must cover every row exactly once (count)");
+            Assertions.assertEquals(
+                    insertedKeys.size(),
+                    new HashSet<>(readKeys).size(),
+                    "chunk ranges must not overlap (duplicate rows across chunks)");
+            Assertions.assertEquals(
+                    new HashSet<>(insertedKeys),
+                    new HashSet<>(readKeys),
+                    "chunk ranges must cover every key (missing rows across chunks)");
+        } finally {
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE " + MYSQL_DATABASE + "." + collationTable);
+            }
+        }
+    }
+
     private void printCharSplitBoundaries(JdbcSourceSplit[] splitArray) {
         LOG.info("Character column split boundaries:");
         for (int i = 0; i < splitArray.length; i++) {
