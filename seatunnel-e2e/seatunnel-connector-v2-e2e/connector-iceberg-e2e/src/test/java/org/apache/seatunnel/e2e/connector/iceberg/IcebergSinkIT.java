@@ -31,6 +31,9 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
@@ -161,17 +164,49 @@ public class IcebergSinkIT extends TestSuiteBase {
     }
 
     @TestTemplate
-    public void testFormatV3UpsertRejectedE2e(TestContainer container)
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not preserve CDC row kinds")
+    public void testFormatV3CdcE2e(TestContainer container)
             throws IOException, InterruptedException {
         resetTableDirectory(container, V3_UPSERT_TABLE);
 
-        Container.ExecResult execResult =
-                container.executeJob("/iceberg/fake_to_iceberg_v3_upsert.conf");
-        Assertions.assertNotEquals(0, execResult.getExitCode());
-        String output = execResult.getStdout() + execResult.getStderr();
-        Assertions.assertTrue(
-                output.contains("Upsert and CDC writes are not supported for Iceberg tables"),
-                "the job should report that upsert into a format version 3 table is unsupported");
+        // The second job also deletes the first job's committed rows by equality key.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Container.ExecResult execResult =
+                    container.executeJob("/iceberg/fake_to_iceberg_v3_upsert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Table table = loadIcebergTableObject(V3_UPSERT_TABLE);
+            Map<Long, String> rows = new HashMap<>();
+            try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+                for (Record record : records) {
+                    Assertions.assertNull(
+                            rows.put(
+                                    (Long) record.getField("id"), (String) record.getField("name")),
+                            "duplicate live primary key");
+                }
+            }
+            Assertions.assertEquals(2, rows.size());
+            Assertions.assertEquals("A_2", rows.get(1L));
+            Assertions.assertEquals("C_1", rows.get(3L));
+            boolean foundVector = false;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile file : task.deletes()) {
+                        if (file.content() == FileContent.POSITION_DELETES) {
+                            Assertions.assertEquals(FileFormat.PUFFIN, file.format());
+                            Assertions.assertEquals(
+                                    task.file().location(), file.referencedDataFile());
+                            Assertions.assertTrue(file.contentOffset() > 0);
+                            Assertions.assertTrue(file.contentSizeInBytes() > 0);
+                            foundVector = true;
+                        }
+                    }
+                }
+            }
+            Assertions.assertTrue(foundVector, "CDC should persist actual deletion vectors");
+        }
     }
 
     @TestTemplate
