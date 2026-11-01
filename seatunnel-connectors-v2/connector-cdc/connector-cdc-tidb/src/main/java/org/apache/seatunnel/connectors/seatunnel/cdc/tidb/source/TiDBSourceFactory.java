@@ -30,11 +30,17 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 @AutoService(Factory.class)
 @Slf4j
@@ -107,7 +113,55 @@ public class TiDBSourceFactory implements TableSourceFactory {
                             config.get(TiDBSourceOptions.TABLE_NAME));
             CatalogTable catalogTable = catalog.getTable(tablePath);
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new TiDBSource(context.getOptions(), catalogTable);
+                    new TiDBSource(
+                            context.getOptions(),
+                            catalogTable,
+                            hasClusteredPrimaryKey(config, tablePath));
         };
+    }
+    /**
+     * Distinguishes clustered keys from hidden row IDs using explicit TiDB table metadata. Byte
+     * length cannot distinguish every valid decimal common handle from an integer row ID.
+     */
+    static boolean hasClusteredPrimaryKey(Connection connection, String database, String table)
+            throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "SELECT TIDB_PK_TYPE FROM information_schema.tables WHERE table_schema = ? AND table_name = ?")) {
+            statement.setString(1, database);
+            statement.setString(2, table);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException(
+                            "TiDB table metadata is unavailable for " + database + "." + table);
+                }
+                return "CLUSTERED".equalsIgnoreCase(result.getString(1));
+            }
+        } catch (SQLException e) {
+            // Before TiDB 5.0 this column and common handles do not exist. Other failures must
+            // surface.
+            if (e.getErrorCode() == 1054 && "42S22".equals(e.getSQLState())) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Reads the clustered-key marker once before reader configuration is serialized. The bundled
+     * TiKV 3.3.5 model discards this schema field, so key bytes cannot supply it.
+     */
+    private static boolean hasClusteredPrimaryKey(ReadonlyConfig config, TablePath tablePath) {
+        try (Connection connection =
+                DriverManager.getConnection(
+                        config.get(JdbcCommonOptions.URL),
+                        config.get(JdbcCommonOptions.USERNAME),
+                        config.get(JdbcCommonOptions.PASSWORD))) {
+            return hasClusteredPrimaryKey(
+                    connection, tablePath.getDatabaseName(), tablePath.getTableName());
+        } catch (SQLException e) {
+            throw new IllegalStateException(
+                    "Cannot determine TiDB primary key type for " + tablePath, e);
+        }
     }
 }
