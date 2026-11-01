@@ -44,4 +44,7 @@ seatunnel:
              port: 8080
              enable-dynamic-port: true
              port-range: 200
+             hocon-environment-variable-allowlist:
+               - JOB_NAME
+               - SOURCE_URL
              log-response-max-size-mb: 32
