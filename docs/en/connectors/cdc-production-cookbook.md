@@ -49,6 +49,30 @@ This lifecycle is controlled by `startup.mode`:
 **Production recommendation**: always use `startup.mode=initial` unless you are resuming a failed
 incremental job. Starting from `latest` silently skips existing data.
 
+### Exactly-once snapshot working state
+
+With source `exactly_once = true`, the shared incremental-snapshot reader reconciles
+snapshot rows and overlapping changes before emitting a split. `snapshot.split.size`
+is a planning target, not a row limit for a growing terminal split.
+
+The reader keeps at most 1,024 records in its small-split buffer, subject to an 8 MiB
+cumulative encoded-data budget, then moves reconciliation to private files under
+`java.io.tmpdir`. These are internal limits, not new configuration options or a limit
+on total worker heap. Queue batches, schema metadata and the largest individual
+record also require memory. The connector retains its configured queue limit.
+
+Workers need a writable temporary directory and enough local disk. Disk use follows
+records written during reconciliation, including replaced and deleted versions.
+Storage failures fail the task rather than emit an incomplete split. Working files
+are removed after emission or when failure/cancellation closes the reader. Abrupt
+process termination can leave files for the host or container's temporary-file cleanup.
+
+The files are not checkpoint state. An unfinished split is read again after restore;
+checkpoint formats and watermark boundaries are unchanged. LOW, reconciled rows and
+HIGH remain one checkpoint-atomic emission. Reading spilled output adds disk I/O to
+that emission and can increase checkpoint latency. The source `exactly_once = false`
+path does not use this buffer.
+
 ---
 
 ## 2. Prerequisites by Database
