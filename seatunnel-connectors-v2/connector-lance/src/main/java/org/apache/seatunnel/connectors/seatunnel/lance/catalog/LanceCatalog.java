@@ -447,7 +447,13 @@ public class LanceCatalog implements Catalog {
                     new com.lancedb.lance.namespace.model.JsonArrowDataType();
 
             if (arrowType instanceof org.apache.arrow.vector.types.pojo.ArrowType.Int) {
-                jsonType.setType("int32");
+                org.apache.arrow.vector.types.pojo.ArrowType.Int intType =
+                        (org.apache.arrow.vector.types.pojo.ArrowType.Int) arrowType;
+                if (intType.getBitWidth() == 64) {
+                    jsonType.setType(intType.getIsSigned() ? "int64" : "uint64");
+                } else {
+                    jsonType.setType("int32");
+                }
             } else if (arrowType instanceof org.apache.arrow.vector.types.pojo.ArrowType.Utf8) {
                 jsonType.setType("utf8");
             } else if (arrowType instanceof org.apache.arrow.vector.types.pojo.ArrowType.Bool) {
