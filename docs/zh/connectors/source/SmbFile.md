@@ -97,6 +97,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | read_columns               | List    | 否   | -                             | 数据源的读取列列表，用户可以用它实现字段投影                                                  |
 | read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | sheet_name                 | String  | 否   | -                             | 读取工作簿中的 sheet，仅在 file_format 为 excel 时使用                                     |
+| excel_use_header_line      | Boolean | 否   | false                         | 使用 Excel 的第一行作为列标题进行基于名称的字段映射。仅在 file_format_type 为 excel 时使用                          |
 | xml_row_tag                | String  | 否   | -                             | 指定 XML 文件中数据行的标签名，仅在 file_format 为 xml 时使用                                  |
 | xml_use_attr_format        | Boolean | 否   | -                             | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用                                  |
 | csv_use_header_line | boolean | 否 | false | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用 |
@@ -109,6 +110,8 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | filename_extension         | String  | 否   | -                             | 文件扩展名过滤，用于过滤特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`                      |
 | excel_engine               | String  | 否   | POI                           | 仅在 file_format 为 excel 时使用。支持的引擎为 `POI` 和 `EasyExcel`                          |
 | poi_excel_max_file_size    | Long    | 否   | 52428800                      | 仅在 file_format 为 excel 且 excel_engine 为 POI 时使用。POI 引擎可读取的最大 Excel 文件大小（默认 50 MB） |
+| markdown_rag_metadata_enabled | Boolean | 否 | false                         | 读取 markdown 文件时是否附加面向 RAG 的元数据列。仅在 file_format_type 为 markdown 时有效              |
+| pdf_rag_metadata_enabled   | Boolean | 否   | false                         | 读取 PDF 文件时是否附加面向 RAG 的元数据列。仅在 file_format_type 为 pdf 时有效                       |
 | quote_char                 | String  | 否   | "                             | 用于包围 CSV 字段的单个字符，使包含逗号、换行或引号的字段能被正确读取                               |
 | escape_char                | String  | 否   | -                             | 用于在 CSV 字段内转义引号或其他特殊字符的单个字符                                               |
 | metalake_type              | String  | 否   | gravitino                     | metalake 服务类型，目前支持 `gravitino`                                                     |
