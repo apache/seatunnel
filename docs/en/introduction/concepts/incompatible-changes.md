@@ -450,6 +450,17 @@ or state format migration is required.
 
 ### Format Changes
 
+- **CSV source defaults for missing and configured null fields**: When a CSV source declares
+  `schema.columns[].defaultValue`, a column absent from the file header or a field matching
+  `null_format` now receives that default instead of null. Jobs without configured defaults are
+  unchanged, and an empty field remains null unless it matches `null_format`. If downstream logic
+  intentionally relied on null despite a configured default, remove that default from the source
+  schema before upgrading.
+  Configured defaults are now converted to the column type when the CSV reader is created.
+  A default that cannot be converted, such as `CURRENT_TIMESTAMP` for a TIMESTAMP column, now
+  fails the job at reader creation instead of being ignored, even if no field needs the default.
+  Defaults must be literal values, not SQL expressions. Fix or remove invalid defaults before upgrading.
+
 - **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
   - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
