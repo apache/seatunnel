@@ -448,6 +448,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
          * to advance the transaction sequence.
          */
         private final long checkpointId;
+
         private final boolean legacy;
 
         private RestoredTransaction(
