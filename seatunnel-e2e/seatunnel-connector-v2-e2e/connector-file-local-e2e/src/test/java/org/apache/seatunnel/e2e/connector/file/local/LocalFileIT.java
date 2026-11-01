@@ -38,12 +38,18 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.RawLocalFileSystem;
+import org.apache.orc.CompressionKind;
+import org.apache.orc.OrcFile;
+import org.apache.orc.Reader;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
@@ -68,6 +74,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -84,6 +91,8 @@ import java.util.zip.ZipOutputStream;
 public class LocalFileIT extends TestSuiteBase {
 
     private GenericContainer<?> baseContainer;
+
+    @TempDir private Path orcCompressionDirectory;
 
     /** Copy data files to container */
     @TestContainerExtension
@@ -454,6 +463,57 @@ public class LocalFileIT extends TestSuiteBase {
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
         helper.execute("/xml/local_file_xml_to_assert.conf");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "LocalFile output must be available in the same container for footer inspection and readback.")
+    public void testLocalFileOrcCompression(TestContainer container)
+            throws IOException, InterruptedException {
+        Configuration configuration = new Configuration();
+        configuration.set("fs.file.impl", RawLocalFileSystem.class.getName());
+        for (String codec : new String[] {"ZSTD", "SNAPPY", "NONE", "ZLIB", "LZ4"}) {
+            List<String> variables = Arrays.asList("orc_codec=" + codec);
+            Container.ExecResult write =
+                    container.executeJob("/orc/local_file_orc_compression.conf", variables);
+            Assertions.assertEquals(0, write.getExitCode(), write.getStderr());
+
+            Container.ExecResult files =
+                    baseContainer.execInContainer(
+                            "find",
+                            "/tmp/seatunnel/orc-compression/" + codec,
+                            "-type",
+                            "f",
+                            "-name",
+                            "*.orc");
+            Assertions.assertEquals(0, files.getExitCode(), files.getStderr());
+            Assertions.assertFalse(
+                    files.getStdout().trim().isEmpty(), "No ORC output for " + codec);
+            long rows = 0;
+            int fileIndex = 0;
+            for (String file : files.getStdout().trim().split("\\R")) {
+                Path localFile =
+                        orcCompressionDirectory.resolve(codec + "-" + fileIndex++ + ".orc");
+                baseContainer.copyFileFromContainer(file, localFile.toString());
+                try (Reader reader =
+                        OrcFile.createReader(
+                                new org.apache.hadoop.fs.Path(localFile.toUri()),
+                                OrcFile.readerOptions(configuration))) {
+                    Assertions.assertEquals(
+                            CompressionKind.valueOf(codec), reader.getCompressionKind());
+                    rows += reader.getNumberOfRows();
+                }
+            }
+            Assertions.assertEquals(5L, rows, "Unexpected ORC row count for " + codec);
+
+            Container.ExecResult read =
+                    container.executeJob(
+                            "/orc/local_file_orc_compression_to_assert.conf", variables);
+            Assertions.assertEquals(0, read.getExitCode(), read.getStderr());
+        }
     }
 
     @TestTemplate

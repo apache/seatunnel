@@ -4,6 +4,13 @@
 
 ## dev
 
+### 文件连接器：ORC ZSTD 输出需要兼容的读取器
+
+- **影响组件**：`connector-file-base` 及使用其 ORC 读写实现的文件连接器。
+- **变更说明**：`orc-core:nohive` 从 1.5.6 升级为 1.8.7，共享 ORC sink 配置规则接受 ZSTD，并将 ZSTD 映射为 ORC `CompressionKind.ZSTD`。现在可以读取 ZSTD 压缩的 ORC 文件，且 `compress_codec = "zstd"` 会实际生成 ZSTD 压缩文件，而不是映射为 NONE。此前，文件工厂会在配置校验阶段拒绝 ORC/ZSTD；绕过该规则的调用路径则可能静默生成未压缩文件。
+- **兼容性影响**：新生成的 ZSTD 文件要求下游读取器支持 ORC ZSTD。保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。已有文件不会被重写，默认压缩仍为 NONE。
+- **迁移指南**：启用 ORC ZSTD 前先验证或升级下游读取器。分阶段升级期间，可显式保留双方均支持的 SNAPPY 或 ZLIB 等压缩格式。 (#13084)
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
