@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -212,5 +213,16 @@ public interface JdbcDialectTypeMapper extends Serializable {
                 bitLength,
                 Collections.emptyMap(),
                 longColumnLength);
+    }
+
+    /**
+     * Maps column metadata with an optional connection and query context. Implementations may use
+     * the connection to obtain driver-specific metadata; query text alone does not establish the
+     * physical provenance of columns from joins, expressions, or subqueries.
+     */
+    default Column mappingColumn(
+            ResultSetMetaData metadata, int colIndex, Connection connection, String sqlQuery)
+            throws SQLException {
+        return mappingColumn(metadata, colIndex);
     }
 }

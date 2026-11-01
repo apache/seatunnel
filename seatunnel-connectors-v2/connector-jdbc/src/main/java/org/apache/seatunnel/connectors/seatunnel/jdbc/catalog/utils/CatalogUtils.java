@@ -322,12 +322,39 @@ public class CatalogUtils {
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata, JdbcDialectTypeMapper typeMapper, String sqlQuery)
             throws SQLException {
+        return getCatalogTable(null, metadata, typeMapper, sqlQuery);
+    }
+
+    /**
+     * Discovers query columns while allowing dialect-specific lookups of physical metadata.
+     *
+     * <p>The connection may be null; the mapper controls metadata-only fallback when provenance or
+     * connection access is unavailable. The caller owns the connection and the result set backing
+     * the metadata; this method closes neither. Failures of optional table-identity metadata
+     * lookups are ignored. SQLExceptions from required column-count inspection propagate unchanged;
+     * SQLExceptions from column mapping are retained as RuntimeException causes.
+     *
+     * @param connection optional caller-owned connection passed to the dialect mapper
+     * @param metadata result metadata whose lifetime is controlled by the caller
+     * @param typeMapper dialect column mapper, including its provenance/fallback policy
+     * @param sqlQuery query text passed to the mapper and used in conversion-error context
+     * @return discovered catalog table
+     * @throws SQLException if required column-count inspection fails
+     * @throws RuntimeException if a dialect lookup throws SQLException, retained as the cause
+     */
+    public static CatalogTable getCatalogTable(
+            Connection connection,
+            ResultSetMetaData metadata,
+            JdbcDialectTypeMapper typeMapper,
+            String sqlQuery)
+            throws SQLException {
         return getCatalogTable(
                 metadata,
                 (BiFunction<ResultSetMetaData, Integer, Column>)
                         (resultSetMetaData, index) -> {
                             try {
-                                return typeMapper.mappingColumn(resultSetMetaData, index);
+                                return typeMapper.mappingColumn(
+                                        resultSetMetaData, index, connection, sqlQuery);
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
@@ -388,7 +415,8 @@ public class CatalogUtils {
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             ResultSetMetaData resultSetMetaData = ps.getMetaData();
-            CatalogTable catalogTable = getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+            CatalogTable catalogTable =
+                    getCatalogTable(connection, resultSetMetaData, typeMapper, sqlQuery);
 
             PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
             if (primaryKey == null) {

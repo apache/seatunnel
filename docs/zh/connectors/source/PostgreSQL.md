@@ -77,6 +77,19 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP(s)<br/>TIMESTAMPTZ(s)                                                                  | TIMESTAMP(s)                                                                                                                                   |
 | TIME(s)<br/>TIMETZ(s)                                                                            | TIME(s)                                                                                                                                        |
 | DATE<br/>                                                                                        | DATE                                                                                                                                           |
+| vector, vector(N) | FLOAT_VECTOR |
+
+### pgvector
+
+在 SeaTunnel Zeta 引擎上，PostgreSQL 的 `vector` 和 `vector(N)` 列映射为
+`FLOAT_VECTOR`。数据库服务器需要安装 pgvector 扩展，并在每个源库和目标库中执行
+`CREATE EXTENSION IF NOT EXISTS vector`。pgvector 集成测试覆盖 SeaTunnel Zeta；Flink 和 Spark 需要单独验证。
+
+通过 Catalog 发现表结构时会保留维度 `N`。查询模式通过 PostgreSQL JDBC 驱动提供的
+物理表和列元数据获取维度；如果没有这些信息（例如计算表达式），则保留无固定维度的
+`vector` 类型，不会根据 SQL 文本猜测来源表。写入说明见
+[JDBC Sink 的 pgvector 说明](../sink/Jdbc.md#postgresql-pgvector)。
+
 
 ## 选项
 
