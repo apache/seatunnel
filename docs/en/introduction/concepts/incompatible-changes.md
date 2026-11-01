@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### SQL transform: `CAST ... AS DECIMAL` rounds half away from zero
+
+- **Behavior change: `CAST(value AS DECIMAL(p,s))` rounds a DECIMAL or STRING source half away from zero**
+  - **Affected component**: the `Sql` transform (Zeta SQL engine)
+  - **Description**: A DECIMAL or STRING source was rounded to the target scale with `CEILING`, so every dropped digit rounded a positive value up and a negative value towards zero: casting a DECIMAL or STRING column holding `1.21` to `DECIMAL(10,1)` gave `1.3`, and one holding `-1.25` gave `-1.2`. A FLOAT or DOUBLE source already rounded half away from zero and gave `1.2` and `-1.3`, so the same value produced a different DECIMAL depending on its source type. A numeric SQL literal such as `CAST(1.21 AS DECIMAL(10,1))` is a DOUBLE source, so it already gave `1.2`; a quoted literal such as `CAST('1.21' AS DECIMAL(10,1))` is a STRING source. Every source type now rounds half away from zero. A FLOAT or DOUBLE source is still converted from its exact binary value first, so near a rounding boundary it can give a different result from the same digits as STRING or DECIMAL, and from `CAST` in a database: a STRING or DECIMAL column holding `1.15` gives `1.2` at scale 1, while a DOUBLE column holding `1.15`, or the numeric literal `CAST(1.15 AS DECIMAL(10,1))`, gives `1.1` because its exact value is `1.149999999999999911...`. The same rounding applies when `COALESCE` or `IFNULL` converts its result to the inferred DECIMAL type of its first argument: when `dec2_col` is `DECIMAL(20,2)` and NULL, `COALESCE(dec2_col, dec4_col)` on `1.2345` gave `1.24` and now gives `1.23`. `CASE` uses the same conversion, but its result type takes the largest scale of its branches, so it drops digits only when a value has more decimal places than its declared type.
+  - **Impact**: Jobs that cast a DECIMAL or STRING column to a smaller scale, explicitly with `CAST` or implicitly through `COALESCE` or `IFNULL`, can produce different values: positive values whose dropped digits are below one half are now rounded down, and negative values whose dropped digits are one half or more are now rounded away from zero. Conversions that do not drop digits are unchanged.
+  - **Migration Guide**: No configuration change is needed. Review casts of DECIMAL or STRING columns to a smaller scale, including `COALESCE` and `IFNULL` expressions with a DECIMAL result; values written by earlier versions may differ in the last digit from values written after the upgrade.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
@@ -385,11 +393,10 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     previously written data that relied on rounded comparison results. For exact decimal
     constants, use quoted strings with sufficient scale, such as
     `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
-    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
-    string/`DECIMAL` inputs use
-    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
-    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
-    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. When CAST reduces the scale, every
+    source type rounds half away from zero (see "SQL transform: `CAST ... AS DECIMAL` rounds
+    half away from zero" above), so negating before or after CAST gives the same result.
+    `FLOAT`/`DOUBLE` inputs cannot recover precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
     for examples and limits. No configuration, output schema or state format changes are required.
 
 ### DataValidator Array Length

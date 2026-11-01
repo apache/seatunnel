@@ -4,6 +4,14 @@
 
 ## dev
 
+### SQL Transform：`CAST ... AS DECIMAL` 按四舍五入（远离零方向）舍入
+
+- **行为变更：`CAST(value AS DECIMAL(p,s))` 对 DECIMAL 或 STRING 来源按四舍五入（远离零方向）舍入**
+  - **影响组件**：`Sql` Transform（Zeta SQL 引擎）
+  - **描述**：此前 DECIMAL 或 STRING 来源按 `CEILING` 舍入到目标精度，被舍弃的位会让正数向上取、负数向零取：将值为 `1.21` 的 DECIMAL 或 STRING 列转换为 `DECIMAL(10,1)` 得到 `1.3`，值为 `-1.25` 时得到 `-1.2`。而 FLOAT 或 DOUBLE 来源已经按四舍五入（远离零方向）处理，得到 `1.2` 和 `-1.3`，同一个值会因来源类型不同而得到不同的 DECIMAL。数值型 SQL 字面量（如 `CAST(1.21 AS DECIMAL(10,1))`）属于 DOUBLE 来源，此前就得到 `1.2`；带引号的字面量（如 `CAST('1.21' AS DECIMAL(10,1))`）属于 STRING 来源。现在所有来源类型都按四舍五入（远离零方向）舍入。FLOAT 或 DOUBLE 来源仍先按其精确的二进制值转换，因此在舍入边界附近，结果可能与相同数字的 STRING 或 DECIMAL 来源不同，也可能与数据库中的 `CAST` 不同：值为 `1.15` 的 STRING 或 DECIMAL 列在小数位数为 1 时得到 `1.2`，而值为 `1.15` 的 DOUBLE 列，或数值字面量 `CAST(1.15 AS DECIMAL(10,1))`，得到 `1.1`，因为其精确值是 `1.149999999999999911...`。`COALESCE` 或 `IFNULL` 将结果转换为由第一个参数推断出的 DECIMAL 类型时，也按同样的方式舍入：当 `dec2_col` 为 `DECIMAL(20,2)` 且为 NULL 时，`COALESCE(dec2_col, dec4_col)` 对 `1.2345` 此前得到 `1.24`，现在得到 `1.23`。`CASE` 也使用同一转换，但其结果类型取各分支中最大的小数位数，因此只有当某个值的小数位数多于其声明类型时才会舍弃位数。
+  - **影响**：将 DECIMAL 或 STRING 列转换为更小小数位数的作业（无论是通过 `CAST` 显式转换，还是通过 `COALESCE` 或 `IFNULL` 隐式转换）可能得到不同的值：被舍弃部分小于一半的正数现在向下舍入，被舍弃部分大于等于一半的负数现在向远离零的方向舍入。不舍弃位数的转换不受影响。
+  - **迁移指南**：无需修改配置。请检查将 DECIMAL 或 STRING 列转换为更小小数位数的作业，包括结果为 DECIMAL 的 `COALESCE` 和 `IFNULL` 表达式；升级前后写出的值在最后一位上可能不同。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
@@ -327,9 +335,9 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     如需精确的小数常量，请使用带引号的字符串并保留足够的小数位，例如
     `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` 或
     `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`。
-    现有 CAST 舍入行为不变：字符串/`DECIMAL` 输入在减少小数位时使用 `CEILING`，
-    因此在 CAST 之前或之后取负可能产生不同结果；
-    `FLOAT`/`DOUBLE` 输入使用 `HALF_UP`，且无法恢复浮点求值时已丢失的精度。
+    CAST 减少小数位时，所有来源类型都按四舍五入（远离零方向）舍入（见上文
+    “SQL Transform：`CAST ... AS DECIMAL` 按四舍五入（远离零方向）舍入”），
+    因此在 CAST 之前或之后取负结果相同；`FLOAT`/`DOUBLE` 输入无法恢复浮点求值时已丢失的精度。
     示例与限制见[数值比较](../../transforms/sql.md#数值比较)。无需更改配置、输出结构或状态格式。
 
 ### DataValidator 数组长度
