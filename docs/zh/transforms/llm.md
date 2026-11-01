@@ -17,7 +17,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
 | model                  | string | yes      |             |
-| api_key                    | string | yes      |             |
+| api_key                    | string | 条件必填（OPENAI、DOUBAO、MICROSOFT 时必填） |             |
 | api_path               | string | no       |             |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |

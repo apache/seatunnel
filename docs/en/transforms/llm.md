@@ -19,7 +19,7 @@ more.
 | prompt                     | string | yes                                   |               |
 | inference_columns          | list   | no                                    |               |
 | model                      | string | yes                                   |               |
-| api_key                    | string | yes      |             |
+| api_key                    | string | conditional (required for OPENAI, DOUBAO, MICROSOFT) |             |
 | api_path                   | string | no                                    |               |
 | custom_config              | map    | no                                    |               |
 | custom_response_parse      | string | no                                    |               |

@@ -54,7 +54,7 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 | SMALLINT                                                                                             | SHORT               |
 | INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
 | BIGINT                                                                                               | LONG                |
-| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)      |
+| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(precision, scale) |
 | REAL                                                                                                 | FLOAT               |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |
 | CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB<br/>XML | STRING              |
@@ -72,7 +72,7 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 | driver                       | String     | Yes      | -       | JDBC driver class name. Use `com.ibm.db2.jcc.DB2Driver` for DB2.                                                                                                           |
 | username                     | String     | No       | -       | Username for the DB2 instance. `user` is also accepted as a fallback key for `username`.                                                                                    |
 | password                     | String     | No       | -       | Password for the DB2 instance.                                                                                                                                             |
-| query                        | String     | Yes      | -       | SELECT statement used to read data. The column list of the SELECT defines the output schema; select only the columns you need.                                              |
+| query                        | String     | No       | -       | SELECT statement used to read data. Required when neither `table_path` nor `table_list` is configured. The column list of the SELECT defines the output schema; select only the columns you need. |
 | connection_check_timeout_sec | Int        | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                   |
 | partition_column             | String     | No       | -       | Column used to split data for parallel reading. Supports numeric columns and string columns (with `split.string_split_mode`); only one column can be configured.          |
 | partition_lower_bound        | String     | No       | -       | Lower bound of `partition_column` for range splitting. If not set, SeaTunnel queries the minimum value.                                                                    |
