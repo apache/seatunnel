@@ -29,18 +29,128 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Stream;
 
 /** Tests the PG-base-backed PostgreSQL source config factory behavior that must stay compatible. */
 public class PostgresSourceConfigFactoryTest {
+
+    private static final String VALID_URL = "jdbc:postgresql://localhost:5432/postgres_cdc";
+
+    @ParameterizedTest
+    @MethodSource("nonblankUrls")
+    public void shouldAcceptNonblankUrlWithoutChangingValue(String key, String value) {
+        Map<String, Object> config = validFactoryConfig();
+        config.remove("url");
+        config.put(key, value);
+
+        ReadonlyConfig readonlyConfig =
+                Assertions.assertDoesNotThrow(() -> validateFactoryConfig(config));
+
+        // Factory validation must not trim a supplied URL or test connectivity.
+        Assertions.assertEquals(value, readonlyConfig.get(JdbcCommonOptions.URL));
+    }
+
+    private static Stream<Arguments> nonblankUrls() {
+        return Stream.of("url", "base-url")
+                .flatMap(
+                        key ->
+                                Stream.of(VALID_URL, " \t" + VALID_URL + " \r\n")
+                                        .map(value -> Arguments.of(key, value)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankUrls")
+    public void shouldRejectBlankUrl(String key, String value) {
+        Map<String, Object> config = validFactoryConfig();
+        config.remove("url");
+        config.put(key, value);
+
+        assertInvalidUrl(config);
+    }
+
+    private static Stream<Arguments> blankUrls() {
+        return Stream.of("url", "base-url")
+                .flatMap(
+                        key ->
+                                Stream.of("", " ", "\t", "\n", " \t\r\n ")
+                                        .map(value -> Arguments.of(key, value)));
+    }
+
+    @Test
+    public void shouldRejectMissingUrl() {
+        Map<String, Object> config = validFactoryConfig();
+        config.remove("url");
+
+        assertInvalidUrl(config);
+    }
+
+    @Test
+    public void shouldPreferCanonicalUrlOverBlankFallback() {
+        Map<String, Object> config = validFactoryConfig();
+        config.put("base-url", " ");
+
+        ReadonlyConfig readonlyConfig =
+                Assertions.assertDoesNotThrow(() -> validateFactoryConfig(config));
+
+        Assertions.assertEquals(VALID_URL, readonlyConfig.get(JdbcCommonOptions.URL));
+    }
+
+    @Test
+    public void shouldRejectBlankCanonicalUrlWithValidFallback() {
+        Map<String, Object> config = validFactoryConfig();
+        config.put("url", " \t ");
+        config.put("base-url", VALID_URL);
+
+        assertInvalidUrl(config);
+    }
+
+    @Test
+    public void shouldAcceptUrlWithTablePattern() {
+        Map<String, Object> config = validFactoryConfig();
+        config.remove("table-names");
+        config.put("table-pattern", "postgres_cdc\\.inventory\\..*");
+
+        Assertions.assertDoesNotThrow(() -> validateFactoryConfig(config));
+    }
+
+    private Map<String, Object> validFactoryConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", VALID_URL);
+        config.put("username", "test-user");
+        config.put("password", "test-password");
+        config.put("table-names", Collections.singletonList("postgres_cdc.inventory.orders"));
+        return config;
+    }
+
+    private ReadonlyConfig validateFactoryConfig(Map<String, Object> config) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        OptionRule rule = new PostgresIncrementalSourceFactory().optionRule();
+        ConfigValidator.validateUnknownKeys(readonlyConfig, rule, "Postgres-CDC");
+        ConfigValidator.of(readonlyConfig).validate(rule);
+        return readonlyConfig;
+    }
+
+    private void assertInvalidUrl(Map<String, Object> config) {
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateFactoryConfig(config));
+
+        Assertions.assertTrue(error.getMessage().contains("url"), error.getMessage());
+    }
 
     @Test
     public void shouldDeclareStopModeInRuntimeFactoryRule() {
