@@ -84,6 +84,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | null_format                | string  | 否    | -                   |
 | binary_chunk_size          | int     | 否    | 1024                |
 | binary_complete_file_mode  | boolean | 否    | false               |
+| markdown_rag_metadata_enabled | boolean | 否 | false               |
+| pdf_rag_metadata_enabled   | boolean | 否    | false               |
 | discovery_mode             | string  | 否    | once                |
 | scan_interval              | string  | 否    | 10S |
 | start_mode                 | string  | 否    | earliest            |
@@ -480,7 +482,7 @@ abc.*
 
 ### null_format [string]
 
-仅在 file_format_type 为 text 时使用。
+仅在 file_format_type 为 `text` 或 `csv` 时使用。
 null_format 定义哪些字符串可以表示为 null。
 
 例如：`\N`

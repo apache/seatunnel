@@ -69,27 +69,27 @@ libfb303-xxx.jar
 
 | 名称                                     | 类型      | 是否必须 | 默认                           | 描述                                                                                                                                                                                                                |
 |----------------------------------------|---------|------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| catalog_name                           | string  | no   | default                      | 用户指定的目录名称，默认为`default`                                                                                                                                                                                            |
-| namespace                              | string  | no   | default                      | backend catalog（元数据存储的后端目录）中 Iceberg 数据库的名称，默认为 `default`                                                                                                                                                         |
-| table                                  | string  | no   | -                            | backend catalog（元数据存储的后端目录）中 Iceberg 表的名称。不配置时使用上游表的表名                                                                                                                                                                         |
-| iceberg.catalog.config                 | map     | yes  | -                            | 用于指定初始化 Iceberg Catalog 的属性，这些属性可以参考此文件：[CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                 |
-| hadoop.config                          | map     | no   | -                            | 传递给 Hadoop 配置的属性                                                                                                                                                                                                  |
-| iceberg.hadoop-conf-path               | string  | no   | -                            | 指定`core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的加载路径                                                                                                                                                         |
-| case_sensitive                         | boolean | no   | false                        | 列名匹配时是否区分大小写                                                                                                                                                                                                      |
-| iceberg.table.write-props              | map     | no   | -                            | 传递给 Iceberg 写入器初始化的属性，这些属性具有最高优先级，例如 `write.format.default`、`write.target-file-size-bytes` 等设置。具体参数可以参考：[TableProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java)。 |
-| iceberg.table.auto-create-props        | map     | no   | -                            | Iceberg 自动建表时指定的配置                                                                                                                                                                                                |
-| iceberg.table.schema-evolution-enabled | boolean | no   | false                        | 设置为 true 时，Iceberg 表可以在同步过程中支持 schema 变更                                                                                                                                                                          |
-| iceberg.table.primary-keys             | string  | no   | -                            | 用于标识表中一行数据的主键列列表，默认情况下以逗号分隔                                                                                                                                                                                       |
-| iceberg.table.partition-keys           | string  | no   | -                            | 创建表时使用的分区字段列表，默认情况下以逗号分隔。多表场景可使用占位符 `${partition_keys}`                                                                                                                                                 |
-| iceberg.table.upsert-mode-enabled      | boolean | no   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
-| schema_save_mode                       | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
-| data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
+| catalog_name                           | string  | 否   | default                      | 用户指定的目录名称，默认为`default`                                                                                                                                                                                            |
+| namespace                              | string  | 否   | default                      | backend catalog（元数据存储的后端目录）中 Iceberg 数据库的名称，默认为 `default`                                                                                                                                                         |
+| table                                  | string  | 否   | -                            | backend catalog（元数据存储的后端目录）中 Iceberg 表的名称。不配置时使用上游表的表名                                                                                                                                                                         |
+| iceberg.catalog.config                 | map     | 是   | -                            | 用于指定初始化 Iceberg Catalog 的属性，这些属性可以参考此文件：[CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                 |
+| hadoop.config                          | map     | 否   | -                            | 传递给 Hadoop 配置的属性                                                                                                                                                                                                  |
+| iceberg.hadoop-conf-path               | string  | 否   | -                            | 指定`core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的加载路径                                                                                                                                                         |
+| case_sensitive                         | boolean | 否   | false                        | 列名匹配时是否区分大小写                                                                                                                                                                                                      |
+| iceberg.table.write-props              | map     | 否   | -                            | 传递给 Iceberg 写入器初始化的属性，这些属性具有最高优先级，例如 `write.format.default`、`write.target-file-size-bytes` 等设置。具体参数可以参考：[TableProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java)。 |
+| iceberg.table.auto-create-props        | map     | 否   | -                            | Iceberg 自动建表时指定的配置                                                                                                                                                                                                |
+| iceberg.table.schema-evolution-enabled | boolean | 否   | false                        | 设置为 true 时，Iceberg 表可以在同步过程中支持 schema 变更                                                                                                                                                                          |
+| iceberg.table.primary-keys             | string  | 否   | -                            | 用于标识表中一行数据的主键列列表，默认情况下以逗号分隔                                                                                                                                                                                       |
+| iceberg.table.partition-keys           | string  | 否   | -                            | 创建表时使用的分区字段列表，默认情况下以逗号分隔。多表场景可使用占位符 `${partition_keys}`                                                                                                                                                 |
+| iceberg.table.upsert-mode-enabled      | boolean | 否   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
+| schema_save_mode                       | Enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
+| data_save_mode                         | Enum    | 否   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
 | custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
-| iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
-| multi_table_sink_replica               | int     | no   | 1                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
-| krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
-| kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
-| kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
+| iceberg.table.commit-branch            | string  | 否   | -                            | 提交的默认分支                                                                                                                                                                                                           |
+| multi_table_sink_replica               | int     | 否   | 1                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
+| krb5_path                              | string  | 否       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | 否       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | 否       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
 
 ## Sink 选项说明
 
@@ -251,6 +251,34 @@ sink {
     iceberg.table.commit-branch = "audit_branch"
   }
 }
+```
+
+### Glue Catalog
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      warehouse     = "s3://your-bucket/warehouse/"
+      catalog-impl  = "org.apache.iceberg.aws.glue.GlueCatalog"
+      io-impl       = "org.apache.iceberg.aws.s3.S3FileIO"
+      client.region = "your-region"
+    }
+    namespace = "seatunnel_namespace"
+    table     = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+
 ```
 
 ### AWS S3 Tables REST Catalog

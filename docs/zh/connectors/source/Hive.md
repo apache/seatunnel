@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 |         名称          |  类型  | 必需 | 默认值  | 描述 |
 |-----------------------|--------|------|---------|------|
 | table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
-| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。若两者同时设置，`table_list` 优先。 |
+| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表。每一项都是独立的配置：`table_name`、`metastore_uri` 以及认证/Hadoop 等选项**不会**从根配置继承，必须在每一项中重复填写（设置 `table_list` 后，根配置中 `table_list` 之外的选项会被忽略）。若两者同时设置，`table_list` 优先。 |
 | tables_configs        | array  | 否   | 已废弃，请使用 `table_list` | 已废弃的多表配置列表。Hive 是结构化数据源，新作业请使用 `table_list`。仅为向后兼容保留。 |
 | use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
 | metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
@@ -50,6 +50,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 | remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
 | read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
 | read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
+| null_format           | string | 否   | -       | text 表中表示 null 值的自定义字符串。设置后会覆盖 Hive 表参数 `serialization.null.format`（其默认值为 `\N`）。 |
+| parse_partition_from_path | boolean | 否 | true  | 当 schema 来自 Hive metastore 时，是否把分区键列（STRING 类型）追加到投影 schema 中。 |
 | compress_codec        | string | 否   | none    | text 表的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
 | common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
@@ -61,7 +63,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ### table_list [array]
 
-多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+多表读取配置列表。每个元素是独立的配置，可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns` 以及认证和 Hadoop 配置——但不会从根配置继承任何选项，因此 `metastore_uri` 等必填项必须在每一项中重复填写。
 
 ### tables_configs [array]
 
@@ -69,7 +71,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ### use_regex [boolean]
 
-是否将 `table_name` 视为正则表达式进行匹配。开启后，`table_name` 可用于整库/多表同步；同样也支持在 `table_list` / `tables_configs` 的每个表配置里单独开启。
+是否将 `table_name` 视为正则表达式进行匹配。开启后，`table_name` 可用于整库/多表同步；同样也支持在 `table_list` / `tables_configs` 的每个表配置里单独开启。正则发现依赖可用的 Hive metastore：必须配置 `metastore_uri`（根级别或对应的 `table_list` 项中），否则作业会失败。
 
 语法说明：
 - 点号（`.`）被视为数据库与表之间的分隔符（Hive 仅支持 `database.table`）。
