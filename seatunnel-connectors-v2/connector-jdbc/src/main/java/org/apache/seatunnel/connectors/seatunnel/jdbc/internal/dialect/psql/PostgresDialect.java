@@ -50,6 +50,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -275,7 +276,7 @@ public class PostgresDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                        || (!table.getQuery().toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()
@@ -360,7 +361,7 @@ public class PostgresDialect implements JdbcDialect {
 
     @Override
     public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
-        String pgDataType = columnDefine.getDataType().toLowerCase();
+        String pgDataType = columnDefine.getDataType().toLowerCase(Locale.ROOT);
         switch (pgDataType) {
             case PG_CHAR:
             case PG_VARCHAR:

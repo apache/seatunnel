@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 // reference
 // https://help.sap.com/docs/SAP_HANA_PLATFORM/4fe29514fd584807ac9f2a04f6754767/20a1569875191014b507cf392724b7eb.html?locale=en-US
@@ -126,7 +127,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String hanaType = typeDefine.getDataType().toUpperCase();
+        String hanaType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         if (typeDefine.getColumnType().endsWith(" ARRAY")) {
             typeDefine.setColumnType(typeDefine.getColumnType().replace(" ARRAY", ""));
             typeDefine.setDataType(removeColumnSizeIfNeed(typeDefine.getColumnType()));

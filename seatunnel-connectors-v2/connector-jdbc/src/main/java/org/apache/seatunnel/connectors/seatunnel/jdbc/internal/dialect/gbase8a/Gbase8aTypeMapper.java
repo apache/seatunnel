@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 @Slf4j
 public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
@@ -64,7 +65,7 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String gbase8aType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        String gbase8aType = metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (gbase8aType) {

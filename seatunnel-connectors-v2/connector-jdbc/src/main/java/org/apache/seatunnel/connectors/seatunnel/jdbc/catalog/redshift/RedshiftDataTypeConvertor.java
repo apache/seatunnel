@@ -31,6 +31,7 @@ import org.apache.commons.collections4.MapUtils;
 import com.google.auto.service.AutoService;
 
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -58,7 +59,7 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
 
         Integer precision = null;
         Integer scale = null;
-        switch (connectorDataType.toUpperCase()) {
+        switch (connectorDataType.toUpperCase(Locale.ROOT)) {
             case RedshiftTypeConverter.PG_NUMERIC:
                 precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
                 scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);

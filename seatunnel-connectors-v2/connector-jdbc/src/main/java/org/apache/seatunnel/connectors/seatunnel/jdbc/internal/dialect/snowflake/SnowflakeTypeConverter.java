@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference https://docs.snowflake.com/en/sql-reference/intro-summary-data-types
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -100,7 +102,7 @@ public class SnowflakeTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
-        String dataType = typeDefine.getDataType().toUpperCase();
+        String dataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (dataType) {
             case SNOWFLAKE_SMALLINT:
             case SNOWFLAKE_TINYINT:

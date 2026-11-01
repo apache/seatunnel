@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCreat
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
+import java.util.Locale;
+
 public class OceanBaseOracleCreateTableSqlBuilder extends OracleCreateTableSqlBuilder {
 
     public OceanBaseOracleCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
@@ -46,7 +48,7 @@ public class OceanBaseOracleCreateTableSqlBuilder extends OracleCreateTableSqlBu
                 // handle OceanBase Oracle compatible mode unsupported types, please refer
                 // https://www.oceanbase.com/docs/enterprise-oceanbase-database-cn-10000000000355002
                 // and https://www.oceanbase.com/docs/enterprise-oms-doc-cn-1000000002530110
-                switch (column.getSourceType().toUpperCase()) {
+                switch (column.getSourceType().toUpperCase(Locale.ROOT)) {
                     case OracleTypeConverter.ORACLE_LONG:
                         columnType = OracleTypeConverter.ORACLE_CLOB;
                         break;

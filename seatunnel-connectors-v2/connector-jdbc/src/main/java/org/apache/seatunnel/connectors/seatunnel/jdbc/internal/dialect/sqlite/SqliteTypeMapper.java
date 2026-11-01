@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 @Slf4j
 public class SqliteTypeMapper implements JdbcDialectTypeMapper {
@@ -96,7 +97,8 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String columnTypeName = metadata.getColumnTypeName(colIndex).toUpperCase().trim();
+        String columnTypeName =
+                metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT).trim();
         switch (columnTypeName) {
             case SQLITE_BIT:
             case SQLITE_BOOLEAN:
