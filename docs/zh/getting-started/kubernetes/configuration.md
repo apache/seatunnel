@@ -138,7 +138,7 @@ properties:
 
 ## Slot 配置
 
-Worker 的 slot 是集群调度资源。生产环境建议使用静态 slot：
+Worker 的 slot 是集群调度资源。静态 slot 是引擎默认行为（生产环境也建议使用静态 slot）：
 
 ```yaml
 seatunnel:
