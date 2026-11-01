@@ -72,6 +72,7 @@ public class MultiTableMetricsIT {
     private static SeaTunnelClient engineClient;
 
     private final List<JsonNode> lineageEvents = new CopyOnWriteArrayList<>();
+    private final List<String> lineageAuthorization = new CopyOnWriteArrayList<>();
     private HttpServer lineageReceiver;
 
     @BeforeEach
@@ -82,6 +83,8 @@ public class MultiTableMetricsIT {
                 exchange -> {
                     try {
                         lineageEvents.add(new ObjectMapper().readTree(exchange.getRequestBody()));
+                        lineageAuthorization.add(
+                                exchange.getRequestHeaders().getFirst("Authorization"));
                         exchange.sendResponseHeaders(200, -1);
                     } finally {
                         exchange.close();
@@ -93,6 +96,7 @@ public class MultiTableMetricsIT {
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
         Map<String, Object> lineageOptions = new HashMap<>();
         lineageOptions.put(LineageConfig.ENABLED, true);
+        lineageOptions.put(LineageConfig.AUTH_TOKEN, "fixture-token");
         lineageOptions.put(LineageConfig.JOB_NAME_PER_OUTPUT, true);
         lineageOptions.put(
                 LineageConfig.URL,
@@ -301,6 +305,9 @@ public class MultiTableMetricsIT {
                             .map(event -> event.path("eventType").asText())
                             .collect(Collectors.toList());
             Assertions.assertEquals(Arrays.asList("START", "COMPLETE"), runStates);
+            Assertions.assertFalse(lineageAuthorization.isEmpty());
+            Assertions.assertTrue(
+                    lineageAuthorization.stream().allMatch("Bearer fixture-token"::equals));
             Assertions.assertEquals(
                     1,
                     lineageEvents.stream()

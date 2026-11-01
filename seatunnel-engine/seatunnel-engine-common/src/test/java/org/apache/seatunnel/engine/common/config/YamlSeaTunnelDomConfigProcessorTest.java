@@ -31,6 +31,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class YamlSeaTunnelDomConfigProcessorTest {
 
     @Test
+    public void testEngineConfigDoesNotPrintLineageToken() {
+        EngineConfig config = new EngineConfig();
+        config.setLineageOptions(java.util.Collections.singletonMap("auth_token", "fixture-token"));
+        org.junit.jupiter.api.Assertions.assertFalse(config.toString().contains("fixture-token"));
+    }
+
+    @Test
     public void testParseMetadataConfigWithNestedProvider() throws Exception {
         String configPath =
                 Paths.get(

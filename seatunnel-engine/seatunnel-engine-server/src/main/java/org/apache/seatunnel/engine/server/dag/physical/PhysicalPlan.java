@@ -92,6 +92,7 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    // Guarded by updateJobState's monitor; savepoint recovery must not open the same run twice.
     private boolean lineageStartReported;
 
     public PhysicalPlan(
@@ -453,6 +454,8 @@ public class PhysicalPlan {
                 }
                 ZetaLineageReporter.reportJobState(jobMaster, jobStatus);
             }
+        } catch (VirtualMachineError e) {
+            throw e;
         } catch (Throwable e) {
             log.warn("Failed to report lineage for job {}", jobId, e);
         }

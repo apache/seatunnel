@@ -116,7 +116,9 @@ public final class ZetaLineageReporter {
                     != JobMode.STREAMING) {
                 return;
             }
-            if (!shouldReportHeartbeat(jobMaster, config.heartbeatMinIntervalMs())) {
+            long previous = jobMaster.getLineageHeartbeatTime().get();
+            if (previous != 0
+                    && System.currentTimeMillis() - previous < config.heartbeatMinIntervalMs()) {
                 return;
             }
             jobMaster.submitLineageEmission(
@@ -131,12 +133,22 @@ public final class ZetaLineageReporter {
                             if (jobMaster.getJobStatus().isEndState()) {
                                 return;
                             }
-                            emit(config, events(jobMaster, config, LineageEventType.RUNNING));
+                            List<LineageEvent> heartbeatEvents =
+                                    events(jobMaster, config, LineageEventType.RUNNING);
+                            if (!heartbeatEvents.isEmpty()
+                                    && shouldReportHeartbeat(
+                                            jobMaster, config.heartbeatMinIntervalMs())) {
+                                emit(config, heartbeatEvents);
+                            }
+                        } catch (VirtualMachineError error) {
+                            throw error;
                         } catch (Throwable error) {
                             LOGGER.warning("Failed to emit Zeta lineage heartbeat", error);
                         }
                     },
                     LineageEventType.RUNNING);
+        } catch (VirtualMachineError error) {
+            throw error;
         } catch (Throwable error) {
             LOGGER.warning("Failed to emit Zeta lineage heartbeat", error);
         }
@@ -270,6 +282,8 @@ public final class ZetaLineageReporter {
             for (LineageEvent event : events) {
                 LineageRuntime.emit(config, event);
             }
+        } catch (VirtualMachineError error) {
+            throw error;
         } catch (Throwable error) {
             LOGGER.warning("Failed to emit Zeta lineage event", error);
         }

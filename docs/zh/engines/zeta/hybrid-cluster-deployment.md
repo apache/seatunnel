@@ -140,9 +140,9 @@ seatunnel:
       heartbeat_min_interval_ms: 3600000
 ```
 
-完整配置表、环境变量映射、Flink 配置、数据集命名和已知限制请查看
+配置表、环境变量映射、数据集命名、Zeta 事件和投递限制请查看
 [OpenLineage 血缘上报](../../introduction/concepts/lineage.md)。接收端 token 必须来自
-`OPENLINEAGE_AUTH_TOKEN` 或集群配置；作业 `env {}` 中配置 token 会在启动时被拒绝。
+`OPENLINEAGE_AUTH_TOKEN` 或集群配置；作业 `env {}` 中配置 token 会在配置解析时被拒绝。
 血缘发送失败始终不会使数据处理作业失败。
 
 ### 4.4 历史作业过期配置

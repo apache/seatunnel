@@ -99,6 +99,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
 import lombok.NonNull;
 
@@ -110,6 +111,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -124,6 +126,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -1173,6 +1177,16 @@ public class JobMaster {
                         jobImmutableInformation.getJobConfig().getEnvOptions(),
                         clusterOptions,
                         System.getenv());
+        LineageConfig limits =
+                LineageConfig.resolve(Collections.emptyMap(), clusterOptions, System.getenv());
+        if (resolved.timeoutMs() > limits.timeoutMs()) {
+            throw new IllegalArgumentException(
+                    LineageConfig.TIMEOUT_MS + " exceeds the environment or cluster limit");
+        }
+        if (resolved.retryTimes() > limits.retryTimes()) {
+            throw new IllegalArgumentException(
+                    LineageConfig.RETRY_TIMES + " exceeds the environment or cluster limit");
+        }
         lineageConfig = resolved;
         return resolved;
     }
@@ -1220,7 +1234,58 @@ public class JobMaster {
      * @return current cumulative job metrics
      */
     public JobMetrics getCurrentJobMetricsForLineage() {
-        return JobMetricsUtil.toJobMetrics(getCurrJobMetrics());
+        Map<Address, List<TaskGroupLocation>> workers = new HashMap<>();
+        currentTaskGroupLocations()
+                .forEach(
+                        (location, address) ->
+                                workers.computeIfAbsent(address, key -> new ArrayList<>())
+                                        .add(location));
+        Map<Address, InvocationFuture<Object>> futures = new LinkedHashMap<>();
+        long deadline =
+                System.nanoTime()
+                        + TimeUnit.MILLISECONDS.toNanos(resolveLineageConfig().timeoutMs());
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        try {
+            for (Map.Entry<Address, List<TaskGroupLocation>> worker : workers.entrySet()) {
+                if (nodeEngine.getClusterService().getMember(worker.getKey()) == null) {
+                    throw new IllegalStateException("metrics worker is no longer a cluster member");
+                }
+                futures.put(
+                        worker.getKey(),
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                nodeEngine,
+                                new GetTaskGroupMetricsOperation(worker.getValue()),
+                                worker.getKey()));
+            }
+            for (InvocationFuture<Object> future : futures.values()) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    throw new TimeoutException("lineage metrics deadline exceeded");
+                }
+                RawJobMetrics result = (RawJobMetrics) future.get(remaining, TimeUnit.NANOSECONDS);
+                if (result == null) {
+                    throw new IllegalStateException("metrics worker returned no counters");
+                }
+                metrics.add(result);
+            }
+            return JobMetricsUtil.toJobMetrics(metrics);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            LOGGER.warning(
+                    "Omitting incomplete lineage metrics for job "
+                            + jobId
+                            + ": collection interrupted");
+        } catch (Exception error) {
+            LOGGER.warning(
+                    "Omitting incomplete lineage metrics for job "
+                            + jobId
+                            + " from workers "
+                            + workers.keySet()
+                            + " ("
+                            + error.getClass().getSimpleName()
+                            + ")");
+        }
+        return null;
     }
 
     /** Returns the job-wide timestamp of the last emitted lineage heartbeat. */
@@ -1240,8 +1305,9 @@ public class JobMaster {
      * <p>Emissions are queued and drained one at a time rather than submitted independently because
      * OpenLineage runs are ordered: a COMPLETE that overtakes its own START, or a heartbeat that
      * overtakes a COMPLETE, leaves the receiver holding the wrong final state for the run. The
-     * queue keeps one job's events in submission order. Requeuing after each emission lets other
-     * jobs make progress between sends.
+     * queue keeps one job's events in submission order. Once a worker starts a job, it drains its
+     * pending events without competing for another queue slot that could discard its terminal
+     * event.
      *
      * @param emission the emission to run; a failure it raises is logged rather than propagated, so
      *     the next queued emission still runs
@@ -1250,6 +1316,7 @@ public class JobMaster {
         submitLineageEmission(emission, LineageEventType.START);
     }
 
+    /** Queues an event; RUNNING events are coalescible and may be evicted for lifecycle events. */
     public void submitLineageEmission(Runnable emission, LineageEventType type) {
         synchronized (lineageEmissionLock) {
             lineageEmissions.removeIf(item -> item.type == LineageEventType.RUNNING);
@@ -1351,22 +1418,23 @@ public class JobMaster {
 
     /** Sends one event and requeues the job if more events remain. */
     private void drainLineageEmissions() {
-        LineageEmission emission;
-        synchronized (lineageEmissionLock) {
-            emission = lineageEmissions.poll();
-        }
-        try {
-            emission.task.run();
-        } catch (Throwable error) {
-            LOGGER.warning("Failed to emit a lineage event for job " + jobId, error);
-        }
-        synchronized (lineageEmissionLock) {
-            if (lineageEmissions.isEmpty()) {
-                drainingLineageEmissions = false;
-                return;
+        while (true) {
+            LineageEmission emission;
+            synchronized (lineageEmissionLock) {
+                emission = lineageEmissions.poll();
+                if (emission == null) {
+                    drainingLineageEmissions = false;
+                    return;
+                }
+            }
+            try {
+                emission.task.run();
+            } catch (VirtualMachineError error) {
+                throw error;
+            } catch (Throwable error) {
+                LOGGER.warning("Failed to emit a lineage event for job " + jobId, error);
             }
         }
-        scheduleLineageDrain();
     }
 
     public PassiveCompletableFuture<JobResult> getJobMasterCompleteFuture() {
@@ -1386,7 +1454,10 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
+        return getCurrJobMetrics(currentTaskGroupLocations());
+    }
 
+    private Map<TaskGroupLocation, Address> currentTaskGroupLocations() {
         Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
 
         ownedSlotProfilesIMap.forEach(
@@ -1403,7 +1474,7 @@ public class JobMaster {
                                 });
                     }
                 });
-        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
+        return taskGroupLocationSlotProfileMap;
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {

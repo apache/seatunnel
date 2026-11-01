@@ -40,6 +40,13 @@ The token is the exception to this rule. `openlineage_auth_token` is resolved as
 before persisting job configuration or serializing it into a Flink JobGraph, even when lineage
 reporting is disabled. The option rule alone does not enforce this validation.
 
+When a token is configured, the receiver URL and transport are resolved from process environment,
+cluster configuration, then defaults. A job-level URL or transport must match these trusted values;
+otherwise configuration resolution fails. Put the receiver URL beside the token in trusted
+configuration instead of only in the job. This check also applies when Flink re-resolves credentials
+on the JobManager. Tokens remain outside the serialized JobGraph. Without a token, job-level receiver
+overrides remain supported; this is not a general restriction on outbound network destinations.
+
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
 warning, so it can never change the outcome of the data-processing job.
@@ -47,6 +54,14 @@ Zeta uses two delivery threads, queues at most 64 waiting jobs, and coalesces pe
 job. On saturation, a lifecycle event can replace a queued heartbeat-only job. If no such job is
 available, the new event is dropped and logged. Shutdown and failed delivery after the configured
 retries can also lose events.
+
+
+For Zeta, a job already being delivered drains its pending lifecycle events in the same worker. The
+`openlineage_timeout_ms` and `openlineage_retry_times` environment/cluster values also define the
+maximum job overrides (defaults: 10000 ms and 3 retries); larger job values are rejected. Heartbeat
+metrics use one shared collection deadline bounded by the effective timeout. Missing worker metrics
+are logged and statistics are omitted, while the heartbeat can still be sent. Heartbeat throttling
+counts send attempts, not HTTP acknowledgements: queued or evicted heartbeats do not advance it.
 
 ### Environment variable names
 

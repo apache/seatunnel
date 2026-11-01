@@ -35,6 +35,10 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.lineage.LineageConfig;
 import org.apache.seatunnel.lineage.LineageDataset;
 import org.apache.seatunnel.lineage.LineageEvent;
@@ -44,6 +48,13 @@ import org.apache.seatunnel.lineage.LineageOutputStatistics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import com.hazelcast.cluster.Address;
+import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -56,12 +67,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -73,6 +88,62 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class ZetaLineageReporterTest {
+
+    @Test
+    void shouldOmitStatisticsWhenAWorkerMetricsRequestTimesOut() throws Exception {
+        JobMaster master = mock(JobMaster.class, CALLS_REAL_METHODS);
+        JobImmutableInformation information = mock(JobImmutableInformation.class);
+        doReturn(42L).when(information).getJobId();
+        setField(master, "jobImmutableInformation", information);
+        doReturn(LineageConfig.defaults()).when(master).resolveLineageConfig();
+        Address address = new Address("127.0.0.1", 5701);
+        SlotProfile slot = mock(SlotProfile.class);
+        doReturn(address).when(slot).getWorker();
+        @SuppressWarnings("unchecked")
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> slots = mock(IMap.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+                                    consumer = invocation.getArgument(0);
+                            consumer.accept(
+                                    new PipelineLocation(42L, 1),
+                                    Collections.singletonMap(
+                                            new TaskGroupLocation(42L, 1, 1L), slot));
+                            return null;
+                        })
+                .when(slots)
+                .forEach(Mockito.any(BiConsumer.class));
+        setField(master, "ownedSlotProfilesIMap", slots);
+        NodeEngine node = mock(NodeEngine.class, Mockito.RETURNS_DEEP_STUBS);
+        setField(master, "nodeEngine", node);
+        @SuppressWarnings("unchecked")
+        InvocationFuture<Object> future = mock(InvocationFuture.class);
+        Mockito.when(future.get()).thenThrow(new AssertionError("unbounded metrics wait"));
+        Mockito.when(future.get(Mockito.anyLong(), eq(TimeUnit.NANOSECONDS)))
+                .thenThrow(new TimeoutException("fixture timeout"));
+        try (MockedStatic<NodeEngineUtil> rpc = Mockito.mockStatic(NodeEngineUtil.class)) {
+            rpc.when(() -> NodeEngineUtil.sendOperationToMemberNode(eq(node), any(), eq(address)))
+                    .thenReturn(future);
+            Assertions.assertNull(master.getCurrentJobMetricsForLineage());
+            verify(future).get(Mockito.anyLong(), eq(TimeUnit.NANOSECONDS));
+        }
+    }
+
+    @Test
+    void shouldRejectJobTimeoutAndRetryBudgetsAboveClusterLimits() throws Exception {
+        for (String key : Arrays.asList(LineageConfig.TIMEOUT_MS, LineageConfig.RETRY_TIMES)) {
+            JobMaster master = mock(JobMaster.class, CALLS_REAL_METHODS);
+            JobConfig config = new JobConfig();
+            config.getEnvOptions().put(key, Integer.MAX_VALUE);
+            JobImmutableInformation information = mock(JobImmutableInformation.class);
+            doReturn(config).when(information).getJobConfig();
+            setField(master, "jobImmutableInformation", information);
+            IllegalArgumentException failure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class, master::resolveLineageConfig);
+            Assertions.assertTrue(failure.getMessage().contains(key));
+        }
+    }
 
     @Test
     void shouldUseDistinctAttemptsForRestartAndCheckpointRestores() throws Exception {
@@ -158,14 +229,15 @@ class ZetaLineageReporterTest {
     }
 
     @Test
-    void shouldCollectCurrentMetricsWithoutPersistingOrCleaning() {
+    void shouldCollectCurrentMetricsWithoutPersistingOrCleaning() throws Exception {
         JobMaster jobMaster = mock(JobMaster.class, CALLS_REAL_METHODS);
-        doReturn(Collections.emptyList()).when(jobMaster).getCurrJobMetrics();
+        setField(jobMaster, "ownedSlotProfilesIMap", mock(IMap.class));
+        doReturn(LineageConfig.defaults()).when(jobMaster).resolveLineageConfig();
 
         JobMetrics current = jobMaster.getCurrentJobMetricsForLineage();
 
         Assertions.assertTrue(current.metrics().isEmpty());
-        verify(jobMaster).getCurrJobMetrics();
+        verify(jobMaster, never()).getCurrJobMetrics();
         verify(jobMaster, never()).savePipelineMetricsToHistory(org.mockito.ArgumentMatchers.any());
     }
 
@@ -176,6 +248,13 @@ class ZetaLineageReporterTest {
 
         Assertions.assertTrue(invokeShouldReportHeartbeat(jobMaster, Long.MAX_VALUE));
         Assertions.assertFalse(invokeShouldReportHeartbeat(jobMaster, Long.MAX_VALUE));
+    }
+
+    @Test
+    void shouldNotSpendTheHeartbeatIntervalBeforeTheQueuedEmissionRuns() {
+        JobMaster jobMaster = streamingJobMaster(Long.MAX_VALUE);
+        ZetaLineageReporter.reportHeartbeat(jobMaster);
+        Assertions.assertEquals(0L, jobMaster.getLineageHeartbeatTime().get());
     }
 
     /**
@@ -365,8 +444,9 @@ class ZetaLineageReporterTest {
     }
 
     @Test
-    void shouldLetAnotherJobSendBeforeRequeuingTheFirstJob() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+    void shouldFinishAStartedJobWhenTheSharedQueueBecomesFull() throws Exception {
+        ExecutorService executor =
+                new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1));
         JobMaster first = mock(JobMaster.class, CALLS_REAL_METHODS);
         JobMaster second = mock(JobMaster.class, CALLS_REAL_METHODS);
         for (JobMaster job : Arrays.asList(first, second)) {
@@ -377,6 +457,7 @@ class ZetaLineageReporterTest {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch complete = new CountDownLatch(1);
+        CountDownLatch secondComplete = new CountDownLatch(1);
         List<String> emitted = Collections.synchronizedList(new ArrayList<>());
         try {
             first.submitLineageEmission(
@@ -391,11 +472,16 @@ class ZetaLineageReporterTest {
                         emitted.add("first COMPLETE");
                         complete.countDown();
                     });
-            second.submitLineageEmission(() -> emitted.add("second START"));
+            second.submitLineageEmission(
+                    () -> {
+                        emitted.add("second START");
+                        secondComplete.countDown();
+                    });
             release.countDown();
             Assertions.assertTrue(complete.await(30, TimeUnit.SECONDS));
+            Assertions.assertTrue(secondComplete.await(30, TimeUnit.SECONDS));
             Assertions.assertEquals(
-                    Arrays.asList("first START", "second START", "first COMPLETE"), emitted);
+                    Arrays.asList("first START", "first COMPLETE", "second START"), emitted);
         } finally {
             release.countDown();
             executor.shutdownNow();

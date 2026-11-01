@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.Collections;
 import java.util.Map;
@@ -137,7 +138,7 @@ public class EngineConfig {
 
     private MetadataConfig metadataConfig = ServerConfigOptions.METADATA.defaultValue();
 
-    private Map<String, Object> lineageOptions = Collections.emptyMap();
+    @ToString.Exclude private Map<String, Object> lineageOptions = Collections.emptyMap();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

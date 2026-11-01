@@ -73,6 +73,7 @@ import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.lineage.LineageConfig;
+import org.apache.seatunnel.lineage.LineageDataset;
 import org.apache.seatunnel.lineage.LineageDatasetFactory;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -378,6 +379,20 @@ public class MultipleTableJobConfigParser {
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
+    private List<LineageDataset> extractLineageDatasets(String factoryId, ReadonlyConfig config) {
+        try {
+            return LineageDatasetFactory.fromConnectorOptions(factoryId, config.getSourceMap());
+        } catch (VirtualMachineError error) {
+            throw error;
+        } catch (Throwable error) {
+            log.warn(
+                    "Skipping lineage datasets for connector {} after extraction failed ({})",
+                    factoryId,
+                    error.getClass().getSimpleName());
+            return Collections.emptyList();
+        }
+    }
+
     private int getParallelism(ReadonlyConfig config) {
         if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
             // Keep task-local sample counters source-wide and the preview output deterministic.
@@ -436,9 +451,7 @@ public class MultipleTableJobConfigParser {
         // ClientJobExecutionEnvironment, where the server-side seatunnel.yaml is not readable, so a
         // guard here would silently disable lineage for jobs enabled only at cluster level. The
         // extraction is a pure map lookup that yields an empty list for unsupported connectors.
-        action.setLineageDatasets(
-                LineageDatasetFactory.fromConnectorOptions(
-                        factoryId, readonlyConfig.getSourceMap()));
+        action.setLineageDatasets(extractLineageDatasets(factoryId, readonlyConfig));
         action.setParallelism(parallelism);
         for (CatalogTable catalogTable : tuple2._2()) {
             actions.add(new Tuple2<>(catalogTable, action));
@@ -854,9 +867,7 @@ public class MultipleTableJobConfigParser {
                         connectorJarIdentifiers,
                         actionConfig);
         // See the note on the source action: the guard cannot live here, only in the JobMaster.
-        sinkAction.setLineageDatasets(
-                LineageDatasetFactory.fromConnectorOptions(
-                        factoryId, readonlyConfig.getSourceMap()));
+        sinkAction.setLineageDatasets(extractLineageDatasets(factoryId, readonlyConfig));
         try {
             if (!isStartWithSavePoint) {
                 handleSaveMode(sink);

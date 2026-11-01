@@ -142,10 +142,10 @@ seatunnel:
       heartbeat_min_interval_ms: 3600000
 ```
 
-The complete option table, environment-variable mapping, Flink configuration, dataset naming, and
-known limitations are documented in [OpenLineage Lineage Reporting](../../introduction/concepts/lineage.md).
+The option table, environment-variable mapping, dataset naming, Zeta events, and delivery limits
+are documented in [OpenLineage Lineage Reporting](../../introduction/concepts/lineage.md).
 The receiver token must come from `OPENLINEAGE_AUTH_TOKEN` or cluster configuration; a token in a
-job `env {}` block is rejected at startup. Lineage delivery failures never fail the data-processing
+job `env {}` block is rejected during configuration resolution. Lineage delivery failures never fail the data-processing
 job.
 
 ### 4.4 Expiration Configuration For Historical Jobs
