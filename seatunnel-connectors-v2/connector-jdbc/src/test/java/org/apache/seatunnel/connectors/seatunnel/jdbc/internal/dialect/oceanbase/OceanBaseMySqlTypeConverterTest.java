@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
+
 /**
  * Unit tests for {@link OceanBaseMySqlTypeConverter} verifying the NTZ/LTZ timestamp split
  * introduced by the fix for https://github.com/apache/seatunnel/issues/10685.
@@ -89,5 +91,35 @@ public class OceanBaseMySqlTypeConverterTest {
                 OceanBaseMySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(
                 OceanBaseMySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testConvertDoesNotDependOnTheDefaultLocale() {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                BasicTypeDefine<Object> typeDefine =
+                        BasicTypeDefine.builder()
+                                .name("test")
+                                .columnType("datetime")
+                                .dataType("datetime")
+                                .build();
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        OceanBaseMySqlTypeConverter.INSTANCE.convert(typeDefine).getDataType(),
+                        locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 }
