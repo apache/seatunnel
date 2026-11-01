@@ -34,7 +34,9 @@ seatunnel:
 
 The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:8080/openmetrics`.
+
+The same content is also served on the Hazelcast REST endpoint `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`, which additionally requires `rest-api.enabled: true` under `hazelcast.network.rest-api` in `hazelcast.yaml` (it is disabled by default in the shipped template).
 
 Available metrics include the following categories.
 
@@ -268,12 +270,13 @@ scrape_configs:
   # The job name assigned to scraped metrics by default.
   - job_name: 'seatunnel'
     scrape_interval: 5s
-    # Metrics export path 
-    metrics_path: /hazelcast/rest/instance/metrics
+    # Metrics export path (served by the Jetty HTTP server; use /hazelcast/rest/instance/metrics
+    # on port 5801 only if Hazelcast rest-api is enabled)
+    metrics_path: /metrics
     # List of labeled statically configured targets for this job.
     static_configs:
       # The targets specified by the static config.
-      - targets: [ 'localhost:5801' ]
+      - targets: [ 'localhost:8080' ]
       # Labels assigned to all metrics scraped from the targets.
       # labels: [<labelName>:<labelValue>]
 ```
