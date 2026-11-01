@@ -290,6 +290,8 @@ sink {
 
 `snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
 
+`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。恢复时在 `snapshot-only` 与其他启动模式之间切换同样会被拒绝。需要修改读取的表或启动模式时，请提交新作业。
+
 ### 读取没有主键的表
 
 根据源表能够提供的保证来选择合适的路径：

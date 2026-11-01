@@ -295,6 +295,8 @@ sink {
 
 In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. Switching between `snapshot-only` and another startup mode across a restore is rejected as well. Submit a new job to change the captured tables or the startup mode.
+
 ### Read tables without a primary key
 
 Pick the path that matches what the source table guarantees:

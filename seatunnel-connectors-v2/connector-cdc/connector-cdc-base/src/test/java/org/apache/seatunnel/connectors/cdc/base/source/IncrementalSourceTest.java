@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
@@ -32,6 +35,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -43,9 +47,13 @@ import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 class IncrementalSourceTest {
 
@@ -109,6 +117,138 @@ class IncrementalSourceTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void testSnapshotOnlyRestoreRejectsTableRemovedFromConfig() {
+        // db.b still has a split in the checkpoint, but table-names no longer lists it: the
+        // readers would not capture it, so the restore must fail with the table name.
+        SnapshotSplit removedTableSplit =
+                new SnapshotSplit("db.b.0", TableId.parse("db.b"), null, null, null);
+        SnapshotPhaseState checkpointState =
+                new SnapshotPhaseState(
+                        Collections.singletonList(TableId.parse("db.a")),
+                        Collections.singletonList(removedTableSplit),
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        false,
+                        Collections.emptyList(),
+                        false,
+                        false);
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot-only")),
+                        Collections.singletonList(catalogTable(TablePath.of("db", "a"))));
+        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> source.restoreEnumerator(enumeratorContext, checkpointState));
+        Assertions.assertTrue(exception.getMessage().contains("[db.b]"), exception.getMessage());
+    }
+
+    @Test
+    void testSnapshotOnlyRestoreRejectsUnfinishedTableOfAnotherSchema() {
+        // A table that is not split yet, configured only in another schema
+        SnapshotPhaseState checkpointState =
+                snapshotOnlyState(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        TableId.parse("db.public.c"));
+        TestIncrementalSource source =
+                snapshotOnlySource(catalogTable(TablePath.of("db", "other", "c")));
+
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> source.restoreEnumerator(enumeratorContext(), checkpointState));
+        Assertions.assertTrue(
+                exception.getMessage().contains("[db.public.c]"), exception.getMessage());
+    }
+
+    @Test
+    void testSnapshotOnlyRestoreAcceptsConfiguredTables() throws Exception {
+        // Configured names may differ in case, carry a schema the checkpointed id lacks, or have
+        // the same three parts as the id of a PostgreSQL table
+        SnapshotPhaseState checkpointState =
+                snapshotOnlyState(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        TableId.parse("db.a"),
+                        TableId.parse("db.b"),
+                        TableId.parse("db.public.c"));
+        TestIncrementalSource source =
+                snapshotOnlySource(
+                        catalogTable(TablePath.of("DB", "A")),
+                        catalogTable(TablePath.of("db", "public", "b")),
+                        catalogTable(TablePath.of("db", "public", "c")));
+
+        Assertions.assertNotNull(source.restoreEnumerator(enumeratorContext(), checkpointState));
+    }
+
+    @Test
+    void testSnapshotOnlyRestoreAcceptsFinishedTableThatIsNoLongerConfigured() throws Exception {
+        // db.done has only finished splits, so it is not read again and may have been removed
+        // from the table list or dropped; db.a still has an unfinished split and is configured
+        SnapshotSplit finishedSplit =
+                new SnapshotSplit("db.done.0", TableId.parse("db.done"), null, null, null);
+        SnapshotSplit unfinishedSplit =
+                new SnapshotSplit("db.a.0", TableId.parse("db.a"), null, null, null);
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(finishedSplit.splitId(), finishedSplit);
+        assignedSplits.put(unfinishedSplit.splitId(), unfinishedSplit);
+        SnapshotPhaseState checkpointState =
+                snapshotOnlyState(
+                        assignedSplits,
+                        Collections.singletonMap(
+                                finishedSplit.splitId(),
+                                new SnapshotSplitWatermark(finishedSplit.splitId(), null, null)));
+        TestIncrementalSource source = snapshotOnlySource(catalogTable(TablePath.of("db", "a")));
+
+        Assertions.assertNotNull(source.restoreEnumerator(enumeratorContext(), checkpointState));
+    }
+
+    /**
+     * A checkpoint of a snapshot-only job: the tables of the assigned splits are already split, the
+     * remaining tables are not split yet.
+     */
+    private static SnapshotPhaseState snapshotOnlyState(
+            Map<String, SnapshotSplit> assignedSplits,
+            Map<String, SnapshotSplitWatermark> splitCompletedOffsets,
+            TableId... remainingTables) {
+        List<TableId> processedTables =
+                assignedSplits.values().stream()
+                        .map(SnapshotSplit::getTableId)
+                        .distinct()
+                        .collect(Collectors.toList());
+        return new SnapshotPhaseState(
+                processedTables,
+                Collections.emptyList(),
+                assignedSplits,
+                splitCompletedOffsets,
+                false,
+                Arrays.asList(remainingTables),
+                false,
+                true);
+    }
+
+    private static TestIncrementalSource snapshotOnlySource(CatalogTable... catalogTables) {
+        return new TestIncrementalSource(
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(STARTUP_MODE.key(), "snapshot-only")),
+                Arrays.asList(catalogTables));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext() {
+        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(enumeratorContext.currentParallelism()).thenReturn(1);
+        return enumeratorContext;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void testSnapshotOnlyRestoreRejectsIncrementalCheckpoint() {
         // A job that already entered the binlog phase checkpoints an IncrementalPhaseState.
         // Restoring it with startup.mode changed to snapshot-only must fail fast rather than resume
@@ -150,6 +290,15 @@ class IncrementalSourceTest {
                 IllegalStateException.class,
                 () -> source.restoreEnumerator(enumeratorContext, checkpointState),
                 "initial restore must reject a snapshot-only checkpoint");
+    }
+
+    private static CatalogTable catalogTable(TablePath tablePath) {
+        return CatalogTable.of(
+                TableIdentifier.of("test", tablePath),
+                TableSchema.builder().build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "");
     }
 
     private static class TestIncrementalSource extends IncrementalSource<Object, SourceConfig> {

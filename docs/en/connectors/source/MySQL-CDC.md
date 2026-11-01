@@ -541,6 +541,8 @@ Use `startup.mode = "snapshot-only"` for a bounded bootstrap job: it reads the c
 
 Because the job never enters continuous binlog streaming, `snapshot-only` mode is incompatible with `stop.mode` values other than `never` and the binlog-oriented startup offset options `startup.specific-offset.*` and `startup.timestamp`; configuring them together fails fast at startup. `exactly_once` remains available for bounded backfill during the snapshot phase and does not start continuous binlog streaming.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. Submit a new job to change the captured tables.
+
 Consistency under concurrent writes depends on `exactly_once`:
 
 - With `exactly_once = false` (default), each snapshot split is read by a plain query at its own point in time and no binlog backfill is applied. If the source tables receive writes while the job runs, the bounded output is not a consistent point-in-time snapshot: a change can be reflected in some splits and not in others. Use this setting only when the source tables are quiesced during the job.
