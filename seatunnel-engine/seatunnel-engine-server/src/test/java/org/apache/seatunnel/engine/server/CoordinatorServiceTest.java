@@ -58,6 +58,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
+import org.apache.seatunnel.lineage.LineageEventType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -80,6 +81,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,6 +108,83 @@ import static org.mockito.Mockito.doThrow;
 
 @Slf4j
 public class CoordinatorServiceTest {
+    @Test
+    void testLineageLifecycleEvictsHeartbeatWhenQueueIsFull() throws Exception {
+        CoordinatorService coordinator = Mockito.mock(CoordinatorService.class);
+        Field logger = CoordinatorService.class.getDeclaredField("logger");
+        logger.setAccessible(true);
+        logger.set(coordinator, Mockito.mock(ILogger.class));
+        Method create = CoordinatorService.class.getDeclaredMethod("createLineageEmissionExecutor");
+        create.setAccessible(true);
+        ExecutorService executor = (ExecutorService) create.invoke(coordinator);
+        CountDownLatch running = new CountDownLatch(2);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch overflowRan = new CountDownLatch(1);
+        List<String> events = Collections.synchronizedList(new ArrayList<>());
+        JobMaster jobMaster = Mockito.mock(JobMaster.class, Mockito.CALLS_REAL_METHODS);
+        Field jobExecutor = JobMaster.class.getDeclaredField("lineageEmissionExecutor");
+        jobExecutor.setAccessible(true);
+        jobExecutor.set(jobMaster, executor);
+        Field emissions = JobMaster.class.getDeclaredField("lineageEmissions");
+        emissions.setAccessible(true);
+        emissions.set(jobMaster, new ArrayDeque<>());
+        Field lock = JobMaster.class.getDeclaredField("lineageEmissionLock");
+        lock.setAccessible(true);
+        lock.set(jobMaster, new Object());
+        JobMaster heartbeatJob = Mockito.mock(JobMaster.class, Mockito.CALLS_REAL_METHODS);
+        jobExecutor.set(heartbeatJob, executor);
+        emissions.set(heartbeatJob, new ArrayDeque<>());
+        lock.set(heartbeatJob, new Object());
+        AtomicBoolean heartbeatRan = new AtomicBoolean();
+        JobMaster rejectedJob = Mockito.mock(JobMaster.class, Mockito.CALLS_REAL_METHODS);
+        jobExecutor.set(rejectedJob, executor);
+        emissions.set(rejectedJob, new ArrayDeque<>());
+        lock.set(rejectedJob, new Object());
+        AtomicBoolean rejectedRan = new AtomicBoolean();
+        try {
+            for (int i = 0; i < 2; i++) {
+                executor.execute(
+                        () -> {
+                            running.countDown();
+                            try {
+                                release.await();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+            }
+            Assertions.assertTrue(running.await(30, TimeUnit.SECONDS));
+            for (int i = 0; i < 64; i++) {
+                executor.execute(() -> {});
+            }
+            rejectedJob.submitLineageEmission(() -> rejectedRan.set(true), LineageEventType.FAIL);
+            Field draining = JobMaster.class.getDeclaredField("drainingLineageEmissions");
+            draining.setAccessible(true);
+            Assertions.assertFalse(draining.getBoolean(rejectedJob));
+            Assertions.assertEquals(64, ((ThreadPoolExecutor) executor).getQueue().size());
+            Assertions.assertNotNull(((ThreadPoolExecutor) executor).getQueue().poll());
+            heartbeatJob.submitLineageEmission(
+                    () -> heartbeatRan.set(true), LineageEventType.RUNNING);
+            Assertions.assertEquals(64, ((ThreadPoolExecutor) executor).getQueue().size());
+            jobMaster.submitLineageEmission(() -> events.add("START"));
+            jobMaster.submitLineageEmission(
+                    () -> {
+                        events.add("COMPLETE");
+                        overflowRan.countDown();
+                    },
+                    LineageEventType.COMPLETE);
+            Assertions.assertEquals(64, ((ThreadPoolExecutor) executor).getQueue().size());
+            release.countDown();
+            Assertions.assertTrue(overflowRan.await(30, TimeUnit.SECONDS));
+            Assertions.assertEquals(Arrays.asList("START", "COMPLETE"), events);
+            Assertions.assertFalse(heartbeatRan.get());
+            Assertions.assertFalse(rejectedRan.get());
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
     @Test
     void testTerminalZombieJobShouldNotRestartAfterMasterSwitch() {
         String clusterName =

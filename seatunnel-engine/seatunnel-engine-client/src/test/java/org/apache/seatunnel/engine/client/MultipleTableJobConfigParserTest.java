@@ -51,9 +51,12 @@ import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
+import org.apache.seatunnel.lineage.LineageDatasetFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import scala.Tuple2;
 
@@ -72,6 +75,37 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @Test
+    public void testLineageExtractorFailureDoesNotBreakJobParsing() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        try (MockedStatic<LineageDatasetFactory> extractor =
+                Mockito.mockStatic(LineageDatasetFactory.class)) {
+            extractor
+                    .when(
+                            () ->
+                                    LineageDatasetFactory.fromConnectorOptions(
+                                            Mockito.anyString(), Mockito.anyMap()))
+                    .thenThrow(new IllegalStateException("extractor failed"));
+            ImmutablePair<List<Action>, Set<URL>> parsed =
+                    new MultipleTableJobConfigParser(
+                                    ContentFormatUtilTest.getResource(
+                                            "/batch_fake_to_console_multi_table.conf"),
+                                    new IdGenerator(),
+                                    jobConfig)
+                            .parse(null);
+            Assertions.assertFalse(parsed.getLeft().isEmpty());
+            parsed.getLeft()
+                    .forEach(
+                            action ->
+                                    Assertions.assertTrue(
+                                            ((SinkAction<?, ?, ?, ?>) action)
+                                                    .getLineageDatasets()
+                                                    .isEmpty()));
+        }
+    }
 
     @Test
     public void testSampleDryRunReplacesConfiguredSink() {
