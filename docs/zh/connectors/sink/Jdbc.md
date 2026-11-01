@@ -58,6 +58,12 @@ JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余�
 
 使用自动生成 SQL 时，如果目标端需要 Upsert、Update 或 Delete，请配置 `primary_keys`。未配置时，SeaTunnel 会尝试从上游 Catalog 元数据继承主键，再尝试第一个唯一键；仍然没有可用键时，会退化为普通 INSERT。
 
+### MySQL CDC 运行期新表
+
+JDBC Sink 支持 MySQL CDC 任务启动后发现的新表。请在 Source 中启用 `scan.binlog.newly-added-table.enabled`，并在 Sink 中配置 `is_exactly_once = false`、`generate_sink_sql = true`，不要配置自定义 `query`。该能力从源表 CREATE 的 binlog 位置开始，不回填历史数据。JDBC 选项名是 `is_exactly_once`，不是 Source 的 `exactly_once`。
+
+运行期 DDL 只使用 Sink database/table 模板解析出的目标及 Sink 表选项。`CREATE_SCHEMA_WHEN_NOT_EXIST` 在缺表时建表；`ERROR_WHEN_SCHEMA_NOT_EXIST` 在缺表时报错；`IGNORE` 不执行 DDL。`RECREATE_SCHEMA` 在运行期采用恢复语义：缺表才建表，不删除已存在的表。由于 CREATE 可能因 replica、重试或恢复而重复到达，运行期注册不会执行破坏性的 `data_save_mode` 动作或自定义 SQL。启动阶段的 SaveMode 行为不变。
+
 ## 快速入门：PostgreSQL
 
 下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份配置和预期结果已经在 PostgreSQL 14 中验证，包括示例数据写入和最终数据库值。

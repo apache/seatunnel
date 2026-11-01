@@ -58,6 +58,12 @@ Do not configure both modes. `generate_sink_sql` defaults to `false`, so a job w
 
 For generated SQL, configure `primary_keys` when the target needs upsert, update, or delete behavior. If it is omitted, SeaTunnel tries to inherit a primary key, then the first unique key, from upstream catalog metadata. Without any usable key, generated SQL falls back to plain INSERT.
 
+### Runtime tables from MySQL CDC
+
+JDBC Sink supports tables discovered after a MySQL CDC job has started. Enable `scan.binlog.newly-added-table.enabled` on the source; configure `is_exactly_once = false` and `generate_sink_sql = true` on the sink, without a custom `query`. This starts at the source table's CREATE binlog position, without historical backfill. JDBC's option is `is_exactly_once`, not the source's `exactly_once`.
+
+Runtime DDL uses only the target resolved from the sink database/table template and the sink's table options. `CREATE_SCHEMA_WHEN_NOT_EXIST` creates a missing table; `ERROR_WHEN_SCHEMA_NOT_EXIST` fails if it is missing; `IGNORE` executes no DDL. `RECREATE_SCHEMA` uses restore semantics at runtime: create if missing, never drop an existing table. CREATE can be replayed or retried across replicas and recovery, so runtime registration never applies destructive `data_save_mode` actions or custom SQL. Startup save-mode behavior is unchanged.
+
 ## Quick start: PostgreSQL
 
 This beginner example uses generated SQL and a pre-created target table. The configuration and expected result below have been verified against PostgreSQL 14, including the inserted rows and their final database values.

@@ -97,6 +97,8 @@ class IncrementalSourceReaderTest {
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
             new TableId("alpha_online", null, "account_interests");
+    private static final TableId RUNTIME_TABLE =
+            new TableId("alpha_online", null, "account_runtime");
 
     @Test
     void testFetcherFailureBeforeHandoffRestoresUnemittedBatch() throws Exception {
@@ -653,10 +655,67 @@ class IncrementalSourceReaderTest {
         }
     }
 
+    /**
+     * A table admitted from a binlog CREATE after startup exists in the checkpoint but neither in
+     * the split's captured table ids nor in the submitted catalog. On restore it must join the
+     * captured table ids so its Debezium schema history is registered; keeping only the submitted
+     * tables leaves every resumed row of that table without a known schema.
+     */
+    @Test
+    void testAddSplitsAdmitsCheckpointedRuntimeTableIntoCapturedTableIds() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
+        Mockito.when(dialect.discoverDataCollections(sourceConfig))
+                .thenReturn(Arrays.asList(KEPT_TABLE, RUNTIME_TABLE));
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> deserializationSchema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.when(deserializationSchema.getProducedType())
+                .thenReturn(Collections.singletonList(catalogTable(KEPT_TABLE)));
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context, deserializationSchema);
+        Map<TableId, byte[]> historyTableChanges = new HashMap<>();
+        historyTableChanges.put(KEPT_TABLE, new byte[] {1});
+        historyTableChanges.put(RUNTIME_TABLE, new byte[] {3});
+        IncrementalSplit restoredSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(KEPT_TABLE),
+                        null,
+                        null,
+                        Collections.emptyList(),
+                        Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(RUNTIME_TABLE)),
+                        historyTableChanges);
+
+        try {
+            reader.addSplits(Collections.singletonList(restoredSplit));
+
+            List<SourceSplitBase> state = reader.snapshotState(1L);
+            Assertions.assertEquals(
+                    Arrays.asList(KEPT_TABLE, RUNTIME_TABLE),
+                    state.get(0).asIncrementalSplit().getTableIds());
+        } finally {
+            reader.close();
+        }
+    }
+
     private static IncrementalSourceReader<Object, SourceConfig> createReader(
             DataSourceDialect<SourceConfig> dialect,
             SourceConfig sourceConfig,
             SourceReader.Context context) {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> deserializationSchema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        return createReader(dialect, sourceConfig, context, deserializationSchema);
+    }
+
+    private static IncrementalSourceReader<Object, SourceConfig> createReader(
+            DataSourceDialect<SourceConfig> dialect,
+            SourceConfig sourceConfig,
+            SourceReader.Context context,
+            DebeziumDeserializationSchema<Object> deserializationSchema) {
         @SuppressWarnings("unchecked")
         IncrementalSourceSplitReader<SourceConfig> splitReader =
                 Mockito.mock(IncrementalSourceSplitReader.class);
@@ -682,9 +741,6 @@ class IncrementalSourceReaderTest {
         @SuppressWarnings("unchecked")
         RecordEmitter<SourceRecords, Object, SourceSplitStateBase> recordEmitter =
                 Mockito.mock(RecordEmitter.class);
-        @SuppressWarnings("unchecked")
-        DebeziumDeserializationSchema<Object> deserializationSchema =
-                Mockito.mock(DebeziumDeserializationSchema.class);
 
         return new IncrementalSourceReader<>(
                 dialect,

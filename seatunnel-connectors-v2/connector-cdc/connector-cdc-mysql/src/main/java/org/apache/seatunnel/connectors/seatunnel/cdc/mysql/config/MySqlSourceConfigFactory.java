@@ -32,9 +32,22 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final long serialVersionUID = -6578851046816898665L;
 
+    /**
+     * Debezium option key that enables MySQL DDL records in the binlog stream.
+     *
+     * <p>The value is also used internally when only dynamic table registration needs schema
+     * records.
+     */
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     private ServerIdRange serverIdRange;
+
+    /**
+     * Whether internal schema records are required for binlog newly-added-table registration.
+     *
+     * <p>This can be true even when SeaTunnel schema evolution events are not emitted downstream.
+     */
+    private boolean scanBinlogNewlyAddedTableEnabled;
 
     /**
      * A numeric ID or a numeric ID range of this database client, The numeric ID syntax is like
@@ -47,6 +60,15 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
      */
     public MySqlSourceConfigFactory serverId(String serverId) {
         this.serverIdRange = ServerIdRange.from(serverId);
+        return this;
+    }
+
+    /**
+     * Enables Debezium schema records while binlog reading so the reader can register a matching
+     * table that was created after the job entered the binlog phase.
+     */
+    public MySqlSourceConfigFactory scanBinlogNewlyAddedTableEnabled(boolean enabled) {
+        this.scanBinlogNewlyAddedTableEnabled = enabled;
         return this;
     }
 
@@ -80,7 +102,9 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // only DataStream API program need to emit the schema record, the Table API need not
 
         // setting debezium capture mysql ddl
-        props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
+        props.setProperty(
+                SCHEMA_CHANGE_KEY,
+                String.valueOf(schemaChangeEnabled || scanBinlogNewlyAddedTableEnabled));
         // disable the offset flush totally
         props.setProperty("offset.flush.interval.ms", String.valueOf(Long.MAX_VALUE));
         // disable tombstones
@@ -118,6 +142,11 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // override the user-defined debezium properties
         if (dbzProperties != null) {
             dbzProperties.forEach(props::put);
+        }
+        // Runtime table discovery cannot work without Debezium DDL records, so the connector
+        // option takes precedence over a conflicting user-provided Debezium property.
+        if (scanBinlogNewlyAddedTableEnabled) {
+            props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(true));
         }
 
         Configuration dbzConfiguration = Configuration.from(props);

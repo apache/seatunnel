@@ -191,6 +191,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | database-pattern                          | String   | 否    | .*      | 要捕获的数据库名称的正则表达式, 例如: `database_prefix.*`.                                                                                                                                                                                                    |
 | table-names                               | List     | 条件必填 | -       | 要监控的表名，每个表名都需要包含库名，例如：`database_name.table_name`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                             |
 | table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式，匹配到的表名需要包含库名，例如：`database.*\\.table_.*`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                         |
+| scan.newly-added-table.enabled | Boolean | 否 | true | 是否在 checkpoint/savepoint 恢复时为新匹配的表做快照。默认保留既有恢复发现行为；设置为 `false` 时仅保留 checkpoint 中的表集合。 |
+| scan.binlog.newly-added-table.enabled     | Boolean  | 否    | false   | 在 binlog 读取阶段，是否注册并读取运行期新建的表。该选项从 `CREATE TABLE` binlog 位置开始读取，不会为这些表补历史数据。新表必须匹配已配置的捕获规则，并使用至少包含一个字母、下划线或美元符号的普通未加引号 MySQL 标识符。下游 Sink 也必须能够路由或创建对应目标表。                                                                                                                       |
 | table-names-config                        | List     | 否    | -       | 按表单独配置。例如：`[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。`snapshotSplitColumn` 应该是主键或唯一键；如果指定了非唯一列，SeaTunnel 会忽略该配置并自动选择合适的拆分列。                                                                                                                                                                                         |
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
@@ -224,6 +226,56 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
+
+### 运行期新增表
+
+`scan.newly-added-table.enabled` 仅在 checkpoint/savepoint 恢复时生效。默认 `true` 保留既有 hybrid 恢复行为：新匹配的表先进入快照阶段，再继续读取 binlog。设置为 `false` 时仅保留 checkpoint 中的表集合。该开关与默认关闭的运行期 binlog 新表发现相互独立。
+
+`scan.binlog.newly-added-table.enabled` 在任务已经读取 binlog 时生效。它会根据 `CREATE TABLE` schema record 注册新表结构，然后读取该表之后的 DML 记录。它不会补齐 `CREATE TABLE` binlog 位置之前已经存在的数据。运行期注册的表及其 writer state 会被写入 checkpoint，并在恢复时直接重建，不会重新做快照：恢复时即使提交的 catalog 早于该表，checkpoint 中的表结构也会被重新接纳，该表会加入捕获集合以恢复其 binlog schema history，并在其第一条恢复数据行之前重新发送 `CREATE` 事件（JDBC 按不存在才创建处理）。任务停止期间被删除或不再匹配捕获规则的运行期表不会被重新接纳。以 `scan.binlog.newly-added-table.enabled = false` 恢复时，运行期注册的表会再次从产出 schema 中移除。
+
+`schema-changes.include` / `schema-changes.exclude` 不作用于运行期新表注册。被接纳表的 `CREATE` 事件总是发送到下游，因为该表的数据行紧随其后；这两个列表只过滤已捕获表的列级 DDL。
+
+JDBC 运行期新表要求 `is_exactly_once = false`、`generate_sink_sql = true`，且不配置自定义 `query`。未声明支持该能力的 Sink 会使任务失败，不会静默丢弃 CREATE 事件。目标由 Sink 配置的 database/table 模板决定，源端 CREATE 不能覆盖这些选项；账号仅应授予目标所需权限。
+
+运行期标识符必须匹配 `[A-Za-z0-9_$]*[A-Za-z_$][A-Za-z0-9_$]*`；支持 `2024_orders` 等数字开头的名称。纯数字、反引号、分号和不支持的 MySQL 列类型会导致该表被跳过，并记录包含表名的 WARN。被拒绝的表不会输出 CREATE 事件或数据行；这表示排除该表，不是同步成功。
+
+运行期 writer 创建和 CREATE 应用完成后，该表的数据行才会继续处理。默认 `multi_table.failure_policy = FAIL_FAST` 在失败时立即使任务失败。`CONTINUE_OTHER_TABLES` 按任务配置的重试次数和间隔重试表操作；重试耗尽后隔离失败表并跳过其数据，不能将该表视为同步成功。JDBC CREATE 重放不会删除或清空目标数据，也不会重复执行自定义数据处理。详见 [JDBC 运行期新表](../sink/Jdbc.md)。
+
+旧格式 `MultiTableState` checkpoint 恢复时，运行期表列表为空。新 checkpoint 保存运行期表元数据及 writer state；含这些状态的 checkpoint 不支持降级到未实现该能力的版本。回退前应保留升级前 checkpoint，并规划 binlog 保留与重放。
+
+每张接纳的表会按 Sink replica 数增加 writer，并增加 checkpoint 元数据。目前不支持 DROP/RENAME 清理，也没有表数量上限。请限定捕获范围并监控表数、内存和 checkpoint 大小，不要用于无界创建临时表的场景。
+
+下面的配置会在任务运行后捕获 `source` 中新建的表，并在 `sink` 中创建对应的目标表：
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306/source"
+    username = "cdc_reader"
+    password = "******"
+    table-pattern = "source\\..*"
+    schema-changes.enabled = true
+    scan.binlog.newly-added-table.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/sink"
+    username = "sink_writer"
+    password = "******"
+    database = "sink"
+    table = "${database_name}_${table_name}"
+    generate_sink_sql = true
+    is_exactly_once = false
+  }
+}
+```
 
 ### int_type_narrowing
 
@@ -367,6 +419,8 @@ sink {
 1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
 2. 然后应用 `schema-changes.exclude`；
 3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+由 `scan.binlog.newly-added-table.enabled` 产生的运行期新表注册事件属于控制事件，不受这两个列表过滤；详见[运行期新增表](#运行期新增表)。
 
 ```hocon
 source {

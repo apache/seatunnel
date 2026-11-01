@@ -192,6 +192,8 @@ When an initial consistent snapshot is made for large databases, your establishe
 | database-pattern                          | String   | No       | .*      | The database names RegEx of the database to capture, for example: `database_prefix.*`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value must include the database name, for example: `database_name.table_name`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Each matched table name includes the database name, for example: `database.*\\.table_.*`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| scan.newly-added-table.enabled | Boolean | No | true | Whether to snapshot newly matched tables on checkpoint/savepoint restore. The default preserves existing restore-time discovery. Set `false` to retain only the checkpointed table set. |
+| scan.binlog.newly-added-table.enabled     | Boolean  | No       | false   | Whether to register and read newly created tables during the binlog reading phase. This option starts from the `CREATE TABLE` binlog position and does not snapshot historical data for those tables. The new table must match the configured capture pattern and use an ordinary unquoted MySQL identifier containing at least one letter, underscore, or dollar sign. The downstream sink must be able to route or create the target table.                                                                                                                                                          |
 | table-names-config                        | List     | No       | -       | Per-table config list. For example: `[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column. `snapshotSplitColumn` should be a primary key or unique key. If a non-unique column is provided, SeaTunnel ignores it and automatically selects an appropriate split column internally.                                                                                                                                                                                                                                               |
 | startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -225,6 +227,56 @@ When an initial consistent snapshot is made for large databases, your establishe
 | debezium                                  | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                        |
 | int_type_narrowing                        | Boolean  | No       | true    | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+### Newly Added Tables
+
+`scan.newly-added-table.enabled` is evaluated only on checkpoint/savepoint restore. The default `true` preserves the existing hybrid-restore behavior: newly matched tables enter the snapshot phase before binlog reading resumes. Set it to `false` to retain only the checkpointed table set. This is independent of runtime binlog discovery, which remains disabled by default.
+
+`scan.binlog.newly-added-table.enabled` works while the job is already reading binlog. It registers table metadata from the `CREATE TABLE` schema record and then reads following DML records for that table. It does not backfill rows that existed before the `CREATE TABLE` binlog position. Runtime-registered tables and their writer states are retained in the checkpoint and restored without a new snapshot: on restore the checkpointed schema of such a table is re-admitted even though the submitted catalog predates it, the table joins the captured set so its binlog schema history is recovered, and its `CREATE` event is sent again before its first resumed row (JDBC applies it as create-if-missing). A runtime table that was dropped or no longer matches the capture pattern while the job was stopped is not re-admitted. Restoring with `scan.binlog.newly-added-table.enabled = false` drops runtime-registered tables from the produced schema again.
+
+`schema-changes.include` / `schema-changes.exclude` do not apply to runtime table registration. The `CREATE` event of an admitted table is always sent downstream because the table's rows follow it; the lists only filter column-level DDL of captured tables.
+
+JDBC runtime tables require `is_exactly_once = false` and `generate_sink_sql = true`, without a custom `query`. A sink that has not opted in fails the job rather than silently dropping CREATE events. The sink's configured database/table template determines the target; a source CREATE cannot override those options. Grant the sink account only the permissions needed for that target.
+
+Runtime identifiers must match `[A-Za-z0-9_$]*[A-Za-z_$][A-Za-z0-9_$]*`. Digit-leading names such as `2024_orders` are accepted. All-numeric names, backticks, semicolons and unsupported MySQL column types are rejected with a WARN naming the table. No CREATE event or rows from that rejected table are emitted; this is an exclusion, not successful synchronization.
+
+Runtime writer creation and CREATE application complete before that table's rows proceed. With `multi_table.failure_policy = FAIL_FAST` (the default), a failure fails the task immediately. With `CONTINUE_OTHER_TABLES`, table operations use the configured job retry count/interval; exhausted retries quarantine the failed table and skip its rows. That table is not successfully synchronized. JDBC CREATE replay never drops/truncates existing target data or re-executes custom data processing. See [JDBC runtime save modes](../sink/Jdbc.md#runtime-tables-from-mysql-cdc).
+
+Old-format `MultiTableState` checkpoints restore with an empty runtime-table list. New checkpoints retain runtime table metadata and writer state. Downgrading to a version without this feature is not supported for those checkpoints; keep a pre-upgrade checkpoint and plan binlog retention/replay before rollback.
+
+Each admitted table adds one writer per sink replica and metadata to checkpoints. DROP/RENAME cleanup and a table-count cap are not provided. Use bounded capture patterns and monitor table count, memory and checkpoint size; do not use this option for an unbounded stream of ephemeral tables.
+
+For example, this job registers tables created under `source` after the job starts and creates matching tables in `sink`:
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306/source"
+    username = "cdc_reader"
+    password = "******"
+    table-pattern = "source\\..*"
+    schema-changes.enabled = true
+    scan.binlog.newly-added-table.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/sink"
+    username = "sink_writer"
+    password = "******"
+    database = "sink"
+    table = "${database_name}_${table_name}"
+    generate_sink_sql = true
+    is_exactly_once = false
+  }
+}
+```
 
 ### int_type_narrowing
 
@@ -368,6 +420,8 @@ Precedence is deterministic:
 1. if `schema-changes.include` is set, only included event types are eligible;
 2. `schema-changes.exclude` is then applied;
 3. **exclude wins** when a type appears in both lists.
+
+Runtime table registration events produced by `scan.binlog.newly-added-table.enabled` are control events and are never filtered by these lists; see [Newly Added Tables](#newly-added-tables).
 
 ```hocon
 source {
