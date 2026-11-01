@@ -64,6 +64,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -92,6 +93,13 @@ public class SeaTunnelServer
     private static final long COORDINATOR_ACTIVATION_POLL_MILLIS = 200L;
 
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
+
+    /**
+     * Default retention window for the local job log pruner. Must stay in sync with the {@code
+     * file_ttl} property used by the Log4j2 job appender in {@code config/log4j2*.properties} so
+     * that Log4j's rolling policy and the engine prune agree on segment lifetime.
+     */
+    private static final Duration DEFAULT_JOB_LOG_PRUNE_TTL = Duration.ofDays(7);
 
     @Getter private SeaTunnelEngineContext engineContext;
     @Getter private NodeEngineImpl nodeEngine;
@@ -199,6 +207,13 @@ public class SeaTunnelServer
                     new TaskLogManagerService(
                             seaTunnelConfig.getEngineConfig().getTelemetryConfig().getLogs());
             taskLogManagerService.initClean();
+            taskLogManagerService.startPrune(
+                    seaTunnelConfig
+                            .getEngineConfig()
+                            .getTelemetryConfig()
+                            .getLogs()
+                            .getJobLogPruneIntervalMinutes(),
+                    DEFAULT_JOB_LOG_PRUNE_TTL);
         }
 
         // Start Jetty server
@@ -286,6 +301,9 @@ public class SeaTunnelServer
         }
         if (coordinatorService != null) {
             coordinatorService.shutdown();
+        }
+        if (taskLogManagerService != null) {
+            taskLogManagerService.shutdown();
         }
         stopRealtimeMetricsService();
 
