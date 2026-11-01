@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | 名称                         | 类型      | 是否必须 | 默认值                 |
 |----------------------------|---------|------|---------------------|
 | path                       | string  | 是    | -                   |
-| file_format_type           | string  | 是    | -                   |
+| file_format_type           | string  | 视情况而定 | -                |
 | read_columns               | list    | 否    | -                   |
 | read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
@@ -121,6 +121,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `json`，您还应该指定 schema 选项来告诉连接器如何将数据解析为您想要的行。
+
+使用 `path` 读取单表时必填。使用 `tables_configs` 读取多表时，每个表条目都会定义自己的 `file_format_type`，无需在顶层配置该选项。
 
 例如：
 
