@@ -77,8 +77,11 @@ class OpenLineageBackendTest {
                 });
         server.start();
         try {
-            Map<String, Object> environment =
-                    Collections.singletonMap("OPENLINEAGE_AUTH_TOKEN", "test-token");
+            Map<String, Object> environment = new HashMap<>();
+            environment.put("OPENLINEAGE_AUTH_TOKEN", "test-token");
+            environment.put(
+                    "OPENLINEAGE_URL",
+                    "http://localhost:" + server.getAddress().getPort() + "/lineage");
             Map<String, Object> options = new HashMap<>();
             options.put(LineageConfig.ENABLED, true);
             options.put(

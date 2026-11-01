@@ -307,9 +307,10 @@ public final class LineageJobStatusHook implements JobStatusHook {
     private void emit(LineageEventType eventType, String flinkJobId) {
         try {
             LineageConfig runtimeConfig =
-                    config.withAuthToken(
-                            LineageConfig.resolveToken(
-                                    FlinkClusterOptions.load(), System.getenv()));
+                    LineageConfig.resolve(
+                            config.toNonSensitiveMap(),
+                            FlinkClusterOptions.load(),
+                            System.getenv());
             for (LineageEvent event : events) {
                 if (eventType == LineageEventType.RUNNING && terminal) {
                     // The terminal event owns this run from here on. Abandoning the rest of the

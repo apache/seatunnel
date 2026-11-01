@@ -88,6 +88,8 @@ final class FlinkLineageHooks {
             environment.registerJobListener(new OutputStatisticsListener(config, events));
         } catch (Throwable error) {
             LOGGER.warn("Failed to register Flink lineage result listener", error);
+            emitAbort(config, events);
+            return false;
         }
         return true;
     }
@@ -102,9 +104,10 @@ final class FlinkLineageHooks {
     private static void emitAbort(LineageConfig config, List<LineageEvent> events) {
         try {
             LineageConfig runtimeConfig =
-                    config.withAuthToken(
-                            LineageConfig.resolveToken(
-                                    FlinkClusterOptions.load(), System.getenv()));
+                    LineageConfig.resolve(
+                            config.toNonSensitiveMap(),
+                            FlinkClusterOptions.load(),
+                            System.getenv());
             for (LineageEvent event : events) {
                 LineageRuntime.emit(runtimeConfig, event.withEventType(LineageEventType.ABORT));
             }
@@ -185,9 +188,10 @@ final class FlinkLineageHooks {
         private void emit(
                 LineageEventType eventType, String flinkJobId, LineageOutputStatistics statistics) {
             LineageConfig runtimeConfig =
-                    config.withAuthToken(
-                            LineageConfig.resolveToken(
-                                    FlinkClusterOptions.load(), System.getenv()));
+                    LineageConfig.resolve(
+                            config.toNonSensitiveMap(),
+                            FlinkClusterOptions.load(),
+                            System.getenv());
             for (LineageEvent event : events) {
                 LineageEvent terminal =
                         statistics == null ? event : event.withOutputStatistics(statistics);

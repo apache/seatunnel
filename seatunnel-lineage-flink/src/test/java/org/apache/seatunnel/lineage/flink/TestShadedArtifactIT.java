@@ -30,9 +30,13 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Sends one event from a JVM that has only the shaded artifact and slf4j-api on its class path, the
@@ -54,6 +58,34 @@ import java.util.concurrent.TimeUnit;
  * <p>Run with {@code ./mvnw -pl seatunnel-lineage-flink -DskipUT -DskipIT=false verify}.
  */
 class TestShadedArtifactIT {
+
+    @Test
+    void refusesToRedirectAnEnvironmentTokenToTheJobReceiver() throws Exception {
+        BlockingQueue<String> bodies = new ArrayBlockingQueue<>(4);
+        AtomicReference<String> authorization = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    new CapturingHandler(bodies).handle(exchange);
+                });
+        server.start();
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            Map<String, String> environment = new HashMap<>();
+            environment.put("OPENLINEAGE_AUTH_TOKEN", "fixture-token");
+            environment.put("OPENLINEAGE_URL", base + "/trusted");
+            String rejected = run(base + "/job", environment, 1);
+            Assertions.assertNull(bodies.poll(), "a rejected receiver must not receive a request");
+            Assertions.assertFalse(rejected.contains("fixture-token"));
+            run(base + "/trusted", environment, 0);
+            Assertions.assertNotNull(bodies.poll(30, TimeUnit.SECONDS));
+            Assertions.assertEquals("Bearer fixture-token", authorization.get());
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test
     void emitsAValidEventWithNothingButTheShadedArtifact() throws Exception {
@@ -83,6 +115,11 @@ class TestShadedArtifactIT {
 
     /** Runs the driver in a JVM that sees only what a JobManager's lib/ would supply. */
     private static void run(String endpoint) throws Exception {
+        run(endpoint, Collections.emptyMap(), 0);
+    }
+
+    private static String run(String endpoint, Map<String, String> environment, int expectedExit)
+            throws Exception {
         String classPath =
                 new File("target/test-classes").getAbsolutePath()
                         + File.pathSeparator
@@ -97,11 +134,14 @@ class TestShadedArtifactIT {
                         ShadedArtifactDriver.class.getName(),
                         endpoint);
         builder.redirectErrorStream(true);
+        builder.environment().keySet().removeIf(key -> key.startsWith("OPENLINEAGE_"));
+        builder.environment().putAll(environment);
         Process process = builder.start();
         String output = read(process.getInputStream());
         Assertions.assertTrue(
                 process.waitFor(60, TimeUnit.SECONDS), "the driver JVM did not exit: " + output);
-        Assertions.assertEquals(0, process.exitValue(), output);
+        Assertions.assertEquals(expectedExit, process.exitValue(), output);
+        return output;
     }
 
     /** Locates the deployable artifact this module attaches during the package phase. */

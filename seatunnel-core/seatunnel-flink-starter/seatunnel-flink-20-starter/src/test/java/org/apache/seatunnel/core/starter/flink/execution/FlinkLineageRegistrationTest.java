@@ -37,6 +37,7 @@ import org.apache.flink.util.OptionalFailure;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -124,6 +125,43 @@ class FlinkLineageRegistrationTest {
         Assertions.assertFalse(
                 environment.getStreamGraph(false).getStreamNodes().isEmpty(),
                 "registration must not consume the transformations the job still needs");
+    }
+
+    @Test
+    void abortsStartedRunsWhenListenerRegistrationFails() {
+        StreamExecutionEnvironment environment = Mockito.spy(environmentWithOneSink());
+        Mockito.doThrow(new IllegalStateException("listener registration failed"))
+                .when(environment)
+                .registerJobListener(Mockito.any());
+
+        Assertions.assertNull(register(environment, RecordingLineageBackend.NAME));
+        Assertions.assertEquals(
+                Arrays.asList(LineageEventType.START, LineageEventType.ABORT),
+                recordedEventTypes());
+        Assertions.assertEquals(
+                RecordingLineageBackend.EVENTS.get(0).runId(),
+                RecordingLineageBackend.EVENTS.get(1).runId());
+        Assertions.assertFalse(environment.getStreamGraph(false).getStreamNodes().isEmpty());
+    }
+
+    @Test
+    void abortsStartedRunsWhenStatusHookRegistrationFails() {
+        StreamExecutionEnvironment environment = Mockito.spy(environmentWithOneSink());
+        StreamGraph graph = Mockito.mock(StreamGraph.class);
+        Mockito.doReturn(graph).when(environment).getStreamGraph(false);
+        Mockito.doThrow(new IllegalStateException("hook registration failed"))
+                .when(graph)
+                .registerJobStatusHook(Mockito.any());
+
+        Assertions.assertNull(register(environment, RecordingLineageBackend.NAME));
+        Assertions.assertEquals(
+                Arrays.asList(LineageEventType.START, LineageEventType.ABORT),
+                recordedEventTypes());
+        Assertions.assertEquals(
+                RecordingLineageBackend.EVENTS.get(0).runId(),
+                RecordingLineageBackend.EVENTS.get(1).runId());
+        Mockito.doCallRealMethod().when(environment).getStreamGraph(false);
+        Assertions.assertFalse(environment.getStreamGraph(false).getStreamNodes().isEmpty());
     }
 
     private static StreamExecutionEnvironment environmentWithOneSink() {

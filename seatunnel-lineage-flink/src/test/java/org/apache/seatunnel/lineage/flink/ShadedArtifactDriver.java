@@ -50,9 +50,7 @@ public final class ShadedArtifactDriver {
 
         LineageConfig config =
                 LineageConfig.resolve(
-                        options,
-                        Collections.<String, Object>emptyMap(),
-                        Collections.<String, Object>emptyMap());
+                        options, Collections.<String, Object>emptyMap(), System.getenv());
 
         LineageEvent event =
                 LineageEvent.builder()

@@ -117,6 +117,24 @@ class LineageConfigTest {
     }
 
     @Test
+    void rejectsJobReceiverOverridesWhenAClusterTokenIsConfigured() {
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.AUTH_TOKEN, "fixture-token");
+        cluster.put(LineageConfig.URL, "https://trusted.example/lineage");
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                LineageConfig.resolve(
+                                        Collections.singletonMap(
+                                                LineageConfig.URL, "https://job.example/lineage"),
+                                        cluster,
+                                        Collections.emptyMap()));
+        assertTrue(failure.getMessage().contains(LineageConfig.URL));
+        assertFalse(failure.getMessage().contains("fixture-token"));
+    }
+
+    @Test
     void tokenUsesOnlyEnvironmentThenCluster() {
         Map<String, Object> cluster =
                 Collections.singletonMap("openlineage.auth_token", "cluster-token");
@@ -129,6 +147,57 @@ class LineageConfigTest {
         LineageConfig config = LineageConfig.resolve(Collections.emptyMap(), cluster, environment);
         assertFalse(config.toString().contains("env-token"));
         assertFalse(config.withAuthToken(null).toMap().containsKey(LineageConfig.AUTH_TOKEN));
+    }
+
+    @Test
+    void bindsEnvironmentTokensToTrustedReceiverOptions() {
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put("openlineage.url", "https://cluster.example/lineage");
+        Map<String, Object> environment = new HashMap<>();
+        environment.put("OPENLINEAGE_AUTH_TOKEN", "fixture-token");
+        environment.put("OPENLINEAGE_URL", "https://environment.example/lineage");
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.URL, "https://environment.example/lineage");
+        LineageConfig config = LineageConfig.resolve(job, cluster, environment);
+        assertEquals("https://environment.example/lineage", config.url());
+        assertEquals("fixture-token", config.authToken());
+        job.put(LineageConfig.TRANSPORT, "job-backend");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> LineageConfig.resolve(job, cluster, environment));
+    }
+
+    @Test
+    void rejectsUntrustedReceiverWhenTokenAppearsOnlyAtExecutionTime() {
+        LineageConfig client =
+                LineageConfig.resolve(
+                        Collections.singletonMap(LineageConfig.URL, "https://job.example/lineage"),
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        LineageConfig.resolve(
+                                client.toNonSensitiveMap(),
+                                Collections.singletonMap(LineageConfig.AUTH_TOKEN, "fixture-token"),
+                                Collections.emptyMap()));
+        assertEquals("https://job.example/lineage", client.url());
+        assertFalse(client.toMap().containsKey(LineageConfig.AUTH_TOKEN));
+    }
+
+    @Test
+    void preservesAuthenticatedReceiverAcrossNonSensitiveRoundTrip() {
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put("openlineage.auth_token", "fixture-token");
+        cluster.put("openlineage.url", "https://trusted.example/lineage");
+        cluster.put(LineageConfig.TRANSPORT, null);
+        LineageConfig initial =
+                LineageConfig.resolve(Collections.emptyMap(), cluster, Collections.emptyMap());
+        LineageConfig restored =
+                LineageConfig.resolve(initial.toNonSensitiveMap(), cluster, Collections.emptyMap());
+        assertEquals(initial.url(), restored.url());
+        assertEquals(initial.transport(), restored.transport());
+        assertEquals("fixture-token", restored.authToken());
     }
 
     @Test

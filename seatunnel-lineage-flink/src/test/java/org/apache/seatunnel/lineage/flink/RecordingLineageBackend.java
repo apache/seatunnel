@@ -23,8 +23,10 @@ import org.apache.seatunnel.lineage.LineageEvent;
 import org.apache.seatunnel.lineage.LineageEventType;
 
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Captures the events a hook emits, so a test can assert on them without a receiver.
@@ -37,6 +39,7 @@ public final class RecordingLineageBackend implements LineageBackend {
 
     static final List<LineageEvent> EVENTS = new CopyOnWriteArrayList<>();
     static final List<LineageConfig> CONFIGS = new CopyOnWriteArrayList<>();
+    static final BlockingQueue<LineageEvent> EMISSIONS = new LinkedBlockingQueue<>();
 
     /**
      * Holds a heartbeat inside its send, the way an unreachable receiver does, so a test can assert
@@ -50,6 +53,7 @@ public final class RecordingLineageBackend implements LineageBackend {
     static void reset() {
         EVENTS.clear();
         CONFIGS.clear();
+        EMISSIONS.clear();
         HEARTBEAT_ENTERED = null;
         HEARTBEAT_RELEASE = null;
     }
@@ -74,5 +78,6 @@ public final class RecordingLineageBackend implements LineageBackend {
         }
         CONFIGS.add(config);
         EVENTS.add(event);
+        EMISSIONS.offer(event);
     }
 }

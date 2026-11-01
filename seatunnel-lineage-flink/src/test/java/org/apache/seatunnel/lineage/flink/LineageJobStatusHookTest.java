@@ -215,10 +215,8 @@ class LineageJobStatusHookTest {
 
         hook.onCreated(JOB_1);
 
-        long deadlineMs = System.currentTimeMillis() + 5000;
-        while (RecordingLineageBackend.EVENTS.size() < 2
-                && System.currentTimeMillis() < deadlineMs) {
-            Thread.sleep(10);
+        for (int i = 0; i < 2; i++) {
+            Assertions.assertNotNull(RecordingLineageBackend.EMISSIONS.poll(5, TimeUnit.SECONDS));
         }
         Assertions.assertTrue(
                 RecordingLineageBackend.EVENTS.size() >= 2,
@@ -240,7 +238,8 @@ class LineageJobStatusHookTest {
 
         // Several heartbeat intervals: a RUNNING arriving after the terminal event would reopen a
         // run the receiver has already closed.
-        Thread.sleep(300);
+        RecordingLineageBackend.EMISSIONS.clear();
+        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
         Assertions.assertEquals(
                 afterTerminal,
                 RecordingLineageBackend.EVENTS.size(),
@@ -255,8 +254,8 @@ class LineageJobStatusHookTest {
                         config(null, 0L), Collections.singletonList(event()), false);
 
         hook.onCreated(JOB_1);
-        Thread.sleep(150);
         awaitEmissions();
+        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(150, TimeUnit.MILLISECONDS));
 
         Assertions.assertTrue(
                 RecordingLineageBackend.EVENTS.isEmpty(),
@@ -307,7 +306,8 @@ class LineageJobStatusHookTest {
 
         // Heartbeats scheduled while the terminal event was being sent must find the run closed.
         int afterTerminal = RecordingLineageBackend.EVENTS.size();
-        Thread.sleep(300);
+        RecordingLineageBackend.EMISSIONS.clear();
+        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
         Assertions.assertEquals(
                 afterTerminal,
                 RecordingLineageBackend.EVENTS.size(),

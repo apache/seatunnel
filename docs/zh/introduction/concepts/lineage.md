@@ -37,6 +37,12 @@ Token 是例外：`openlineage_auth_token` 按 `OPENLINEAGE_AUTH_TOKEN` > 集群
 作业配置或将其序列化到 Flink JobGraph 之前执行此校验，即使血缘上报未启用也不例外。
 仅声明选项规则不会执行此校验。
 
+配置 token 后，接收端 URL 和 transport 按进程环境变量、集群配置、默认值解析。
+作业中的 URL 或 transport 必须与这些可信值一致，否则配置解析失败。请将接收端 URL
+与 token 一起放入可信配置，不要仅在作业中配置 URL。Flink 在 JobManager 重新解析凭据时
+也执行此校验，token 仍不会进入序列化的 JobGraph。未配置 token 时保留作业覆盖接收端的能力；
+这项保护不等于对所有出站网络地址的通用限制。
+
 血缘投递无条件是 best-effort，并且刻意不提供改变该行为的配置项。接收端或网络失败会在引擎
 集成边界被捕获并记录 warning，因此不可能改变数据处理作业的结果。
 
