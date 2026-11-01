@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,6 +44,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /** Runs the sink and every search API of the connector against an Elasticsearch 9 cluster. */
@@ -94,23 +96,35 @@ public class Elasticsearch9IT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkAndSearchApis(TestContainer testContainer) throws Exception {
+        // Start each engine without the index, so the documents checked below come from this run.
+        if (esRestClient.checkIndexExist(INDEX)) {
+            esRestClient.dropIndex(INDEX);
+        }
         assertJobSucceeds(testContainer, "/elasticsearch/fakesource_to_elasticsearch9.conf");
 
-        // The sink applied the insert, update and delete rows by primary key.
+        // The sink applied the insert, update and delete rows by primary key. Poll, because
+        // the written documents become searchable only after the next index refresh.
+        Map<String, Object> expected = new TreeMap<>();
+        expected.put("1", "a");
+        expected.put("2", "b2");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(expected, readNamesById()));
+
+        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_scroll.conf");
+        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_pit.conf");
+        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_sql.conf");
+    }
+
+    private Map<String, Object> readNamesById() {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
         ScrollResult result =
                 esRestClient.searchByScroll(INDEX, Arrays.asList("id", "name"), query, "1m", 100);
         Map<String, Object> names = new TreeMap<>();
         result.getDocs().forEach(doc -> names.put(doc.get("_id").toString(), doc.get("name")));
-        Map<String, Object> expected = new TreeMap<>();
-        expected.put("1", "a");
-        expected.put("2", "b2");
-        Assertions.assertEquals(expected, names);
-
-        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_scroll.conf");
-        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_pit.conf");
-        assertJobSucceeds(testContainer, "/elasticsearch/elasticsearch9_source_with_sql.conf");
+        return names;
     }
 
     private void assertJobSucceeds(TestContainer testContainer, String config) throws Exception {
