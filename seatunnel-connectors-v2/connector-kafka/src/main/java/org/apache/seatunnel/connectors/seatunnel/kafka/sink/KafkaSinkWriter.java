@@ -69,7 +69,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private static final int PREFIX_RANGE = 10000;
     private static final Pattern WRITER_NAMESPACE_PATTERN =
-            Pattern.compile("(g[0-9a-z]+)w(\\d+)((?:r\\d+)*)");
+            Pattern.compile("(g[0-9a-z]+)w(\\d+)(?:r(\\d+)c(\\d+))?");
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
@@ -272,7 +272,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             if (shouldRelocateWriterNamespace(adopted.writerNamespace, newWriterNamespace)) {
                 String relocatedWriterNamespace =
                         relocateWriterNamespace(
-                                adopted.writerNamespace, currentWriterIndex, restoredTransactions);
+                                adopted.writerNamespace, currentWriterIndex, adopted.checkpointId);
                 return new RestorePlan(
                         generateWriterTransactionPrefix(
                                 this.transactionPrefix, relocatedWriterNamespace),
@@ -312,25 +312,23 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             throw new IllegalStateException("Cannot compare Kafka writer namespaces");
         }
         return restoredMatcher.group(1).equals(newMatcher.group(1))
-                && restoredMatcher.group(3).isEmpty()
+                && restoredMatcher.group(3) == null
                 && !restoredWriterNamespace.equals(newWriterNamespace);
     }
 
     private static String relocateWriterNamespace(
-            String restoredWriterNamespace,
-            int currentWriterIndex,
-            List<RestoredTransaction> restoredTransactions) {
-        String relocatedWriterNamespace = restoredWriterNamespace + "r" + currentWriterIndex;
-        while (containsWriterNamespace(restoredTransactions, relocatedWriterNamespace)) {
-            relocatedWriterNamespace += "r" + currentWriterIndex;
+            String restoredWriterNamespace, int currentWriterIndex, long restoredCheckpointId) {
+        if (restoredCheckpointId < 0) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot relocate Kafka writer namespace [%s] from checkpoint [%d]",
+                            restoredWriterNamespace, restoredCheckpointId));
         }
-        return relocatedWriterNamespace;
-    }
-
-    private static boolean containsWriterNamespace(
-            List<RestoredTransaction> restoredTransactions, String writerNamespace) {
-        return restoredTransactions.stream()
-                .anyMatch(transaction -> writerNamespace.equals(transaction.writerNamespace));
+        // The checkpoint component is shared by every state in one restore attempt and advances
+        // before a relocated namespace can appear in a later checkpoint. A task retry therefore
+        // derives the same namespace, while a later rescale cannot recreate a relocation that was
+        // assigned to a sibling writer by that later checkpoint.
+        return restoredWriterNamespace + "r" + currentWriterIndex + "c" + restoredCheckpointId;
     }
 
     /**
@@ -403,6 +401,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 restoredPrefix,
                 writerNamespace,
                 transactionSequence,
+                state.getCheckpointId(),
                 legacy);
     }
 
@@ -426,6 +425,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         private final String transactionIdPrefix;
         private final String writerNamespace;
         private final long transactionSequence;
+        private final long checkpointId;
         private final boolean legacy;
 
         private RestoredTransaction(
@@ -433,11 +433,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 String transactionIdPrefix,
                 String writerNamespace,
                 long transactionSequence,
+                long checkpointId,
                 boolean legacy) {
             this.transactionPrefix = transactionPrefix;
             this.transactionIdPrefix = transactionIdPrefix;
             this.writerNamespace = writerNamespace;
             this.transactionSequence = transactionSequence;
+            this.checkpointId = checkpointId;
             this.legacy = legacy;
         }
     }
