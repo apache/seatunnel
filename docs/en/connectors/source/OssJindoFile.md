@@ -76,6 +76,7 @@ It only supports hadoop version **2.9.X+**.
 | skip_header_row_number     | long    | no       | 0                           |
 | schema                     | config  | no       | -                           |
 | sheet_name                 | string  | no       | -                           |
+| excel_use_header_line      | boolean | no       | false                       |
 | excel_engine               | string  | no       | POI                         |
 | poi_excel_max_file_size    | long    | no       | 52428800                    |
 | xml_row_tag                | string  | no       | -                           |

@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | producer.group | String | 否 | SeaTunnel-Producer-Group | RocketMQ 生产者组 ID。 |
 | tag | String | 否 | - | 写入每条消息时使用的 RocketMQ tag。 |
 | partition.key.fields | List | 否 | - | 会被序列化为 RocketMQ 消息 key 的字段名。配置的字段必须存在于上游 schema 中。 |
-| format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
+| format | enum | 否 | json | 消息格式。支持 `json` 和 `text`。 |
 | field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
 | producer.send.sync | Boolean | 否 | false | 是否同步发送消息。为 `false` 时异步发送。 |
 | exactly.once | Boolean | 否 | false | 是否使用事务消息实现精确一次写入。 |

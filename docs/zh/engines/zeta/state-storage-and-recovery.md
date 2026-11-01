@@ -13,9 +13,9 @@ SeaTunnel Engine（Zeta）在作业执行过程中会持久化多类状态数据
 |---|---|---|
 | Checkpoint（检查点）| 流水线算子状态的容错快照 | `seatunnel.yaml` `checkpoint.storage` 配置路径 |
 | Savepoint（保存点）| 用户手动触发的命名检查点，用于计划性停止或重启 | 与 Checkpoint 同路径，目录名不同 |
-| IMap / MapStore | 分布式内存状态（作业元数据、运行中作业数据、指标）| `hazelcast.yaml` MapStore base-dir |
-| WAL（预写日志）| IMap 持久化的耐久性日志 | 与 MapStore base-dir 相同 |
-| 历史作业元数据 | 已完成 / 失败作业记录 | MapStore base-dir |
+| IMap / MapStore | 分布式内存状态（作业元数据、运行中作业数据、指标）| `hazelcast.yaml` `map` MapStore 配置（可选，默认不持久化）|
+| WAL（预写日志）| 文件型 IMap 存储插件的追加写日志文件 | `<namespace>/<clusterName>/<businessName>/`（IMap 存储）|
+| 历史作业元数据 | 已完成 / 失败作业记录 | 与 IMap 存储位置相同 |
 
 ---
 
@@ -46,15 +46,21 @@ Checkpoint 在某一时间点捕获所有流水线算子状态的一致性快照
 seatunnel:
   engine:
     checkpoint:
-      interval: 10000              # 两次 Checkpoint 间隔（毫秒）
-      timeout: 60000               # Checkpoint 完成超时（毫秒）
-      max-concurrent: 1            # 最大并发 Checkpoint 数
-      tolerable-failure: 2         # 允许连续失败次数
+      interval: 10000              # 两次 Checkpoint 间隔（毫秒，默认 300000）
+      timeout: 60000               # Checkpoint 完成超时（毫秒，默认 30000）
+      min-pause: -1                # 两次 Checkpoint 之间的最小间隔（毫秒），-1 表示不启用
+      monitor-history-size: 32     # 每条流水线保留的 Checkpoint 历史条数（默认 32）
+      retain-after-job-cancelled: false   # 作业取消后是否保留 Checkpoint 数据
       storage:
-        type: hdfs                 # hdfs | localfile（已废弃）
+        type: hdfs                 # Checkpoint 存储插件：hdfs | localfile（默认 localfile，
+                                   # 已废弃，建议使用 hdfs 插件）
+        max-retained: 20           # 保留的最大 Checkpoint 数（默认 20）
         plugin-config:
           namespace: /seatunnel/checkpoint/    # 必须以 / 结尾
-          # S3 示例：
+          storage.type: hdfs       # hdfs 插件的后端文件系统：
+                                   # hdfs（默认）| local | s3 | oss | cos | gcs
+          fs.defaultFS: hdfs://localhost:9000  # storage.type 为 hdfs 时必填
+          # S3 示例（storage.type: s3）：
           # fs.s3a.endpoint: https://s3.amazonaws.com
           # fs.s3a.access.key: <your-access-key>
           # fs.s3a.secret.key: <your-secret-key>
@@ -64,8 +70,8 @@ seatunnel:
 
 ### Checkpoint 保留与清理
 
-- Checkpoint **不**受 `history-job-expire-minutes` 管理，必须手动清理或配置独立保留策略。
-- 每条流水线只保留最新 N 个 Checkpoint 的 Hazelcast 内存引用；作业异常终止时，旧目录可能残留在磁盘上。
+- Checkpoint **不**受 `history-job-expire-minutes` 管理，必须手动清理或使用下方的保留策略。
+- 只保留最新 `checkpoint.storage.max-retained` 个 Checkpoint（默认 20），更早的 Checkpoint 数据会被删除；作业异常终止时，旧目录可能残留在磁盘上。
 - 默认情况下，被取消的作业仍会清理 Checkpoint 数据。如果希望取消后的作业还能从最新成功完成的 Checkpoint 恢复，需要在历史作业取消前将
   作业 `env` 中的 `checkpoint.retain-after-job-cancelled` 或 `seatunnel.yaml` 中的
   `seatunnel.engine.checkpoint.retain-after-job-cancelled` 设置为 `true`。
@@ -79,7 +85,7 @@ seatunnel:
 
 | 维度 | Checkpoint | Savepoint |
 |---|---|---|
-| 触发方式 | 周期性 / 自动 | 手动（`seatunnel.sh -r <jobId> --savepoint`）|
+| 触发方式 | 周期性 / 自动 | 手动（`seatunnel.sh -s <jobId>`）|
 | 用途 | 容错恢复 | 计划性停止、升级、迁移 |
 | 生命周期 | 引擎管理 | 操作人员管理 |
 | 保留策略 | 自动轮转 | 手动删除前永久保留 |
@@ -87,8 +93,9 @@ seatunnel:
 ### 触发 Savepoint
 
 ```bash
-# 停止运行中的作业并创建 Savepoint
-$SEATUNNEL_HOME/bin/seatunnel.sh --stop-job <job-id> --savepoint
+# 为运行中的作业触发 Savepoint（Savepoint 完成后作业停止）
+$SEATUNNEL_HOME/bin/seatunnel.sh -s <job-id>
+# 长参数形式：--savepoint <job-id> 或 --savepoint-job <job-id>
 
 # 或通过 REST API v2
 curl -X POST http://<master>:8080/stop-job \
@@ -136,43 +143,46 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### IMap 存储的内容
 
-SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。以下逻辑映射会被持久化：
+SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。主要的逻辑映射包括：
 
 | IMap 名称 | 内容 |
 |---|---|
-| `running-job-state` | 每个运行中作业的状态机当前状态 |
-| `running-job-metrics` | 实时吞吐量、延迟和记录数指标 |
-| `running-pipeline-state` | 每条逻辑流水线的 Pipeline 级状态 |
-| `finished-job-state` | 已完成、已取消或失败作业的终态 |
-| `finished-job-metrics` | 作业终止后的最终指标快照 |
+| `engine_runningJobInfo` | 运行中作业的元数据（作业 ID、作业状态等）|
+| `engine_runningJobState` | 每个运行中作业及其流水线的状态机当前状态 |
+| `engine_runningJobMetrics` | 实时吞吐量、延迟和记录数指标 |
+| `engine_finishedJobState` | 已完成、已取消或失败作业的终态 |
+| `engine_finishedJobMetrics` | 作业终止后的最终指标快照 |
+| `engine_finishedJobVertexInfo` | 已完成作业的 Vertex 级信息 |
+| `engine_stateTimestamps` | 状态流转时间戳 |
 
 ### MapStore（磁盘持久化）
 
-Hazelcast MapStore 将 IMap 条目写入本地磁盘，使其在进程重启后可以恢复。这与 Checkpoint 存储**相互独立**。
+默认情况下，IMap 数据仅保存在集群内存中。通过 Hazelcast MapStore 可以将 IMap 条目写入文件系统，
+使其在整个集群重启后仍可恢复。它与 Checkpoint 存储**相互独立**，并且发行版自带的
+`config/hazelcast.yaml` 中**默认未启用**。
 
-默认存储路径在 `hazelcast.yaml` 中配置：
+如需启用，请在 `hazelcast.yaml` 中添加 `map` 配置。配置项名称支持 Hazelcast 的 `*`
+通配符，可同时覆盖所有引擎 IMap：
 
 ```yaml
+# hazelcast.yaml
 map:
-  seatunnel:
+  engine_*:
     map-store:
       enabled: true
-      initial-load-mode: EAGER
+      initial-mode: EAGER
+      class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
       properties:
-        hazelcast.fs.base-dir: /tmp/seatunnel/imap   # 绝对路径
-        hazelcast.fs.write-behind-delay-seconds: 1
+        type: hdfs                  # 后端文件系统：hdfs（默认）| s3 | oss | gcs
+        namespace: /seatunnel-imap  # IMap 文件根路径（默认 /seatunnel-imap）
+        clusterName: seatunnel      # 必填，用于集群隔离的路径段
+        businessName: seatunnel     # 必填，用于区分业务数据
+        fs.defaultFS: hdfs://localhost:9000   # type 为 hdfs 时必填
 ```
 
-MapStore 目录结构：
+注意：`engine_runningJobMetrics` 不会被持久化——运行时指标快照属于辅助观测状态。
 
-```
-<hazelcast.fs.base-dir>/
-  maps/
-    running-job-state/
-    running-job-metrics/
-    finished-job-state/
-    finished-job-metrics/
-```
+IMap 文件写入 `<namespace>/<clusterName>/<businessName>/` 目录。
 
 ### IMap、MapStore 与 Checkpoint 的关系
 
@@ -183,37 +193,18 @@ IMap / MapStore  <────────────────────�
 
 二者**完全独立**。删除 Checkpoint 存储不影响 IMap；反之亦然。
 作业可以从 Checkpoint 恢复，即使 IMap MapStore 已被清除——但作业 ID 和流水线映射需要**重新提交**，
-因为 `running-job-state` 已丢失。
+因为 `engine_runningJobState` 已丢失。
 
 ---
 
 ## 4. WAL（预写日志）
 
-Hazelcast 使用 WAL 保证 MapStore 的耐久性。WAL 文件累积在：
+文件型 IMap 存储插件（`imap-storage-file`）将 IMap 更新以追加写方式写入
+`<namespace>/<clusterName>/<businessName>/` 目录下的 WAL 文件，并周期性地将其归档为紧凑的 ORC 文件。
+WAL 用于保证 IMap 数据在进程崩溃时的耐久性；WAL 没有面向用户的压缩阈值或刷新间隔配置项。
 
-```
-<hazelcast.fs.base-dir>/
-  wal/
-    <imap-name>-<partition>.wal
-```
-
-### 长期运行 CDC 作业的 WAL 增长
-
-每次 CDC binlog 事件更新 `running-job-metrics` 或 `running-pipeline-state` 时，都会产生一次 WAL 写入。
-随着时间推移（数天或数周），如果出现以下情况，WAL 文件可能增长至数 GB：
-
-- `write-behind-delay-seconds` 设置过低（刷新频率过高）
-- 作业每秒处理数百万事件
-
-**缓解措施：**
-
-```yaml
-hazelcast.fs.write-behind-delay-seconds: 5   # 增大刷新间隔
-hazelcast.fs.compaction-threshold: 1000       # N 条写入后触发压缩
-```
-
-**已完成作业**的 WAL 文件在对应 IMap 条目已刷入 MapStore 文件后可以安全压缩或删除。
-**不要**删除运行中作业的 WAL 文件。
+**已完成作业**的 WAL 文件，可以在作业历史已过期且确认不会再从该作业恢复后删除。
+**不要**在作业运行期间手动删除 IMap 存储文件。
 
 ---
 
@@ -235,9 +226,9 @@ seatunnel:
 | 删除该作业的 MapStore 持久化文件 | **否**（过期记录仍保留在 IMap 存储文件中） |
 | 删除 Checkpoint 存储目录 | **否** |
 | 删除 Savepoint 目录 | **否** |
-| 删除 WAL 文件 | **否**（仅通过压缩间接处理）|
+| 删除 WAL 文件 | **否** |
 
-**核心结论**：`history-job-expire-minutes` 仅清理 `finished-job-state` 中的作业元数据。
+**核心结论**：`history-job-expire-minutes` 仅清理 `engine_finishedJobState` 中的作业元数据。
 HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**，必须独立管理。
 
 ---
@@ -268,8 +259,8 @@ HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**�
 
 每个运行中的 CDC 作业大约占用：
 
-- `running-job-state`：每条流水线约 50–200 字节
-- `running-job-metrics`：每次指标刷新每条流水线约 1–2 KB
+- `engine_runningJobState`：每条流水线约 50–200 字节
+- `engine_runningJobMetrics`：每次指标刷新每条流水线约 1–2 KB
 
 对于运行 100 个 CDC 作业的集群：
 
@@ -281,8 +272,8 @@ WAL 磁盘：建议每节点规划 2–5 GB
 使用以下命令持续监控：
 
 ```bash
-du -sh $SEATUNNEL_HOME/imap/wal/
-watch -n 60 'du -sh /tmp/seatunnel/imap/'
+du -sh <namespace>/<clusterName>/<businessName>/
+watch -n 60 'du -sh /seatunnel-imap/'
 ```
 
 ---
@@ -321,30 +312,29 @@ ls -lh /tmp/seatunnel/checkpoint/
 
 ### IMap / WAL 目录增长
 
-**现象**：`/tmp/seatunnel/imap/` 占满 Master / Worker 节点磁盘。
+**现象**：IMap 存储目录（如 `/seatunnel-imap/`）占满 Master / Worker 节点磁盘。
 
 **诊断**：
 
 ```bash
-du -sh /tmp/seatunnel/imap/wal/
-du -sh /tmp/seatunnel/imap/maps/
+du -sh <namespace>/<clusterName>/<businessName>/
 ```
 
 **可能根因**：
 
-- `running-job-metrics` 在每次 Checkpoint 时为每个运行中作业更新
-- `write-behind-delay-seconds` 过低（默认 1 秒）
-- WAL 压缩触发频率不足
+- `engine_runningJobMetrics` 与已完成作业条目的增长速度快于 `history-job-expire-minutes` 的清理速度
+- IMap 存储文件在两次归档之间为追加写，长期运行作业的频繁小量更新会推高磁盘占用
 
 **修复**：
 
 ```yaml
-# hazelcast.yaml
-hazelcast.fs.write-behind-delay-seconds: 10
-hazelcast.fs.compaction-threshold: 500
+# seatunnel.yaml —— 缩短已完成作业历史的保留时间
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1440
 ```
 
-重启引擎后，已完成作业的旧 WAL 文件将在启动时被压缩。
+作业过期后，对应的 IMap 条目会被移除，存储文件可在维护窗口内压缩或删除（手动删除后需重启引擎以触发重载）。
 
 ---
 

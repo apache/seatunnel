@@ -88,6 +88,7 @@ HugeGraph 定时刷新复用连接器现有的同步批量刷新。失败会直�
 |--------------------|---------------------|----------|---------|------|
 | `type`             | String              | 是       | -       | 要映射到的图元素类型。必须是 `VERTEX` 或 `EDGE`。 |
 | `label`            | String              | 是       | -       | HugeGraph 中顶点或边的标签。 |
+| `sourceTable`      | String              | 否       | -       | 在多表作业中将该 mapping 绑定到某个输入表。取值为上游表路径（如 `hugegraph.person`）；设置后该 mapping 仅在处理该表的 writer 中生效，否则对所有 writer 生效。要么所有 mapping 都设置、要么都不设置（ALL-or-NOTHING），混合配置会导致作业失败。 |
 | `properties`       | `List<String>`        | 否       | -       | 要写入 HugeGraph 属性的源字段名。为空时会考虑所有输入字段。 |
 | `ttl`              | Long                | 否       | -       | 顶点或边的生存时间，单位秒。 |
 | `ttlStartTime`     | String              | 否       | -       | TTL 的开始时间。 |

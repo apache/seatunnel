@@ -72,6 +72,8 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | time_format                | string  | 否   | HH:mm:ss                    |
 | schema                     | config  | 否   | -                           |
 | sheet_name                 | string  | 否   | -                           |
+| null_format                | string  | 否       | -                           |
+| excel_use_header_line      | boolean | 否       | false                       |
 | excel_engine               | string  | 否   | POI                         |
 | poi_excel_max_file_size    | long    | 否   | 52428800                    |
 | xml_row_tag                | string  | 否   | -                           |
