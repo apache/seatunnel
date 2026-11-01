@@ -46,7 +46,8 @@ SeaTunnel 默认将进程日志写入 `$SEATUNNEL_HOME/logs`。集群启动脚�
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-server.log" > job.log
+grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-master.log" \
+  "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
 ```
 
 如果启用了按作业路由，请检查 `job-<job-id>.log`。在多节点 Zeta 集群中，需要同时收集 Master 和执行该作业的 Worker 日志。当前 Master 还提供以下 REST 接口：
@@ -54,7 +55,7 @@ grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-server.log" > job.l
 ```text
 GET http://<master-host>:8080/logs/<job-id>
 GET http://<master-host>:8080/logs?format=json
-GET http://<node-host>:5801/log
+GET http://<node-host>:8080/log
 ```
 
 第一个接口从所有 Zeta 节点获取匹配的日志，最后一个接口读取单个节点的日志。如果配置了 context path 或动态 HTTP 端口，接口地址也会变化。完整行为请参阅 [RESTful API V2](rest-api-v2.md#获取所有节点日志内容)。
