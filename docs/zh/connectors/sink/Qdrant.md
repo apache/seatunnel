@@ -20,7 +20,7 @@ Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [多模态](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
