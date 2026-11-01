@@ -389,7 +389,8 @@ CDC collection supports a limited number of schema changes. The currently suppor
 
 * Adding columns.
 
-### Schema Evolution
+Example:
+
 ```hocon
 env {
   # You can set engine configuration here
