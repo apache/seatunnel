@@ -252,6 +252,21 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getDropTableSql(TablePath tablePath) {
+        return String.format("DROP TABLE %s", tablePath.getFullNameWithQuoted("\""));
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        return String.format("TRUNCATE TABLE %s", tablePath.getFullNameWithQuoted("\""));
+    }
+
+    @Override
+    protected String getExistDataSql(TablePath tablePath) {
+        return String.format("SELECT 1 FROM %s LIMIT 1", tablePath.getFullNameWithQuoted("\""));
+    }
+
+    @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return defaultUrl;
     }
