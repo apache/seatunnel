@@ -5,6 +5,15 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### OpenLineage: authenticated receiver overrides are restricted
+
+When an environment or cluster bearer token is configured, job-level `openlineage_url` and
+`openlineage_transport` must match the trusted receiver configuration. Conflicting job values now
+fail configuration resolution instead of redirecting trusted credentials. Move the receiver URL and
+transport into process environment or cluster configuration alongside the token, and remove conflicting
+job overrides. Unauthenticated receiver overrides and disabled-by-default reporting are unchanged.
+
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**

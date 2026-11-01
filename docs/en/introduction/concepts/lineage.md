@@ -40,6 +40,13 @@ The token is the exception to this rule. `openlineage_auth_token` is resolved as
 before persisting job configuration or serializing it into a Flink JobGraph, even when lineage
 reporting is disabled. The option rule alone does not enforce this validation.
 
+When a token is configured, the receiver URL and transport are resolved from process environment,
+cluster configuration, then defaults. A job-level URL or transport must match these trusted values;
+otherwise configuration resolution fails. Put the receiver URL beside the token in trusted
+configuration instead of only in the job. This check also applies when Flink re-resolves credentials
+on the JobManager. Tokens remain outside the serialized JobGraph. Without a token, job-level receiver
+overrides remain supported; this is not a general restriction on outbound network destinations.
+
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
 warning, so it can never change the outcome of the data-processing job.

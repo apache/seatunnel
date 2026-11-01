@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /** Immutable lineage configuration with per-option source precedence. */
 public final class LineageConfig implements Serializable {
@@ -121,9 +122,11 @@ public final class LineageConfig implements Serializable {
 
     /**
      * Resolves each option independently using job env, process env, cluster config, then defaults.
-     * The token deliberately skips job env and is rejected there instead. String map values accept
-     * the Flink forms {@code key:value,key2:value2} and {@code {key: value, key2: value2}}; an
-     * equals sign is also accepted for compatibility with common environment-variable syntax.
+     * The token deliberately skips job env and is rejected there instead. When a token is present,
+     * receiver URL and transport must come from trusted environment or cluster settings;
+     * conflicting job overrides are rejected. String map values accept the Flink forms {@code
+     * key:value,key2:value2} and {@code {key: value, key2: value2}}; an equals sign is also
+     * accepted for compatibility with common environment-variable syntax.
      */
     public static LineageConfig resolve(
             Map<String, ?> jobOptions, Map<String, ?> clusterOptions, Map<String, ?> environment) {
@@ -131,12 +134,16 @@ public final class LineageConfig implements Serializable {
         Map<String, ?> job = nonNull(jobOptions);
         Map<String, ?> cluster = nonNull(clusterOptions);
         Map<String, ?> env = nonNull(environment);
+        String token = asToken(env, cluster);
         return new LineageConfig(
                 asBoolean(first(job, env, cluster, ENABLED), ENABLED, false),
-                asString(first(job, env, cluster, TRANSPORT), TRANSPORT, DEFAULT_TRANSPORT),
-                asNullableString(first(job, env, cluster, URL)),
+                asString(
+                        receiverOption(job, env, cluster, TRANSPORT, DEFAULT_TRANSPORT, token),
+                        TRANSPORT,
+                        DEFAULT_TRANSPORT),
+                asNullableString(receiverOption(job, env, cluster, URL, null, token)),
                 asString(first(job, env, cluster, NAMESPACE), NAMESPACE, DEFAULT_NAMESPACE),
-                asToken(env, cluster),
+                token,
                 asInt(first(job, env, cluster, TIMEOUT_MS), TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
                 asInt(first(job, env, cluster, RETRY_TIMES), RETRY_TIMES, DEFAULT_RETRY_TIMES),
                 asString(first(job, env, cluster, RUN_FACET), RUN_FACET, DEFAULT_RUN_FACET),
@@ -300,6 +307,34 @@ public final class LineageConfig implements Serializable {
         }
         Lookup clusterValue = find(cluster, AUTH_TOKEN);
         return clusterValue.present ? asNullableString(clusterValue) : null;
+    }
+
+    private static Lookup receiverOption(
+            Map<String, ?> job,
+            Map<String, ?> environment,
+            Map<String, ?> cluster,
+            String key,
+            String defaultValue,
+            String token) {
+        if (token == null) {
+            return first(job, environment, cluster, key);
+        }
+        Lookup trusted = first(Collections.emptyMap(), environment, cluster, key);
+        Lookup override = find(job, key);
+        String trustedValue =
+                defaultValue == null
+                        ? asNullableString(trusted)
+                        : asString(trusted, key, defaultValue);
+        String jobValue =
+                defaultValue == null
+                        ? asNullableString(override)
+                        : asString(override, key, defaultValue);
+        if (override.present && !Objects.equals(jobValue, trustedValue)) {
+            throw new IllegalArgumentException(
+                    key
+                            + " must match the environment or cluster receiver when an auth token is configured");
+        }
+        return trusted;
     }
 
     private static Lookup first(
