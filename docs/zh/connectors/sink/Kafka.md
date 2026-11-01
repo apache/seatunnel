@@ -95,7 +95,7 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
 
-同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加一个不透明的 Writer 命名空间和连续的事务序号，生成 Kafka 事务 ID（`<prefix>-<writer>-<sequence>`），既避免并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。Writer 部分在任务重试期间保持稳定，但由于命名空间可以跨并行度调整继续使用，因此不保证等于当前 subtask 索引。恢复或调整并行度时，每个 Writer 会在继续使用或按确定性规则迁移一个命名空间之前，清理恢复状态分配给它的所有未完成事务命名空间；没有状态的 Writer 会获得一个不会与已迁移命名空间重叠的新命名空间。恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务。checkpoint 状态格式保持不变。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。
+同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加一个不透明的 Writer 命名空间和连续的事务序号，生成 Kafka 事务 ID（`<prefix>-<writer>-<sequence>`），既避免并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。Writer 部分在任务重试期间保持稳定，但由于命名空间可以跨并行度调整继续使用，因此不保证等于当前 subtask 索引。在 Zeta 和 Flink 上进行恢复或调整并行度时，每个 Writer 会在继续使用或按确定性规则迁移一个命名空间之前，清理恢复状态分配给它的所有未完成事务命名空间；没有状态的 Writer 会获得一个不会与已迁移命名空间重叠的新命名空间。恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务。checkpoint 状态格式保持不变。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。
 
 ### 分区关键字段
 
