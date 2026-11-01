@@ -83,7 +83,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | hash_key_parse_mode | string | no       | all           | Hash key parse mode: `all` or `kv` |
 | read_key_enabled    | boolean| no       | false         | Include Redis key in output |
 | key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | no       | -             | Field name for single-value types |
+| single_field_name   | string | yes for single-value types (string, list, set, zset) when read_key_enabled = true | -  | Field name for the Redis value |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
@@ -176,8 +176,12 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `list`, `set`, or `zset`) with `read_key_enabled = true`,
-you must specify `single_field_name` to map the value to a schema column. `key_field_name` is optional and defaults to `key`.
+If you set `read_key_enabled = true` in a single-table configuration, you must
+also specify `single_field_name`, regardless of the data type. For single-value
+Redis data types (such as `string`, `list`, `set`, or `zset`) it maps the value
+to a schema column, and reading fails without it. `key_field_name` is optional
+and defaults to `key`. Entries of `tables_configs` are not affected by this
+validation: there `single_field_name` is only needed for single-value types.
 
 When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
@@ -357,11 +361,15 @@ The schema fields of redis data. For more details, please refer to [Schema Featu
 
 ### single_field_name [string]
 
-Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., `string`, `int`).
+Specifies the field name for Redis values when `read_key_enabled = true`. In a
+single-table configuration this option is required whenever
+`read_key_enabled = true`, no matter which `data_type` is configured. For single
+primitive values (e.g., `string`, `int`) it names the schema column the value is
+mapped to, and reading fails without it.
 
-This name is used in the schema to map the value field.
-
-**Note:** This option has no effect when reading complex Redis data types such as hashes or objects that can be directly mapped to a schema.
+**Note:** For complex Redis data types such as hashes, the value fields come
+from the hash structure and the option is only enforced by the single-table
+configuration validation described above.
 
 Example :
 ```hocon

@@ -43,14 +43,17 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | INT<br/>INTEGER                                                             | INT                 |
 | BIGINT                                                                      | LONG                |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
-| DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, 18)     |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES               |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP           |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ        |
+| BINARY<br/>VARBINARY                                                        | BYTES               |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
+
+When the sink creates a table, a SeaTunnel `DECIMAL(p, s)` column with `p > 38` is reduced to precision 38, with the scale reduced by the same overflow. SeaTunnel `BYTES` columns are created as Snowflake `GEOMETRY`.
 
 ## Sink Options
 
@@ -61,6 +64,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | username                                  | String  | No       | -       | Username for the Snowflake account.                                                                                                                                                        |
 | password                                  | String  | No       | -       | Password for the Snowflake account.                                                                                                                                                        |
 | query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no `MERGE` upsert).                                |
+| generate_sink_sql                         | Boolean | No       | false   | Whether to generate sink SQL from `database`, `table` and `primary_keys` instead of using `query`.                                                                                |
 | database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/`MERGE` SQL. Mutually exclusive with `query`; when both are set, `query` wins.                       |
 | table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
 | primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build a `MERGE` upsert statement.                                                    |
