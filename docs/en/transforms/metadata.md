@@ -22,7 +22,10 @@ The Metadata transform plugin is used to extract metadata information from data 
 |    Metadata Key    | Output Type |          Description          | Data Source |
 |:---------:|:--------:|:-----------------------------:|:----:|
 | Database  |  string  |  Name of the database containing the data  | All connectors |
+| Schema | string | Relational schema or owner name only. It is not database-qualified or table-qualified. | PostgreSQL-CDC, Opengauss-CDC, Oracle-CDC, SQLServer-CDC |
 |   Table   |  string  |  Name of the table containing the data  | All connectors |
+| Collection | string | MongoDB collection name only. | MongoDB-CDC |
+| Namespace | string | Source-native combined namespace. For MongoDB-CDC this is `database.collection`. | MongoDB-CDC |
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
@@ -88,6 +91,28 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. The generic Markdown bridge removes the complete query and fragment from hierarchical remote URIs; a source whose identity depends on a query must provide a stable, non-sensitive path.
 8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
 9. **Projection collisions**: An output name cannot duplicate an existing physical field. Because enabled Markdown already contains physical `source_uri` and `document_id`, project the logical values to aliases such as `ks_source_uri` and `ks_document_id`.
+
+### CDC Source Identifier Contract
+
+CDC identifier metadata uses the following stable SeaTunnel field semantics:
+
+Unavailable identifiers remain absent; they are not filled with placeholders or duplicated values.
+
+| Metadata Key | Semantics |
+|:-------------|:----------|
+| Database | Logical database name only. It must not contain schema, table, collection, or namespace composition. |
+| Schema | Relational schema or owner name only. It is absent when the backend has no schema concept. |
+| Table | Physical table name only. It must not be database-qualified or schema-qualified. |
+| Collection | Document collection name only. |
+| Namespace | Source-native combined namespace string. For MongoDB-CDC, this is `database.collection`. |
+
+Connector coverage for the first delivery:
+
+| Connector | Identifier Metadata |
+|:----------|:--------------------|
+| MySQL-CDC / TiDB-CDC | `Database`, `Table` |
+| PostgreSQL-CDC / Opengauss-CDC / Oracle-CDC / SQLServer-CDC | `Database` where available, `Schema`, `Table` |
+| MongoDB-CDC | `Database`, `Collection`, `Namespace` |
 
 ### Markdown Source Bridge
 
@@ -291,7 +316,43 @@ sink {
 }
 ```
 
-### Example 3: Kafka record time for partitioning
+### Example 3: CDC structured source identifiers
+
+For relational CDC connectors that expose a schema or owner, project `Database`, `Schema`, and
+`Table` separately instead of parsing a composed table identifier.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "postgres_cdc"
+    plugin_output = "postgres_with_source"
+    metadata_fields {
+      Database = source_database
+      Schema = source_schema
+      Table = source_table
+    }
+  }
+}
+```
+
+For MongoDB-CDC, project collection-oriented identifiers. `Namespace` is the native
+`database.collection` string.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "mongodb_cdc"
+    plugin_output = "mongodb_with_source"
+    metadata_fields {
+      Database = source_database
+      Collection = source_collection
+      Namespace = source_namespace
+    }
+  }
+}
+```
+
+### Example 4: Kafka record time for partitioning
 
 Expose Kafka `ConsumerRecord.timestamp` (injected into `EventTime`) as `kafka_ts`, convert it to a partition field, and write to Hive. This pattern is useful when replaying Kafka data and aligning partitions by the original record time.
 
@@ -359,7 +420,7 @@ sink {
 
 Here `pt` is derived from the Kafka event time and can be used as a Hive partition column.
 
-### Example 4: Combine Metadata and Sql to extract table suffixes and add a load date
+### Example 5: Combine Metadata and Sql to extract table suffixes and add a load date
 
 When the upstream CDC source uses sharded tables such as monthly or daily tables, a common pattern
 is to expose the `Table` metadata as a regular field first, then use `Sql` to derive the shard
