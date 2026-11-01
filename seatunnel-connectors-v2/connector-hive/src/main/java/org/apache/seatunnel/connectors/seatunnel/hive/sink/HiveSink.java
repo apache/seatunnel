@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -52,15 +53,18 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.orc.CompressionKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.COMPRESS_CODEC;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_NAME_EXPRESSION;
@@ -165,6 +169,7 @@ public class HiveSink
         sinkFields.addAll(partitionKeys);
 
         FileFormat fileFormat = HiveTableUtils.parseFileFormat(tableInformation);
+        pluginConfig = inheritTableCompression(pluginConfig, fileFormat, tableInformation);
         switch (fileFormat) {
             case TEXT:
                 Map<String, String> parameters =
@@ -222,6 +227,41 @@ public class HiveSink
 
         return new FileSinkConfig(
                 ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
+    }
+
+    private Config inheritTableCompression(
+            Config pluginConfig, FileFormat fileFormat, Table table) {
+        if (!readonlyConfig.get(HiveSinkOptions.USE_TABLE_COMPRESSION)
+                || fileFormat != FileFormat.ORC
+                || pluginConfig.hasPath(COMPRESS_CODEC.key())) {
+            return pluginConfig;
+        }
+        Map<String, String> parameters = table.getParameters();
+        String codec = parameters == null ? null : parameters.get("orc.compress");
+        if (codec == null || codec.trim().isEmpty()) {
+            return pluginConfig;
+        }
+        CompressFormat compression;
+        try {
+            compression = CompressFormat.valueOf(codec.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new HiveConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "Unsupported orc.compress '%s' for Hive table %s.%s",
+                            codec, table.getDbName(), table.getTableName()),
+                    e);
+        }
+        if (compression != CompressFormat.NONE
+                && compression.getOrcCompression() == CompressionKind.NONE) {
+            throw new HiveConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "Unsupported orc.compress '%s' for Hive table %s.%s",
+                            codec, table.getDbName(), table.getTableName()));
+        }
+        return pluginConfig.withValue(
+                COMPRESS_CODEC.key(), ConfigValueFactory.fromAnyRef(compression.name()));
     }
 
     @Override
