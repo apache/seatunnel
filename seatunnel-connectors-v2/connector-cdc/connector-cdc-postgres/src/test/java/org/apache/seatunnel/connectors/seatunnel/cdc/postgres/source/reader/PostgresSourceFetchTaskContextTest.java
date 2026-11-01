@@ -39,6 +39,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -58,6 +59,18 @@ public class PostgresSourceFetchTaskContextTest {
                             .with(PostgresConnectorConfig.PLUGIN_NAME, PLUGIN_NAME)
                             .with("database.server.name", "postgres_cdc_source")
                             .build());
+
+    @Test
+    public void testExactTableIncludeListQuotesRegexMetacharacters() {
+        String tableIncludeList =
+                PostgresSourceFetchTaskContext.exactTableIncludeList(
+                        new TableId(null, "public", "order$archive"));
+        Pattern tablePattern = Pattern.compile(tableIncludeList);
+
+        Assertions.assertTrue(tablePattern.matcher("public.order$archive").matches());
+        Assertions.assertFalse(tablePattern.matcher("public.order").matches());
+        Assertions.assertFalse(tablePattern.matcher("public.orderXarchive").matches());
+    }
 
     @Test
     public void testSnapshotterIsInitializedBeforeItIsAsked() throws SQLException {
