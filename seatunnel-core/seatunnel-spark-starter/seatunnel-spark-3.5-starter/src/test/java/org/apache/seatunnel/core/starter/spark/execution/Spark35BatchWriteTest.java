@@ -57,6 +57,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Exercises commit coordination and a finite file stream through the Spark 3.5 sink adapter.
+ *
+ * <p>This does not cover streaming through the public starter or checkpoint restore.
+ */
 public class Spark35BatchWriteTest {
 
     @TempDir Path tempDir;

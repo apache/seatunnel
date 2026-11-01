@@ -28,7 +28,8 @@ sidebar_position: 4
 ## 步骤 3: 添加作业配置文件来定义作业
 
 Spark 3.5 请编辑 `config/v2.batch.config.template`，并设置 `job.mode = "BATCH"`。
-Spark 3.5.8 的微批流处理尚未验证，因此流处理模板不是已验证的 Spark 3.5 示例。
+Spark 3.5.8 的有界微批测试覆盖行编码器和流式 Sink 适配器。通过公共启动器执行流处理和
+检查点恢复仍未验证，因此流处理模板不是已验证的 Spark 3.5 示例。
 现有 Spark 2.4/3.3 部署可以继续使用下文所示的 `config/v2.streaming.conf.template`。
 下面是配置文件的示例，它与上面提到的示例应用程序相同。
 
@@ -109,8 +110,8 @@ Spark 3.4.x
 
 Spark 3.5.x
 
-请先运行批处理作业。Spark 3.5.8 的专项微批流处理验证尚未完成，因此 Spark 3.5
-的快速开始不使用流处理模板。
+请先运行批处理作业。有界微批 Sink 适配器测试不验证通过公共启动器执行流处理或
+检查点恢复，因此 Spark 3.5 的快速开始不使用流处理模板。
 
 ```shell
 cd "apache-seatunnel-${version}"

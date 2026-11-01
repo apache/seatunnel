@@ -28,8 +28,10 @@ see [Getting Started: Standalone](https://spark.apache.org/docs/latest/spark-sta
 ## Step 3: Add Job Config File To Define A Job
 
 For Spark 3.5, edit `config/v2.batch.config.template` with `job.mode = "BATCH"`.
-Spark 3.5.8 micro-batch streaming has not been validated; the streaming template is
-not a verified Spark 3.5 example. Existing Spark 2.4/3.3 deployments can continue
+The bounded Spark 3.5.8 micro-batch test covers the row encoder and streaming sink
+adapter. Streaming through the public starter and checkpoint restore remain
+unvalidated, so the streaming template is not a verified Spark 3.5 example. Existing
+Spark 2.4/3.3 deployments can continue
 using `config/v2.streaming.conf.template` as shown below.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
@@ -110,8 +112,9 @@ separate Spark 3.4 starter and no new Spark 3.4 compatibility validation.
 
 Spark 3.5.x
 
-Start with a batch job. Dedicated Spark 3.5.8 micro-batch streaming validation is still
-pending; the streaming template is not part of this quick start for Spark 3.5.
+Start with a batch job. The bounded micro-batch sink-adapter test does not validate
+streaming through the public starter or checkpoint restore; the streaming template
+is not part of this quick start for Spark 3.5.
 
 ```shell
 cd "apache-seatunnel-${version}"

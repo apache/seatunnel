@@ -4,7 +4,7 @@
 
 ## Description
 
-The RowKindExtractor transform plugin is used to convert CDC (Change Data Capture) data streams into Append-Only mode while extracting the original RowKind information as a new field.
+The RowKindExtractor transform plugin is used to convert CDC (Change Data Capture) data streams into Append-Only mode while extracting the original RowKind information as a new field. Only the branch handled by this plugin becomes INSERT, while other branches keep their original CDC RowKind.
 
 **Core Features:**
 - Converts all data rows' RowKind to `+I` (INSERT), achieving Append-Only mode
@@ -24,10 +24,12 @@ Input (CDC data):
   RowKind: -D (DELETE)
   Data: id=1, name="test1", age=20
 
-Output (Append-Only data):
+Output (Append-Only data, with the default `transform_type = SHORT`):
   RowKind: +I (INSERT)
-  Data: id=1, name="test1", age=20, row_kind="DELETE"
+  Data: id=1, name="test1", age=20, row_kind="-D"
 ```
+
+With `transform_type = FULL`, the field stores the full name instead: `row_kind="DELETE"`.
 
 **Typical Use Cases:**
 - Writing CDC data to data lakes that only support Append mode

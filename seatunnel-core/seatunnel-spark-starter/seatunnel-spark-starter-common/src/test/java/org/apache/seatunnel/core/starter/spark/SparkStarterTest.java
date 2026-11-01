@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+/** Checks starter selection and the legacy versus raw-argument launcher protocols. */
 class SparkStarterTest {
 
     @TempDir Path tempDir;

@@ -72,8 +72,9 @@ kubectl get pods -l app=seatunnel,component=worker
 
 更新镜像或配置时，StatefulSet 会按顺序滚动更新 Pod。建议：
 
-- 配置 `preStop` 调用 `stop-seatunnel-cluster.sh`。
+- 容器 `command` 直接运行 `seatunnel-cluster.sh`，不要通过 `/bin/sh -c` 包装，使 JVM 能收到 SIGTERM。
 - 设置足够长的 `terminationGracePeriodSeconds`。
+- 通过 `preStop` 调用 `stop-seatunnel-cluster.sh` 是可选的，仅在 `command` 必须保留 `/bin/sh -c` 时需要。参见 [健康检查和停止](hybrid-cluster-mode.md#健康检查和停止)。
 - 更新前确认 Master 副本数和 Worker slot 余量。
 - 避免在高峰期同时更新 Master 和 Worker。
 - 如果配置文件通过 `subPath` 挂载，ConfigMap 更新不会自动同步到容器内，需要执行滚动重启或通过 Reloader 等工具触发重启。

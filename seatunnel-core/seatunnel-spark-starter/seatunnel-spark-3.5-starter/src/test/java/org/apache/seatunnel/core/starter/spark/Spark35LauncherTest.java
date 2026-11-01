@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+/** Verifies launcher argument and exit-code handling without submitting a Spark job. */
 public class Spark35LauncherTest {
 
     @TempDir Path tempDir;

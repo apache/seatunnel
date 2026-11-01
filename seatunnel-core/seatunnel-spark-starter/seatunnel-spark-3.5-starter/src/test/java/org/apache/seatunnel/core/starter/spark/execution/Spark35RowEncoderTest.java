@@ -25,6 +25,7 @@ import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+/** Checks row-encoder construction against the Spark 3.5 runtime. */
 public class Spark35RowEncoderTest {
 
     @Test

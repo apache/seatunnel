@@ -42,6 +42,11 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
+/**
+ * Checks the packaged starter and real-JVM launcher boundary.
+ *
+ * <p>Platform-specific cases run only on their native OS; no case submits a Spark job.
+ */
 class TestSpark35StarterJarContentIT {
 
     private static final String WINDOWS_LAUNCHER = "start-seatunnel-spark-3.5-connector-v2.cmd";

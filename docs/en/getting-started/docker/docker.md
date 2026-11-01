@@ -40,7 +40,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 ```shell
 cd seatunnel
 # Use already sett maven profile
-sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=3.0.1 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=3.1.0 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -53,10 +53,10 @@ sh ./mvnw clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.0.1 -t apache/seatunnel:3.0.1 .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.0 -t apache/seatunnel:3.1.0 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.0.1-SNAPSHOT -t apache/seatunnel:3.0.1-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.0-SNAPSHOT -t apache/seatunnel:3.1.0-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -140,8 +140,10 @@ For Spark 3.5.x, use `start-seatunnel-spark-3.5-connector-v2.sh` instead. The co
 ```shell
 # flink version between `1.12.x` and `1.14.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-13-connector-v2.sh -c config/v2.streaming.conf.template'
-# flink version between `1.15.x` and `1.16.x`
+# flink version between `1.15.x` and `1.18.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
+# flink version `1.20.x`
+docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-20-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
 
 
@@ -235,12 +237,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -250,10 +250,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -265,10 +262,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -285,7 +279,7 @@ run `docker-compose up -d` command to start the cluster.
 
 
 You can run `docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1` to check the node log.
-And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
+And when you call `http://localhost:8080/system-monitoring-information`, you will see there are 3 nodes (1 master and 2 workers) as we expected.
 
 After that, you can use client or restapi to submit job to this cluster.
 
@@ -302,12 +296,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -317,10 +309,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -332,10 +321,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -350,10 +336,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801,seatunnel_worker_3:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
