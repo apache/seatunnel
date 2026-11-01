@@ -355,6 +355,8 @@ PDF 特有的解析行为如下：
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
 
+两种引擎读取数值列（TINYINT、SMALLINT、INT、BIGINT、FLOAT、DOUBLE 或 DECIMAL）时，数值单元格和公式的数值结果都按存储的数值读取，而不是显示文本：显示为 `50%` 的单元格读取为 `0.5`。DOUBLE 和 FLOAT 列得到精确的 `double`。整数列和 DECIMAL 列会去掉计算产生的二进制误差，因此计算得到的 `7.999999999999999` 与 Excel 显示一致读作 `8`；整数值以及存有 16 或 17 位真实数字的数值保留全部位数。STRING 列仍读取数值单元格的显示文本。DECIMAL 列也可以读取文本单元格，且不经过 `double`；在不丢失任何位数时 DECIMAL 按声明的 scale 读取（`decimal(20, 4)` 中的 `5000.0` 读作 `5000.0000`）。
+
 ### excel_use_header_line [boolean]
 
 仅用于 `file_format_type` 为 `excel` 的源。默认值为 `false`，因此即使设置了 `skip_header_row_number`，Excel 仍按列位置读取。

@@ -192,6 +192,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 提示：excel 类型不支持任何压缩格式
 
+Excel 以 `double` 存储数值。DECIMAL 值能从数值单元格原样读回时（`double` 能精确表示的大多数值）写成数值单元格，否则写成文本单元格，因此同一个 DECIMAL 列中可能同时有两种单元格，`SUM` 等 Excel 公式会跳过文本单元格。如果需要整列使用同一种单元格，请在 Sink 之前通过 [SQL 转换](../../transforms/sql.md) 进行转换：`CAST(col AS DOUBLE)` 写成数值单元格，并按 `double` 舍入；`CAST(col AS STRING)` 写成文本单元格，保留全部位数。
+
 ### 常见选项
 
 Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sink-common-options.md) 获取详细信息。

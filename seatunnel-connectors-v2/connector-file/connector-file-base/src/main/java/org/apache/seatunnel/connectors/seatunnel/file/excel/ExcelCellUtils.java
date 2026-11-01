@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,6 +30,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.poi.ss.util.NumberToTextConverter;
 
 import com.alibaba.excel.enums.CellDataTypeEnum;
 import com.alibaba.excel.metadata.Cell;
@@ -63,6 +66,15 @@ public class ExcelCellUtils implements Serializable {
                             SqlType.FLOAT,
                             SqlType.DOUBLE,
                             SqlType.DECIMAL));
+
+    /**
+     * The largest distance, in units in the last place, between a stored number and the text Excel
+     * shows for it that is taken as computation noise rather than real digits.
+     */
+    private static final int NOISE_ULPS = 4;
+
+    /** The most significant digits the value Excel shows for a noisy number can have. */
+    private static final int NOISE_MAX_SHOWN_DIGITS = 13;
 
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
@@ -112,6 +124,57 @@ public class ExcelCellUtils implements Serializable {
                 && ((ReadCellData<?>) cellRaw).getOriginalNumberValue() != null;
     }
 
+    /**
+     * The text of a number stored in an Excel cell that is read into a numeric column. DOUBLE and
+     * FLOAT columns keep the exact double, and so does an integral value in any column. Integer and
+     * DECIMAL columns take the text Excel shows for the number (15 significant digits) when the
+     * stored value differs from it only by the binary noise of a computation: {@code (0.1 + 0.7) *
+     * 10} is stored as {@code 7.999999999999999}, which would truncate to {@code 7} in an INT
+     * column and carry the noise into a DECIMAL. A value stored with 16 or 17 real digits is kept
+     * exact.
+     */
+    public static String numberText(double value, SqlType sqlType) {
+        String exact = Double.toString(value);
+        if (sqlType == SqlType.DOUBLE || sqlType == SqlType.FLOAT || value == Math.rint(value)) {
+            return exact;
+        }
+        String shown = NumberToTextConverter.toText(value);
+        return isComputationNoise(value, shown) ? shown : exact;
+    }
+
+    /**
+     * Whether a stored number is the value Excel shows plus the binary noise of a computation: it
+     * is within {@link #NOISE_ULPS} of the shown value, and the shown value has at most {@link
+     * #NOISE_MAX_SHOWN_DIGITS} significant digits, so the digits Excel dropped were a run of zeros
+     * or nines. A value with 16 real digits rounds to a 15 digit shown value and is not noise.
+     */
+    private static boolean isComputationNoise(double value, String shown) {
+        return new BigDecimal(shown).stripTrailingZeros().precision() <= NOISE_MAX_SHOWN_DIGITS
+                && Math.abs(Double.parseDouble(shown) - value) <= NOISE_ULPS * Math.ulp(value);
+    }
+
+    /**
+     * Gives a decimal the scale of its column when that does not change its value and the result
+     * fits the column precision, so that a number cell ({@code 5000.0}) and a text cell ({@code
+     * 5000.0000}) of a {@code decimal(20, 4)} column read alike. Any other value is returned as it
+     * is, so no digit is rounded away; the bound also keeps a value with a large exponent, such as
+     * {@code 1E+2147483647}, from being expanded.
+     */
+    private static BigDecimal toDeclaredScale(BigDecimal value, DecimalType decimalType) {
+        int scale = decimalType.getScale();
+        if (value.signum() == 0) {
+            return BigDecimal.ZERO.setScale(scale);
+        }
+        // precision - scale does not change when trailing zeros are stripped, so check the bound
+        // first: stripping the zeros of a value such as 1000E+2147483647 would underflow the scale
+        long integerDigits = (long) value.precision() - value.scale();
+        if (integerDigits + scale > decimalType.getPrecision()) {
+            return value;
+        }
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.scale() > scale ? value : stripped.setScale(scale);
+    }
+
     @SneakyThrows(JsonProcessingException.class)
     public Object convert(Object field, SeaTunnelDataType<?> fieldType, @Nullable Cell cellRaw) {
         if (field == null && cellRaw == null) {
@@ -123,11 +186,11 @@ public class ExcelCellUtils implements Serializable {
         String fieldValue;
         if (isNumericCell(cellRaw, sqlType)) {
             // The original value is the stored text, which Excel may write with 17 significant
-            // digits (5.555 as 5.5549999999999997). Use the shortest text of the same double, as
-            // the POI engine does.
+            // digits (5.555 as 5.5549999999999997). Read the same double as the POI engine does.
             fieldValue =
-                    Double.toString(
-                            ((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue());
+                    numberText(
+                            ((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue(),
+                            sqlType);
         } else if (field instanceof String || cellRaw == null) {
             fieldValue = field.toString();
         } else {
@@ -167,7 +230,7 @@ public class ExcelCellUtils implements Serializable {
                 return (short) Double.parseDouble(fieldValue);
             case DECIMAL:
                 // Parse the text directly: going through double drops digits beyond ~15
-                return new BigDecimal(fieldValue.trim());
+                return toDeclaredScale(new BigDecimal(fieldValue.trim()), (DecimalType) fieldType);
             case DATE:
                 return parseDate(field, fieldType);
             case TIME:

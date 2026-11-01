@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -631,7 +632,7 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(1234567890123L, rows.get(0).getField(2));
         // A numeric cell read into a string column keeps its displayed text
         Assertions.assertEquals("42", rows.get(0).getField(3));
-        // The sink writes a decimal that a double cannot hold as a text cell
+        // A text cell holding a decimal that a double cannot hold is parsed in full
         Assertions.assertEquals(new BigDecimal("9215784885957046.9450"), rows.get(1).getField(1));
     }
 
@@ -671,12 +672,153 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(values.length, rows.size());
         for (int i = 0; i < values.length; i++) {
             Assertions.assertEquals(values[i][0], rows.get(i).getField(0), "c_double row " + i);
-            // compareTo: the number cell path keeps the value but not trailing zeros of the scale
-            BigDecimal expected = (BigDecimal) values[i][1];
-            BigDecimal actual = (BigDecimal) rows.get(i).getField(1);
-            Assertions.assertEquals(
-                    0, expected.compareTo(actual), "c_decimal row " + i + ": " + actual);
+            // Number and text cells both read with the declared scale of 4
+            Assertions.assertEquals(values[i][1], rows.get(i).getField(1), "c_decimal row " + i);
         }
+    }
+
+    /**
+     * A decimal is read with the declared scale only when no digit is lost: a value with more
+     * fractional digits, or one that does not fit the declared precision, is kept as it is.
+     */
+    @Test
+    public void testDecimalReadsWithDeclaredScaleWithoutRounding() throws IOException {
+        File excelFile = File.createTempFile("excel_decimal_scale_", ".xlsx");
+        excelFile.deleteOnExit();
+        String[] cells = {
+            "12.5", "0", "1.123456", "123456789012345678", "1E+2147483647", "1000E+2147483647"
+        };
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            sheet.createRow(0).createCell(0).setCellValue("c_decimal");
+            for (int i = 0; i < cells.length; i++) {
+                sheet.createRow(i + 1).createCell(0).setCellValue(cells[i]);
+            }
+            workbook.write(output);
+        }
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "schema { fields { c_decimal = \"decimal(20, 4)\" } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(cells.length, rows.size());
+        Assertions.assertEquals(new BigDecimal("12.5000"), rows.get(0).getField(0));
+        Assertions.assertEquals(new BigDecimal("0.0000"), rows.get(1).getField(0));
+        Assertions.assertEquals(new BigDecimal("1.123456"), rows.get(2).getField(0));
+        Assertions.assertEquals(new BigDecimal("123456789012345678"), rows.get(3).getField(0));
+        Assertions.assertEquals(new BigDecimal("1E+2147483647"), rows.get(4).getField(0));
+        Assertions.assertEquals(new BigDecimal("1000E+2147483647"), rows.get(5).getField(0));
+    }
+
+    /**
+     * A computed value carries binary noise: {@code (0.1 + 0.7) * 10} is stored as {@code
+     * 7.999999999999999} and {@code 0.1 + 0.2} as {@code 0.30000000000000004}. Integer and DECIMAL
+     * columns read the 15-digit value Excel shows, a DOUBLE column keeps the exact double. The
+     * noise comes from formula results and from number cells written by other tools alike; a value
+     * stored with 16 or 17 real digits is not rounded.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testComputedNumbersReadAsExcelShowsThem(String excelEngine) throws IOException {
+        File excelFile = File.createTempFile("excel_computed_numbers_", ".xlsx");
+        excelFile.deleteOnExit();
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("c_bigint");
+            header.createCell(1).setCellValue("c_decimal");
+            header.createCell(2).setCellValue("c_double");
+            Row formulas = sheet.createRow(1);
+            formulas.createCell(0).setCellFormula("(0.1+0.7)*10");
+            formulas.createCell(1).setCellFormula("0.1+0.2");
+            formulas.createCell(2).setCellFormula("0.1+0.2");
+            Row numbers = sheet.createRow(2);
+            numbers.createCell(0).setCellValue((0.1 + 0.7) * 10);
+            numbers.createCell(1).setCellValue(0.1 + 0.2);
+            numbers.createCell(2).setCellValue(0.1 + 0.2);
+            Row realDigits = sheet.createRow(3);
+            realDigits.createCell(0).setCellValue(123456789012345.67);
+            realDigits.createCell(1).setCellValue(1234567.890123456);
+            realDigits.createCell(2).setCellValue(1234567.890123456);
+            // Within 4 ulp of Excel's 15-digit text, but the dropped digits are not noise
+            Row leadingNine = sheet.createRow(4);
+            leadingNine.createCell(0).setCellValue(98765432109876.99);
+            leadingNine.createCell(1).setCellValue(9.876543210987654);
+            leadingNine.createCell(2).setCellValue(9.876543210987654);
+            // EasyExcel reads the cached formula result, so store it
+            workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
+            workbook.write(output);
+        }
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_bigint = bigint,"
+                                + " c_decimal = \"decimal(20, 9)\", c_double = double } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(4, rows.size());
+        for (int i = 0; i < 2; i++) {
+            Assertions.assertEquals(8L, rows.get(i).getField(0), "c_bigint row " + i);
+            Assertions.assertEquals(
+                    new BigDecimal("0.300000000"), rows.get(i).getField(1), "c_decimal row " + i);
+            Assertions.assertEquals(0.1 + 0.2, rows.get(i).getField(2), "c_double row " + i);
+        }
+        // Truncated as before, not rounded to the 15-digit 123456789012346
+        Assertions.assertEquals(123456789012345L, rows.get(2).getField(0));
+        Assertions.assertEquals(new BigDecimal("1234567.890123456"), rows.get(2).getField(1));
+        Assertions.assertEquals(1234567.890123456, rows.get(2).getField(2));
+        Assertions.assertEquals(98765432109876L, rows.get(3).getField(0));
+        Assertions.assertEquals(new BigDecimal("9.876543210987654"), rows.get(3).getField(1));
+        Assertions.assertEquals(9.876543210987654, rows.get(3).getField(2));
+    }
+
+    /**
+     * Both engines read the stored double of {@code .xls} number cells and the cached result of a
+     * formula. {@code 1/3} has 16 significant digits, one more than Excel's text of the result.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testXlsReadKeepsNumericPrecision(String excelEngine) throws IOException {
+        File excelFile = File.createTempFile("excel_numeric_precision_", ".xls");
+        excelFile.deleteOnExit();
+        try (HSSFWorkbook workbook = new HSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("c_double");
+            header.createCell(1).setCellValue("c_decimal");
+            header.createCell(2).setCellValue("c_formula");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(10.285714285);
+            row.createCell(1).setCellValue(1012345.6699);
+            row.createCell(2).setCellFormula("1/3");
+            // EasyExcel reads the cached formula result, so store it
+            workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
+            workbook.write(output);
+        }
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_double = double,"
+                                + " c_decimal = \"decimal(20, 4)\", c_formula = double } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(10.285714285, rows.get(0).getField(0));
+        Assertions.assertEquals(new BigDecimal("1012345.6699"), rows.get(0).getField(1));
+        Assertions.assertEquals(1.0 / 3, rows.get(0).getField(2));
     }
 
     /**
@@ -705,8 +847,7 @@ public class ExcelReadStrategyTest {
         List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
 
         Assertions.assertEquals(1, rows.size());
-        Assertions.assertEquals(
-                0, new BigDecimal("1012345.6699").compareTo((BigDecimal) rows.get(0).getField(0)));
+        Assertions.assertEquals(new BigDecimal("1012345.6699"), rows.get(0).getField(0));
         Assertions.assertEquals(10.285714285, rows.get(0).getField(1));
     }
 
