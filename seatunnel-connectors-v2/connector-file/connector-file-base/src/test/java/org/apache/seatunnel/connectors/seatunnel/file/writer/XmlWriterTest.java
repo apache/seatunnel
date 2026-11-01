@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -27,19 +32,29 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.XmlWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -131,11 +146,81 @@ public class XmlWriterTest {
                 xml.contains("<c_row>1,2026-01-02,10:13:00,2026-01-02 10:13:00</c_row>"), xml);
     }
 
+    /**
+     * What the sink writes with its default formats is read back unchanged by the XML source with
+     * its default formats. Before the fix the source failed to parse {@code 2026-01-02T10:13}.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDefaultFormatsRoundTripThroughXmlSource(boolean useAttrFormat)
+            throws IOException {
+        when(fileSinkConfig.getXmlUseAttrFormat()).thenReturn(useAttrFormat);
+        SeaTunnelRow secondRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            2,
+                            LocalDate.of(2026, 12, 31),
+                            LocalTime.of(23, 59, 59),
+                            LocalDateTime.of(2026, 12, 31, 23, 59, 59)
+                        });
+
+        List<SeaTunnelRow> rows = readBack(write(ROW, secondRow), useAttrFormat);
+
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertArrayEquals(ROW.getFields(), rows.get(0).getFields());
+        Assertions.assertArrayEquals(secondRow.getFields(), rows.get(1).getFields());
+    }
+
     private String write() throws IOException {
+        return write(ROW);
+    }
+
+    private String write(SeaTunnelRow... rows) throws IOException {
         XmlWriter writer = new XmlWriter(fileSinkConfig, Arrays.asList(0, 1, 2, 3), ROW_TYPE);
-        writer.writeData(ROW);
+        for (SeaTunnelRow row : rows) {
+            writer.writeData(row);
+        }
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         writer.flushAndCloseXmlWriter(output);
         return new String(output.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    /** Reads the XML with the XML source, using the source defaults for all date/time formats. */
+    private static List<SeaTunnelRow> readBack(String xml, boolean useAttrFormat)
+            throws IOException {
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "xml_row_tag = \"RECORD\"\n"
+                                + "xml_use_attr_format = "
+                                + useAttrFormat
+                                + "\n"
+                                + "schema { fields { id = int, c_date = date, c_time = time,"
+                                + " c_timestamp = timestamp } }");
+        XmlReadStrategy readStrategy = new XmlReadStrategy();
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        readStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+        RowCollector collector = new RowCollector();
+        readStrategy.readProcess(
+                new FileSourceSplit("xml", "round_trip.xml"),
+                collector,
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)),
+                Collections.emptyMap(),
+                "round_trip.xml");
+        return collector.rows;
+    }
+
+    private static class RowCollector implements Collector<SeaTunnelRow> {
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+
+        @Override
+        public void collect(SeaTunnelRow record) {
+            rows.add(record);
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return this;
+        }
     }
 }
