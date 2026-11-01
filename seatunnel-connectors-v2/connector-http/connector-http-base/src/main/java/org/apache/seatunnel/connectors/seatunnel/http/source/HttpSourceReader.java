@@ -51,6 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -498,7 +499,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
         }
-        deserializationCollector.collect(contentData.getBytes(), output);
+        deserializationCollector.collect(contentData.getBytes(StandardCharsets.UTF_8), output);
     }
 
     private List<List<String>> decodeJSON(String data) {
