@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkDataWriterFactory;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
@@ -36,12 +40,14 @@ import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Optional;
 
 import static org.apache.spark.sql.types.DataTypes.BooleanType;
 import static org.apache.spark.sql.types.DataTypes.ByteType;
@@ -54,8 +60,37 @@ import static org.apache.spark.sql.types.DataTypes.NullType;
 import static org.apache.spark.sql.types.DataTypes.ShortType;
 import static org.apache.spark.sql.types.DataTypes.StringType;
 import static org.apache.spark.sql.types.DataTypes.TimestampType;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class SparkSinkTest {
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void shouldUseStablePartitionIdForSinkWriterContext() throws Exception {
+        SeaTunnelSink<SeaTunnelRow, Object, Object, Object> sink = mock(SeaTunnelSink.class);
+        SinkWriter<SeaTunnelRow, Object, Object> writer = mock(SinkWriter.class);
+        when(sink.createWriter(org.mockito.ArgumentMatchers.any())).thenReturn(writer);
+        when(sink.createCommitter()).thenReturn(Optional.empty());
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        SeaTunnelSparkDataWriterFactory<Object, Object> factory =
+                new SeaTunnelSparkDataWriterFactory<>(
+                        sink, new CatalogTable[] {catalogTable}, "job-id", 4);
+
+        factory.createWriter(2, 99L);
+
+        ArgumentCaptor<SinkWriter.Context> contextCaptor =
+                ArgumentCaptor.forClass(SinkWriter.Context.class);
+        verify(sink).createWriter(contextCaptor.capture());
+        assertEquals(2, contextCaptor.getValue().getIndexOfSubtask());
+        assertEquals(4, contextCaptor.getValue().getNumberOfParallelSubtasks());
+    }
 
     @Test
     public void testSparkSinkWriteDataWithCopy() {

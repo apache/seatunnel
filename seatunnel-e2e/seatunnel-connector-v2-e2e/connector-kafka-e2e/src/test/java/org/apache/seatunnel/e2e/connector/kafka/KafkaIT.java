@@ -2158,15 +2158,23 @@ public class KafkaIT extends AbstractKafkaIT {
         String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
-        List<String> exactlyOnceVariables =
-                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
-        createKafkaTopic(producerTopic);
+        List<String> initialVariables =
+                new ArrayList<>(
+                        buildExactlyOnceStreamingVariables(
+                                producerTopic, consumerTopic, consumerGroup));
+        initialVariables.add("parallelism=3");
+        List<String> restoredVariables =
+                new ArrayList<>(
+                        buildExactlyOnceStreamingVariables(
+                                producerTopic, consumerTopic, consumerGroup));
+        restoredVariables.add("parallelism=2");
+        createKafkaTopic(producerTopic, 3);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceData);
+        for (int i = 0; i < 12; i++) {
+            sendTextRecordAndWait(producerTopic, i % 3, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2175,7 +2183,7 @@ public class KafkaIT extends AbstractKafkaIT {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables.toArray(new String[0]));
+                                initialVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -2189,7 +2197,7 @@ public class KafkaIT extends AbstractKafkaIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
+                                        checkData(consumerTopic, sinkStartOffset, 12, sourceData)));
 
         // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
@@ -2197,8 +2205,8 @@ public class KafkaIT extends AbstractKafkaIT {
         String sourceDataRestore = "Seatunnel Exactly Once Example Restore";
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceDataRestore);
+        for (int i = 0; i < 12; i++) {
+            sendTextRecordAndWait(producerTopic, i % 3, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2207,7 +2215,7 @@ public class KafkaIT extends AbstractKafkaIT {
                         container.restoreJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables.toArray(new String[0]));
+                                restoredVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -2222,7 +2230,7 @@ public class KafkaIT extends AbstractKafkaIT {
                                         checkData(
                                                 consumerTopic,
                                                 restoreStartOffset,
-                                                10,
+                                                12,
                                                 sourceDataRestore)));
     }
 
@@ -2285,6 +2293,53 @@ public class KafkaIT extends AbstractKafkaIT {
     }
 
     @TestTemplate
+    public void shouldWriteEveryRecordWithParallelExactlyOnceWriters(TestContainer container)
+            throws Exception {
+        // SeaTunnel-13044: both nonempty writers share one configured transaction prefix.
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String sourceTopic = "parallel_exactly_once_source_" + suffix;
+        String sinkTopic = "parallel_exactly_once_sink_" + suffix;
+        createKafkaTopic(sourceTopic, 2);
+        createKafkaTopic(sinkTopic);
+        Set<String> expected = new HashSet<>();
+        for (int i = 0; i < 100; i++) {
+            String value = "record-" + i;
+            expected.add(value);
+            producer.send(
+                            new ProducerRecord<>(
+                                    sourceTopic,
+                                    i % 2,
+                                    null,
+                                    value.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+        }
+
+        Container.ExecResult result =
+                container.executeJob(
+                        "/kafka/kafka_to_kafka_parallel_exactly_once_batch.conf",
+                        Arrays.asList(
+                                "sourceTopic=" + sourceTopic,
+                                "sinkTopic=" + sinkTopic,
+                                "transactionPrefix=parallel-exactly-once-" + suffix));
+
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Awaitility.await()
+                .atMost(Duration.ofMinutes(2))
+                .untilAsserted(
+                        () -> {
+                            List<String> actual = getKafkaConsumerListData(sinkTopic, 0);
+                            Assertions.assertEquals(
+                                    expected,
+                                    new HashSet<>(actual),
+                                    "Every source record must be visible to read_committed");
+                            Assertions.assertEquals(
+                                    expected.size(),
+                                    actual.size(),
+                                    "No source record may be duplicated");
+                        });
+    }
+
+    @TestTemplate
     public void testKafkaToKafkaExactlyOnceOnBatch(TestContainer container)
             throws InterruptedException, IOException {
         String producerTopic = "kafka_topic_exactly_batch_once_1";
@@ -2338,8 +2393,13 @@ public class KafkaIT extends AbstractKafkaIT {
      * issues surface immediately instead of appearing later as assertion flakes.
      */
     private void sendTextRecordAndWait(String topicName, String data) {
+        sendTextRecordAndWait(topicName, null, data);
+    }
+
+    private void sendTextRecordAndWait(String topicName, Integer partition, String data) {
         ProducerRecord<byte[], byte[]> record =
-                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+                new ProducerRecord<>(
+                        topicName, partition, null, data.getBytes(StandardCharsets.UTF_8));
         try {
             producer.send(record).get();
         } catch (InterruptedException e) {
@@ -2668,7 +2728,11 @@ public class KafkaIT extends AbstractKafkaIT {
      * <p>Each registered topic is removed during class cleanup.
      */
     private void createKafkaTopic(String topicName) {
-        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        createKafkaTopic(topicName, 1);
+    }
+
+    private void createKafkaTopic(String topicName, int partitions) {
+        NewTopic topic = new NewTopic(topicName, partitions, (short) 1);
         topic.configs(Collections.singletonMap("retention.ms", "-1"));
         try (AdminClient adminClient = createKafkaAdmin()) {
             adminClient.createTopics(Collections.singletonList(topic)).all().get();

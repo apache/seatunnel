@@ -23,6 +23,12 @@
   - **影响**：对同一输入，新写入的值可能与早期版本写入的值在最后三位微秒上不同。数据集中已有的行不会被重写，因此同一个数据集中可能同时存在两种值。毫秒精度的列，以及没有毫秒以下数字的值，不受影响。
   - **迁移指南**：无需修改配置。如果下游需要把新写入的行与早期版本写入的行进行比较或去重，请按毫秒精度比较，或从数据源重新写入旧数据。
 
+### Kafka Sink：Writer 独立的事务 ID
+
+使用 `semantics = EXACTLY_ONCE` 时，事务 ID 从 `<transaction_prefix>-<checkpoint>` 改为包含不透明 Writer 命名空间和连续事务序号的 `<transaction_prefix>-<writer>-<sequence>`。Writer 部分在任务重试期间保持稳定，但由于命名空间可以跨并行度调整继续使用，因此不保证等于当前 subtask 索引。这样既防止共享配置前缀的并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。配置项和 checkpoint 序列化格式保持不变。
+
+如果 Kafka 事务 ID 的 ACL 或监控规则依赖旧的 ID 格式，请相应调整。恢复 checkpoint 前应停止旧的作业实例；恢复或调整并行度时，会清理 checkpoint 分配给当前 Writer 的所有未完成事务命名空间，包括本次变更之前的 ID。每个并发作业仍应使用不同的配置前缀。
+
 ### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
 
 MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），不再通过 `java.sql.Timestamp` 转换。当 Worker JVM 与 JDBC 连接的时区不同时，受影响的版本可能导致 `DATETIME` 值偏移，或拒绝合法的边界值。现在写入会保留本地字段及目标列支持的小数秒精度。`DATETIME` 的源端映射和 `TIMESTAMP_TZ` 的处理保持不变。
