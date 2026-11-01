@@ -79,6 +79,7 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getStartupOffset(),
                 getStopOffset(),
                 incrementalSplit.getCompletedSnapshotSplitInfos(),
+                incrementalSplit.getTableStartOffsets(),
                 new ArrayList<>(),
                 new HashMap<>(),
                 pendingTableStartupOffsets());
