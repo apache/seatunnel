@@ -87,6 +87,7 @@ Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and 
 | custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
 | multi_table_sink_replica               | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
+| flush_row_size                         | long    | no       | -                            | Rotate a sink writer after it has handled this many rows, instead of keeping it open until the next checkpoint. Bounds the writer memory of large upsert and CDC loads. Must be greater than 0. Please refer to `flush_row_size` below.                                                                     |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
@@ -116,6 +117,27 @@ Use a comma-separated list, for example `dt,region` or Iceberg transforms such a
 ### iceberg.table.commit-branch [string]
 
 Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### flush_row_size [long]
+
+By default a sink writer keeps its task writer open until the next checkpoint. With a primary key (`iceberg.table.primary-keys`, upsert mode or a CDC source), the task writer remembers every key it has written so that a later change of the same row can be written as a position delete, and only frees them when it is completed. A large batch load with a long checkpoint interval, or a batch job that only checkpoints at the end, can therefore run out of memory.
+
+Set `flush_row_size` to complete the task writer after it has handled this many rows and start a new one. This closes the current files early and releases the remembered keys, so the writer memory no longer grows with the number of rows per checkpoint. When it is not set, the writer is only rotated at checkpoints, as before.
+
+Equality deletes written after a rotation must apply to rows written before it, which Iceberg only does for files committed in an earlier snapshot. So when a checkpoint contains equality deletes written after a rotation, it is committed as several snapshots in the order the task writers were completed, instead of one. Readers can see these snapshots one by one; each of them holds a prefix of the changes of the checkpoint. A job restored from that checkpoint only commits the snapshots that are missing. Append-only writes are still committed as one snapshot per checkpoint. The snapshots of one checkpoint are committed one after another before the checkpoint completes, so a very small value also makes checkpoints take longer.
+
+Smaller values use less memory but produce more and smaller files. A rotation completes the files of all open partitions of a partitioned table, not only of the current one. In upsert mode every row writes an equality delete, so every rotation becomes its own snapshot: a checkpoint is committed as about (rows per writer in the checkpoint / `flush_row_size`) snapshots. CDC writes split a checkpoint at each rotation that is followed by updates or deletes. Too small a value can therefore bloat the table metadata and slow down planning; keep it large, for example a few hundred thousand to a few million rows, and expire old snapshots regularly.
+
+```hocon
+sink {
+  Iceberg {
+    ...
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    flush_row_size = 1000000
+  }
+}
+```
 
 ### custom_sql [string]
 
