@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 描述
 
-将数据写入 Hive。
+将数据写入 Hive 表。连接器使用 Hive Metastore 管理表，并将数据文件（text、parquet、ORC）写入 HDFS（或配置后的 S3/OSS）。文件格式由目标 Hive 表的 `STORED AS` 设置决定。默认使用两阶段提交，每个 checkpoint 要么整体提交、要么整体回滚。
 
 :::tip 提示
 
