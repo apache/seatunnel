@@ -69,6 +69,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -379,9 +380,31 @@ public class CheckpointCoordinatorFailoverIT {
                                     + " one pipeline (pipelineId=%d, before=%d, after=%d)",
                             observedPipelineId.get(), ckIdBefore.get(), ckIdAfter.get()));
 
+            CheckpointCoordinator recoveredCoordinator =
+                    getJobMaster(masterNode2, jobId)
+                            .getCheckpointManager()
+                            .getCheckpointCoordinator(observedPipelineId.get());
+            Assertions.assertNotNull(recoveredCoordinator);
             clientJobProxy.cancelJob();
             // Recovery must also resolve cancellation through the job completion future.
             Assertions.assertEquals(JobStatus.CANCELED, clientJobProxy.waitForJobComplete());
+            // Check before member shutdown, which would otherwise hide a replacement scheduler.
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                ScheduledExecutorService scheduler =
+                                        (ScheduledExecutorService)
+                                                ReflectionUtils.getField(
+                                                                recoveredCoordinator, "scheduler")
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        new IllegalStateException(
+                                                                                "Missing checkpoint scheduler"));
+                                Assertions.assertTrue(
+                                        scheduler.isShutdown(),
+                                        "A canceled recovered pipeline must not recreate its scheduler");
+                            });
         } finally {
             if (engineClient != null) {
                 engineClient.close();

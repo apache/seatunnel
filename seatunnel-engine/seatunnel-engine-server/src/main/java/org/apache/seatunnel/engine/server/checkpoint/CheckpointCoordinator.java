@@ -71,7 +71,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -238,18 +238,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        this.scheduler =
-                Executors.newScheduledThreadPool(
-                        2,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setName(
-                                    String.format(
-                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                            return thread;
-                        });
-        ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
-        this.scheduler = MDCTracer.tracing(scheduler);
+        this.scheduler = createScheduler();
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.actionParallelism = getActionParallelism(plan.getSubtaskActions());
@@ -297,6 +286,27 @@ public class CheckpointCoordinator {
                 updateStatus(CheckpointCoordinatorStatus.RUNNING);
             }
         }
+    }
+
+    /**
+     * Builds a live 2-thread scheduler for this coordinator.
+     *
+     * <p>Only called from the constructor and from a {@code CHECKPOINT_COORDINATOR_RESET} cleanup:
+     * a terminal coordinator must not get a replacement scheduler, or its threads outlive the job.
+     */
+    private ScheduledExecutorService createScheduler() {
+        ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(
+                        2,
+                        runnable -> {
+                            Thread thread = new Thread(runnable);
+                            thread.setName(
+                                    String.format(
+                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                            return thread;
+                        });
+        executor.setRemoveOnCancelPolicy(true);
+        return MDCTracer.tracing(executor);
     }
 
     public int getPipelineId() {
@@ -549,23 +559,32 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
-        scheduler.schedule(
-                () -> {
-                    try {
-                        tryTriggerPendingCheckpoint(checkpointType);
-                    } catch (Throwable e) {
-                        // A thrown trigger would otherwise drop the scheduled checkpoint chain
-                        // silently; fail the coordinator so the job can handle the error.
-                        handleCoordinatorError(
-                                String.format(
-                                        "Failed to trigger %s for job id: %s, pipeline id: %s",
-                                        checkpointType, jobId, pipelineId),
-                                e,
-                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
-                    }
-                },
-                delayMills,
-                TimeUnit.MILLISECONDS);
+        try {
+            scheduler.schedule(
+                    () -> {
+                        try {
+                            tryTriggerPendingCheckpoint(checkpointType);
+                        } catch (Throwable e) {
+                            // Preserve failure propagation from a scheduled trigger on shutdown
+                            // races.
+                            handleCoordinatorError(
+                                    String.format(
+                                            "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                            checkpointType, jobId, pipelineId),
+                                    e,
+                                    CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                        }
+                    },
+                    delayMills,
+                    TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            // Terminal cleanup keeps the scheduler shut down; a concurrent trigger may arrive late.
+            LOG.info(
+                    "Job {} pipeline {} scheduler is already shut down, skip scheduling a {} checkpoint.",
+                    jobId,
+                    pipelineId,
+                    checkpointType);
+        }
     }
 
     /**
@@ -1061,26 +1080,38 @@ public class CheckpointCoordinator {
                             checkpointTimeout =
                                     coordinatorConfig.getSchemaChangeCheckpointTimeout();
                         }
-                        pendingCheckpoint.setCheckpointTimeOutFuture(
-                                scheduler.schedule(
-                                        () -> {
-                                            // If any task is not acked within the checkpoint
-                                            // timeout
-                                            if (pendingCheckpoints.get(
-                                                                    pendingCheckpoint
-                                                                            .getCheckpointId())
-                                                            != null
-                                                    && !pendingCheckpoint.isFullyAcknowledged()) {
-                                                LOG.info(
-                                                        "timeout checkpoint: {}",
-                                                        pendingCheckpoint.getInfo());
-                                                handleCoordinatorError(
-                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
-                                                        null);
-                                            }
-                                        },
-                                        checkpointTimeout,
-                                        TimeUnit.MILLISECONDS));
+                        try {
+                            pendingCheckpoint.setCheckpointTimeOutFuture(
+                                    scheduler.schedule(
+                                            () -> {
+                                                // If any task is not acked within the checkpoint
+                                                // timeout
+                                                if (pendingCheckpoints.get(
+                                                                        pendingCheckpoint
+                                                                                .getCheckpointId())
+                                                                != null
+                                                        && !pendingCheckpoint
+                                                                .isFullyAcknowledged()) {
+                                                    LOG.info(
+                                                            "timeout checkpoint: {}",
+                                                            pendingCheckpoint.getInfo());
+                                                    handleCoordinatorError(
+                                                            CheckpointCloseReason
+                                                                    .CHECKPOINT_EXPIRED,
+                                                            null);
+                                                }
+                                            },
+                                            checkpointTimeout,
+                                            TimeUnit.MILLISECONDS));
+                        } catch (RejectedExecutionException e) {
+                            // Terminal cleanup may finish while the asynchronous barrier RPC is in
+                            // flight.
+                            LOG.info(
+                                    "Job {} pipeline {} scheduler is already shut down, skip arming timeout for checkpoint {}.",
+                                    jobId,
+                                    pipelineId,
+                                    pendingCheckpoint.getCheckpointId());
+                        }
                     }
                 });
         pendingCounter.incrementAndGet();
@@ -1284,16 +1315,13 @@ public class CheckpointCoordinator {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
             scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
+            // A terminal coordinator must not create a replacement executor. Recreating it here
+            // leaves an idle checkpoint-coordinator thread alive after the job is cancelled or
+            // completed. A replacement is only needed when a master-failover reset restarts the
+            // coordinator.
+            if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                scheduler = createScheduler();
+            }
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
