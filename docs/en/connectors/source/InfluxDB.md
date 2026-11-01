@@ -174,10 +174,14 @@ the query results overlap.
 
 :::caution Reserved option
 
-The current split logic reads the lowercase `where` keyword directly from the `sql` option.
-Setting `where` has no effect on the generated split queries — put the filter inside `sql`
-instead, for example `select * from test where age > 0`. The split parser is case-sensitive on
-the `where` keyword.
+Single-table mode (root-level `sql`): the split logic reads the lowercase `where` keyword directly
+from the `sql` option. Setting `where` has no effect on the generated split queries — put the filter
+inside `sql` instead, for example `select * from test where age > 0`. That split parser is
+case-sensitive on the `where` keyword.
+
+`tables_configs` multi-table mode: setting `where` in a table entry fails at build time with an
+`OptionValidationException` (`InfluxDBSourceFactory` rejects it); that split parser is
+case-insensitive on the `where` keyword.
 
 This option is kept in the option list only because the validation rule
 (`InfluxDBSourceFactory.optionRule()`) still references it for backward compatibility; the
