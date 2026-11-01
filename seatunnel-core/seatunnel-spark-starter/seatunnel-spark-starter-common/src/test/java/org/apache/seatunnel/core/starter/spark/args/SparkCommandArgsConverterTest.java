@@ -21,9 +21,15 @@ import org.apache.seatunnel.common.config.DeployMode;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
+/**
+ * Verifies that the Spark {@code --deploy-mode} converter resolves the value independently of the
+ * JVM default locale, and keeps rejecting modes Spark does not support.
+ */
+@ResourceLock("java.util.Locale")
 public class SparkCommandArgsConverterTest {
 
     @Test
@@ -38,14 +44,18 @@ public class SparkCommandArgsConverterTest {
 
     @Test
     public void testDeployModeConverterIsLocaleIndependent() {
-        Locale defaultLocale = Locale.getDefault();
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
         try {
             Locale.setDefault(new Locale("tr", "TR"));
             SparkCommandArgs.SparkDeployModeConverter converter =
                     new SparkCommandArgs.SparkDeployModeConverter();
             Assertions.assertEquals(DeployMode.CLIENT, converter.convert("client"));
         } finally {
-            Locale.setDefault(defaultLocale);
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 }

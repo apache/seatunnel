@@ -19,10 +19,16 @@ package org.apache.seatunnel.common.config;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 import java.util.Optional;
 
+/**
+ * Verifies that {@link DeployMode#from(String)} resolves command line tokens independently of the
+ * JVM default locale, and that {@code null} and unknown tokens resolve to an empty result.
+ */
+@ResourceLock("java.util.Locale")
 public class DeployModeTest {
 
     @Test
@@ -37,14 +43,18 @@ public class DeployModeTest {
 
     @Test
     public void testFromIsLocaleIndependent() {
-        Locale defaultLocale = Locale.getDefault();
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
         try {
             Locale.setDefault(new Locale("tr", "TR"));
             Assertions.assertEquals(Optional.of(DeployMode.CLIENT), DeployMode.from("CLIENT"));
             Assertions.assertEquals(
                     Optional.of(DeployMode.RUN_APPLICATION), DeployMode.from("RUN-APPLICATION"));
         } finally {
-            Locale.setDefault(defaultLocale);
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 }

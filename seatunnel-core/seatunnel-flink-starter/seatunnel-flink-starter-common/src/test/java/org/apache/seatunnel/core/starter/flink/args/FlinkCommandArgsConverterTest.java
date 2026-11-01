@@ -22,9 +22,15 @@ import org.apache.seatunnel.core.starter.enums.MasterType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
+/**
+ * Verifies that the Flink argument converters resolve {@code --deploy-mode} and {@code --target}
+ * values independently of the JVM default locale.
+ */
+@ResourceLock("java.util.Locale")
 public class FlinkCommandArgsConverterTest {
 
     @Test
@@ -51,7 +57,9 @@ public class FlinkCommandArgsConverterTest {
 
     @Test
     public void testConvertersAreLocaleIndependent() {
-        Locale defaultLocale = Locale.getDefault();
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
         try {
             Locale.setDefault(new Locale("tr", "TR"));
 
@@ -68,7 +76,9 @@ public class FlinkCommandArgsConverterTest {
                     MasterType.KUBERNETES_APPLICATION,
                     masterTargetConverter.convert("kubernetes-application"));
         } finally {
-            Locale.setDefault(defaultLocale);
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 }
