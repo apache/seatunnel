@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -62,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -343,6 +346,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         long jobId = System.currentTimeMillis();
 
         TaskGroupLocation location = new TaskGroupLocation(jobId, 1, 1);
+        Set<URL> sourceUrls = new HashSet<>();
+        sourceUrls.add(new URL(fakeFile));
+        Set<URL> sinkUrls = new HashSet<>();
+        sinkUrls.add(new URL(consoleFile));
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         jobId,
@@ -353,9 +360,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         Arrays.asList(
                                 nodeEngine.getSerializationService().toData(testTask1),
                                 nodeEngine.getSerializationService().toData(testTask2)),
-                        Arrays.asList(
-                                Collections.singleton(new URL(fakeFile)),
-                                Collections.singleton(new URL(consoleFile))),
+                        Arrays.asList(sourceUrls, sinkUrls),
                         Arrays.asList(emptySet(), emptySet()));
 
         Data data = nodeEngine.getSerializationService().toData(taskGroupImmutableInformation);
@@ -392,7 +397,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     /**
      * Verifies that a partially constructed task group does not retain classloader references when
-     * a later task cannot be deserialized.
+     * a later task cannot be deserialized, for both absolute and logical jar descriptors. Logical
+     * descriptors must remain unchanged while the resolved loader reference is released.
      */
     @Test
     public void testDeployTaskReleasesClassLoadersWhenDeserializationFails() throws IOException {
@@ -400,39 +406,56 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         DefaultClassLoaderService classLoaderService =
                 (DefaultClassLoaderService) server.getClassLoaderService();
 
-        File testJar = File.createTempFile("failed-deployment", ".jar");
-        testJar.deleteOnExit();
-        URL testJarUrl = testJar.toURI().toURL();
-        Set<URL> testJars = Collections.singleton(testJarUrl);
-        long testJobId = System.currentTimeMillis();
-        TestTask validTask = new TestTask(new AtomicBoolean(false), 300, true);
-        TaskGroupImmutableInformation taskGroupImmutableInformation =
-                new TaskGroupImmutableInformation(
-                        testJobId,
-                        FLAKE_ID_GENERATOR.newId(),
-                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
-                        new TaskGroupLocation(testJobId, 1, 1),
-                        "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
-                        Arrays.asList(
-                                nodeEngine.getSerializationService().toData(validTask),
-                                nodeEngine.getSerializationService().toData("not a task")),
-                        Arrays.asList(testJars, testJars),
-                        Arrays.asList(emptySet(), emptySet()));
+        String previousHome = Common.getSeaTunnelHome();
+        try {
+            for (boolean logicalPath : new boolean[] {false, true}) {
+                File testJar = File.createTempFile("failed deployment", ".jar");
+                testJar.deleteOnExit();
+                URL testJarUrl = testJar.toURI().toURL();
+                Common.setSeaTunnelHome(testJar.getParent());
+                URL descriptorUrl =
+                        logicalPath ? PathResolver.replacePathWithEnv(testJarUrl) : testJarUrl;
+                Set<URL> testJars = Collections.singleton(descriptorUrl);
+                Set<URL> resolvedJars = Collections.singleton(testJarUrl);
+                long testJobId = FLAKE_ID_GENERATOR.newId();
+                TestTask validTask = new TestTask(new AtomicBoolean(false), 300, true);
+                TaskGroupImmutableInformation taskGroupImmutableInformation =
+                        new TaskGroupImmutableInformation(
+                                testJobId,
+                                FLAKE_ID_GENERATOR.newId(),
+                                TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                                new TaskGroupLocation(testJobId, 1, 1),
+                                "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
+                                Arrays.asList(
+                                        nodeEngine.getSerializationService().toData(validTask),
+                                        nodeEngine.getSerializationService().toData("not a task")),
+                                Arrays.asList(testJars, testJars),
+                                Arrays.asList(emptySet(), emptySet()));
 
-        TaskDeployState taskDeployState =
-                taskExecutionService.deployTask(taskGroupImmutableInformation);
+                TaskDeployState taskDeployState =
+                        taskExecutionService.deployTask(taskGroupImmutableInformation);
 
-        Assertions.assertFalse(taskDeployState.isSuccess());
-        Assertions.assertThrows(
-                TaskGroupContextNotFoundException.class,
-                () ->
-                        taskExecutionService.getActiveExecutionContext(
-                                taskGroupImmutableInformation.getTaskGroupLocation()));
-        Assertions.assertTrue(
-                classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
-        Assertions.assertEquals(
-                0, classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars));
-        testJar.delete();
+                Assertions.assertFalse(taskDeployState.isSuccess());
+                Assertions.assertThrows(
+                        TaskGroupContextNotFoundException.class,
+                        () ->
+                                taskExecutionService.getActiveExecutionContext(
+                                        taskGroupImmutableInformation.getTaskGroupLocation()));
+                Assertions.assertTrue(
+                        classLoaderService
+                                .queryClassLoaderById(testJobId, resolvedJars)
+                                .isPresent());
+                Assertions.assertEquals(
+                        0,
+                        classLoaderService.queryClassLoaderReferenceCount(testJobId, resolvedJars));
+                Assertions.assertEquals(
+                        Collections.singleton(descriptorUrl),
+                        taskGroupImmutableInformation.getJars().get(0));
+                testJar.delete();
+            }
+        } finally {
+            Common.setSeaTunnelHome(previousHome);
+        }
     }
 
     /**
