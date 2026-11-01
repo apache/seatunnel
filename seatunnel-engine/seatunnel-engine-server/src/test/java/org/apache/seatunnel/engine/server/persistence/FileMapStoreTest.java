@@ -179,6 +179,42 @@ public class FileMapStoreTest {
         }
     }
 
+    /**
+     * The checkpoint ID map matches the {@code engine*} map-store config like every other engine
+     * map. Verifies that its counters are not written to the IMap storage and so start empty after
+     * a restart, while an engine state map next to it is still persisted and loaded back.
+     */
+    @Test
+    public void testCheckpointIdMapIsNotPersistedAcrossRestart() {
+        String clusterName = "file-map-store-checkpoint-id-" + System.nanoTime();
+        String persistedMapName = Constant.IMAP_RUNNING_JOB_STATE;
+        String checkpointIdMapName = EngineStateStoreNames.CHECKPOINT_ID;
+
+        HazelcastInstance writer = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            writer.getMap(persistedMapName).put(1L, "persisted");
+            writer.getMap(checkpointIdMapName).put("pipeline-1", 42L);
+        } finally {
+            writer.shutdown();
+        }
+
+        Path storageRoot = tempDir.resolve("test-cluster");
+        Assertions.assertTrue(storageRoot.resolve(persistedMapName).toFile().isDirectory());
+        Assertions.assertFalse(
+                storageRoot.resolve(checkpointIdMapName).toFile().exists(),
+                checkpointIdMapName + " must not be written to the IMap storage");
+
+        HazelcastInstance restarted = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            Assertions.assertEquals("persisted", restarted.getMap(persistedMapName).get(1L));
+            Assertions.assertTrue(
+                    restarted.getMap(checkpointIdMapName).isEmpty(),
+                    checkpointIdMapName + " must not be loaded again after a restart");
+        } finally {
+            restarted.shutdown();
+        }
+    }
+
     private Config hazelcastConfig(String clusterName) {
         MapStoreConfig mapStoreConfig =
                 new MapStoreConfig()
