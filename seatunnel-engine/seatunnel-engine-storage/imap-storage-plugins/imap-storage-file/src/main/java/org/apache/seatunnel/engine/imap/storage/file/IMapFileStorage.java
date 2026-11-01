@@ -360,7 +360,7 @@ public class IMapFileStorage implements IMapStorage {
 
     private long sendToDisruptorQueue(IMapFileData data, WALEventType type) {
         long requestId = RequestFutureCache.getRequestId();
-        RequestFuture requestFuture = new RequestFuture();
+        RequestFuture requestFuture = new RequestFuture(this.writDataTimeoutMilliseconds);
         RequestFutureCache.put(requestId, requestFuture);
         walDisruptor.tryPublish(data, type, requestId);
         return requestId;

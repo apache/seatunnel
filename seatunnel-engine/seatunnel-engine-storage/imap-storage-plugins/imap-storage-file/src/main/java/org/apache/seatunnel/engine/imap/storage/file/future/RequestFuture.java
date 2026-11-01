@@ -20,7 +20,10 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.future;
 
+import org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage;
+
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -35,9 +38,33 @@ public class RequestFuture implements Future<Boolean> {
 
     private final CountDownLatch latch = new CountDownLatch(1);
 
+    /**
+     * Cap for {@link #get()}. {@link Future} requires the untimed overload, so it cannot be
+     * removed; this stops a killed WAL worker or a never-dispatched event from blocking the caller
+     * forever. Same default as {@code IMapFileStorage#DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS}.
+     * Production callers pass the configured timeout to {@link #get(long, TimeUnit)} instead.
+     */
+    private final long untimedGetTimeoutMillis;
+
     // Written in done() before countDown(); get() already observes it via the latch
     // happens-before. volatile keeps the result bit safely published across threads.
     private volatile boolean success = false;
+
+    public RequestFuture() {
+        this(IMapFileStorage.DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
+    }
+
+    /**
+     * @param untimedGetTimeoutMillis cap applied by {@link #get()}; must be positive. Timed {@link
+     *     #get(long, TimeUnit)} uses the timeout its caller passes and ignores this value.
+     */
+    public RequestFuture(long untimedGetTimeoutMillis) {
+        if (untimedGetTimeoutMillis <= 0L) {
+            throw new IllegalArgumentException(
+                    "untimedGetTimeoutMillis must be positive, got " + untimedGetTimeoutMillis);
+        }
+        this.untimedGetTimeoutMillis = untimedGetTimeoutMillis;
+    }
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
@@ -55,16 +82,29 @@ public class RequestFuture implements Future<Boolean> {
     }
 
     /**
-     * Blocks indefinitely until the WAL append completes.
+     * Waits for the WAL append, capped by {@code writDataTimeoutMilliseconds}.
      *
-     * <p>Production call sites use {@link #get(long, TimeUnit)} with the configured write timeout.
-     * This untimed overload exists for {@link Future} contract compliance only and must not be used
-     * where an unbounded wait is unacceptable. No production caller currently invokes this method.
+     * <p>{@link Future} requires this untimed overload, so it cannot be removed. It is not an
+     * unbounded block: expiry throws {@link TimeoutException} (wrapped in {@link
+     * ExecutionException}, because this signature cannot throw {@link TimeoutException} directly).
+     * A worker killed by an {@link Error}, or an event that was never dispatched, therefore cannot
+     * hang the caller forever. Production callers use {@link #get(long, TimeUnit)} with the
+     * configured write timeout instead of this overload.
+     *
+     * @throws ExecutionException if the wait reaches {@code writDataTimeoutMilliseconds} before
+     *     completion; the cause is a {@link TimeoutException}
      */
     @Override
-    public Boolean get() throws InterruptedException {
-        latch.await();
-        return success;
+    public Boolean get() throws InterruptedException, ExecutionException {
+        try {
+            return get(untimedGetTimeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new ExecutionException(
+                    "Timed out waiting for WAL append completion after "
+                            + untimedGetTimeoutMillis
+                            + " ms",
+                    e);
+        }
     }
 
     /**

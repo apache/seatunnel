@@ -23,6 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.file.future;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -59,6 +60,16 @@ class RequestFutureTest {
         RequestFuture future = new RequestFuture();
         Assertions.assertThrows(
                 TimeoutException.class, () -> future.get(10, TimeUnit.MILLISECONDS));
+        Assertions.assertFalse(future.isDone());
+    }
+
+    @Test
+    void untimedGetShouldUseConfiguredCapInsteadOfBlockingForever() {
+        RequestFuture future = new RequestFuture(20L);
+
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class, future::get);
+
+        Assertions.assertInstanceOf(TimeoutException.class, failure.getCause());
         Assertions.assertFalse(future.isDone());
     }
 
