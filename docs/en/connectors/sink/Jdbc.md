@@ -610,6 +610,8 @@ INSERT /*+ APPEND_VALUES */ INTO ...
 
 This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`. Oracle sink still uses manual commit internally when writing data.
 
+Oracle CLOB and NCLOB values shorter than 8192 UTF-16 code units are bound with `setCharacterStream` / `setNCharacterStream`. An empty string uses `createClob()` / `createNClob()` and `setClob` / `setNClob` with that empty locator, because a zero-length character stream is stored as NULL. An empty BLOB uses `createBlob()` the same way. Longer values are bound with `Connection.createClob()` or `createNClob()` and `Clob.setString`, because ojdbc8 19.18 replaces a supplementary character that crosses an 8192-code-unit block with U+FFFD. The temporary LOB is freed after the batch executes.
+
 ### create_index [boolean]
 
 Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
