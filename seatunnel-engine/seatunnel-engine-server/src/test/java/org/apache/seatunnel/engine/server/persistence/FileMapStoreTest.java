@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
@@ -375,14 +376,19 @@ public class FileMapStoreTest {
         return (FileMapStore) wrapper.getMapStore();
     }
 
-    /** Wraps the live storage so one append can fail without corrupting the real WAL writer. */
+    /**
+     * Wraps the live storage so every {@code store} returns {@code false} and the storage reports
+     * fail-close. The {@link FileMapStore} itself stays real; a Mockito spy answers the storage
+     * calls. This is not a one-shot failure of the next append, and it does not corrupt the WAL
+     * writer.
+     */
     private static IMapStorage spyStorage(FileMapStore store) throws Exception {
         Field field = FileMapStore.class.getDeclaredField("mapStorage");
         field.setAccessible(true);
-        IMapStorage storage = org.mockito.Mockito.spy((IMapStorage) field.get(store));
+        IMapStorage storage = Mockito.spy((IMapStorage) field.get(store));
         field.set(store, storage);
-        org.mockito.Mockito.doReturn(true).when(storage).isAppendPermanentlyBlocked();
-        org.mockito.Mockito.doReturn(false).when(storage).store(any(), any(), anyLong());
+        Mockito.doReturn(true).when(storage).isAppendPermanentlyBlocked();
+        Mockito.doReturn(false).when(storage).store(any(), any(), anyLong());
         return storage;
     }
 

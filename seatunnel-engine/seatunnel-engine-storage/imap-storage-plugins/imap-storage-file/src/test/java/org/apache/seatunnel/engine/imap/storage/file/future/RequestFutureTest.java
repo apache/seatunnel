@@ -27,6 +27,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * {@link RequestFuture} must publish completion separately from success, and a timed {@code get}
+ * must throw {@link TimeoutException} instead of returning {@code false}.
+ */
 class RequestFutureTest {
 
     @Test

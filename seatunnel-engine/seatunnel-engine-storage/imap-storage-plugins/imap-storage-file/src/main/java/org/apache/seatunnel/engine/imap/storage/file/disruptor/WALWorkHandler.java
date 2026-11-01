@@ -60,7 +60,7 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
      * stream so a possible torn trailer cannot become a mid-file tear. Never reset in-process;
      * requires engine-node restart to clear.
      */
-    private boolean appendBlockedAfterWriteFailure;
+    private volatile boolean appendBlockedAfterWriteFailure;
 
     /**
      * Whether APPEND is permanently fail-closed after a prior write failure.

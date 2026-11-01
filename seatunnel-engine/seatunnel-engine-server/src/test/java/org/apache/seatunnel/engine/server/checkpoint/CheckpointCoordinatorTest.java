@@ -49,6 +49,8 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -72,6 +74,7 @@ import com.hazelcast.map.impl.MapStoreWrapper;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -1335,11 +1338,17 @@ public class CheckpointCoordinatorTest
     }
 
     /**
-     * A real {@code engine_checkpoint_monitor} FileMapStore, not a mocked monitor, fails its next
-     * write-through put. The coordinator still finishes the checkpoint that was already stored, and
-     * a later node-shutdown signal from the same monitor path still stops the dying master.
+     * A real {@code engine_checkpoint_monitor} FileMapStore, not a mocked monitor, fails its
+     * write-through puts because the live storage is stubbed to report failure. The coordinator
+     * still finishes the checkpoint that was already stored, and a later node-shutdown signal from
+     * the same monitor path still stops the dying master.
+     *
+     * <p>Skipped on Windows: {@code LocalFileSystem} requires {@code HADOOP_HOME} / {@code
+     * hadoop.home.dir} (winutils), which the unit-test jobs do not set. Same precedent as {@code
+     * CoordinatorServiceJobCleanupTest}.
      */
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void testRealMonitorMapStoreFailureKeepsCheckpointBookkeepingAndPropagatesShutdown(
             @TempDir Path walDir) throws Exception {
         String clusterName = "checkpoint-monitor-mapstore-" + System.nanoTime();
@@ -1352,7 +1361,7 @@ public class CheckpointCoordinatorTest
             long durableJobId = 999L;
             overviewMap.put(durableJobId, new CheckpointOverview(durableJobId));
             FileMapStore store = monitorMapStore(node);
-            failNextMonitorAppend(store);
+            stubMonitorAppendsAsFailed(store);
 
             CheckpointMonitorService monitorService =
                     new CheckpointMonitorService(
@@ -1479,9 +1488,13 @@ public class CheckpointCoordinatorTest
         return (FileMapStore) wrapper.getMapStore();
     }
 
-    /** Makes the next durable append fail without replacing the real file MapStore. */
-    private static void failNextMonitorAppend(FileMapStore store) throws Exception {
-        java.lang.reflect.Field field = FileMapStore.class.getDeclaredField("mapStorage");
+    /**
+     * Stubs every durable append on the live {@link FileMapStore} so {@code store} returns {@code
+     * false} and the storage reports fail-close. The MapStore itself stays the real file store; a
+     * Mockito spy answers the storage calls. This is not a one-shot failure of the next append.
+     */
+    private static void stubMonitorAppendsAsFailed(FileMapStore store) throws Exception {
+        Field field = FileMapStore.class.getDeclaredField("mapStorage");
         field.setAccessible(true);
         IMapStorage storage = Mockito.spy((IMapStorage) field.get(store));
         field.set(store, storage);

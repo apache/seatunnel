@@ -405,14 +405,11 @@ public class IMapFileStorage implements IMapStorage {
             try {
                 long remainingNanos = Math.max(0L, deadlineNanos - nanoTimeSource.getAsLong());
                 if (remainingNanos == 0L) {
-                    long elapsedMs =
-                            TimeUnit.NANOSECONDS.toMillis(
-                                    nanoTimeSource.getAsLong() - waitStartedNanos);
-                    log.warn(
-                            "shared batch write deadline exceeded before waiting for requestId {} (elapsed {} ms, limit {} ms)",
-                            entry.getKey(),
-                            elapsedMs,
-                            this.writDataTimeoutMilliseconds);
+                    // The shared budget is spent, but an earlier entry may already be done.
+                    // get(0) returns immediately when the latch is open and still throws
+                    // TimeoutException when the append has not completed, so a finished success
+                    // is not reported as a failure. timeout == 0 stays meaningful the same way.
+                    success = Boolean.TRUE.equals(requestFuture.get(0L, TimeUnit.NANOSECONDS));
                 } else {
                     success =
                             Boolean.TRUE.equals(

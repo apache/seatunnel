@@ -85,8 +85,9 @@ class HdfsWriterDurableFlushTest {
                                     .deleted(false)
                                     .build());
 
-                    // Assert durability after each append, before close(), so the test covers the
-                    // write-through wait path rather than only close-time visibility.
+                    // Assert same-process read-back visibility after each append, before close(),
+                    // so the test covers the write-through wait path rather than only close-time
+                    // visibility. This is not a crash-survival / fsync proof.
                     if (index == 3 || index == 7) {
                         Map<Object, Object> loaded =
                                 reader.loadAllData(parentPath, new HashSet<>());

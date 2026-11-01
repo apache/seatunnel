@@ -102,6 +102,9 @@ class IMapFileStorageBatchDeadlineTest {
         for (int i = 0; i < PENDING_KEYS; i++) {
             long requestId = RequestFutureCache.getRequestId();
             RecordingRequestFuture future = new RecordingRequestFuture(clock, true);
+            if (i > 0) {
+                future.done(false);
+            }
             futures.add(future);
             RequestFutureCache.put(requestId, future);
             requestMap.put(requestId, "key-" + i);
@@ -115,15 +118,18 @@ class IMapFileStorageBatchDeadlineTest {
                                     storage, requestMap, new HashSet<Object>());
 
             Assertions.assertEquals(PENDING_KEYS, failures.size());
-            // The first wait consumes the whole budget on the injected clock. Later entries must
-            // not be asked for another full timeout, which is what the old per-entry wait did.
+            // The first wait consumes the whole budget. Later entries are already completed with
+            // failure, so the zero-timeout harvest returns false without another full wait.
             Assertions.assertEquals(
                     TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS),
                     futures.get(0).requestedTimeoutsNanos.get(0).longValue());
             for (int i = 1; i < futures.size(); i++) {
-                Assertions.assertTrue(
-                        futures.get(i).requestedTimeoutsNanos.isEmpty(),
-                        "entry " + i + " was waited on after the shared deadline expired");
+                Assertions.assertEquals(
+                        1,
+                        futures.get(i).requestedTimeoutsNanos.size(),
+                        "entry " + i + " should be harvested once after the shared deadline");
+                Assertions.assertEquals(
+                        0L, futures.get(i).requestedTimeoutsNanos.get(0).longValue());
             }
             Assertions.assertEquals(
                     TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS),
@@ -162,9 +168,13 @@ class IMapFileStorageBatchDeadlineTest {
         }
 
         @Override
-        public Boolean get(long timeout, TimeUnit unit) throws TimeoutException {
+        public Boolean get(long timeout, TimeUnit unit)
+                throws InterruptedException, TimeoutException {
             long timeoutNanos = unit.toNanos(timeout);
             requestedTimeoutsNanos.add(timeoutNanos);
+            if (isDone()) {
+                return super.get(0L, TimeUnit.NANOSECONDS);
+            }
             if (spendRequestedTimeout) {
                 clock.addAndGet(timeoutNanos);
             }
