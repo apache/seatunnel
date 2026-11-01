@@ -314,6 +314,10 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
+### DELETE 语句初始化
+
+带键的 JDBC 写入只会在刷新批次归并后仍保留的删除操作时初始化 DELETE 语句。仅含 INSERT/UPDATE 的任务不会因为初始化未使用的 DELETE 语句而额外要求删除权限。实际删除仍需要数据库 DELETE 权限，初始化失败会正常报告。
+
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒

@@ -34,14 +34,19 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -1016,5 +1021,107 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 }
             }
         }
+    }
+
+    @Test
+    void testUpsertWriterDoesNotRequireDeletePrivilegeUntilAnEffectiveDelete() throws Exception {
+        String tableName = "lazy_delete_privileges";
+        String table = "`" + MYSQL_DATABASE + "`.`" + tableName + "`";
+        String user = "lazy_delete_writer";
+        String password = "testPassword123";
+        String url = connection.getMetaData().getURL();
+        url +=
+                (url.contains("?") ? "&" : "?")
+                        + "useServerPrepStmts=true&cachePrepStmts=false&emulateUnsupportedPstmts=false&allowPublicKeyRetrieval=true&useSSL=false";
+        try (Statement admin = connection.createStatement()) {
+            admin.execute("CREATE TABLE " + table + " (ID INT PRIMARY KEY, PAYLOAD VARCHAR(20))");
+            admin.execute("CREATE USER '" + user + "'@'%' IDENTIFIED BY '" + password + "'");
+            try {
+                admin.execute(
+                        "GRANT SELECT, INSERT, UPDATE ON " + table + " TO '" + user + "'@'%'");
+                // Native server preparation rejects DELETE for this user before any execution.
+                try (Connection restricted = DriverManager.getConnection(url, user, password)) {
+                    SQLException denied =
+                            Assertions.assertThrows(
+                                    SQLException.class,
+                                    () ->
+                                            restricted.prepareStatement(
+                                                    "DELETE FROM " + table + " WHERE ID = ?"));
+                    Assertions.assertEquals(1142, denied.getErrorCode());
+                }
+                JdbcSinkWriter writer = lazyDeleteWriter(url, user, password, tableName, 10);
+                try {
+                    writer.write(new SeaTunnelRow(new Object[] {1, "insert"}));
+                    SeaTunnelRow update = new SeaTunnelRow(new Object[] {2, "update"});
+                    update.setRowKind(RowKind.UPDATE_AFTER);
+                    writer.write(update);
+                    // This buffered DELETE is overwritten by the final INSERT for the same key.
+                    SeaTunnelRow removed = new SeaTunnelRow(new Object[] {3, null});
+                    removed.setRowKind(RowKind.DELETE);
+                    writer.write(removed);
+                    writer.write(new SeaTunnelRow(new Object[] {3, "reduced"}));
+                } finally {
+                    writer.close();
+                }
+                try (ResultSet rows =
+                        admin.executeQuery("SELECT ID, PAYLOAD FROM " + table + " ORDER BY ID")) {
+                    String[] expected = {"insert", "update", "reduced"};
+                    for (int i = 0; i < expected.length; i++) {
+                        Assertions.assertTrue(rows.next());
+                        Assertions.assertEquals(i + 1, rows.getInt(1));
+                        Assertions.assertEquals(expected[i], rows.getString(2));
+                    }
+                    Assertions.assertFalse(rows.next());
+                }
+                JdbcSinkWriter deleting = lazyDeleteWriter(url, user, password, tableName, 1);
+                try {
+                    SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, null});
+                    row.setRowKind(RowKind.DELETE);
+                    Assertions.assertThrows(
+                            JdbcConnectorException.class, () -> deleting.write(row));
+                } finally {
+                    Assertions.assertThrows(JdbcConnectorException.class, deleting::close);
+                }
+                try (ResultSet rows = admin.executeQuery("SELECT COUNT(*) FROM " + table)) {
+                    Assertions.assertTrue(rows.next());
+                    Assertions.assertEquals(3, rows.getInt(1));
+                }
+            } finally {
+                admin.execute("DROP USER '" + user + "'@'%'");
+                admin.execute("DROP TABLE " + table);
+                connection.commit();
+            }
+        }
+    }
+
+    private JdbcSinkWriter lazyDeleteWriter(
+            String url, String user, String password, String table, int batchSize) {
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url(url)
+                        .driverName("com.mysql.cj.jdbc.Driver")
+                        .username(user)
+                        .password(password)
+                        .batchSize(batchSize)
+                        .maxRetries(0)
+                        .autoCommit(true)
+                        .build();
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database(MYSQL_DATABASE)
+                        .table(table)
+                        .primaryKeys(Collections.singletonList("ID"))
+                        .enableUpsert(true)
+                        .build();
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 0L, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "PAYLOAD", BasicType.STRING_TYPE, 20L, true, null, null))
+                        .build();
+        return new JdbcSinkWriter(
+                TablePath.of(MYSQL_DATABASE, table), new MysqlDialect(), config, schema, schema, 0);
     }
 }

@@ -313,6 +313,10 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
+### DELETE statement preparation
+
+Keyed JDBC writes prepare DELETE statements only when flushing a deletion retained after batch reduction. INSERT/UPDATE-only workloads do not require DELETE privileges solely to prepare an unused statement. Effective deletions still require the database DELETE permission; a preparation failure is reported normally.
+
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
