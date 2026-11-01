@@ -68,7 +68,8 @@ public class HiveDialect implements JdbcDialect {
     @Override
     public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
             throws SQLException {
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query);
+        try (PreparedStatement preparedStatement =
+                        conn.prepareStatement(limitMetadataQuery(query));
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             return resultSet.getMetaData();
         }
@@ -116,5 +117,120 @@ public class HiveDialect implements JdbcDialect {
             }
         }
         return partitionKeys;
+    }
+
+    /**
+     * Adds a top-level metadata limit without introducing a subquery alias or moving Hive CTEs.
+     *
+     * <p>This small lexical scan preserves quoted identifiers, literals and comments. Queries with
+     * an existing top-level LIMIT, multiple statements or incomplete syntax are left unchanged.
+     * Package visibility permits direct regression coverage without reflection.
+     */
+    static String limitMetadataQuery(String sql) {
+        int depth = 0;
+        int lastTokenEnd = 0;
+        boolean query = false;
+        List<Integer> terminators = new ArrayList<>();
+        for (int index = 0; index < sql.length(); ) {
+            char current = sql.charAt(index);
+            if (Character.isWhitespace(current)) {
+                index++;
+                continue;
+            }
+            if (sql.startsWith("--", index)) {
+                index += 2;
+                while (index < sql.length()
+                        && sql.charAt(index) != '\n'
+                        && sql.charAt(index) != '\r') {
+                    index++;
+                }
+                continue;
+            }
+            if (sql.startsWith("/*", index)) {
+                int end = sql.indexOf("*/", index + 2);
+                if (end < 0) {
+                    return sql;
+                }
+                index = end + 2;
+                continue;
+            }
+            if (current == ';') {
+                if (depth != 0) {
+                    return sql;
+                }
+                terminators.add(index++);
+                continue;
+            }
+            // A token after a statement terminator means this is not a single metadata query.
+            if (!terminators.isEmpty()) {
+                return sql;
+            }
+            if (Character.isJavaIdentifierStart(current)) {
+                int start = index++;
+                while (index < sql.length() && Character.isJavaIdentifierPart(sql.charAt(index))) {
+                    index++;
+                }
+                String token = sql.substring(start, index);
+                if (!query) {
+                    if (!"SELECT".equalsIgnoreCase(token) && !"WITH".equalsIgnoreCase(token)) {
+                        return sql;
+                    }
+                    query = true;
+                } else if (depth == 0
+                        && ("LIMIT".equalsIgnoreCase(token)
+                                || "INSERT".equalsIgnoreCase(token)
+                                || "UPDATE".equalsIgnoreCase(token)
+                                || "DELETE".equalsIgnoreCase(token)
+                                || "MERGE".equalsIgnoreCase(token)
+                                || "CREATE".equalsIgnoreCase(token)
+                                || "DROP".equalsIgnoreCase(token)
+                                || "ALTER".equalsIgnoreCase(token))) {
+                    // A CTE can precede a data-changing statement rather than a SELECT.
+                    return sql;
+                }
+            } else if (current == '\'' || current == '"' || current == '`') {
+                if (!query) {
+                    return sql;
+                }
+                char quote = current;
+                boolean closed = false;
+                for (index++; index < sql.length(); index++) {
+                    if (sql.charAt(index) == '\\') {
+                        index++;
+                    } else if (sql.charAt(index) == quote) {
+                        if (index + 1 < sql.length() && sql.charAt(index + 1) == quote) {
+                            index++;
+                        } else {
+                            index++;
+                            closed = true;
+                            break;
+                        }
+                    }
+                }
+                if (!closed) {
+                    return sql;
+                }
+            } else {
+                if (!query) {
+                    return sql;
+                }
+                if (current == '(') {
+                    depth++;
+                } else if (current == ')' && --depth < 0) {
+                    return sql;
+                }
+                index++;
+            }
+            lastTokenEnd = index;
+        }
+        if (!query || depth != 0) {
+            return sql;
+        }
+        StringBuilder limitedSql = new StringBuilder(sql);
+        for (int index = terminators.size() - 1; index >= 0; index--) {
+            limitedSql.deleteCharAt(terminators.get(index));
+        }
+        // Insert before trailing comments; line comments must not consume the new LIMIT clause.
+        return limitedSql.insert(lastTokenEnd, "\nLIMIT 1\n").toString();
     }
 }
