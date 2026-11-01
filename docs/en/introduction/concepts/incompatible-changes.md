@@ -71,6 +71,26 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
   - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
 
+### JDBC MySQL-compatible DECIMAL precision mapping
+
+- **Behavior change: MySQL JDBC and OceanBase MySQL-mode DECIMAL metadata now preserves the declared precision and scale**
+  - **Affected component**: `connector-jdbc` MySQL and OceanBase MySQL-compatible type conversion, the `connector-cdc-mysql` source schema, and automatically generated MySQL/OceanBase sink DDL
+  - **Description**: MySQL `DECIMAL(p, s)` columns, and the equivalent columns read in OceanBase MySQL mode, with precision above 38 were previously exposed as
+    `DECIMAL(38, 18)`. They now preserve `p` and `s` up to the database limits of precision 65 and scale 30. Values above those limits are clamped; when precision is above 65, scale is reduced as needed to keep the integral digits.
+    `UNSIGNED` does not add a digit: `DECIMAL(p, s) UNSIGNED` maps to the same SeaTunnel decimal precision
+    and scale because MySQL precision is the total digit count; `UNSIGNED` changes the sign range only.
+  - **Impact**: Source schemas for wide decimals change, and automatically generated MySQL/OceanBase sink tables now use
+    the declared type, for example `DECIMAL(65, 0)` or `DECIMAL(50, 30)`. Existing target tables are not altered.
+    Jobs that depended on the previous narrowing or on its rounded values may observe wider values or different
+    sink compatibility results. Spark's decimal type and Iceberg decimal columns support precision 38, so a
+    wide decimal can fail during Spark schema translation or Iceberg table creation. Other sinks with a lower
+    decimal precision limit may reject the schema or clamp it.
+  - **Migration Guide**: Review downstream schemas and existing target tables before upgrading. If the previous
+    `DECIMAL(38, 18)` schema is required, define the target table explicitly or cast the source value in `query`
+    to the intended precision and scale. For Spark, Iceberg, or another sink limited to precision 38, cast wide
+    source columns to precision 38 or less before schema translation, and verify the chosen scale can represent
+    the required values.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
