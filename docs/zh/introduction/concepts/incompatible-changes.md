@@ -44,6 +44,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：在此变更之前，Doris Sink 遵循 v3.0.0 的写入约定，仅丢弃时区偏移并保留原 wall-clock 数字。升级后，当 JVM 默认时区与 Doris 会话时区不同，或显式配置了 `sink.datetime-timezone` 时，同一 `TIMESTAMP_TZ` 输入写入的 `DATETIME` 可能不同。未配置该选项且表中有 `TIMESTAMP_TZ` 列时，writer 会输出警告日志。
   - **迁移指南**：将 `sink.datetime-timezone` 设置为 Doris 会话时区。若 JVM 默认时区与 Doris 会话时区曾不一致，请核对已存储数据。(#11524)
 
+### Socket 连接器：连接默认使用 10 秒连接超时
+
+- **行为变更：`connect_timeout_ms` 默认为 10000，不再把等待交给操作系统**
+  - **描述**：Socket source 与 sink 此前建立 TCP 连接时没有应用层超时（source 使用 `connect(address, 0)`，sink 使用 `new Socket(host, port)`）。当对端不可达、停止响应或静默丢弃 SYN 时，连接器线程会阻塞到操作系统 TCP 超时为止。现在两端的连接等待默认限制为 10 秒。
+  - **影响**：若目标主机建立连接所需时间超过 10 秒，此前能够成功建立连接、现在会在启动或重连时失败。这会影响未设置该选项的既有配置。source 的阻塞读取行为不变：`read_timeout_ms` 默认为 `0`，空闲的数据流不会被判定为失败。
+  - **迁移指南**：在 source 或 sink 上设置 `connect_timeout_ms = 0` 可恢复此前由操作系统决定的行为；若对端确实较慢，可将该值调大至 10000 以上。`read_timeout_ms` 仅适用于 source，对 sink 无效（sink 不从 socket 读取数据）。
+
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
 - **行为变更：运行时计数器不再累计失败管道执行的数值**

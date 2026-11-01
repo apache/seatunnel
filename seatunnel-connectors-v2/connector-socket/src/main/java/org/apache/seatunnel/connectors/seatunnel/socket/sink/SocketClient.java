@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 @Slf4j
@@ -36,6 +37,7 @@ public class SocketClient {
     private final int port;
     private int retries;
     private final int maxNumRetries;
+    private final int connectTimeoutMs;
     private transient Socket client;
     private transient OutputStream outputStream;
     private final SerializationSchema serializationSchema;
@@ -48,14 +50,30 @@ public class SocketClient {
         this.serializationSchema = serializationSchema;
         retries = config.getMaxNumRetries();
         maxNumRetries = config.getMaxNumRetries();
+        connectTimeoutMs = config.getConnectTimeoutMs();
     }
 
     private void createConnection() throws IOException {
-        client = new Socket(hostName, port);
-        client.setKeepAlive(true);
-        client.setTcpNoDelay(true);
-
-        outputStream = client.getOutputStream();
+        Socket socket = new Socket();
+        try {
+            // Connect with a bounded timeout so an unreachable sink fails the task instead of
+            // blocking the writer thread forever.
+            socket.connect(new InetSocketAddress(hostName, port), connectTimeoutMs);
+            socket.setKeepAlive(true);
+            socket.setTcpNoDelay(true);
+            // The sink only writes; SO_TIMEOUT governs reads and has no effect here, so no read
+            // timeout is exposed for this direction.
+            outputStream = socket.getOutputStream();
+        } catch (IOException e) {
+            // Do not leave an unconnected socket behind when the connect attempt fails.
+            try {
+                socket.close();
+            } catch (IOException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
+        client = socket;
     }
 
     public void open() throws IOException {
