@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
+> 默认情况下，sink 以 `semantics = NON` 运行，不保证精确一次语义。只有将 `semantics` 配置为 `EXACTLY_ONCE` 时，才会使用 Kafka 2pc 事务来实现精确一次发送（参见[语义](#语义)）。
 
 ## 描述
 
@@ -454,7 +454,7 @@ sink {
 }
 ```
 
-注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 列为 `byte[]`。`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时使用：若两者同时配置，sink 在构建序列化器时会抛出 `KafkaConnectorException(OPERATION_NOT_SUPPORTED)`，作业将无法启动。NATIVE 输入的 headers 已经编码在 `value` 字节数组中，请勿配置 `kafka_headers_fields`。
 
 ## 常见问题
 

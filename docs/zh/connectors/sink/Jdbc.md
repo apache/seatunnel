@@ -222,6 +222,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
+| multi_table_sink_replica                  | Int     | 否       | 1                            |
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -254,24 +255,25 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 mysql 时，你需要将其值设置为 mysql。
+
+注意：`StarRocks` 和 `Inceptor` 不是有效的 `dialect` 取值。设置 `compatible_mode = "starrocks"` 时由 MySQL 方言处理 StarRocks；设置 `compatible_mode = "inceptor"` 时由 Hive 方言处理 Inceptor。
 
 如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
 
-#### 示例可选
+#### 方言列表
 
 |           | 方言名称       |          |
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
-| Phoenix   | Postgres   | Redshift |
-| SapHana   | Snowflake  | Sqlite   |
-| SqlServer | Tablestore | Teradata |
-| Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
-| DSQL      |            |          |
-| YashanDB  |            |          |
+| MySQL     | OpenGauss  | Oracle   |
+| Phoenix   | Postgres   | Presto   |
+| Redshift  | SapHana    | Snowflake|
+| Sqlite    | SqlServer  | Tablestore|
+| Teradata  | Vertica    | OceanBase|
+| XUGU      | DuckDB     | IRIS     |
+| Highgo    | YashanDB   | DSQL     |
 
 ### database [string]
 
@@ -663,6 +665,8 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                       |
 | YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar          |
+| xugu       | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver      | jdbc:IRIS://localhost:1972/%SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/intersystems/intersystems-jdbc/3.10.3/intersystems-jdbc-3.10.3.jar |
 
 ## 常用模式
 
@@ -876,6 +880,48 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`table` 中的 `${table_name}` 占位符会使用上游记录的表元数据填充，因此每张源表（`full_types`、`full_types_2`）都会写入各自的 sink 表（`sink_full_types`、`sink_full_types_2`）。请配合 `generate_sink_sql = true` 并预先配置 `primary_keys`，这样 SeaTunnel 才能为每张上游表生成正确的 INSERT/UPSERT 语句。
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -923,6 +969,8 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` 表示选择 Amazon Aurora DSQL。AWS 凭证通过 `access_key_id` / `secret_access_key`（以及 `region`）读取，而不是用户名/密码。Aurora DSQL 不支持 XA，因此请将 `is_exactly_once` 保持为默认值 `false`。
 
 ## 故障排查
 
