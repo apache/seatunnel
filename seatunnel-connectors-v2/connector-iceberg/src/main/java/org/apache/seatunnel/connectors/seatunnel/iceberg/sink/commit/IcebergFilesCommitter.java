@@ -104,6 +104,13 @@ public class IcebergFilesCommitter implements Serializable {
                 && pendingResults(icebergTableLoader.loadTable(), checkpointId, results).isEmpty();
     }
 
+    /**
+     * Returns distinct nonempty payloads without publication proof on the selected branch. The
+     * refreshed branch's retained ancestry supplies fingerprints or legacy file evidence; expired
+     * proof is not reconstructed for positive checkpoint IDs. Legacy partial matches fail rather
+     * than replaying an already published subset. This check does not fence concurrent committers:
+     * the caller must preserve checkpoint order and external job/attempt ownership through commit.
+     */
     private List<WriteResult> pendingResults(
             Table table, long checkpointId, List<WriteResult> results) {
         table.refresh();

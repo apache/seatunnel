@@ -58,7 +58,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | conditionally yes | -                         |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                                 |
@@ -121,6 +121,8 @@ File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+
+Required when reading a single table with `path`. When reading multiple tables with `tables_configs`, the top-level option is not needed because each table entry defines its own `file_format_type`.
 
 For example:
 

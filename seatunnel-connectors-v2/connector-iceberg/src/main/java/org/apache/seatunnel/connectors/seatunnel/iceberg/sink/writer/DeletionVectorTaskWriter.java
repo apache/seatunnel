@@ -73,9 +73,12 @@ class DeletionVectorTaskWriter implements TaskWriter<Record> {
     private final FileWriterFactory<Record> writerFactory;
     private final DVFileWriter dvWriter;
     private final Map<PartitionKey, PartitionWriter> writers = new HashMap<>();
+    // Only files created by this attempt may be removed by abort, including incomplete files.
     private final Set<String> createdFiles = new HashSet<>();
+    // Retain the shared Puffin stream so failed DV close cannot leave it open during abort.
     private PositionOutputStream dvOutput;
     private boolean closed;
+    // Sticky write/close failure: complete must never publish a partial delta after an error.
     private IOException failure;
 
     DeletionVectorTaskWriter(
@@ -278,6 +281,7 @@ class DeletionVectorTaskWriter implements TaskWriter<Record> {
 
     private class PartitionWriter {
         private final PartitionKey partition;
+        // Latest live positions for keys in this writer's new files, never committed table rows.
         private final StructLikeMap<PathOffset> rows = StructLikeMap.create(keySchema.asStruct());
         private RollingDataWriter<Record> dataWriter;
         private RollingEqualityDeleteWriter<Record> deleteWriter;
@@ -286,6 +290,10 @@ class DeletionVectorTaskWriter implements TaskWriter<Record> {
             this.partition = partition;
         }
 
+        /**
+         * Records the new row's position before the rolling write can advance to another file.
+         * Replacing a key invalidates only its previous position in this attempt's new files.
+         */
         private void insert(IcebergRecord row, Record key) {
             if (dataWriter == null) {
                 dataWriter =
@@ -303,6 +311,10 @@ class DeletionVectorTaskWriter implements TaskWriter<Record> {
             dataWriter.write(row);
         }
 
+        /**
+         * Uses a deletion vector when the key has a known position in this attempt; otherwise an
+         * equality delete removes matching committed rows without rewriting existing data or DVs.
+         */
         private void delete(Record key) {
             PathOffset previous = rows.remove(keyWrapper.wrap(key));
             if (previous != null) {
