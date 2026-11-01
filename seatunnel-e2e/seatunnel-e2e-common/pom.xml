@@ -26,6 +26,11 @@
     <name>SeaTunnel : E2E : Common</name>
 
     <dependencies>
+        <!--
+            This module only has test sources, packaged as a test-jar for the other E2E modules.
+            Test-scoped dependencies are not transitive, so whatever the test-jar classes need at
+            runtime must keep the default (compile) scope.
+        -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
@@ -56,6 +61,10 @@
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-settings-builder</artifactId>
             <version>3.8.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-secure-xml</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
