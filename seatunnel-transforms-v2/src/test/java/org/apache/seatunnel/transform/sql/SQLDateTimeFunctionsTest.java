@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 
 public class SQLDateTimeFunctionsTest {
@@ -47,6 +48,28 @@ public class SQLDateTimeFunctionsTest {
         Assertions.assertNotNull(out);
         Assertions.assertFalse(out.isEmpty());
         return out.get(0);
+    }
+
+    /**
+     * Locale.setDefault(Locale) also overwrites the FORMAT and DISPLAY category defaults, so
+     * restoring only Locale.getDefault() would silently drop a category value that differed from
+     * the base locale before the test ran. Snapshot all three and put all three back.
+     *
+     * @return the base, FORMAT and DISPLAY defaults, in that order
+     */
+    private static Locale[] snapshotDefaultLocales() {
+        return new Locale[] {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+    }
+
+    /** Restores the base locale first, because setting it overwrites both category defaults. */
+    private static void restoreDefaultLocales(Locale[] saved) {
+        Locale.setDefault(saved[0]);
+        Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+        Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
     }
 
     @Test
@@ -140,6 +163,173 @@ public class SQLDateTimeFunctionsTest {
                         LocalDateTime.of(2024, 6, 15, 14, 30, 45));
 
         Assertions.assertEquals("2024-06-15", outRow.getField(0));
+    }
+
+    /**
+     * The pattern reaches DateTimeFormatter straight from the user's SQL, so any text bearing
+     * letter in it used to be rendered in the default locale of whichever worker ran the transform.
+     * DAYNAME and MONTHNAME never had that problem, because DateTimeFunction pins Locale.ENGLISH
+     * for them, so the two disagreed on the same row. These locales are chosen for that: Turkish,
+     * Japanese and German each translate at least one of the ten text bearing patterns covered here
+     * (G, MMM, MMMM, LLLL, EEE, EEEE, ccc, a, QQQ, QQQQ). Measured on an unpinned formatter, every
+     * one of the ten differs from English in at least one of those three locales, including the era
+     * G and the am/pm marker a, not only the month and weekday names.
+     *
+     * <p>The function names here are deliberately upper case. Lower case names would not reach
+     * these functions at all under a Turkish default locale, because the engine's keyword lookup
+     * upper cases them without a locale and turns the dotless i into a dotted one. That is a
+     * separate defect; keeping the names upper case isolates this test to the formatter locale.
+     */
+    @Test
+    public void testFormatDateTimeTextIsEnglishUnderAnyDefaultLocale() {
+        Locale[] original = snapshotDefaultLocales();
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+            LocalDateTime dt = LocalDateTime.of(2024, 6, 15, 14, 30, 45);
+
+            for (Locale locale :
+                    new Locale[] {
+                        Locale.ENGLISH,
+                        Locale.forLanguageTag("tr-TR"),
+                        Locale.forLanguageTag("ja-JP"),
+                        Locale.forLanguageTag("de-DE")
+                    }) {
+                Locale.setDefault(locale);
+                String tag = locale.toLanguageTag();
+
+                SeaTunnelRow outRow =
+                        runSql(
+                                "select FORMATDATETIME(dt, 'dd MMM yyyy') as a,"
+                                        + " FORMATDATETIME(dt, 'EEEE') as b,"
+                                        + " FORMATDATETIME(dt, 'MMMM') as c,"
+                                        + " DAYNAME(dt) as d,"
+                                        + " MONTHNAME(dt) as e,"
+                                        + " FORMATDATETIME(dt, 'yyyy-MM-dd') as f,"
+                                        + " FORMATDATETIME(dt, 'G') as g,"
+                                        + " FORMATDATETIME(dt, 'EEE') as h,"
+                                        + " FORMATDATETIME(dt, 'ccc') as i,"
+                                        + " FORMATDATETIME(dt, 'a') as j,"
+                                        + " FORMATDATETIME(dt, 'QQQ') as k,"
+                                        + " FORMATDATETIME(dt, 'QQQQ') as m,"
+                                        + " FORMATDATETIME(dt, 'LLLL') as n from dual",
+                                rowType,
+                                dt);
+
+                Assertions.assertEquals("15 Jun 2024", outRow.getField(0), tag);
+                Assertions.assertEquals("Saturday", outRow.getField(1), tag);
+                Assertions.assertEquals("June", outRow.getField(2), tag);
+                // the whole point: the two ways of naming a day must not disagree
+                Assertions.assertEquals(outRow.getField(3), outRow.getField(1), tag);
+                Assertions.assertEquals(outRow.getField(4), outRow.getField(2), tag);
+                // control: a numeric only pattern was never locale dependent
+                Assertions.assertEquals("2024-06-15", outRow.getField(5), tag);
+                // the rest of the text bearing letters, so the guarantee covers all of them and
+                // not only the month and weekday names that prompted the report
+                Assertions.assertEquals("AD", outRow.getField(6), tag);
+                Assertions.assertEquals("Sat", outRow.getField(7), tag);
+                Assertions.assertEquals("Sat", outRow.getField(8), tag);
+                Assertions.assertEquals("PM", outRow.getField(9), tag);
+                Assertions.assertEquals("Q2", outRow.getField(10), tag);
+                Assertions.assertEquals("2nd quarter", outRow.getField(11), tag);
+                Assertions.assertEquals("June", outRow.getField(12), tag);
+            }
+        } finally {
+            restoreDefaultLocales(original);
+        }
+    }
+
+    /** FROM_UNIXTIME builds its formatter the same way, so it needs the same guarantee. */
+    @Test
+    public void testFromUnixTimeTextIsEnglishUnderAnyDefaultLocale() {
+        Locale[] original = snapshotDefaultLocales();
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"ts"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+
+            for (Locale locale :
+                    new Locale[] {
+                        Locale.ENGLISH,
+                        Locale.forLanguageTag("tr-TR"),
+                        Locale.forLanguageTag("ja-JP")
+                    }) {
+                Locale.setDefault(locale);
+                String tag = locale.toLanguageTag();
+
+                // 1672545600 = 2023-01-01 10:00:00 at UTC+6, a Sunday
+                SeaTunnelRow outRow =
+                        runSql(
+                                "select FROM_UNIXTIME(ts, 'dd MMM yyyy', 'UTC+6') as a,"
+                                        + " FROM_UNIXTIME(ts, 'EEEE', 'UTC+6') as b,"
+                                        + " FROM_UNIXTIME(ts, 'yyyy-MM-dd', 'UTC+6') as c"
+                                        + " from dual",
+                                rowType,
+                                1672545600L);
+
+                Assertions.assertEquals("01 Jan 2023", outRow.getField(0), tag);
+                Assertions.assertEquals("Sunday", outRow.getField(1), tag);
+                Assertions.assertEquals("2023-01-01", outRow.getField(2), tag);
+            }
+        } finally {
+            restoreDefaultLocales(original);
+        }
+    }
+
+    /**
+     * The formatter locale does not only choose names, it also chooses the week rules, because
+     * DateTimeFormatter resolves the localized fields Y (week based year), w, W, e and c through
+     * WeekFields.of(locale). Pinning Locale.ENGLISH therefore pins the first day of the week to
+     * Sunday and the minimal days in the first week to 1 on every worker. These patterns produce
+     * digits, so a numeric result is not by itself evidence that a pattern is locale independent.
+     *
+     * <p>1 January 2021 is a Friday, which makes the difference visible: under en-GB and de-DE
+     * (Monday, 4) that day belongs to week 53 of 2020, while under Locale.ENGLISH (Sunday, 1) it is
+     * week 1 of 2021. en-GB is included deliberately, because an English language default is not
+     * interchangeable with Locale.ENGLISH for these fields.
+     */
+    @Test
+    public void testFormatDateTimeWeekFieldsUseEnglishWeekRulesUnderAnyDefaultLocale() {
+        Locale[] original = snapshotDefaultLocales();
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+            LocalDateTime dt = LocalDateTime.of(2021, 1, 1, 10, 0, 0);
+
+            for (Locale locale :
+                    new Locale[] {
+                        Locale.ENGLISH,
+                        Locale.UK,
+                        Locale.forLanguageTag("de-DE"),
+                        Locale.forLanguageTag("tr-TR")
+                    }) {
+                Locale.setDefault(locale);
+                String tag = locale.toLanguageTag();
+
+                SeaTunnelRow outRow =
+                        runSql(
+                                "select FORMATDATETIME(dt, 'YYYY') as a,"
+                                        + " FORMATDATETIME(dt, 'ww') as b,"
+                                        + " FORMATDATETIME(dt, 'W') as c,"
+                                        + " FORMATDATETIME(dt, 'e') as d,"
+                                        + " FORMATDATETIME(dt, 'D') as f from dual",
+                                rowType,
+                                dt);
+
+                Assertions.assertEquals("2021", outRow.getField(0), tag);
+                Assertions.assertEquals("01", outRow.getField(1), tag);
+                Assertions.assertEquals("1", outRow.getField(2), tag);
+                Assertions.assertEquals("6", outRow.getField(3), tag);
+                // control: day of year is not a localized field, it never followed the locale
+                Assertions.assertEquals("1", outRow.getField(4), tag);
+            }
+        } finally {
+            restoreDefaultLocales(original);
+        }
     }
 
     @Test

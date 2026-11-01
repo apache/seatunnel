@@ -613,7 +613,10 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        // Locale.ENGLISH keeps month, weekday, era, quarter and am/pm text independent of the
+        // worker's default locale, matching DAYNAME and MONTHNAME above, which pin English
+        // through DateFormatSymbols.getInstance(Locale.ENGLISH) in getMonthsAndWeeks.
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(format, Locale.ENGLISH);
         return df.format(datetime);
     }
 
@@ -796,7 +799,8 @@ public class DateTimeFunction {
             String timeZone = (String) args.get(2);
             zoneId = ZoneId.of(timeZone);
         }
-        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        // Same reason as in formatdatetime: the rendered text must not follow the worker locale.
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(format, Locale.ENGLISH);
         LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
     }
