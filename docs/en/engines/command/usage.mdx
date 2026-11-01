@@ -99,17 +99,19 @@ Usage: start-seatunnel-spark-3-connector-v2.sh [options]
 ```bash
 Usage: start-seatunnel-flink-13-connector-v2.sh [options]
   Options:
-    --check            Whether check config (default: false)
-    -c, --config       Config file
-    -e, --deploy-mode  Flink job deploy mode, support [run, run-application] 
-                       (default: run)
-    -h, --help         Show the usage message
-    --master, --target Flink job submitted target master, support [local, 
-                       remote, yarn-session, yarn-per-job, kubernetes-session, 
-                       yarn-application, kubernetes-application]
-    -n, --name         SeaTunnel job name (default: SeaTunnel)
-    -i, --variable     Variable substitution, such as -i city=beijing, or -i 
-                       date=20190318 (default: [])
+    --check                                                                 Whether check config (default: false)
+    -c, --config                                                            Config file
+    -e, --deploy-mode                                                       Flink job deploy mode, support [run, run-application]
+                                                                            (default: run)
+    -h, --help                                                              Show the usage message
+    --master, --target                                                      Flink job submitted target master, support [local,
+                                                                            remote, yarn-session, yarn-per-job, kubernetes-session,
+                                                                            yarn-application, kubernetes-application]
+    -s,--fromSavepoint <savepointPath>,--fromCheckpoint <checkpointPath>    Path to a savepoint (or an externalized checkpoint) to
+                                                                            restore the job from (equivalent to "flink run -s" ).
+    -n, --name                                                              SeaTunnel job name (default: SeaTunnel)
+    -i, --variable                                                          Variable substitution, such as -i city=beijing, or -i
+                                                                            date=20190318 (default: [])
 ```
 
 </TabItem>
@@ -118,17 +120,19 @@ Usage: start-seatunnel-flink-13-connector-v2.sh [options]
 ```bash
 Usage: start-seatunnel-flink-15-connector-v2.sh [options]
   Options:
-    --check            Whether check config (default: false)
-    -c, --config       Config file
-    -e, --deploy-mode  Flink job deploy mode, support [run, run-application] 
-                       (default: run)
-    -h, --help         Show the usage message
-    --master, --target Flink job submitted target master, support [local, 
-                       remote, yarn-session, yarn-per-job, kubernetes-session, 
-                       yarn-application, kubernetes-application]
-    -n, --name         SeaTunnel job name (default: SeaTunnel)
-    -i, --variable     Variable substitution, such as -i city=beijing, or -i 
-                       date=20190318 (default: [])
+    --check                                                                 Whether check config (default: false)
+    -c, --config                                                            Config file
+    -e, --deploy-mode                                                       Flink job deploy mode, support [run, run-application]
+                                                                            (default: run)
+    -h, --help                                                              Show the usage message
+    --master, --target                                                      Flink job submitted target master, support [local,
+                                                                            remote, yarn-session, yarn-per-job, kubernetes-session,
+                                                                            yarn-application, kubernetes-application]
+    -s,--fromSavepoint <savepointPath>,--fromCheckpoint <checkpointPath>    Path to a savepoint (or an externalized checkpoint) to
+                                                                            restore the job from (equivalent to "flink run -s" ).
+    -n, --name                                                              SeaTunnel job name (default: SeaTunnel)
+    -i, --variable                                                          Variable substitution, such as -i city=beijing, or -i
+                                                                            date=20190318 (default: [])
 ```
 
 </TabItem>
