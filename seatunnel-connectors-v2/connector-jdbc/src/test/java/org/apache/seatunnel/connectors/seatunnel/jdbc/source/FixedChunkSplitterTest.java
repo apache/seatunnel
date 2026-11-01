@@ -59,6 +59,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Slf4j
 public class FixedChunkSplitterTest {
@@ -131,6 +134,62 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
+    public void testReaderRejectsOracleRangeSplitWithUnsafeSession() throws SQLException {
+        Connection connection = mock(Connection.class);
+        Statement statement = mock(Statement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.createStatement()).thenReturn(statement);
+        when(statement.executeQuery(anyString())).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, true, false);
+        when(resultSet.getString(1)).thenReturn("NLS_SORT", "NLS_COMP");
+        when(resultSet.getString(2)).thenReturn("BINARY", "LINGUISTIC");
+
+        CapturingFixedChunkSplitter splitter =
+                new CapturingFixedChunkSplitter(oracleConfig(), connection);
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("APP", "ORDERS"),
+                        "split-0",
+                        null,
+                        "ORDER_ID",
+                        BasicType.STRING_TYPE,
+                        null,
+                        "A100");
+
+        JdbcConnectorException exception =
+                assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                splitter.generateSplitStatement(
+                                        split, TableSchema.builder().build()));
+
+        assertTrue(exception.getMessage().contains("session NLS_COMP must be BINARY"));
+    }
+
+    @Test
+    public void testAutoOracleStringRangeSplitFallsBackWhenSessionValidationQueryFails()
+            throws SQLException {
+        Connection connection = mock(Connection.class);
+        when(connection.createStatement())
+                .thenThrow(new SQLException("NLS_SESSION_PARAMETERS denied"));
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:oracle:thin:@localhost:1521:xe")
+                                        .driverName("oracle.jdbc.OracleDriver")
+                                        .build())
+                        .stringSplitStrategy(StringSplitStrategy.AUTO)
+                        .build();
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(config, connection);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("APP", "ORDERS")).build();
+
+        assertEquals(
+                StringSplitStrategy.HASH, splitter.resolveStringSplitStrategy(table, "ORDER_ID"));
+    }
+
+    @Test
     public void testConvertFloat() throws Exception {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
@@ -192,12 +251,34 @@ public class FixedChunkSplitterTest {
                 .build();
     }
 
+    private static JdbcSourceConfig oracleConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:oracle:thin:@localhost:1521:xe")
+                                .driverName("oracle.jdbc.OracleDriver")
+                                .build())
+                .stringSplitStrategy(StringSplitStrategy.RANGE)
+                .build();
+    }
+
     private static class CapturingFixedChunkSplitter extends FixedChunkSplitter {
         private String sql;
         private final Map<Integer, String> stringParameters = new HashMap<>();
+        private final Connection connection;
 
         private CapturingFixedChunkSplitter(JdbcSourceConfig config) {
+            this(config, null);
+        }
+
+        private CapturingFixedChunkSplitter(JdbcSourceConfig config, Connection connection) {
             super(config);
+            this.connection = connection;
+        }
+
+        @Override
+        protected Connection getOrEstablishConnection() {
+            return connection;
         }
 
         @Override
