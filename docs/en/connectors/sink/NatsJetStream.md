@@ -14,7 +14,13 @@ The sink does **not** create streams or manage JetStream resources. You must pre
 
 ## Key features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::caution Delivery semantics
@@ -53,6 +59,7 @@ Even with that setup, the connector must still be treated as **at-least-once**.
 - Authentication: use either no credentials, `username` + `password`, or `token`; `token` is mutually exclusive with `username` / `password`.
 - Initial limitations: synchronous per-record publish only; batching and connector-managed retry controls are out of scope.
 - Non-goals: stream administration, exactly-once, source support, schema evolution handling beyond incoming rows, and formats beyond documented JSON/native mode.
+- Multiple upstream tables: Zeta creates an independent sink instance for each table using the sink template. JSON-mode instances publish to the same configured `subject`; native-mode instances resolve the subject for each row. The connector does not implement the shared multi-table sink API.
 
 ## Broker setup
 
@@ -303,6 +310,102 @@ subject : string
 id      : string
 headers : map<string,string>
 data    : bytes
+```
+
+### Streaming JSON example
+
+The same JSON sink can run continuously in streaming mode. Each incoming row
+becomes one JetStream publish request on the fixed subject. Set a checkpoint
+interval so the writer can recover from restarts with at-least-once delivery.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "json_fake_stream"
+    schema = {
+      fields {
+        id = int
+        name = string
+        score = double
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", 9.5] }
+    ]
+  }
+}
+
+sink {
+  NatsJetStream {
+    plugin_input = "json_fake_stream"
+    url = "nats://127.0.0.1:4222"
+    username = "nats-user"
+    password = "nats-password"
+    subject = "orders.json.stream"
+    format = "json"
+  }
+}
+```
+
+### Writing multiple upstream tables
+
+Zeta applies the sink template separately to each upstream table, creating an
+independent sink instance per table. In this JSON-mode example, all instances
+publish to the same configured `subject`; the connector does not select a
+different subject for each table.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake_multi"
+    tables_configs = [
+      {
+        schema = {
+          table = "events_json_a"
+          fields {
+            id = int
+            name = string
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "alpha"] }
+        ]
+      },
+      {
+        schema = {
+          table = "events_json_b"
+          fields {
+            id = int
+            name = string
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [2, "beta"] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  NatsJetStream {
+    plugin_input = "fake_multi"
+    url = "nats://127.0.0.1:4222"
+    subject = "events.json.multi"
+    format = "json"
+  }
+}
 ```
 
 ## Errors and operational notes
