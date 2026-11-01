@@ -44,5 +44,5 @@ seatunnel:
       enabled: true
       kind: gravitino
       gravitino:
-        uri: http://127.0.0.1:8090
+        uri: http://gravitino:8090
         metalake: test_metalake

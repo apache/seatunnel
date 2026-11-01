@@ -19,7 +19,7 @@ The Metadata SPI (Service Provider Interface) is an extension mechanism introduc
 
 ### Engine Support
 
-> **Important**: Metadata SPI is currently only supported on the **SeaTunnel Zeta engine**. It is not yet compatible with Flink or Spark engines.
+> **Important**: Metadata SPI is supported on **SeaTunnel Zeta** and **Flink**. Flink reads metadata-provider configuration from `$SEATUNNEL_HOME/config/seatunnel.yaml` before connector validation. Spark is not yet supported.
 
 ## Using metadata_datasource_id
 
@@ -172,13 +172,15 @@ To enable the Metadata Center, add the following configuration to `seatunnel.yam
 ```yaml
 seatunnel:
   engine:
-     metadata:
+    metadata:
       enabled: true
       kind: gravitino
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
 ```
+
+SeaTunnel Zeta and the Flink starter read this configuration from `$SEATUNNEL_HOME/config/seatunnel.yaml`.
 
 ### Configuration Options
 
