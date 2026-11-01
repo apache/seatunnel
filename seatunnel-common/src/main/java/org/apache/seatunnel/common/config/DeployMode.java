@@ -18,6 +18,7 @@
 package org.apache.seatunnel.common.config;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -47,6 +48,9 @@ public enum DeployMode {
                     .collect(Collectors.toMap(DeployMode::getDeployMode, Function.identity()));
 
     public static Optional<DeployMode> from(String deployMode) {
-        return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase()));
+        if (deployMode == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase(Locale.ROOT)));
     }
 }
