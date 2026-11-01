@@ -531,11 +531,16 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                         case Timestamp.SCHEMA_NAME:
                             return toLocalDateTime((Long) dbzObj, 0);
                         case MicroTimestamp.SCHEMA_NAME:
+                            // floorMod keeps sub-millis >= 0 for pre-1970 (negative) values
                             long micro = (long) dbzObj;
-                            return toLocalDateTime(micro / 1000, (int) (micro % 1000 * 1000));
+                            return toLocalDateTime(
+                                    Math.floorDiv(micro, 1000L),
+                                    (int) (Math.floorMod(micro, 1000L) * 1000));
                         case NanoTimestamp.SCHEMA_NAME:
                             long nano = (long) dbzObj;
-                            return toLocalDateTime(nano / 1000_000, (int) (nano % 1000_000));
+                            return toLocalDateTime(
+                                    Math.floorDiv(nano, 1000_000L),
+                                    (int) Math.floorMod(nano, 1000_000L));
                         default:
                     }
                 }

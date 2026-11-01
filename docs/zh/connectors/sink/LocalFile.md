@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
 | filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
-| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 file_format_type 为 text 时使用                                  |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 file_format_type 为 text 和 csv 时使用                            |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                   |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
 | partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
@@ -216,9 +216,7 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 - MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
 - NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
 
-### xml
-
-_root_tag [string]
+### xml_root_tag [string]
 
 指定 XML 文件中根元素的标签名。
 

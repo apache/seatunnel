@@ -909,6 +909,154 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Savepoint restore uses the native Zeta reader lifecycle")
+    public void testBoundedFileSavepointRestore(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String config = "/text/local_file_bounded_restore.conf";
+        String root = "/tmp/seatunnel_mnt/bounded-restore";
+        Container.ExecResult setup =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf "
+                                + root
+                                + " && mkdir -p "
+                                + root
+                                + "/source "
+                                + root
+                                + "/output "
+                                + root
+                                + "/pending && i=1; while [ $i -le 120 ]; do echo $i > "
+                                + root
+                                + "/source/$i.txt; i=$((i+1)); done");
+        Assertions.assertEquals(0, setup.getExitCode(), setup.getStderr());
+        CompletableFuture<Container.ExecResult> firstRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(config, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        List<CompletableFuture<Container.ExecResult>> runs = new ArrayList<>();
+        runs.add(firstRun);
+        Throwable failure = null;
+        try {
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .failFast(
+                            "Bounded job ended before checkpointed partial output",
+                            firstRun::isDone)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(jobId) > 0);
+                                int committed = readBoundedRestoreIds().size();
+                                Assertions.assertTrue(
+                                        committed > 0 && committed < 120,
+                                        "Checkpoint must commit a proper subset before restore");
+                            });
+            Container.ExecResult savepoint = container.savepointJob(jobId);
+            Assertions.assertEquals(0, savepoint.getExitCode(), savepoint.getStderr());
+            Container.ExecResult stopped = firstRun.get(120, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, stopped.getExitCode(), stopped.getStderr());
+            Assertions.assertTrue(
+                    readBoundedRestoreIds().size() < 120,
+                    "The saved job must still have unfinished file splits");
+            CompletableFuture<Container.ExecResult> restored =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.restoreJob(config, jobId);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            runs.add(restored);
+            Container.ExecResult completed = restored.get(180, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, completed.getExitCode(), completed.getStderr());
+            List<Integer> expected = new ArrayList<>();
+            for (int id = 1; id <= 120; id++) {
+                expected.add(id);
+            }
+            List<Integer> actual = readBoundedRestoreIds();
+            actual.sort(Integer::compareTo);
+            Assertions.assertEquals(
+                    expected,
+                    actual,
+                    "Restore must neither replay completed files nor lose pending splits");
+        } catch (Exception | AssertionError e) {
+            failure = e;
+            throw e;
+        } finally {
+            try {
+                List<String> terminal =
+                        Lists.newArrayList("FINISHED", "FAILED", "CANCELED", "SAVEPOINT_DONE");
+                String status = container.getJobStatus(jobId);
+                if (status == null || "UNKNOWABLE".equals(status)) {
+                    throw new IllegalStateException(
+                            "Cannot confirm native termination; preserve fixture files");
+                }
+                if (!terminal.contains(status)) {
+                    CompletableFuture<Container.ExecResult> cancellation =
+                            CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            return container.cancelJob(jobId);
+                                        } catch (Exception e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                    Container.ExecResult cancel = cancellation.get(30, TimeUnit.SECONDS);
+                    Assertions.assertEquals(0, cancel.getExitCode(), cancel.getStderr());
+                }
+                Awaitility.await()
+                        .atMost(120, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertTrue(
+                                                terminal.contains(container.getJobStatus(jobId)),
+                                                "Keep fixture files until the native job is confirmed terminal"));
+                for (CompletableFuture<Container.ExecResult> run : runs) {
+                    if (!run.isDone()) {
+                        run.get(120, TimeUnit.SECONDS);
+                    }
+                }
+                Container.ExecResult cleanup =
+                        baseContainer.execInContainer("sh", "-c", "rm -rf " + root);
+                Assertions.assertEquals(0, cleanup.getExitCode(), cleanup.getStderr());
+            } catch (Exception | AssertionError cleanupFailure) {
+                if (failure != null) {
+                    failure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private List<Integer> readBoundedRestoreIds() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "find /tmp/seatunnel_mnt/bounded-restore/output -type f "
+                                + "! -name '.*' -exec awk '1' {} +");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        List<Integer> ids = new ArrayList<>();
+        for (String line : result.getStdout().split("\\R")) {
+            if (!line.trim().isEmpty()) {
+                ids.add(Integer.parseInt(line.trim()));
+            }
+        }
+        return ids;
+    }
+
     private void resetUpdateTestPath() throws IOException, InterruptedException {
         Container.ExecResult result =
                 baseContainer.execInContainer(

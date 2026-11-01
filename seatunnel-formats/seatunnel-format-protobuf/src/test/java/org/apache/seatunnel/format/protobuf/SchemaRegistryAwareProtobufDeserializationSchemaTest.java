@@ -149,8 +149,10 @@ public class SchemaRegistryAwareProtobufDeserializationSchemaTest {
     }
 
     @Test
-    void throwsWhenMessageIsNull() {
-        Assertions.assertThrows(NullPointerException.class, () -> schema.deserialize(null));
+    void returnsNoRowWhenMessageIsNull() throws IOException {
+        // A null value is a Kafka tombstone, which this schema hands to the inner schema
+        // unchanged. It yields no row instead of raising a NullPointerException.
+        Assertions.assertNull(schema.deserialize(null));
     }
 
     @Test
