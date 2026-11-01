@@ -31,6 +31,9 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 
 | Name | Type | Required | Default value | Description |
 | --- | --- | --- | --- | --- |
+| `kubernetes.ha.enabled` | boolean | no | `false` | Enable dual-master native Zeta HA; see [HA architecture](architecture.md#opt-in-application-ha). |
+| `kubernetes.master.replicas` | int | no | `1` | Exactly 1 without HA; exactly 2 with HA. |
+| `kubernetes.ha.backup-count` | int | no | `1` in HA | HA requires exactly one native synchronous backup. |
 | `kubernetes.namespace` | string | no | `default` | Existing namespace containing all application resources. |
 | `kubernetes.image` | string | yes | - | Image containing SeaTunnel, the provider, and job plugins. |
 | `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`, `IfNotPresent`, or `Never`. |
@@ -84,8 +87,8 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 | `application.startup-timeout-millis` | long | no | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
 
 :::note
-Pod JVM heap uses 75% of the memory limit, leaving the remainder for off-heap allocations and JVM
-overhead.
+Master and Worker JVM heaps use 75% of the memory limit, leaving the remainder for off-heap
+allocations and JVM overhead. The HA owner client uses the configured master resources with at least 512Mi memory and the same heap ratio.
 :::
 
 :::note
@@ -515,3 +518,5 @@ bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 Pod requests equal limits. Plan worker count, worker slots, job parallelism, ResourceQuota,
 LimitRange, and node capacity together. The master does not provide task slots.
 :::
+
+In HA mode masters and workers use the shared runtime decorators. Only masters mount the checkpoint PVC. The owner client receives the job specification and required environment/Secret/ConfigMap mounts. The permissions above describe the default single-master mode; apply the additional [HA permissions](architecture.md#ha-permissions) when enabling HA.

@@ -55,12 +55,7 @@ reached, while the default `0` keeps waiting indefinitely; `--wait-interval` set
 
 ## cancel
 
-`cancel` deletes the owner Job of the application. Owned Pods, Services, Secrets and ConfigMaps are
-garbage-collected through the owner reference; referenced objects created outside SeaTunnel are
-never modified or deleted. The command reports `Cancellation requested` once the delete is accepted.
-Because the owner Job is removed, a later `status` returns `UNKNOWN`; use `kubectl` to confirm that
-the Pods are gone. If the delete call fails before the Job is removed, retry `cancel` after the API
-outage is resolved.
+For single-master and HA applications, `cancel` deletes the owner Job. Owned Pods, Services, Secrets and ConfigMaps are garbage-collected through owner references; referenced user resources are preserved. HA uses a UID precondition, and single-master mode retains graceful cleanup when the owner Job is missing. The command reports `Cancellation requested` once deletion is accepted. The same client handle reports `CANCELED`; a fresh handle sees `UNKNOWN` after deletion. Use `kubectl` to confirm that the Pods are gone. If an API call fails, retry `cancel` after the outage is resolved. Cancellation through the native engine instead of the application command can leave a terminal Job until its retention TTL.
 
 ## Inspecting in Kubernetes
 
@@ -79,3 +74,7 @@ not replace Pod events and logs when a start-up problem has to be explained.
 :::
 
 See [Configuration](configuration.md) for the deployment options these commands accept.
+
+## Ordinary HA applications
+
+With [HA enabled](architecture.md#opt-in-application-ha), submission also creates a dual-master StatefulSet and fixed worker Pods. Status prefers the durable native outcome over the owner Job exit condition. `cancel` requests deletion of the owner Job and garbage collection of owned resources; it does not retain a canceled Job. A fresh status request after deletion returns `UNKNOWN`. Native job cancellation observed by the owner instead records `CANCELED` until the owner Job TTL. Inspect compute with `kubectl get statefulsets,pods,services -l seatunnel.apache.org/application-id=APPLICATION_ID`.

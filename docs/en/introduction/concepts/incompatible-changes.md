@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Kubernetes Application Mode: optional native master HA
+
+HA is opt-in: two native masters, one synchronous metadata backup and fixed worker Pods. The provider deploys the cluster and uses one owner Job as the native submission client. Election, recovery, checkpoint storage and task protocols are unchanged. Single-master defaults and behavior are unchanged. Worker replacement, Operator behavior, strict partition protection and connector fencing are excluded.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
