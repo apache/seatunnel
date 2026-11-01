@@ -75,9 +75,11 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 
 ### 原生 CLI 帮助退出码
 
-`seatunnel.sh -h` 现在以 `0` 而非 `234` 退出。
-依赖退出码 `234` 识别原生帮助的脚本需要调整。Spark/Flink Java 启动器仍使用 `234` 协议，
-对应包装脚本仍将帮助请求转换为退出码 `0`。
+`seatunnel.sh`、`seatunnel-application.sh`、`seatunnel-cluster.sh`、`seatunnel-connector.sh`、
+`seatunnel-metadata-export.sh` 以及 Edge Agent Starter 的原生帮助请求现在以 `0` 而非 `234`
+退出。依赖退出码 `234` 识别原生帮助的脚本需要调整；显式帮助请求（包括 connector 脚本不带参数时
+默认显示的帮助）以 `0` 退出，缺少必需参数仍显示用法并以 `234` 退出，其他非法参数仍以非零码退出。Spark/Flink Java
+启动器仍使用 `234` 协议，对应包装脚本仍将帮助请求转换为退出码 `0`。
 
 ### CDC：可空列不再用作快照分片列
 
