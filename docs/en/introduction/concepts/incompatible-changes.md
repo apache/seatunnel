@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: a file-backed checkpoint IMap write failure now fails the operation
+
+- **Behavior change: file write-through persistence no longer reports success when the WAL append fails**
+  - **Description**: `FileMapStore` used to discard a failed `store`, `storeAll`, `delete` or `deleteAll` and let the in-memory IMap entry advance. With the shipped write-through setting (`write-delay-seconds=0`), that failure is now thrown to the caller as `IMapStorageException`. After one WAL append fails, the same writer is fail-closed: later appends complete as failed and do not write more bytes after a possibly partial record. A timed WAL wait that expires means the outcome is uncertain. A timeout while persisting cancellation bookkeeping can therefore finish the job as `FAILED` or `UNKNOWABLE` instead of `CANCELED`. Write-behind does not provide this synchronous failure. An auxiliary checkpoint-monitor storage failure is logged and does not by itself abort a checkpoint whose payload was already stored; a node-shutdown exception still stops the dying coordinator.
+  - **Impact**: Jobs and callers that previously continued after a silent persistence failure now fail at the write. Cancellation can surface as a failed or unknowable job when its bookkeeping write times out. A node whose WAL writer has fail-closed keeps rejecting appends until that node is restarted.
+  - **Migration Guide**: No configuration change is required. Keep write-through (`write-delay-seconds=0`) if these failures must reach the caller. A timeout is not proof that the write was durable. If an error says WAL append is permanently fail-closed, restart that engine node; do not delete the WAL to clear it.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
