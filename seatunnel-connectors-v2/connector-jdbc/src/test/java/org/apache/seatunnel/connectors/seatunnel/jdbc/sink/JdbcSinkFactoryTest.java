@@ -47,6 +47,40 @@ class JdbcSinkFactoryTest {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
     }
 
+    @Test
+    void testBulkCopyRejectsIncompatibleSemantics() {
+        Map<String, Object> config = bulkCopyConfig();
+        JdbcSinkConfigChecker.check(ReadonlyConfig.fromMap(config));
+        Map<String, Object> conflicting = new HashMap<>();
+        conflicting.put("is_exactly_once", true);
+        conflicting.put("enable_upsert", true);
+        conflicting.put("use_copy_statement", true);
+        conflicting.put("query", "INSERT INTO target VALUES (?)");
+        conflicting.put("generate_sink_sql", false);
+        conflicting.put("url", "jdbc:postgresql://localhost/database");
+        conflicting.forEach(
+                (key, value) -> {
+                    Map<String, Object> invalid = new HashMap<>(config);
+                    invalid.put(key, value);
+                    Assertions.assertThrows(
+                            OptionValidationException.class,
+                            () -> JdbcSinkConfigChecker.check(ReadonlyConfig.fromMap(invalid)),
+                            key);
+                });
+        // Auto-commit is owned by the regular JDBC writer, including manual-commit mode.
+        config.put("auto_commit", false);
+        JdbcSinkConfigChecker.check(ReadonlyConfig.fromMap(config));
+    }
+
+    private Map<String, Object> bulkCopyConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", "jdbc:sqlserver://localhost;databaseName=master");
+        config.put("use_sqlserver_bulk_copy", true);
+        config.put("enable_upsert", false);
+        config.put("generate_sink_sql", true);
+        return config;
+    }
+
     private Map<String, Object> baseConfig() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:oracle:thin:@//localhost:1521/ORCL");
