@@ -5,6 +5,11 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta REST API v2 request-body charset
+
+- **Behavior change**: Text request bodies without a declared charset now use UTF-8 instead of the servlet default ISO-8859-1. This affects raw-body endpoints using the shared REST reader, including HOCON/SQL submissions and JSON sent as `text/plain`. Explicit supported charsets remain honored; unsupported declarations return HTTP 400.
+- **Migration Guide**: Send UTF-8 bytes, or explicitly declare the actual encoding in `Content-Type` (for example, `text/plain; charset=ISO-8859-1` for Latin-1 bytes). UTF-8 `application/json` requests and multipart config-file uploads remain unchanged. This does not change query or form-parameter decoding.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
