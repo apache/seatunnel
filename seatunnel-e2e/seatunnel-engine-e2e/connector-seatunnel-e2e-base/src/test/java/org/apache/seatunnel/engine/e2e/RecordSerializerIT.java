@@ -56,8 +56,9 @@ public class RecordSerializerIT {
     @BeforeAll
     static void setUp() {
         String clusterName = TestUtils.getClusterName("RecordSerializerIT_hzSerializationTest");
-        instance1 = createHazelcastInstance(clusterName);
-        instance2 = createHazelcastInstance(clusterName);
+        int hazelcastPort = TestUtils.getAvailablePort(100);
+        instance1 = createHazelcastInstance(clusterName, hazelcastPort);
+        instance2 = createHazelcastInstance(clusterName, hazelcastPort);
         await().atMost(30, TimeUnit.SECONDS)
                 .until(() -> instance1.getCluster().getMembers().size() == 2);
     }
@@ -314,15 +315,17 @@ public class RecordSerializerIT {
         writerMap.remove(key);
     }
 
-    private static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
+    private static HazelcastInstanceImpl createHazelcastInstance(
+            String clusterName, int hazelcastPort) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
-        Config hazelcastConfig = Config.loadFromString(buildHazelcastConfig(clusterName));
+        Config hazelcastConfig =
+                Config.loadFromString(buildHazelcastConfig(clusterName, hazelcastPort));
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
-    private static String buildHazelcastConfig(String clusterName) {
+    private static String buildHazelcastConfig(String clusterName, int hazelcastPort) {
         return "hazelcast:\n"
                 + "  cluster-name: "
                 + clusterName
@@ -336,6 +339,8 @@ public class RecordSerializerIT {
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5901\n";
+                + "      port: "
+                + hazelcastPort
+                + "\n";
     }
 }

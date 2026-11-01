@@ -17,10 +17,11 @@ The old configuration name `result_table_name` is deprecated, please migrate to 
 | plugin_output | String | No       | -       | When `plugin_output` is not specified, the data processed by this plugin will not be registered as a data set `(dataStream/dataset)` that can be directly accessed by other plugins, or called a temporary table `(table)` <br/>When `plugin_output` is specified, the data processed by this plugin will be registered as a data set `(dataStream/dataset)` that can be directly accessed by other plugins, or called a temporary table `(table)` . The data set `(dataStream/dataset)` registered here can be directly accessed by other plugins by specifying `plugin_input` . |
 | parallelism   | Int    | No       | -       | When `parallelism` is not specified, the `parallelism` in env is used by default. <br/>When parallelism is specified, it will override the parallelism in env.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information.                                                                                                                                                                                                                                      |
+| dag-parsing.mode | Enum | No | SINGLENESS | Whether to enable parsing support for multi-table source. `SINGLENESS` processes each table with a separate source and sink; `MULTIPLEXING` processes multiple tables (such as sharded tables) with one source and one sink. |
 
 # Important note
 
-When the job configuration `plugin_output` you must set the `plugin_input` parameter
+`plugin_output` registers the data set produced by this source as a temporary table that downstream transforms or sinks can reference through `plugin_input`. A source itself never takes `plugin_input`. If the job has only one source, at most one transform and one sink, both options are optional; if any of source, transform or sink appears more than once, every plugin must declare `plugin_output`/`plugin_input` so the engine can build the DAG.
 
 ## Task Example
 
@@ -30,8 +31,13 @@ When the job configuration `plugin_output` you must set the `plugin_input` param
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
         plugin_output = "fake_table"
+        schema = {
+            fields {
+                id = int
+            }
+        }
     }
 }
 ```

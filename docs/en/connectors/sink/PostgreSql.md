@@ -12,8 +12,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+The PostgreSQL Sink connector writes rows to a PostgreSQL database through the JDBC driver.
+It supports both batch and streaming jobs, concurrent sink writers controlled by the
+job or pipeline parallelism, and exactly-once semantics through XA transactions.
+
+Use this connector when the upstream data lands in a relational store and the target table
+follows the standard PostgreSQL type system described in the data type mapping section below.
+The connector can write to a fixed `database.table` pair, generate `INSERT` statements from
+the schema automatically, or apply a custom `query` template, so it covers both CDC and
+plain bulk-loading workloads.
 
 ## Using Dependency
 
@@ -27,13 +34,16 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` and `max_retries=0` to enable it.
+Exactly-once requires XA transaction support in the target database. Set
+`is_exactly_once=true`, `max_retries=0`, and the matching `xa_data_source_class_name`.
+
 
 ## Supported DataSource Info
 
@@ -142,7 +152,8 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 

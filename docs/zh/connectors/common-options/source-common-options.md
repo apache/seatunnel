@@ -17,10 +17,11 @@ sidebar_position: 3
 | plugin_output | String | 否  | -   | 当未指定 `plugin_output` 时，此插件处理的数据将不会被注册为可由其他插件直接访问的数据集 `(dataStream/dataset)`，或称为临时表 `(table)`。<br/>当指定了 `plugin_output` 时，此插件处理的数据将被注册为可由其他插件直接访问的数据集 `(dataStream/dataset)`，或称为临时表 `(table)`。此处注册的数据集 `(dataStream/dataset)` 可通过指定 `plugin_input` 直接被其他插件访问。 |
 | parallelism   | Int    | 否  | -   | 当未指定 `parallelism` 时，默认使用环境中的 `parallelism`。<br/>当指定了 `parallelism` 时，将覆盖环境中的 `parallelism` 设置。                                                                                                                                                              |
 | metadata_datasource_id | String | 否  | -   | 用于从元数据中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。                                                                                                                        |
+| dag-parsing.mode | Enum | 否  | SINGLENESS | 是否启用多表 source 的解析支持。`SINGLENESS` 表示每张表由独立的 source 和 sink 处理；`MULTIPLEXING` 表示多张表（例如分片表）由一个 source 和一个 sink 处理。 |
 
 # 重要提示
 
-在作业配置中使用 `plugin_output` 时，必须设置 `plugin_input` 参数。
+`plugin_output` 会把当前 source 产生的数据集注册为临时表，供下游 transform 或 sink 通过 `plugin_input` 引用。source 自身不需要也不会使用 `plugin_input`。如果作业只有一个 source、最多一个 transform 和一个 sink，这两个参数都可以省略；如果 source、transform 或 sink 中任意一类的数量大于 1，则每个插件都必须声明 `plugin_output`/`plugin_input`，引擎才能正确构建 DAG。
 
 ## 任务示例
 
@@ -30,8 +31,13 @@ sidebar_position: 3
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
         plugin_output = "fake_table"
+        schema = {
+            fields {
+                id = int
+            }
+        }
     }
 }
 ```
