@@ -34,6 +34,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonError;
 
+import java.util.Locale;
+
 public class SeaTunnelDataTypeConvertorUtil {
 
     /**
@@ -45,7 +47,7 @@ public class SeaTunnelDataTypeConvertorUtil {
         SqlType sqlType = null;
         try {
             String compatible = compatibleTypeDeclare(columnType);
-            sqlType = SqlType.valueOf(compatible.toUpperCase().replace(" ", ""));
+            sqlType = SqlType.valueOf(compatible.toUpperCase(Locale.ROOT).replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -112,7 +114,7 @@ public class SeaTunnelDataTypeConvertorUtil {
      */
     @Deprecated
     private static String compatibleTypeDeclare(String declare) {
-        switch (declare.trim().toUpperCase()) {
+        switch (declare.trim().toUpperCase(Locale.ROOT)) {
             case "LONG":
                 return "BIGINT";
             case "SHORT":
@@ -125,7 +127,7 @@ public class SeaTunnelDataTypeConvertorUtil {
     }
 
     private static SeaTunnelDataType<?> parseComplexDataType(String field, String columnStr) {
-        String column = columnStr.toUpperCase().replace(" ", "");
+        String column = columnStr.toUpperCase(Locale.ROOT).replace(" ", "");
         if (column.startsWith(SqlType.MAP.name())) {
             return parseMapType(field, columnStr);
         }
@@ -191,7 +193,7 @@ public class SeaTunnelDataTypeConvertorUtil {
     private static SeaTunnelDataType<?> parseMapType(String field, String columnStr) {
         String genericType = getGenericType(columnStr).trim();
         int index =
-                genericType.toUpperCase().startsWith(SqlType.DECIMAL.name())
+                genericType.toUpperCase(Locale.ROOT).startsWith(SqlType.DECIMAL.name())
                         ?
                         // if map key is decimal, we should find the index of second ','
                         genericType.indexOf(",", genericType.indexOf(",") + 1)
