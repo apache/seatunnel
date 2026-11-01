@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
@@ -87,6 +88,20 @@ public class PdfReadStrategyTest {
         pdfReadStrategy.read(path, "", tempCollector);
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
+        for (SeaTunnelRow row : rows) {
+            Assertions.assertEquals(5, row.getOptions().size());
+            Assertions.assertEquals(path, row.getOptions().get(CommonOptions.FILE_PATH.getName()));
+            Assertions.assertEquals("pdf", row.getOptions().get(CommonOptions.FILE_TYPE.getName()));
+            Assertions.assertEquals(
+                    Files.size(Paths.get(path)),
+                    row.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+            Assertions.assertEquals(
+                    Files.getLastModifiedTime(Paths.get(path)).toMillis(),
+                    row.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+            Assertions.assertTrue(
+                    (Long) row.getOptions().get(CommonOptions.FILE_CREATE_TIME.getName()) > 0);
+            Assertions.assertEquals(DEFAULT_FIELD_NAMES.length, row.getArity());
+        }
 
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
 

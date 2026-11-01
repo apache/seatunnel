@@ -95,7 +95,12 @@ public enum CommonOptions {
      * The key of {@link SeaTunnelRow#getOptions()} to indicate whether the row contains binary
      * format data.
      */
-    IS_BINARY_FORMAT("is_binary_format", true);
+    IS_BINARY_FORMAT("is_binary_format", true),
+    FILE_PATH("FilePath", true),
+    FILE_CREATE_TIME("FileCreateTime", true),
+    FILE_UPDATE_TIME("FileUpdateTime", true),
+    FILE_SIZE("FileSize", true),
+    FILE_TYPE("FileType", true);
 
     private final String name;
     private final boolean supportMetadataTrans;

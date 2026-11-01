@@ -205,6 +205,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             String currentFileName)
             throws IOException {
         InputStream actualInputStream;
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
@@ -234,7 +235,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
             LineProcessor lineProcessor =
                     line -> {
                         try {
-                            processLineData(line, split.getTableId(), output, partitionsMap);
+                            processLineData(
+                                    line, split.getTableId(), output, partitionsMap, metadata);
                         } catch (FileConnectorException e) {
                             throw new IOException(e);
                         }
@@ -262,7 +264,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
             String line,
             String tableId,
             Collector<SeaTunnelRow> output,
-            Map<String, String> partitionsMap)
+            Map<String, String> partitionsMap,
+            Map<String, Object> metadata)
             throws FileConnectorException {
         try {
             SeaTunnelRow seaTunnelRow =
@@ -286,7 +289,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     seaTunnelRow.setField(index++, value);
                 }
             }
-            seaTunnelRow.setTableId(tableId);
+            applyRowMetadata(seaTunnelRow, tableId, metadata);
             output.collect(seaTunnelRow);
         } catch (IOException e) {
             String errorMsg =
