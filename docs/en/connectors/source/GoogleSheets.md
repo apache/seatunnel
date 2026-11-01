@@ -88,7 +88,7 @@ the available types.
 ```hocon
 source {
   GoogleSheets {
-    service_account_key = "seatunnel-test"
+    service_account_key = "<base64-encoded service account JSON>"
     sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
     sheet_name = "sheets01"
     range = "A1:C3"
@@ -115,7 +115,7 @@ env {
 
 source {
   GoogleSheets {
-    service_account_key = "seatunnel-test"
+    service_account_key = "<base64-encoded service account JSON>"
     sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
     sheet_name = "sheets01"
     range = "A1:C100"
