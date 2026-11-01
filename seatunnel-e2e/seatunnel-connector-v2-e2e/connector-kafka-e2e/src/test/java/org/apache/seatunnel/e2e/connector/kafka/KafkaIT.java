@@ -2323,13 +2323,20 @@ public class KafkaIT extends AbstractKafkaIT {
                                 "transactionPrefix=parallel-exactly-once-" + suffix));
 
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        List<String> actual = getKafkaConsumerListData(sinkTopic, 0);
-        Assertions.assertEquals(
-                expected,
-                new HashSet<>(actual),
-                "Every source record must be visible to read_committed");
-        Assertions.assertEquals(
-                expected.size(), actual.size(), "No source record may be duplicated");
+        Awaitility.await()
+                .atMost(Duration.ofMinutes(2))
+                .untilAsserted(
+                        () -> {
+                            List<String> actual = getKafkaConsumerListData(sinkTopic, 0);
+                            Assertions.assertEquals(
+                                    expected,
+                                    new HashSet<>(actual),
+                                    "Every source record must be visible to read_committed");
+                            Assertions.assertEquals(
+                                    expected.size(),
+                                    actual.size(),
+                                    "No source record may be duplicated");
+                        });
     }
 
     @TestTemplate

@@ -68,6 +68,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
 
     private static final int PREFIX_RANGE = 10000;
+
+    /**
+     * Current writer-namespace grammar. The optional relocation suffix records the writer that
+     * adopted the namespace and the engine checkpoint that assigned it.
+     */
     private static final Pattern WRITER_NAMESPACE_PATTERN =
             Pattern.compile("(g[0-9a-z]+)w(\\d+)(?:r(\\d+)c(\\d+))?");
 
@@ -353,6 +358,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         nextSequenceByPrefix.forEach(transactionSender::abortTransaction);
     }
 
+    /**
+     * Parses one checkpointed transaction before any Kafka producer is created.
+     *
+     * <p>The released legacy form is {@code <job-prefix>-<checkpoint>}. The current form is {@code
+     * <job-prefix>-g<generation>w<writer>[r<adopting-writer>c<checkpoint>]-<sequence>}. Each state
+     * is validated relative to its own checkpointed job prefix, which is required when historical
+     * writers used different generated prefixes. Malformed IDs, foreign prefixes, and unsupported
+     * writer namespaces fail restore before transaction fencing can have broker-side effects.
+     */
     private RestoredTransaction parseRestoredTransaction(KafkaSinkState state) {
         String transactionId = state.getTransactionId();
         int transactionSequenceSeparator =
@@ -424,7 +438,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         private final String transactionPrefix;
         private final String transactionIdPrefix;
         private final String writerNamespace;
+        /**
+         * Contiguous trailing transaction-ID number used to resume and probe the writer namespace;
+         * it is independent of the engine checkpoint ID.
+         */
         private final long transactionSequence;
+        /**
+         * Engine checkpoint that produced this state; used to qualify deterministic relocation, not
+         * to advance the transaction sequence.
+         */
         private final long checkpointId;
         private final boolean legacy;
 
