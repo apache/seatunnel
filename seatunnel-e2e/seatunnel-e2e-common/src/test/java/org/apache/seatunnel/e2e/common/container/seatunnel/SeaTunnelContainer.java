@@ -68,6 +68,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,6 +101,10 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private static final String RUNTIME_LIBRARY_DIRECTORY = "/tmp/seatunnel/lib";
     private static final int REST_REQUEST_TIMEOUT_MILLIS = 5_000;
     private static final int RUNNING_JOBS_TIMEOUT_SECONDS = 30;
+    private static final int SERVER_RESTART_TIMEOUT_SECONDS = 120;
+    // Same readiness signal as the initial Testcontainers wait strategy below.
+    private static final String WORKER_REGISTERED_LOG = "received new worker register:";
+    private static final int SERVER_LOG_TAIL_CHARS = 4_000;
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
@@ -108,6 +113,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private Set<String> connectorJarFingerprintsBeforeTest;
     private Set<String> runtimeLibraryFingerprintsBeforeTest;
     private Set<String> temporaryConfigsBeforeTest;
+
+    /**
+     * Host ports published by the latest in-place restart, keyed by container port. Null while the
+     * container still runs with the bindings Testcontainers captured at first start. Docker assigns
+     * new ephemeral host ports on every restart and GenericContainer never refreshes its cached
+     * inspect result, so REST calls must not trust {@code getMappedPort} after a restart.
+     */
+    private volatile Map<Integer, Integer> restartedHostPorts;
 
     @Override
     public void startUp() throws Exception {
@@ -462,7 +475,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 new HttpGet(
                         String.format(
                                 "http://%s:%d/hazelcast/rest/maps/running-jobs",
-                                server.getHost(), server.getMappedPort(5801)));
+                                server.getHost(), mappedPort(5801)));
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectTimeout(REST_REQUEST_TIMEOUT_MILLIS)
@@ -746,7 +759,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 new HttpGet(
                         String.format(
                                 "http://%s:%s/hazelcast/rest/maps/running-threads",
-                                server.getHost(), server.getMappedPort(5801)));
+                                server.getHost(), mappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             String threads = EntityUtils.toString(response.getEntity());
@@ -979,7 +992,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 new HttpPost(
                         String.format(
                                 "http://%s:%d%s",
-                                server.getHost(), server.getMappedPort(8080), REST_STOP_JOB_PATH));
+                                server.getHost(), mappedPort(8080), REST_STOP_JOB_PATH));
         ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
         requestBody.put("jobId", jobId);
         requestBody.put("force", true);
@@ -1002,7 +1015,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 new HttpGet(
                         String.format(
                                 "http://%s:%d/job-info/%s",
-                                server.getHost(), server.getMappedPort(8080), jobId));
+                                server.getHost(), mappedPort(8080), jobId));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
@@ -1025,7 +1038,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                         String.format(
                                 "http://%s:%d%s/%s",
                                 server.getHost(),
-                                server.getMappedPort(8080),
+                                mappedPort(8080),
                                 REST_CHECKPOINT_OVERVIEW_PATH,
                                 jobId));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
@@ -1064,6 +1077,108 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     @Override
     public String getServerLogs() {
         return server.getLogs();
+    }
+
+    @Override
+    public void restartServer() {
+        // Docker keeps the container log across in-place restarts, so the readiness signal is the
+        // next worker registration after the ones the previous engine process already logged.
+        int registrationsBeforeRestart = countWorkerRegistrations();
+        server.getDockerClient().startContainerCmd(server.getContainerId()).exec();
+        // Refresh the host ports first: every REST helper below would otherwise keep hitting the
+        // closed ports of the killed process until its wait timed out.
+        restartedHostPorts = currentHostPorts();
+        Awaitility.await()
+                .atMost(SERVER_RESTART_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    countWorkerRegistrations() > registrationsBeforeRestart,
+                                    () ->
+                                            "SeaTunnel server did not register a worker after"
+                                                    + " restart, last server logs: "
+                                                    + serverLogTail());
+                            assertRestEndpointReachable();
+                        });
+    }
+
+    /**
+     * Resolves the host port for a container port, preferring the bindings published by the latest
+     * in-place restart over the mapping Testcontainers cached at first start.
+     */
+    private int mappedPort(int containerPort) {
+        Map<Integer, Integer> hostPorts = restartedHostPorts;
+        if (hostPorts == null) {
+            return server.getMappedPort(containerPort);
+        }
+        Integer hostPort = hostPorts.get(containerPort);
+        if (hostPort == null) {
+            throw new IllegalStateException(
+                    "Container port "
+                            + containerPort
+                            + " is not published after restart, current bindings: "
+                            + hostPorts);
+        }
+        return hostPort;
+    }
+
+    private Map<Integer, Integer> currentHostPorts() {
+        Map<Integer, Integer> hostPorts = new HashMap<>();
+        server.getCurrentContainerInfo()
+                .getNetworkSettings()
+                .getPorts()
+                .getBindings()
+                .forEach(
+                        (exposedPort, bindings) -> {
+                            if (bindings != null && bindings.length > 0 && bindings[0] != null) {
+                                hostPorts.put(
+                                        exposedPort.getPort(),
+                                        Integer.valueOf(bindings[0].getHostPortSpec()));
+                            }
+                        });
+        return hostPorts;
+    }
+
+    private int countWorkerRegistrations() {
+        String logs = server.getLogs();
+        int count = 0;
+        int index = logs.indexOf(WORKER_REGISTERED_LOG);
+        while (index >= 0) {
+            count++;
+            index = logs.indexOf(WORKER_REGISTERED_LOG, index + WORKER_REGISTERED_LOG.length());
+        }
+        return count;
+    }
+
+    private String serverLogTail() {
+        String logs = server.getLogs();
+        return logs.substring(Math.max(0, logs.length() - SERVER_LOG_TAIL_CHARS));
+    }
+
+    /** Fails with the probe outcome so the Awaitility timeout names why REST was not ready. */
+    private void assertRestEndpointReachable() {
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d/running-jobs", server.getHost(), mappedPort(8080)));
+        RequestConfig requestConfig =
+                RequestConfig.custom()
+                        .setConnectTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .setConnectionRequestTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .setSocketTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .build();
+        try (CloseableHttpClient client =
+                        HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
+                CloseableHttpResponse response = client.execute(get)) {
+            Assertions.assertEquals(
+                    HttpStatus.SC_OK,
+                    response.getStatusLine().getStatusCode(),
+                    "SeaTunnel REST endpoint answered an unexpected status after restart");
+        } catch (IOException e) {
+            // Connection refused is expected while the new engine process is still booting.
+            Assertions.fail("SeaTunnel REST endpoint is not reachable after restart: " + e);
+        }
     }
 
     @Override

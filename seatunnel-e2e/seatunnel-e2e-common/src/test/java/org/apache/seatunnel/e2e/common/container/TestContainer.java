@@ -97,6 +97,16 @@ public interface TestContainer extends TestResource {
         throw new UnsupportedOperationException("Not implemented");
     }
 
+    /**
+     * Starts the engine container again after a test forcibly stopped it in place, for example with
+     * {@code docker kill}, and blocks until the new engine process is ready. Implementations must
+     * re-resolve the published host ports, because Docker assigns new ephemeral ports on every
+     * restart while the Testcontainers mapping captured at first start stays cached.
+     */
+    default void restartServer() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
     String getServerLogs();
 
     void copyFileToContainer(String path, String targetPath);
