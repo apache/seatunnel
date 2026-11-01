@@ -587,6 +587,10 @@ The hostname must be reachable from the SeaTunnel process, not only from your la
 
 Check the database-specific `table_path` format, identifier case, and the account's metadata and `SELECT` privileges. For a custom query, first execute the exact SQL with the same account in a database client.
 
+### Unsupported column type is reported during schema discovery
+
+When no vendor dialect applies from the URL or the `dialect` option, schema discovery uses the generic JDBC mapping and reads the native type reported by the driver. A column whose native type has no SeaTunnel mapping fails discovery with an error naming the column and that native type, instead of being read with a missing data type. Cast such a column to a supported type in the query where the source database allows it, or configure the supported vendor dialect for that database so the column is mapped by its dialect.
+
 ### Parallelism does not increase the number of readers
 
 For dynamic splitting, verify that the table has a supported primary key or unique index, or configure `partition_column`. To select the legacy fixed splitter for a top-level `query`, configure both `partition_column` and a suitable `partition_num`. A table without a safe split key is intentionally read by one split.
