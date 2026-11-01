@@ -24,7 +24,6 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,8 +49,7 @@ public class SqlServerURLParser {
                     props.entrySet().stream()
                             .collect(
                                     Collectors.toMap(
-                                            e -> e.getKey().toUpperCase(Locale.ROOT),
-                                            Map.Entry::getValue));
+                                            e -> e.getKey().toUpperCase(), Map.Entry::getValue));
             serverName = propsWithUpperCaseKey.get("SERVERNAME");
             instanceName = propsWithUpperCaseKey.get("INSTANCENAME");
             dbInstance = propsWithUpperCaseKey.getOrDefault("DATABASENAME", props.get("DATABASE"));

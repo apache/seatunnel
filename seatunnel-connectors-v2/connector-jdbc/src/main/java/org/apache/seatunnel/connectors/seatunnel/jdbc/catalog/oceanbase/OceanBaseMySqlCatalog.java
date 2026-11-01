@@ -49,7 +49,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 
 @Slf4j
 public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
@@ -143,12 +142,12 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         // e.g. tinyint(1) unsigned
         String columnType = resultSet.getString("COLUMN_TYPE");
         // e.g. tinyint
-        String dataType = resultSet.getString("DATA_TYPE").toUpperCase(Locale.ROOT);
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
 
-        if (dataType.toUpperCase(Locale.ROOT).startsWith("VECTOR")) {
+        if (dataType.toUpperCase().startsWith("VECTOR")) {
             dataType = "VECTOR";
         }
 

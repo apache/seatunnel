@@ -33,15 +33,28 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.yashandb.
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
-/** Verifies that the dialect type converters do not depend on the JVM default locale. */
+/**
+ * Verifies that the dialect type converters do not depend on the JVM default locale.
+ *
+ * <p>The test switches the default locale to Turkish, where {@code i} upper-cases to a dotted
+ * capital {@code I} ({@code U+0130}), and asserts that each affected converter still maps the
+ * source type name to the same SeaTunnel type. All three locale categories are captured before the
+ * switch and restored afterwards, so the test cannot leak a locale into other tests sharing the
+ * JVM. The {@link ResourceLock} annotation keeps it out of the way if JUnit parallel execution is
+ * enabled later.
+ */
+@ResourceLock("java.util.Locale")
 public class JdbcTypeConverterLocaleTest {
 
     @Test
     public void testConvertUnderTurkishLocale() {
-        Locale defaultLocale = Locale.getDefault();
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
         try {
             Locale.setDefault(new Locale("tr", "TR"));
 
@@ -76,7 +89,9 @@ public class JdbcTypeConverterLocaleTest {
                     BasicType.INT_TYPE,
                     YashanDbTypeConverter.INSTANCE.convert(typeDefine("integer")).getDataType());
         } finally {
-            Locale.setDefault(defaultLocale);
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 
