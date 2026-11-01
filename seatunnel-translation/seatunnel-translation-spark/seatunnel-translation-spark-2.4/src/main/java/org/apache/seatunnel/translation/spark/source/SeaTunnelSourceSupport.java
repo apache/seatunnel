@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -93,6 +94,16 @@ public class SeaTunnelSourceSupport
             String checkpointLocation,
             DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
+        if (seaTunnelSource instanceof SupportCoordinate) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "Source [%s] coordinates its readers through source events (SupportCoordinate), "
+                                    + "which Spark micro-batch reading does not support yet because it "
+                                    + "cannot restore the source state between micro-batches. Read it with "
+                                    + "Spark batch reading, which the SeaTunnel Spark starter uses for both "
+                                    + "BATCH and STREAMING jobs, or run the job on Zeta or Flink.",
+                            seaTunnelSource.getPluginName()));
+        }
         Integer parallelism = options.getInt(EnvCommonOptions.PARALLELISM.key(), 1);
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         Integer checkpointInterval =
