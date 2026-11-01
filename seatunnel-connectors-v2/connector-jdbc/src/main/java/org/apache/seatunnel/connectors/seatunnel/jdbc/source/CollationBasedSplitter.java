@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Locale;
 
 @Slf4j
 public class CollationBasedSplitter {
@@ -140,7 +141,7 @@ public class CollationBasedSplitter {
                 expectedLength,
                 paddingAtEnd,
                 isCaseInsensitive);
-        String str = isCaseInsensitive ? s.toLowerCase() : s;
+        String str = isCaseInsensitive ? s.toLowerCase(Locale.ROOT) : s;
         char[] paddedChars = new char[expectedLength];
 
         if (paddingAtEnd) {
