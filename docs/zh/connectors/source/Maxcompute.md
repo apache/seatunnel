@@ -103,7 +103,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 要读取的表列表，您可以使用此配置代替 `table_name`。
 
-每个表配置项都必须包含 `table_name`，也可以单独覆盖 `project`、`schema_name`、`partition_spec`、`split_row` 和 `read_columns`。如果表配置项没有设置这些值，连接器会使用顶层配置。
+每个表配置项都必须包含 `table_name`，也可以单独覆盖 `project`、`schema_name`、`partition_spec`、`split_row` 和 `read_columns`。如果表配置项没有设置 `project`、`schema_name`、`partition_spec` 或 `split_row`，连接器会使用顶层配置。注意 `read_columns` 是例外：它必须在每个 `table_list` 配置项中单独设置，顶层的 `read_columns` 不会应用到 `table_list` 的表上。
 
 当一个任务需要用同一组账号、endpoint 和默认 project 读取多张 MaxCompute 表时，可以使用该模式。
 

@@ -15,10 +15,10 @@ sidebar_position: 4
 
 :::
 
-| 名称           | 类型     | 是否需要 | 默认值 |
-|--------------|--------|------|-----|
-| plugin_input | list   | 否    | -   |
-| metadata_datasource_id | string | 否    | -   |
+| 名称           | 类型     | 是否需要 | 默认值 | 说明 |
+|--------------|--------|------|-----|------|
+| plugin_input | list   | 否    | -   | 不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`。指定 `plugin_input` 时，当前插件处理该参数对应的数据集。该值可以是单个上游数据集名称，也可以是名称数组；配置多个名称时，Zeta 引擎会将这些上游数据集合并后写入当前 sink。 |
+| metadata_datasource_id | string | 否    | -   | 用于从元数据中心获取连接配置的数据源 ID。指定后会从外部元数据服务获取连接信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。 |
 
 ### metadata_datasource_id [string]
 
@@ -29,6 +29,10 @@ sidebar_position: 4
 当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`。
 
 当指定了 `plugin_input` 时，当前插件处理该参数对应的数据集。该值可以是单个上游数据集名称（字符串），也可以是名称数组；配置多个名称时，Zeta 引擎会将这些上游数据集合并后写入当前 sink。
+
+## 重要说明
+
+Sink 只消费数据集，因此没有 `plugin_output` 选项。`plugin_input` 的取值必须与上游 source 或 transform 声明的 `plugin_output` 一致。只有当作业中 source、transform 或 sink 的数量多于一个时，才必须配置 `plugin_input`（参见本页末尾的说明）。
 
 ## Examples
 
