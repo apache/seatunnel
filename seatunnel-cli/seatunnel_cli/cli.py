@@ -1365,13 +1365,38 @@ class SeaTunnelCLI:
         poll_interval = 2
         max_polls = 150  # 5 minutes max
         last_status = ""
+        missing_response_seen = False
 
         for _ in range(max_polls):
             time.sleep(poll_interval)
             try:
                 info = rest.request_json(f"{api_base}/job-info/{job_id}", timeout=10)
 
-                status = info.get("jobStatus", "UNKNOWN")
+                if isinstance(info, dict) and info.get("found") is False:
+                    self.console.print(
+                        f"  [error]Job {job_id} is no longer present in the cluster's running "
+                        f"or finished-job maps.[/error] Check the master logs; it may have been "
+                        f"removed by a master restart without persisted state, or expired from "
+                        f"the finished-job history."
+                    )
+                    return
+
+                status = info.get("jobStatus") if isinstance(info, dict) else None
+                if not isinstance(status, str) or not status.strip():
+                    # A status-less 200 can be a transient master failover on older
+                    # servers, so tolerate one before declaring the job unknown.
+                    if not missing_response_seen:
+                        missing_response_seen = True
+                        continue
+                    self.console.print(
+                        f"  [error]The engine returned no job status for job {job_id} twice."
+                        f"[/error] This looks like a response-shape or master-failover problem; "
+                        f"retry the command or check the master logs."
+                    )
+                    return
+
+                missing_response_seen = False
+                status = status.strip()
                 if status != last_status:
                     last_status = status
                     self.console.print(f"  Status: [bold]{status}[/bold]", style="info")
@@ -1660,7 +1685,17 @@ def run_diagnose(job_id: str, console: Console) -> int:
     # matches, and the output reads "Nothing to report" -- i.e. "your job is
     # fine" about a job that does not exist. A non-object body (a bare `null`
     # or a list from a proxy) is the same situation and is caught here too,
-    # before anything calls .get() on it.
+    # before anything calls .get() on it. Newer servers mark the same case
+    # explicitly with `found: false`.
+    if isinstance(job_info, dict) and job_info.get("found") is False:
+        console.print(
+            f"[error]No job {escape(job_id)} on the cluster at "
+            f"{escape(_ENGINE_API_BASE)}.[/error] The engine marked it as unknown: "
+            f"either the id is wrong, or the job has been evicted from the "
+            f"finished-job history."
+        )
+        return 1
+
     status = job_info.get("jobStatus") if isinstance(job_info, dict) else None
     if not isinstance(status, str) or not status.strip():
         console.print(
