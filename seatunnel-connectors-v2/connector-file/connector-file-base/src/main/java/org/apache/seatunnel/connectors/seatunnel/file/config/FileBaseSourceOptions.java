@@ -133,6 +133,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                             "Whether to append RAG-oriented metadata columns when reading PDF files. "
                                     + "Only valid when file_format_type is pdf.");
 
+    public static final Option<Boolean> WORD_RAG_METADATA_ENABLED =
+            Options.key("word_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading Word files. "
+                                    + "Only valid when file_format_type is word.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)

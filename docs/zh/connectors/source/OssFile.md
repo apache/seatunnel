@@ -47,6 +47,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## 数据类型映射
 
@@ -187,7 +188,7 @@ schema {
 | 名称                         | 类型      | 是否必需 | 默认值                | 描述                                                                                                                                                   |
 |----------------------------|---------|------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                  | 需要读取的Oss路径，可以有子路径，但子路径需要满足一定的格式要求。具体要求可以参考"parse_partition_from_path"选项                                                                              |
-| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                  |
+| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                                                  |
 | bucket                     | string  | 是    | -                  | oss文件系统的bucket地址，例如：`oss://seatunnel-test`。                                                                                                          |
 | endpoint                   | string  | 是    | -                  | fs oss端点                                                                                                                                             |
 | read_columns               | list    | 否    | -                  | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。        |
@@ -270,7 +271,7 @@ schema {
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 :::caution
 
@@ -327,6 +328,8 @@ PDF 特有的解析行为如下：
 - `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
+将 `file_format_type` 设为 `word` 后，SeaTunnel 支持读取 `.doc` 和 `.docx` 格式的 Word 文档，并输出与 Markdown 和 PDF 相同结构的文档元素记录。Word 仅支持读取。
 
 ### quote_char [string]
 
