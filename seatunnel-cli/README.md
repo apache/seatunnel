@@ -279,8 +279,8 @@ seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model 
 ### Diagnosing a Job
 
 `--diagnose` answers "why is this job not making progress?" from what the
-engine already publishes. It is read-only -- a `GET /job-info/<id>` and a
-`GET /jobs/checkpoints/<id>`, never a submit or a stop -- and uses no LLM at
+engine already publishes. It is read-only -- GET requests for job state,
+checkpoint history and optional realtime metrics, never a submit or a stop -- and uses no LLM at
 all, so it works with no API key and no provider configured:
 
 ```bash
@@ -332,7 +332,47 @@ been slow since. If the cluster predates the checkpoint endpoint, or its
 monitor service is off, the rest of the diagnosis is printed unchanged, with
 one line noting that this part of the analysis did not run.
 
-Every rule is deliberately limited to what one response can prove, because a
+For running jobs, the CLI also reads
+`/metrics/realtime/jobs/<id>/edges` and `/vertices` over the last three minutes.
+With `env.engine.observability.enabled = true`, three consecutive completed
+buckets can identify a queue that was persistently full and backpressured.
+The output retains `queueId`, `targetVertexId`, the measured window, `bucketMs` and ratios.
+Busy sink writes or transform processing in the same buckets make that
+downstream vertex a **candidate to investigate**, rather than a proven root
+cause. Sink prepare/commit time is checked separately, including when write
+busyness is low; its sum is normalized by bucket duration and subtask count.
+
+Fixture-based output with five-second buckets (synthetic millisecond timestamps):
+
+```text
+Job 852 (unnamed) — RUNNING
+  [warning] Queue -3 into vertex 1 was persistently backpressured in the matched window. Downstream sink
+writes were busy too; investigate this vertex as a bottleneck candidate. (queueId=-3 targetVertexId=1
+buckets=3 window=0..15000ms bucketMs=5000 median bpRatio=0.80 queueFillRatio=0.90)
+```
+
+This points to a queue/vertex pair for investigation over a measured 15-second window;
+it does not identify the cause. If observability is disabled, the same command reports a coverage gap:
+
+```text
+Job 852 (unnamed) — RUNNING
+  [info] Realtime pressure checks unavailable: engine.observability.enabled is false.
+```
+
+The initial thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
+buckets; busy or prepare/commit time ≥ 0.5 supplies the corresponding work
+evidence. Repeated points are not additional samples, the current partial
+bucket is excluded, and endpoints must have matching bucket widths and an
+overlapping window. The three buckets must be the latest complete buckets in
+that shared engine window; older matches cannot replace missing or conflicting
+recent data. Disabled, missing or insufficient data is reported as
+unavailable while job/checkpoint diagnosis continues. Source read time alone
+is not source attribution: synchronous downstream work can execute within
+the source's `pollNext()`.
+Backpressure ratios are preserved as reported by the engine, including values
+above one; queue fill and vertex busy ratios are bounded by the engine.
+
+Every rule is deliberately limited to what its inputs can prove, because a
 wrong hint costs more than a missing one:
 
 - `restoreCount` counts restores since submission, so what it means depends on
