@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.MetadataColumn;
 import org.apache.seatunnel.api.table.catalog.MetadataSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -83,7 +84,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @NoArgsConstructor
 @Slf4j
@@ -371,14 +371,33 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             }
         }
         C sourceConfig = configFactory.create(0);
-        Set<TableId> capturedTables =
-                new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
+        validateRestoredState(startupMode, checkpointState);
 
         final SplitAssigner splitAssigner;
-        if (checkpointState instanceof HybridPendingSplitsState) {
-            checkpointState = restore(capturedTables, (HybridPendingSplitsState) checkpointState);
+        if (checkpointState instanceof SnapshotPhaseState) {
+            SnapshotPhaseState snapshotState = (SnapshotPhaseState) checkpointState;
+            Set<TableId> capturedTables = getCheckpointCapturedTables(snapshotState);
+            checkUnfinishedTablesAreConfigured(snapshotState);
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig,
+                            capturedTables,
+                            snapshotState.getAssignedSplits(),
+                            snapshotState.getSplitCompletedOffsets());
+            splitAssigner =
+                    new SnapshotOnlySplitAssigner<>(
+                            assignerContext,
+                            enumeratorContext.currentParallelism(),
+                            snapshotState,
+                            dataSourceDialect);
+        } else if (checkpointState instanceof HybridPendingSplitsState) {
+            Set<TableId> capturedTables =
+                    new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+            HybridPendingSplitsState hybridCheckpointState =
+                    restore(capturedTables, (HybridPendingSplitsState) checkpointState);
             SnapshotPhaseState checkpointSnapshotState =
-                    ((HybridPendingSplitsState) checkpointState).getSnapshotPhaseState();
+                    hybridCheckpointState.getSnapshotPhaseState();
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig,
@@ -390,24 +409,12 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             assignerContext,
                             enumeratorContext.currentParallelism(),
                             incrementalParallelism,
-                            (HybridPendingSplitsState) checkpointState,
+                            hybridCheckpointState,
                             dataSourceDialect,
                             offsetFactory);
-        } else if (checkpointState instanceof SnapshotPhaseState) {
-            SnapshotPhaseState checkpointSnapshotState = (SnapshotPhaseState) checkpointState;
-            SplitAssigner.Context<C> assignerContext =
-                    new SplitAssigner.Context<>(
-                            sourceConfig,
-                            capturedTables,
-                            checkpointSnapshotState.getAssignedSplits(),
-                            checkpointSnapshotState.getSplitCompletedOffsets());
-            splitAssigner =
-                    new SnapshotOnlySplitAssigner<>(
-                            assignerContext,
-                            enumeratorContext.currentParallelism(),
-                            checkpointSnapshotState,
-                            dataSourceDialect);
         } else if (checkpointState instanceof IncrementalPhaseState) {
+            Set<TableId> capturedTables =
+                    new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig, capturedTables, new HashMap<>(), new HashMap<>());
@@ -424,14 +431,104 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
+    private static void validateRestoredState(
+            StartupMode startupMode, PendingSplitsState checkpointState) {
+        boolean snapshotOnlyMode = startupMode == StartupMode.SNAPSHOT_ONLY;
+        boolean snapshotOnlyState = checkpointState instanceof SnapshotPhaseState;
+        if (snapshotOnlyMode != snapshotOnlyState) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot restore startup mode '%s' from checkpoint state '%s'. Changing "
+                                    + "startup.mode across a restore is not supported; submit a new job instead.",
+                            startupMode, checkpointState.getClass().getSimpleName()));
+        }
+    }
+
+    /**
+     * Rejects a snapshot-only restore whose checkpoint still has data to read from a table that is
+     * not configured or no longer exists. The checkpointed table set is authoritative on this path,
+     * so such a table would still be split and read, while the readers no longer capture or convert
+     * it, and the job would fail again on every restart from the same checkpoint. Tables whose
+     * splits are all finished are not read again and are not checked. The match ignores case and
+     * the qualifiers that the checkpointed id lacks, so a table is only rejected when it is
+     * certainly not configured.
+     */
+    private void checkUnfinishedTablesAreConfigured(SnapshotPhaseState snapshotState) {
+        if (catalogTables == null || catalogTables.isEmpty()) {
+            return;
+        }
+        List<String> unconfiguredTables =
+                getUnfinishedTables(snapshotState).stream()
+                        .filter(tableId -> !isConfiguredTable(tableId))
+                        .map(TableId::toString)
+                        .sorted()
+                        .collect(Collectors.toList());
+        if (!unconfiguredTables.isEmpty()) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot restore the snapshot-only job: the checkpoint has unread data of "
+                                    + "tables that are not in the current table list or no longer exist: %s. "
+                                    + "Changing the captured tables across a restore is not supported; "
+                                    + "submit a new job instead.",
+                            unconfiguredTables));
+        }
+    }
+
+    /** Tables of the checkpoint that are not split yet or have a split that is not finished. */
+    private static Set<TableId> getUnfinishedTables(SnapshotPhaseState snapshotState) {
+        Set<TableId> unfinishedTables = new HashSet<>(snapshotState.getRemainingTables());
+        snapshotState.getRemainingSplits().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(unfinishedTables::add);
+        snapshotState.getAssignedSplits().values().stream()
+                .filter(
+                        split ->
+                                !snapshotState
+                                        .getSplitCompletedOffsets()
+                                        .containsKey(split.splitId()))
+                .map(SnapshotSplit::getTableId)
+                .forEach(unfinishedTables::add);
+        return unfinishedTables;
+    }
+
+    private boolean isConfiguredTable(TableId tableId) {
+        return catalogTables.stream()
+                .map(CatalogTable::getTablePath)
+                .anyMatch(
+                        tablePath ->
+                                tablePath.getTableName().equalsIgnoreCase(tableId.table())
+                                        && qualifierIsConfigured(tableId.catalog(), tablePath)
+                                        && qualifierIsConfigured(tableId.schema(), tablePath));
+    }
+
+    /**
+     * Whether a catalog or schema of a checkpointed table id is also a qualifier of the configured
+     * table path. The position is not compared, because connectors map database and schema to the
+     * catalog and schema of a {@link TableId} differently.
+     */
+    private static boolean qualifierIsConfigured(String qualifier, TablePath tablePath) {
+        return qualifier == null
+                || qualifier.equalsIgnoreCase(tablePath.getDatabaseName())
+                || qualifier.equalsIgnoreCase(tablePath.getSchemaName());
+    }
+
+    private static Set<TableId> getCheckpointCapturedTables(SnapshotPhaseState snapshotState) {
+        Set<TableId> checkpointTables = new HashSet<>(snapshotState.getAlreadyProcessedTables());
+        checkpointTables.addAll(snapshotState.getRemainingTables());
+        snapshotState.getRemainingSplits().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        snapshotState.getAssignedSplits().values().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        return checkpointTables;
+    }
+
     private HybridPendingSplitsState restore(
             Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
         Set<TableId> checkpointCapturedTables =
-                Stream.concat(
-                                checkpointSnapshotState.getAlreadyProcessedTables().stream(),
-                                checkpointSnapshotState.getRemainingTables().stream())
-                        .collect(Collectors.toSet());
+                getCheckpointCapturedTables(checkpointSnapshotState);
         Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 
