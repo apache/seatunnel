@@ -38,9 +38,10 @@ import java.util.stream.StreamSupport;
 @Slf4j
 public class BigqueryIT extends AbstractBigqueryIT {
     private static final String STREAMING_TABLE_NAME = "streaming_test_table";
+    private static final String SOURCE_TABLE_NAME = "source_test_table";
 
     @TestTemplate
-    void testBigQuerySink(TestContainer container) throws IOException, InterruptedException {
+    public void testBigQuerySink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_bigquery_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -54,7 +55,7 @@ public class BigqueryIT extends AbstractBigqueryIT {
     }
 
     @TestTemplate
-    void testBigQueryStreamingSink(TestContainer container)
+    public void testBigQueryStreamingSink(TestContainer container)
             throws IOException, InterruptedException {
         createStreamingTable();
 
@@ -96,5 +97,35 @@ public class BigqueryIT extends AbstractBigqueryIT {
                                         + "PRIMARY KEY (id) NOT ENFORCED"
                                         + ")",
                                 PROJECT_NAME, DATASET_NAME, STREAMING_TABLE_NAME)));
+    }
+
+    @TestTemplate
+    public void testBigQuerySource(TestContainer container)
+            throws IOException, InterruptedException {
+        createSourceTestTable();
+
+        Container.ExecResult execResult =
+                container.executeJob("/bigquery_source_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private void createSourceTestTable() throws InterruptedException {
+        bigquery.query(
+                QueryJobConfiguration.of(
+                        String.format(
+                                "CREATE TABLE `%s.%s.%s` ("
+                                        + "id INT64 NOT NULL, "
+                                        + "name STRING, "
+                                        + "active BOOL"
+                                        + ")",
+                                PROJECT_NAME, DATASET_NAME, SOURCE_TABLE_NAME)));
+        bigquery.query(
+                QueryJobConfiguration.of(
+                        String.format(
+                                "INSERT INTO `%s.%s.%s` (id, name, active) VALUES "
+                                        + "(1, 'Alice', true), "
+                                        + "(2, 'Bob', false), "
+                                        + "(3, 'Carol', true)",
+                                PROJECT_NAME, DATASET_NAME, SOURCE_TABLE_NAME)));
     }
 }
