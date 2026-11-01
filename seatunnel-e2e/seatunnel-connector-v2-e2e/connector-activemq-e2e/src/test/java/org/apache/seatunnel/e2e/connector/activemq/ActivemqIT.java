@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.activemq;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -213,6 +217,49 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testSourceParallelConsumersWithClientId() throws Exception {
+        String queue = newQueue();
+        try (SourceReader<SeaTunnelRow, Split> first =
+                        createReaderWithClientId(queue, "JSON", 1, "parallel-client", 0);
+                SourceReader<SeaTunnelRow, Split> second =
+                        createReaderWithClientId(queue, "JSON", 1, "parallel-client", 1)) {
+            RowCollector firstRows = new RowCollector();
+            RowCollector secondRows = new RowCollector();
+            // Register both consumers before publishing so neither prefetches the whole queue.
+            first.pollNext(firstRows);
+            second.pollNext(secondRows);
+            publish(queue, "{\"value\":\"first\"}");
+            publish(queue, "{\"value\":\"second\"}");
+            awaitRows(first, firstRows, 1);
+            awaitRows(second, secondRows, 1);
+            first.snapshotState(1);
+            second.snapshotState(1);
+            first.notifyCheckpointComplete(1);
+            second.notifyCheckpointComplete(1);
+        }
+        assertNull(receive(queue));
+    }
+
+    @Test
+    public void testSourceMessageSelectorFiltersMessages() throws Exception {
+        String queue = newQueue();
+        publish(queue, "{\"value\":\"match\"}", "msg_type", "car");
+        publish(queue, "{\"value\":\"skip\"}", "msg_type", "truck");
+
+        try (SourceReader<SeaTunnelRow, Split> reader =
+                createReader(queue, "JSON", 10, "msg_type = 'car'")) {
+            RowCollector rows = new RowCollector();
+            awaitRows(reader, rows, 1);
+            assertEquals("match", rows.rows.get(0).getField(0));
+            reader.snapshotState(1);
+            reader.notifyCheckpointComplete(1);
+        }
+        // The non-matching message remains on the queue for a separate consumer.
+        assertEquals("{\"value\":\"skip\"}", receive(queue));
+        assertNull(receive(queue));
+    }
+
+    @Test
     public void testSourceMalformedMessageRemainsOnQueue() throws Exception {
         String queue = newQueue();
         publish(queue, "not-json");
@@ -298,16 +345,24 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
 
     private SourceReader<SeaTunnelRow, Split> createReader(String queue, String format)
             throws Exception {
-        return createReader(queue, format, 10);
+        return createReader(queue, format, 10, null);
     }
 
     private SourceReader<SeaTunnelRow, Split> createReader(
             String queue, String format, int inFlight) throws Exception {
+        return createReader(queue, format, inFlight, null);
+    }
+
+    private SourceReader<SeaTunnelRow, Split> createReader(
+            String queue, String format, int inFlight, String selector) throws Exception {
         Map<String, Object> options = new HashMap<>();
         options.put("uri", brokerUrl());
         options.put("queue_name", queue);
         options.put("format", format);
         options.put("max_in_flight_messages", inFlight);
+        if (selector != null) {
+            options.put("message_selector", selector);
+        }
         options.put(
                 "schema",
                 Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
@@ -322,7 +377,37 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
                                                         ReadonlyConfig.fromMap(options),
                                                         getClass().getClassLoader()))
                                 .createSource();
-        SourceReader<SeaTunnelRow, Split> reader = source.createReader(null);
+        SourceReader<SeaTunnelRow, Split> reader = source.createReader(new TestReaderContext(0));
+        reader.open();
+        reader.addSplits(Collections.singletonList(new Split(0)));
+        return reader;
+    }
+
+    private SourceReader<SeaTunnelRow, Split> createReaderWithClientId(
+            String queue, String format, int inFlight, String clientId, int subtaskIndex)
+            throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", brokerUrl());
+        options.put("queue_name", queue);
+        options.put("format", format);
+        options.put("max_in_flight_messages", inFlight);
+        options.put("client_id", clientId);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        ActivemqSource source =
+                (ActivemqSource)
+                        new ActivemqSourceFactory()
+                                .<SeaTunnelRow, Split,
+                                        org.apache.seatunnel.connectors.seatunnel.activemq.source
+                                                .ActivemqSourceEnumerator.State>
+                                        createSource(
+                                                new TableSourceFactoryContext(
+                                                        ReadonlyConfig.fromMap(options),
+                                                        getClass().getClassLoader()))
+                                .createSource();
+        SourceReader<SeaTunnelRow, Split> reader =
+                source.createReader(new TestReaderContext(subtaskIndex));
         reader.open();
         reader.addSplits(Collections.singletonList(new Split(0)));
         return reader;
@@ -357,6 +442,18 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void publish(String queue, String text, String propertyKey, String propertyValue)
+            throws JMSException {
+        MessageProducer sender = session.createProducer(session.createQueue(queue));
+        try {
+            TextMessage message = session.createTextMessage(text);
+            message.setStringProperty(propertyKey, propertyValue);
+            sender.send(message);
+        } finally {
+            sender.close();
+        }
+    }
+
     private String receive(String queue) throws JMSException {
         MessageConsumer receiver = session.createConsumer(session.createQueue(queue));
         try {
@@ -379,6 +476,43 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         @Override
         public Object getCheckpointLock() {
             return lock;
+        }
+    }
+
+    private static final class TestReaderContext implements SourceReader.Context {
+        private final int subtaskIndex;
+
+        private TestReaderContext(int subtaskIndex) {
+            this.subtaskIndex = subtaskIndex;
+        }
+
+        @Override
+        public int getIndexOfSubtask() {
+            return subtaskIndex;
+        }
+
+        @Override
+        public Boundedness getBoundedness() {
+            return Boundedness.UNBOUNDED;
+        }
+
+        @Override
+        public void signalNoMoreElement() {}
+
+        @Override
+        public void sendSplitRequest() {}
+
+        @Override
+        public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
         }
     }
 }
