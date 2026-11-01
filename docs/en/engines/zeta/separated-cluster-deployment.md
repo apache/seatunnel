@@ -271,6 +271,9 @@ map:
         clusterName: seatunnel-cluster
         storage.type: hdfs
         fs.defaultFS: hdfs://localhost:9000
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 If there is no HDFS and your cluster has only one node, you can configure it like this to use local files:
@@ -288,12 +291,25 @@ map:
         clusterName: seatunnel-cluster
         storage.type: hdfs
         fs.defaultFS: file:///
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
 intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
 avoids excessive WAL growth for observability-only state. After an engine restart, running-job
 metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+
+The examples keep `map-store.enabled: true` for `engine*` and explicitly disable persistence for
+`engine_finishedJobMetrics`. This is a choice in these examples, not a change to the product default.
+After a full cluster restart, metrics of jobs that finished before the restart are not retained when
+this override is used. Job recovery does not depend on this map.
+
+To enable MapStore for these metrics, remove the `engine_finishedJobMetrics` entry so that `engine*` applies, or
+copy the complete `engine*` `map-store` block into the exact-name entry with `enabled: true`, including
+`factory-class-name` and the backend `properties`. Exact-name entries do not inherit the wildcard
+configuration; changing only `enabled` does not configure a persistence implementation.
 
 If you use OSS, you can configure it like this:
 
@@ -314,6 +330,9 @@ map:
         fs.oss.accessKeyId: OSS access key id
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
+  engine_finishedJobMetrics:
+    map-store:
+      enabled: false
 ```
 
 To use OSS credentials from environment variables, remove `fs.oss.accessKeyId` and
@@ -364,6 +383,9 @@ map:
          fs.s3a.access.key: YOUR_ACCESS_KEY
          fs.s3a.secret.key: YOUR_SECRET_KEY
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+   engine_finishedJobMetrics:
+     map-store:
+       enabled: false
 ```
 
 For environment-variable credentials, remove `fs.s3a.access.key` and `fs.s3a.secret.key` and use
