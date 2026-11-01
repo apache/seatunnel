@@ -31,8 +31,9 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 连接器支持两种写入语义：
 
 - **追加写入**：每行生成一条新文档。性能最好，但在失败重试场景下不幂等。
-- **Upsert 写入**：当 `upsert-enable = true` 且配置了 `primary-key` 时，连接器会把主键作为
-  MongoDB 的 `_id`（或复合 `_id`）并以 upsert 方式写入。结合 checkpoint 恢复机制，可以实现
+- **Upsert 写入**：当 `upsert-enable = true` 且配置了 `primary-key` 时，连接器会把主键字段作为
+  upsert 的匹配过滤条件并以 upsert 方式写入。插入新文档时，仅当主键不包含 `_id` 的情况下文档
+  `_id` 才由 MongoDB 自动生成；若主键为 `_id`，则沿用过滤条件中传入的 `_id` 值。结合 checkpoint 恢复机制，可以实现
   at-least-once + 幂等重试，这是把 exactly-once 落到 MongoDB 的标准做法。
 
 缓存、重试以及可选的事务都可以通过下文的配置项进行调节。
@@ -79,14 +80,14 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | FLOAT              | Double            |
 | DECIMAL            | Decimal128        |
 | Date               | Date              |
-| Timestamp          | Timestamp / Date  |
+| Timestamp          | Date              |
 | ROW                | Object            |
 | ARRAY              | Array             |
 
 **提示**
 
-> 1. 使用 SeaTunnel 将 `Date` 和 `Timestamp` 类型写入 MongoDB 时，结果都是 `Date` 类型，但
->    精度不同：SeaTunnel 的 `Date` 为秒级精度，`Timestamp` 为毫秒级精度。
+> 1. 使用 SeaTunnel 将 `Date` 和 `Timestamp` 类型写入 MongoDB 时，都会写入为 MongoDB 的 `Date`
+>    类型（BsonDateTime，毫秒精度）。SeaTunnel 的 `Date` 会存储为当天零点，`Timestamp` 则保留时分秒信息。
 > 2. 在 SeaTunnel 中使用 `DECIMAL` 类型时，最大精度不能超过 34 位。建议使用
 >    `decimal(34, 18)` 以满足支持的精度与标度。
 
@@ -298,8 +299,9 @@ sink {
 通过定义明确的主键并启用 `upsert` 模式，可以实现精准一次写入（exactly-once）语义。
 
 当配置中定义了 `primary-key` 且启用了 `upsert-enable`，MongoDB Sink 将使用 Upsert 语义而非
-普通 INSERT 语句。SeaTunnel 会将定义的主键作为 MongoDB 的复合主键，在 Upsert 模式下写入，
-以确保幂等性。
+普通 INSERT 语句。SeaTunnel 会将定义的主键作为 Upsert 的匹配过滤条件，在 Upsert 模式下写入
+以确保幂等性；插入新文档时，仅当主键不包含 `_id` 的情况下 `_id` 才由 MongoDB 自动生成
+（若主键为 `_id`，则新文档沿用该 `_id` 值）。
 
 若作业在运行过程中失败，SeaTunnel 会从上一个成功的 checkpoint 恢复并重新处理数据，这可能
 导致重复数据。强烈建议启用 Upsert 模式，以避免主键冲突或重复插入。
@@ -312,6 +314,66 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name", "status"]
+  }
+}
+```
+
+### CDC 变更日志写入
+
+当上游是变更日志类数据源时，可以将 `upsert-enable` 设为 `true` 并配置 `primary-key`，让 `UPDATE`、`DELETE`
+事件匹配已有文档而不是作为新文档重复插入。接收端还提供 `buffer-flush.max-rows`、`buffer-flush.interval` 和
+`retry.max` 用于控制批量刷新与重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### 事务写入（MongoDB 4.2+）
+
+将 `transaction` 设为 `true` 时，批量写入会被包装成 MongoDB 多文档事务。该选项需要 MongoDB 4.2 及以上版本，
+并按 checkpoint 边界提交。注意在事务模式下，引擎层的定时刷新会被自动禁用，以保证 checkpoint 提交边界不被
+打散。
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
   }
 }
 ```

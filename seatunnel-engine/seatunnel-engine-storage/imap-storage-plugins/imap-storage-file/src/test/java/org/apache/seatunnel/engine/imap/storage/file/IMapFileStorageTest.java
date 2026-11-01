@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 
 import org.apache.hadoop.conf.Configuration;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +108,29 @@ public class IMapFileStorageTest {
         Assertions.assertNull(loadAllDatas.get(key1Index));
 
         STORAGE.deleteAll(keys);
+    }
+
+    @Test
+    void testStoreWithExpirationTime() {
+        long expirationTime = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(10);
+        STORAGE.store("expiring", 1L, expirationTime);
+        STORAGE.store("expired", 2L, System.currentTimeMillis() - 1);
+        Map<Object, ExpirableValue> batch = new HashMap<>();
+        batch.put("batch-expiring", new ExpirableValue(3L, expirationTime));
+        batch.put("batch-never-expiring", new ExpirableValue(4L));
+        Assertions.assertTrue(STORAGE.storeAllWithExpirationTime(batch).isEmpty());
+
+        Map<Object, ExpirableValue> loaded = STORAGE.loadAllWithExpirationTime();
+        Assertions.assertEquals(new ExpirableValue(1L, expirationTime), loaded.get("expiring"));
+        Assertions.assertEquals(
+                new ExpirableValue(3L, expirationTime), loaded.get("batch-expiring"));
+        Assertions.assertEquals(new ExpirableValue(4L), loaded.get("batch-never-expiring"));
+        Assertions.assertFalse(loaded.containsKey("expired"));
+        Assertions.assertFalse(STORAGE.loadAll().containsKey("expired"));
+        Assertions.assertFalse(STORAGE.loadAllKeys().contains("expired"));
+
+        STORAGE.deleteAll(
+                Arrays.asList("expiring", "expired", "batch-expiring", "batch-never-expiring"));
     }
 
     @Test

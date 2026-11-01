@@ -240,7 +240,8 @@ seatunnel:
 |---|---|
 | Remove from `finished-job-state` IMap | Yes |
 | Remove from `finished-job-metrics` IMap | Yes |
-| Delete MapStore persistence files for that job | Yes (after IMap eviction) |
+| Keep the job removed after a cluster restart (IMap persistence enabled) | Yes (the expiration time is persisted with the entry, so an expired job is not loaded again and a job that has not expired yet keeps its remaining time) |
+| Delete MapStore persistence files for that job | **No** (the expired records stay in the IMap storage files) |
 | Delete checkpoint storage directories | **No** |
 | Delete savepoint directories | **No** |
 | Delete WAL files | **No** (only indirectly via compaction) |
