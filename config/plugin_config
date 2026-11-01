@@ -74,6 +74,7 @@ connector-mem0
 connector-http-asana
 connector-http-intercom
 connector-http-typeform
+connector-http-mixpanel
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
