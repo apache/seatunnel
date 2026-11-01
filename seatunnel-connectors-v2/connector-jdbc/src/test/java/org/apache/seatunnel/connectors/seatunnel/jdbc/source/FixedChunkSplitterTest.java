@@ -372,6 +372,25 @@ public class FixedChunkSplitterTest {
         }
     }
 
+    @Test
+    public void testNullableSplitKeyWithoutNullValuesAddsNoNullSplitKeySplit() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("UPDATE t SET code = id WHERE code IS NULL");
+            }
+
+            Collection<JdbcSourceSplit> splits =
+                    splitter.generateSplits(tableSplitBy("code", "1", "100"));
+
+            assertEquals(4, splits.size());
+            assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
+            assertEquals(100, readAllIds(splitter, splits).size());
+        }
+    }
+
     private static void createTableWithNullKeys(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("CREATE TABLE t (id BIGINT NOT NULL, code BIGINT, name VARCHAR)");
@@ -461,6 +480,11 @@ public class FixedChunkSplitterTest {
         @Override
         protected PreparedStatement createPreparedStatement(String sql) throws SQLException {
             return connection.prepareStatement(sql);
+        }
+
+        @Override
+        protected Connection getOrEstablishConnection() {
+            return connection;
         }
     }
 }

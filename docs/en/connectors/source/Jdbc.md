@@ -327,7 +327,7 @@ Entries inside `table_list` continue to use dynamic splitting even when they inc
 
 ### NULL values in the split column
 
-Range and hash split conditions never match NULL, so when the split column is nullable, SeaTunnel adds one split that reads the rows whose split column is NULL. This applies to `partition_column` and to a unique index column chosen automatically. A split column declared `NOT NULL`, such as a primary key, gets no extra split.
+Range and hash split conditions never match NULL, so when the split column is nullable, SeaTunnel checks whether any row to be read has NULL in it and, if so, adds one split that reads these rows. This applies to `partition_column` and to a unique index column chosen automatically. A split column declared `NOT NULL`, such as a primary key, or one without NULL values gets no extra split.
 
 ### Query and primary-key caution
 
