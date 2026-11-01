@@ -251,6 +251,9 @@ PDF 特有的解析行为如下：
 
 数据源的读取列列表，用户可以使用它来实现字段投影。
 
+对于 Parquet 文件，读取器还会跳过未选择的顶层列数据。选中的嵌套字段仍完整读取，输出列顺序保持不变。
+显式配置 Hadoop Parquet 投影、读取模式或记录过滤器时，保持原有行为，不启用自动列裁剪。
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
