@@ -237,22 +237,23 @@ public class SqlWhereConditionHelper {
         // Remove string literals to avoid false positives
         String cleaned = sql.replaceAll("'[^']*'|\"[^\"]*\"", "");
 
-        // Find the column list between SELECT and FROM
-        String upperCleaned = cleaned.toUpperCase(Locale.ROOT);
+        // Find the column list between SELECT and FROM.
+        // Keywords are matched on the original string so the indices stay aligned with the
+        // text that is sliced below; uppercasing is not length-preserving (e.g. 'ß' -> "SS").
         int selectIdx = -1;
 
         // Find SELECT keyword (not inside parentheses)
         int parenCount = 0;
-        for (int i = 0; i < upperCleaned.length(); i++) {
-            char c = upperCleaned.charAt(i);
+        for (int i = 0; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
             if (c == '(') parenCount++;
             else if (c == ')') parenCount--;
-            else if (parenCount == 0 && upperCleaned.startsWith("SELECT", i)) {
+            else if (parenCount == 0 && cleaned.regionMatches(true, i, "SELECT", 0, 6)) {
                 // Check it's a keyword, not part of another word
-                if (i == 0 || !Character.isLetterOrDigit(upperCleaned.charAt(i - 1))) {
+                if (i == 0 || !Character.isLetterOrDigit(cleaned.charAt(i - 1))) {
                     int nextIdx = i + 6;
-                    if (nextIdx >= upperCleaned.length()
-                            || Character.isWhitespace(upperCleaned.charAt(nextIdx))) {
+                    if (nextIdx >= cleaned.length()
+                            || Character.isWhitespace(cleaned.charAt(nextIdx))) {
                         selectIdx = i;
                         break;
                     }
@@ -503,7 +504,6 @@ public class SqlWhereConditionHelper {
 
     /** Find the index of the main FROM clause in the SQL query. */
     private static int findMainFromClauseIndex(String sql) {
-        String upperSql = sql.toUpperCase(Locale.ROOT);
         int length = sql.length();
         int parenthesisCount = 0;
         boolean inQuote = false;
@@ -533,7 +533,9 @@ public class SqlWhereConditionHelper {
                                     || Character.isWhitespace(sql.charAt(i - 1))
                                     || sql.charAt(i - 1) == ')')) {
 
-                        if (upperSql.startsWith("FROM", i)) {
+                        // Compare on the original SQL: uppercasing a character such as 'ß'
+                        // expands it to two characters and would shift every later index.
+                        if (sql.regionMatches(true, i, "FROM", 0, 4)) {
                             int nextCharIdx = i + 4;
                             if (nextCharIdx >= length
                                     || Character.isWhitespace(sql.charAt(nextCharIdx))) {
