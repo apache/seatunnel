@@ -90,6 +90,9 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         // authoritative even if a user's raw debezium.* passthrough also sets this key.
         props.setProperty("include.schema.changes", String.valueOf(schemaChangeEnabled));
 
+        // SeaTunnel-first options such as sslmode and publication.* must also win over debezium{}.
+        applyAuthoritativeConnectorProperties(props);
+
         if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             props.setProperty("snapshot.mode", "initial_only");
         } else if (startupConfig != null
@@ -117,6 +120,16 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
      * settings before user-supplied Debezium overrides are merged.
      */
     protected void configureConnectorProperties(Properties props, int subtask) {}
+
+    /**
+     * Applies SeaTunnel-owned Debezium properties after {@code debezium{}} is merged.
+     *
+     * <p>Called from {@link #create(int)} so a first-class SeaTunnel option remains authoritative
+     * over the same key set inside {@code debezium{}}. The default implementation is a no-op.
+     *
+     * @param props assembled Debezium properties, already including user passthrough
+     */
+    protected void applyAuthoritativeConnectorProperties(Properties props) {}
 
     /**
      * Normalizes table identifiers to the schema.table form expected by PostgreSQL-compatible
