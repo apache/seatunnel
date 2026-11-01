@@ -91,7 +91,8 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                                     CompressFormat.LZO,
                                     CompressFormat.SNAPPY,
                                     CompressFormat.LZ4,
-                                    CompressFormat.ZLIB))
+                                    CompressFormat.ZLIB,
+                                    CompressFormat.ZSTD))
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Orc file supported compression");
 

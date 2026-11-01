@@ -187,8 +187,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
+ORC 支持 `compress_codec = "zstd"`。共享文件连接器的 ORC 依赖由 1.5.6 升级为 1.8.7，ZSTD 输出会实际采用 ZSTD 压缩。下游读取器必须支持 ORC ZSTD；保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。启用前请先验证或升级下游读取器，或继续使用双方均支持的 `snappy`、`zlib` 等压缩格式。默认值仍为 `none`。
 
 提示：excel 类型不支持任何压缩格式
 

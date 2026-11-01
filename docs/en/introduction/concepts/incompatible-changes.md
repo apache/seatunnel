@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File connectors: ORC ZSTD output requires compatible readers
+
+- **Affected component**: `connector-file-base` and file connectors using its ORC reader/writer.
+- **Description**: Upgrade `orc-core:nohive` from 1.5.6 to 1.8.7, accept ZSTD in the shared ORC sink configuration rule, and map ZSTD to ORC `CompressionKind.ZSTD`. ZSTD-compressed ORC files can be read, and ORC output configured with `compress_codec = "zstd"` is actually ZSTD-compressed instead of mapping to NONE. Previously, file factories rejected ORC/ZSTD during validation, while paths bypassing that rule could silently write uncompressed output.
+- **Impact**: Newly generated ZSTD files require readers supporting ORC ZSTD. Retaining ORC file version 0.12 does not provide codec support to older readers. Existing files are not rewritten, and the default compression remains NONE.
+- **Migration Guide**: Verify or upgrade downstream readers before enabling ORC ZSTD. During a staged upgrade, explicitly retain a mutually supported codec such as SNAPPY or ZLIB. (#13084)
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

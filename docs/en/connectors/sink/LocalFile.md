@@ -188,8 +188,10 @@ The compress codec of files and the details that supported as the following show
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
+ORC supports `compress_codec = "zstd"`. The shared file connector ORC dependency is upgraded from 1.5.6 to 1.8.7. ZSTD output is genuinely compressed, and downstream readers must support ORC ZSTD; keeping ORC file version 0.12 does not make older readers compatible. Verify or upgrade downstream readers before enabling ZSTD, or retain a mutually supported codec such as `snappy` or `zlib`. The default remains `none`.
 
 Tips: excel type does not support any compression format
 
