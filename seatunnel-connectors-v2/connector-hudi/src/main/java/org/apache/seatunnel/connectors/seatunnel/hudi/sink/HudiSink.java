@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.commit.HudiSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiSinkState;
@@ -95,6 +97,27 @@ public class HudiSink
 
     @Override
     public Optional<Serializer<HudiCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    /**
+     * Creates the committer that commits the Hudi instants of a checkpoint.
+     *
+     * <p>It is only needed by the exactly-once semantics, with the at-least-once semantics the
+     * writers commit their records by themselves.
+     */
+    @Override
+    public Optional<SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo>>
+            createAggregatedCommitter() {
+        if (!hudiSinkConfig.isExactlyOnce()) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new HudiSinkAggregatedCommitter(hudiSinkConfig, hudiTableConfig, seaTunnelRowType));
+    }
+
+    @Override
+    public Optional<Serializer<HudiAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 
