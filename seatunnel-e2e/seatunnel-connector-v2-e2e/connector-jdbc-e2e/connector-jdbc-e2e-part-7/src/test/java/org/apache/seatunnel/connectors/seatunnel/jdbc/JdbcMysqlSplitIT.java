@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.ChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.DynamicChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.FixedChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
@@ -872,5 +873,96 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                         "DROP TABLE IF EXISTS " + MYSQL_DATABASE + ".fixed_numeric_uneven");
             }
         }
+    }
+
+    @Test
+    public void testNullSplitKeyRowsAreReadOnce() throws Exception {
+        String tableName = MYSQL_DATABASE + ".null_split_key";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            // No primary key, so the nullable unique key code becomes the split key.
+            statement.execute(
+                    "CREATE TABLE "
+                            + tableName
+                            + " (id INT NOT NULL, code INT NULL, name VARCHAR(16) NULL,"
+                            + " UNIQUE KEY uk_code (code))");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO " + tableName + " VALUES (?, ?, ?)")) {
+                    for (int id = 1; id <= 100; id++) {
+                        boolean nullKey = id % 10 == 0;
+                        insert.setInt(1, id);
+                        insert.setObject(2, nullKey ? null : id);
+                        insert.setString(3, nullKey ? null : "n" + id);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, "null_split_key");
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put("table_path", tableName);
+                configMap.put("split.size", "10");
+
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        DynamicChunkSplitter dynamicSplitter = getDynamicChunkSplitter(configMap);
+                        FixedChunkSplitter fixedSplitter = getFixedChunkSplitter(configMap)) {
+                    mySqlCatalog.open();
+                    CatalogTable table = mySqlCatalog.getTable(tablePath);
+
+                    // range splits on the unique key code, chosen without partition_column
+                    assertEveryIdReadOnce(
+                            dynamicSplitter,
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .build(),
+                            table);
+                    // hash splits on name: CRC32(NULL) is NULL
+                    assertEveryIdReadOnce(
+                            fixedSplitter,
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .query("SELECT * FROM " + tableName)
+                                    .partitionColumn("name")
+                                    .partitionNumber(4)
+                                    .build(),
+                            table);
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    private static void assertEveryIdReadOnce(
+            ChunkSplitter splitter, JdbcSourceTable jdbcSourceTable, CatalogTable table)
+            throws Exception {
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(jdbcSourceTable);
+        Assertions.assertEquals(1, splits.stream().filter(JdbcSourceSplit::isNullSplitKey).count());
+        Set<Integer> ids = new HashSet<>();
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement splitStatement =
+                            splitter.generateSplitStatement(split, table.getTableSchema());
+                    ResultSet resultSet = splitStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    Assertions.assertTrue(ids.add(id), "duplicated id: " + id);
+                }
+            }
+        }
+        Assertions.assertEquals(100, ids.size());
     }
 }

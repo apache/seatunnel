@@ -198,15 +198,19 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         .filter(c -> c.getName().equals(splitKeyName))
                         .findAny()
                         .get();
+        String hashCondition =
+                hashSplitCondition(
+                        table,
+                        splitKeyName,
+                        jdbcDialect.hashModForField(
+                                column.getSourceType(), splitKeyName, shardCount));
         for (int i = 0; i < shardCount; i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
                 splitQuery =
                         String.format(
-                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                applyUserWhereCondition(table.getQuery()),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(), splitKeyName, shardCount));
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
+                                applyUserWhereCondition(table.getQuery()), hashCondition);
             } else if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
                 String userQuery =
                         String.format(
@@ -214,17 +218,13 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                                 jdbcDialect.tableIdentifier(table.getTablePath()));
                 splitQuery =
                         String.format(
-                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                applyUserWhereCondition(userQuery),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(), splitKeyName, shardCount));
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
+                                applyUserWhereCondition(userQuery), hashCondition);
             } else {
                 splitQuery =
                         String.format(
-                                "SELECT * FROM %s WHERE %s = ?",
-                                jdbcDialect.tableIdentifier(table.getTablePath()),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(), splitKeyName, shardCount));
+                                "SELECT * FROM %s WHERE %s",
+                                jdbcDialect.tableIdentifier(table.getTablePath()), hashCondition);
             }
 
             splits.add(

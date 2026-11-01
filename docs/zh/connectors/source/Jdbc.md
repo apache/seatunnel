@@ -321,6 +321,10 @@ numeric_special_value_as_null = true
 
 `table_list` 中的条目即使配置了 `query` 或分区参数，仍然使用动态分片。`split.size` 不影响顶层 fixed partition 模式。
 
+### 分片列中的 NULL 值
+
+范围分片和哈希分片的条件都不会匹配 NULL，因此分片列可为空时，SeaTunnel 会检查待读取的行中是否有该列为 NULL 的行，如果有，就额外增加一个分片读取这些行。这适用于 `partition_column`，也适用于自动选择的唯一索引列。声明为 `NOT NULL` 的分片列（例如主键），或没有 NULL 值的分片列，不会增加该分片。
+
 ### Query 与主键注意事项
 
 SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层表的元数据。对于 JOIN 或多表查询，该主键不保证在完整结果集中唯一。此类查询应使用单 Reader，或者显式选择能够安全划分查询结果的分区列。
