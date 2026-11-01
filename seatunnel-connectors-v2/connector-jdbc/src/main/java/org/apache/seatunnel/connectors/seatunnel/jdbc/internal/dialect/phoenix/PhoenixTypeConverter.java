@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier.PHOENIX;
 
 // reference https://phoenix.apache.org/language/datatypes.html
@@ -98,7 +100,7 @@ public class PhoenixTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String phoenixDataType = typeDefine.getDataType().toUpperCase();
+        String phoenixDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (phoenixDataType) {
             case PHOENIX_BOOLEAN:
                 builder.dataType(BasicType.BOOLEAN_TYPE);

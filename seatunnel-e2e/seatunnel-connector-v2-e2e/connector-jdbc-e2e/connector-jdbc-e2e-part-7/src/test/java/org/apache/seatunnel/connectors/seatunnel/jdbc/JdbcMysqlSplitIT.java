@@ -69,6 +69,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -870,6 +871,107 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             } finally {
                 statement.execute(
                         "DROP TABLE IF EXISTS " + MYSQL_DATABASE + ".fixed_numeric_uneven");
+            }
+        }
+    }
+
+    @Test
+    public void testFixedStringSplitsReadAllRowsUnderTurkishLocale() throws Exception {
+        String tableName = "fixed_string_locale";
+        String qualifiedTable = MYSQL_DATABASE + "." + tableName;
+        List<String> ids =
+                Arrays.asList(
+                        "I1", "i2", "I3", "i4", "I5", "i6", "I7", "i8", "I9", "i10",
+                        "I11", "i12", "I13", "i14", "I15", "i16", "I17", "i18", "I19",
+                        "i20");
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + qualifiedTable
+                            + " (id VARCHAR(32) PRIMARY KEY) COLLATE utf8mb4_general_ci");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO " + qualifiedTable + " (id) VALUES (?)")) {
+                    for (String id : ids) {
+                        insert.setString(1, id);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+
+                String query = "SELECT id FROM " + qualifiedTable;
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put("query", query);
+                configMap.put("partition_column", "id");
+                configMap.put("split.string_split_mode", "charset_based");
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+                Locale base = Locale.getDefault();
+                Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+                Locale format = Locale.getDefault(Locale.Category.FORMAT);
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                    try {
+                        Locale.setDefault(new Locale("tr", "TR"));
+
+                        mySqlCatalog.open();
+                        CatalogTable table = mySqlCatalog.getTable(tablePath);
+                        JdbcSourceTable jdbcSourceTable =
+                                JdbcSourceTable.builder()
+                                        .tablePath(tablePath)
+                                        .catalogTable(table)
+                                        .query(query)
+                                        .partitionColumn("id")
+                                        .partitionNumber(4)
+                                        .build();
+
+                        Map<String, Integer> readCounts = new HashMap<>();
+                        int splitCount = 0;
+                        for (JdbcSourceSplit split : splitter.generateSplits(jdbcSourceTable)) {
+                            splitCount++;
+                            try (PreparedStatement splitStatement =
+                                            splitter.generateSplitStatement(
+                                                    split, table.getTableSchema());
+                                    ResultSet resultSet = splitStatement.executeQuery()) {
+                                while (resultSet.next()) {
+                                    readCounts.merge(resultSet.getString(1), 1, Integer::sum);
+                                }
+                            }
+                        }
+
+                        Assertions.assertTrue(
+                                splitCount > 1,
+                                "expected more than one split, got " + splitCount);
+                        Assertions.assertEquals(
+                                ids.size(),
+                                readCounts.size(),
+                                "row identities read across splits differ: " + readCounts.keySet());
+                        for (String id : ids) {
+                            Assertions.assertEquals(
+                                    1,
+                                    readCounts.getOrDefault(id, 0),
+                                    "row " + id + " was not read exactly once");
+                        }
+                    } finally {
+                        Locale.setDefault(base);
+                        Locale.setDefault(Locale.Category.DISPLAY, display);
+                        Locale.setDefault(Locale.Category.FORMAT, format);
+                    }
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + qualifiedTable);
             }
         }
     }

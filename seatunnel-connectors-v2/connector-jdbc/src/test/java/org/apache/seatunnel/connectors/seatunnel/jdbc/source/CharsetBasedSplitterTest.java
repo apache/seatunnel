@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigInteger;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
+@ResourceLock("java.util.Locale")
 public class CharsetBasedSplitterTest {
 
     private static final String DEFAULT_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -184,6 +188,41 @@ public class CharsetBasedSplitterTest {
             log.info("Decoding result: " + decoded.trim());
 
             assertEquals(randomString, decoded.trim());
+        }
+    }
+
+    @Test
+    @DisplayName("Case insensitive encoding of I is stable under a Turkish default locale")
+    public void testCaseInsensitiveEncodingUnderTurkishLocale() {
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
+        int radix = DEFAULT_CHARSET.length() + 1;
+        try {
+            Locale.setDefault(Locale.ROOT);
+            BigInteger lower =
+                    CollationBasedSplitter.encodeStringToNumericRange(
+                            "i", 1, true, true, DEFAULT_CHARSET, radix);
+            Assertions.assertEquals(
+                    lower,
+                    CollationBasedSplitter.encodeStringToNumericRange(
+                            "I", 1, true, true, DEFAULT_CHARSET, radix));
+
+            Locale.setDefault(new Locale("tr", "TR"));
+            Assertions.assertEquals(
+                    lower,
+                    CollationBasedSplitter.encodeStringToNumericRange(
+                            "I", 1, true, true, DEFAULT_CHARSET, radix),
+                    "upper case I must fold to i and not to the dotless \u0131");
+            Assertions.assertEquals(
+                    "i",
+                    CollationBasedSplitter.decodeNumericRangeToString(
+                                    lower.toString(), 1, radix, DEFAULT_CHARSET)
+                            .trim());
+        } finally {
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 }

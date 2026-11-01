@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference https://eco.dameng.com/document/dm/zh-cn/sql-dev/dmpl-sql-datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -125,7 +127,7 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String dmType = typeDefine.getDataType().toUpperCase();
+        String dmType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         if (dmType.startsWith("TIMESTAMP(") && dmType.endsWith(" WITH LOCAL TIME ZONE")) {
             dmType = DM_TIMESTAMP_WITH_LOCAL_TIME_ZONE;
         }

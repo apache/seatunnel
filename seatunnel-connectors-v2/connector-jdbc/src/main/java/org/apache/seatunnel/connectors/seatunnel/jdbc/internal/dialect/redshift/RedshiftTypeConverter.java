@@ -35,6 +35,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
+import java.util.Locale;
 
 // reference https://docs.aws.amazon.com/redshift/latest/dg/c_Supported_data_types.html
 @Slf4j
@@ -91,7 +92,7 @@ public class RedshiftTypeConverter extends PostgresTypeConverter {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String dataType = typeDefine.getDataType().toUpperCase();
+        String dataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (dataType) {
             case REDSHIFT_BOOLEAN:
                 builder.sourceType(REDSHIFT_BOOLEAN);

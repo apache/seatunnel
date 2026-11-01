@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Locale;
 
 @Slf4j
 public class RedshiftCatalog extends AbstractJdbcCatalog {
@@ -82,7 +83,7 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
                 .append(".")
                 .append(rs.getString(2))
                 .toString()
-                .toLowerCase();
+                .toLowerCase(Locale.ROOT);
     }
 
     @Override
@@ -133,7 +134,7 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
-        String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
+        String typeName = resultSet.getString("DATA_TYPE").toUpperCase(Locale.ROOT);
         long precision = resultSet.getLong("NUMERIC_PRECISION");
         int scale = resultSet.getInt("NUMERIC_SCALE");
         long columnLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");

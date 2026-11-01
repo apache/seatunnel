@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     // ============================data types=====================
@@ -66,7 +67,7 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        String columnType = metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT);
         // VARCHAR(x)      --->      VARCHAR
         if (columnType.indexOf("(") > -1) {
             columnType = columnType.split("\\(")[0];

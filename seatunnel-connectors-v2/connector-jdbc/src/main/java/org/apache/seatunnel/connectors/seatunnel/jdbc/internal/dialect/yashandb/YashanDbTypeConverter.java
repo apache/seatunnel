@@ -37,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.Set;
 
 // reference
@@ -164,7 +165,7 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String yashanType = typeDefine.getDataType().toUpperCase();
+        String yashanType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
 
         switch (yashanType) {
                 // ====================== Integer types ======================
