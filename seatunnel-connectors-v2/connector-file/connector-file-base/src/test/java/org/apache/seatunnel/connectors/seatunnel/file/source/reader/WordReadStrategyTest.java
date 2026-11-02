@@ -89,6 +89,14 @@ class WordReadStrategyTest {
                 1L, rows.stream().filter(row -> "table".equals(row.getField(1))).count());
         Assertions.assertEquals("heading", rows.get(0).getField(1));
         Assertions.assertEquals(1, rows.get(0).getField(2));
+        Assertions.assertTrue(
+                rows.stream()
+                        .anyMatch(
+                                row ->
+                                        "paragraph".equals(row.getField(1))
+                                                && String.valueOf(row.getField(3))
+                                                        .startsWith("Groceries play a vital role")),
+                "ordinary body text must not be promoted to a heading");
         Assertions.assertEquals(
                 "The Essential Guide to Groceries: Shopping, Storing, and Enjoying Food at Home",
                 rows.get(0).getField(3));
@@ -186,6 +194,23 @@ class WordReadStrategyTest {
         Assertions.assertEquals(1, row.getField(11));
         Assertions.assertEquals(64, String.valueOf(row.getField(12)).length());
         Assertions.assertNotNull(row.getOptionsOrNull());
+    }
+
+    @Test
+    void readsContentControlsAndTreatsOutlineLevelNineAsBodyText() throws Exception {
+        Path file =
+                Path.of(getClass().getResource("/outline-level-nine-content-control.docx").toURI());
+        WordReadStrategy strategy = new WordReadStrategy();
+        strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        TempCollector collector = new TempCollector();
+        strategy.read(file.toString(), "catalog.db.table", collector);
+
+        List<SeaTunnelRow> rows = collector.getRows();
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertEquals("paragraph", rows.get(0).getField(1));
+        Assertions.assertEquals("Body text with outline level nine", rows.get(0).getField(3));
+        Assertions.assertEquals("paragraph", rows.get(1).getField(1));
+        Assertions.assertEquals("Content control text", rows.get(1).getField(3));
     }
 
     private Path getDocFixture() throws Exception {

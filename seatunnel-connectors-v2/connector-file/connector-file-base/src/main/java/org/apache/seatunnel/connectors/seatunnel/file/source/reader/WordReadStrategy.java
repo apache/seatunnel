@@ -43,6 +43,7 @@ import org.apache.poi.hwpf.usermodel.TableRow;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFSDT;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
@@ -108,6 +109,12 @@ public class WordReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Reads Word paragraphs, headings, tables, and block-level content controls in document order.
+     *
+     * <p>All elements are collected before rows are emitted so heading parent and child identifiers
+     * are complete.
+     */
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
@@ -181,6 +188,10 @@ public class WordReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Reads paragraphs, tables, and block-level content controls from a DOCX package in body order.
+     * Table cells are joined with {@code " | "} and table rows with newline characters.
+     */
     private List<WordElement> readDocx(Path path) throws IOException {
         List<WordElement> elements = new ArrayList<>();
         try (InputStream in = Files.newInputStream(path);
@@ -202,12 +213,22 @@ public class WordReadStrategy extends AbstractReadStrategy {
                     if (!text.isEmpty()) {
                         elements.add(new WordElement("table", null, text));
                     }
+                } else if (bodyElement instanceof XWPFSDT) {
+                    String text =
+                            normalizeParagraphText(((XWPFSDT) bodyElement).getContent().getText());
+                    if (!text.isEmpty()) {
+                        elements.add(new WordElement("paragraph", null, text));
+                    }
                 }
             }
         }
         return elements;
     }
 
+    /**
+     * Reads legacy DOC paragraphs and tables in range order. Table cells and rows use the same
+     * textual delimiters as the DOCX reader.
+     */
     private List<WordElement> readDoc(Path path) throws IOException {
         List<WordElement> elements = new ArrayList<>();
         try (InputStream in = Files.newInputStream(path);
@@ -247,7 +268,19 @@ public class WordReadStrategy extends AbstractReadStrategy {
         return elements;
     }
 
+    /**
+     * Resolves DOCX heading levels from explicit paragraph outline metadata, then the style ID.
+     *
+     * <p>OOXML outline values 0–8 represent heading levels 1–9; value 9 explicitly represents body
+     * text and takes precedence over the paragraph style.
+     */
     private Integer getHeadingLevel(XWPFParagraph paragraph) {
+        if (paragraph.getCTP().getPPr() != null
+                && paragraph.getCTP().getPPr().getOutlineLvl() != null) {
+            int outlineLevel = paragraph.getCTP().getPPr().getOutlineLvl().getVal().intValue();
+            return outlineLevel >= 0 && outlineLevel < 9 ? outlineLevel + 1 : null;
+        }
+
         String styleId = paragraph.getStyleID();
         if (styleId != null) {
             Matcher matcher = HEADING_STYLE.matcher(styleId.replace("_", " "));
@@ -255,13 +288,13 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 return Integer.valueOf(matcher.group(1));
             }
         }
-        if (paragraph.getCTP().getPPr() != null
-                && paragraph.getCTP().getPPr().getOutlineLvl() != null) {
-            return paragraph.getCTP().getPPr().getOutlineLvl().getVal().intValue() + 1;
-        }
         return null;
     }
 
+    /**
+     * Resolves legacy DOC headings from outline level, named style, then matching heading character
+     * formatting.
+     */
     private Integer getHeadingLevel(HWPFDocument document, Paragraph paragraph) {
         // HWPF exposes the stored outline level as zero-based; 9 means no outline level.
         int outlineLevel = paragraph.getLvl();

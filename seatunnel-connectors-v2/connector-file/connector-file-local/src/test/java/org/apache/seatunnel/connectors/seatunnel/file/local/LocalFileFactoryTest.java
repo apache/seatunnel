@@ -158,6 +158,20 @@ class LocalFileFactoryTest {
         }
     }
 
+    @Test
+    void wordRagMetadataOptionAcceptedByValidateUnknownKeys() {
+        Map<String, Object> config = sourceConfig();
+        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "word");
+        config.put(FileBaseSourceOptions.WORD_RAG_METADATA_ENABLED.key(), true);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config),
+                                new LocalFileSourceFactory().optionRule(),
+                                "LocalFile"));
+    }
+
     private static Map<String, Object> sourceConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseOptions.FILE_PATH.key(), "/source");
