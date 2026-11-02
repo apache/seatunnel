@@ -22,6 +22,9 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
@@ -37,6 +40,8 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -44,6 +49,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -383,5 +389,72 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             sqlServerCatalog.dropDatabase(specialTablePath, true);
         }
         sqlServerCatalog.close();
+    }
+
+    /**
+     * SQL Server reports type names in lower case, for example {@code int} or {@code datetime2}.
+     * Under {@code tr-TR} and {@code az-AZ}, upper casing them with the default locale gave {@code
+     * İNT}, which matched no type, so reading the table from the catalog failed. The catalog is
+     * created under the locale too, so the URL is also parsed there.
+     */
+    @Test
+    public void testCatalogReadsColumnTypesUnderTurkishLocale() throws SQLException {
+        String tableName = "locale_type_source";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE [dbo].["
+                            + tableName
+                            + "] ([c_int] int, [c_bigint] bigint, [c_datetime2] datetime2)");
+            try {
+                for (Locale locale :
+                        new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                    // Upper casing "i" gives a dotted capital I under these locales.
+                    Locale.setDefault(locale);
+                    try (SqlServerCatalog localeCatalog =
+                            new SqlServerCatalog(
+                                    "sqlserver",
+                                    jdbcCase.getUserName(),
+                                    jdbcCase.getPassword(),
+                                    SqlServerURLParser.parse(
+                                            jdbcCase.getJdbcUrl()
+                                                    .replace(HOST, dbServer.getHost())),
+                                    SQLSERVER_SCHEMA,
+                                    null)) {
+                        localeCatalog.open();
+                        TableSchema tableSchema =
+                                localeCatalog
+                                        .getTable(
+                                                TablePath.of(
+                                                        SQLSERVER_DATABASE,
+                                                        SQLSERVER_SCHEMA,
+                                                        tableName))
+                                        .getTableSchema();
+                        Assertions.assertEquals(
+                                BasicType.INT_TYPE,
+                                tableSchema.getColumn("c_int").getDataType(),
+                                locale.toString());
+                        Assertions.assertEquals(
+                                BasicType.LONG_TYPE,
+                                tableSchema.getColumn("c_bigint").getDataType(),
+                                locale.toString());
+                        Assertions.assertEquals(
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                tableSchema.getColumn("c_datetime2").getDataType(),
+                                locale.toString());
+                    }
+                }
+            } finally {
+                // The base locale first, because setting it overwrites both category defaults.
+                Locale.setDefault(saved[0]);
+                Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+                Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+                statement.execute("DROP TABLE IF EXISTS [dbo].[" + tableName + "]");
+            }
+        }
     }
 }
