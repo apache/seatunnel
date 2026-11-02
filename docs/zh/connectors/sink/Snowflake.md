@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)（通过主键 upsert / merge SQL）
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)（通过基于主键的 insert-or-update）
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
@@ -50,7 +50,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES              |
+| BINARY<br/>VARBINARY                                                        | BYTES              |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
 
 ## 选项
 
@@ -60,10 +61,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver                        | String  | 是       | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
 | username                      | String  | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
 | password                      | String  | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
-| query                         | String  | 否       | -       | 写入上游数据的 SQL。优先级高于 `database`/`table` 自动生成的 SQL；设置后会关闭基于目录的优化（无法生成 `MERGE` upsert）。                                                          |
-| database                      | String  | 否       | -       | 数据库名。`generate_sink_sql = true` 时与 `table` 一起用于生成 `INSERT`/`MERGE` SQL；与 `query` 互斥，同时设置时 `query` 优先生。                          |
+| query                         | String  | 否       | -       | 写入上游数据的 SQL。优先级高于 `database`/`table` 自动生成的 SQL；设置后会关闭基于目录的优化（无法自动生成 upsert）。                                                              |
+| database                      | String  | 否       | -       | 数据库名。`generate_sink_sql = true` 时与 `table` 一起用于生成 `INSERT`/upsert SQL；与 `query` 互斥，同时设置时 `query` 优先生。                          |
 | table                         | String  | 否       | -       | 目标表名。与 `database` 一起配合 `generate_sink_sql` 生成写入语句。                                                                                                                  |
-| primary_keys                  | Array   | 否       | -       | 主键列。`generate_sink_sql = true` 且 `enable_upsert = true` 时用于构建 `MERGE` upsert 语句。                                                                                       |
+| primary_keys                  | Array   | 否       | -       | 主键列。`generate_sink_sql = true` 且 `enable_upsert = true` 时用于构建 upsert（insert-or-update）语句。                                                                             |
 | connection_check_timeout_sec  | Int     | 否       | 30      | 连接校验超时时间（秒）。                                                                                                                                                            |
 | max_retries                   | Int     | 否       | 0       | `executeBatch` 失败的重试次数。                                                                                                                                                    |
 | batch_size                    | Int     | 否       | 1000    | 触发 flush 的缓冲行数；同时在 `checkpoint.interval` 时也会 flush。                                                                                                                  |
@@ -73,7 +74,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | auto_commit                   | Boolean | 否       | true    | 是否自动提交每个批次。                                                                                                                                                              |
 | properties                    | Map     | 否       | -       | 额外的 JDBC 连接参数。`properties` 与 `url` 包含相同键时优先级由驱动决定。                                                                                                          |
 | common-options                |         | 否       | -       | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。                                                                                                |
-| enable_upsert                 | Boolean | 否       | true    | 在 `primary_keys` 已配置且 `generate_sink_sql = true` 时，生成 `MERGE` upsert 语句；若输入无重复主键，可设为 `false` 使用更快的纯插入路径。                                          |
+| enable_upsert                 | Boolean | 否       | true    | 在 `primary_keys` 已配置且 `generate_sink_sql = true` 时，生成 upsert 语句。Snowflake 方言没有原生 upsert 语句，upsert 通过客户端侧 insert-or-update 实现；若输入无重复主键，可设为 `false` 使用更快的纯插入路径。                                          |
 
 ## 说明
 

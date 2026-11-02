@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | batch.size | int | 否 | 100 | 每次最多拉取的消息数。 |
 | consumer.group | String | 否 | SeaTunnel-Consumer-Group | RocketMQ 消费者组 ID。 |
 | commit.on.checkpoint | Boolean | 否 | true | 是否在 SeaTunnel checkpoint 完成后提交消费位点。 |
-| schema | config | 否 | - | 消息结构。详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。不配置时，连接器按文本读取消息体。 |
+| schema | config | 是 | - | 消息结构。详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。`json` 和 `text` 格式都必须配置，否则数据源启动时会失败。 |
 | format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
 | field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
 | start.mode | String | 否 | CONSUME_FROM_GROUP_OFFSETS | 启动消费位置。支持：`CONSUME_FROM_LAST_OFFSET`、`CONSUME_FROM_FIRST_OFFSET`、`CONSUME_FROM_GROUP_OFFSETS`、`CONSUME_FROM_TIMESTAMP`、`CONSUME_FROM_SPECIFIC_OFFSETS`。 |
@@ -84,7 +84,7 @@ start.mode.timestamp = 1667179890315
 
 当 `format = json` 时，请配置 `schema`，SeaTunnel 会按 schema 将 JSON 消息体解析成有类型的字段。配置 `ignore_parse_errors = true` 后，遇到无法解析的 JSON 消息会跳过，而不是让任务失败。
 
-当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。如果不配置 `schema`，消息体会作为单个文本值读取。
+当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。`json` 和 `text` 格式都必须配置 `schema`，否则数据源在构建 CatalogTable 时会启动失败。
 
 ### 标签
 
@@ -97,7 +97,7 @@ start.mode.timestamp = 1667179890315
 
 当不同 topic 的字段结构不一样时，使用 `tables_configs`。每一项都必须包含 `topics`，并且可以单独配置 `schema`、`format`、`tags` 和启动消费位置。如果没有配置 `schema.table`，输出表名默认使用 topic 名称。
 
-`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。在 `tables_configs` 中，单个条目未配置的参数会沿用顶层默认值，因此每个条目只需要覆盖该 topic 特有的 schema、tag 或启动位置。
+`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。每个 `tables_configs` 条目都是独立解析的，不会与顶层配置合并：`schema`、`format`、`field.delimiter`、`ignore_parse_errors` 和 `tags` 必须在需要它们的每个条目上单独配置，多表模式下这些选项的顶层配置不会生效。只有消费端相关的选项（`name.srv.addr`、ACL 相关选项、`consumer.group`、`batch.size`、`consumer.poll.timeout.millis`、`commit.on.checkpoint`）和 `start.mode` 的兜底值来自顶层配置。
 
 如果某个 `tables_configs` 条目使用 `start.mode = CONSUME_FROM_TIMESTAMP`，必须同时配置 `start.mode.timestamp`。如果使用 `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`，必须同时配置非空的 `start.mode.offsets`。
 

@@ -587,9 +587,6 @@ When we can't get the job info, the response contains only the requested `jobId`
 ```json
 [
   {
-    "isMaster": "true",
-    "host": "localhost",
-    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
