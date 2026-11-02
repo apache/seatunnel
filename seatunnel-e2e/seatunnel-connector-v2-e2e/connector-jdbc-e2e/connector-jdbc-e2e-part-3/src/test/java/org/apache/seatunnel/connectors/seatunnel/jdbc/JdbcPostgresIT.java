@@ -70,9 +70,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1094,32 +1092,73 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "text_enum enum_bind.\"text\", "
                         + "note jsonb)");
         try {
-            Map<String, String> formatTypes = new HashMap<>();
-            try (Connection connection = getJdbcConnection();
-                    Statement statement = connection.createStatement();
-                    ResultSet resultSet =
-                            statement.executeQuery(
-                                    "SELECT a.attname, format_type(a.atttypid, NULL) "
-                                            + "FROM pg_attribute a "
-                                            + "JOIN pg_class c ON a.attrelid = c.oid "
-                                            + "JOIN pg_namespace n ON c.relnamespace = n.oid "
-                                            + "WHERE n.nspname = 'enum_bind' "
-                                            + "AND c.relname = 'sink' "
-                                            + "AND a.attnum > 0 AND NOT a.attisdropped")) {
-                while (resultSet.next()) {
-                    formatTypes.put(resultSet.getString(1), resultSet.getString(2));
-                }
+            TablePath sinkPath =
+                    TablePath.of(POSTGRESQL_CONTAINER.getDatabaseName(), "enum_bind", "sink");
+            TableSchema databaseTableSchema;
+            try (PostgresCatalog postgresCatalog =
+                    new PostgresCatalog(
+                            DatabaseIdentifier.POSTGRESQL,
+                            POSTGRESQL_CONTAINER.getUsername(),
+                            POSTGRESQL_CONTAINER.getPassword(),
+                            JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                            "public",
+                            null)) {
+                postgresCatalog.open();
+                databaseTableSchema = postgresCatalog.getTable(sinkPath).getTableSchema();
             }
-            String elementType = formatTypes.get("element_type");
-            String orderStatus = formatTypes.get("order_status");
-            String roles = formatTypes.get("roles");
-            String textEnum = formatTypes.get("text_enum");
+            String elementType = databaseTableSchema.getColumn("element_type").getSourceType();
+            String orderStatus = databaseTableSchema.getColumn("order_status").getSourceType();
+            String roles = databaseTableSchema.getColumn("roles").getSourceType();
+            String textEnum = databaseTableSchema.getColumn("text_enum").getSourceType();
+            Assertions.assertEquals(
+                    BasicType.STRING_TYPE,
+                    databaseTableSchema.getColumn("element_type").getDataType());
+            Assertions.assertEquals(
+                    ArrayType.STRING_ARRAY_TYPE,
+                    databaseTableSchema.getColumn("roles").getDataType());
             Assertions.assertTrue(elementType.contains("enum_bind"));
             Assertions.assertTrue(elementType.contains("ChapterElementType"));
             Assertions.assertTrue(orderStatus.contains("Order Status"));
             Assertions.assertTrue(roles.contains("enum_bind") && roles.endsWith("[]"));
-            Assertions.assertTrue(textEnum.contains("enum_bind") && textEnum.contains("text"));
+            Assertions.assertTrue(textEnum.contains("enum_bind") && textEnum.contains("\"text\""));
+            Assertions.assertEquals("jsonb", databaseTableSchema.getColumn("note").getSourceType());
 
+            // The input row carries unqualified names. The sink uses the catalog schema, so a
+            // search_path that contains a different Role enum must not win.
+            TableSchema inputSchema =
+                    TableSchema.builder()
+                            .columns(
+                                    Arrays.asList(
+                                            PhysicalColumn.builder()
+                                                    .name("id")
+                                                    .dataType(BasicType.INT_TYPE)
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("element_type")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("ChapterElementType")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("order_status")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("\"Order Status\"")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("roles")
+                                                    .dataType(ArrayType.STRING_ARRAY_TYPE)
+                                                    .sourceType("\"Role\"[]")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("text_enum")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("text")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("note")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("jsonb")
+                                                    .build()))
+                            .build();
             String jdbcUrl = POSTGRESQL_CONTAINER.getJdbcUrl();
             String separator = jdbcUrl.contains("?") ? "&" : "?";
             try (Connection connection =
@@ -1127,40 +1166,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("SET search_path TO enum_bind_other, public");
                 }
-                TableSchema tableSchema =
-                        TableSchema.builder()
-                                .columns(
-                                        Arrays.asList(
-                                                PhysicalColumn.builder()
-                                                        .name("id")
-                                                        .dataType(BasicType.INT_TYPE)
-                                                        .build(),
-                                                PhysicalColumn.builder()
-                                                        .name("element_type")
-                                                        .dataType(BasicType.STRING_TYPE)
-                                                        .sourceType(elementType)
-                                                        .build(),
-                                                PhysicalColumn.builder()
-                                                        .name("order_status")
-                                                        .dataType(BasicType.STRING_TYPE)
-                                                        .sourceType(orderStatus)
-                                                        .build(),
-                                                PhysicalColumn.builder()
-                                                        .name("roles")
-                                                        .dataType(ArrayType.STRING_ARRAY_TYPE)
-                                                        .sourceType(roles)
-                                                        .build(),
-                                                PhysicalColumn.builder()
-                                                        .name("text_enum")
-                                                        .dataType(BasicType.STRING_TYPE)
-                                                        .sourceType(textEnum)
-                                                        .build(),
-                                                PhysicalColumn.builder()
-                                                        .name("note")
-                                                        .dataType(BasicType.STRING_TYPE)
-                                                        .sourceType("jsonb")
-                                                        .build()))
-                                .build();
                 SeaTunnelRow row =
                         new SeaTunnelRow(
                                 new Object[] {
@@ -1176,7 +1181,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 "INSERT INTO enum_bind.sink "
                                         + "(id, element_type, order_status, roles, text_enum, note) "
                                         + "VALUES (?,?,?,?,?,?)")) {
-                    new PostgresJdbcRowConverter().toExternal(tableSchema, null, row, statement);
+                    new PostgresJdbcRowConverter()
+                            .toExternal(inputSchema, databaseTableSchema, row, statement);
                     Assertions.assertEquals(1, statement.executeUpdate());
                 }
             }

@@ -725,6 +725,11 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         return isPgIdentifierStart(current) || (current >= '0' && current <= '9') || current == '$';
     }
 
+    /**
+     * One PostgreSQL identifier and the index immediately after it. {@code comparable} has the
+     * quotes removed and an unquoted name folded to lowercase, which is the spelling compared with
+     * builtin type names. {@code next} is the scan position so a following schema dot can be read.
+     */
     private static final class PgIdentifier {
         private final String comparable;
         private final int next;
