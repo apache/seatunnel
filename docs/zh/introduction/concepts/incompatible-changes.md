@@ -681,6 +681,20 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   }
   ```
 
+- **行为变更：Flink Paimon 固定桶路由现在将每个物理 bucket 分配给一个 Writer**
+  - **受影响组件**：`connector-paimon` 以及 Flink 1.13、1.15 和 2.0 starter。
+  - **说明**：固定桶 Sink 会将每个物理分区和 bucket 路由到一个 Writer。路由能力通过运行时的
+    `MultiTableSink` 包装器解析，Schema 控制行保留目标 subtask，不经过数据行转换。分区器使用启动时的源表和目标表 schema；本次修改不新增完整在线 DDL 处理。
+  - **影响**：`multi_table_sink_replica` 不为 `1`、固定桶与非固定桶 Sink 混用，以及多个源表指向同一物理表的配置，都会在初始化时被拒绝。Checkpoint 序列化格式不变，本修复不提供额外的全局恢复或扩缩容保证。
+  - **迁移指南**：设置 `multi_table_sink_replica = 1`，拆开固定桶与非固定桶 Sink 定义；多个源流指向同一物理表时，应先合并再写入一个 Sink。
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 ### 转换变更
 
 - DataValidator 转换：当 `row_error_handle_way = ROUTE_TO_TABLE` 时，路由到错误表的行 `table_id` 现在会携带上游的 database/schema 前缀（例如从 `ffp` 变为 `db1.ffp` / `db1.schema1.ffp`）。
