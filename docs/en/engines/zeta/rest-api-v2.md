@@ -1498,20 +1498,20 @@ Clear every tag of the node:
 
 #### Request parameter exception
 
-Each error is returned with HTTP status `400` and the following body.
+Each error is returned with HTTP status `400`. The shared REST exception filter prefixes `message` with the exception class name, so the exact text is `IllegalArgumentException: <explanation>`.
 
 | Condition                                                          | `message`                                                       |
 |--------------------------------------------------------------------|-----------------------------------------------------------------|
-| The request body is empty                                          | `Request body is empty.`                                        |
-| The request body is not a JSON object                              | `Invalid JSON format in request body.`                          |
-| `uuid` is missing or does not match the node serving the request   | `Target member uuid must match the REST node serving this request.` |
-| `tags` is missing or is not a JSON object                          | `The tags field must be an object.`                             |
-| Any value inside `tags` is not a string                             | `Tag values must be strings.`                                    |
+| The request body is empty                                          | `IllegalArgumentException: Request body is empty.`                                        |
+| The request body is not a JSON object                              | `IllegalArgumentException: Invalid JSON format in request body.`                          |
+| `uuid` is missing or does not match the node serving the request   | `IllegalArgumentException: Target member uuid must match the REST node serving this request.` |
+| `tags` is missing or is not a JSON object                          | `IllegalArgumentException: The tags field must be an object.`                             |
+| Any value inside `tags` is not a string                             | `IllegalArgumentException: Tag values must be strings.`                                    |
 
 ```json
 {
   "status": "fail",
-  "message": "Target member uuid must match the REST node serving this request."
+  "message": "IllegalArgumentException: Target member uuid must match the REST node serving this request."
 }
 ```
 

@@ -56,6 +56,8 @@ export default {
     invalid: '每行 tag 必须使用 key=value 格式。',
     contentRequired: '请至少填写一个 Tag，或使用清空 Tags。',
     duplicate: 'Tag 键不能重复。',
+    unrepresentable:
+      '该 Worker 的部分 Tags 无法用无歧义的 key=value 行表示（包含换行，或两个 Tag 显示相同）。为避免丢失 Tag，已禁用更新；如需整体替换请使用清空 Tags。',
     local: '当前节点',
     remote: '远端节点',
     remoteHint: '请打开目标节点自己的 Web UI 更新该 Worker。',

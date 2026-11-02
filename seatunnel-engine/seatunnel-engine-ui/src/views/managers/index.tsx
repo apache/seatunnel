@@ -67,6 +67,11 @@ export default defineComponent({
     // whitespace. Each entry is remembered under the exact line it was serialized to, so a line
     // the operator did not touch is sent back as the original pair instead of being re-parsed.
     let existingTagLines = new Map<string, [string, string]>()
+    // True when an existing tag cannot be shown as one unambiguous key=value line (a line break in
+    // a key or value, or two entries that serialize to the same line). Updating is blocked then,
+    // because the server replaces the whole map and saving the text would silently drop or alter
+    // entries; Clear Tags stays available because it is an explicit full replacement.
+    const tagEditBlocked = ref(false)
     let timer: ReturnType<typeof setTimeout> | undefined
     let generation = 0
     let disposed = false
@@ -135,6 +140,7 @@ export default defineComponent({
         rows.value = []
         selectedAddress.value = undefined
         selectedMonitor.value = null
+        tagEditBlocked.value = false
         tagContent.value = ''
         tagMessage.value = ''
         tagError.value = ''
@@ -202,6 +208,10 @@ export default defineComponent({
         tagError.value = t('managers.tagEditor.workerRequired')
         return
       }
+      if (!clear && tagEditBlocked.value) {
+        tagError.value = t('managers.tagEditor.unrepresentable')
+        return
+      }
       if (!clear && !tagContent.value.trim()) {
         tagError.value = t('managers.tagEditor.contentRequired')
         return
@@ -236,15 +246,19 @@ export default defineComponent({
 
     const selectMonitor = (monitor: Monitor) => {
       selectedMonitor.value = monitor
+      const entries = Object.entries(monitor.tags || {})
+      const lines = entries.map(([key, value]) => `${key}=${value}`)
       existingTagLines = new Map(
-        Object.entries(monitor.tags || {}).map(([key, value]): [string, [string, string]] => [
-          `${key}=${value}`,
+        entries.map(([key, value], index): [string, [string, string]] => [
+          lines[index],
           [key, value]
         ])
       )
-      tagContent.value = Array.from(existingTagLines.keys()).join('\n')
+      tagEditBlocked.value =
+        existingTagLines.size !== entries.length || lines.some((line) => /[\r\n]/.test(line))
+      tagContent.value = lines.join('\n')
       tagMessage.value = ''
-      tagError.value = ''
+      tagError.value = tagEditBlocked.value ? t('managers.tagEditor.unrepresentable') : ''
     }
 
     const formatTags = (tags?: Record<string, string>) => {
@@ -458,7 +472,10 @@ export default defineComponent({
                           type="primary"
                           loading={tagLoading.value}
                           disabled={
-                            !selectedMonitor.value || !tagContent.value.trim() || tagLoading.value
+                            !selectedMonitor.value ||
+                            !tagContent.value.trim() ||
+                            tagEditBlocked.value ||
+                            tagLoading.value
                           }
                         >
                           {t('managers.tagEditor.update')}

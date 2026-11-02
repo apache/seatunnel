@@ -258,6 +258,33 @@ describe('managers', () => {
       ['owner', 'team=data']
     ])
   })
+  test.each([
+    // ['a=b','c'] and ['a','b=c'] both read as "a=b=c"; one would be lost on save.
+    ['colliding pairs', { 'a=b': 'c', a: 'b=c' }],
+    // A line break inside a value would split one entry into two lines.
+    ['a line break in a value', { note: 'first\nsecond' }]
+  ])('blocks updating when existing tags are unrepresentable: %s', async (_name, tags) => {
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor(), uuid: 'worker-1', localMember: true, tags }
+    ])
+    const { wrapper } = await setup()
+    await flushPromises()
+    await wrapper
+      .findAllComponents(NButton)
+      .find((button) => button.text() === 'Select')!
+      .trigger('click')
+    expect(wrapper.text()).toContain('cannot be shown as unambiguous key=value lines')
+    const updateButton = wrapper
+      .findAllComponents(NButton)
+      .find((button) => button.text() === 'Update Tags')!
+    expect(updateButton.props('disabled')).toBe(true)
+    const onPositiveClick = wrapper.findAllComponents(NPopconfirm)[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).not.toHaveBeenCalled()
+  })
   test('rejects duplicate tag keys before calling the server', async () => {
     vi.mocked(managerService.getMonitors).mockResolvedValue([
       { ...monitor(), uuid: 'worker-1', localMember: true, tags: {} }

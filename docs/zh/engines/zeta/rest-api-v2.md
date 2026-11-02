@@ -1488,20 +1488,20 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 请求参数异常
 
-以下错误均以 HTTP `400` 返回，响应体格式如下。
+以下错误均以 HTTP `400` 返回。REST 公共异常过滤器会在 `message` 前加上异常类名，因此实际文本为 `IllegalArgumentException: <说明>`。
 
 | 场景                                  | `message`                                                           |
 |-------------------------------------|---------------------------------------------------------------------|
-| 请求体为空                               | `Request body is empty.`                                            |
-| 请求体不是 JSON 对象                       | `Invalid JSON format in request body.`                              |
-| 缺少 `uuid`，或 `uuid` 与响应请求的节点不一致      | `Target member uuid must match the REST node serving this request.` |
-| 缺少 `tags`，或 `tags` 不是 JSON 对象       | `The tags field must be an object.`                                 |
-| `tags` 中存在非字符串值                     | `Tag values must be strings.`                                        |
+| 请求体为空                               | `IllegalArgumentException: Request body is empty.`                                            |
+| 请求体不是 JSON 对象                       | `IllegalArgumentException: Invalid JSON format in request body.`                              |
+| 缺少 `uuid`，或 `uuid` 与响应请求的节点不一致      | `IllegalArgumentException: Target member uuid must match the REST node serving this request.` |
+| 缺少 `tags`，或 `tags` 不是 JSON 对象       | `IllegalArgumentException: The tags field must be an object.`                                 |
+| `tags` 中存在非字符串值                     | `IllegalArgumentException: Tag values must be strings.`                                        |
 
 ```json
 {
   "status": "fail",
-  "message": "Target member uuid must match the REST node serving this request."
+  "message": "IllegalArgumentException: Target member uuid must match the REST node serving this request."
 }
 ```
 

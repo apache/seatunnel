@@ -57,6 +57,8 @@ export default {
     invalid: 'Each tag line must use key=value.',
     contentRequired: 'Enter at least one tag, or use Clear Tags.',
     duplicate: 'Tag keys must be unique.',
+    unrepresentable:
+      'This worker has tags that cannot be shown as unambiguous key=value lines (a line break, or two tags that read the same). Updating is disabled so no tag is lost; use Clear Tags to replace them all.',
     local: 'Local',
     remote: 'Remote',
     remoteHint: 'Open the target node Web UI to update this worker.',
