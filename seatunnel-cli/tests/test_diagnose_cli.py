@@ -329,24 +329,48 @@ def test_a_non_object_json_body_does_not_crash(engine):
 
 
 @pytest.mark.parametrize(
-    "info, expected_calls, expected_message",
+    "responses, expected_calls, expected_message",
     [
-        ({"jobId": "852", "found": False}, 1, "no longer present"),
-        ({"jobId": "852"}, 2, "returned no job status"),
+        ([{"jobId": "852", "found": False}], 1, "no longer present"),
+        ([{"jobId": "852"}], 2, "returned no job status"),
+        # `None` is the decoded body of a JSON `null`: a non-dict 200 is
+        # treated as status-less, so the explicit marker on the next poll
+        # still has to win over the "no status twice" branch.
+        ([None, {"jobId": "852", "found": False}], 2, "no longer present"),
+        (
+            [
+                {"jobId": "852"},
+                {"jobId": "852", "jobStatus": "RUNNING"},
+                {"jobId": "852"},
+                {"jobId": "852", "found": False},
+            ],
+            4,
+            "no longer present",
+        ),
     ],
-    ids=["new-server-marker", "old-server-status-less"],
+    ids=[
+        "new-server-marker",
+        "old-server-status-less",
+        "non-dict-body-then-marker",
+        "status-less-good-status-less-then-marker",
+    ],
 )
 def test_polling_stops_when_the_job_is_not_known(
-    monkeypatch, info, expected_calls, expected_message
+    monkeypatch, responses, expected_calls, expected_message
 ):
     cli = object.__new__(cli_module.SeaTunnelCLI)
     console = Console(theme=cli_module.THEME, width=200, record=True)
     cli.console = console
     calls = {"count": 0}
+    remaining = iter(responses)
 
     def fake_request_json(url, timeout=10):
         calls["count"] += 1
-        return info
+        # Keep answering status-less once the scripted bodies run out: a poll
+        # that fails to stop on the scripted responses then hits the max-poll
+        # bound, so the call-count assertion reports the regression instead of
+        # the fake raising StopIteration into the poller's error handling.
+        return next(remaining, {"jobId": "852"})
 
     monkeypatch.setattr(cli_module.rest, "request_json", fake_request_json)
     monkeypatch.setattr(cli_module.time, "sleep", lambda seconds: None)
