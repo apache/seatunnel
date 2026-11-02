@@ -186,11 +186,13 @@ Opengauss CDC exposes metadata fields that can be used by the `Metadata` transfo
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source table name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source table name. |
+| RowKind | STRING | Change type, such as insert, update, or delete. |
+| EventTime | LONG | The time the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between event time and processing time in milliseconds. |
+
+The metadata field keys are case-sensitive and must be written exactly as in the table above.
 
 Example:
 

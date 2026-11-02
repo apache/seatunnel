@@ -39,9 +39,10 @@ SeaTunnel schema fields, because the sink writes values by field name.
 | accessId       | string | yes      | -             | Alibaba Cloud access ID used to access DataHub. |
 | accessKey      | string | yes      | -             | Alibaba Cloud access key used to access DataHub. |
 | project        | string | yes      | -             | DataHub project name. |
-| topic          | string | yes      | -             | DataHub topic name. Supports placeholders in multi-table jobs. |
+| topic          | string | yes      | -             | DataHub topic name. Supports placeholders such as `${table_name}` in multi-table jobs. |
 | timeout        | int    | no       | 3000          | Maximum client connection timeout in milliseconds. |
 | retryTimes     | int    | no       | 3             | Maximum retry count when writing a record fails. |
+| multi_table_sink_replica | int | no    | 1             | The replica number of multi table sink writer. Must be at least 1. |
 | common-options | config | no       | -             | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### endpoint [string]
@@ -63,9 +64,10 @@ The DataHub project name.
 ### topic [string]
 
 The DataHub topic name. For multi-table writes, this value can contain
-placeholders such as `${table_name}` to route each input table to its own
-topic. The substitution is performed by the common sink table-placeholder
-mechanism, not by the connector itself.
+placeholders such as `${table_name}`, `${database_name}` and `${schema_name}`
+(supported placeholders follow the SeaTunnel `TablePlaceholder` definitions,
+for example `topic = "${table_name}"`). Note that `${table}` is **not** a valid
+placeholder — the topic would be created with the literal string `${table}`.
 
 The SeaTunnel field names must match the DataHub topic fields, because the sink
 writes fields by name according to the topic schema.
@@ -183,7 +185,7 @@ No. The connector performs best-effort writes with bounded retries (`retryTimes`
 
 ### How does multi-table routing work?
 
-When the upstream source emits more than one table, set `topic` to a value containing the `${table_name}` placeholder (for example `topic = "${table_name}"`). Each input table is then routed to a DataHub topic that shares its name; the substitution is done by the common sink table-placeholder mechanism. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
+When the upstream source emits more than one table, set `topic` to a value containing the `${table_name}` placeholder (for example `topic = "${table_name}"`). Each input table is then routed to a DataHub topic that shares its name. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
 
 ### Why is `topic` a required field even for single-table jobs?
 

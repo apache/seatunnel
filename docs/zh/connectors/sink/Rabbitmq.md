@@ -12,7 +12,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于将数据写入 RabbitMQ 队列。
+RabbitMQ Sink 连接器会把每一行上游数据发布为一条 RabbitMQ 消息，写入指定的队列、exchange
+或 routing key。默认情况下，消息会通过默认 exchange 直接发送到名为 `queue_name` 的队列；
+当配置了 `routing_key`（可选地同时配置 `exchange`）时，连接器会改为通过指定 exchange 来路由消息。
+
+如果目标队列不存在，连接器会按照 `durable`、`exclusive`、`auto_delete` 等参数声明队列，并使用
+标准的 AMQP 恢复选项（`network_recovery_interval`、`topology_recovery_enabled`、
+`AUTOMATIC_RECOVERY_ENABLED`）在 broker 故障时自动重连。
 
 ## 主要特性
 
@@ -21,32 +27,32 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 接收器选项
 
-|             名称             |   类型    | 是否必须 |  默认值  |
-|----------------------------|---------|------|-------|
-| host                       | string  | 是    | -     |
-| port                       | int     | 是    | -     |
-| virtual_host               | string  | 是    | -     |
-| username                   | string  | 否    | -     |
-| password                   | string  | 否    | -     |
-| queue_name                 | string  | 是    | -     |
-| format                     | string  | 否    | json  |
-| protobuf_schema            | string  | 否    | -     |
-| protobuf_message_name      | string  | 否    | -     |
-| url                        | string  | 否    | -     |
-| uri                        | string  | 否    | -     |
-| ssl                        | boolean | 否    | false |
-| routing_key                | string  | 否    | -     |
-| exchange                   | string  | 否    | -     |
-| network_recovery_interval  | int     | 否    | -     |
-| topology_recovery_enabled  | boolean | 否    | -     |
-| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     |
-| connection_timeout         | int     | 否    | -     |
-| rabbitmq.config            | map     | 否    | -     |
-| durable                    | boolean | 否    | true  |
-| exclusive                  | boolean | 否    | false |
-| auto_delete                | boolean | 否    | false |
-| passive                    | boolean | 否    | false |
-| common-options             |         | 否    | -     |
+|             名称             |   类型    | 是否必须 |  默认值  | 描述 |
+|----------------------------|---------|------|-------|---|
+| host                       | string  | 是    | -     | RabbitMQ 服务器地址。 |
+| port                       | int     | 是    | -     | RabbitMQ 服务器端口。 |
+| virtual_host               | string  | 是    | -     | 连接 Broker 时使用的 virtual host。 |
+| username                   | string  | 否    | -     | 连接 Broker 时使用的用户名。 |
+| password                   | string  | 否    | -     | 连接时使用的密码；需要与 `username` 一起配置。 |
+| queue_name                 | string  | 是    | -     | 目标队列名；未配置 `routing_key` 时通过默认 exchange 写入。 |
+| format                     | string  | 否    | json  | 消息体格式，支持 `json` 和 `protobuf`。 |
+| protobuf_schema            | string  | 否    | -     | `format` 为 `protobuf` 时使用的 Protobuf Schema。 |
+| protobuf_message_name      | string  | 否    | -     | `format` 为 `protobuf` 时使用的 Protobuf 消息名称。 |
+| url                        | string  | 否    | -     | 使用 AMQP URI 配置主机、端口、用户名、密码和 virtual host。 |
+| uri                        | string  | 否    | -     | `url` 的兼容别名，两者只能配置一个。 |
+| ssl                        | boolean | 否    | false | 通过主机和端口连接时是否启用 SSL/TLS。 |
+| routing_key                | string  | 否    | -     | 发送消息使用的 routing key，与 `exchange` 一起配置。 |
+| exchange                   | string  | 否    | -     | 配置 `routing_key` 时使用的 exchange。 |
+| network_recovery_interval  | int     | 否    | -     | 自动恢复连接的重试间隔，单位为毫秒。 |
+| topology_recovery_enabled  | boolean | 否    | -     | 是否启用拓扑恢复。 |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     | 是否启用连接恢复；配置键使用大写。 |
+| connection_timeout         | int     | 否    | -     | TCP 建连超时，单位为毫秒；`0` 表示无限等待。 |
+| rabbitmq.config            | map     | 否    | -     | 额外的 RabbitMQ 客户端配置。 |
+| durable                    | boolean | 否    | true  | 是否声明持久化队列，在服务器重启后保留。 |
+| exclusive                  | boolean | 否    | false | 是否声明仅当前连接使用、连接关闭后删除的队列。 |
+| auto_delete                | boolean | 否    | false | 是否在最后一个消费者取消订阅后自动删除队列。 |
+| passive                    | boolean | 否    | false | 是否只检查队列已存在，不主动声明队列。 |
+| common-options             |         | 否    | -     | Sink 插件通用配置，参见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### host [string]
 
