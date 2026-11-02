@@ -164,6 +164,60 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         Assertions.assertEquals(1, deletes.get(0).getArity());
     }
 
+    @Test
+    void testCompareKeysIsTransitiveAcrossDifferentTypes() {
+        SeaTunnelRow integerTwo = new SeaTunnelRow(new Object[] {2});
+        SeaTunnelRow integerTen = new SeaTunnelRow(new Object[] {10});
+        SeaTunnelRow stringEleven = new SeaTunnelRow(new Object[] {"11"});
+
+        int twoToTen = BufferReducedBatchStatementExecutor.compareKeys(integerTwo, integerTen);
+        int tenToString = BufferReducedBatchStatementExecutor.compareKeys(integerTen, stringEleven);
+        int twoToString = BufferReducedBatchStatementExecutor.compareKeys(integerTwo, stringEleven);
+
+        Assertions.assertTrue(twoToTen < 0);
+        Assertions.assertTrue(tenToString < 0);
+        Assertions.assertTrue(twoToString < 0);
+    }
+
+    @Test
+    void testExecuteBatchReplaysKeysInDeterministicOrder() throws SQLException {
+        List<String> recorder = new ArrayList<>();
+        BufferReducedBatchStatementExecutor executor =
+                new BufferReducedBatchStatementExecutor(
+                        new TaggedRecordingExecutor(recorder, "U"),
+                        new TaggedRecordingExecutor(recorder, "D"),
+                        row -> new SeaTunnelRow(new Object[] {row.getField(0)}),
+                        Function.identity(),
+                        true);
+
+        executor.addToBatch(row(10, "ten"));
+        executor.addToBatch(row(2, "two"));
+        executor.addToBatch(row(11, "eleven"));
+        executor.executeBatch();
+
+        Assertions.assertEquals(Arrays.asList("U:2", "U:10", "U:11", "U:flush"), recorder);
+    }
+
+    @Test
+    void testTransactionConflictResetRetainsLogicalBuffer() throws SQLException {
+        List<String> recorder = new ArrayList<>();
+        RetryRecordingExecutor upsert = new RetryRecordingExecutor(recorder, "U");
+        BufferReducedBatchStatementExecutor executor =
+                new BufferReducedBatchStatementExecutor(
+                        upsert,
+                        new TaggedRecordingExecutor(recorder, "D"),
+                        Function.identity(),
+                        Function.identity());
+
+        executor.addToBatch(row(1, "one"));
+        Assertions.assertThrows(SQLException.class, executor::executeBatch);
+        executor.resetForTransactionConflictRetry();
+        executor.executeBatch();
+
+        Assertions.assertEquals(Arrays.asList("U:1", "U:1", "U:flush"), recorder);
+        Assertions.assertEquals(1, upsert.clearBatchCalls);
+    }
+
     /** Executor keyed by the second field (a nullable unique key column). */
     private static JdbcBatchStatementExecutor<SeaTunnelRow> newKeyedExecutor(
             List<SeaTunnelRow> upserts, List<SeaTunnelRow> deletes) {
@@ -178,6 +232,10 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, code, name});
         row.setRowKind(rowKind);
         return row;
+    }
+
+    private static SeaTunnelRow row(Object key, String value) {
+        return new SeaTunnelRow(new Object[] {key, value});
     }
 
     private static class RecordingExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
@@ -200,5 +258,55 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
 
         @Override
         public void closeStatements() {}
+    }
+
+    private static class TaggedRecordingExecutor
+            implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+        protected final List<String> recorder;
+        protected final String tag;
+
+        private TaggedRecordingExecutor(List<String> recorder, String tag) {
+            this.recorder = recorder;
+            this.tag = tag;
+        }
+
+        @Override
+        public void prepareStatements(Connection connection) {}
+
+        @Override
+        public void addToBatch(SeaTunnelRow record) {
+            recorder.add(tag + ":" + record.getField(0));
+        }
+
+        @Override
+        public void executeBatch() throws SQLException {
+            recorder.add(tag + ":flush");
+        }
+
+        @Override
+        public void closeStatements() {}
+    }
+
+    private static final class RetryRecordingExecutor extends TaggedRecordingExecutor {
+        private int executeBatchCalls;
+        private int clearBatchCalls;
+
+        private RetryRecordingExecutor(List<String> recorder, String tag) {
+            super(recorder, tag);
+        }
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCalls++;
+            if (executeBatchCalls == 1) {
+                throw new SQLException("deadlock", "40P01");
+            }
+            super.executeBatch();
+        }
+
+        @Override
+        public void clearBatch() {
+            clearBatchCalls++;
+        }
     }
 }
