@@ -1624,4 +1624,22 @@ public class SqlWhereConditionHelperTest {
                 asciiResult,
                 "An ASCII alias should produce the same shape");
     }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_KeywordLettersStayAscii() {
+        // U+017F ('ſ') uppercases to 'S', so a full Unicode fold would read "ſelect" as SELECT.
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("ſelect * from t"),
+                "Only the ASCII SELECT keyword should start a projection scan");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_DistinctSkipStaysAscii() {
+        // U+FB05 ('ﬅ') uppercases to "ST", so the uppercase copy of the token is one character
+        // longer than the token itself; slicing the original with the copy's offset eats a
+        // character of the payload and can expose "t.*" as a standalone wildcard.
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("select diﬅinct  t.* from t"),
+                "A ligature inside DISTINCT should not be treated as the DISTINCT keyword");
+    }
 }
