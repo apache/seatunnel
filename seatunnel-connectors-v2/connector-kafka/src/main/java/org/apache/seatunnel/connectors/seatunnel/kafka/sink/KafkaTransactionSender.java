@@ -119,7 +119,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
         this.kafkaProducer = getTransactionProducer(transactionId);
-        kafkaProducer.beginTransaction();
+        try {
+            kafkaProducer.beginTransaction();
+        } catch (RuntimeException | Error failure) {
+            KafkaInternalProducer<K, V> failedProducer = kafkaProducer;
+            kafkaProducer = null;
+            closeProducerAfterFailure(failedProducer, failure);
+            throw failure;
+        }
         // Reset the per-transaction state. A new transaction always runs on a newly created
         // producer, so a failure recorded for the previous transaction no longer applies. Keeping
         // it would turn a single transient send error into a permanent checkpoint failure loop.
@@ -246,8 +253,22 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaInternalProducer<K, V> transactionProducer =
                 new KafkaInternalProducer<>(transactionProperties, transactionId);
-        transactionProducer.initTransactions();
-        return transactionProducer;
+        try {
+            transactionProducer.initTransactions();
+            return transactionProducer;
+        } catch (RuntimeException | Error failure) {
+            closeProducerAfterFailure(transactionProducer, failure);
+            throw failure;
+        }
+    }
+
+    private void closeProducerAfterFailure(
+            KafkaInternalProducer<K, V> producer, Throwable originalFailure) {
+        try {
+            closeTemporaryProducer(producer);
+        } catch (RuntimeException | Error closeFailure) {
+            originalFailure.addSuppressed(closeFailure);
+        }
     }
 
     private void closeTemporaryProducer(KafkaInternalProducer<K, V> producer) {

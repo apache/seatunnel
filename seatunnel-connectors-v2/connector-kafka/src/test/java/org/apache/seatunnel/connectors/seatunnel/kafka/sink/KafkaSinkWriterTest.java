@@ -130,7 +130,7 @@ class KafkaSinkWriterTest {
 
             try (TestWriter restored = writerWithoutConfiguredPrefix(2, 3, migratedState)) {
                 Assertions.assertEquals(
-                        freshWriterPrefix(PREFIX, 2) + "-2",
+                        recoveredWriterPrefix(PREFIX, 2, 1, 2) + "-1",
                         restored.prepareCommit().orElseThrow().getTransactionId());
             }
         }
@@ -153,7 +153,8 @@ class KafkaSinkWriterTest {
                     initializedIds.containsAll(unfinishedIds),
                     "A Flink 3-to-2 restore must fence both contiguously assigned namespaces");
             Assertions.assertEquals(
-                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
+                    recoveredWriterPrefix(PREFIX, 0, 1, 0) + "-1",
+                    writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -170,6 +171,32 @@ class KafkaSinkWriterTest {
                 exception
                         .getMessage()
                         .contains("Cannot determine the writer owner of Kafka transaction prefix"));
+    }
+
+    @Test
+    void shouldRejectOverflowingNamespaceRevisionBeforeProducerInitialization() {
+        List<KafkaSinkState> states =
+                Collections.singletonList(
+                        new KafkaSinkState(
+                                PREFIX + "-gtestw0_r9223372036854775808w0-1",
+                                PREFIX,
+                                1,
+                                new Properties()));
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                mockProducers(new ArrayList<>(), Collections.emptySet())) {
+            IllegalStateException exception =
+                    Assertions.assertThrows(
+                            IllegalStateException.class, () -> writer(0, 1, states));
+
+            Assertions.assertTrue(
+                    exception
+                            .getMessage()
+                            .contains("Cannot determine the writer revision of Kafka transaction"));
+            Assertions.assertTrue(
+                    producers.constructed().isEmpty(),
+                    "Malformed state must fail before producer initialization");
+        }
     }
 
     @Test
@@ -191,7 +218,8 @@ class KafkaSinkWriterTest {
             Assertions.assertTrue(initializedIds.contains(firstWriterPrefix + "-6"));
             Assertions.assertTrue(initializedIds.contains(thirdWriterPrefix + "-6"));
             Assertions.assertEquals(
-                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
+                    recoveredWriterPrefix(PREFIX, 0, 1, 0) + "-1",
+                    writer.prepareCommit().get().getTransactionId());
         }
     }
 
@@ -215,17 +243,18 @@ class KafkaSinkWriterTest {
                 TestWriter writer = writerWithoutConfiguredPrefix(0, 2, states)) {
             Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
             Assertions.assertEquals(
-                    firstWriterPrefix + "-5", writer.prepareCommit().get().getTransactionId());
+                    recoveredWriterPrefix(firstPrefix, 0, 1, 0) + "-1",
+                    writer.prepareCommit().get().getTransactionId());
             Assertions.assertEquals(
                     firstPrefix, writer.snapshotState(5).get(0).getTransactionIdPrefix());
         }
     }
 
     @Test
-    void shouldRelocateSameGenerationNamespaceBeforeScaleUp() {
+    void shouldAdvanceSameGenerationNamespaceBeforeScaleUp() {
         List<String> initializedIds = new ArrayList<>();
         String reassignedWriterPrefix = freshWriterPrefix(PREFIX, 2);
-        String relocatedWriterPrefix = reassignedWriterPrefix + "r1c4";
+        String advancedWriterPrefix = recoveredWriterPrefix(PREFIX, 2, 1, 1);
         List<KafkaSinkState> adoptedState =
                 Collections.singletonList(
                         new KafkaSinkState(
@@ -234,14 +263,14 @@ class KafkaSinkWriterTest {
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(
                                 initializedIds,
-                                Collections.singleton(relocatedWriterPrefix + "-1"));
+                                Collections.singleton(advancedWriterPrefix + "-1"));
                 TestWriter adoptedWriter = writer(1, 2, adoptedState)) {
             String adoptedTransactionId =
                     adoptedWriter.prepareCommit().orElseThrow().getTransactionId();
             Assertions.assertTrue(
-                    initializedIds.contains(relocatedWriterPrefix + "-1"),
-                    "A retry must fence its deterministic relocated namespace");
-            Assertions.assertEquals(relocatedWriterPrefix + "-1", adoptedTransactionId);
+                    initializedIds.contains(advancedWriterPrefix + "-1"),
+                    "A retry must fence its deterministic recovered namespace");
+            Assertions.assertEquals(advancedWriterPrefix + "-1", adoptedTransactionId);
             initializedIds.clear();
 
             try (TestWriter freshWriter = writer(2, 3, Collections.emptyList())) {
@@ -254,69 +283,140 @@ class KafkaSinkWriterTest {
                         "A stateless writer must not reuse a namespace adopted after scale-down");
                 Assertions.assertFalse(
                         initializedIds.stream()
-                                .anyMatch(id -> id.startsWith(relocatedWriterPrefix + "-")),
-                        "Fresh-writer cleanup must not fence the relocated live namespace");
+                                .anyMatch(id -> id.startsWith(advancedWriterPrefix + "-")),
+                        "Fresh-writer cleanup must not fence the recovered live namespace");
             }
         }
     }
 
     @Test
-    void shouldAvoidRelocationCollisionAcrossRepeatedFlinkRescaling() {
+    void shouldAdvanceNamespaceRevisionAcrossRecoveries() {
         List<String> initializedIds = new ArrayList<>();
-        String firstWriterPrefix = freshWriterPrefix(PREFIX, 0);
         String reassignedWriterPrefix = freshWriterPrefix(PREFIX, 2);
-        String firstRelocatedWriterPrefix = reassignedWriterPrefix + "r1c4";
-        String secondRelocatedWriterPrefix = reassignedWriterPrefix + "r1c6";
+        String firstRecoveredWriterPrefix = recoveredWriterPrefix(PREFIX, 2, 1, 1);
+        String secondRecoveredWriterPrefix = recoveredWriterPrefix(PREFIX, 2, 2, 1);
 
-        List<KafkaSinkState> firstScaleDownState =
+        List<KafkaSinkState> originalState =
                 Collections.singletonList(
                         new KafkaSinkState(
                                 reassignedWriterPrefix + "-4", PREFIX, 4, new Properties()));
-        List<KafkaSinkState> firstRelocatedState;
+        List<KafkaSinkState> firstRecoveredState;
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, Collections.emptySet());
-                TestWriter writer = writer(1, 2, firstScaleDownState)) {
+                TestWriter writer = writer(1, 2, originalState)) {
             Assertions.assertEquals(
-                    firstRelocatedWriterPrefix + "-1",
+                    firstRecoveredWriterPrefix + "-1",
                     writer.prepareCommit().orElseThrow().getTransactionId());
-            firstRelocatedState = writer.snapshotState(5);
+            firstRecoveredState = writer.snapshotState(5);
         }
 
-        List<KafkaSinkState> secondScaleDownRelocatedState;
         try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, Collections.emptySet());
-                TestWriter writer = writer(1, 3, firstRelocatedState)) {
-            secondScaleDownRelocatedState = writer.snapshotState(6);
-        }
-
-        List<KafkaSinkState> baseState;
-        try (MockedConstruction<KafkaInternalProducer> producers =
-                        mockProducers(initializedIds, Collections.emptySet());
-                TestWriter writer = writer(2, 3, Collections.emptyList())) {
-            baseState = writer.snapshotState(6);
-        }
-
-        List<KafkaSinkState> firstFlinkAssignment =
-                List.of(
-                        new KafkaSinkState(firstWriterPrefix + "-6", PREFIX, 6, new Properties()),
-                        secondScaleDownRelocatedState.get(0));
-        try (MockedConstruction<KafkaInternalProducer> producers =
-                        mockProducers(initializedIds, Collections.emptySet());
-                TestWriter writer = writer(0, 2, firstFlinkAssignment)) {
+                TestWriter retry = writer(1, 2, originalState)) {
             Assertions.assertEquals(
-                    firstWriterPrefix + "-7",
-                    writer.prepareCommit().orElseThrow().getTransactionId());
+                    firstRecoveredWriterPrefix + "-1",
+                    retry.prepareCommit().orElseThrow().getTransactionId(),
+                    "A retry of the same recovery point must reuse its recovered namespace");
+        }
+
+        KafkaSinkState divergentCheckpointState =
+                new KafkaSinkState(
+                        firstRecoveredState.get(0).getTransactionId(), PREFIX, 1, new Properties());
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                        mockProducers(initializedIds, Collections.emptySet());
+                TestWriter writer =
+                        writer(1, 3, Collections.singletonList(divergentCheckpointState))) {
+            Assertions.assertEquals(
+                    secondRecoveredWriterPrefix + "-1",
+                    writer.prepareCommit().orElseThrow().getTransactionId(),
+                    "Namespace revision must advance independently of local checkpoint counters");
+        }
+    }
+
+    @Test
+    void shouldKeepNamespacesDistinctWhenFlinkLocalCheckpointCountersRestart() {
+        List<KafkaSinkState> states = new ArrayList<>();
+        for (int index = 0; index < 3; index++) {
+            states.add(
+                    new KafkaSinkState(
+                            freshWriterPrefix(PREFIX, index) + "-4", PREFIX, 4, new Properties()));
         }
 
         try (MockedConstruction<KafkaInternalProducer> producers =
+                mockProducers(new ArrayList<>(), Collections.emptySet())) {
+            for (int parallelism : new int[] {4, 3, 4, 3}) {
+                List<KafkaSinkState> nextStates = new ArrayList<>();
+                Set<String> activeNamespaces = new HashSet<>();
+                int oldParallelism = states.size();
+                int offset = 0;
+
+                for (int index = 0; index < parallelism; index++) {
+                    int assignedCount =
+                            oldParallelism / parallelism
+                                    + (index < oldParallelism % parallelism ? 1 : 0);
+                    List<KafkaSinkState> assigned =
+                            new ArrayList<>(states.subList(offset, offset + assignedCount));
+                    offset += assignedCount;
+
+                    // The common Flink adapter restarts an empty-state writer at checkpoint 1.
+                    long nextLocalCheckpoint =
+                            assigned.isEmpty() ? 1 : assigned.get(0).getCheckpointId() + 1;
+
+                    try (TestWriter current = writer(index, parallelism, assigned)) {
+                        String namespace =
+                                transactionIdPrefix(
+                                        current.prepareCommit().orElseThrow().getTransactionId());
+                        Assertions.assertTrue(
+                                activeNamespaces.add(namespace),
+                                "Duplicate namespace at parallelism "
+                                        + parallelism
+                                        + ": "
+                                        + namespace);
+                        nextStates.addAll(current.snapshotState(nextLocalCheckpoint));
+                    }
+                }
+
+                states = nextStates;
+            }
+        }
+    }
+
+    @Test
+    void shouldNotFenceSiblingRecoveredNamespaceDuringCleanup() {
+        String baseWriterPrefix = freshWriterPrefix(PREFIX, 3);
+        String firstRevisionPrefix = recoveredWriterPrefix(PREFIX, 3, 1, 2);
+        String siblingCurrentPrefix = recoveredWriterPrefix(PREFIX, 3, 2, 1);
+        List<KafkaSinkState> siblingState =
+                Collections.singletonList(
+                        new KafkaSinkState(
+                                firstRevisionPrefix + "-2", PREFIX, 3, new Properties()));
+        List<KafkaSinkState> recreatedBaseState =
+                Collections.singletonList(
+                        new KafkaSinkState(baseWriterPrefix + "-1", PREFIX, 1, new Properties()));
+        List<String> initializedIds = new ArrayList<>();
+
+        try (MockedConstruction<KafkaInternalProducer> producers =
                         mockProducers(initializedIds, Collections.emptySet());
-                TestWriter writer = writer(1, 2, baseState)) {
-            String transactionId = writer.prepareCommit().orElseThrow().getTransactionId();
-            Assertions.assertEquals(secondRelocatedWriterPrefix + "-1", transactionId);
-            Assertions.assertNotEquals(
-                    firstRelocatedWriterPrefix,
-                    transactionIdPrefix(transactionId),
-                    "A later Flink scale-down must not recreate a sibling's relocation namespace");
+                TestWriter sibling = writer(1, 3, siblingState)) {
+            Assertions.assertEquals(
+                    siblingCurrentPrefix + "-1",
+                    sibling.prepareCommit().orElseThrow().getTransactionId());
+            long siblingInitializations =
+                    initializedIds.stream()
+                            .filter(id -> id.equals(siblingCurrentPrefix + "-1"))
+                            .count();
+
+            try (TestWriter current = writer(2, 3, recreatedBaseState)) {
+                Assertions.assertEquals(
+                        firstRevisionPrefix + "-1",
+                        current.prepareCommit().orElseThrow().getTransactionId());
+                Assertions.assertEquals(
+                        siblingInitializations,
+                        initializedIds.stream()
+                                .filter(id -> id.equals(siblingCurrentPrefix + "-1"))
+                                .count(),
+                        "Cleanup must not initialize or fence a sibling's recovered namespace");
+            }
         }
     }
 
@@ -394,7 +494,7 @@ class KafkaSinkWriterTest {
     }
 
     @Test
-    void shouldFenceAllUnfinishedTransactionsInItsOwnNamespace() {
+    void shouldFenceAllUnfinishedTransactionsBeforeAdvancingNamespace() {
         List<String> initializedIds = new ArrayList<>();
         String writerPrefix = freshWriterPrefix(PREFIX, 2);
         Set<String> unfinishedIds = Set.of(writerPrefix + "-5", writerPrefix + "-6");
@@ -411,26 +511,25 @@ class KafkaSinkWriterTest {
                     initializedIds.contains(writerPrefix + "-7"),
                     "Recovery must probe the next unused transaction before it stops");
             Assertions.assertEquals(
-                    writerPrefix + "-5", writer.prepareCommit().get().getTransactionId());
+                    recoveredWriterPrefix(PREFIX, 2, 1, 2) + "-1",
+                    writer.prepareCommit().get().getTransactionId());
         }
     }
 
     @Test
-    void shouldReuseTheWriterNamespaceAfterRestore() {
+    void shouldAdvanceTheWriterNamespaceAfterRestore() {
         try (MockedConstruction<KafkaInternalProducer> producers =
                 mockProducers(new ArrayList<>())) {
             List<KafkaSinkState> state;
-            String expectedNextId;
             try (TestWriter original = writer(2, Collections.emptyList())) {
                 state = original.snapshotState(3);
-                expectedNextId = original.prepareCommit().get().getTransactionId();
             }
 
             try (TestWriter restored = writer(2, state)) {
                 Assertions.assertEquals(
-                        expectedNextId,
+                        recoveredWriterPrefix(PREFIX, 2, 1, 2) + "-1",
                         restored.prepareCommit().get().getTransactionId(),
-                        "Restore must not append the subtask index again");
+                        "Restore must advance the namespace revision before opening new work");
                 Assertions.assertEquals(
                         PREFIX, restored.snapshotState(4).get(0).getTransactionIdPrefix());
             }
@@ -497,6 +596,15 @@ class KafkaSinkWriterTest {
 
     private static String freshWriterPrefix(String transactionPrefix, int writerIndex) {
         return transactionPrefix + "-" + GENERATION + "w" + writerIndex;
+    }
+
+    private static String recoveredWriterPrefix(
+            String transactionPrefix, int originWriterIndex, long revision, int writerIndex) {
+        return freshWriterPrefix(transactionPrefix, originWriterIndex)
+                + "_r"
+                + revision
+                + "w"
+                + writerIndex;
     }
 
     private static String transactionIdPrefix(String transactionId) {

@@ -90,6 +90,27 @@ class FlinkSinkWriterTest {
     }
 
     @Test
+    void testFreshWriterCounterRestartsIndependentlyAfterScaleUp() throws Exception {
+        RecordingSinkWriter restoredDelegate = new RecordingSinkWriter();
+        RecordingSinkWriter freshDelegate = new RecordingSinkWriter();
+        RecordingContext context = new RecordingContext();
+        FlinkSinkWriter<SeaTunnelRow, String, String> restoredWriter =
+                new FlinkSinkWriter<>(restoredDelegate, 5L, context);
+        FlinkSinkWriter<SeaTunnelRow, String, String> freshWriter =
+                new FlinkSinkWriter<>(freshDelegate, 1L, context);
+
+        List<FlinkWriterState<String>> restoredState = restoredWriter.snapshotState();
+        List<FlinkWriterState<String>> freshState = freshWriter.snapshotState();
+
+        Assertions.assertEquals(5L, restoredState.get(0).getCheckpointId());
+        Assertions.assertEquals(1L, freshState.get(0).getCheckpointId());
+        Assertions.assertEquals(
+                2L,
+                freshWriter.snapshotState().get(0).getCheckpointId(),
+                "Flink's adapter counter advances per writer rather than as a global checkpoint");
+    }
+
+    @Test
     void testSchemaChangeEventDoesNotForceCommit() throws Exception {
         SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
         RecordingContext context = new RecordingContext();

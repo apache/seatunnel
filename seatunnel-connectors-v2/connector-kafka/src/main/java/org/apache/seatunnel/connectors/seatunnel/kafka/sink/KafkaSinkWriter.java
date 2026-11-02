@@ -70,11 +70,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private static final int PREFIX_RANGE = 10000;
 
     /**
-     * Current writer-namespace grammar. The optional relocation suffix records the writer that
-     * adopted the namespace and the engine checkpoint that assigned it.
+     * Current writer-namespace grammar. The optional recovery suffix records the monotonically
+     * increasing namespace revision and the writer that adopted that revision.
      */
     private static final Pattern WRITER_NAMESPACE_PATTERN =
-            Pattern.compile("(g[0-9a-z]+)w(\\d+)(?:r(\\d+)c(\\d+))?");
+            Pattern.compile("(g[0-9a-z]+w\\d+)(?:_r(\\d+)w(\\d+))?");
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
@@ -226,13 +226,19 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     /**
      * Builds an engine-neutral restore plan from the states assigned to this writer.
      *
-     * <p>A restoring writer selects one non-legacy namespace from its own assigned states. Since
-     * the engine assigns each old writer state to exactly one new writer, no sibling can select or
-     * clean that namespace concurrently. A same-generation base namespace that moved to another
-     * writer is deterministically relocated after cleanup, so a later stateless writer can safely
-     * reuse its base slot. If there is no writer-specific state, a fresh namespace is derived from
-     * a sink-level generation token and the current stable subtask index. The token is serialized
-     * with the sink, so task retries reuse it.
+     * <p>A restoring writer selects one non-legacy namespace from its own assigned states and
+     * advances that namespace's recovery revision before opening new work. The output namespace
+     * includes the current stable writer index, so different restoring writers cannot select the
+     * same namespace. A retry from the same recovery point sees the same saved revision and derives
+     * the same output namespace, while a later recovery sees the checkpointed output revision and
+     * advances it again. A stateless writer uses the unsuffixed current-index base namespace. A
+     * writer-specific restore advances its adopted base, while a legacy-only restore starts in the
+     * unique current-index base, so neither can overlap a stateless sibling. This protocol does not
+     * depend on engine checkpoint counters being coordinated across writers.
+     *
+     * <p>If there is no writer-specific state, the base namespace is derived from a sink-level
+     * generation token and the current stable subtask index. The token is serialized with the sink,
+     * so task retries reuse it.
      */
     private RestorePlan restoreState(
             List<KafkaSinkState> states, String newWriterNamespace, int currentWriterIndex) {
@@ -253,10 +259,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                         .filter(transaction -> !transaction.legacy)
                         .filter(
                                 transaction ->
-                                        transaction.transactionIdPrefix.equals(
-                                                generateWriterTransactionPrefix(
-                                                        transaction.transactionPrefix,
-                                                        newWriterNamespace)))
+                                        transaction.baseWriterNamespace.equals(newWriterNamespace))
                         .min(Comparator.comparing(transaction -> transaction.transactionIdPrefix));
         Optional<RestoredTransaction> adoptedWriterNamespace =
                 matchingWriterNamespace.isPresent()
@@ -274,28 +277,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         if (adoptedWriterNamespace.isPresent()) {
             RestoredTransaction adopted = adoptedWriterNamespace.get();
             this.transactionPrefix = adopted.transactionPrefix;
-            if (shouldRelocateWriterNamespace(adopted.writerNamespace, newWriterNamespace)) {
-                String relocatedWriterNamespace =
-                        relocateWriterNamespace(
-                                adopted.writerNamespace, currentWriterIndex, adopted.checkpointId);
-                return new RestorePlan(
-                        generateWriterTransactionPrefix(
-                                this.transactionPrefix, relocatedWriterNamespace),
-                        1L,
-                        restoredTransactions);
-            }
-            long nextTransactionSequence =
-                    restoredTransactions.stream()
-                                    .filter(
-                                            transaction ->
-                                                    transaction.transactionIdPrefix.equals(
-                                                            adopted.transactionIdPrefix))
-                                    .mapToLong(transaction -> transaction.transactionSequence)
-                                    .max()
-                                    .orElseThrow(IllegalStateException::new)
-                            + 1;
+            String advancedWriterNamespace = advanceWriterNamespace(adopted, currentWriterIndex);
             return new RestorePlan(
-                    adopted.transactionIdPrefix, nextTransactionSequence, restoredTransactions);
+                    generateWriterTransactionPrefix(
+                            this.transactionPrefix, advancedWriterNamespace),
+                    1L,
+                    restoredTransactions);
         }
 
         RestoredTransaction adoptedLegacyPrefix =
@@ -309,31 +296,24 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 restoredTransactions);
     }
 
-    private static boolean shouldRelocateWriterNamespace(
-            String restoredWriterNamespace, String newWriterNamespace) {
-        Matcher restoredMatcher = WRITER_NAMESPACE_PATTERN.matcher(restoredWriterNamespace);
-        Matcher newMatcher = WRITER_NAMESPACE_PATTERN.matcher(newWriterNamespace);
-        if (!restoredMatcher.matches() || !newMatcher.matches()) {
-            throw new IllegalStateException("Cannot compare Kafka writer namespaces");
-        }
-        return restoredMatcher.group(1).equals(newMatcher.group(1))
-                && restoredMatcher.group(3) == null
-                && !restoredWriterNamespace.equals(newWriterNamespace);
-    }
-
-    private static String relocateWriterNamespace(
-            String restoredWriterNamespace, int currentWriterIndex, long restoredCheckpointId) {
-        if (restoredCheckpointId < 0) {
+    private static String advanceWriterNamespace(
+            RestoredTransaction restoredTransaction, int currentWriterIndex) {
+        final long nextRevision;
+        try {
+            nextRevision = Math.addExact(restoredTransaction.writerNamespaceRevision, 1L);
+        } catch (ArithmeticException e) {
             throw new IllegalStateException(
                     String.format(
-                            "Cannot relocate Kafka writer namespace [%s] from checkpoint [%d]",
-                            restoredWriterNamespace, restoredCheckpointId));
+                            "Cannot advance Kafka writer namespace [%s] beyond revision [%d]",
+                            restoredTransaction.writerNamespace,
+                            restoredTransaction.writerNamespaceRevision),
+                    e);
         }
-        // The checkpoint component is shared by every state in one restore attempt and advances
-        // before a relocated namespace can appear in a later checkpoint. A task retry therefore
-        // derives the same namespace, while a later rescale cannot recreate a relocation that was
-        // assigned to a sibling writer by that later checkpoint.
-        return restoredWriterNamespace + "r" + currentWriterIndex + "c" + restoredCheckpointId;
+        return restoredTransaction.baseWriterNamespace
+                + "_r"
+                + nextRevision
+                + "w"
+                + currentWriterIndex;
     }
 
     /**
@@ -362,10 +342,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
      * Parses one checkpointed transaction before any Kafka producer is created.
      *
      * <p>The released legacy form is {@code <job-prefix>-<checkpoint>}. The current form is {@code
-     * <job-prefix>-g<generation>w<writer>[r<adopting-writer>c<checkpoint>]-<sequence>}. Each state
-     * is validated relative to its own checkpointed job prefix, which is required when historical
-     * writers used different generated prefixes. Malformed IDs, foreign prefixes, and unsupported
-     * writer namespaces fail restore before transaction fencing can have broker-side effects.
+     * <job-prefix>-g<generation>w<origin>[_r<revision>w<writer>]-<sequence>}. Each state is
+     * validated relative to its own checkpointed job prefix, which is required when historical
+     * writers used different generated prefixes. Malformed IDs, foreign prefixes, unsupported
+     * writer namespaces, and overflowing revisions fail restore before transaction fencing can have
+     * broker-side effects.
      */
     private RestoredTransaction parseRestoredTransaction(KafkaSinkState state) {
         String transactionId = state.getTransactionId();
@@ -401,21 +382,37 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         boolean legacy = restoredPrefix.equals(restoredTransactionPrefix);
         String writerNamespace = null;
+        String baseWriterNamespace = null;
+        long writerNamespaceRevision = 0L;
         if (!legacy) {
             writerNamespace = restoredPrefix.substring(restoredTransactionPrefix.length() + 1);
-            if (!WRITER_NAMESPACE_PATTERN.matcher(writerNamespace).matches()) {
+            Matcher writerNamespaceMatcher = WRITER_NAMESPACE_PATTERN.matcher(writerNamespace);
+            if (!writerNamespaceMatcher.matches()) {
                 throw new IllegalStateException(
                         String.format(
                                 "Cannot determine the writer owner of Kafka transaction prefix [%s]",
                                 restoredPrefix));
+            }
+            baseWriterNamespace = writerNamespaceMatcher.group(1);
+            if (writerNamespaceMatcher.group(2) != null) {
+                try {
+                    writerNamespaceRevision = Long.parseLong(writerNamespaceMatcher.group(2));
+                } catch (NumberFormatException e) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Cannot determine the writer revision of Kafka transaction prefix [%s]",
+                                    restoredPrefix),
+                            e);
+                }
             }
         }
         return new RestoredTransaction(
                 restoredTransactionPrefix,
                 restoredPrefix,
                 writerNamespace,
+                baseWriterNamespace,
+                writerNamespaceRevision,
                 transactionSequence,
-                state.getCheckpointId(),
                 legacy);
     }
 
@@ -438,16 +435,14 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         private final String transactionPrefix;
         private final String transactionIdPrefix;
         private final String writerNamespace;
+        private final String baseWriterNamespace;
+        /** Revision advanced once for every stateful recovery of this namespace lineage. */
+        private final long writerNamespaceRevision;
         /**
          * Contiguous trailing transaction-ID number used to resume and probe the writer namespace;
          * it is independent of the engine checkpoint ID.
          */
         private final long transactionSequence;
-        /**
-         * Engine checkpoint that produced this state; used to qualify deterministic relocation, not
-         * to advance the transaction sequence.
-         */
-        private final long checkpointId;
 
         private final boolean legacy;
 
@@ -455,14 +450,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 String transactionPrefix,
                 String transactionIdPrefix,
                 String writerNamespace,
+                String baseWriterNamespace,
+                long writerNamespaceRevision,
                 long transactionSequence,
-                long checkpointId,
                 boolean legacy) {
             this.transactionPrefix = transactionPrefix;
             this.transactionIdPrefix = transactionIdPrefix;
             this.writerNamespace = writerNamespace;
+            this.baseWriterNamespace = baseWriterNamespace;
+            this.writerNamespaceRevision = writerNamespaceRevision;
             this.transactionSequence = transactionSequence;
-            this.checkpointId = checkpointId;
             this.legacy = legacy;
         }
     }
