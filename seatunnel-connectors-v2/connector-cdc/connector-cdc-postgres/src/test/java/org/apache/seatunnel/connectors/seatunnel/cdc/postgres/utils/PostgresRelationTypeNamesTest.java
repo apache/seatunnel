@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+/** Tests PostgreSQL DDL type spelling and its propagation to schema-change events. */
 class PostgresRelationTypeNamesTest {
 
     private static final String SCHEMA_NAME = "public";

@@ -76,6 +76,12 @@ public final class PostgresRelationTypeNames {
         return qualify(relation, readTypes(connection, oids));
     }
 
+    /**
+     * Rewrites eligible type names using the supplied OID lookup while preserving Debezium's type
+     * expression. Every candidate OID must be present in the map.
+     *
+     * @throws SeaTunnelRuntimeException if a candidate OID is missing from the lookup
+     */
     static Table qualify(Table relation, Map<Long, PgType> types) {
         TableEditor editor = null;
         for (Column column : relation.columns()) {

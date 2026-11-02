@@ -440,15 +440,23 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             dataConnection.commit();
             return qualified;
         } catch (SQLException e) {
-            try {
-                dataConnection.rollback();
-            } catch (SQLException rollbackException) {
-                e.addSuppressed(rollbackException);
-            }
+            rollbackTypeNameLookup(dataConnection, e);
             throw new SeaTunnelRuntimeException(
                     PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
                     "Failed to read the column type names of table " + table.id(),
                     e);
+        } catch (SeaTunnelRuntimeException e) {
+            rollbackTypeNameLookup(dataConnection, e);
+            throw e;
+        }
+    }
+
+    private static void rollbackTypeNameLookup(
+            PostgresConnection dataConnection, Throwable failure) {
+        try {
+            dataConnection.rollback();
+        } catch (SQLException rollbackException) {
+            failure.addSuppressed(rollbackException);
         }
     }
 

@@ -49,6 +49,7 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -180,6 +181,67 @@ public class PostgresSourceFetchTaskContextTest {
                 exception.getSeaTunnelErrorCode());
         Assertions.assertTrue(exception.getMessage().contains("public.t5"), exception.getMessage());
         Assertions.assertSame(cause, exception.getCause());
+        verify(dataConnection).rollback();
+        verify(dataConnection, never()).commit();
+    }
+
+    @Test
+    public void testMissingTypeNameRollsBackAndPreservesContext() throws SQLException {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(false);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        Connection connection = mock(Connection.class);
+        when(connection.createArrayOf(anyString(), any())).thenReturn(mock(Array.class));
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        PostgresConnection dataConnection = mock(PostgresConnection.class);
+        when(dataConnection.connection()).thenReturn(connection);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                PostgresSourceFetchTaskContext.qualifyTypeNames(
+                                        dataConnection, relationWithJobStatusColumn()));
+
+        Assertions.assertEquals(
+                PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("column st2"), exception.getMessage());
+        Assertions.assertTrue(
+                exception.getMessage().contains("public.t5"), exception.getMessage());
+        Assertions.assertEquals(0, exception.getSuppressed().length);
+        verify(dataConnection).rollback();
+        verify(dataConnection, never()).commit();
+    }
+
+    @Test
+    public void testMissingTypeNameKeepsRollbackFailureSuppressed() throws SQLException {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(false);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        Connection connection = mock(Connection.class);
+        when(connection.createArrayOf(anyString(), any())).thenReturn(mock(Array.class));
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        PostgresConnection dataConnection = mock(PostgresConnection.class);
+        when(dataConnection.connection()).thenReturn(connection);
+        SQLException rollbackFailure = new SQLException("rollback failed");
+        doThrow(rollbackFailure).when(dataConnection).rollback();
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                PostgresSourceFetchTaskContext.qualifyTypeNames(
+                                        dataConnection, relationWithJobStatusColumn()));
+
+        Assertions.assertEquals(
+                PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertArrayEquals(
+                new Throwable[] {rollbackFailure}, exception.getSuppressed());
         verify(dataConnection).rollback();
         verify(dataConnection, never()).commit();
     }
