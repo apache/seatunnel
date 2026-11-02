@@ -713,16 +713,10 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(new BigDecimal("1000E+2147483647"), rows.get(5).getField(0));
     }
 
-    /**
-     * A computed value carries binary noise: {@code (0.1 + 0.7) * 10} is stored as {@code
-     * 7.999999999999999} and {@code 0.1 + 0.2} as {@code 0.30000000000000004}. Integer and DECIMAL
-     * columns read the 15-digit value Excel shows, a DOUBLE column keeps the exact double. The
-     * noise comes from formula results and from number cells written by other tools alike; a value
-     * stored with 16 or 17 real digits is not rounded.
-     */
+    /** Numeric formulas and number cells preserve their stored double for every numeric type. */
     @ParameterizedTest
     @ValueSource(strings = {"POI", "EasyExcel"})
-    public void testComputedNumbersReadAsExcelShowsThem(String excelEngine) throws IOException {
+    public void testComputedNumbersReadWithoutRounding(String excelEngine) throws IOException {
         File excelFile = File.createTempFile("excel_computed_numbers_", ".xlsx");
         excelFile.deleteOnExit();
         try (XSSFWorkbook workbook = new XSSFWorkbook();
@@ -744,7 +738,7 @@ public class ExcelReadStrategyTest {
             realDigits.createCell(0).setCellValue(123456789012345.67);
             realDigits.createCell(1).setCellValue(1234567.890123456);
             realDigits.createCell(2).setCellValue(1234567.890123456);
-            // Within 4 ulp of Excel's 15-digit text, but the dropped digits are not noise
+            // Keep low-order digits even when Excel's 15-digit display omits them.
             Row leadingNine = sheet.createRow(4);
             leadingNine.createCell(0).setCellValue(98765432109876.99);
             leadingNine.createCell(1).setCellValue(9.876543210987654);
@@ -766,9 +760,11 @@ public class ExcelReadStrategyTest {
 
         Assertions.assertEquals(4, rows.size());
         for (int i = 0; i < 2; i++) {
-            Assertions.assertEquals(8L, rows.get(i).getField(0), "c_bigint row " + i);
+            Assertions.assertEquals(7L, rows.get(i).getField(0), "c_bigint row " + i);
             Assertions.assertEquals(
-                    new BigDecimal("0.300000000"), rows.get(i).getField(1), "c_decimal row " + i);
+                    new BigDecimal("0.30000000000000004"),
+                    rows.get(i).getField(1),
+                    "c_decimal row " + i);
             Assertions.assertEquals(0.1 + 0.2, rows.get(i).getField(2), "c_double row " + i);
         }
         // Truncated as before, not rounded to the 15-digit 123456789012346
@@ -778,6 +774,34 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(98765432109876L, rows.get(3).getField(0));
         Assertions.assertEquals(new BigDecimal("9.876543210987654"), rows.get(3).getField(1));
         Assertions.assertEquals(9.876543210987654, rows.get(3).getField(2));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testDecimalNearIntegerValuesKeepStoredDigits(String excelEngine) throws IOException {
+        File excelFile = File.createTempFile("excel_decimal_near_integer_", ".xlsx");
+        excelFile.deleteOnExit();
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            sheet.createRow(0).createCell(0).setCellValue("c_decimal");
+            sheet.createRow(1).createCell(0).setCellValue(8.000000000000002);
+            sheet.createRow(2).createCell(0).setCellValue(-8.000000000000002);
+            workbook.write(output);
+        }
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_decimal = \"decimal(20, 15)\" } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertEquals(new BigDecimal("8.000000000000002"), rows.get(0).getField(0));
+        Assertions.assertEquals(new BigDecimal("-8.000000000000002"), rows.get(1).getField(0));
     }
 
     /**

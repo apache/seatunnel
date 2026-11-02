@@ -234,7 +234,7 @@ public class ExcelGenerator {
         double doubleValue = value.doubleValue();
         boolean readsBackUnchanged =
                 !Double.isInfinite(doubleValue)
-                        && new BigDecimal(ExcelCellUtils.numberText(doubleValue, SqlType.DECIMAL))
+                        && new BigDecimal(ExcelCellUtils.numberText(doubleValue))
                                         .compareTo(value)
                                 == 0;
         if (readsBackUnchanged) {

@@ -31,8 +31,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.poi.ss.util.NumberToTextConverter;
-
 import com.alibaba.excel.enums.CellDataTypeEnum;
 import com.alibaba.excel.metadata.Cell;
 import com.alibaba.excel.metadata.data.ReadCellData;
@@ -66,15 +64,6 @@ public class ExcelCellUtils implements Serializable {
                             SqlType.FLOAT,
                             SqlType.DOUBLE,
                             SqlType.DECIMAL));
-
-    /**
-     * The largest distance, in units in the last place, between a stored number and the text Excel
-     * shows for it that is taken as computation noise rather than real digits.
-     */
-    private static final int NOISE_ULPS = 4;
-
-    /** The most significant digits the value Excel shows for a noisy number can have. */
-    private static final int NOISE_MAX_SHOWN_DIGITS = 13;
 
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
@@ -124,33 +113,9 @@ public class ExcelCellUtils implements Serializable {
                 && ((ReadCellData<?>) cellRaw).getOriginalNumberValue() != null;
     }
 
-    /**
-     * The text of a number stored in an Excel cell that is read into a numeric column. DOUBLE and
-     * FLOAT columns keep the exact double, and so does an integral value in any column. Integer and
-     * DECIMAL columns take the text Excel shows for the number (15 significant digits) when the
-     * stored value differs from it only by the binary noise of a computation: {@code (0.1 + 0.7) *
-     * 10} is stored as {@code 7.999999999999999}, which would truncate to {@code 7} in an INT
-     * column and carry the noise into a DECIMAL. A value stored with 16 or 17 real digits is kept
-     * exact.
-     */
-    public static String numberText(double value, SqlType sqlType) {
-        String exact = Double.toString(value);
-        if (sqlType == SqlType.DOUBLE || sqlType == SqlType.FLOAT || value == Math.rint(value)) {
-            return exact;
-        }
-        String shown = NumberToTextConverter.toText(value);
-        return isComputationNoise(value, shown) ? shown : exact;
-    }
-
-    /**
-     * Whether a stored number is the value Excel shows plus the binary noise of a computation: it
-     * is within {@link #NOISE_ULPS} of the shown value, and the shown value has at most {@link
-     * #NOISE_MAX_SHOWN_DIGITS} significant digits, so the digits Excel dropped were a run of zeros
-     * or nines. A value with 16 real digits rounds to a 15 digit shown value and is not noise.
-     */
-    private static boolean isComputationNoise(double value, String shown) {
-        return new BigDecimal(shown).stripTrailingZeros().precision() <= NOISE_MAX_SHOWN_DIGITS
-                && Math.abs(Double.parseDouble(shown) - value) <= NOISE_ULPS * Math.ulp(value);
+    /** Returns the stored number without discarding digits based on a guessed source of rounding. */
+    public static String numberText(double value) {
+        return Double.toString(value);
     }
 
     /**
@@ -188,9 +153,7 @@ public class ExcelCellUtils implements Serializable {
             // The original value is the stored text, which Excel may write with 17 significant
             // digits (5.555 as 5.5549999999999997). Read the same double as the POI engine does.
             fieldValue =
-                    numberText(
-                            ((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue(),
-                            sqlType);
+                    numberText(((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue());
         } else if (field instanceof String || cellRaw == null) {
             fieldValue = field.toString();
         } else {

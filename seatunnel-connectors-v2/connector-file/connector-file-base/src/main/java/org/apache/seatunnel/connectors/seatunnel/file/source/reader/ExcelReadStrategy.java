@@ -452,8 +452,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 if (ExcelCellUtils.NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
                     // The displayed text is rounded by the cell format ("General" keeps about 10
                     // significant digits), so numeric columns read the stored double instead.
-                    return ExcelCellUtils.numberText(
-                            cell.getNumericCellValue(), fieldType.getSqlType());
+                    return ExcelCellUtils.numberText(cell.getNumericCellValue());
                 }
                 return formatter.formatCellValue(cell);
             case BLANK:
@@ -465,8 +464,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 if (evaluate.getCellType().equals(CellType.NUMERIC)) {
                     if (ExcelCellUtils.NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
                         // Read like a number cell, as the EasyExcel engine reads the cached result
-                        return ExcelCellUtils.numberText(
-                                evaluate.getNumberValue(), fieldType.getSqlType());
+                        return ExcelCellUtils.numberText(evaluate.getNumberValue());
                     }
                     return NumberToTextConverter.toText(evaluate.getNumberValue());
                 } else {
