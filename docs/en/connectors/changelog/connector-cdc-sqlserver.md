@@ -2,6 +2,25 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate nonblank SQL Server CDC source URL (#12764)|https://github.com/apache/seatunnel/commit/51f553cb45|3.1.0|
+|[Fix][Connector-V2] Preserve SQL Server CDC resume offsets (#11410)|https://github.com/apache/seatunnel/commit/fbd82a4eb0|3.0.0|
+|[Fix][Connector-V2] Forward SQL Server JDBC URL properties (#11674)|https://github.com/apache/seatunnel/commit/5a87a77a52|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = &quot;specific&quot; (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5c|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c3630|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b31304|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206a|3.0.0|
+|[Fix][API] Fix backward compatibility issue in CatalogFactory optionRule validation (#11165)|https://github.com/apache/seatunnel/commit/e9c446638c|3.0.0|
+|[Feature][Connector-V2][CDC] Add include/exclude filtering for schema change event types  #11044 (#11108)|https://github.com/apache/seatunnel/commit/34940bf66c|3.0.0|
+|[Fix][Connector-V2][SqlServer CDC] Fix SQL Server CDC DDL history query LSN boundary causing schema events to be lost (#10970)|https://github.com/apache/seatunnel/commit/f9a6ef97a0|3.0.0|
+|[Feature][Connector-V2][SqlServer CDC] support sqlserver schema evolution (#10890)|https://github.com/apache/seatunnel/commit/32bef0e8a2|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1fb|3.0.0|
+|[Feature][Connectors-v2] Support timestamp startup mode for Oracle and SQLServer CDC (#10428)|https://github.com/apache/seatunnel/commit/34a57c70bc|3.0.0|
+|[Fix][Connector-V2] Fix wrong column discovery when tableNamePattern is treated as LIKE (#10422)|https://github.com/apache/seatunnel/commit/eeb4c0b704|2.3.13|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Fix][Connector-v2][SQLServer] Handle database names with special characters in SQL queries and add related tests (#10327)|https://github.com/apache/seatunnel/commit/81ddef758d|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-V2][SqlServer-CDC] Fix earliest startup.mode offset and align tests (#10207)|https://github.com/apache/seatunnel/commit/9f76fa5398|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|

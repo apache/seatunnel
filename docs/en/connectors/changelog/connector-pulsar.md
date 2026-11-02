@@ -2,6 +2,17 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Format] Add opt-in nullable Avro ROW layout (#12900)|https://github.com/apache/seatunnel/commit/9e33353713|3.1.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d1|3.0.0|
+|[Improve][Connector-V2][Pulsar] Migrate validation to declarative OptionRule (#11985)|https://github.com/apache/seatunnel/commit/5dbfb374f9|3.0.0|
+|[Fix][Connector-V2] Support text format in Pulsar source (#11792)|https://github.com/apache/seatunnel/commit/244e580440|3.0.0|
+|[Feature][Connector-V2] Support Avro format for Pulsar connector (#11230)|https://github.com/apache/seatunnel/commit/3ba11c7188|3.0.0|
+|[Fix][Connector-V2] Run Pulsar cleanup with connector classloader (#11170)|https://github.com/apache/seatunnel/commit/4f41c48887|3.0.0|
+|[Fix][Connector-V2] Add Pulsar multi-table sink replica option (#11168)|https://github.com/apache/seatunnel/commit/e7309efb4a|3.0.0|
+|[Fix][Connector-V2] Add missing MULTI_TABLE_SINK_REPLICA option to PulsarSinkFactory (#11160)|https://github.com/apache/seatunnel/commit/fd2a5963a4|3.0.0|
+|[Feature][Connector-V2] Support Pulsar sink multi-table writes (#10670)|https://github.com/apache/seatunnel/commit/d1701ee6e0|3.0.0|
+|[Feature][Connector-V2][Pulsar] Support multi-table read for Pulsar source (#10425) (#10825)|https://github.com/apache/seatunnel/commit/8055ed3961|3.0.0|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[improve] pulsar options (#9180)|https://github.com/apache/seatunnel/commit/26a2160c80|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

@@ -2,6 +2,31 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2][MySQL-CDC] Keep NULL in nullable unique key columns of tables without a primary key (#12608)|https://github.com/apache/seatunnel/commit/8a0ccdf7d2|3.1.0|
+|[Fix][Connector-V2][JDBC] Accept the synthetic SET UNSIGNED type name for MySQL SET columns (#10453)|https://github.com/apache/seatunnel/commit/bf2e3973aa|3.1.0|
+|[Fix][Connector-V2][CDC] Validate startup.specific-offset.* options are only bound under STARTUP_MODE = SPECIFIC (#12708)|https://github.com/apache/seatunnel/commit/262d623d9e|3.1.0|
+|[Fix][Connector-V2][MySQL-CDC] Keep the SET/ENUM option list when rebuilding the source type (#12355)|https://github.com/apache/seatunnel/commit/d91e26a336|3.1.0|
+|[Feature][Connector-V2] Add OceanBase CDC source connector (#11060)|https://github.com/apache/seatunnel/commit/523d69dbb1|3.1.0|
+|[Fix][Connector-V2] Fix CDC comment schema-change event routing (#11837)|https://github.com/apache/seatunnel/commit/ed8d94151b|3.0.0|
+|[Fix][Connector-V2] Fix issue of out-of-order fields in cdc (#11826)|https://github.com/apache/seatunnel/commit/b3420260d4|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = &quot;specific&quot; (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5c|3.0.0|
+|Fix schema change routing for shared multi-table sinks (#11015)|https://github.com/apache/seatunnel/commit/6bf786bee7|3.0.0|
+|[Fix][Connector-V2][MySQL CDC] Use checkpoint offset for timestamp startup restore (#10987)|https://github.com/apache/seatunnel/commit/c57775c762|3.0.0|
+|[Feature][Connector-V2][MySQL-CDC] Support GTID specific startup offset (#11123)|https://github.com/apache/seatunnel/commit/52bbd0a258|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c3630|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b31304|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206a|3.0.0|
+|[Fix][Connector-V2][MySQL-CDC] Fix BinlogOffset.compareTo ignoring restartSkipRows when GTID sets are equal (#10811)|https://github.com/apache/seatunnel/commit/cda69534f0|3.0.0|
+|[Feature][Connector-V2][CDC] Add include/exclude filtering for schema change event types  #11044 (#11108)|https://github.com/apache/seatunnel/commit/34940bf66c|3.0.0|
+|[Fix][Connector-V2][CDC-MySQL] Honor int_type_narrowing option on MyS… (#11004)|https://github.com/apache/seatunnel/commit/902671729e|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1fb|3.0.0|
+|[Improve][MySQL-CDC] Enhance diagnostics for missing binlog and GTID during restore (#10566)|https://github.com/apache/seatunnel/commit/9d6b879051|3.0.0|
+|[Feature][E2E] Add MySQL CDC multi-database multi-table E2E test (#10743)|https://github.com/apache/seatunnel/commit/b9cdfeb79e|3.0.0|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|Fix[CI] Update the MySQL Docker image version to 8.0.43 (#9903)|https://github.com/apache/seatunnel/commit/a0aa0ceaf9|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Support Mysql8.4+ for mysql-cdc (#9720)|https://github.com/apache/seatunnel/commit/e338743927|2.3.12|

@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Add opt-in collision-safe Easysearch and Typesense IDs (#12839)|https://github.com/apache/seatunnel/commit/68c686438f|3.1.0|
+|[Improve][Connector-V2][Easysearch] Declarative optionRule value constraints for source and sink (#12414)|https://github.com/apache/seatunnel/commit/ea5f089674|3.1.0|
+|[Improve][Connector-V2] Use isEmpty() instead of size() &gt; 0 in ES connectors (#11996)|https://github.com/apache/seatunnel/commit/2e2e9b8040|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for Easysearch, AmazonDynamoDB, TiDB CDC and Typesense (#11607)|https://github.com/apache/seatunnel/commit/9487cc8e16|3.0.0|
+|[Fix][Connector-v2][Easysearch] Handle optional password in credentials and add clearScroll method (#10161)|https://github.com/apache/seatunnel/commit/aeed71cebf|2.3.13|
 |[improve] EasySearch support schema_save_mode/data_save_mode (#9310)|https://github.com/apache/seatunnel/commit/3ceb57f279|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] easysearch options (#8951)|https://github.com/apache/seatunnel/commit/349f142962|2.3.10|

@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Add opt-in collision-safe Easysearch and Typesense IDs (#12839)|https://github.com/apache/seatunnel/commit/68c686438f|3.1.0|
+|[Improve][Connector-V2] Validate Typesense connection options (#12175)|https://github.com/apache/seatunnel/commit/fdb6beb3ff|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for Easysearch, AmazonDynamoDB, TiDB CDC and Typesense (#11607)|https://github.com/apache/seatunnel/commit/9487cc8e16|3.0.0|
+|fix typesense add missing import for MULTI_TABLE_SINK_REPLICA to pass… (#10898)|https://github.com/apache/seatunnel/commit/d8e9244a2b|3.0.0|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[improve] typesense options (#9398)|https://github.com/apache/seatunnel/commit/bf20a3e6a8|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

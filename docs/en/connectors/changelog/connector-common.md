@@ -2,6 +2,17 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Read a null struct or map cell as null (#12969)|https://github.com/apache/seatunnel/commit/65ccf3615c|3.1.0|
+|[Fix][Connector-V2] Read every arrow record batch, not only the first (#12650)|https://github.com/apache/seatunnel/commit/c1ff82acf3|3.1.0|
+|[Fix][Connector-V2] Fix Arrow microsecond timestamp with timezone conversion (#12616)|https://github.com/apache/seatunnel/commit/0145209931|3.1.0|
+|[Fix][Connector-V2] Fix Arrow memory leak by correcting close order in ArrowToSeatunnelRowReader (#11929)|https://github.com/apache/seatunnel/commit/4a6f0fe829|3.1.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Feature][Connector-V2] PR2：Support table_options for StarRocks SaveMode auto-create (#11242)|https://github.com/apache/seatunnel/commit/57c1a39b5a|3.0.0|
+|[Improve][Connector-V2] Optimize Arrow Converter SPI registration using AutoService (#11219)|https://github.com/apache/seatunnel/commit/b665535785|3.0.0|
+|[Improve][Common] Improve SinkFlowTestUtils Checkpoint Logic (#10071)|https://github.com/apache/seatunnel/commit/70c7040746|2.3.13|
+|[Fix][Connector-v2][Clickhouse] Handle special characters in column comments  (#10128)|https://github.com/apache/seatunnel/commit/5880c3ee84|2.3.13|
+|[Fix][Connector-v2][Doris] Array type data parsing failed (#10095)|https://github.com/apache/seatunnel/commit/4f07c6ff77|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
 |[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b|2.3.12|
@@ -76,7 +87,7 @@
 |[Feature][Connector-V2] Support user-defined schema for source connectors (#2392)|https://github.com/apache/seatunnel/commit/6b650bef07|2.2.0-beta|
 |Merge from dev to st-engine (#2243)|https://github.com/apache/seatunnel/commit/41e530afd5|2.3.0-beta|
 |StateT of SeaTunnelSource should extend `Serializable` (#2214)|https://github.com/apache/seatunnel/commit/8c426ef850|2.2.0-beta|
-|[Improvement][new api] refer to https://github.com/apache/seatunnel/issues/2127 (#2144)|https://github.com/apache/seatunnel/commit/e19660a049|2.2.0-beta|
+|[Improvement][new api] refer to https://github.com/apache/incubator-seatunnel/issues/2127 (#2144)|https://github.com/apache/seatunnel/commit/e19660a049|2.2.0-beta|
 |[api-draft][Optimize] Optimize module name (#2062)|https://github.com/apache/seatunnel/commit/f79e3112b1|2.2.0-beta|
 
 </details>

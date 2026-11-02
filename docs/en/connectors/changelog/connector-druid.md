@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Keep the column of a null field in the Druid sink (#13046)|https://github.com/apache/seatunnel/commit/909a217c09|3.1.0|
+|[Improve][Connector-V2] Add declarative validation for Druid sink options (#12250)|https://github.com/apache/seatunnel/commit/313cf73196|3.0.0|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[improve] update Druid connector config option (#8594)|https://github.com/apache/seatunnel/commit/07a2288a2e|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

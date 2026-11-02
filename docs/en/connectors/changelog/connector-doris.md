@@ -2,6 +2,30 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2][Doris] Warn when TIMESTAMP_TZ columns use the JVM default zone (#12945)|https://github.com/apache/seatunnel/commit/5666e8d594|3.1.0|
+|[Fix][Connector-V2][Doris] Support IPV4 and IPV6 columns (#12761)|https://github.com/apache/seatunnel/commit/59775c6cb0|3.1.0|
+|[Fix][Connector-V2] Wait for Doris data visibility (#11562)|https://github.com/apache/seatunnel/commit/7490567580|3.1.0|
+|[Fix][Connector-V2][Doris] Close the previous split&#x27;s value reader before the next split (#12718)|https://github.com/apache/seatunnel/commit/95f160f330|3.1.0|
+|[Fix][Connector-V2] Stop the Doris reader polling forever when the async fetch fails (#12325)|https://github.com/apache/seatunnel/commit/5127a0a108|3.1.0|
+|[Fix][Format] Serialize TIMESTAMP_TZ as session-timezone wall-clock for Doris sink (#11524)|https://github.com/apache/seatunnel/commit/1f471a7353|3.1.0|
+|[Docs][Connector-V2] Fix connector doc inaccuracies and broken Doris option key verified against source code (#12487)|https://github.com/apache/seatunnel/commit/50e3bed6cb|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Improve][Connector-V2][Doris] Support partition cleanup for DROP_DATA (#11917)|https://github.com/apache/seatunnel/commit/2714e6e25c|3.0.0|
+|[Improve][Connector-V2] Remove redundant imperative validation in Doris connector (#11858)|https://github.com/apache/seatunnel/commit/d8186ba2d3|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|[Fix][Connector-V2] Cap decimal scale to what Doris 1.x accepts (#11690)|https://github.com/apache/seatunnel/commit/1cbff54fef|3.0.0|
+|[Feature][Connector-V2] Support timer flush for Doris sink (#11506)|https://github.com/apache/seatunnel/commit/3ba5470a3d|3.0.0|
+|[Fix][Connector-V2] Fix Doris stream load waitForContinue timeout when FE redirect is slow (#11330)|https://github.com/apache/seatunnel/commit/e6c097391d|3.0.0|
+|[Feature][Doris] Support VARIANT source and sink mapping (#10855)|https://github.com/apache/seatunnel/commit/2c2ce1a542|3.0.0|
+|[Fix][Connector-V2] Flush Doris load before schema change (#11156)|https://github.com/apache/seatunnel/commit/bd5a19a6c5|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Fix][Connector-V2] Fix Doris sink retry backoff and scheduler leak (#10772)|https://github.com/apache/seatunnel/commit/0a2de139cc|3.0.0|
+|[Feature] [Connectors-v2] Add Doris sink redirect enhancement (#10715)|https://github.com/apache/seatunnel/commit/6af9ed035a|3.0.0|
+|[Bugfix] Doris Sink should not throw exception when the transaction is already committed/visible (#10079)|https://github.com/apache/seatunnel/commit/c3b63c84d0|2.3.13|
+|[Fix][Connector-V2] [Doris] Fix DECIMAL scale=0 conversion to avoid unintended MAX_SCALE (#9947)|https://github.com/apache/seatunnel/commit/cde147a859|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-V2] Fix misleading parameter name in DorisStreamLoad (#9685)|https://github.com/apache/seatunnel/commit/16618c8019|2.3.12|

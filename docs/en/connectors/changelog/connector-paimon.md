@@ -2,7 +2,28 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31| dev |
+|[Improve][Connector-V2][Paimon] Add declarative notBlank validation to required options (#12573)|https://github.com/apache/seatunnel/commit/4ae4fee301|3.1.0|
+|[Improve][Core] Raise minimum Java runtime to 11 and move CI to JDK 11/17 (#11545)|https://github.com/apache/seatunnel/commit/0b9e75a6ce|3.1.0|
+|[Fix][Connector-V2][Paimon] Register writer state serializer (#11978)|https://github.com/apache/seatunnel/commit/75b60fa14e|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d1|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|[Fix][Connector-V2] Fix Paimon stream enumerator checkpoint race (#11392)|https://github.com/apache/seatunnel/commit/ac65b8f13e|3.0.0|
+|[Feature][Connector-V2] Support table_options for Paimon sink SaveMode auto-create (#11418)|https://github.com/apache/seatunnel/commit/38797f551f|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Fix][Connector-V2] Fix Paimon stream source state restore (#11132)|https://github.com/apache/seatunnel/commit/33ffd48a49|3.0.0|
+|[Fix][Connector-V2] Respect Paimon alter table ignore flag (#11009)|https://github.com/apache/seatunnel/commit/314b0587f2|3.0.0|
+|[Fix][Connector-V2] Fix Paimon option rule declarations (#11003)|https://github.com/apache/seatunnel/commit/eaecb17030|3.0.0|
+|[Fix][Connector-V2] Fix Paimon branch save mode DDL (#10991)|https://github.com/apache/seatunnel/commit/fcdf96c52d|3.0.0|
+|[Fix][Connector-V2] Fix Paimon nested row write (#10888)|https://github.com/apache/seatunnel/commit/3341f3b3cb|3.0.0|
+|[Fix][Connector-V2] Fix nested ROW type conversion crash in Paimon connector (#10952)|https://github.com/apache/seatunnel/commit/b94a65ac3e|3.0.0|
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Feature][Connector-V2] Support `` for the SQL To Paimon converter (#10206)|https://github.com/apache/seatunnel/commit/53db9c5dfe|2.3.13|
+|[Improve][Connector-V2] Add branch option for paimon sink (#9982)|https://github.com/apache/seatunnel/commit/c82b19ad06|2.3.13|
+|[Feature][Connector-V2] Support the dynamic options of the paimon table read (#9981)|https://github.com/apache/seatunnel/commit/959a23b47a|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31|2.3.13|
 |[Feature][Connector-v2] Support multi paimon source (#9759)|https://github.com/apache/seatunnel/commit/0d52102241|2.3.12|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][connector-paimon] Paimon connector supports paimon privilege (#9722)|https://github.com/apache/seatunnel/commit/b2bb2f8d78|2.3.12|

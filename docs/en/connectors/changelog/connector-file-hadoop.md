@@ -2,8 +2,24 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
-|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef| dev |
+|[Fix][Connector-File] Fix Excel column mapping and read_columns projection (#12768)|https://github.com/apache/seatunnel/commit/14bcba582d|3.1.0|
+|[Fix][Connector-V2] Declare missing source options in file source factories (#12817)|https://github.com/apache/seatunnel/commit/4492252928|3.1.0|
+|[Improve][Connector-V2][File] Migrate HDFS and S3 sink validation to declarative OptionRule (#11881)|https://github.com/apache/seatunnel/commit/5acb54618d|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Improve][Connector-V2] Guard POI Excel reads by file size (#11591)|https://github.com/apache/seatunnel/commit/261644ff40|3.0.0|
+|[Feature][Connector-File-Base] Add optional PDF RAG metadata for file source (#11571)|https://github.com/apache/seatunnel/commit/2b060343dc|3.0.0|
+|[Feature][Connector-V2] Add checkpoint-gated post_sync_action and retention for file source continuous discovery (#10563)|https://github.com/apache/seatunnel/commit/3d4aa03a53|3.0.0|
+|[Improve][Connector-V2][File] Optimize file discovery and update comparison for sync_mode=update (#11312)|https://github.com/apache/seatunnel/commit/6de6f1b953|3.0.0|
+|[Feature][Connector-V2] Add recursive_file_scan option for file connectors (#10505)|https://github.com/apache/seatunnel/commit/2826ea3dcd|3.0.0|
+|[Feature][Connector-V2] Add optional Markdown RAG metadata for file source (#10844)|https://github.com/apache/seatunnel/commit/970cadb1a4|3.0.0|
+|[Improve] File souce refactor  (#10758)|https://github.com/apache/seatunnel/commit/bf25292561|3.0.0|
+|[Feature][Connector-V2] Add continuous discovery for FTP/SFTP/Local/HDFS file sources (#10473)|https://github.com/apache/seatunnel/commit/01cd08abcf|3.0.0|
+|[Feature][seatunnel-api] Integrate Gravitino as metadata service for non-relational connectors (#10402)|https://github.com/apache/seatunnel/commit/e24b8c1406|3.0.0|
+|[Feature][Connector-V2][HdfsFile] Support true large-file split for parallel read (#10332)|https://github.com/apache/seatunnel/commit/4c110c8fdf|2.3.13|
+|[Feature][Connector-File-Hadoop] Support sync_mode=update for HdfsFile source (binary) (#10268)|https://github.com/apache/seatunnel/commit/c134273bcf|2.3.13|
+|[Improve][Doc][connector-file] Document SaveMode options for HdfsFile/LocalFile (#10283)|https://github.com/apache/seatunnel/commit/81834f26a7|2.3.13|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
+|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef|2.3.13|
 |[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|

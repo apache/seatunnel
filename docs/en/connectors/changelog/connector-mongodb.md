@@ -2,6 +2,20 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add metadata-only connectivity dry-run for MongoDB source (#12399)|https://github.com/apache/seatunnel/commit/e583e87306|3.1.0|
+|[Feature][Connector-V2] Add MongoDB sink connectivity dry-run (#12687)|https://github.com/apache/seatunnel/commit/22c00baff5|3.1.0|
+|[Fix][Connector-V2] Guard null MongoDB session during committer close (#12600)|https://github.com/apache/seatunnel/commit/623d8691a7|3.1.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d1|3.0.0|
+|[Improve][Connector-V2][MongoDB] Migrate fetch size validation to declarative OptionRule (#11886)|https://github.com/apache/seatunnel/commit/f4840f1c7e|3.0.0|
+|[Fix][Connector-V2] Fix MongoDB reader cursor cleanup (#11887)|https://github.com/apache/seatunnel/commit/7d5ee2e881|3.0.0|
+|[Feature][Connector-V2] Add MongoDB timer flush (#11527)|https://github.com/apache/seatunnel/commit/15ebb211e1|3.0.0|
+|[Fix][Connecotr][MongoDB]Fix mongodb maxtime naming (#10267)|https://github.com/apache/seatunnel/commit/5b7cdd2b67|2.3.13|
+|[Improve] mongodb options (#10195)|https://github.com/apache/seatunnel/commit/0f4ce74bf3|2.3.13|
+|[Improve][seatunnel-connectors-v2][connector-mongodb] Improve MongodbWriter close (#10051)|https://github.com/apache/seatunnel/commit/276d25132f|2.3.13|
+|[Feature][Connector-V2] Mongodb Sink Support Multi Table (#9958)|https://github.com/apache/seatunnel/commit/4c40c9a845|2.3.13|
+|[Feature][Connector-V2] MongodbSink Support SaveMode (#9883)|https://github.com/apache/seatunnel/commit/10c6a6f154|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Improve][Connector-V2] MongodbSinkFactory implements TableSinkFactory (#9879)|https://github.com/apache/seatunnel/commit/454af515e1|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[fix][connector-mango] fix split with avgSize zero error (#9255)|https://github.com/apache/seatunnel/commit/564863b933|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

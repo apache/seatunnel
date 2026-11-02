@@ -2,6 +2,6 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|Add Google Ads source connector with GAQL, automatic schema derivation and multi-table support|-|Next|
+|[Feature][Connector-V2] Add Google Ads Source Connector (#12230)|https://github.com/apache/seatunnel/commit/7e468d60f6|3.0.0|
 
 </details>

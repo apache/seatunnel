@@ -2,6 +2,16 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Core] Raise minimum Java runtime to 11 and move CI to JDK 11/17 (#11545)|https://github.com/apache/seatunnel/commit/0b9e75a6ce|3.1.0|
+|[Fix][Connector-V2] Fix Kudu client deadlock in Flink JobManager on JDK 11 (#12480)|https://github.com/apache/seatunnel/commit/53733a112c|3.1.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Fix][Connector-V2] Wait for Kudu client shutdown (#11585)|https://github.com/apache/seatunnel/commit/4c4b81859b|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for InfluxDB IoTDB Kudu and TDengine (#11573)|https://github.com/apache/seatunnel/commit/1fe15cbb84|3.0.0|
+|[Improve][Connector-V2] Upgrade kudu-client from 1.11.1 to 1.15.0 (#10974)|https://github.com/apache/seatunnel/commit/477f57f749|3.0.0|
+|[Bug] [Connector-Kudu] Fix Doris auto table from Kudu STRING being created as CHAR(16) (#10175)|https://github.com/apache/seatunnel/commit/f951b0a01c|2.3.13|
+|[Feature][connector-kudu] Support regex and whole-database table_name for source (#10180)|https://github.com/apache/seatunnel/commit/e9b6071e4d|2.3.13|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

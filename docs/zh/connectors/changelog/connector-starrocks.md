@@ -2,6 +2,21 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Verify StarRocks label state for Publish Timeout before releasing batch (#12692)|https://github.com/apache/seatunnel/commit/787380c35a|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|Fix schema change routing for shared multi-table sinks (#11015)|https://github.com/apache/seatunnel/commit/6bf786bee7|3.0.0|
+|[Feature][Connector-V2] Add StarRocks timer flush (#11518)|https://github.com/apache/seatunnel/commit/25137c1d8f|3.0.0|
+|[Fix][Zeta][E2E] Fix CI failures and flaky connector tests (#11531)|https://github.com/apache/seatunnel/commit/11ce32de27|3.0.0|
+|[Fix][Connector-V2] Prevent silent StarRocks batch data loss (#11431)|https://github.com/apache/seatunnel/commit/46fefa7c61|3.0.0|
+|[Feature][Connector-V2] PR2：Support table_options for StarRocks SaveMode auto-create (#11242)|https://github.com/apache/seatunnel/commit/57c1a39b5a|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Improve][connector-starrocks] Improved starrocks source enumerator splits allocation algorithm for subtasks (#10867)|https://github.com/apache/seatunnel/commit/e2bb766710|3.0.0|
+|[Improve][Connector-V2][starrocks-source] Improve source not close reader if open failed (#10292)|https://github.com/apache/seatunnel/commit/bfb6bd0a39|3.0.0|
+|[Fix][Connector-V2] Fix JDBC Statement resource leaks in StarRocksCatalog (#10629)|https://github.com/apache/seatunnel/commit/468e6e8a17|3.0.0|
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Fix][Doc] Update StarRocks doc change schema necessity to true (#9656)|https://github.com/apache/seatunnel/commit/45f8ac6d1d|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|

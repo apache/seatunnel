@@ -2,7 +2,23 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
+|[Fix][Connector-File] Fix Excel column mapping and read_columns projection (#12768)|https://github.com/apache/seatunnel/commit/14bcba582d|3.1.0|
+|[Fix][Connector-V2] Declare missing source options in file source factories (#12817)|https://github.com/apache/seatunnel/commit/4492252928|3.1.0|
+|[Fix][Connector-V2] Support FTP append data mode (#11554)|https://github.com/apache/seatunnel/commit/62ae6a3a10|3.1.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Fix][Connector-V2] Do not fail FTP listings on logout reset (#11695)|https://github.com/apache/seatunnel/commit/66214e4600|3.0.0|
+|[Improve][Connector-V2] Guard POI Excel reads by file size (#11591)|https://github.com/apache/seatunnel/commit/261644ff40|3.0.0|
+|[Feature][Connector-File-Base] Add optional PDF RAG metadata for file source (#11571)|https://github.com/apache/seatunnel/commit/2b060343dc|3.0.0|
+|[Feature][Connector-V2] Add checkpoint-gated post_sync_action and retention for file source continuous discovery (#10563)|https://github.com/apache/seatunnel/commit/3d4aa03a53|3.0.0|
+|[Improve][Connector-V2][File] Optimize file discovery and update comparison for sync_mode=update (#11312)|https://github.com/apache/seatunnel/commit/6de6f1b953|3.0.0|
+|[Feature][Connector-V2] Add recursive_file_scan option for file connectors (#10505)|https://github.com/apache/seatunnel/commit/2826ea3dcd|3.0.0|
+|[Feature][Connector-V2] Add optional Markdown RAG metadata for file source (#10844)|https://github.com/apache/seatunnel/commit/970cadb1a4|3.0.0|
+|[Feature][Connector-V2] Add continuous discovery for FTP/SFTP/Local/HDFS file sources (#10473)|https://github.com/apache/seatunnel/commit/01cd08abcf|3.0.0|
+|[Feature][seatunnel-api] Integrate Gravitino as metadata service for non-relational connectors (#10402)|https://github.com/apache/seatunnel/commit/e24b8c1406|3.0.0|
+|[Feature][Connector-V2] Support sync_mode=update for FtpFile/SftpFile/LocalFile source (binary) (#10437)|https://github.com/apache/seatunnel/commit/07a2125e53|2.3.13|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
+|[Fix][Connector-V2] Fix &#x27;file_filterpattern&#x27; cannot filter directories (#10049)|https://github.com/apache/seatunnel/commit/fd515b871d|2.3.13|
+|[Fix][Connector-V2] Fixed the problem of complex path reading of ftp (#9781)|https://github.com/apache/seatunnel/commit/745b56de4e|2.3.13|
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
 |[Improve][Connector-V2] Add remote host verification option for FTP data channels (#9324)|https://github.com/apache/seatunnel/commit/019d69d10a|2.3.11|

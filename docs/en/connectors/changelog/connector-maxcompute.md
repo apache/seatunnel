@@ -2,6 +2,18 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate nonblank MaxCompute source endpoint (#12690)|https://github.com/apache/seatunnel/commit/b3898b62d7|3.1.0|
+|[Feature][Connector-V2] Expose MaxCompute client timeout and retry options (#12390)|https://github.com/apache/seatunnel/commit/f80794289d|3.1.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Feature][Connector-V2] Add tunnel_name option to MaxCompute Connector (#10690)|https://github.com/apache/seatunnel/commit/8e15bd9615|3.0.0|
+|[Feature][Connector-V2] Maxcompute Source Round-Robin Split Assignment (#11131)|https://github.com/apache/seatunnel/commit/63a7b529c5|3.0.0|
+|[Docs]Repair document links (#11033)|https://github.com/apache/seatunnel/commit/f3461c9ba9|3.0.0|
+|[Feature][Connector-V2][MaxCompute] Support Schema Name and Passwordless Auth (#10831)|https://github.com/apache/seatunnel/commit/78df51cf0f|3.0.0|
+|[BUG][Connector-V2][MaxCompute] Fix Maxcompute source split stategy (#10845)|https://github.com/apache/seatunnel/commit/17eb09126e|3.0.0|
+|[Fix][Connector-V2] Use upload session for insert (#10222)|https://github.com/apache/seatunnel/commit/8625828d4a|3.0.0|
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Bug][Connector-V2] NoSuchMethodError caused by Netty version conflict on Spark 3.3.0 (#9632)|https://github.com/apache/seatunnel/commit/4d2b55ce3c|2.3.12|
 |[Improve][Connector-V2] Replace deprecated createDownloadSession by buildDownloadSession (#9555)|https://github.com/apache/seatunnel/commit/6862945eef|2.3.12|

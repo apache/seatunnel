@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add Neo4j source connectivity dry-run (#12433)|https://github.com/apache/seatunnel/commit/eb332e20fe|3.1.0|
+|[Improve][Connector-V2][Neo4j] Migrate configuration validation to OptionRule (#12047)|https://github.com/apache/seatunnel/commit/6c5b5b630f|3.0.0|
+|[Feature][Connector-V2][Neo4j] Support multi-table source reads (#11869)|https://github.com/apache/seatunnel/commit/850748c013|3.0.0|
+|[Fix][Connector-V2][Neo4j] Close the session and driver even when close fails part way (#11750)|https://github.com/apache/seatunnel/commit/50dafa7c84|3.0.0|
 |[improve] neo4j options (#9164)|https://github.com/apache/seatunnel/commit/1eb81e7f88|2.3.11|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

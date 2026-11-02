@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Migrate S3 Redshift validation to declarative OptionRule (#12274)|https://github.com/apache/seatunnel/commit/2ed3c81f53|3.0.0|
+|[Feature][Connector-V2] Support arbitrary S3A credentials provider for S3File (#11436)|https://github.com/apache/seatunnel/commit/d34446997f|3.0.0|
+|[Improve][Connectors-v2] File sink refactor (#10587)|https://github.com/apache/seatunnel/commit/efeed28aea|3.0.0|
+|[Fix][Connector-Jdbc] Bump Redshift JDBC driver from 2.1.0.9 to 2.1.0.30 to fix OOM issues  (#10393)|https://github.com/apache/seatunnel/commit/6a3fdf3964|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
 |Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
 | [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|

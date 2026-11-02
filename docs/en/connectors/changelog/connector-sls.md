@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate SLS required options (#12352)|https://github.com/apache/seatunnel/commit/6eea1da1a8|3.1.0|
+|[Fix][Connector-V2] Return catalog tables from Aerospike and SLS sinks (#12234)|https://github.com/apache/seatunnel/commit/ea1fb0d850|3.0.0|
+|[Improve][Connector] Replace printStackTrace with proper logging (#10176)|https://github.com/apache/seatunnel/commit/86c8450a7f|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[improve] sls options (#9260)|https://github.com/apache/seatunnel/commit/126164508b|2.3.11|

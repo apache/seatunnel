@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Docs] Fix IoTDB, Http, Paimon, SelectDB, Neo4j and Phoenix doc inaccuracies (#12758)|https://github.com/apache/seatunnel/commit/1ce2d78156|3.1.0|
+|[Improve][Connector-V2] Validate IoTDB source SQL is not blank (#12603)|https://github.com/apache/seatunnel/commit/6b047a364e|3.1.0|
+|[Feature][Connector-V2] Support multi-table IoTDB source (#12246)|https://github.com/apache/seatunnel/commit/e18b260c0f|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for InfluxDB IoTDB Kudu and TDengine (#11573)|https://github.com/apache/seatunnel/commit/1fe15cbb84|3.0.0|
+|[Feature] [Connector-V2] [IoTDB] Added source and sink connectors to support IoTDB 2.X (#9872)|https://github.com/apache/seatunnel/commit/6b7db1eb77|2.3.13|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[improve] iotdb options (#8965)|https://github.com/apache/seatunnel/commit/6e073935f4|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

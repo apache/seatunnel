@@ -2,10 +2,35 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Complete batch Kafka splits after control records (#11486)|https://github.com/apache/seatunnel/commit/8f859a4923|3.1.0|
+|[Fix][Format] Add opt-in nullable Avro ROW layout (#12900)|https://github.com/apache/seatunnel/commit/9e33353713|3.1.0|
+|[Fix][Connector-V2][Kafka] Skip a Kafka tombstone instead of failing the Avro source (#12927)|https://github.com/apache/seatunnel/commit/befdd36552|3.1.0|
+|[Feature][Connector-V2] Add Kafka sink connectivity dry-run (#12400)|https://github.com/apache/seatunnel/commit/938f29d13f|3.1.0|
+|[Feature][Connector-V2] Add kafka_message_value_fields to Kafka sink (#11112)|https://github.com/apache/seatunnel/commit/62efde4746|3.0.0|
+|[Feature][Connector-V2] Support Kafka source connectivity dry-run (#12167)|https://github.com/apache/seatunnel/commit/2065fb13fd|3.0.0|
+|[Feature][Connector-Kafka] Support Confluent-framed Avro payloads (#12088)|https://github.com/apache/seatunnel/commit/0badccfbe2|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d1|3.0.0|
+|[Fix][Connector-V2] Fix Kafka exactly-once sink losing first record on checkpoint (#11541)|https://github.com/apache/seatunnel/commit/d2ec8ce3c1|3.0.0|
+|[Fix][Connector-V2] Prevent Kafka transaction cleanup loop (#11588)|https://github.com/apache/seatunnel/commit/e9dc8c90dd|3.0.0|
+|[Feature][Connector-V2][Kafka] Support reading Kafka message headers in source connector (#11521)|https://github.com/apache/seatunnel/commit/8c6c672b3c|3.0.0|
+|[Fix][Connector-V2][Kafka] Fixed:   inverted commit_on_checkpoint for… (#10320)|https://github.com/apache/seatunnel/commit/7001ed6a3b|3.0.0|
+|[Improve][Connector-V2] Migrate Kafka Source imperative validation to declarative OptionRule (#11157)|https://github.com/apache/seatunnel/commit/30fb930522|3.0.0|
+|[Fix][Connector-V2] Run Kafka cleanup with connector classloader (#11178)|https://github.com/apache/seatunnel/commit/be960cf71e|3.0.0|
+|[Fix][Connector-V2] Support Kafka Avro writer schema (#11303)|https://github.com/apache/seatunnel/commit/acfdbd4637|3.0.0|
+|[Fix][API] Support dotted opaque table names (#11220)|https://github.com/apache/seatunnel/commit/f47b0bea5c|3.0.0|
+|[Fix][Kafka] Reduce default reader_cache_queue_size from 1024 to 2 to prevent OOM (#10954)|https://github.com/apache/seatunnel/commit/6736f57e99|3.0.0|
+|[Fix][Connector-V2] Fix MessageContentPartitioner static state causing cross-job partition routing interference (#10885)|https://github.com/apache/seatunnel/commit/0470de53f0|3.0.0|
+|[Fix] [Connectors-v2] Fix Kafka source restore offsets on checkpoint recovery (#10612)|https://github.com/apache/seatunnel/commit/7e0b52dfc5|3.0.0|
+|[Feature][Connector-V2][Kafka] Add support for Kafka message header (#10335)|https://github.com/apache/seatunnel/commit/8ef89ffca3|3.0.0|
+|[Fix][Connectors-v2] Fix transaction cancellation failure after broker recovery (#10013)|https://github.com/apache/seatunnel/commit/4d12727ad9|2.3.13|
+|[Feat][Connector-v2][Kafka] Add support for Schema Registry wire format in Protobuf deserialization (#10183)|https://github.com/apache/seatunnel/commit/6948d3492e|2.3.13|
+|[Feature][Kafka source] Inject Kafka record timestamp as EventTime metadata (#9994)|https://github.com/apache/seatunnel/commit/e4ec14a958|2.3.13|
+|[Improvement][Connector] Upgrade Kafka client version from 3.2.0 to 3.4.0 (#9941)|https://github.com/apache/seatunnel/commit/44454dcd3f|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][Connector-V2] Optimize start mode of kafka recovery job (#9736)|https://github.com/apache/seatunnel/commit/bbde7f6339|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-V2] Add Filter for Partitions to Prevent Blocking in KafkaConsumer StreamMode (#9598)|https://github.com/apache/seatunnel/commit/bd24fa77cb|2.3.12|
-|[Fix][Connector-kafka] Fix kafka IllegalArgumentException when offset is -1 (#9376)|https://github.com/apache/seatunnel/commit/142aca7b70|2.3.12|
+|[Fix][Connecotr-kafka] Fix kafka IllegalArgumentException when offset is -1 (#9376)|https://github.com/apache/seatunnel/commit/142aca7b70|2.3.12|
 |[Feature][Connectors-V2] Add end_timestamp for timstamp start mode (#9318)|https://github.com/apache/seatunnel/commit/68b0504da9|2.3.11|
 |[Bugifx][kafka] Fix kafka enumerator assign split NPE (#9220)|https://github.com/apache/seatunnel/commit/7ca0c0c7e4|2.3.11|
 | [Fix][Connector-V2] Fix kafka database name (#9201)|https://github.com/apache/seatunnel/commit/79d9a937ee|2.3.11|

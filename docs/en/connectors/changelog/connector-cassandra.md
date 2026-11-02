@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Preserve Cassandra bootstrap contact points (#12429)|https://github.com/apache/seatunnel/commit/987715e4a9|3.1.0|
+|[Improve][Connector-V2] Migrate Cassandra validation to declarative OptionRule (#11964)|https://github.com/apache/seatunnel/commit/cc548bb3f8|3.0.0|
+|[Fix][Connector-V2] Fix Cassandra null timestamp conversion (#11068)|https://github.com/apache/seatunnel/commit/9fdfc38142|3.0.0|
+|[Feature][Connector-V2][Cassandra] Add multi-table source support via… (#10896)|https://github.com/apache/seatunnel/commit/5d2ab3f317|3.0.0|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[improve] cassandra connector options (#8608)|https://github.com/apache/seatunnel/commit/d9201108cf|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Improve some connectors prepare check error message (#7465)|https://github.com/apache/seatunnel/commit/6930a25edd|2.3.8|

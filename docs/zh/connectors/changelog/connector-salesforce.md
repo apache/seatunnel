@@ -1,5 +1,8 @@
-# 更新日志
+<details><summary> Change Log </summary>
 
-| 变更 | 提交 | 版本 |
+| Change | Commit | Version |
 | --- | --- | --- |
-| 添加基于外部 ID 的 REST collection upsert Sink | - | Next |
+|[Feature][Connector-V2] Add Salesforce sink (#12245)|https://github.com/apache/seatunnel/commit/7d3649ade2|3.0.0|
+|[Feature][Connector] Add Salesforce Source Connector (#10938)|https://github.com/apache/seatunnel/commit/93039e90fc|3.0.0|
+
+</details>

@@ -1,0 +1,28 @@
+<details><summary> Change Log </summary>
+
+| Change | Commit | Version |
+| --- | --- | --- |
+|[Fix][Connector-File] Fix Excel column mapping and read_columns projection (#12768)|https://github.com/apache/seatunnel/commit/14bcba582d|3.1.0|
+|[Fix][Connector-V2] Declare missing source options in file source factories (#12817)|https://github.com/apache/seatunnel/commit/4492252928|3.1.0|
+|[Improve][Connector-V2] Guard POI Excel reads by file size (#11591)|https://github.com/apache/seatunnel/commit/261644ff40|3.0.0|
+|[Feature][Connector-File-Base] Add optional PDF RAG metadata for file source (#11571)|https://github.com/apache/seatunnel/commit/2b060343dc|3.0.0|
+|[Feature][Connector-V2] Add recursive_file_scan option for file connectors (#10505)|https://github.com/apache/seatunnel/commit/2826ea3dcd|3.0.0|
+|[Feature][Connector-V2] Add optional Markdown RAG metadata for file source (#10844)|https://github.com/apache/seatunnel/commit/970cadb1a4|3.0.0|
+|[Fix][Connector-OBS] Upgrade okio to 3.6.0 to fix NoSuchFieldError: Companion (#10756)|https://github.com/apache/seatunnel/commit/85688b8faa|3.0.0|
+|[Improve] File souce refactor  (#10758)|https://github.com/apache/seatunnel/commit/bf25292561|3.0.0|
+|[Improve][Connectors-v2] File sink refactor (#10587)|https://github.com/apache/seatunnel/commit/efeed28aea|3.0.0|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
+|[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
+|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
+|[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
+|[Improve][File] Add row_delimiter options into text file sink (#9017)|https://github.com/apache/seatunnel/commit/92aa855a34|2.3.11|
+|Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
+| [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
+|[Feature][Connector-V2] Add `filename_extension` parameter for read/write file (#8769)|https://github.com/apache/seatunnel/commit/78b23c0ef5|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Feature][File] Support config null format for text file read (#8109)|https://github.com/apache/seatunnel/commit/2dbf02df47|2.3.9|
+|[Improve][Connector-V2] Change File Read/WriteStrategy `setSeaTunnelRowTypeInfo` to `setCatalogTable` (#7829)|https://github.com/apache/seatunnel/commit/6b5f74e524|2.3.9|
+|[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
+|[Feature][Connector-V2] Add Huawei Cloud OBS connector (#4578)|https://github.com/apache/seatunnel/commit/d266f4db64|2.3.6|
+
+</details>

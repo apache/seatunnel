@@ -1,0 +1,20 @@
+<details><summary> Change Log </summary>
+
+| Change | Commit | Version |
+| --- | --- | --- |
+|[Improve][Connector-V2][AmazonSqs] Migrate URL and region validation to declarative notBlank (#12217)|https://github.com/apache/seatunnel/commit/3db3f0bef8|3.0.0|
+|[Fix][Connector-V2][AmazonSqs] Wrap JSON parse failures with connector error code (#12085)|https://github.com/apache/seatunnel/commit/04fabece50|3.0.0|
+|[Fix][Connector-V2][AmazonSqs] Support multi-row CDC deserialization (#12084)|https://github.com/apache/seatunnel/commit/83454b590d|3.0.0|
+|[Fix][Connector-V2][AmazonSqs] Preserve messages on deserialization failure (#12038)|https://github.com/apache/seatunnel/commit/1e450e11f7|3.0.0|
+|[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] amazon sqs connector update (#8602)|https://github.com/apache/seatunnel/commit/c747e02a98|2.3.10|
+|[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
+|[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|2.3.6|
+|[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|2.3.4|
+|[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|2.3.4|
+|[Improve] Remove all useless `prepare`, `getProducedType` method (#5741)|https://github.com/apache/seatunnel/commit/ed94fffbb9|2.3.4|
+|[Improve][Connector-V2] Change `amazonsqs` to `AmazonSqs` as connector identifier (#5742)|https://github.com/apache/seatunnel/commit/245705d0f7|2.3.4|
+|[Feature] [Connector-V2] Add connector amazonsqs (#5367)|https://github.com/apache/seatunnel/commit/7f75a8eafd|2.3.4|
+
+</details>

@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Transform-V2] Accept table_transform-only configurations (#12804)|https://github.com/apache/seatunnel/commit/f4474404f3|3.1.0|
+|[Fix][Assert] Use input schema for omitted field_type (#12671)|https://github.com/apache/seatunnel/commit/53d3e7c152|3.1.0|
+|[Fix][Connector-V2][Assert] Evaluate row-count rules once per table after the last writer closes (#12216)|https://github.com/apache/seatunnel/commit/fea1ac0a43|3.1.0|
+|[Fix][Connector-V2] Remove fixed sleep in AssertSinkWriter close and assert own table only (#11995)|https://github.com/apache/seatunnel/commit/fa001a4e47|3.0.0|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75|2.3.10|

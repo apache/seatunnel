@@ -2,6 +2,22 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2][Iceberg] Support Iceberg table format v3 (#12777)|https://github.com/apache/seatunnel/commit/7e0c2e7c9d|3.1.0|
+|[Fix][Connector-V2] Close the Iceberg table loader even when the record writer fails (#12326)|https://github.com/apache/seatunnel/commit/7e715b039f|3.1.0|
+|[Improve][Core] Raise minimum Java runtime to 11 and move CI to JDK 11/17 (#11545)|https://github.com/apache/seatunnel/commit/0b9e75a6ce|3.1.0|
+|[Fix][Connector-V2] Parse offset timestamps in Iceberg delete predicates (#12286)|https://github.com/apache/seatunnel/commit/ff598706f2|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d1|3.0.0|
+|[Improve][Connector-V2][Iceberg]Migrate config validation to declarative OptionRule (#11921)|https://github.com/apache/seatunnel/commit/4f0b735de7|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Improve][Connector-V2][Iceberg]  Align OptionRule with docs and strengthen factory test (#11675)|https://github.com/apache/seatunnel/commit/6bb02da900|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Fix][Connectors-v2] Require explicit primary keys for Iceberg upsert mode (#10762)|https://github.com/apache/seatunnel/commit/50e37b5e09|3.0.0|
+|[Fix][Connector-V2][Iceberg] Fix IcebergAggregatedCommitter atomic commit per checkpoint (#10714)|https://github.com/apache/seatunnel/commit/fe182baced|3.0.0|
+|[Feature][Iceberg] Support schema.partition_keys and ${partition_keys} placeholder (#10389)|https://github.com/apache/seatunnel/commit/839e7ab8df|2.3.13|
+|[Fix][Iceberg] Fix IllegalMonitorStateException in streaming enumerator (#10131)|https://github.com/apache/seatunnel/commit/793bb795c3|2.3.13|
+|[Improve][Iceberg] Fix withDescription format in IcebergSourceOptions (#10166)|https://github.com/apache/seatunnel/commit/3fe9c06e8b|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

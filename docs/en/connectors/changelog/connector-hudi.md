@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix Hudi catalog schema conversion for MAP and ARRAY columns (#12770)|https://github.com/apache/seatunnel/commit/2f3bcd276a|3.1.0|
+|[Feature][Connector-V2] Add Hudi timer flush (#11747)|https://github.com/apache/seatunnel/commit/8ac4a022c4|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Fix][Connector-V2] Fix Hudi null struct field conversion (#11196)|https://github.com/apache/seatunnel/commit/0f48aef4ff|3.0.0|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][Core]fix kotlin jar conflict (#9683)|https://github.com/apache/seatunnel/commit/c4ec5c0be5|2.3.12|
 |[Improve][Connector-Hudi] Add pre-combine field option for hudi sink (#9496)|https://github.com/apache/seatunnel/commit/f134d7e129|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

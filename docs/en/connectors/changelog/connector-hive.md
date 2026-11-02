@@ -2,7 +2,23 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
+|[Feature][Connector-V2][Hive] Support AWS Glue Data Catalog metastore (#11895)|https://github.com/apache/seatunnel/commit/6109b4600f|3.0.0|
+|[Feature][Connector-V2] Add BosFile source and sink connector (#11952)|https://github.com/apache/seatunnel/commit/99e53aad86|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Feature][Connector-V2] Support arbitrary S3A credentials provider for S3File (#11436)|https://github.com/apache/seatunnel/commit/d34446997f|3.0.0|
+|[Fix][Connector-V2][Zeta] Resolve Hive S3, JDBC, metrics, and documentation CI failures (#11459)|https://github.com/apache/seatunnel/commit/dbead9b01f|3.0.0|
+|[Improve] File souce refactor  (#10758)|https://github.com/apache/seatunnel/commit/bf25292561|3.0.0|
+|[Improve][Connectors-v2] File sink refactor (#10587)|https://github.com/apache/seatunnel/commit/efeed28aea|3.0.0|
+|[Bug][Connector-V2][Hive] Fix init failure when Hive table/partition directory is empty (#10331)|https://github.com/apache/seatunnel/commit/c2316a2a5d|2.3.13|
+|[Feature][Connector-V2][Hive] Support multiple Hive metastore URIs for automatic failover (#10253)|https://github.com/apache/seatunnel/commit/d56b1645b2|2.3.13|
+|[Fix][HiveSink] Implement overwrite semantics for streaming commits to prevent multiple deletions of target directories (#10279)|https://github.com/apache/seatunnel/commit/d32bfce601|2.3.13|
+|[Improve][Connector-V2][Hive] Deduplicate Hive option definitions (#10251)|https://github.com/apache/seatunnel/commit/af6e262b19|2.3.13|
+|[Feature][connector-hive] Support regex and whole-database table_name for source (#10250)|https://github.com/apache/seatunnel/commit/26c4bb5300|2.3.13|
+|[Feature][connector-file-local]localfile supports splitting and parallel reading of large files of csv, text, and json (#10142)|https://github.com/apache/seatunnel/commit/0b9c4acdb2|2.3.13|
+|[Feature][Connector-V2] Hive sink support SchemaSaveMode and DataSaveMode (#9743)|https://github.com/apache/seatunnel/commit/b4b6188f6a|2.3.13|
+|[Feature][Hive] Kerberos renew for &gt;24h Hive and HDFS writes (#9989)|https://github.com/apache/seatunnel/commit/124eb29248|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Fix][connector-hive] Fix the file_name_expression does not take effect in Hive sink. (#9823)|https://github.com/apache/seatunnel/commit/02c7eb3177|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3|2.3.12|
 |[Fix][Connector-V2] Fix hive client thread unsafe (#9282)|https://github.com/apache/seatunnel/commit/5dc25897a9|2.3.11|

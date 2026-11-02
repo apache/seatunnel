@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix Tablestore sink ClassCastException for numeric columns (#12786)|https://github.com/apache/seatunnel/commit/705f7944ca|3.1.0|
+|[Improve][Connector-V2] Validate Tablestore connection options (#12424)|https://github.com/apache/seatunnel/commit/7f7e9a7fc3|3.1.0|
 |[Improve] table_store options (#9515)|https://github.com/apache/seatunnel/commit/145b68793f|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

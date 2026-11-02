@@ -2,6 +2,106 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate DB2 CDC source URL (#12931)|https://github.com/apache/seatunnel/commit/22a34f323d|3.1.0|
+|[Fix][Connector-V2] Exclude columns not published by pgoutput from the Postgres-CDC schema (#12561)|https://github.com/apache/seatunnel/commit/56b063c1d8|3.1.0|
+|[Fix][Connector-V2] Fix MongoDB CDC non-exactly-once snapshot deadlock (#13018)|https://github.com/apache/seatunnel/commit/69fbd2a84b|3.1.0|
+|[Fix][CDC] Keep per-table restored offsets when tables are added across a savepoint (#13006)|https://github.com/apache/seatunnel/commit/2aa67dbd37|3.1.0|
+|[Fix][Connector-V2] Fix CDC pre-1970 sub-millisecond timestamp conversion (#12957)|https://github.com/apache/seatunnel/commit/9c50d224e5|3.1.0|
+|[Fix][CDC] Wait for enumerator ack before clearing finished snapshot splits (#12163)|https://github.com/apache/seatunnel/commit/969a46d29d|3.1.0|
+|[Fix][Connector-V2] Stream PostgreSQL sampling results with JDBC cursor (#12731)|https://github.com/apache/seatunnel/commit/77ba9ada9d|3.1.0|
+|[Fix][Connector-V2][MySQL-CDC] Keep NULL in nullable unique key columns of tables without a primary key (#12608)|https://github.com/apache/seatunnel/commit/8a0ccdf7d2|3.1.0|
+|[Fix][Connector-V2] Resolve late PostgreSQL CDC type names by search path (#12836)|https://github.com/apache/seatunnel/commit/89a5598eb5|3.1.0|
+|[Fix][Connector-CDC] Reassign restored splits to waiting readers after checkpoint recovery (#11677)|https://github.com/apache/seatunnel/commit/c355b2f719|3.1.0|
+|[Improve][Connector-V2] Validate nonblank SQL Server CDC source URL (#12764)|https://github.com/apache/seatunnel/commit/51f553cb45|3.1.0|
+|[Fix][CI] Fix missed detections and false positives in seatunnel-ci-tools checks (#12676)|https://github.com/apache/seatunnel/commit/432d4cfcd5|3.1.0|
+|[Improve][Connector-V2][Vitess] Migrate CDC source option validation to declarative OptionRule (#12746)|https://github.com/apache/seatunnel/commit/c37823b9a3|3.1.0|
+|[Docs][Connector-V2] Audit PostgreSQL CDC bounded-read feasibility (#12359)|https://github.com/apache/seatunnel/commit/82940077c2|3.1.0|
+|[Fix][Connector-V2][CDC] Do not use a nullable column as the snapshot split column (#12597)|https://github.com/apache/seatunnel/commit/42d2aab3f8|3.1.0|
+|[Fix][Connector-V2][JDBC] Accept the synthetic SET UNSIGNED type name for MySQL SET columns (#10453)|https://github.com/apache/seatunnel/commit/bf2e3973aa|3.1.0|
+|[Fix][Connector-CDC] Resolve stop.mode=latest stop offset at binlog phase start (#11885)|https://github.com/apache/seatunnel/commit/67941ddefa|3.1.0|
+|[Fix][Connector-V2] Fail fast when the Postgres-CDC replication slot has been invalidated (#12587)|https://github.com/apache/seatunnel/commit/3926d8784f|3.1.0|
+|[Improve][Connector-V2][MongoDB] Migrate CDC source option validation to declarative OptionRule (#12735)|https://github.com/apache/seatunnel/commit/b0f6feddf9|3.1.0|
+|[Fix][Connector-V2][TiDB-CDC] Emit null instead of NPE for columns missing from live table info (#12696)|https://github.com/apache/seatunnel/commit/31100cb530|3.1.0|
+|[Fix][Connector-V2][CDC] Validate startup.specific-offset.* options are only bound under STARTUP_MODE = SPECIFIC (#12708)|https://github.com/apache/seatunnel/commit/262d623d9e|3.1.0|
+|[Fix][Connector-V2] Fix MySQL CDC snapshot split error with non-consecutive primary key IDs (#12463)|https://github.com/apache/seatunnel/commit/8241363786|3.1.0|
+|[Fix][E2E] Fix task recovery hangs and PostgreSQL CDC LSN handling (#12454)|https://github.com/apache/seatunnel/commit/0278a6a747|3.1.0|
+|[Fix][Connector-V2] Apply Postgres-CDC ADD COLUMN on the first RELATION with pgjdbc 42.7.5+ (#12547)|https://github.com/apache/seatunnel/commit/7c4f2d7720|3.1.0|
+|[Fix][Connector-V2][MySQL-CDC] Keep the SET/ENUM option list when rebuilding the source type (#12355)|https://github.com/apache/seatunnel/commit/d91e26a336|3.1.0|
+|[Feature][Connector-V2] Introduce PG base CDC abstraction for Postgres and OpenGauss (#11029)|https://github.com/apache/seatunnel/commit/9ad05cd740|3.1.0|
+|[Fix][Connector-V2] Support PostgreSQL enum columns in the Postgres catalog and CDC (#12588)|https://github.com/apache/seatunnel/commit/eb2eb1ddc8|3.1.0|
+|[Fix][Connector-V2] Filter Postgres CDC database discovery (#11399)|https://github.com/apache/seatunnel/commit/446ff62668|3.1.0|
+|[Fix][Connector-V2] Stop bundling debezium-core in the OceanBase CDC jar (#12477)|https://github.com/apache/seatunnel/commit/1882a57923|3.1.0|
+|[Fix][CDC] Keep the live schema on restore when schema change propagation is disabled (#12321)|https://github.com/apache/seatunnel/commit/c3f06f9a82|3.1.0|
+|[Test][CDC] Cover checkpoint offsets around fetcher failure (#12360)|https://github.com/apache/seatunnel/commit/eb76f81c82|3.1.0|
+|[Fix][Connector-V2] Deduplicate table ids in PostgreSQL CDC table discovery to support HighGo (#12435)|https://github.com/apache/seatunnel/commit/4648c9956e|3.1.0|
+|[Feature][Connector-V2] Add OceanBase CDC source connector (#11060)|https://github.com/apache/seatunnel/commit/523d69dbb1|3.1.0|
+|[Fix][Connector-V2] Preserve disabled CDC schema behavior (#12346)|https://github.com/apache/seatunnel/commit/ea3df16677|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Fix][CDC] Reconstruct missing snapshot completion watermark and always wait for a checkpoint (#12162)|https://github.com/apache/seatunnel/commit/bbde250914|3.0.0|
+|[Fix][Connector-V2] Accept primary keys as snapshot split columns (#11979)|https://github.com/apache/seatunnel/commit/47fb033fe1|3.0.0|
+|[Feature][Connector-V2][MongoDB-CDC] Support timestamp stop mode (#11815)|https://github.com/apache/seatunnel/commit/cc387508c9|3.0.0|
+|[Fix][Connector-V2] Fix Postgres-CDC committed-offset recovery skipping rows after savepoint (#11864)|https://github.com/apache/seatunnel/commit/5af8d789aa|3.0.0|
+|[Fix][Connector-V2] Honor Oracle snapshot select overrides (#11768)|https://github.com/apache/seatunnel/commit/70faa7ce50|3.0.0|
+|[Feature][Connector-V2] Support PostgreSQL CDC ADD COLUMN schema evolution (#11922)|https://github.com/apache/seatunnel/commit/8bea8c681c|3.0.0|
+|[Bug][Connector-V2][CDC] Prune removed tables from restored incremental splits (#11271)|https://github.com/apache/seatunnel/commit/af0a647d27|3.0.0|
+|[Fix][Connector-V2] Preserve MongoDB CDC snapshot failure cause (#11880)|https://github.com/apache/seatunnel/commit/e6caf5a4b3|3.0.0|
+|[Feature][Connector-V2] Add DB2 CDC source connector (#10780)|https://github.com/apache/seatunnel/commit/a9f69848a0|3.0.0|
+|[Fix][Connector-V2] Preserve SQL Server CDC resume offsets (#11410)|https://github.com/apache/seatunnel/commit/fbd82a4eb0|3.0.0|
+|[Fix][Connector-V2] Forward SQL Server JDBC URL properties (#11674)|https://github.com/apache/seatunnel/commit/5a87a77a52|3.0.0|
+|[Fix][Connector-V2] Include MongoDB shard key metadata (#11599)|https://github.com/apache/seatunnel/commit/92465ba993|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for Easysearch, AmazonDynamoDB, TiDB CDC and Typesense (#11607)|https://github.com/apache/seatunnel/commit/9487cc8e16|3.0.0|
+|[Fix][Connector-V2] Fix CDC comment schema-change event routing (#11837)|https://github.com/apache/seatunnel/commit/ed8d94151b|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595e|3.0.0|
+|[Fix][Connector-V2] Fix TiDB CDC delete deserialization (#11223)|https://github.com/apache/seatunnel/commit/6472c5ec59|3.0.0|
+|[Fix][Connector-V2] Fix issue of out-of-order fields in cdc (#11826)|https://github.com/apache/seatunnel/commit/b3420260d4|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = &quot;specific&quot; (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5c|3.0.0|
+|[Feature][Connector-V2][Oracle-CDC] Add SCN specific startup (#11171)|https://github.com/apache/seatunnel/commit/3ec61ba15d|3.0.0|
+|Fix schema change routing for shared multi-table sinks (#11015)|https://github.com/apache/seatunnel/commit/6bf786bee7|3.0.0|
+|[Fix][Connector-V2] Prevent TiDB CDC from advancing past slow regions (#11407)|https://github.com/apache/seatunnel/commit/4c7f41373b|3.0.0|
+|[Feature][Connector-V2][PostgreSQL-CDC] Add committed-offset and snapshot-only startup modes (#11380)|https://github.com/apache/seatunnel/commit/ddcc764d20|3.0.0|
+|[Fix][Connector-V2][MySQL CDC] Use checkpoint offset for timestamp startup restore (#10987)|https://github.com/apache/seatunnel/commit/c57775c762|3.0.0|
+|[Feature][Connector-V2][MySQL-CDC] Support GTID specific startup offset (#11123)|https://github.com/apache/seatunnel/commit/52bbd0a258|3.0.0|
+|[Fix][Connector-V2] Fix MongoDB CDC missing operation type handling (#11208)|https://github.com/apache/seatunnel/commit/ebae5c10c3|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c3630|3.0.0|
+|[Fix][Connector-V2] Fix TiDB CDC silent row event loss when resolvedT… (#11113)|https://github.com/apache/seatunnel/commit/94b4ac59dd|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b31304|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206a|3.0.0|
+|[Fix][Connector-V2] Skip MongoDB CDC heartbeat records (#11065)|https://github.com/apache/seatunnel/commit/f570a86597|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f648|3.0.0|
+|[Feature][Connector-V2] Add Vitess CDC source connector (#11059)|https://github.com/apache/seatunnel/commit/71ab292daf|3.0.0|
+|[Fix][API] Fix backward compatibility issue in CatalogFactory optionRule validation (#11165)|https://github.com/apache/seatunnel/commit/e9c446638c|3.0.0|
+|[Fix][Connector-V2][MySQL-CDC] Fix BinlogOffset.compareTo ignoring restartSkipRows when GTID sets are equal (#10811)|https://github.com/apache/seatunnel/commit/cda69534f0|3.0.0|
+|[Fix][Connector-V2] Support MongoDB CDC SRV URI (#11129)|https://github.com/apache/seatunnel/commit/bccea91c92|3.0.0|
+|[Feature][Connector-V2][CDC] Add include/exclude filtering for schema change event types  #11044 (#11108)|https://github.com/apache/seatunnel/commit/34940bf66c|3.0.0|
+|[Fix][Connector-V2] Fix Oracle CDC schema cache matching (#11110)|https://github.com/apache/seatunnel/commit/c698247699|3.0.0|
+|[Feature][Connector-V2][MongoDB-CDC] Support latest-offset startup mode without initial snapshot (#11053)|https://github.com/apache/seatunnel/commit/a9be10ac30|3.0.0|
+|[Bug] [Postgres-CDC] Fix snapshot table schema lookup (#10843)|https://github.com/apache/seatunnel/commit/03346dc4df|3.0.0|
+|[Fix][Connector-V2][CDC-MySQL] Honor int_type_narrowing option on MyS… (#11004)|https://github.com/apache/seatunnel/commit/902671729e|3.0.0|
+|[Fix][Connector-V2][SqlServer CDC] Fix SQL Server CDC DDL history query LSN boundary causing schema events to be lost (#10970)|https://github.com/apache/seatunnel/commit/f9a6ef97a0|3.0.0|
+|[Fix][CDC] Avoid replaying completed snapshot splits after restore (#10859)|https://github.com/apache/seatunnel/commit/7dd7b499fe|3.0.0|
+|[Feature][Connector-V2][SqlServer CDC] support sqlserver schema evolution (#10890)|https://github.com/apache/seatunnel/commit/32bef0e8a2|3.0.0|
+|[Feature][Connector-v2][Postgres-CDC] Allow replica identity other than full (#10334)|https://github.com/apache/seatunnel/commit/65793d174b|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1fb|3.0.0|
+|[BugFix][connector-cdc-oracle]  Fix table or view doesn&#x27;t exist in multitables  CDB+PDB mode (#10829)|https://github.com/apache/seatunnel/commit/36122261f4|3.0.0|
+|[Improve][MySQL-CDC] Enhance diagnostics for missing binlog and GTID during restore (#10566)|https://github.com/apache/seatunnel/commit/9d6b879051|3.0.0|
+|[Feature][E2E] Add MySQL CDC multi-database multi-table E2E test (#10743)|https://github.com/apache/seatunnel/commit/b9cdfeb79e|3.0.0|
+|[Feature][CDC] Expose binlog file/pos/row, GTID, and SourceTimestamp … (#10667)|https://github.com/apache/seatunnel/commit/6dee790d77|3.0.0|
+|[Feature][Connectors-v2] Support timestamp startup mode for Oracle and SQLServer CDC (#10428)|https://github.com/apache/seatunnel/commit/34a57c70bc|3.0.0|
+|[Fix][Connector-V2][Postgres-CDC] Skip createReplicationSlot when slotInfo is present (#10416)|https://github.com/apache/seatunnel/commit/b4a284ccc6|3.0.0|
+|[Fix][Connector-V2][MongoDB-CDC] Fix NPE when heartbeat.interval.ms is enabled (#10477)|https://github.com/apache/seatunnel/commit/1925e802d8|3.0.0|
+|[Fix][connector-cdc] Fix NPE when finishing snapshot split due to null splitId (#10404)|https://github.com/apache/seatunnel/commit/275adcce13|2.3.13|
+|[Fix][Connector-V2] Fix wrong column discovery when tableNamePattern is treated as LIKE (#10422)|https://github.com/apache/seatunnel/commit/eeb4c0b704|2.3.13|
+|[Fix][Connector-v2][MongoDB] There is a problem with using Cache for multi-task submission (#10116)|https://github.com/apache/seatunnel/commit/8e27bffff8|2.3.13|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Fix][Connector-v2][SQLServer] Handle database names with special characters in SQL queries and add related tests (#10327)|https://github.com/apache/seatunnel/commit/81ddef758d|2.3.13|
+|[Fix][Connector-V2] Fix partitioning column selection logic (#10319)|https://github.com/apache/seatunnel/commit/d36ba850f6|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-V2][Postgres-CDC] Fix PostgreSQL GEOMETRY handling with JDBC sink (#10186)|https://github.com/apache/seatunnel/commit/f08ce7ba8a|2.3.13|
+|[Fix][Connector-V2][SqlServer-CDC] Fix earliest startup.mode offset and align tests (#10207)|https://github.com/apache/seatunnel/commit/9f76fa5398|2.3.13|
+|[Fix][Connector-v2][MongoDB-CDC] When starting multiple tasks to connect to different MongoDB services, only the first one takes effect (#10064)|https://github.com/apache/seatunnel/commit/71b7f8c6c6|2.3.13|
+|Fix[CI] Update the MySQL Docker image version to 8.0.43 (#9903)|https://github.com/apache/seatunnel/commit/a0aa0ceaf9|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Support Mysql8.4+ for mysql-cdc (#9720)|https://github.com/apache/seatunnel/commit/e338743927|2.3.12|

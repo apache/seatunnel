@@ -2,7 +2,20 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
+|[Fix][Connector-V2] Remove incorrect HTTP entity content encoding (#11281)|https://github.com/apache/seatunnel/commit/0cf767d0c8|3.1.0|
+|[Improve][Connector-V2] Validate HTTP sink URL is not blank (#12773)|https://github.com/apache/seatunnel/commit/a2f818afd2|3.1.0|
+|[Feature][Connector-V2] Fix HTTP credential handling - add scheme check and exclude token from toString (#12040)|https://github.com/apache/seatunnel/commit/136b12d32b|3.1.0|
+|[Bug][Connector-V2][Http] Release the checkpoint lock while waiting out poll_interval_millis (#12412)|https://github.com/apache/seatunnel/commit/c8c4973760|3.1.0|
+|[Fix][Connector-V2] Propagate HTTP sink write failures (#12312)|https://github.com/apache/seatunnel/commit/065a3df4b3|3.1.0|
+|[Fix][Connector-V2] Preserve HTTP source JSON body (#11535)|https://github.com/apache/seatunnel/commit/7df6c9467a|3.0.0|
+|[Fix][Connector-V2] Fix HTTP cursor pagination no-progress loop (#11098)|https://github.com/apache/seatunnel/commit/9140b90954|3.0.0|
+|[Feature][Connector-V2] Add binary format support for HTTP source connector (#10956)|https://github.com/apache/seatunnel/commit/62d6804fea|3.0.0|
+|[Feature][Connector-V2] Add Airtable source and sink (#10469)|https://github.com/apache/seatunnel/commit/c15032c035|3.0.0|
+|[Fix][Connector-V2][GraphQL] Clarify subscription modes and JSON-only response (#10303)|https://github.com/apache/seatunnel/commit/cad0e40cc5|2.3.13|
+|[Fix][Connector-V2][Http]Fix setting of HTTP parameters in HttpSink.java (#10053)|https://github.com/apache/seatunnel/commit/87bf8a23b1|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
+|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e|2.3.13|
 |[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
 |[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|
 |[Bug][connector-http] Fix paging request running infinitely (#9504)|https://github.com/apache/seatunnel/commit/1844e04c97|2.3.12|

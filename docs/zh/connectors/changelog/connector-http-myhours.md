@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Fix HTTP credential handling - add scheme check and exclude token from toString (#12040)|https://github.com/apache/seatunnel/commit/136b12d32b|3.1.0|
 |[Feature][connector-http] Parameters support placeholder replacement (#9184)|https://github.com/apache/seatunnel/commit/8617014edc|2.3.11|
 |[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910a|2.3.10|
 |[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0|2.3.10|

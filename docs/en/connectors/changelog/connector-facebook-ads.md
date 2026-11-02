@@ -2,6 +2,6 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|Add Facebook Ads source connector with cursor pagination and multi-table support|-|Next|
+|[Feature][Connector-V2] Add Facebook Ads source connector (#12275)|https://github.com/apache/seatunnel/commit/7a427d40de|3.0.0|
 
 </details>

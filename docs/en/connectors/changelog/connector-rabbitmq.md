@@ -2,6 +2,14 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Restore legacy RabbitMQ checkpoint state (#11872)|https://github.com/apache/seatunnel/commit/a0213fb6ed|3.1.0|
+|[Feature][Connector-V2] Add RabbitMQ source connectivity dry-run (#12432)|https://github.com/apache/seatunnel/commit/760c33a944|3.1.0|
+|[Improve][Connector-V2] Validate RabbitMQ sink queue_name as nonblank (#12519)|https://github.com/apache/seatunnel/commit/463adf8c47|3.1.0|
+|[Fix][Connector-V2] Support secure passive RabbitMQ connections (#11576)|https://github.com/apache/seatunnel/commit/38a37104e5|3.1.0|
+|[Improve][Connector-V2] Add protobuf format support for RabbitMQ (#12244)|https://github.com/apache/seatunnel/commit/600797febd|3.0.0|
+|[Improve][Connector-V2][RabbitMQ] Migrate source config validation to OptionRule (#11795)|https://github.com/apache/seatunnel/commit/4fea624584|3.0.0|
+|[Feature][Connector-V2][RabbitMQ] Support multi-table read for RabbitMQ source (#10425) (#10557)|https://github.com/apache/seatunnel/commit/556dd79554|3.0.0|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][connector-rabbitmq] Set default value for durable, exclusive and auto-delete (#9631)|https://github.com/apache/seatunnel/commit/5f9492e62a|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012|2.3.10|

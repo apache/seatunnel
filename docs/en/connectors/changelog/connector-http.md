@@ -2,7 +2,36 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
+|[Fix][Connector-V2] Remove incorrect HTTP entity content encoding (#11281)|https://github.com/apache/seatunnel/commit/0cf767d0c8|3.1.0|
+|[Feature][Connector-V2] Add Typeform source connector (#12844)|https://github.com/apache/seatunnel/commit/75f9636c99|3.1.0|
+|[Feature][Connector-V2] Add Intercom source connector (#12831)|https://github.com/apache/seatunnel/commit/4eb1dc5912|3.1.0|
+|[Connector-V2] [Asana] Asana Source Connector (#12719)|https://github.com/apache/seatunnel/commit/613803559a|3.1.0|
+|[Improve][Connector-V2] Validate HTTP sink URL is not blank (#12773)|https://github.com/apache/seatunnel/commit/a2f818afd2|3.1.0|
+|[Feature][Connector-V2] Fix HTTP credential handling - add scheme check and exclude token from toString (#12040)|https://github.com/apache/seatunnel/commit/136b12d32b|3.1.0|
+|[Bug][Connector-V2][Http] Release the checkpoint lock while waiting out poll_interval_millis (#12412)|https://github.com/apache/seatunnel/commit/c8c4973760|3.1.0|
+|[Test][Connector-V2] Release PayPalClientTest&#x27;s arrival latch before the response body write (#12444)|https://github.com/apache/seatunnel/commit/426e44f96c|3.1.0|
+|[Fix][Connector-V2] Propagate HTTP sink write failures (#12312)|https://github.com/apache/seatunnel/commit/065a3df4b3|3.1.0|
+|[Test][Connector-V2] Widen PayPalClientTest&#x27;s loopback HTTP wait budget for slower CI runners (#12370)|https://github.com/apache/seatunnel/commit/c7304ace6e|3.1.0|
+|[Feature] [connector-http] Add Splunk Source Connector and Unit Tests (#12281)|https://github.com/apache/seatunnel/commit/b37af3a9bf|3.1.0|
+|[Feature][Connector-V2] Add PayPal Transaction Search source (#12282)|https://github.com/apache/seatunnel/commit/e86c03e537|3.1.0|
+|feat(connector): add Mem0 Platform V3 ADD sink (#12233)|https://github.com/apache/seatunnel/commit/7b88e18705|3.0.0|
+|[Feature] [connector-http-linear] Add Linear HTTP Source Connector and Unit Test (#12270)|https://github.com/apache/seatunnel/commit/56cfbca0fb|3.0.0|
+|[Feature][Connector-V2] Add zendesk sink (#12253)|https://github.com/apache/seatunnel/commit/85ce19515b|3.0.0|
+|[Fix][Connector-V2] Preserve HTTP source JSON body (#11535)|https://github.com/apache/seatunnel/commit/7df6c9467a|3.0.0|
+|[Feature][Connector-V2][Shopify] Add Shopify source connector (#11028)|https://github.com/apache/seatunnel/commit/b05f17c317|3.0.0|
+|[Feature][Connector-V2] Add Stripe PaymentIntents source (#11940)|https://github.com/apache/seatunnel/commit/3343731850|3.0.0|
+|[Feature][Connector-V2] Add PostHog source connector (#11998)|https://github.com/apache/seatunnel/commit/e352beba29|3.0.0|
+|[Improve][Connector-V2][Airtable] Add jitter to rate-limit backoff (#11654)|https://github.com/apache/seatunnel/commit/7e24d0f42b|3.0.0|
+|[Feature][Connector-V2][Zendesk] Add Zendesk source connector (#11030)|https://github.com/apache/seatunnel/commit/6fc40c206c|3.0.0|
+|[Fix][Connector-V2] Fix HTTP cursor pagination no-progress loop (#11098)|https://github.com/apache/seatunnel/commit/9140b90954|3.0.0|
+|[Feature][Connector-V2] Add binary format support for HTTP source connector (#10956)|https://github.com/apache/seatunnel/commit/62d6804fea|3.0.0|
+|[Feature][Connector-V2] Add Airtable source and sink (#10469)|https://github.com/apache/seatunnel/commit/c15032c035|3.0.0|
+|[Fix][Connector-V2][GraphQL] Clarify subscription modes and JSON-only response (#10303)|https://github.com/apache/seatunnel/commit/cad0e40cc5|2.3.13|
+|[Improve][Connector-V2][WeChat] Optimize StringBuffer to StringBuilder for better performance (#10127)|https://github.com/apache/seatunnel/commit/2ecdca2ab1|2.3.13|
+|[Fix][Connector-V2][Http]Fix setting of HTTP parameters in HttpSink.java (#10053)|https://github.com/apache/seatunnel/commit/87bf8a23b1|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
+|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e|2.3.13|
 |[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
 |[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|
 |[Bug][connector-http] Fix paging request running infinitely (#9504)|https://github.com/apache/seatunnel/commit/1844e04c97|2.3.12|

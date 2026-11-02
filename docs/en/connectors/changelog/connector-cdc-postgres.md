@@ -2,6 +2,31 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Exclude columns not published by pgoutput from the Postgres-CDC schema (#12561)|https://github.com/apache/seatunnel/commit/56b063c1d8|3.1.0|
+|[Fix][Connector-V2] Stream PostgreSQL sampling results with JDBC cursor (#12731)|https://github.com/apache/seatunnel/commit/77ba9ada9d|3.1.0|
+|[Fix][Connector-V2] Resolve late PostgreSQL CDC type names by search path (#12836)|https://github.com/apache/seatunnel/commit/89a5598eb5|3.1.0|
+|[Docs][Connector-V2] Audit PostgreSQL CDC bounded-read feasibility (#12359)|https://github.com/apache/seatunnel/commit/82940077c2|3.1.0|
+|[Fix][Connector-V2] Fail fast when the Postgres-CDC replication slot has been invalidated (#12587)|https://github.com/apache/seatunnel/commit/3926d8784f|3.1.0|
+|[Fix][E2E] Fix task recovery hangs and PostgreSQL CDC LSN handling (#12454)|https://github.com/apache/seatunnel/commit/0278a6a747|3.1.0|
+|[Fix][Connector-V2] Apply Postgres-CDC ADD COLUMN on the first RELATION with pgjdbc 42.7.5+ (#12547)|https://github.com/apache/seatunnel/commit/7c4f2d7720|3.1.0|
+|[Feature][Connector-V2] Introduce PG base CDC abstraction for Postgres and OpenGauss (#11029)|https://github.com/apache/seatunnel/commit/9ad05cd740|3.1.0|
+|[Fix][Connector-V2] Support PostgreSQL enum columns in the Postgres catalog and CDC (#12588)|https://github.com/apache/seatunnel/commit/eb2eb1ddc8|3.1.0|
+|[Fix][Connector-V2] Filter Postgres CDC database discovery (#11399)|https://github.com/apache/seatunnel/commit/446ff62668|3.1.0|
+|[Fix][Connector-V2] Deduplicate table ids in PostgreSQL CDC table discovery to support HighGo (#12435)|https://github.com/apache/seatunnel/commit/4648c9956e|3.1.0|
+|[Fix][Connector-V2] Preserve disabled CDC schema behavior (#12346)|https://github.com/apache/seatunnel/commit/ea3df16677|3.1.0|
+|[Fix][Connector-V2] Fix Postgres-CDC committed-offset recovery skipping rows after savepoint (#11864)|https://github.com/apache/seatunnel/commit/5af8d789aa|3.0.0|
+|[Feature][Connector-V2] Support PostgreSQL CDC ADD COLUMN schema evolution (#11922)|https://github.com/apache/seatunnel/commit/8bea8c681c|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = &quot;specific&quot; (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5c|3.0.0|
+|[Feature][Connector-V2][PostgreSQL-CDC] Add committed-offset and snapshot-only startup modes (#11380)|https://github.com/apache/seatunnel/commit/ddcc764d20|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c3630|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b31304|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206a|3.0.0|
+|[Bug] [Postgres-CDC] Fix snapshot table schema lookup (#10843)|https://github.com/apache/seatunnel/commit/03346dc4df|3.0.0|
+|[Feature][Connector-v2][Postgres-CDC] Allow replica identity other than full (#10334)|https://github.com/apache/seatunnel/commit/65793d174b|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1fb|3.0.0|
+|[Fix][Connector-V2][Postgres-CDC] Skip createReplicationSlot when slotInfo is present (#10416)|https://github.com/apache/seatunnel/commit/b4a284ccc6|3.0.0|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|

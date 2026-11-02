@@ -2,6 +2,24 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Add opt-in collision-safe Elasticsearch IDs (#13003)|https://github.com/apache/seatunnel/commit/b66e0d4802|3.1.0|
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
+|[Improve][Connector-V2] Use isEmpty() instead of size() &gt; 0 in ES connectors (#11996)|https://github.com/apache/seatunnel/commit/2e2e9b8040|3.0.0|
+|[Fix][Connector-V2] Share Elasticsearch REST clients in multi-table sink (#11567)|https://github.com/apache/seatunnel/commit/310d5643dd|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965e|3.0.0|
+|[Feature][Connector-V2] Support timer flush for Elasticsearch sink (#11505)|https://github.com/apache/seatunnel/commit/786210dc4b|3.0.0|
+|[Improve][connector-elasticsearchv2]Optimize Elasticsearch source che… (#10446)|https://github.com/apache/seatunnel/commit/b1c53562b0|3.0.0|
+|[Improve][Connector-V2] Migrate Elasticsearch validation to declarative OptionRule (#11122)|https://github.com/apache/seatunnel/commit/02aa837898|3.0.0|
+|[Improve][connector-elasticsearch] Improved elasticsearch source enumerator splits allocation algorithm for subtasks (#10869)|https://github.com/apache/seatunnel/commit/59a3d1cea8|3.0.0|
+|[Improve][connector-elasticsearch-v2] Add slicing support and e2e coverage for Elasticsearch source (#10454)|https://github.com/apache/seatunnel/commit/cfc1ac664f|3.0.0|
+|[Fix][Connector-V2] Fix Elasticsearch connector connection pool leak … (#10857)|https://github.com/apache/seatunnel/commit/3d55c3d763|3.0.0|
+|[Fix][Core] Fix JsonUtils.parseObject encoding issue causing UTF-8 pa… (#10809)|https://github.com/apache/seatunnel/commit/a1e6a8cc98|3.0.0|
+|[Feature][Connector-V2][Elasticsearch] Add Runtime Fields support (Elasticsearch 7.11+) (#10201)|https://github.com/apache/seatunnel/commit/296a8fa566|2.3.13|
+|[Improve][Connector-V2][Elasticsearch] Enhance Scroll API handling with resource cleanup  (#10124)|https://github.com/apache/seatunnel/commit/6677ea68f4|2.3.13|
+|[Improve][connector-elasticsearch] Optimize Elasticsearch Sink vector parameters and documents (#10260)|https://github.com/apache/seatunnel/commit/0f6a3c5cd3|2.3.13|
+|[Improve][Elasticsearch] Add LocalDateTime serialization test and simplify serializer (#10135)|https://github.com/apache/seatunnel/commit/ddd92383b8|2.3.13|
+|[Bugfix][seatunnel-connectors-v2][connector-elasticsearch] ElasticsearchSink encounters a writing error and the task does not exit (#10038)|https://github.com/apache/seatunnel/commit/bf801605ea|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Feature][elasticsearch-connector] Add API key authentication support (#9610)|https://github.com/apache/seatunnel/commit/a2bfe1a530|2.3.12|
 |[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f|2.3.12|

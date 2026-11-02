@@ -2,6 +2,23 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix MongoDB CDC non-exactly-once snapshot deadlock (#13018)|https://github.com/apache/seatunnel/commit/69fbd2a84b|3.1.0|
+|[Improve][Connector-V2][MongoDB] Migrate CDC source option validation to declarative OptionRule (#12735)|https://github.com/apache/seatunnel/commit/b0f6feddf9|3.1.0|
+|[Feature][Connector-V2][MongoDB-CDC] Support timestamp stop mode (#11815)|https://github.com/apache/seatunnel/commit/cc387508c9|3.0.0|
+|[Fix][Connector-V2] Preserve MongoDB CDC snapshot failure cause (#11880)|https://github.com/apache/seatunnel/commit/e6caf5a4b3|3.0.0|
+|[Fix][Connector-V2] Include MongoDB shard key metadata (#11599)|https://github.com/apache/seatunnel/commit/92465ba993|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = &quot;specific&quot; (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5c|3.0.0|
+|[Fix][Connector-V2] Fix MongoDB CDC missing operation type handling (#11208)|https://github.com/apache/seatunnel/commit/ebae5c10c3|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b31304|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206a|3.0.0|
+|[Fix][Connector-V2] Skip MongoDB CDC heartbeat records (#11065)|https://github.com/apache/seatunnel/commit/f570a86597|3.0.0|
+|[Fix][Connector-V2] Support MongoDB CDC SRV URI (#11129)|https://github.com/apache/seatunnel/commit/bccea91c92|3.0.0|
+|[Feature][Connector-V2][MongoDB-CDC] Support latest-offset startup mode without initial snapshot (#11053)|https://github.com/apache/seatunnel/commit/a9be10ac30|3.0.0|
+|[Fix][Connector-V2][MongoDB-CDC] Fix NPE when heartbeat.interval.ms is enabled (#10477)|https://github.com/apache/seatunnel/commit/1925e802d8|3.0.0|
+|[Fix][Connector-v2][MongoDB] There is a problem with using Cache for multi-task submission (#10116)|https://github.com/apache/seatunnel/commit/8e27bffff8|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-v2][MongoDB-CDC] When starting multiple tasks to connect to different MongoDB services, only the first one takes effect (#10064)|https://github.com/apache/seatunnel/commit/71b7f8c6c6|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
 |[Fix][Mongo-CDC] Fix the issue where mongo isExactlyOnce defaults to true, causing room to malfunction (#9454)|https://github.com/apache/seatunnel/commit/814b19537c|2.3.12|

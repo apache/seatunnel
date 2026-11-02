@@ -1,0 +1,9 @@
+<details><summary> Change Log </summary>
+
+| Change | Commit | Version |
+| --- | --- | --- |
+|[Improve][Connector-V2] Validate Web3j source URL (#12180)|https://github.com/apache/seatunnel/commit/271f73324d|3.0.0|
+|[improve] update Web3j connector config option  (#9005)|https://github.com/apache/seatunnel/commit/9204f289d8|2.3.10|
+|[Feature][Connector-V2] Add web3j source connector (#6598)|https://github.com/apache/seatunnel/commit/b7002bfaf4|2.3.6|
+
+</details>
