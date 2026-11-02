@@ -53,6 +53,10 @@ import ChangeLog from '../changelog/connector-hive.md';
 | save_mode_create_template             | string  | 否    | -              | 自动创建目标 Hive 表时使用的自定义 DDL 模板。变量：`${database}`、`${table}`、`${rowtype_fields}`、`${rowtype_partition_fields}`、`${table_location}`、`${current_timestamp}`。 |
 | common-options                        |         | 否    | -              | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
+### compress_codec [string]
+
+显式指定输出压缩格式，默认 `none`。ORC 支持 `NONE`、`SNAPPY`、`ZLIB`、`LZ4` 和 `LZO`。配置后优先于表属性；继承表属性请参阅 `use_table_compression`。
+
 ### use_table_compression [boolean]
 
 默认值：`false`。开启后，初始化**已有 ORC 表**时从 metastore 继承 `orc.compress`。此选项不改变自动建表流程、非 ORC 表或表元数据。
