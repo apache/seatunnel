@@ -92,6 +92,12 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 - **影响**：下次启动或恢复作业时，快照和自动创建的目标表将不再包含未发布的非主键列。依赖这些列的现有目标表和下游使用方可能需要调整表结构或字段映射；此前流式更新可能将这些列写为 NULL，或因表结构不匹配而失败。如果必需的主键未发布（包括仅发布 INSERT 的发布），作业现在会在启动时失败，而不是保留该列并在流式同步中输出 NULL 主键。
 - **迁移指南**：升级前检查发布配置及下游表结构。在 PostgreSQL 18 中，设置 `publish_generated_columns = stored` 的发布可以保留存储生成列；虚拟生成列仍不会发布。使用发布列列表时，请加入所有必需主键列（包括 `table-names-config.primaryKeys` 配置的主键）和其他必需列。发布 UPDATE/DELETE 时，PostgreSQL 还要求包含副本标识列。请调整目标表结构和下游映射，移除其他未发布的列；没有显式列列表的发布仍遵循生成列规则。
 
+### PostgreSQL CDC：新增用户自定义枚举和范围类型列
+
+- **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 并开启 Schema 变更时，用户自定义枚举、范围或多范围类型的新增列，类型名改为 `format_type(oid, NULL)` 的结果：需要时加引号，类型所在 schema 不在源连接 `search_path` 中时带上 schema。此前下游收到的是不带引号和 schema 的 `pg_type.typname`。
+- **影响**：PostgreSQL JDBC Sink 现在执行的是类似 `ALTER TABLE ... ADD c inv.mood` 的语句，而不是 `ADD c mood`。如果 Sink 此前把不带 schema 的类型名解析为另一个 schema 中的同名类型，现在会在 Sink 端失败。如果无法从源端 `pg_type` 读取列类型名，作业会以 `POSTGRES-05` 失败。
+- **迁移指南**：升级前，请在 Sink 数据库中按源端相同的 schema 创建新增列用到的用户自定义类型。
+
 ### Markdown File Source 的 `child_ids` 数组
 
 Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
