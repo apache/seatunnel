@@ -59,6 +59,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -93,6 +95,8 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
+    private static final Logger LOG = LoggerFactory.getLogger(JdbcPostgresIT.class);
+
     private static final String PG_IMAGE = "postgis/postgis";
 
     /**
@@ -425,10 +429,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     Arrays.asList(Arrays.asList(1, 2), Arrays.asList(2, 2)), values);
         } finally {
-            firstOutput.close();
-            secondOutput.close();
             executorService.shutdownNow();
-            executeSQL("DROP TABLE IF EXISTS jdbc_deadlock_retry_test");
+            closeQuietly(firstOutput, "first output");
+            closeQuietly(secondOutput, "second output");
+            try {
+                executeSQL("DROP TABLE IF EXISTS jdbc_deadlock_retry_test");
+            } catch (Exception cleanupFailure) {
+                LOG.warn("Failed to drop the deadlock retry test table", cleanupFailure);
+            }
         }
     }
 
@@ -436,6 +444,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             JdbcConnectionConfig config, DeadlockExecutor executor) {
         SimpleJdbcConnectionProvider provider = new SimpleJdbcConnectionProvider(config);
         return new JdbcOutputFormat<>(provider, config, () -> executor, true);
+    }
+
+    /** Closes an output format without letting one cleanup failure skip the remaining steps. */
+    private void closeQuietly(JdbcOutputFormat<?, ?> output, String name) {
+        try {
+            output.close();
+        } catch (Exception cleanupFailure) {
+            LOG.warn("Failed to close the {}", name, cleanupFailure);
+        }
     }
 
     private static final class DeadlockExecutor
@@ -609,12 +626,18 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(rowCount, rows.size());
             return true;
         } finally {
-            ascending.close();
-            descending.close();
             executorService.shutdownNow();
-            executeSQL("DROP TABLE IF EXISTS " + table);
-            executeSQL("DROP TABLE IF EXISTS " + auditTable);
-            executeSQL("DROP FUNCTION IF EXISTS jdbc_deadlock_real_upsert_audit_fn()");
+            closeQuietly(ascending, "ascending output");
+            closeQuietly(descending, "descending output");
+            try {
+                executeSQL("DROP TABLE IF EXISTS " + table);
+                executeSQL("DROP TABLE IF EXISTS " + auditTable);
+                executeSQL("DROP FUNCTION IF EXISTS jdbc_deadlock_real_upsert_audit_fn()");
+            } catch (Exception cleanupFailure) {
+                LOG.warn(
+                        "Failed to clean up the real-upsert deadlock test resources",
+                        cleanupFailure);
+            }
         }
     }
 
