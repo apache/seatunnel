@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
 
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -297,7 +298,7 @@ public class ExcelGeneratorTest {
         // 17 significant digits: not representable as a double
         excelGenerator.writeData(
                 new SeaTunnelRow(new Object[] {new BigDecimal("9215784885957046.9450")}));
-        // A double holds it, but a number cell reads back as Excel's 15-digit text 0.3
+        // 0.1 + 0.2: the shortest text of its double, so a number cell reads it back unchanged
         excelGenerator.writeData(
                 new SeaTunnelRow(new Object[] {new BigDecimal("0.30000000000000004")}));
         // 16 real digits that a double holds: read back unchanged, so a number cell
@@ -316,9 +317,9 @@ public class ExcelGeneratorTest {
             assertEquals(CellType.STRING, wide.getCell(0).getCellType());
             assertEquals("9215784885957046.9450", wide.getCell(0).getStringCellValue());
 
-            Row noisy = workbook.getSheetAt(0).getRow(3);
-            assertEquals(CellType.STRING, noisy.getCell(0).getCellType());
-            assertEquals("0.30000000000000004", noisy.getCell(0).getStringCellValue());
+            Row computed = workbook.getSheetAt(0).getRow(3);
+            assertEquals(CellType.NUMERIC, computed.getCell(0).getCellType());
+            assertEquals(0.1 + 0.2, computed.getCell(0).getNumericCellValue(), 0.0);
 
             Row sixteenDigits = workbook.getSheetAt(0).getRow(4);
             assertEquals(CellType.NUMERIC, sixteenDigits.getCell(0).getCellType());
@@ -351,6 +352,54 @@ public class ExcelGeneratorTest {
             Row converted = workbook.getSheetAt(0).getRow(2);
             assertEquals(CellType.NUMERIC, converted.getCell(0).getCellType());
             assertEquals(2.5, converted.getCell(0).getNumericCellValue(), 0.0);
+        }
+    }
+
+    /**
+     * A decimal whose plain text has exactly the 32767 characters an Excel cell holds is written as
+     * plain text; one character more and it is written as scientific text.
+     */
+    @Test
+    public void testDecimalPlainTextLengthLimit() throws IOException {
+        when(fileSinkConfig.getFieldDelimiter()).thenReturn(",");
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_decimal"},
+                        new SeaTunnelDataType[] {new DecimalType(38, 0)});
+        ExcelGenerator excelGenerator =
+                new ExcelGenerator(Arrays.asList(0), decimalRowType, fileSinkConfig);
+        // A large exponent: a 1 followed by zeros
+        BigDecimal largeAtLimit = BigDecimal.ONE.scaleByPowerOfTen(32766);
+        BigDecimal largeOverLimit = BigDecimal.ONE.scaleByPowerOfTen(32767);
+        // A small negative value: "-0." followed by zeros and a 1
+        BigDecimal smallAtLimit = BigDecimal.ONE.negate().scaleByPowerOfTen(-32764);
+        BigDecimal smallOverLimit = BigDecimal.ONE.negate().scaleByPowerOfTen(-32765);
+        for (BigDecimal value :
+                new BigDecimal[] {largeAtLimit, largeOverLimit, smallAtLimit, smallOverLimit}) {
+            excelGenerator.writeData(new SeaTunnelRow(new Object[] {value}));
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        excelGenerator.flushAndCloseExcel(output);
+
+        try (XSSFWorkbook workbook =
+                new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
+            Cell largePlain = workbook.getSheetAt(0).getRow(1).getCell(0);
+            assertEquals(CellType.STRING, largePlain.getCellType());
+            assertEquals(32767, largePlain.getStringCellValue().length());
+            assertEquals(largeAtLimit.toPlainString(), largePlain.getStringCellValue());
+
+            Cell largeScientific = workbook.getSheetAt(0).getRow(2).getCell(0);
+            assertEquals(CellType.STRING, largeScientific.getCellType());
+            assertEquals("1E+32767", largeScientific.getStringCellValue());
+
+            Cell smallPlain = workbook.getSheetAt(0).getRow(3).getCell(0);
+            assertEquals(CellType.STRING, smallPlain.getCellType());
+            assertEquals(32767, smallPlain.getStringCellValue().length());
+            assertEquals(smallAtLimit.toPlainString(), smallPlain.getStringCellValue());
+
+            Cell smallScientific = workbook.getSheetAt(0).getRow(4).getCell(0);
+            assertEquals(CellType.STRING, smallScientific.getCellType());
+            assertEquals("-1E-32765", smallScientific.getStringCellValue());
         }
     }
 }

@@ -713,10 +713,14 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(new BigDecimal("1000E+2147483647"), rows.get(5).getField(0));
     }
 
-    /** Numeric formulas and number cells preserve their stored double for every numeric type. */
+    /**
+     * Numeric formulas and number cells keep their stored double in DOUBLE and DECIMAL columns. An
+     * integer column reads a fractional number as the 15-digit value Excel shows, and a whole
+     * number with all its digits.
+     */
     @ParameterizedTest
     @ValueSource(strings = {"POI", "EasyExcel"})
-    public void testComputedNumbersReadWithoutRounding(String excelEngine) throws IOException {
+    public void testComputedNumbersReadByColumnType(String excelEngine) throws IOException {
         File excelFile = File.createTempFile("excel_computed_numbers_", ".xlsx");
         excelFile.deleteOnExit();
         try (XSSFWorkbook workbook = new XSSFWorkbook();
@@ -738,11 +742,15 @@ public class ExcelReadStrategyTest {
             realDigits.createCell(0).setCellValue(123456789012345.67);
             realDigits.createCell(1).setCellValue(1234567.890123456);
             realDigits.createCell(2).setCellValue(1234567.890123456);
-            // Keep low-order digits even when Excel's 15-digit display omits them.
+            // DECIMAL and DOUBLE keep low-order digits that Excel's 15 digits omit
+            // (9.87654321098765); the integer column reads the 15-digit value.
             Row leadingNine = sheet.createRow(4);
             leadingNine.createCell(0).setCellValue(98765432109876.99);
             leadingNine.createCell(1).setCellValue(9.876543210987654);
             leadingNine.createCell(2).setCellValue(9.876543210987654);
+            // A whole number with 16 digits, one more than Excel shows
+            Row wholeNumber = sheet.createRow(5);
+            wholeNumber.createCell(0).setCellValue(1234567890123456L);
             // EasyExcel reads the cached formula result, so store it
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
             workbook.write(output);
@@ -758,22 +766,24 @@ public class ExcelReadStrategyTest {
 
         List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
 
-        Assertions.assertEquals(4, rows.size());
+        Assertions.assertEquals(5, rows.size());
         for (int i = 0; i < 2; i++) {
-            Assertions.assertEquals(7L, rows.get(i).getField(0), "c_bigint row " + i);
+            // 7.999999999999999 is shown as 8 and not truncated to 7
+            Assertions.assertEquals(8L, rows.get(i).getField(0), "c_bigint row " + i);
             Assertions.assertEquals(
                     new BigDecimal("0.30000000000000004"),
                     rows.get(i).getField(1),
                     "c_decimal row " + i);
             Assertions.assertEquals(0.1 + 0.2, rows.get(i).getField(2), "c_double row " + i);
         }
-        // Truncated as before, not rounded to the 15-digit 123456789012346
-        Assertions.assertEquals(123456789012345L, rows.get(2).getField(0));
+        // Fractional numbers in an integer column: the 15 digits Excel shows
+        Assertions.assertEquals(123456789012346L, rows.get(2).getField(0));
         Assertions.assertEquals(new BigDecimal("1234567.890123456"), rows.get(2).getField(1));
         Assertions.assertEquals(1234567.890123456, rows.get(2).getField(2));
-        Assertions.assertEquals(98765432109876L, rows.get(3).getField(0));
+        Assertions.assertEquals(98765432109877L, rows.get(3).getField(0));
         Assertions.assertEquals(new BigDecimal("9.876543210987654"), rows.get(3).getField(1));
         Assertions.assertEquals(9.876543210987654, rows.get(3).getField(2));
+        Assertions.assertEquals(1234567890123456L, rows.get(4).getField(0));
     }
 
     @ParameterizedTest

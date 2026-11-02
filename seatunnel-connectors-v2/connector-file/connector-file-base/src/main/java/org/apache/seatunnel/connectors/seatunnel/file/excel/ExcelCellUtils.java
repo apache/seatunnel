@@ -31,6 +31,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.poi.ss.util.NumberToTextConverter;
+
 import com.alibaba.excel.enums.CellDataTypeEnum;
 import com.alibaba.excel.metadata.Cell;
 import com.alibaba.excel.metadata.data.ReadCellData;
@@ -64,6 +66,10 @@ public class ExcelCellUtils implements Serializable {
                             SqlType.FLOAT,
                             SqlType.DOUBLE,
                             SqlType.DECIMAL));
+
+    private static final Set<SqlType> INTEGER_SQL_TYPES =
+            Collections.unmodifiableSet(
+                    EnumSet.of(SqlType.TINYINT, SqlType.SMALLINT, SqlType.INT, SqlType.BIGINT));
 
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
@@ -121,6 +127,21 @@ public class ExcelCellUtils implements Serializable {
     }
 
     /**
+     * Returns the text a stored number is read from into a column of the given type. An integer
+     * column reads a fractional number as Excel's 15-significant-digit text, so a formula result
+     * stored as {@code 7.999999999999999} reads as {@code 8}, as it did before numbers were read
+     * from their stored value; a whole number keeps all its digits.
+     */
+    public static String numberText(double value, SqlType sqlType) {
+        if (INTEGER_SQL_TYPES.contains(sqlType)
+                && Double.isFinite(value)
+                && value != Math.rint(value)) {
+            return NumberToTextConverter.toText(value);
+        }
+        return numberText(value);
+    }
+
+    /**
      * Gives a decimal the scale of its column when that does not change its value and the result
      * fits the column precision, so that a number cell ({@code 5000.0}) and a text cell ({@code
      * 5000.0000}) of a {@code decimal(20, 4)} column read alike. Any other value is returned as it
@@ -155,7 +176,9 @@ public class ExcelCellUtils implements Serializable {
             // The original value is the stored text, which Excel may write with 17 significant
             // digits (5.555 as 5.5549999999999997). Read the same double as the POI engine does.
             fieldValue =
-                    numberText(((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue());
+                    numberText(
+                            ((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue(),
+                            sqlType);
         } else if (field instanceof String || cellRaw == null) {
             fieldValue = field.toString();
         } else {

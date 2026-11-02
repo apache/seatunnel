@@ -355,7 +355,7 @@ PDF 特有的解析行为如下：
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
 
-两种引擎读取数值列（TINYINT、SMALLINT、INT、BIGINT、FLOAT、DOUBLE 或 DECIMAL）时，数值单元格和公式的数值结果都按存储的数值读取，而不是显示文本：显示为 `50%` 的单元格读取为 `0.5`。DOUBLE 和 FLOAT 列得到精确的 `double`；整数列和 DECIMAL 列也解析相同的存储值文本，不会猜测末尾数字来自公式计算还是真实数据。例如 `7.999999999999999` 保留原值，因此读入 INT 列后转为 `7`。STRING 列仍读取数值单元格的显示文本。DECIMAL 列也可以读取文本单元格，且不经过 `double`；在不丢失任何位数时 DECIMAL 按声明的 scale 读取（`decimal(20, 4)` 中的 `5000.0` 读作 `5000.0000`）。
+两种引擎读取数值列（TINYINT、SMALLINT、INT、BIGINT、FLOAT、DOUBLE 或 DECIMAL）时，数值单元格和公式的数值结果都按存储的数值读取，而不是显示文本：显示为 `50%` 的单元格读取为 `0.5`。DOUBLE 和 FLOAT 列得到精确的 `double`；DECIMAL 列解析相同的存储值文本，不会猜测末尾数字来自公式计算还是真实数据，例如 `=0.1+0.2` 的结果读作 `0.30000000000000004`，小数位数可能超过声明的 scale；如需得到公式显示的值，可以在 [SQL 转换](../../transforms/sql.md) 中使用 `ROUND(col, 2)`。整数列读取整数时保留全部位数，读取带小数的值时先按 Excel 的 15 位有效数字取值再去掉小数部分，例如 `7.999999999999999` 读作 `8`。STRING 列仍读取数值单元格的显示文本。DECIMAL 列也可以读取文本单元格，且不经过 `double`；在不丢失任何位数时 DECIMAL 按声明的 scale 读取（`decimal(20, 4)` 中的 `5000.0` 读作 `5000.0000`）。
 
 ### excel_use_header_line [boolean]
 

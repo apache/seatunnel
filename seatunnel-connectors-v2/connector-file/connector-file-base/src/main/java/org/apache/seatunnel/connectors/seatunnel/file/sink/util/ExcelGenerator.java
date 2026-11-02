@@ -250,10 +250,28 @@ public class ExcelGenerator {
      * billions of characters; it is not built.
      */
     private static String toDecimalText(BigDecimal value) {
-        // Digits plus the zeros added by a negative scale or before the first digit, and the
-        // sign and decimal point
-        long plainLength = (long) value.precision() + Math.abs((long) value.scale()) + 2;
-        return plainLength <= MAX_TEXT_LENGTH ? value.toPlainString() : value.toString();
+        return plainTextLength(value) <= MAX_TEXT_LENGTH ? value.toPlainString() : value.toString();
+    }
+
+    /**
+     * The length of {@link BigDecimal#toPlainString()} of a non-zero decimal, computed from its
+     * precision and scale without building the text.
+     */
+    private static long plainTextLength(BigDecimal value) {
+        long precision = value.precision();
+        long scale = value.scale();
+        long length;
+        if (scale <= 0) {
+            // The digits followed by -scale zeros
+            length = precision - scale;
+        } else if (scale < precision) {
+            // The digits with a decimal point inside them
+            length = precision + 1;
+        } else {
+            // "0." followed by scale - precision zeros and the digits
+            length = scale + 2;
+        }
+        return value.signum() < 0 ? length + 1 : length;
     }
 
     private String convert(String fieldName, Object field, SeaTunnelDataType<?> fieldType) {
