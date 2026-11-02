@@ -59,7 +59,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | conditionally yes | -                         |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                                 |
@@ -69,7 +69,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
 | time_format                | string  | no       | HH:mm:ss                             |
 | skip_header_row_number     | long    | no       | 0                                    |
-| schema                     | config  | no       | -                                    |
+| schema                     | config  | conditionally yes | -                               |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
 | excel_use_header_line      | boolean | no       | false                                |
@@ -85,6 +85,8 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| markdown_rag_metadata_enabled | boolean | no    | false                                |
+| pdf_rag_metadata_enabled   | boolean | no       | false                                |
 | discovery_mode             | string  | no       | once                                 |
 | scan_interval              | string  | no       | 10S |
 | start_mode                 | string  | no       | earliest                             |
@@ -122,6 +124,8 @@ File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+
+Required when reading a single table with `path`. When reading multiple tables with `tables_configs`, the top-level option is not needed because each table entry defines its own `file_format_type`.
 
 For example:
 
@@ -162,23 +166,11 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you assign file type to `json`, `excel`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
 
-For example, upstream data is the following:
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+For `text` and `csv`, the schema is optional. Without a schema, the connector reads each input line into a single `content` field of type string; `read_columns` is not supported in this mode. Configure a schema when you need typed fields or column mapping.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -338,7 +330,7 @@ preamble, leave the value at `0`.
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
+Required when `file_format_type` is `json`, `excel`, or `xml`. Optional for `text` and `csv`; when omitted, each input line is read into a single `content` field of type string and `read_columns` is not supported.
 
 #### fields [Config]
 
@@ -404,7 +396,7 @@ For security reasons (XXE hardening), XML files (`file_format_type = xml`) conta
 
 ### csv_use_header_line [boolean]
 
-Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+When enabled, the connector consumes the first RFC 4180 CSV record as the header and maps its column names to the fields in the configured `schema`. This option does not infer the schema or field types. Do not also use `skip_header_row_number` to skip the same header row.
 
 ### file_filter_pattern [string]
 
@@ -494,7 +486,7 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
+Only used when file_format_type is `text` or `csv`.
 null_format to define which strings can be represented as null.
 
 e.g: `\N`
