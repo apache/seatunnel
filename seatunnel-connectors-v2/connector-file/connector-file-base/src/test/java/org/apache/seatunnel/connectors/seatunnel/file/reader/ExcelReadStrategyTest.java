@@ -778,7 +778,8 @@ public class ExcelReadStrategyTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"POI", "EasyExcel"})
-    public void testDecimalNearIntegerValuesKeepStoredDigits(String excelEngine) throws IOException {
+    public void testDecimalNearIntegerValuesKeepStoredDigits(String excelEngine)
+            throws IOException {
         File excelFile = File.createTempFile("excel_decimal_near_integer_", ".xlsx");
         excelFile.deleteOnExit();
         try (XSSFWorkbook workbook = new XSSFWorkbook();

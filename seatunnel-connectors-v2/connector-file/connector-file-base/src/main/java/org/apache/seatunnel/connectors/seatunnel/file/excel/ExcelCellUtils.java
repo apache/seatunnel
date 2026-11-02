@@ -113,7 +113,9 @@ public class ExcelCellUtils implements Serializable {
                 && ((ReadCellData<?>) cellRaw).getOriginalNumberValue() != null;
     }
 
-    /** Returns the stored number without discarding digits based on a guessed source of rounding. */
+    /**
+     * Returns the stored number without discarding digits based on a guessed source of rounding.
+     */
     public static String numberText(double value) {
         return Double.toString(value);
     }
