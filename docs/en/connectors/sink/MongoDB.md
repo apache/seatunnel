@@ -32,7 +32,9 @@ The connector supports two write semantics:
 
 - **Append writes** — every row produces a new document. Fast, but not idempotent across retries.
 - **Upsert writes** — when `upsert-enable = true` and `primary-key` is configured, the connector
-  uses the primary key as the MongoDB `_id` (or compound `_id`) and upserts. Combined with
+  matches existing documents on the configured primary key fields and upserts. On insert, MongoDB
+  auto-generates the document `_id` only when the primary key does not include `_id`; with
+  `primary-key = _id` the supplied `_id` value is kept as the document identity. Combined with
   checkpoint-based recovery this gives at-least-once with idempotent retries, which is the standard
   way to deliver exactly-once into MongoDB.
 
@@ -84,15 +86,15 @@ The following table lists the field data type mapping from SeaTunnel data type t
 | FLOAT               | Double            |
 | DECIMAL             | Decimal128        |
 | Date                | Date              |
-| Timestamp           | Timestamp[Date]   |
+| Timestamp           | Date              |
 | ROW                 | Object            |
 | ARRAY               | Array             |
 
 **Tips**
 
-> 1. When SeaTunnel writes `Date` and `Timestamp` types to MongoDB, both become MongoDB `Date`
->    fields, but at different precisions: SeaTunnel `Date` is second precision; SeaTunnel
->    `Timestamp` is millisecond precision.
+> 1. When SeaTunnel writes `Date` and `Timestamp` types to MongoDB, both are written as MongoDB
+>    `Date` fields (`BsonDateTime`, millisecond precision). A SeaTunnel `Date` is stored as
+>    midnight of that day; a SeaTunnel `Timestamp` keeps its time-of-day.
 > 2. When using the `DECIMAL` type in SeaTunnel, the maximum range cannot exceed 34 digits. Use
 >    `decimal(34, 18)` to stay within the supported precision and scale.
 
@@ -311,9 +313,11 @@ By specifying a clear primary key and using the upsert method, exactly-once writ
 achieved.
 
 If `primary-key` and `upsert-enable` are defined in the configuration, the MongoDB sink uses
-upsert semantics instead of regular INSERT statements. The connector combines the primary keys
-declared in `primary-key` as the MongoDB reserved primary key and writes via upsert mode to ensure
-idempotent writes. In the event of a failure, SeaTunnel jobs recover from the last successful
+upsert semantics instead of regular INSERT statements. The connector uses the primary keys
+declared in `primary-key` as the upsert match filter and writes via upsert mode to ensure
+idempotent writes; when no matching document exists, the inserted document gets an auto-generated
+MongoDB `_id` unless the primary key itself includes `_id`, in which case the filter's `_id` value
+is kept as the inserted document's identity. In the event of a failure, SeaTunnel jobs recover from the last successful
 checkpoint and reprocess, which may result in duplicate processing during recovery. It is highly
 recommended to use upsert mode because it avoids violating database primary key constraints and
 generating duplicate data if records need to be reprocessed.
@@ -326,6 +330,66 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name", "status"]
+  }
+}
+```
+
+### CDC Changelog Sink
+
+When the upstream is a changelog source, configure `upsert-enable = true` and `primary-key` so `UPDATE` and
+`DELETE` events map to existing documents instead of being inserted as duplicates. The sink also exposes
+`buffer-flush.max-rows`, `buffer-flush.interval`, and `retry.max` to control the batch flush and retry behaviour.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### Transactional Sink (MongoDB 4.2+)
+
+Set `transaction = true` to wrap the bulk writes into a MongoDB multi-document transaction. This option requires
+MongoDB 4.2 or later and is committed at checkpoint boundaries. Note that timer flush is automatically disabled
+in transaction mode so that the checkpoint-driven commit boundary is preserved.
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
   }
 }
 ```

@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported table storage formats are text, parquet and ORC; the format is detected from the Hive table's storage format (`STORED AS`) and tables stored in any other format are rejected. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
+Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported table storage formats are text, parquet and ORC; the format is detected from the Hive table's storage format (`STORED AS`) and tables stored in any other format are rejected. The data files of each table are enumerated as one split per file, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
 
 :::tip
 
