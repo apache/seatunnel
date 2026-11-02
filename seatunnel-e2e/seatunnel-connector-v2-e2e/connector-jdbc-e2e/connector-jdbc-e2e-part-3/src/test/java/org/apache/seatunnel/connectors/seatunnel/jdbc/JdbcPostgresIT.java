@@ -1120,7 +1120,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             Assertions.assertTrue(elementType.contains("ChapterElementType"));
             Assertions.assertTrue(orderStatus.contains("Order Status"));
             Assertions.assertTrue(roles.contains("enum_bind") && roles.endsWith("[]"));
-            Assertions.assertTrue(textEnum.contains("enum_bind") && textEnum.contains("\"text\""));
+            // format_type leaves a name unquoted when it needs no quotes.
+            Assertions.assertEquals("enum_bind.text", textEnum);
             Assertions.assertEquals("jsonb", databaseTableSchema.getColumn("note").getSourceType());
 
             // The input row carries unqualified names. The sink uses the catalog schema, so a
