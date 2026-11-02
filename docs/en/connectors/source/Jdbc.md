@@ -329,6 +329,8 @@ Entries inside `table_list` continue to use dynamic splitting even when they inc
 
 Range and hash split conditions never match NULL, so when the split column is nullable, SeaTunnel checks whether any row to be read has NULL in it and, if so, adds one split that reads these rows. This applies to `partition_column` and to a unique index column chosen automatically. A split column declared `NOT NULL`, such as a primary key, or one without NULL values gets no extra split.
 
+The check is one `SELECT 1 ... WHERE <column> IS NULL` query per table, run once when the splits are planned. It stops at the first NULL it finds, but on a large table without NULL values it reads the whole table, unless the database can answer `IS NULL` from an index on the split column. A split column declared `NOT NULL` skips the check.
+
 ### Query and primary-key caution
 
 When SeaTunnel infers a key for `query`, it inherits metadata from the underlying table of the first result column. For joins or multi-table queries, that key is not guaranteed to be unique across the complete result set. Prefer a single-reader query or explicitly choose a partition column whose values divide the result safely.

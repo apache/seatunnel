@@ -391,6 +391,45 @@ public class FixedChunkSplitterTest {
         }
     }
 
+    @Test
+    public void testNullSplitKeySplitFollowsWhereCondition() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties())) {
+            createTableWithNullKeys(connection);
+            JdbcSourceTable table =
+                    tableSplitBy("code", "1", "99").withQuery("SELECT id, code FROM t");
+
+            try (DuckDbFixedChunkSplitter splitter =
+                    new DuckDbFixedChunkSplitter(duckDbConfig("WHERE id > 50"), connection)) {
+                // with a query, and with only the table path
+                for (JdbcSourceTable scope : Arrays.asList(table, table.withQuery(null))) {
+                    Collection<JdbcSourceSplit> splits = splitter.generateSplits(scope);
+                    List<Long> ids = readAllIds(splitter, splits);
+
+                    String name = scope.getQuery() == null ? "table path" : "query";
+                    assertEquals(
+                            1,
+                            splits.stream().filter(JdbcSourceSplit::isNullSplitKey).count(),
+                            name);
+                    assertEquals(50, ids.size(), name);
+                    assertEquals(
+                            LongStream.rangeClosed(51, 100).boxed().collect(Collectors.toSet()),
+                            new HashSet<>(ids),
+                            name);
+                }
+            }
+
+            // name is not in the query, and no row matching the condition has a NULL code
+            try (DuckDbFixedChunkSplitter splitter =
+                    new DuckDbFixedChunkSplitter(
+                            duckDbConfig("WHERE name IS NOT NULL"), connection)) {
+                Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
+
+                assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
+                assertEquals(90, readAllIds(splitter, splits).size());
+            }
+        }
+    }
+
     private static void createTableWithNullKeys(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("CREATE TABLE t (id BIGINT NOT NULL, code BIGINT, name VARCHAR)");
@@ -453,6 +492,10 @@ public class FixedChunkSplitterTest {
     }
 
     private static JdbcSourceConfig duckDbConfig() {
+        return duckDbConfig(null);
+    }
+
+    private static JdbcSourceConfig duckDbConfig(String whereCondition) {
         return JdbcSourceConfig.builder()
                 .jdbcConnectionConfig(
                         JdbcConnectionConfig.builder()
@@ -460,6 +503,7 @@ public class FixedChunkSplitterTest {
                                 .driverName("org.duckdb.DuckDBDriver")
                                 .build())
                 .enableConcurrentRead(true)
+                .whereConditionClause(whereCondition)
                 .build();
     }
 
