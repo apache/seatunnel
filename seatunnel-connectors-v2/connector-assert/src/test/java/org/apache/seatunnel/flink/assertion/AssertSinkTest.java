@@ -39,6 +39,18 @@ import java.util.Map;
 public class AssertSinkTest {
 
     @Test
+    public void testMissingRulesRejectedAtRuntime() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.emptyMap());
+
+        ConfigException.Missing exception =
+                Assertions.assertThrows(
+                        ConfigException.Missing.class,
+                        () -> new AssertSink(config, createCatalogTable()));
+
+        Assertions.assertTrue(exception.getMessage().contains(AssertSinkOptions.RULES.key()));
+    }
+
+    @Test
     public void testEmptyRulesRejectedAtRuntime() {
         Map<String, Object> config = new HashMap<>();
         config.put(AssertSinkOptions.RULES.key(), Collections.emptyMap());
@@ -64,6 +76,20 @@ public class AssertSinkTest {
                         () -> new AssertSink(ReadonlyConfig.fromMap(config), createCatalogTable()));
 
         Assertions.assertTrue(exception.getMessage().contains("Assert rule config is empty"));
+    }
+
+    @Test
+    public void testValidRulesAcceptedAtRuntime() {
+        Map<String, Object> rowRule = new HashMap<>();
+        rowRule.put("rule_type", "MAX_ROW");
+        rowRule.put("rule_value", 10);
+        Map<String, Object> rules = new HashMap<>();
+        rules.put("row_rules", Collections.singletonList(rowRule));
+        Map<String, Object> config = new HashMap<>();
+        config.put(AssertSinkOptions.RULES.key(), rules);
+
+        Assertions.assertDoesNotThrow(
+                () -> new AssertSink(ReadonlyConfig.fromMap(config), createCatalogTable()));
     }
 
     private CatalogTable createCatalogTable() {

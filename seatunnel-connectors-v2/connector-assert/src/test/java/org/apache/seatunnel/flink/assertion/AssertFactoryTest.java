@@ -52,8 +52,7 @@ public class AssertFactoryTest {
     @Test
     public void testMissingRulesRejectedByFactoryRule() {
         Assertions.assertThrows(
-                OptionValidationException.class,
-                () -> validateSink(Collections.emptyMap()));
+                OptionValidationException.class, () -> validateSink(Collections.emptyMap()));
     }
 
     @Test
@@ -81,4 +80,3 @@ public class AssertFactoryTest {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(SINK_RULE);
     }
 }
-
