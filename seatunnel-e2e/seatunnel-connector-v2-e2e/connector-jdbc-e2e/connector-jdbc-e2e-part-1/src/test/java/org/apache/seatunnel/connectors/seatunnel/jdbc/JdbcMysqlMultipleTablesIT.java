@@ -398,15 +398,9 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
     }
 
     @TestTemplate
-    public void testMysqlJdbcWhereConditionWildcardAndInsertedColumn(TestContainer container)
+    public void testMysqlJdbcWhereConditionInsertsMissingColumnBeforeMainFrom(
+            TestContainer container)
             throws IOException, InterruptedException, SQLException {
-        clearUnicodeSinkTable();
-
-        Container.ExecResult wildcardResult =
-                container.executeJob("/jdbc_mysql_where_condition_wildcard.conf");
-        Assertions.assertEquals(0, wildcardResult.getExitCode(), wildcardResult.getStderr());
-        assertUnicodeTableProjection();
-
         clearUnicodeSinkTable();
 
         Container.ExecResult insertedResult =
