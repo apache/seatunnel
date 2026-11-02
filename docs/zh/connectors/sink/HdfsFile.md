@@ -71,7 +71,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | batch_size                       | int     | 否    | 1000000                                    | 文件中的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。如果 `checkpoint.interval` 的值足够大，则接收器写入器将在文件中写入行，直到文件中的行大于 `batch_size`。如果 `checkpoint.interval` 很小，则接收器写入器将在新检查点触发时创建一个新文件。                                                                                        |
 | single_file_mode                 | boolean | 否    | false                                      | 每个并行度只会输出一个文件，当此参数开启时，batch_size就不会生效。输出的文件名没有文件块后缀。                                                                                                                                                                                                                                             |
 | create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，依然生成对应的数据文件。                                                                                                                                                                                                                                                                          |
-| compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器及其支持的细节如下所示：[txt: `lzo` `none`，json: `lzo` `none`，csv: `lzo` `none`，orc: `lzo` `snappy` `lz4` `zlib` `none`，parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`]。提示：excel类型不支持任何压缩格式。                                                                                           |
+| compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器及其支持的细节如下所示：[txt: `lzo` `none`，json: `lzo` `none`，csv: `lzo` `none`，orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`，parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`]。提示：excel类型不支持任何压缩格式。                                                                                           |
 | krb5_path                        | string  | 否    | /etc/krb5.conf                             | kerberos 的 krb5 路径                                                                                                                                                                                                                                                                               |
 | kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
@@ -150,6 +150,10 @@ HdfsFile {
 仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
 设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
 设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
+
+### ORC ZSTD 兼容性
+
+ORC 支持 `compress_codec = "zstd"`。共享文件连接器的 ORC 依赖由 1.5.6 升级为 1.8.7，ZSTD 输出会实际采用 ZSTD 压缩。下游读取器必须支持 ORC ZSTD；保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。启用前请先验证或升级下游读取器，或继续使用双方均支持的 `snappy`、`zlib` 等压缩格式。默认值仍为 `none`。
 
 ## 任务示例
 
