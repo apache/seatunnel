@@ -229,6 +229,12 @@ public class HiveSink
                 ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
     }
 
+    /**
+     * Inherits compression only while preparing an existing ORC table. Explicit codecs, including
+     * NONE, take precedence. Rejects enum values mapped to ORC NONE to prevent silent compression
+     * loss. Returns the original config or an immutable replacement without changing table
+     * metadata.
+     */
     private Config inheritTableCompression(
             Config pluginConfig, FileFormat fileFormat, Table table) {
         if (!readonlyConfig.get(HiveSinkOptions.USE_TABLE_COMPRESSION)

@@ -41,7 +41,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
 | metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
-| compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec                        | string  | no       | none           | Explicit output compression codec. Defaults to `none`; see `use_table_compression` to inherit compression from an existing ORC table. |
+| use_table_compression                 | boolean | no       | false          | Inherit `orc.compress` from an existing ORC table when no explicit codec is configured. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
 | hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
@@ -57,6 +58,25 @@ By default, we use 2PC commit to ensure `exactly-once`
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
 | save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`. |
 | common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
+
+### use_table_compression [boolean]
+
+Default: `false`. Enable this option to inherit `orc.compress` from the metastore when preparing an **existing ORC table**. It does not change automatic table creation, non-ORC tables, or table metadata.
+
+Priority: explicit `compress_codec` (including `NONE`) > table `orc.compress` when enabled > the existing default `NONE`. Table values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Unknown values or codecs without a supported ORC mapping fail during sink initialization instead of silently writing uncompressed files. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using that table property. Downstream readers must support the selected codec.
+
+For an existing table created with `TBLPROPERTIES ('orc.compress'='SNAPPY')`:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_orc_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # Optional: compress_codec = "NONE" overrides the table property.
+  }
+}
+```
 
 ### table_name [string]
 

@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | table_name                            | string  | 是  | -              |
 | metastore_uri                         | string  | 否  | -              |
 | compress_codec                        | string  | 否  | none           |
+| use_table_compression                 | boolean | 否  | false          |
 | hdfs_site_path                        | string  | 否  | -              |
 | hive_site_path                        | string  | 否  | -              |
 | hive.hadoop.conf                      | Map     | 否  | -              |
@@ -51,6 +52,25 @@ import ChangeLog from '../changelog/connector-hive.md';
 | schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | 否  | -              |
 | common-options                        |         | 否  | -              |
+
+### use_table_compression [boolean]
+
+默认值：`false`。开启后，初始化**已有 ORC 表**时从 metastore 继承 `orc.compress`。此选项不改变自动建表流程、非 ORC 表或表元数据。
+
+优先级：显式 `compress_codec`（包括 `NONE`）> 开启继承后的表属性 `orc.compress` > 原默认值 `NONE`。表属性去除首尾空白后按大小写不敏感匹配；属性缺失、为 null 或为空白时保留默认值。未知值或没有有效 ORC 映射的压缩格式在 sink 初始化时明确报错，避免静默写为不压缩。在 ORC ZSTD 仍映射为 NONE 的版本中，继承 ZSTD 会报错；使用该表属性前请确认 SeaTunnel 版本支持 ORC ZSTD。下游读取器也必须支持所选压缩格式。
+
+对于通过 `TBLPROPERTIES ('orc.compress'='SNAPPY')` 创建的已有表：
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_orc_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # 可选：compress_codec = "NONE" 覆盖表属性。
+  }
+}
+```
 
 ### table_name [string]
 
