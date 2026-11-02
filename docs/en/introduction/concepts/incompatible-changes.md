@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File connectors: Excel keeps the full value of DOUBLE and DECIMAL
+
+- **Behavior change: Excel files are written and read without losing DOUBLE and DECIMAL digits**
+  - **Description**: The Excel sink converted DECIMAL values to `double`, and the Excel source (both the POI and the EasyExcel engine) read numeric cells through their display format, which keeps about 10 significant digits. DOUBLE and DECIMAL values changed in an Excel round trip, for example `10.285714285` became `10.28571428`. The source now reads the stored number of a number cell, and the numeric result of a formula cell, for numeric columns. DOUBLE and FLOAT columns get the exact `double` (a cell holding `5.555` reads as `5.555`); integer and DECIMAL columns parse the same stored `double` text without guessing whether its low-order digits came from a formula or a measured value. For example, `7.999999999999999` remains `7.999999999999999`, and `0.30000000000000004` remains `0.30000000000000004` in a DECIMAL column. A DECIMAL is parsed from a text cell without going through `double`, and is read with the declared scale when that loses no digit and fits the declared precision, so `5000.0` in a `decimal(20, 4)` column reads as `5000.0000`; a value with more fractional digits is not rounded. The sink still writes a DECIMAL as a number cell when it reads back unchanged that way, and otherwise writes it as a text cell.
+  - **Impact**: Numeric columns read from Excel can now carry more digits than before. A DECIMAL that would not read back unchanged from a number cell, for example one with more digits than a `double` holds (many `DECIMAL(38, 18)` values, or a 17-digit `DECIMAL(20, 0)` id), is now a text cell in the written file, so Excel shows it as text and does not use it in formulas such as `SUM`. A number cell with a percent or currency display format that is read into a numeric column is now read as its stored number, for example a cell shown as `50%` is read as `0.5`; before, the displayed text was parsed and usually failed.
+  - **Migration Guide**: No change is needed to read the files with SeaTunnel. If spreadsheet formulas must use such a column, cast it to DOUBLE before the sink, which writes a number cell and accepts the rounding.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

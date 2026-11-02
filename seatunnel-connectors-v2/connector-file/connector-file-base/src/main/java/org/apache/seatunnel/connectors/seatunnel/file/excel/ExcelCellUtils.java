@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,10 +45,25 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 
 public class ExcelCellUtils implements Serializable {
 
     static final long serialVersionUID = 42L;
+
+    /** Column types read from the stored number of a number cell, not its display text. */
+    public static final Set<SqlType> NUMERIC_SQL_TYPES =
+            Collections.unmodifiableSet(
+                    EnumSet.of(
+                            SqlType.TINYINT,
+                            SqlType.SMALLINT,
+                            SqlType.INT,
+                            SqlType.BIGINT,
+                            SqlType.FLOAT,
+                            SqlType.DOUBLE,
+                            SqlType.DECIMAL));
 
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
@@ -84,18 +100,67 @@ public class ExcelCellUtils implements Serializable {
         return null;
     }
 
+    /**
+     * Whether the EasyExcel cell is a number cell read into a numeric column. EasyExcel hands the
+     * text formatted with the cell's display format ("General" keeps about 10 significant digits),
+     * so such a cell is read from its stored number instead. The original number value is used
+     * because {@link ReadCellData#getNumberValue()} is rounded to 15 significant digits.
+     */
+    private static boolean isNumericCell(@Nullable Cell cellRaw, SqlType sqlType) {
+        return NUMERIC_SQL_TYPES.contains(sqlType)
+                && cellRaw instanceof ReadCellData
+                && ((ReadCellData<?>) cellRaw).getType() == CellDataTypeEnum.NUMBER
+                && ((ReadCellData<?>) cellRaw).getOriginalNumberValue() != null;
+    }
+
+    /**
+     * Returns the stored number without discarding digits based on a guessed source of rounding.
+     */
+    public static String numberText(double value) {
+        return Double.toString(value);
+    }
+
+    /**
+     * Gives a decimal the scale of its column when that does not change its value and the result
+     * fits the column precision, so that a number cell ({@code 5000.0}) and a text cell ({@code
+     * 5000.0000}) of a {@code decimal(20, 4)} column read alike. Any other value is returned as it
+     * is, so no digit is rounded away; the bound also keeps a value with a large exponent, such as
+     * {@code 1E+2147483647}, from being expanded.
+     */
+    private static BigDecimal toDeclaredScale(BigDecimal value, DecimalType decimalType) {
+        int scale = decimalType.getScale();
+        if (value.signum() == 0) {
+            return BigDecimal.ZERO.setScale(scale);
+        }
+        // precision - scale does not change when trailing zeros are stripped, so check the bound
+        // first: stripping the zeros of a value such as 1000E+2147483647 would underflow the scale
+        long integerDigits = (long) value.precision() - value.scale();
+        if (integerDigits + scale > decimalType.getPrecision()) {
+            return value;
+        }
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.scale() > scale ? value : stripped.setScale(scale);
+    }
+
     @SneakyThrows(JsonProcessingException.class)
     public Object convert(Object field, SeaTunnelDataType<?> fieldType, @Nullable Cell cellRaw) {
         if (field == null && cellRaw == null) {
             return null;
         }
 
-        String fieldValue =
-                (field instanceof String) || cellRaw == null
-                        ? field.toString()
-                        : getCellValue((ReadCellData) cellRaw);
-
         SqlType sqlType = fieldType.getSqlType();
+
+        String fieldValue;
+        if (isNumericCell(cellRaw, sqlType)) {
+            // The original value is the stored text, which Excel may write with 17 significant
+            // digits (5.555 as 5.5549999999999997). Read the same double as the POI engine does.
+            fieldValue =
+                    numberText(((ReadCellData<?>) cellRaw).getOriginalNumberValue().doubleValue());
+        } else if (field instanceof String || cellRaw == null) {
+            fieldValue = field.toString();
+        } else {
+            fieldValue = getCellValue((ReadCellData) cellRaw);
+        }
 
         if (fieldValue == null || (fieldValue.equals("") && sqlType != SqlType.STRING)) {
             return null;
@@ -129,7 +194,8 @@ public class ExcelCellUtils implements Serializable {
             case SMALLINT:
                 return (short) Double.parseDouble(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                // Parse the text directly: going through double drops digits beyond ~15
+                return toDeclaredScale(new BigDecimal(fieldValue.trim()), (DecimalType) fieldType);
             case DATE:
                 return parseDate(field, fieldType);
             case TIME:

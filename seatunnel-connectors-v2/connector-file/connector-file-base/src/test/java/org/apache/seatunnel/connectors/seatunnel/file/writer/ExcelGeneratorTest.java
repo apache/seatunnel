@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -25,6 +27,10 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
+
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,9 +40,12 @@ import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -273,5 +282,75 @@ public class ExcelGeneratorTest {
 
         assertTrue("Headers should be valid", headerValid.get());
         assertEquals("Should have correct number of rows", expectedDataRows, rowCount.get());
+    }
+
+    @Test
+    public void testDecimalKeepsAllDigits() throws IOException {
+        when(fileSinkConfig.getFieldDelimiter()).thenReturn(",");
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_decimal"},
+                        new SeaTunnelDataType[] {new DecimalType(20, 4)});
+        ExcelGenerator excelGenerator =
+                new ExcelGenerator(Arrays.asList(0), decimalRowType, fileSinkConfig);
+        excelGenerator.writeData(new SeaTunnelRow(new Object[] {new BigDecimal("1012345.6699")}));
+        // 17 significant digits: not representable as a double
+        excelGenerator.writeData(
+                new SeaTunnelRow(new Object[] {new BigDecimal("9215784885957046.9450")}));
+        // A double holds it, but a number cell reads back as Excel's 15-digit text 0.3
+        excelGenerator.writeData(
+                new SeaTunnelRow(new Object[] {new BigDecimal("0.30000000000000004")}));
+        // 16 real digits that a double holds: read back unchanged, so a number cell
+        excelGenerator.writeData(
+                new SeaTunnelRow(new Object[] {new BigDecimal("9.876543210987654")}));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        excelGenerator.flushAndCloseExcel(output);
+
+        try (XSSFWorkbook workbook =
+                new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
+            Row exact = workbook.getSheetAt(0).getRow(1);
+            assertEquals(CellType.NUMERIC, exact.getCell(0).getCellType());
+            assertEquals(1012345.6699, exact.getCell(0).getNumericCellValue(), 0.0);
+
+            Row wide = workbook.getSheetAt(0).getRow(2);
+            assertEquals(CellType.STRING, wide.getCell(0).getCellType());
+            assertEquals("9215784885957046.9450", wide.getCell(0).getStringCellValue());
+
+            Row noisy = workbook.getSheetAt(0).getRow(3);
+            assertEquals(CellType.STRING, noisy.getCell(0).getCellType());
+            assertEquals("0.30000000000000004", noisy.getCell(0).getStringCellValue());
+
+            Row sixteenDigits = workbook.getSheetAt(0).getRow(4);
+            assertEquals(CellType.NUMERIC, sixteenDigits.getCell(0).getCellType());
+            assertEquals(9.876543210987654, sixteenDigits.getCell(0).getNumericCellValue(), 0.0);
+        }
+    }
+
+    @Test
+    public void testDecimalWithLargeExponentIsWrittenAsScientificText() throws IOException {
+        when(fileSinkConfig.getFieldDelimiter()).thenReturn(",");
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_decimal"},
+                        new SeaTunnelDataType[] {new DecimalType(20, 4)});
+        ExcelGenerator excelGenerator =
+                new ExcelGenerator(Arrays.asList(0), decimalRowType, fileSinkConfig);
+        // The plain text would have 2^31 characters
+        excelGenerator.writeData(new SeaTunnelRow(new Object[] {new BigDecimal("1E+2147483647")}));
+        // A non-BigDecimal value in a DECIMAL column is converted through its text
+        excelGenerator.writeData(new SeaTunnelRow(new Object[] {2.5d}));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        excelGenerator.flushAndCloseExcel(output);
+
+        try (XSSFWorkbook workbook =
+                new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
+            Row large = workbook.getSheetAt(0).getRow(1);
+            assertEquals(CellType.STRING, large.getCell(0).getCellType());
+            assertEquals("1E+2147483647", large.getCell(0).getStringCellValue());
+
+            Row converted = workbook.getSheetAt(0).getRow(2);
+            assertEquals(CellType.NUMERIC, converted.getCell(0).getCellType());
+            assertEquals(2.5, converted.getCell(0).getNumericCellValue(), 0.0);
+        }
     }
 }

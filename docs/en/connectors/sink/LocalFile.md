@@ -193,6 +193,8 @@ The compress codec of files and the details that supported as the following show
 
 Tips: excel type does not support any compression format
 
+Excel stores numbers as `double`. A DECIMAL value is written as a number cell when it reads back unchanged from one (most values a `double` holds exactly), and otherwise as a text cell, so a DECIMAL column can mix both kinds of cells and Excel formulas such as `SUM` skip the text cells. To write one kind of cell for the whole column, cast it in the [SQL transform](../../transforms/sql.md) before the sink: `CAST(col AS DOUBLE)` writes number cells and rounds to a `double`, `CAST(col AS STRING)` writes text cells with every digit.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.

@@ -26,9 +26,11 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.excel.ExcelCellUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
+import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CreationHelper;
@@ -40,6 +42,7 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -65,6 +68,7 @@ public class ExcelGenerator {
 
     private final int sheetMaxRows;
     private static final int HEADER_ROWS = 1;
+    private static final int MAX_TEXT_LENGTH = SpreadsheetVersion.EXCEL2007.getMaxTextLength();
 
     private int currentSheetIndex = 0;
     private int currentRowInSheet = 0;
@@ -172,8 +176,11 @@ public class ExcelGenerator {
                     cell.setCellStyle(wholeNumberCellStyle);
                     break;
                 case DECIMAL:
-                    cell.setCellValue(Double.parseDouble(value.toString()));
-                    cell.setCellStyle(wholeNumberCellStyle);
+                    setDecimalCellValue(
+                            value instanceof BigDecimal
+                                    ? (BigDecimal) value
+                                    : new BigDecimal(value.toString()),
+                            cell);
                     break;
                 case BYTES:
                     List<String> arrayData = new ArrayList<>();
@@ -214,6 +221,39 @@ public class ExcelGenerator {
                             "Excel", type.getSqlType().toString(), fieldName);
             }
         }
+    }
+
+    /**
+     * Excel stores numbers as IEEE 754 doubles. A decimal that reads back unchanged from a number
+     * cell (the text the source reads for its double, {@link ExcelCellUtils#numberText}, equals the
+     * value) is written as a number cell; any other decimal is written as text so that no digit is
+     * lost.
+     */
+    private void setDecimalCellValue(BigDecimal value, Cell cell) {
+        double doubleValue = value.doubleValue();
+        boolean readsBackUnchanged =
+                !Double.isInfinite(doubleValue)
+                        && new BigDecimal(ExcelCellUtils.numberText(doubleValue)).compareTo(value)
+                                == 0;
+        if (readsBackUnchanged) {
+            cell.setCellValue(doubleValue);
+            cell.setCellStyle(wholeNumberCellStyle);
+        } else {
+            cell.setCellValue(toDecimalText(value));
+            cell.setCellStyle(stringCellStyle);
+        }
+    }
+
+    /**
+     * The plain text of a decimal, or its scientific text when the plain text would not fit in a
+     * cell. A decimal with a large exponent, such as {@code 1E+2147483647}, has a plain text of
+     * billions of characters; it is not built.
+     */
+    private static String toDecimalText(BigDecimal value) {
+        // Digits plus the zeros added by a negative scale or before the first digit, and the
+        // sign and decimal point
+        long plainLength = (long) value.precision() + Math.abs((long) value.scale()) + 2;
+        return plainLength <= MAX_TEXT_LENGTH ? value.toPlainString() : value.toString();
     }
 
     private String convert(String fieldName, Object field, SeaTunnelDataType<?> fieldType) {

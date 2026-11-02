@@ -320,7 +320,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                                                 cell.getCellType(),
                                                                 cell,
                                                                 formulaEvaluator,
-                                                                formatter),
+                                                                formatter,
+                                                                fieldTypes[i]),
                                                         fieldTypes[i],
                                                         null));
                             }
@@ -437,7 +438,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             CellType cellType,
             Cell cell,
             FormulaEvaluator formulaEvaluator,
-            DataFormatter formatter) {
+            DataFormatter formatter,
+            SeaTunnelDataType<?> fieldType) {
         switch (cellType) {
             case STRING:
                 return cell.getStringCellValue();
@@ -447,6 +449,11 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getLocalDateTimeCellValue();
                 }
+                if (ExcelCellUtils.NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
+                    // The displayed text is rounded by the cell format ("General" keeps about 10
+                    // significant digits), so numeric columns read the stored double instead.
+                    return ExcelCellUtils.numberText(cell.getNumericCellValue());
+                }
                 return formatter.formatCellValue(cell);
             case BLANK:
                 return "";
@@ -455,6 +462,10 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case FORMULA:
                 CellValue evaluate = formulaEvaluator.evaluate(cell);
                 if (evaluate.getCellType().equals(CellType.NUMERIC)) {
+                    if (ExcelCellUtils.NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
+                        // Read like a number cell, as the EasyExcel engine reads the cached result
+                        return ExcelCellUtils.numberText(evaluate.getNumberValue());
+                    }
                     return NumberToTextConverter.toText(evaluate.getNumberValue());
                 } else {
                     return evaluate.formatAsString();
