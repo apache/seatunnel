@@ -51,6 +51,8 @@
                 <exclude>**/dependency-reduced-pom.xml</exclude>
                 <exclude>**/release.properties</exclude>
                 <exclude>**/pom.xml.releaseBackup</exclude>
+                <exclude>**/pom.xml.tag</exclude>
+                <exclude>**/pom.xml.next</exclude>
                 <exclude>**/*.gpg</exclude>
 
                 <!-- frontend build ignore: node is installed and npm dependencies are
