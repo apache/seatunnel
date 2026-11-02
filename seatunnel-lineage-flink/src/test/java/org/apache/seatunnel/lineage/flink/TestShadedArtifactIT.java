@@ -19,6 +19,7 @@ package org.apache.seatunnel.lineage.flink;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -30,6 +31,8 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -136,12 +139,76 @@ class TestShadedArtifactIT {
         builder.redirectErrorStream(true);
         builder.environment().keySet().removeIf(key -> key.startsWith("OPENLINEAGE_"));
         builder.environment().putAll(environment);
-        Process process = builder.start();
-        String output = read(process.getInputStream());
-        Assertions.assertTrue(
-                process.waitFor(60, TimeUnit.SECONDS), "the driver JVM did not exit: " + output);
-        Assertions.assertEquals(expectedExit, process.exitValue(), output);
-        return output;
+        return runProcess(builder, 60, TimeUnit.SECONDS, expectedExit);
+    }
+
+    private static String runProcess(
+            ProcessBuilder builder, long timeout, TimeUnit unit, int expectedExit)
+            throws Exception {
+        Path outputFile = Files.createTempFile("lineage-driver-", ".log");
+        Process process = null;
+        try {
+            builder.redirectErrorStream(true).redirectOutput(outputFile.toFile());
+            process = builder.start();
+            boolean finished = process.waitFor(timeout, unit);
+            if (!finished) {
+                process.destroyForcibly();
+                Assertions.assertTrue(
+                        process.waitFor(5, TimeUnit.SECONDS),
+                        "the driver JVM could not be stopped");
+            }
+            String output = new String(Files.readAllBytes(outputFile), StandardCharsets.UTF_8);
+            Assertions.assertTrue(finished, "the driver JVM did not exit: " + output);
+            Assertions.assertEquals(expectedExit, process.exitValue(), output);
+            return output;
+        } finally {
+            try {
+                if (process != null && process.isAlive()) {
+                    process.destroyForcibly();
+                    Assertions.assertTrue(
+                            process.waitFor(5, TimeUnit.SECONDS),
+                            "the driver JVM could not be stopped during cleanup");
+                }
+            } finally {
+                Files.deleteIfExists(outputFile);
+            }
+        }
+    }
+
+    @Test
+    void terminatesAStuckDriver() {
+        ProcessBuilder builder =
+                new ProcessBuilder(
+                        new File(System.getProperty("java.home"), "bin/java").getAbsolutePath(),
+                        "-cp",
+                        new File("target/test-classes").getAbsolutePath(),
+                        ShadedArtifactDriver.class.getName(),
+                        "hang");
+        AssertionError error =
+                Assertions.assertThrows(
+                        AssertionError.class, () -> runProcess(builder, 2, TimeUnit.SECONDS, 0));
+        Assertions.assertTrue(error.getMessage().contains("did not exit"));
+    }
+
+    @Test
+    void boundsTheWaitWhenTheDriverCannotBeStopped() throws Exception {
+        ProcessBuilder builder = Mockito.mock(ProcessBuilder.class);
+        Process process = Mockito.mock(Process.class);
+        Mockito.when(builder.redirectErrorStream(true)).thenReturn(builder);
+        Mockito.when(builder.redirectOutput(Mockito.any(File.class))).thenReturn(builder);
+        Mockito.when(builder.start()).thenReturn(process);
+        Mockito.when(process.waitFor(Mockito.anyLong(), Mockito.any(TimeUnit.class)))
+                .thenReturn(false);
+        Mockito.when(process.isAlive()).thenReturn(true);
+        Mockito.when(process.destroyForcibly()).thenReturn(process);
+
+        AssertionError error =
+                Assertions.assertThrows(
+                        AssertionError.class,
+                        () -> runProcess(builder, 1, TimeUnit.MILLISECONDS, 0));
+        Assertions.assertTrue(error.getMessage().contains("could not be stopped"));
+        Mockito.verify(process, Mockito.never()).waitFor();
+        Mockito.verify(process, Mockito.atLeastOnce()).waitFor(5, TimeUnit.SECONDS);
     }
 
     /** Locates the deployable artifact this module attaches during the package phase. */

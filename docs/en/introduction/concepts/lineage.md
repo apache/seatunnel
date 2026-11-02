@@ -159,16 +159,14 @@ support requires Flink 1.16 or later, which in the SeaTunnel starters means the 
 the Flink 1.13 and 1.15 starters do not register this hook and run the job unchanged.
 
 Exactly one side reports a successful Flink job, so a run never receives two `COMPLETE` events. An
-attached submission reports it from the client, which is the only place the output statistics are
-readable; a detached submission reports it from the JobManager status hook, without statistics.
+attached submission reports it from the client; a detached submission reports it from the JobManager status hook, without statistics.
 `FAIL` and `ABORT` come from the status hook, except for a job that never started: a submission
 that fails — no available slots, a rejected credential, or a JobManager that cannot load the status
 hook — is reported as `FAIL` by the client, because no hook runs for a job the cluster never
 created.
 
-A detached Flink job therefore has no `outputStatistics`, because its client result does not expose
-accumulators. Attached execution emits the available `SinkWriteCount` and `SinkWriteBytes` values,
-with `attempted` semantics.
+Flink events omit `outputStatistics`: detached results do not expose accumulators, and attached
+accumulators are job-wide and cannot reliably be attributed to an individual output dataset.
 
 The run facet carries a `flink_job_id` property in addition to `engine`. The run ID is derived
 before submission, when no Flink job ID exists yet, so `flink_job_id` is what ties a lineage run

@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.lineage.LineageConfig;
 import org.apache.seatunnel.lineage.LineageDataset;
+import org.apache.seatunnel.lineage.LineageDatasetExtractor;
 import org.apache.seatunnel.lineage.LineageEvent;
 import org.apache.seatunnel.lineage.LineageEventType;
 import org.apache.seatunnel.lineage.flink.LineageJobStatusHook;
@@ -37,9 +42,12 @@ import org.apache.flink.util.OptionalFailure;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,6 +55,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Covers the lineage registration path against a Flink runtime that actually has the status-hook
@@ -58,11 +67,63 @@ import java.util.Map;
  * does the real registration, and is the only place the hook and the result listener are reachable
  * at all.
  */
-class FlinkLineageRegistrationTest {
+public class FlinkLineageRegistrationTest {
 
     @BeforeEach
     void resetBackend() {
         RecordingLineageBackend.EVENTS.clear();
+    }
+
+    public static final class ThrowingExtractor implements LineageDatasetExtractor {
+        static final AtomicInteger CALLS = new AtomicInteger();
+
+        @Override
+        public boolean supports(String pluginName, Map<String, ?> options) {
+            return "fixturethrowing".equals(pluginName);
+        }
+
+        @Override
+        public List<LineageDataset> extract(Map<String, ?> options) {
+            CALLS.incrementAndGet();
+            throw new IllegalStateException("extractor failure");
+        }
+    }
+
+    @Test
+    void constructsTheJobWhenAnExtractorFails() {
+        ThrowingExtractor.CALLS.set(0);
+        Config config =
+                ConfigFactory.parseString(
+                        "env { openlineage_enabled=true, openlineage_url=\"http://127.0.0.1:1\" }\n"
+                                + "source { fixturethrowing {} }\n"
+                                + "sink { paimon { catalog_name=test, database=dw, table=orders } }");
+        FlinkRuntimeEnvironment runtime = Mockito.mock(FlinkRuntimeEnvironment.class);
+        try (MockedStatic<Common> common = Mockito.mockStatic(Common.class);
+                MockedStatic<FlinkRuntimeEnvironment> environments =
+                        Mockito.mockStatic(FlinkRuntimeEnvironment.class);
+                MockedConstruction<SourceExecuteProcessor> sources =
+                        Mockito.mockConstruction(SourceExecuteProcessor.class);
+                MockedConstruction<TransformExecuteProcessor> transforms =
+                        Mockito.mockConstruction(TransformExecuteProcessor.class);
+                MockedConstruction<SinkExecuteProcessor> sinks =
+                        Mockito.mockConstruction(SinkExecuteProcessor.class)) {
+            common.when(Common::appStarterDir).thenReturn(Paths.get("."));
+            common.when(Common::getPluginsJarDependenciesWithoutConnectorDependency)
+                    .thenReturn(Collections.emptyList());
+            common.when(Common::getLibJars).thenReturn(Collections.emptyList());
+            environments
+                    .when(() -> FlinkRuntimeEnvironment.getInstance(Mockito.any(Config.class)))
+                    .thenReturn(runtime);
+
+            Assertions.assertDoesNotThrow(() -> new FlinkExecution(config));
+            Assertions.assertEquals(1, ThrowingExtractor.CALLS.get());
+            Assertions.assertEquals(1, sources.constructed().size());
+            Assertions.assertEquals(1, transforms.constructed().size());
+            Assertions.assertEquals(1, sinks.constructed().size());
+            Mockito.verify(sources.constructed().get(0)).setRuntimeEnvironment(runtime);
+            Mockito.verify(transforms.constructed().get(0)).setRuntimeEnvironment(runtime);
+            Mockito.verify(sinks.constructed().get(0)).setRuntimeEnvironment(runtime);
+        }
     }
 
     @Test
@@ -95,8 +156,7 @@ class FlinkLineageRegistrationTest {
 
     /**
      * A local environment is an attached submission, so the client reports the successful terminal
-     * event with the output statistics it reads from the accumulators. The hook must be told to
-     * stay out of that event, or the two would race and the statistics-free one could land last.
+     * event and the hook must not send a duplicate.
      */
     @Test
     void handsTheTerminalEventToTheClientForAnAttachedSubmission() throws Exception {
@@ -210,6 +270,27 @@ class FlinkLineageRegistrationTest {
                 "a successful submission must not close its own runs");
     }
 
+    @Test
+    void doesNotAttributeJobTotalsToOutputDatasets() {
+        StreamExecutionEnvironment environment = environmentWithOneSink();
+        List<LineageDataset> outputs =
+                Arrays.asList(
+                        LineageDataset.of("mysql://db", "first"),
+                        LineageDataset.of("mysql://db", "second"));
+        Assertions.assertNotNull(register(environment, RecordingLineageBackend.NAME, outputs));
+        Map<String, OptionalFailure<Object>> counters = new HashMap<>();
+        counters.put(MetricNames.SINK_WRITE_COUNT, OptionalFailure.of((Object) 20L));
+        environment
+                .getJobListeners()
+                .get(0)
+                .onJobExecuted(new JobExecutionResult(new JobID(), 1L, counters), null);
+        Assertions.assertEquals(4, RecordingLineageBackend.EVENTS.size());
+        for (LineageEvent event : RecordingLineageBackend.EVENTS.subList(2, 4)) {
+            Assertions.assertEquals(LineageEventType.COMPLETE, event.eventType());
+            Assertions.assertNull(event.outputs().get(0).outputStatistics());
+        }
+    }
+
     private static List<LineageEventType> recordedEventTypes() {
         List<LineageEventType> types = new ArrayList<>();
         for (LineageEvent event : RecordingLineageBackend.EVENTS) {
@@ -223,6 +304,16 @@ class FlinkLineageRegistrationTest {
     }
 
     private static StreamGraph register(StreamExecutionEnvironment environment, String transport) {
+        return register(
+                environment,
+                transport,
+                Collections.singletonList(LineageDataset.of("mysql://db", "warehouse.orders")));
+    }
+
+    private static StreamGraph register(
+            StreamExecutionEnvironment environment,
+            String transport,
+            List<LineageDataset> outputs) {
         Map<String, Object> options = new LinkedHashMap<>();
         options.put(LineageConfig.ENABLED, true);
         options.put(LineageConfig.TRANSPORT, transport);
@@ -239,7 +330,7 @@ class FlinkLineageRegistrationTest {
                 config,
                 new JobContext(),
                 Collections.<LineageDataset>emptyList(),
-                Collections.singletonList(LineageDataset.of("mysql://db", "warehouse.orders")),
+                outputs,
                 "lineage-test");
     }
 

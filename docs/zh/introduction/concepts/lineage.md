@@ -144,13 +144,13 @@ SeaTunnel starter 中对应 Flink 1.20 路径，Flink 1.13 和 1.15 starter 不�
 保持不变。
 
 Flink 作业成功结束时只有一侧上报终态事件，因此同一个 run 不会收到两次 `COMPLETE`。attached
-提交由客户端上报，因为只有客户端能读到输出统计；detached 提交由 JobManager 的 status hook
+提交由客户端上报；detached 提交由 JobManager 的 status hook
 上报，不带统计信息。`FAIL` 和 `ABORT` 由 status hook 上报，作业根本没有启动的情况除外：提交
 失败时——没有可用 slot、凭据被拒绝，或者 JobManager 无法加载 status hook——由客户端上报
 `FAIL`，因为集群从未创建过这个作业，也就不会有 hook 运行。
 
-因此 Flink detached 作业没有 `outputStatistics`，因为 detached 结果不暴露 accumulators。
-Attached 执行会发射可获得的 `SinkWriteCount` 和 `SinkWriteBytes`，其口径为 `attempted`。
+Flink 事件不包含 `outputStatistics`：detached 结果不暴露 accumulators，而 attached 的
+accumulators 是作业级数据，无法可靠归属到单个输出 dataset。
 
 run facet 除 `engine` 外还携带 `flink_job_id` 属性。runId 在作业提交前就已生成，那时还没有
 Flink job ID，因此 `flink_job_id` 是把血缘 run 关联回 Flink UI 与 REST API 中那个作业的唯一

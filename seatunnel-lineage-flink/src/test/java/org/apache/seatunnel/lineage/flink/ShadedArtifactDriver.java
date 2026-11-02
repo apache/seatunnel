@@ -40,6 +40,9 @@ public final class ShadedArtifactDriver {
     private ShadedArtifactDriver() {}
 
     public static void main(String[] args) throws Exception {
+        if ("hang".equals(args[0])) {
+            new java.util.concurrent.CountDownLatch(1).await();
+        }
         Map<String, Object> options = new LinkedHashMap<>();
         options.put(LineageConfig.ENABLED, true);
         options.put(LineageConfig.URL, args[0]);

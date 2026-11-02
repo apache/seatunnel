@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.lineage.LineageConfig;
 import org.apache.seatunnel.lineage.LineageEvent;
 import org.apache.seatunnel.lineage.LineageEventType;
-import org.apache.seatunnel.lineage.LineageOutputStatistics;
 import org.apache.seatunnel.lineage.LineageRuntime;
 import org.apache.seatunnel.lineage.flink.FlinkClusterOptions;
 import org.apache.seatunnel.lineage.flink.LineageJobStatusHook;
@@ -36,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * The Flink 1.20 lineage registration, overriding the unsupported one in the common starter.
@@ -58,7 +55,7 @@ final class FlinkLineageHooks {
     }
 
     /**
-     * Registers the JobManager-side status hook and the client-side statistics listener.
+     * Registers the JobManager-side status hook and the client-side terminal listener.
      *
      * @param streamGraph the graph the hook is attached to
      * @param environment the environment the result listener is registered on
@@ -85,7 +82,7 @@ final class FlinkLineageHooks {
             return false;
         }
         try {
-            environment.registerJobListener(new OutputStatisticsListener(config, events));
+            environment.registerJobListener(new TerminalEventListener(config, events));
         } catch (Throwable error) {
             LOGGER.warn("Failed to register Flink lineage result listener", error);
             emitAbort(config, events);
@@ -119,17 +116,14 @@ final class FlinkLineageHooks {
     /**
      * Reports the terminal events only the submitting client can report.
      *
-     * <p>Two of them. The output statistics live in the job accumulators, which only the client can
-     * read, so an attached submission reports the successful terminal event here and the JobManager
-     * hook is told to stay silent so the two cannot race. A submission that fails is the other: no
-     * hook runs for a job that never reached the cluster, so nothing else would close the runs
-     * whose start events have already been sent.
+     * <p>The client reports completion for attached jobs, and closes runs if submission fails
+     * before a hook can run on the JobManager.
      */
-    private static final class OutputStatisticsListener implements JobListener {
+    private static final class TerminalEventListener implements JobListener {
         private final LineageConfig config;
         private final List<LineageEvent> events;
 
-        private OutputStatisticsListener(LineageConfig config, List<LineageEvent> events) {
+        private TerminalEventListener(LineageConfig config, List<LineageEvent> events) {
             this.config = config;
             this.events = events;
         }
@@ -155,7 +149,7 @@ final class FlinkLineageHooks {
                 return;
             }
             try {
-                emit(LineageEventType.FAIL, null, null);
+                emit(LineageEventType.FAIL, null);
             } catch (Throwable error) {
                 LOGGER.warn("Failed to close the Flink lineage runs of a failed submission", error);
             }
@@ -167,48 +161,31 @@ final class FlinkLineageHooks {
                 if (!FlinkLineageSupport.isAttachedJobExecutionResult(result, executionError)) {
                     return;
                 }
-                Map<String, Object> accumulators = result.getAllAccumulatorResults();
-                Long rowCount = number(accumulators.get(MetricNames.SINK_WRITE_COUNT));
-                Long size = number(accumulators.get(MetricNames.SINK_WRITE_BYTES));
-                LineageOutputStatistics statistics =
-                        positive(rowCount) || positive(size)
-                                ? new LineageOutputStatistics(rowCount, size, "attempted")
-                                : null;
+                // Job-wide counters cannot be attributed safely to a particular output dataset.
                 String flinkJobId = result.getJobID() == null ? null : result.getJobID().toString();
                 // Emitted even without statistics: an attached submission silences the JobManager
                 // hook, so skipping here would leave the run with no terminal event at all rather
                 // than one that is merely missing its row counts.
-                emit(LineageEventType.COMPLETE, flinkJobId, statistics);
+                emit(LineageEventType.COMPLETE, flinkJobId);
             } catch (Throwable error) {
-                LOGGER.warn("Failed to emit Flink output statistics", error);
+                LOGGER.warn("Failed to emit Flink completion", error);
             }
         }
 
         /** Sends one terminal event for every run this listener owns. */
-        private void emit(
-                LineageEventType eventType, String flinkJobId, LineageOutputStatistics statistics) {
+        private void emit(LineageEventType eventType, String flinkJobId) {
             LineageConfig runtimeConfig =
                     LineageConfig.resolve(
                             config.toNonSensitiveMap(),
                             FlinkClusterOptions.load(),
                             System.getenv());
             for (LineageEvent event : events) {
-                LineageEvent terminal =
-                        statistics == null ? event : event.withOutputStatistics(statistics);
                 LineageRuntime.emit(
                         runtimeConfig,
-                        terminal.withEventType(eventType)
+                        event.withEventType(eventType)
                                 .withRunProperty(
                                         LineageJobStatusHook.FLINK_JOB_ID_PROPERTY, flinkJobId));
             }
-        }
-
-        private static Long number(Object value) {
-            return value instanceof Number ? ((Number) value).longValue() : null;
-        }
-
-        private static boolean positive(Long value) {
-            return value != null && value > 0;
         }
     }
 }

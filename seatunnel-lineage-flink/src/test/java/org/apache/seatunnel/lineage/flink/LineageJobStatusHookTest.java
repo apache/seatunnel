@@ -47,7 +47,7 @@ class LineageJobStatusHookTest {
     void resetBackend() throws Exception {
         // The emitting thread is shared by every hook of the process, so an event still queued by
         // the previous test would otherwise be recorded into this test's list.
-        LineageJobStatusHook.awaitPendingEmissions(5000);
+        awaitEmissions();
         RecordingLineageBackend.reset();
     }
 
@@ -213,37 +213,53 @@ class LineageJobStatusHookTest {
                 new LineageJobStatusHook(
                         config(null, 30L), Collections.singletonList(event()), false);
 
-        hook.onCreated(JOB_1);
+        Thread callback = new Thread(() -> hook.onCanceled(JOB_1));
+        callback.setDaemon(true);
+        try {
+            hook.onCreated(JOB_1);
 
-        for (int i = 0; i < 2; i++) {
-            Assertions.assertNotNull(RecordingLineageBackend.EMISSIONS.poll(5, TimeUnit.SECONDS));
-        }
-        Assertions.assertTrue(
-                RecordingLineageBackend.EVENTS.size() >= 2,
-                "onCreated must start a repeating heartbeat, saw "
-                        + RecordingLineageBackend.EVENTS.size());
-        for (LineageEvent emitted : RecordingLineageBackend.EVENTS) {
-            Assertions.assertEquals(LineageEventType.RUNNING, emitted.eventType());
+            for (int i = 0; i < 2; i++) {
+                Assertions.assertNotNull(
+                        RecordingLineageBackend.EMISSIONS.poll(5, TimeUnit.SECONDS));
+            }
+            Assertions.assertTrue(
+                    RecordingLineageBackend.EVENTS.size() >= 2,
+                    "onCreated must start a repeating heartbeat, saw "
+                            + RecordingLineageBackend.EVENTS.size());
+            for (LineageEvent emitted : RecordingLineageBackend.EVENTS) {
+                Assertions.assertEquals(LineageEventType.RUNNING, emitted.eventType());
+                Assertions.assertEquals(
+                        JOB_1.toString(),
+                        emitted.runProperties().get(LineageJobStatusHook.FLINK_JOB_ID_PROPERTY));
+            }
+
+            callback.start();
+            callback.join(5000);
+            Assertions.assertFalse(callback.isAlive(), "the terminal callback must stop");
+            awaitEmissions();
+            int afterTerminal = RecordingLineageBackend.EVENTS.size();
             Assertions.assertEquals(
-                    JOB_1.toString(),
-                    emitted.runProperties().get(LineageJobStatusHook.FLINK_JOB_ID_PROPERTY));
+                    LineageEventType.ABORT,
+                    RecordingLineageBackend.EVENTS.get(afterTerminal - 1).eventType());
+
+            // Several heartbeat intervals: a RUNNING arriving after the terminal event would reopen
+            // a
+            // run the receiver has already closed.
+            RecordingLineageBackend.EMISSIONS.clear();
+            Assertions.assertNull(
+                    RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
+            Assertions.assertEquals(
+                    afterTerminal,
+                    RecordingLineageBackend.EVENTS.size(),
+                    "no heartbeat may follow the terminal event");
+        } finally {
+            if (callback.getState() == Thread.State.NEW) {
+                callback.start();
+            }
+            callback.join(5000);
+            awaitEmissions();
+            Assertions.assertFalse(callback.isAlive(), "the terminal callback must stop");
         }
-
-        hook.onCanceled(JOB_1);
-        awaitEmissions();
-        int afterTerminal = RecordingLineageBackend.EVENTS.size();
-        Assertions.assertEquals(
-                LineageEventType.ABORT,
-                RecordingLineageBackend.EVENTS.get(afterTerminal - 1).eventType());
-
-        // Several heartbeat intervals: a RUNNING arriving after the terminal event would reopen a
-        // run the receiver has already closed.
-        RecordingLineageBackend.EMISSIONS.clear();
-        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
-        Assertions.assertEquals(
-                afterTerminal,
-                RecordingLineageBackend.EVENTS.size(),
-                "no heartbeat may follow the terminal event");
     }
 
     /** A heartbeat interval of zero disables the heartbeat rather than scheduling a busy loop. */
@@ -277,40 +293,58 @@ class LineageJobStatusHookTest {
                 new LineageJobStatusHook(
                         config(null, 20L), Collections.singletonList(event()), false);
 
-        hook.onCreated(JOB_1);
-        Assertions.assertTrue(
-                RecordingLineageBackend.HEARTBEAT_ENTERED.await(5, TimeUnit.SECONDS),
-                "the heartbeat must have started sending");
+        CountDownLatch release = RecordingLineageBackend.HEARTBEAT_RELEASE;
+        CountDownLatch callbackReturned = new CountDownLatch(1);
+        Thread callback =
+                new Thread(
+                        () -> {
+                            hook.onCanceled(JOB_1);
+                            callbackReturned.countDown();
+                        });
+        callback.setDaemon(true);
+        try {
+            hook.onCreated(JOB_1);
+            Assertions.assertTrue(
+                    RecordingLineageBackend.HEARTBEAT_ENTERED.await(5, TimeUnit.SECONDS),
+                    "the heartbeat must have started sending");
 
-        long startedAt = System.nanoTime();
-        hook.onCanceled(JOB_1);
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+            callback.start();
+            Assertions.assertTrue(
+                    callbackReturned.await(5, TimeUnit.SECONDS),
+                    "the terminal callback must not wait for the blocked send");
+            Assertions.assertTrue(
+                    RecordingLineageBackend.EVENTS.isEmpty(),
+                    "nothing can have been sent while the receiver still holds the heartbeat");
 
-        Assertions.assertTrue(
-                elapsedMs < 1000,
-                "the terminal callback must not wait for a send, it took " + elapsedMs + "ms");
-        Assertions.assertTrue(
-                RecordingLineageBackend.EVENTS.isEmpty(),
-                "nothing can have been sent while the receiver still holds the heartbeat");
+            RecordingLineageBackend.HEARTBEAT_RELEASE.countDown();
+            awaitEmissions();
 
-        RecordingLineageBackend.HEARTBEAT_RELEASE.countDown();
-        awaitEmissions();
+            Assertions.assertEquals(
+                    LineageEventType.RUNNING, RecordingLineageBackend.EVENTS.get(0).eventType());
+            Assertions.assertEquals(
+                    LineageEventType.ABORT,
+                    RecordingLineageBackend.EVENTS
+                            .get(RecordingLineageBackend.EVENTS.size() - 1)
+                            .eventType());
 
-        Assertions.assertEquals(
-                LineageEventType.RUNNING, RecordingLineageBackend.EVENTS.get(0).eventType());
-        Assertions.assertEquals(
-                LineageEventType.ABORT,
-                RecordingLineageBackend.EVENTS
-                        .get(RecordingLineageBackend.EVENTS.size() - 1)
-                        .eventType());
-
-        // Heartbeats scheduled while the terminal event was being sent must find the run closed.
-        int afterTerminal = RecordingLineageBackend.EVENTS.size();
-        RecordingLineageBackend.EMISSIONS.clear();
-        Assertions.assertNull(RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
-        Assertions.assertEquals(
-                afterTerminal,
-                RecordingLineageBackend.EVENTS.size(),
-                "no heartbeat may follow the terminal event");
+            // Heartbeats scheduled while the terminal event was being sent must find the run
+            // closed.
+            int afterTerminal = RecordingLineageBackend.EVENTS.size();
+            RecordingLineageBackend.EMISSIONS.clear();
+            Assertions.assertNull(
+                    RecordingLineageBackend.EMISSIONS.poll(300, TimeUnit.MILLISECONDS));
+            Assertions.assertEquals(
+                    afterTerminal,
+                    RecordingLineageBackend.EVENTS.size(),
+                    "no heartbeat may follow the terminal event");
+        } finally {
+            release.countDown();
+            if (callback.getState() == Thread.State.NEW) {
+                callback.start();
+            }
+            callback.join(5000);
+            awaitEmissions();
+            Assertions.assertFalse(callback.isAlive(), "the terminal callback must stop");
+        }
     }
 }

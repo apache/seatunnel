@@ -116,8 +116,11 @@ public class FlinkExecution implements TaskExecution {
         LineageConfig candidateLineageConfig = FlinkLineageSupport.resolveConfig(envOptions);
         if (candidateLineageConfig.enabled() && FlinkLineageSupport.isSupported()) {
             resolvedLineageConfig = candidateLineageConfig;
-            resolvedLineageInputs = collectLineageDatasets(config.getConfigList(Constants.SOURCE));
-            resolvedLineageOutputs = collectLineageDatasets(config.getConfigList(Constants.SINK));
+            resolvedLineageInputs =
+                    collectLineageDatasets(
+                            config.getConfigList(Constants.SOURCE), Constants.SOURCE);
+            resolvedLineageOutputs =
+                    collectLineageDatasets(config.getConfigList(Constants.SINK), Constants.SINK);
         } else if (candidateLineageConfig.enabled()) {
             // Reporting was asked for and will not happen, which the operator cannot otherwise
             // tell apart from a working setup that has not reported yet.
@@ -219,16 +222,26 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private static List<LineageDataset> collectLineageDatasets(
-            List<? extends Config> connectorConfigs) {
-        return connectorConfigs.stream()
-                .map(
-                        config ->
-                                LineageDatasetFactory.fromConnectorOptions(
-                                        ReadonlyConfig.fromConfig(config).getSourceMap()))
-                .flatMap(List::stream)
-                .distinct()
-                .collect(Collectors.toList());
+    /** Extracts each connector independently so metadata failures do not prevent execution. */
+    static List<LineageDataset> collectLineageDatasets(
+            List<? extends Config> connectorConfigs, String connectorType) {
+        List<LineageDataset> datasets = new ArrayList<>();
+        int index = 0;
+        for (Config config : connectorConfigs) {
+            index++;
+            try {
+                datasets.addAll(
+                        LineageDatasetFactory.fromConnectorOptions(
+                                ReadonlyConfig.fromConfig(config).getSourceMap()));
+            } catch (Exception | LinkageError error) {
+                LOGGER.warn(
+                        "Failed to extract lineage for {} connector #{}: {}",
+                        connectorType,
+                        index,
+                        error.getClass().getName());
+            }
+        }
+        return datasets.stream().distinct().collect(Collectors.toList());
     }
 
     private void registerPlugin(Config envConfig) {

@@ -108,7 +108,7 @@ public final class FlinkLineageSupport {
     }
 
     /**
-     * Registers the 1.20-only status hook and the attached-mode statistics listener.
+     * Registers the 1.20-only status hook and the attached-mode terminal listener.
      *
      * @return the stream graph the caller must submit, or null when lineage was not registered and
      *     the caller must fall back to its own submission path
@@ -186,9 +186,7 @@ public final class FlinkLineageSupport {
      * <p>This reads the same option Flink itself branches on in {@code
      * StreamExecutionEnvironment.execute(StreamGraph)}, so the answer cannot disagree with which
      * callback actually fires. It decides ownership of the terminal event: both the JobManager hook
-     * and the client listener observe the same run, but only the client can read the accumulators
-     * that carry the output statistics, so in attached mode the hook must stay silent rather than
-     * race a second COMPLETE that would overwrite them.
+     * and the client listener observe the same run, so in attached mode the hook stays silent.
      *
      * <p>An unreadable configuration answers {@code false}, which keeps the hook reporting: a
      * duplicated terminal event is recoverable, a missing one is not.

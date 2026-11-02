@@ -99,10 +99,7 @@ public final class LineageJobStatusHook implements JobStatusHook {
         guarded(
                 () -> {
                     stopHeartbeat();
-                    // An attached client emits the successful terminal event with the output
-                    // statistics read from the job accumulators, which are not reachable from here.
-                    // Both events describe the same run, and the later arrival wins on the
-                    // receiver, so exactly one of the two may send it.
+                    // The attached client owns completion, so only one side sends the event.
                     if (!clientReportsCompletion) {
                         submitTerminal(LineageEventType.COMPLETE, jobId(jobId));
                     }

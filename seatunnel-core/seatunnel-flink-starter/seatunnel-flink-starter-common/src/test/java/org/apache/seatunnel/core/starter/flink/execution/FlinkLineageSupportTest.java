@@ -17,20 +17,85 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.lineage.LineageConfig;
+import org.apache.seatunnel.lineage.LineageDataset;
+import org.apache.seatunnel.lineage.LineageDatasetFactory;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.execution.DetachedJobExecutionResult;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 class FlinkLineageSupportTest {
+
+    @Test
+    void extractorFailureDoesNotDiscardOtherConnectors() {
+        Config bad = ConfigFactory.parseString("plugin_name=bad, password=fixture-secret");
+        Config good = ConfigFactory.parseString("plugin_name=good");
+        LineageDataset dataset = LineageDataset.of("mysql://db", "orders");
+        Logger logger = (Logger) LogManager.getLogger(FlinkExecution.class);
+        Level originalLevel = logger.getLevel();
+        AtomicReference<LogEvent> warning = new AtomicReference<>();
+        AbstractAppender appender =
+                new AbstractAppender("lineage-test", null, PatternLayout.createDefaultLayout()) {
+                    @Override
+                    public void append(LogEvent event) {
+                        warning.set(event.toImmutable());
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try (MockedStatic<LineageDatasetFactory> factory =
+                Mockito.mockStatic(LineageDatasetFactory.class)) {
+            factory.when(() -> LineageDatasetFactory.fromConnectorOptions(Mockito.anyMap()))
+                    .thenAnswer(
+                            invocation -> {
+                                Map<?, ?> options = invocation.getArgument(0);
+                                if ("bad".equals(options.get("plugin_name"))) {
+                                    throw new IllegalStateException("fixture-secret");
+                                }
+                                return Collections.singletonList(dataset);
+                            });
+            List<LineageDataset> actual =
+                    FlinkExecution.collectLineageDatasets(Arrays.asList(bad, good), "source");
+            Assertions.assertEquals(Collections.singletonList(dataset), actual);
+            Assertions.assertNotNull(warning.get());
+            Assertions.assertTrue(
+                    warning.get()
+                            .getMessage()
+                            .getFormattedMessage()
+                            .contains("source connector #1"));
+            Assertions.assertFalse(
+                    warning.get().getMessage().getFormattedMessage().contains("fixture-secret"));
+            Assertions.assertNull(
+                    warning.get().getThrown(), "the exception can contain credentials");
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+    }
 
     @Test
     void shouldNotParseInactiveLineageOptions() {
