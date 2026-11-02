@@ -432,8 +432,9 @@ or state format migration is required.
     metadata reports every result column as originating from the same physical table, the new
     source option `query_table_metadata_merge` controls whether the resolved underlying table's
     metadata is merged into the query-derived schema. The default `NONE` keeps the behavior of
-    previous versions, where the schema was derived from `ResultSetMetaData` only and carried no
-    column/table comments, keys or partition keys. Set it to `COMMENT` to merge the underlying
+    previous versions, where the schema was derived from `ResultSetMetaData` only (including the
+    pre-existing key inference of the query-derived table, if any) and carried no column/table
+    comments or partition keys. Set it to `COMMENT` to merge the underlying
     table's column comments and table comment, or `ALL` to additionally merge table options, the
     primary key, constraint keys and partition keys (the same result as configuring `table_path`
     together with `query`). The option only applies when `table_path` is not configured.
@@ -448,9 +449,10 @@ or state format migration is required.
     cardinality: a one-sided join (`SELECT t.* FROM t JOIN t2 ...`) is not detected as
     multi-table and can produce duplicated rows that a generated-upsert sink collapses — verify
     the join shape before enabling `ALL`. The merge requires the driver to report the origin
-    table of every result column (verified for MySQL-family drivers; PostgreSQL, Oracle, SQL
-    Server, DuckDB and SAP HANA do not report a usable origin, so use `table_path` + `query`
-    there).
+    table of every result column (verified on MySQL against a real database; other
+    MySQL-protocol drivers such as OceanBase MySQL mode and TiDB are expected to behave the same
+    but are not covered by tests; PostgreSQL, Oracle, SQL Server, DuckDB and SAP HANA do not
+    report a usable origin, so use `table_path` + `query` there).
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.

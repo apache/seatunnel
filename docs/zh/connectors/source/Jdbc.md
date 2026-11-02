@@ -58,7 +58,7 @@ sh bin/install-plugin.sh
 | Oracle、SQL Server、DuckDB | 暂不支持 | 驱动不报告来源表名，无法验证来源；请使用 `table_path` + `query`（注意其 catalog 不暴露表注释）。 |
 | SAP HANA | 已排除 | 该 catalog 的命名空间映射与通用来源路径不一致，已对其禁用合并；请使用 `table_path` + `query`。 |
 
-来源验证只比较所选列上报的来源，无法看到 FROM/JOIN 结构：选中了多个表的列的查询会被检测并跳过合并，但一侧 join（例如 `SELECT t.* FROM t JOIN t2 ...`）与单表查询在 `ResultSetMetaData` 层面无法区分，**不会**被检测：配置 `ALL` 时会基于"查询保持 `t` 行基数"的用户假设合并 `t` 的主键和选项——join 产生的重复行可能被生成 upsert 语句的 Sink 合并掉。`COMMENT` 和 `NONE` 不合并键，对这类查询是安全的。
+来源验证只比较所选列上报的来源，无法看到 FROM/JOIN 结构：选中了多个表的列的查询会被检测并跳过合并，但一侧 join（例如 `SELECT t.* FROM t JOIN t2 ...`）与单表查询在 `ResultSetMetaData` 层面无法区分，**不会**被检测：配置 `ALL` 时会基于"查询保持 `t` 行基数"的用户假设合并 `t` 的主键和选项——join 产生的重复行可能被生成 upsert 语句的 Sink 合并掉。在该新增合并路径中 `COMMENT` 和 `NONE` 不合并键，对这类查询是安全的；注意它们不会移除查询推导 schema 通过既有 catalog 键推断已经得到的主键。
 
 只有需要给所有选中表或查询追加同一过滤条件时才使用 `where_condition`。它必须以 `where` 开头，例如 `where updated_at >= '2026-01-01'`。
 
