@@ -168,7 +168,7 @@ Please note that, The final file name will end with the file_format's suffix, th
 > - txt: `lzo` `none`
 > - json: `lzo` `none`
 > - csv: `lzo` `none`
-> - orc: `lzo` `snappy` `lz4` `zlib` `none`
+> - orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 > - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 Please note that excel type does not support any compression format
