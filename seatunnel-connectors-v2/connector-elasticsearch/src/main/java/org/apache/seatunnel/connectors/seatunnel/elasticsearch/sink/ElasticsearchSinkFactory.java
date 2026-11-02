@@ -49,6 +49,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.INDEX;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.INDEX_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.KEY_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.KEY_ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_RETRY_COUNT;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.PRIMARY_KEYS;
@@ -74,6 +75,7 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         INDEX_TYPE,
                         PRIMARY_KEYS,
                         KEY_DELIMITER,
+                        KEY_ENCODING,
                         USERNAME,
                         PASSWORD,
                         MAX_RETRY_COUNT,

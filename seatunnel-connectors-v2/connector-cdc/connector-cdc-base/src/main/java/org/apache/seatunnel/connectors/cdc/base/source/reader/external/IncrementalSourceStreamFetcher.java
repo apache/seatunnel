@@ -85,6 +85,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private Map<TableId, Offset> maxSplitHighWatermarkMap;
     // finished spilt info
     private Map<TableId, List<CompletedSnapshotSplitInfo>> finishedSplitsInfo;
+    // offsets restored tables had already been read up to
+    private Map<TableId, Offset> tableStartupOffsets;
 
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
 
@@ -282,6 +284,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             }
             // not enter pure binlog mode and need to check whether the current record meets the
             // emitting conditions.
+            Offset tableStartupOffset = tableStartupOffsets.get(tableId);
+            if (tableStartupOffset != null && position.isBefore(tableStartupOffset)) {
+                return false;
+            }
             if (finishedSplitsInfo.containsKey(tableId)) {
                 for (CompletedSnapshotSplitInfo splitInfo : finishedSplitsInfo.get(tableId)) {
                     if (taskContext.isRecordBetween(
@@ -316,15 +322,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
         Map<TableId, List<CompletedSnapshotSplitInfo>> splitsInfoMap = new HashMap<>();
         Map<TableId, Offset> tableIdBinlogPositionMap = new HashMap<>();
+        Map<TableId, Offset> restoredTableOffsets =
+                currentIncrementalSplit.getTableStartupOffsets();
         List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
                 currentIncrementalSplit.getCompletedSnapshotSplitInfos();
-
-        // latest-offset mode
-        if (completedSnapshotSplitInfos.isEmpty()) {
-            for (TableId tableId : currentIncrementalSplit.getTableIds()) {
-                tableIdBinlogPositionMap.put(tableId, currentIncrementalSplit.getStartupOffset());
-            }
-        }
 
         // calculate the max high watermark of every table
         for (CompletedSnapshotSplitInfo finishedSplitInfo : completedSnapshotSplitInfos) {
@@ -340,8 +341,29 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 tableIdBinlogPositionMap.put(tableId, highWatermark);
             }
         }
+
+        for (TableId tableId : currentIncrementalSplit.getTableIds()) {
+            Offset restoredOffset = restoredTableOffsets.get(tableId);
+            Offset maxHighWatermark = tableIdBinlogPositionMap.get(tableId);
+            if (maxHighWatermark == null) {
+                // The table has no snapshot split in this split: either the split starts from a
+                // log offset (latest-offset mode), or the table was already in the pure
+                // incremental phase before a restore that added other tables. Emit its changes
+                // from the offset it was already read up to. As in latest-offset mode, a record
+                // at exactly that offset is emitted: some dialects (e.g. Oracle SCN) share one
+                // offset between several records, so skipping it could lose data.
+                Offset tableStartupOffset =
+                        restoredOffset != null ? restoredOffset : splitStartWatermark;
+                if (tableStartupOffset != null) {
+                    tableIdBinlogPositionMap.put(tableId, tableStartupOffset);
+                }
+            } else if (restoredOffset != null && restoredOffset.isAfter(maxHighWatermark)) {
+                tableIdBinlogPositionMap.put(tableId, restoredOffset);
+            }
+        }
         this.finishedSplitsInfo = splitsInfoMap;
         this.maxSplitHighWatermarkMap = tableIdBinlogPositionMap;
+        this.tableStartupOffsets = restoredTableOffsets;
         this.pureBinlogPhaseTables.clear();
     }
 

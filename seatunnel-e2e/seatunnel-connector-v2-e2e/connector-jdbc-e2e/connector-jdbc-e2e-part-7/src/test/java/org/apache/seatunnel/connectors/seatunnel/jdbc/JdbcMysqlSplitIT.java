@@ -56,7 +56,9 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -65,8 +67,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -788,6 +792,84 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             if (i > 0 && i < splitArray.length - 1) {
                 Assertions.assertNotNull(start, "Middle split should have non-null start");
                 Assertions.assertNotNull(end, "Middle split should have non-null end");
+            }
+        }
+    }
+
+    @Test
+    public void testFixedNumericSplitsReadAllRows() throws Exception {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + ".fixed_numeric_uneven (id BIGINT PRIMARY KEY)");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + ".fixed_numeric_uneven (id) VALUES (?)")) {
+                    for (int id = 0; id <= 2002; id++) {
+                        insert.setLong(1, id);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put(
+                        "query", "SELECT id FROM " + MYSQL_DATABASE + ".fixed_numeric_uneven");
+                configMap.put("partition_column", "id");
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, "fixed_numeric_uneven");
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                    mySqlCatalog.open();
+                    CatalogTable table = mySqlCatalog.getTable(tablePath);
+                    JdbcSourceTable jdbcSourceTable =
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .query(
+                                            "SELECT id FROM "
+                                                    + MYSQL_DATABASE
+                                                    + ".fixed_numeric_uneven")
+                                    .partitionColumn("id")
+                                    .partitionNumber(1000)
+                                    .partitionStart("1")
+                                    .partitionEnd("2001")
+                                    .build();
+
+                    Set<Long> uniqueIds = new HashSet<>();
+                    for (JdbcSourceSplit split : splitter.generateSplits(jdbcSourceTable)) {
+                        try (PreparedStatement splitStatement =
+                                        splitter.generateSplitStatement(
+                                                split, table.getTableSchema());
+                                ResultSet resultSet = splitStatement.executeQuery()) {
+                            while (resultSet.next()) {
+                                long id = resultSet.getLong(1);
+                                Assertions.assertTrue(
+                                        id >= 1 && id <= 2001, "id out of range: " + id);
+                                Assertions.assertTrue(uniqueIds.add(id), "duplicated id: " + id);
+                            }
+                        }
+                    }
+                    Assertions.assertEquals(2001, uniqueIds.size());
+                }
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS " + MYSQL_DATABASE + ".fixed_numeric_uneven");
             }
         }
     }

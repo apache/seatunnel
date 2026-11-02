@@ -78,7 +78,7 @@ SOURCE_CODE,ABSOLUTE_PATH
 我们将使用`DynamicCompile`对数据进行修改，添加一列`compile_language`字段，并且将`age`字段更新，当`age=20`时将其更新为`40`
 
 - 使用groovy
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -136,7 +136,7 @@ transform {
 ```
 
 - 使用java
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -191,7 +191,7 @@ transform {
  } 
  ```
 - 指定源码文件路径
-```hacon
+```hocon
  transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -226,7 +226,7 @@ transform {
 
 下面的 Scala 示例演示如何新增 `compile_language` 字段。
 
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"

@@ -313,13 +313,14 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "ts",
                                 Lists.newArrayList(testTask1, testTask2)));
-        completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
+        final CompletableFuture<TaskExecutionState> completionCallback =
+                completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
         stop.set(true);
 
         await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            assertEquals(FINISHED, completableFuture.get().getExecutionState());
+                            assertEquals(FINISHED, completionCallback.get().getExecutionState());
                         });
         assertTrue(futureMark.get());
     }
