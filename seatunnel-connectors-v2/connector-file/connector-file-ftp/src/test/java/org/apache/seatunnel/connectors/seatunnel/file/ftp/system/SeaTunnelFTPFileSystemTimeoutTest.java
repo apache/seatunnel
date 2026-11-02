@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
@@ -45,11 +46,15 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
@@ -72,11 +77,19 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     private static final int PORT = 21;
     private static final int DEFAULT_CONTROL_TIMEOUT = 60_000;
 
+    /**
+     * Wall-clock bound for the real-socket calls, deliberately unrelated to the timeout under test.
+     *
+     * <p>It only has to expire long after a working {@code control_timeout} would, so that a
+     * regression surfaces as a bounded assertion failure instead of a hung build.
+     */
+    private static final long DEADLINE_SECONDS = 30;
+
     /** Handshake behaviour the fake client should exhibit, set before the call under test. */
     private static final class Server {
         int greetingCode = 220;
-        /** Reply code reported after a refused login, so the failure message is realistic. */
-        int loginReplyCode = 530;
+        /** Reply code the server reports for the login exchange: 230 accepted, 530 refused. */
+        int loginReplyCode = 230;
 
         boolean loginAccepted = true;
         /**
@@ -87,7 +100,19 @@ class SeaTunnelFTPFileSystemTimeoutTest {
         IOException loginFailure;
 
         void stub(FTPClient client) throws IOException {
-            when(client.getReplyCode()).thenReturn(greetingCode);
+            // connect() decides whether to continue by reading getReplyCode(), and login() runs
+            // only after the greeting has been accepted. Stubbing one fixed reply code makes the
+            // two exchanges indistinguishable: a refused-login code such as 530 would be rejected
+            // as a bad greeting, so connect() would never reach login() and the refused-login
+            // branch would never be exercised. The reply therefore follows the wire order: the
+            // greeting code first, the login code once credentials have been sent.
+            //
+            // The flag is per client, not per server: the filesystem may construct more than one
+            // client (getFileStatus resolves the home directory first), and a client that has not
+            // sent credentials yet must still see a greeting.
+            AtomicBoolean loginAttempted = new AtomicBoolean();
+            when(client.getReplyCode())
+                    .thenAnswer(reply -> loginAttempted.get() ? loginReplyCode : greetingCode);
             when(client.printWorkingDirectory()).thenReturn("/");
             when(client.isConnected()).thenReturn(true);
             if (connectFailure != null) {
@@ -95,16 +120,22 @@ class SeaTunnelFTPFileSystemTimeoutTest {
                 return;
             }
             if (loginFailure != null) {
-                when(client.login(anyString(), anyString())).thenThrow(loginFailure);
+                when(client.login(anyString(), anyString()))
+                        .thenAnswer(
+                                credentials -> {
+                                    loginAttempted.set(true);
+                                    throw loginFailure;
+                                });
                 return;
             }
-            if (loginAccepted) {
-                when(client.login(anyString(), anyString())).thenReturn(true);
-                return;
-            }
-            // A refused login reports the rejection through the reply code, not by throwing.
-            when(client.login(anyString(), anyString())).thenReturn(false);
-            when(client.getReplyCode()).thenReturn(loginReplyCode);
+            // A refused login reports the rejection through the reply code rather than by
+            // throwing, so the code advances to loginReplyCode once credentials have been sent.
+            when(client.login(anyString(), anyString()))
+                    .thenAnswer(
+                            credentials -> {
+                                loginAttempted.set(true);
+                                return loginAccepted;
+                            });
         }
     }
 
@@ -263,23 +294,56 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     void negativeControlTimeoutIsRejectedByBothFactories() {
         // Passed through unchecked, a negative value only fails later, inside Socket.setSoTimeout,
         // as an IllegalArgumentException that does not name the option the user set.
-        Map<String, Object> raw = new HashMap<>();
-        raw.put("host", HOST);
-        raw.put("port", PORT);
-        raw.put("user", "user");
-        raw.put("password", "password");
-        raw.put("control_timeout", -1);
+        //
+        // Both configs are otherwise complete and valid. An incomplete config would also throw,
+        // and the assertion below would then pass even with the control_timeout condition removed
+        // -- it would merely be re-detecting a missing required option.
+        Map<String, Object> source = new HashMap<>();
+        source.put("host", HOST);
+        source.put("port", PORT);
+        source.put("user", "user");
+        source.put("password", "password");
+        source.put("path", "/tmp/seatunnel");
+        source.put("control_timeout", -1);
 
-        Assertions.assertThrows(
-                OptionValidationException.class,
-                () ->
-                        ConfigValidator.of(ReadonlyConfig.fromMap(raw))
-                                .validate(new FtpFileSourceFactory().optionRule()));
-        Assertions.assertThrows(
-                OptionValidationException.class,
-                () ->
-                        ConfigValidator.of(ReadonlyConfig.fromMap(raw))
-                                .validate(new FtpFileSinkFactory().optionRule()));
+        // The sink requires a path and a format; the source deliberately omits file_format_type so
+        // that no format-conditional option (schema, delimiters) becomes required. Otherwise the
+        // validation would report a second, unrelated error and the single-error assertion below
+        // would no longer pin the control_timeout constraint.
+        Map<String, Object> sink = new HashMap<>(source);
+        sink.put("file_format_type", "text");
+
+        assertOnlyControlTimeoutIsRejected(new FtpFileSourceFactory().optionRule(), source);
+        assertOnlyControlTimeoutIsRejected(new FtpFileSinkFactory().optionRule(), sink);
+    }
+
+    /**
+     * Asserts the rejection is the {@code control_timeout} value constraint and nothing else.
+     *
+     * <p>Asserting the exception type alone is not enough: any missing required option raises the
+     * same type, so a config regression would look identical to the behaviour under test.
+     */
+    private static void assertOnlyControlTimeoutIsRejected(
+            OptionRule rule, Map<String, Object> raw) {
+        OptionValidationException failure =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(raw)).validate(rule));
+
+        String message = failure.getRawMessage();
+        Assertions.assertTrue(
+                message.contains("(1 error)"),
+                "Expected control_timeout to be the only rejected option, got:\n" + message);
+        Assertions.assertTrue(
+                message.contains("option: control_timeout"),
+                "The failure should name control_timeout, got:\n" + message);
+        Assertions.assertTrue(
+                message.contains("type: value"),
+                "The failure should be the value constraint, not a missing option, got:\n"
+                        + message);
+        Assertions.assertTrue(
+                message.contains("'control_timeout' >= 0"),
+                "The failure should quote the violated constraint, got:\n" + message);
     }
 
     @Test
@@ -382,21 +446,21 @@ class SeaTunnelFTPFileSystemTimeoutTest {
             // Short enough to keep the test fast, long enough not to race a slow CI machine.
             conf.setInt(SeaTunnelFTPFileSystem.FS_FTP_CONTROL_TIMEOUT, 1_000);
 
-            long startedAt = System.nanoTime();
-            SocketTimeoutException failure =
-                    Assertions.assertThrows(
-                            SocketTimeoutException.class,
-                            () -> fileSystem(conf, server.port()).getFileStatus(new Path("/")));
-            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+            Throwable failure =
+                    callWithinDeadline(
+                            server,
+                            () -> {
+                                fileSystem(conf, server.port()).getFileStatus(new Path("/"));
+                                return null;
+                            });
 
             server.awaitAccepted();
-            // The bound must be the configured one: a value that never reached the socket would
-            // block until the OS gives up, far past this generous upper limit.
-            Assertions.assertTrue(
-                    elapsedMillis < 10_000,
-                    "The stalled greeting should fail near the configured 1000 ms, took "
-                            + elapsedMillis
-                            + " ms");
+            Assertions.assertInstanceOf(
+                    SocketTimeoutException.class,
+                    failure,
+                    () ->
+                            "The stalled greeting should fail with a socket timeout, got: "
+                                    + failure);
             Assertions.assertNotNull(failure.getMessage());
             // Direct close, not logout: the server never replies, so QUIT would block again and
             // the connection would still be open when the exception surfaces.
@@ -407,9 +471,10 @@ class SeaTunnelFTPFileSystemTimeoutTest {
     @Test
     void zeroControlTimeoutDoesNotBoundTheStalledGreeting() throws Exception {
         SilentFtpServer server = new SilentFtpServer();
-        server.start();
         ExecutorService executor = Executors.newSingleThreadExecutor();
+        boolean terminated;
         try {
+            server.start();
             Configuration conf = confFor(server.port());
             // 0 restores the previous wait-indefinitely behaviour, so the call must still be
             // blocked well past the timeout the other test proves is effective.
@@ -419,18 +484,72 @@ class SeaTunnelFTPFileSystemTimeoutTest {
                     executor.submit(
                             () -> fileSystem(conf, server.port()).getFileStatus(new Path("/")));
             server.awaitAccepted();
-            // Comfortably longer than the 1000 ms bound proven in the previous test, so a value
-            // that leaked into the socket would have failed the call by now.
-            Thread.sleep(1_500);
-            Assertions.assertFalse(
-                    call.isDone(),
+            // An explicit bounded observation rather than a sleep-then-isDone: a call that is
+            // still blocked is the positive result here, so the timeout is the assertion.
+            Assertions.assertThrows(
+                    TimeoutException.class,
+                    () -> call.get(1_500, TimeUnit.MILLISECONDS),
                     "control_timeout = 0 must restore the unbounded wait, but the call returned");
         } finally {
-            // Closing the accepted socket sends FIN, which releases the blocked read.
+            // Closing the peer is what releases a read that no socket timeout will release, so it
+            // has to happen before the executor is checked for termination; awaiting first would
+            // always time out and report a leak that is really this ordering.
             server.close();
             executor.shutdownNow();
-            executor.awaitTermination(10, TimeUnit.SECONDS);
+            terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
         }
+        Assertions.assertTrue(
+                terminated,
+                "The blocked control read outlived the test even after the peer was closed");
+    }
+
+    /**
+     * Runs the call on its own thread under a deadline that is independent of {@code
+     * control_timeout}.
+     *
+     * <p>The regression this test exists to catch is a control read that is no longer bounded.
+     * Invoking the filesystem inline would then never return, so neither the assertion nor the
+     * cleanup would run and the build would hang instead of reporting a failure. Returning the
+     * failure instead of asserting it keeps every phase of the test interruptible.
+     *
+     * <p>The peer is force-closed only when the call is still blocked, which can only happen on the
+     * regression path: an ordinary failure has already released its socket, so closing here
+     * unconditionally would make the caller's peer-closed check vacuous.
+     */
+    private static Throwable callWithinDeadline(SilentFtpServer server, Callable<Void> call)
+            throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Void> pending = executor.submit(call);
+        Throwable outcome;
+        boolean terminated;
+        try {
+            pending.get(DEADLINE_SECONDS, TimeUnit.SECONDS);
+            outcome =
+                    new AssertionError(
+                            "The stalled greeting did not fail the call, so the control read is"
+                                    + " apparently not bounded at all");
+        } catch (ExecutionException e) {
+            outcome = e.getCause();
+        } catch (TimeoutException e) {
+            outcome =
+                    new AssertionError(
+                            "The call was still blocked after "
+                                    + DEADLINE_SECONDS
+                                    + " s although control_timeout was 1000 ms; a job would stay"
+                                    + " RUNNING on a silent server",
+                            e);
+        } finally {
+            if (!pending.isDone()) {
+                // Only reachable after a regression: closing the peer is the sole thing that
+                // releases a read no socket timeout is bounding.
+                server.close();
+            }
+            executor.shutdownNow();
+            terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+        Assertions.assertTrue(
+                terminated, "The control connection was not released, so its thread leaked");
+        return outcome;
     }
 
     private static MockedConstruction<FTPClient> constructing(Server server) {
