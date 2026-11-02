@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSy
 
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.model.StyleDescription;
+import org.apache.poi.hwpf.usermodel.CharacterRun;
 import org.apache.poi.hwpf.usermodel.Paragraph;
 import org.apache.poi.hwpf.usermodel.Range;
 import org.apache.poi.hwpf.usermodel.Table;
@@ -95,7 +96,7 @@ public class WordReadStrategy extends AbstractReadStrategy {
         BasicType.INT_TYPE,
         BasicType.STRING_TYPE
     };
-    private static final Pattern HEADING_STYLE = Pattern.compile("(?i)^heading\\s*([1-9])$");
+    private static final Pattern HEADING_STYLE = Pattern.compile("(?i)^(?:heading|标题)\\s*([1-9])$");
 
     private boolean ragMetadataEnabled =
             FileBaseSourceOptions.WORD_RAG_METADATA_ENABLED.defaultValue();
@@ -262,13 +263,67 @@ public class WordReadStrategy extends AbstractReadStrategy {
     }
 
     private Integer getHeadingLevel(HWPFDocument document, Paragraph paragraph) {
+        // HWPF exposes the stored outline level as zero-based; 9 means no outline level.
+        int outlineLevel = paragraph.getLvl();
+        if (outlineLevel >= 0 && outlineLevel < 9) {
+            return outlineLevel + 1;
+        }
+
         StyleDescription style =
                 document.getStyleSheet().getStyleDescription(paragraph.getStyleIndex());
-        if (style == null || style.getName() == null) {
+        if (style != null && style.getName() != null) {
+            Matcher matcher = HEADING_STYLE.matcher(style.getName().trim());
+            if (matcher.matches()) {
+                return Integer.valueOf(matcher.group(1));
+            }
+        }
+
+        return getHeadingLevelFromCharacterFormatting(document, paragraph);
+    }
+
+    private Integer getHeadingLevelFromCharacterFormatting(
+            HWPFDocument document, Paragraph paragraph) {
+        List<CharacterRun> textRuns = new ArrayList<>();
+        for (int i = 0; i < paragraph.numCharacterRuns(); i++) {
+            CharacterRun run = paragraph.getCharacterRun(i);
+            if (!run.text().trim().isEmpty()) {
+                textRuns.add(run);
+            }
+        }
+        if (textRuns.isEmpty()) {
             return null;
         }
-        Matcher matcher = HEADING_STYLE.matcher(style.getName().trim());
-        return matcher.matches() ? Integer.valueOf(matcher.group(1)) : null;
+
+        Integer matchedLevel = null;
+        for (int i = 0; i < document.getStyleSheet().numStyles(); i++) {
+            StyleDescription style = document.getStyleSheet().getStyleDescription(i);
+            if (style == null || style.getName() == null || style.getCHP() == null) {
+                continue;
+            }
+            Matcher matcher = HEADING_STYLE.matcher(style.getName().trim());
+            if (!matcher.matches()) {
+                continue;
+            }
+
+            boolean matchesStyle = true;
+            for (CharacterRun run : textRuns) {
+                if (run.getFontSize() != style.getCHP().getFontSize()
+                        || run.isBold() != style.getCHP().isBold()) {
+                    matchesStyle = false;
+                    break;
+                }
+            }
+            if (!matchesStyle) {
+                continue;
+            }
+
+            int level = Integer.parseInt(matcher.group(1));
+            if (matchedLevel != null && matchedLevel != level) {
+                return null;
+            }
+            matchedLevel = level;
+        }
+        return matchedLevel;
     }
 
     private void assignHierarchy(List<WordElement> elements) {

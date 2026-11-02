@@ -43,7 +43,8 @@ class WordReadStrategyTest {
     }
 
     @Test
-    void readsDocxParagraphsAndTablesInDocumentOrder() throws Exception {
+    void readsDocAndDocxParagraphsAndTablesInDocumentOrder() throws Exception {
+        assertElementsInDocumentOrder(getDocFixture());
         assertElementsInDocumentOrder(getDocxFixture());
     }
 
