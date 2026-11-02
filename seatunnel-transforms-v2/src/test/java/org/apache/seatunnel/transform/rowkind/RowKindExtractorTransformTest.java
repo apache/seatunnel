@@ -150,4 +150,44 @@ class RowKindExtractorTransformTest {
                 "SeaTunnelRow{tableId=, kind=+I, fields=[value1, 1, 896657703886127105, 3.1415916, 3.14, DELETE]}",
                 rowKindExtractorTransform.transformRow(deleteRow).toString());
     }
+
+    @Test
+    void testOriginalRowKindIsPreservedForSiblingBranches() {
+        RowKind[] allKinds = RowKind.values();
+        for (RowKindExtractorTransformType transformType : RowKindExtractorTransformType.values()) {
+            HashMap<String, Object> conf = new HashMap<>();
+            conf.put("transform_type", transformType.name());
+            RowKindExtractorTransform rowKindExtractorTransform =
+                    new RowKindExtractorTransform(ReadonlyConfig.fromMap(conf), catalogTable);
+            rowKindExtractorTransform.initRowContainerGenerator();
+            for (RowKind originalKind : allKinds) {
+                SeaTunnelRow originalRow = inputRow.copy();
+                originalRow.setRowKind(originalKind);
+                originalRow.setTableId("original");
+                HashMap<String, Object> options = new HashMap<>();
+                options.put("marker", "kept");
+                originalRow.setOptions(options);
+
+                SeaTunnelRow outputRow = rowKindExtractorTransform.map(originalRow);
+
+                Assertions.assertEquals(RowKind.INSERT, outputRow.getRowKind());
+                String expectedKind =
+                        transformType == RowKindExtractorTransformType.SHORT
+                                ? originalKind.shortString()
+                                : originalKind.name();
+                Assertions.assertEquals(
+                        expectedKind,
+                        outputRow.getField(rowKindExtractorTransform.getFieldIndex()));
+                Assertions.assertEquals(values.length + 1, outputRow.getArity());
+                Assertions.assertEquals(values[0], outputRow.getField(0));
+                Assertions.assertEquals("original", outputRow.getTableId());
+                Assertions.assertEquals("kept", outputRow.getOptionsOrNull().get("marker"));
+
+                Assertions.assertEquals(originalKind, originalRow.getRowKind());
+                Assertions.assertArrayEquals(values, originalRow.getFields());
+                Assertions.assertEquals("original", originalRow.getTableId());
+                Assertions.assertEquals("kept", originalRow.getOptionsOrNull().get("marker"));
+            }
+        }
+    }
 }

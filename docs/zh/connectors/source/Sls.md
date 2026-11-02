@@ -123,6 +123,41 @@ sink {
 }
 ```
 
+### 周期性发现新 Shard
+
+默认情况下，连接器只在任务启动时枚举一次 shard。把 `partition-discovery.interval-millis`
+设置为正值后，任务运行期间新创建的 shard 也会被持续发现。下面的示例每 5 分钟刷新一次 shard 列表：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Sls {
+    endpoint = "cn-hangzhou-intranet.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    consumer_group = "seatunnel-sls-demo"
+    partition-discovery.interval-millis = 300000
+    schema = {
+      fields = {
+        id = "int"
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
