@@ -30,6 +30,7 @@ import net.sf.jsqlparser.statement.create.table.ColDataType;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 public class CastFunction {
 
@@ -90,7 +91,7 @@ public class CastFunction {
 
     public static SeaTunnelDataType<?> getCastType(SqlType originType, ColDataType colDataType) {
         String dataType = colDataType.getDataType();
-        switch (dataType.toUpperCase()) {
+        switch (dataType.toUpperCase(Locale.ROOT)) {
             case DECIMAL:
                 List<String> ps = colDataType.getArgumentsStringList();
                 return new DecimalType(Integer.parseInt(ps.get(0)), Integer.parseInt(ps.get(1)));

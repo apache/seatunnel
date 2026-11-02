@@ -65,6 +65,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     protected static final String MYSQL_USER_PASSWORD = "mysqlpw";
     protected static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String MYSQL_DATABASE2 = "mysql_cdc2";
+    private static final String APPEND_SINK_DATABASE = "mysql_cdc_append";
 
     private final String QUERY_SQL = "select * from %s.%s";
 
@@ -1056,6 +1057,111 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     @TestTemplate
     @DisabledOnContainer(
             value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testExactlyOnceRestoreWithAddedTableKeepsChangesOfExistingTables(
+            TestContainer container) throws IOException, InterruptedException {
+        String[] tables = {SOURCE_TABLE_1, SOURCE_TABLE_2, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY};
+        for (String table : tables) {
+            clearTable(MYSQL_DATABASE, table);
+            clearTable(MYSQL_DATABASE2, table);
+            createAppendOnlySinkTable(table);
+        }
+
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_two_tables.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 100, 110);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 100, 110);
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // Changes made while the job is stopped are after the saved offset and before the
+        // snapshot of the added table.
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 200, 210);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 200, 210);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_add_table.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 300, 310);
+
+        awaitSinksMatchSource(tables);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 400, 410);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY, 400, 410);
+        awaitSinksMatchSource(tables);
+
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+    }
+
+    /**
+     * Creates a copy of the sink table without a primary key, so that every emitted row is appended
+     * and a change emitted twice shows up as an extra row.
+     */
+    private void createAppendOnlySinkTable(String tableName) {
+        String appendSinkTable = APPEND_SINK_DATABASE + "." + tableName;
+        executeSql("CREATE DATABASE IF NOT EXISTS " + APPEND_SINK_DATABASE);
+        executeSql("DROP TABLE IF EXISTS " + appendSinkTable);
+        executeSql(
+                "CREATE TABLE " + appendSinkTable + " LIKE " + MYSQL_DATABASE2 + "." + tableName);
+        executeSql("ALTER TABLE " + appendSinkTable + " MODIFY id INT NOT NULL, DROP PRIMARY KEY");
+    }
+
+    private void awaitSinksMatchSource(String... tableNames) {
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String tableName : tableNames) {
+                                List<List<Object>> sourceRows =
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE, tableName)
+                                                        + " order by id");
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE2, tableName)
+                                                        + " order by id"),
+                                        tableName);
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(APPEND_SINK_DATABASE, tableName)
+                                                        + " order by id"),
+                                        APPEND_SINK_DATABASE + "." + tableName);
+                            }
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
             type = {EngineType.SPARK},
             disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiTableWithCustomPrimaryKey(TestContainer container) {
@@ -1818,7 +1924,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     private void initSourceTable(String database, String tableName) {
-        for (int i = 1; i < 100; i++) {
+        insertSourceTableRows(database, tableName, 1, 100);
+    }
+
+    private void insertSourceTableRows(
+            String database, String tableName, int fromId, int toIdExclusive) {
+        for (int i = fromId; i < toIdExclusive; i++) {
             executeSql(
                     "INSERT INTO "
                             + database

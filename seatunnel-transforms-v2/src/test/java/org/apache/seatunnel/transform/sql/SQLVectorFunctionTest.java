@@ -46,6 +46,41 @@ public class SQLVectorFunctionTest {
             new String[] {"id", "vector_field", "vector_field2"};
     private CatalogTable catalogTable;
 
+    @Test
+    public void testFiniteVectorArithmeticThroughSql() {
+        double value = Float.MAX_VALUE;
+        String[] expressions = {
+            "VECTOR_NORM(vector_field)",
+            "INNER_PRODUCT(vector_field, vector_field2)",
+            "COSINE_DISTANCE(vector_field, vector_field2)",
+            "L1_DISTANCE(vector_field, vector_field2)",
+            "L2_DISTANCE(vector_field, vector_field2)",
+            "VECTOR_NORM(VECTOR_NORMALIZE(vector_field))"
+        };
+        double[] expected = {value, -value * value, 2.0, 2 * value, 2 * value, 1.0};
+        for (int i = 0; i < expressions.length; i++) {
+            SQLTransform transform =
+                    new SQLTransform(
+                            ReadonlyConfig.fromMap(
+                                    Collections.singletonMap(
+                                            "query",
+                                            "SELECT " + expressions[i] + " AS result FROM dual")),
+                            catalogTable);
+            SeaTunnelRow input =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                1,
+                                VectorUtils.toByteBuffer(new Float[] {Float.MAX_VALUE}),
+                                VectorUtils.toByteBuffer(new Float[] {-Float.MAX_VALUE})
+                            });
+            Assertions.assertEquals(
+                    expected[i],
+                    (double) transform.transformRow(input).get(0).getField(0),
+                    Math.abs(expected[i]) * 1e-14,
+                    expressions[i]);
+        }
+    }
+
     @BeforeEach
     void setUp() {
         SeaTunnelRowType rowType =

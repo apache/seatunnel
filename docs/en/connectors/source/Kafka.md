@@ -617,13 +617,14 @@ Note：key/value is of type byte[].
 ### Tombstone records
 
 A tombstone is a Kafka record that has a key and no value, which compacted topics use to mark a
-key as deleted. For the `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `maxwell_json`
-and `avro` formats the source reads a tombstone as a record that produces no row: it is not a
-format error, so it is passed over whatever `format_error_handle_way` is set to, and the offset
-moves on past it. The `text`, `canal_json`, `debezium_json`, `ogg_json` and `avro` formats treat
-an empty (zero length) value the same way; `json` and `maxwell_json` pass over a null value only.
-
-The `protobuf` format has no such guard and is not covered by this behaviour.
+key as deleted. For the `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `maxwell_json`,
+`avro`, `compatible_kafka_connect_json` and `protobuf` formats the source reads a tombstone as a
+record that produces no row: it is not a format error, so it is passed over whatever
+`format_error_handle_way` is set to, and the offset moves on past it. The `text`, `canal_json`,
+`debezium_json`, `ogg_json` and `avro` formats treat an empty (zero length) value the same way;
+`json`, `maxwell_json` and `compatible_kafka_connect_json` pass over a null value only. For
+`protobuf` an empty value is a valid message in which every field holds its default value, so it
+is decoded into a row of defaults rather than passed over.
 
 ### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
 
