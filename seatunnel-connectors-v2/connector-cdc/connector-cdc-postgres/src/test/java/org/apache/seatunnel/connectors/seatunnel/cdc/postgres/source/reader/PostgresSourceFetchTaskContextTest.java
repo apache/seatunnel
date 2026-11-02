@@ -209,8 +209,7 @@ public class PostgresSourceFetchTaskContextTest {
                 exception.getSeaTunnelErrorCode());
         Assertions.assertTrue(
                 exception.getMessage().contains("column st2"), exception.getMessage());
-        Assertions.assertTrue(
-                exception.getMessage().contains("public.t5"), exception.getMessage());
+        Assertions.assertTrue(exception.getMessage().contains("public.t5"), exception.getMessage());
         Assertions.assertEquals(0, exception.getSuppressed().length);
         verify(dataConnection).rollback();
         verify(dataConnection, never()).commit();
@@ -240,8 +239,7 @@ public class PostgresSourceFetchTaskContextTest {
         Assertions.assertEquals(
                 PostgresConnectorErrorCode.RESOLVE_COLUMN_TYPE_NAME_FAILED,
                 exception.getSeaTunnelErrorCode());
-        Assertions.assertArrayEquals(
-                new Throwable[] {rollbackFailure}, exception.getSuppressed());
+        Assertions.assertArrayEquals(new Throwable[] {rollbackFailure}, exception.getSuppressed());
         verify(dataConnection).rollback();
         verify(dataConnection, never()).commit();
     }
