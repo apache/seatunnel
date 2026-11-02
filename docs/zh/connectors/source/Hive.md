@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 |         名称          |  类型  | 必需 | 默认值  | 描述 |
 |-----------------------|--------|------|---------|------|
 | table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
-| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表。每一项都是独立的配置：`table_name`、`metastore_uri` 以及认证/Hadoop 等选项**不会**从根配置继承，必须在每一项中重复填写（设置 `table_list` 后，根配置中 `table_list` 之外的选项会被忽略）。若两者同时设置，`table_list` 优先。 |
+| table_list            | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表。每一项都是独立的配置：`table_name`、`metastore_uri` 以及认证/Hadoop 等选项**不会**从根配置继承，必须在每一项中重复填写（设置 `table_list` 后，根配置中 `table_list` 之外的 connector 选项会被忽略；`plugin_output`、`parallelism` 等框架级选项仍然生效）。若两者同时设置，`table_list` 优先。 |
 | tables_configs        | array  | 否   | 已废弃，请使用 `table_list` | 已废弃的多表配置列表。Hive 是结构化数据源，新作业请使用 `table_list`。仅为向后兼容保留。 |
 | use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
 | metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |

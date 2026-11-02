@@ -159,7 +159,7 @@ sink {
 
 | 每表键                   | 类型   | 描述                                                                                   |
 |-------------------------|--------|----------------------------------------------------------------------------------------|
-| namespace               | string | 该表所属的 Iceberg 数据库（namespace）。                                           |
+| namespace               | string | 不生效：每一项都会被根级别 `namespace` 覆盖。如需读取其他数据库，请在 `table` 中使用限定名 `db.table`。 |
 | table                   | string | Iceberg 表名。                                                                     |
 | query                   | string | 该表的过滤 query，含义与根级别 `query` 选项相同。                                      |
 | startSnapshotTimestamp  | long   | 自 Unix 纪元以来的毫秒时间戳；从该时间点最近的快照开始扫描变更。                        |
@@ -167,7 +167,7 @@ sink {
 | endSnapshotId           | long   | 扫描变更直到指定快照（包含）。                                                          |
 | useSnapshotId           | long   | 批量模式下读取指定快照。                                                                |
 | useSnapshotTimestamp    | long   | 自 Unix 纪元以来的毫秒时间戳；批量模式下读取该时间点最近的快照。                        |
-| streamScanStrategy      | enum   | 该表的流式扫描策略。可选值：`TABLE_SCAN_THEN_INCREMENTAL`（默认）、`FROM_LATEST_SNAPSHOT`、`FROM_EARLIEST_SNAPSHOT`、`FROM_SNAPSHOT_ID`、`FROM_SNAPSHOT_TIMESTAMP`。 |
+| streamScanStrategy      | enum   | 该表的流式扫描策略。可选值：`FROM_LATEST_SNAPSHOT`（默认）、`TABLE_SCAN_THEN_INCREMENTAL`、`FROM_EARLIEST_SNAPSHOT`、`FROM_SNAPSHOT_ID`、`FROM_SNAPSHOT_TIMESTAMP`。 |
 | splitSize               | long   | 该表的目标 split 大小（字节），对应 Iceberg `read.split.target-size`。                   |
 | splitLookback           | int    | 合并 split 时向前查看的 manifest 数量，对应 Iceberg `read.split.planning-lookback`。     |
 | splitOpenFileCost       | long   | 打开一个文件的估算开销，用于合并 split，对应 Iceberg `read.split.openfile-cost`。        |

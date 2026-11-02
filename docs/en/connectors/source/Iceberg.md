@@ -146,7 +146,7 @@ Each `table_list` item is parsed as a standalone config and supports the followi
 
 | Item key                | Type   | Description                                                                        |
 |-------------------------|--------|------------------------------------------------------------------------------------|
-| namespace               | string | The Iceberg namespace (database) of the table.                                     |
+| namespace               | string | Ignored: each item is overwritten with the root-level `namespace`, so this key has no effect. To read from another database, use a qualified `db.table` value in `table`. |
 | table                   | string | The Iceberg table name.                                                            |
 | query                   | string | Filter query for this table, same as the root-level `query` option.                 |
 | startSnapshotTimestamp  | long   | Millis since the Unix epoch; scan changes starting from the latest snapshot at this timestamp. |
@@ -154,7 +154,7 @@ Each `table_list` item is parsed as a standalone config and supports the followi
 | endSnapshotId           | long   | Scan changes up to this snapshot (inclusive).                                      |
 | useSnapshotId           | long   | Read this snapshot in batch mode.                                                  |
 | useSnapshotTimestamp    | long   | Millis since the Unix epoch; read the latest snapshot as of this timestamp in batch mode. |
-| streamScanStrategy      | enum   | Stream scan strategy for this table. Supported values: `TABLE_SCAN_THEN_INCREMENTAL` (default), `FROM_LATEST_SNAPSHOT`, `FROM_EARLIEST_SNAPSHOT`, `FROM_SNAPSHOT_ID`, `FROM_SNAPSHOT_TIMESTAMP`. |
+| streamScanStrategy      | enum   | Stream scan strategy for this table. Supported values: `FROM_LATEST_SNAPSHOT` (default), `TABLE_SCAN_THEN_INCREMENTAL`, `FROM_EARLIEST_SNAPSHOT`, `FROM_SNAPSHOT_ID`, `FROM_SNAPSHOT_TIMESTAMP`. |
 | splitSize               | long   | Target split size in bytes for this table (Iceberg `read.split.target-size`).      |
 | splitLookback           | int    | How many manifests to look back when combining splits (Iceberg `read.split.planning-lookback`). |
 | splitOpenFileCost       | long   | Estimated cost to open a file, used when combining splits (Iceberg `read.split.openfile-cost`). |
