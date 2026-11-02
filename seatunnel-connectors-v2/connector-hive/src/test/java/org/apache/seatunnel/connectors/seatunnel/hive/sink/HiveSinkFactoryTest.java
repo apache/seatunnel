@@ -80,6 +80,14 @@ public class HiveSinkFactoryTest {
     }
 
     @Test
+    void testTableCompressionOptionRegistered() {
+        assertTrue(
+                factory.optionRule()
+                        .getOptionalOptions()
+                        .contains(HiveSinkOptions.USE_TABLE_COMPRESSION));
+    }
+
+    @Test
     void testCreateSinkWithValidSaveMode() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
