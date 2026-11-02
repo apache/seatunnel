@@ -233,30 +233,6 @@ public class SqlWhereConditionHelper {
      * Check if SELECT clause has top-level wildcard (* or table.*). Does NOT match wildcards inside
      * expressions like COUNT(*), col*2, SUM(a*b).
      */
-    /**
-     * Match an upper-case SQL keyword at {@code offset} of {@code sql}, ignoring ASCII letter case.
-     *
-     * <p>Only characters below 0x80 are folded, so a code point whose full Unicode upper-case form
-     * equals a keyword letter (U+017F 'ſ' for 'S', U+FB05 'ﬅ' for "ST", ...) is never read as part
-     * of the keyword. Keyword recognition then matches what a database accepts, and both scanners
-     * use the same notion of a keyword letter.
-     */
-    private static boolean matchesAsciiKeyword(String sql, int offset, String keyword) {
-        int length = keyword.length();
-        if (offset < 0 || offset + length > sql.length()) {
-            return false;
-        }
-        for (int i = 0; i < length; i++) {
-            char actual = sql.charAt(offset + i);
-            char expected = keyword.charAt(i);
-            boolean foldable = actual < 0x80 && Character.toUpperCase(actual) == expected;
-            if (actual != expected && !foldable) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public static boolean hasTopLevelSelectWildcard(String sql) {
         // Remove string literals to avoid false positives
         String cleaned = sql.replaceAll("'[^']*'|\"[^\"]*\"", "");
@@ -598,5 +574,29 @@ public class SqlWhereConditionHelper {
                 || upper.equals("NULL")
                 || upper.equals("TRUE")
                 || upper.equals("FALSE");
+    }
+
+    /**
+     * Match an upper-case SQL keyword at {@code offset} of {@code sql}, ignoring ASCII letter case.
+     *
+     * <p>Only characters below 0x80 are folded, so a code point whose full Unicode upper-case form
+     * equals a keyword letter (U+017F 'ſ' for 'S', U+FB05 'ﬅ' for "ST", ...) is never read as part
+     * of the keyword. Keyword recognition then matches what a database accepts, and both scanners
+     * use the same notion of a keyword letter.
+     */
+    private static boolean matchesAsciiKeyword(String sql, int offset, String keyword) {
+        int length = keyword.length();
+        if (offset < 0 || offset + length > sql.length()) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            char actual = sql.charAt(offset + i);
+            char expected = keyword.charAt(i);
+            boolean foldable = actual < 0x80 && Character.toUpperCase(actual) == expected;
+            if (actual != expected && !foldable) {
+                return false;
+            }
+        }
+        return true;
     }
 }
