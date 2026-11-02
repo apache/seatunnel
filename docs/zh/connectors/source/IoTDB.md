@@ -79,7 +79,9 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 时间列映射为 `TIMESTAMP`（`LocalDateTime`）时，`zone_id` 决定如何将纪元毫秒值转换为本地日期时间。例如，配置 `zone_id = "Asia/Shanghai"` 时，纪元毫秒值 `0` 读为 `1970-01-01T08:00:00`。此选项也会设置 IoTDB 客户端会话的时区。未配置时，时间戳转换仍使用 UTC，客户端保留原有默认时区。时间列映射为 `BIGINT` 时，直接返回原始纪元毫秒值，不做时区转换。
 
-对于 IoTDB Source 到 Sink 的作业，请在两端配置相同的 `zone_id`，使读取和写入使用相同的时间戳转换规则。
+夏令时回拨时，同一个本地时间会出现两次，`LocalDateTime` 无法区分这两个时间点。Source 会拒绝产生此类歧义值的时间戳，避免丢弃原始偏移量。例如，在 `America/New_York` 时区，`2024-11-03T05:30:00Z` 和 `2024-11-03T06:30:00Z` 都对应本地时间 `2024-11-03T01:30:00`。
+
+对于使用 `TIMESTAMP` 的 IoTDB Source 到 Sink 作业，请在两端配置相同的 `zone_id`，使无歧义本地时间的转换规则保持一致。需要在夏令时切换期间保留每一个时间点时，请将时间列映射为 `BIGINT`，并在 Sink 中继续使用纪元毫秒时间戳键；也可以在两端都配置 `zone_id = "UTC"`。仅配置相同的地区时区，无法保证重叠时间的转换可逆。
 
 ### 多表读取
 

@@ -79,7 +79,9 @@ The first field in `schema.fields` must describe the IoTDB time column. It can b
 
 When the time column is mapped to `TIMESTAMP` (`LocalDateTime`), `zone_id` controls how epoch milliseconds are converted to local date and time. For example, with `zone_id = "Asia/Shanghai"`, epoch millisecond `0` is read as `1970-01-01T08:00:00`. The same option configures the IoTDB client session. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. Mapping the time column to `BIGINT` returns the original epoch milliseconds without conversion.
 
-For IoTDB source-to-sink jobs, configure the same `zone_id` on both sides so they use the same timestamp conversion rules.
+`LocalDateTime` cannot distinguish the two occurrences of a local time during a daylight-saving overlap. The source rejects timestamps that would produce such an ambiguous value instead of discarding their original offset. For example, in `America/New_York`, both `2024-11-03T05:30:00Z` and `2024-11-03T06:30:00Z` correspond to `2024-11-03T01:30:00`.
+
+For IoTDB source-to-sink jobs using `TIMESTAMP`, configure the same `zone_id` on both sides for consistent conversion of unambiguous local times. To preserve every instant across daylight-saving transitions, map the time column to `BIGINT` and keep it as an epoch-millisecond timestamp key in the sink, or use `zone_id = "UTC"` on both sides. Using the same regional zone alone does not make overlap times reversible.
 
 ### Multiple tables
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
@@ -29,9 +30,10 @@ import shaded.org.apache.tsfile.enums.TSDataType;
 import shaded.org.apache.tsfile.read.common.Field;
 import shaded.org.apache.tsfile.read.common.RowRecord;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Date;
 import java.util.List;
 
 @Slf4j
@@ -70,7 +72,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     CommonErrorCode.ILLEGAL_ARGUMENT, "Illegal SeaTunnelRowType: " + rowRecord);
         }
         Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
-        seaTunnelFields[0] = convertTimestamp(timestamp, rowType.getFieldType(0));
+        seaTunnelFields[0] =
+                convertTimestamp(timestamp, rowType.getFieldType(0), rowType.getFieldNames()[0]);
         for (int i = 1; i < rowType.getTotalFields(); i++) {
             Field field = fields.get(i - 1);
             if (field == null || field.getDataType() == null) {
@@ -78,7 +81,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 continue;
             }
             SeaTunnelDataType<?> seaTunnelFieldType = rowType.getFieldType(i);
-            seaTunnelFields[i] = convert(seaTunnelFieldType, field);
+            seaTunnelFields[i] = convert(seaTunnelFieldType, field, rowType.getFieldNames()[i]);
         }
         return new SeaTunnelRow(seaTunnelFields);
     }
@@ -97,12 +100,12 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 continue;
             }
             SeaTunnelDataType<?> seaTunnelFieldType = rowType.getFieldType(i);
-            seaTunnelFields[i] = convert(seaTunnelFieldType, field);
+            seaTunnelFields[i] = convert(seaTunnelFieldType, field, rowType.getFieldNames()[i]);
         }
         return new SeaTunnelRow(seaTunnelFields);
     }
 
-    private Object convert(SeaTunnelDataType<?> seaTunnelFieldType, Field field) {
+    private Object convert(SeaTunnelDataType<?> seaTunnelFieldType, Field field, String fieldName) {
         switch (field.getDataType()) {
             case INT32:
                 Number int32 = field.getIntV();
@@ -131,7 +134,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return field.getBoolV();
             case TIMESTAMP:
                 long timestamp = (long) field.getObjectValue(TSDataType.TIMESTAMP);
-                return convertTimestamp(timestamp, seaTunnelFieldType);
+                return convertTimestamp(timestamp, seaTunnelFieldType, fieldName);
             case DATE:
                 return field.getObjectValue(TSDataType.DATE);
             case BLOB:
@@ -143,10 +146,23 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         }
     }
 
-    private Object convertTimestamp(long timestamp, SeaTunnelDataType<?> seaTunnelFieldType) {
+    private Object convertTimestamp(
+            long timestamp, SeaTunnelDataType<?> seaTunnelFieldType, String fieldName) {
         switch (seaTunnelFieldType.getSqlType()) {
             case TIMESTAMP:
-                return new Date(timestamp).toInstant().atZone(zoneId).toLocalDateTime();
+                LocalDateTime localTimestamp =
+                        LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), zoneId);
+                // Reject before discarding the offset: two instants can share this local time.
+                if (zoneId.getRules().getValidOffsets(localTimestamp).size() != 1) {
+                    throw new IotdbConnectorException(
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Cannot convert epoch milliseconds %s for TIMESTAMP field '%s' "
+                                            + "with zone_id '%s': local time %s is ambiguous. "
+                                            + "Use UTC or a BIGINT source schema to preserve instants.",
+                                    timestamp, fieldName, zoneId, localTimestamp));
+                }
+                return localTimestamp;
             case BIGINT:
                 return timestamp;
             default:

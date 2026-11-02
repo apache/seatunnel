@@ -74,7 +74,9 @@ Used to write data to IoTDB.
 
 When `key_timestamp` names a `TIMESTAMP` (`LocalDateTime`) field, `zone_id` controls its conversion to epoch milliseconds. For example, with `zone_id = "Asia/Shanghai"`, `1970-01-01T08:00:00` is written as epoch millisecond `0`. The same option configures the IoTDB client session. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. `BIGINT` and numeric `STRING` timestamp keys already contain epoch milliseconds and are written unchanged.
 
-For IoTDB source-to-sink jobs, configure the same `zone_id` on both sides. Existing jobs with an explicit non-UTC sink `zone_id` must review the [migration guidance](../../introduction/concepts/incompatible-changes.md) because the option now affects timestamp conversion as well as the client session.
+The sink rejects local timestamps with multiple valid offsets (a daylight-saving overlap) or no valid offset (a daylight-saving gap). It does not choose an offset or shift a nonexistent time automatically. For example, `2024-11-03T01:30:00` is ambiguous and `2024-03-10T02:30:00` does not exist in `America/New_York`.
+
+For IoTDB source-to-sink jobs using `TIMESTAMP`, configure the same `zone_id` on both sides for consistent conversion of unambiguous local times. To preserve every instant across daylight-saving transitions, keep the timestamp key as `BIGINT` epoch milliseconds throughout the job, or use `zone_id = "UTC"` on both sides. Existing jobs with an explicit non-UTC sink `zone_id` must review the [migration guidance](../../introduction/concepts/incompatible-changes.md) because the option now affects timestamp conversion as well as the client session.
 
 ## Examples
 

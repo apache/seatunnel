@@ -71,7 +71,9 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 
 When a tree-model time column, a table-model TIME column, or a table-model TIMESTAMP FIELD column is mapped to SeaTunnel `TIMESTAMP` (`LocalDateTime`), `zone_id` controls how epoch milliseconds are converted to local date and time. For example, with `zone_id = "Asia/Shanghai"`, epoch millisecond `0` is read as `1970-01-01T08:00:00`. The same option configures the IoTDB client session in both SQL dialects. If it is omitted, timestamp conversion remains in UTC and the client keeps its existing default time zone. Mapping a timestamp column to `BIGINT` returns the original epoch milliseconds without conversion.
 
-For IoTDBv2 source-to-sink jobs, configure the same `zone_id` on both sides so they use the same timestamp conversion rules.
+`LocalDateTime` cannot distinguish the two occurrences of a local time during a daylight-saving overlap. The source rejects timestamps that would produce such an ambiguous value instead of discarding their original offset. This applies to all three timestamp column categories above. For example, in `America/New_York`, both `2024-11-03T05:30:00Z` and `2024-11-03T06:30:00Z` correspond to `2024-11-03T01:30:00`.
+
+For IoTDBv2 source-to-sink jobs using `TIMESTAMP`, configure the same `zone_id` on both sides for consistent conversion of unambiguous local times. To preserve every instant across daylight-saving transitions, map tree-model time or table-model TIME keys to `BIGINT` and keep them as epoch-millisecond keys in the sink, or use `zone_id = "UTC"` on both sides. To preserve table-model TIMESTAMP FIELD values and their target type, use UTC on both sides; mapping these fields to `BIGINT` changes their SeaTunnel type and does not write them back as TIMESTAMP FIELD columns. Using the same regional zone alone does not make overlap times reversible.
 
 You can use the time column to split a source query into multiple partitions. To enable this, set `lower_bound`, `upper_bound`, and `num_partitions` together.
 

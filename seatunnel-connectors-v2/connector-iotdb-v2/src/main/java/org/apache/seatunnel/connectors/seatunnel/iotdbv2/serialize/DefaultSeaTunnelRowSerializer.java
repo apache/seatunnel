@@ -105,7 +105,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoT
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return ((LocalDateTime) timestamp).atZone(zoneId).toInstant().toEpochMilli();
+                    LocalDateTime localTimestamp = (LocalDateTime) timestamp;
+                    List<ZoneOffset> offsets = zoneId.getRules().getValidOffsets(localTimestamp);
+                    // LocalDateTime cannot retain which instant was meant during an overlap.
+                    if (offsets.size() != 1) {
+                        throw new IotdbConnectorException(
+                                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                String.format(
+                                        "Cannot convert TIMESTAMP field '%s' value %s with zone_id '%s': "
+                                                + "the local time is ambiguous or does not exist. "
+                                                + "Use UTC or BIGINT epoch milliseconds to preserve instants.",
+                                        timestampKey, localTimestamp, zoneId));
+                    }
+                    return localTimestamp.toInstant(offsets.get(0)).toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
                 default:

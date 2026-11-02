@@ -51,6 +51,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -118,29 +119,44 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 "Asia/Shanghai",
                 "UTC",
                 SINK_GROUP + "_source_zone",
+                "timestamp",
                 TimeUnit.HOURS.toMillis(8));
         assertZoneIdConversion(
                 container,
                 "UTC",
                 "Asia/Shanghai",
                 SINK_GROUP + "_sink_zone",
+                "timestamp",
                 -TimeUnit.HOURS.toMillis(8));
+        // Raw epochs preserve both instants that share a local time during the DST overlap.
+        assertZoneIdConversion(
+                container,
+                "America/New_York",
+                "America/New_York",
+                SINK_GROUP + "_epoch",
+                "bigint",
+                0);
     }
 
     private void assertZoneIdConversion(
             TestContainer container,
             String sourceZone,
             String sinkZone,
-            String sinkGroup,
+            String sinkGroupPrefix,
+            String timestampType,
             long timestampOffset)
             throws Exception {
+        // Each engine invocation must prove it wrote its own rows.
+        String sinkGroup = sinkGroupPrefix + "_" + UUID.randomUUID().toString().replace("-", "");
+        session.setStorageGroup(sinkGroup);
         Container.ExecResult result =
                 container.executeJob(
                         "/iotdb/iotdb_source_to_sink_zone.conf",
                         Arrays.asList(
                                 "source_zone=" + sourceZone,
                                 "sink_zone=" + sinkZone,
-                                "sink_group=" + sinkGroup));
+                                "sink_group=" + sinkGroup,
+                                "timestamp_type=" + timestampType));
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         assertDatasetEquals(testDataset, readSinkDataset(sinkGroup), timestampOffset);
     }
@@ -158,8 +174,6 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             throws IoTDBConnectionException, StatementExecutionException {
         session.setStorageGroup(SOURCE_GROUP);
         session.setStorageGroup(SINK_GROUP);
-        session.setStorageGroup(SINK_GROUP + "_source_zone");
-        session.setStorageGroup(SINK_GROUP + "_sink_zone");
 
         String[] deviceIds = new String[] {"device_a", "device_b"};
         LinkedHashMap<String, TSDataType> measurements = new LinkedHashMap<>();
@@ -190,7 +204,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             }
 
             for (int rowCount = 0; rowCount < 100; rowCount++) {
-                long timestamp = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(rowCount);
+                // Includes 2024-11-03T05:30Z and 06:30Z, both 01:30 in America/New_York.
+                long timestamp = 1730611800000L + TimeUnit.MINUTES.toMillis(rowCount);
                 RowRecord record = new RowRecord(timestamp);
                 record.addField(new Binary(deviceId.getBytes()), TSDataType.TEXT);
                 record.addField(Boolean.FALSE, TSDataType.BOOLEAN);
@@ -243,8 +258,11 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             List<RowRecord> testDataset, List<RowRecord> sinkDataset, long timestampOffset) {
         Assertions.assertEquals(testDataset.size(), sinkDataset.size());
 
-        Collections.sort(testDataset, Comparator.comparingLong(RowRecord::getTimestamp));
-        Collections.sort(sinkDataset, Comparator.comparingLong(RowRecord::getTimestamp));
+        Comparator<RowRecord> rowOrder =
+                Comparator.comparingLong(RowRecord::getTimestamp)
+                        .thenComparing(record -> record.getField(0).getStringValue());
+        Collections.sort(testDataset, rowOrder);
+        Collections.sort(sinkDataset, rowOrder);
         for (int rowIndex = 0; rowIndex < testDataset.size(); rowIndex++) {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
