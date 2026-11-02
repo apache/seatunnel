@@ -61,6 +61,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 默认值：`false`。开启后，初始化**已有 ORC 表**时从 metastore 继承 `orc.compress`。此选项不改变自动建表流程、非 ORC 表或表元数据。
 
+对于非 ORC 表，`use_table_compression` 会被忽略，不会继承或校验表的压缩属性。如果 sink 初始化时表尚不存在并走自动建表流程，也会跳过压缩继承，包括 `save_mode_create_template` 中声明的 `orc.compress`。这两种情况均不会仅因开启此选项而导致任务失败；显式 `compress_codec` 的处理方式、原有默认值以及正常的配置校验和建表错误仍然适用。
+
 优先级：显式 `compress_codec`（包括 `NONE`）> 开启继承后的表属性 `orc.compress` > 原默认值 `NONE`。表属性去除首尾空白后按大小写不敏感匹配；属性缺失、为 null 或为空白时保留默认值。未知值或没有有效 ORC 映射的压缩格式在 sink 初始化时明确报错，避免静默写为不压缩。在 ORC ZSTD 仍映射为 NONE 的版本中，继承 ZSTD 会报错；使用该表属性前请确认 SeaTunnel 版本支持 ORC ZSTD。下游读取器也必须支持所选压缩格式。
 
 对于通过 `TBLPROPERTIES ('orc.compress'='SNAPPY')` 创建的已有表：
