@@ -63,6 +63,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 Default: `false`. Enable this option to inherit `orc.compress` from the metastore when preparing an **existing ORC table**. It does not change automatic table creation, non-ORC tables, or table metadata.
 
+For non-ORC tables, `use_table_compression` is ignored: no table compression property is inherited or validated. If the table does not exist when the sink is initialized and follows the automatic table-creation path, inheritance is also skipped, including `orc.compress` declared in `save_mode_create_template`. In both cases, enabling this option alone does not cause the job to fail; explicit `compress_codec` handling, existing defaults, and normal configuration validation and table-creation errors still apply.
+
 Priority: explicit `compress_codec` (including `NONE`) > table `orc.compress` when enabled > the existing default `NONE`. Table values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Unknown values or codecs without a supported ORC mapping fail during sink initialization instead of silently writing uncompressed files. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using that table property. Downstream readers must support the selected codec.
 
 For an existing table created with `TBLPROPERTIES ('orc.compress'='SNAPPY')`:
