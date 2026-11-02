@@ -410,6 +410,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     "CREATE TABLE [dbo].["
                             + tableName
                             + "] ([c_int] int, [c_bigint] bigint, [c_datetime2] datetime2)");
+            // The shared connection does not auto commit, and the catalog reads the table
+            // through its own connection, which waits on an uncommitted CREATE TABLE.
+            connection.commit();
             try {
                 for (Locale locale :
                         new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
@@ -454,6 +457,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 Locale.setDefault(Locale.Category.FORMAT, saved[1]);
                 Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
                 statement.execute("DROP TABLE IF EXISTS [dbo].[" + tableName + "]");
+                connection.commit();
             }
         }
     }
