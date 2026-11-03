@@ -32,6 +32,7 @@ import lombok.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 
 public class ResourceUtils {
@@ -52,8 +53,11 @@ public class ResourceUtils {
         futures.forEach(
                 (key, value) -> {
                     try {
-                        slotProfiles.put(key, value == null ? null : value.join());
-                    } catch (CompletionException e) {
+                        SlotProfile slotProfile = value == null ? null : value.join();
+                        if (slotProfile != null) {
+                            slotProfiles.put(key, slotProfile);
+                        }
+                    } catch (CompletionException | CancellationException e) {
                         LOGGER.warning("Failed to join future for task group location: " + key, e);
                     }
                 });

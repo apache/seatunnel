@@ -36,5 +36,6 @@ hazelcast:
         properties:
           path: /tmp/file-store-map
   properties:
+    hazelcast.tcp.join.port.try.count: 100
     hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
     hazelcast.slow.operation.detector.logging.enabled: true
