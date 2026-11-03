@@ -513,6 +513,13 @@ env {
 - [DAG 执行](dag-execution.md)
 
 ## 10. 参考资料
+
+### 关键源码文件
+
+- Engine Core: `seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/`
+- DAG: `seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/`
+- Checkpoint: `seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/`
+
 ### 进一步阅读
 
 - [Hazelcast IMDG](https://docs.hazelcast.com/imdg/latest/)
