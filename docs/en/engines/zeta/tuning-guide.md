@@ -217,9 +217,9 @@ free -h
 
 **IMap / MapStore latency:**
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
-- Check: `du -sh $SEATUNNEL_HOME/imap/wal/` and `du -sh $SEATUNNEL_HOME/imap/maps/` — large WAL directories indicate write pressure.
+- Check: measure the configured MapStore `namespace` directory (`IMapFileStorage` writes under `<namespace>/<clusterName>/<businessName>`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); enable WAL compaction.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); keep an eye on disk headroom.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 

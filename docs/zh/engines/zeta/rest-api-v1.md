@@ -263,8 +263,6 @@ network:
 ]
 ```
 
-> 健康检查超时或失败的成员会被报告为只含 `host`、`port` 和 `error` 的对象；健康成员还会额外包含 `isMaster` 及上面示例中的连接信息。
-
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -636,7 +634,7 @@ network:
 ]
 ```
 
-每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。健康成员还会额外包含 `isMaster` 与示例中的连接信息（`host`、`port`）。
 
 
 </details>

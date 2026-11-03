@@ -217,9 +217,9 @@ free -h
 
 **IMap / MapStore 延迟：**
 - 症状：对 IMap 键执行 `PutOperation` 或 `GetOperation` 时出现慢操作。
-- 检查：`du -sh $SEATUNNEL_HOME/imap/wal/` 和 `du -sh $SEATUNNEL_HOME/imap/maps/` —— WAL 目录过大表示写入压力大。
+- 检查：测量所配置 MapStore 的 `namespace` 目录（`IMapFileStorage` 写入 `<namespace>/<clusterName>/<businessName>`，而非固定的 `imap/wal` 或 `imap/maps` 目录）——目录过大表示写入压力大。
 - 常见原因：MapStore 目录磁盘 I/O 饱和、WAL 写入频率过高、或磁盘空间耗尽。
-- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)以及[状态存储与恢复](state-storage-and-recovery.md)中的 IMap 持久化说明；启用 WAL 压缩。
+- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)以及[状态存储与恢复](state-storage-and-recovery.md)中的 IMap 持久化说明，同时关注磁盘余量。
 
 ### 3. 合理配置 `hazelcast.operation.generic.thread.count`
 
