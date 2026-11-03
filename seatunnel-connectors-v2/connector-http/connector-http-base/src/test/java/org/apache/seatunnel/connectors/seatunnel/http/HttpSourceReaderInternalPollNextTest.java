@@ -144,6 +144,65 @@ public class HttpSourceReaderInternalPollNextTest {
         httpSourceReader.close();
     }
 
+    /**
+     * Regression test for #11759: with placeholder-based pagination, the params template must be
+     * re-applied on every page. Before the fix the first substitution replaced "${pageIndex}" in
+     * place, so the second call found no placeholder and the page index never advanced.
+     */
+    @Test
+    public void testPageNumberPlaceHolderParamsAdvanceAcrossPages() throws Exception {
+        Map<String, String> params = new HashMap<>();
+        params.put("pageIndex", "${pageIndex}");
+        params.put("limit", "10");
+        httpParameter.setParams(params);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("pageIndex");
+        pageInfo.setPageIndex(1L);
+        pageInfo.setPageType(HttpPaginationType.PAGE_NUMBER.getCode());
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, jsonField, null, pageInfo);
+
+        httpSourceReader.updateRequestParam(pageInfo, true);
+        Assertions.assertEquals("1", httpParameter.getParams().get("pageIndex"));
+        Assertions.assertEquals("10", httpParameter.getParams().get("limit"));
+
+        pageInfo.setPageIndex(2L);
+        httpSourceReader.updateRequestParam(pageInfo, true);
+        Assertions.assertEquals("2", httpParameter.getParams().get("pageIndex"));
+        Assertions.assertEquals("10", httpParameter.getParams().get("limit"));
+    }
+
+    /** Same regression as above for the documented header-based placeholder pagination. */
+    @Test
+    public void testPageNumberPlaceHolderHeadersAdvanceAcrossPages() throws Exception {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("X-Page", "${pageIndex}");
+        headers.put("Accept", "application/json");
+        httpParameter.setHeaders(headers);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("pageIndex");
+        pageInfo.setPageIndex(1L);
+        pageInfo.setPageType(HttpPaginationType.PAGE_NUMBER.getCode());
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, jsonField, null, pageInfo);
+
+        httpSourceReader.updateRequestParam(pageInfo, true);
+        Assertions.assertEquals("1", httpParameter.getHeaders().get("X-Page"));
+
+        pageInfo.setPageIndex(2L);
+        httpSourceReader.updateRequestParam(pageInfo, true);
+        Assertions.assertEquals("2", httpParameter.getHeaders().get("X-Page"));
+        Assertions.assertEquals("application/json", httpParameter.getHeaders().get("Accept"));
+    }
+
     @Test
     public void testCursorPaginationStopsWhenCursorDoesNotAdvance() throws Exception {
         httpParameter.setBody("{\"scrollId\":\"${scrollId}\",\"capacity\":100}");

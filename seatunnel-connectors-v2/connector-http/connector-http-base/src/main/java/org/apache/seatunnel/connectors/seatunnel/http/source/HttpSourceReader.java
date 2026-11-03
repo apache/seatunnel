@@ -82,6 +82,20 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * state is not unintentionally mutated during pagination.
      */
     private String rawBody = null;
+    /**
+     * Holds the original request params template for placeholder replacement. Without a copy of the
+     * raw params, the first {@code updateRequestParam} call replaces the {@code ${pageField}}
+     * placeholder (e.g. {@code ${pageIndex}}) with an actual value, so on subsequent pagination
+     * iterations the placeholder is gone and the page index never advances, causing an infinite
+     * loop (see #11759).
+     */
+    private Map<String, String> rawParams = null;
+    /**
+     * Snapshot of the original header template, taken before any pagination placeholder is
+     * substituted, so header-based placeholder pagination can be rebuilt on every page (same
+     * reasoning as {@link #rawParams}).
+     */
+    private Map<String, String> rawHeaders = null;
 
     public HttpSourceReader(
             HttpParameter httpParameter,
@@ -134,6 +148,12 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.contentJson = contentJson;
         this.pageInfoOptional = Optional.ofNullable(pageInfo);
         this.rawBody = httpParameter.getBody();
+        this.rawParams =
+                httpParameter.getParams() == null ? null : new HashMap<>(httpParameter.getParams());
+        this.rawHeaders =
+                httpParameter.getHeaders() == null
+                        ? null
+                        : new HashMap<>(httpParameter.getHeaders());
         this.binaryMode = binaryMode;
         this.binaryChunkSize = binaryChunkSize;
 
@@ -258,31 +278,48 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
         // Process headers
         if (MapUtils.isNotEmpty(this.httpParameter.getHeaders())) {
-            processPageMap(
-                    this.httpParameter.getHeaders(),
-                    pageField,
-                    pageValue.toString(),
-                    usePlaceholderReplacement);
+            if (usePlaceholderReplacement && rawHeaders != null) {
+                // Same template rebuild as for params: a header such as
+                // "X-Page: ${pageIndex}" would otherwise lose its placeholder after the first
+                // substitution and the page would never advance (#11759).
+                this.httpParameter.setHeaders(
+                        rebuildFromTemplate(rawHeaders, pageInfo, pageField, pageValue));
+            } else {
+                processPageMap(
+                        this.httpParameter.getHeaders(),
+                        pageField,
+                        pageValue.toString(),
+                        usePlaceholderReplacement);
 
-            processPageMap(
-                    this.httpParameter.getHeaders(),
-                    pageInfo.getPageCursorFieldName(),
-                    pageInfo.getCursor(),
-                    usePlaceholderReplacement);
+                processPageMap(
+                        this.httpParameter.getHeaders(),
+                        pageInfo.getPageCursorFieldName(),
+                        pageInfo.getCursor(),
+                        usePlaceholderReplacement);
+            }
         }
         // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
         if (MapUtils.isNotEmpty(this.httpParameter.getParams())) {
-
-            processPageMap(
-                    this.httpParameter.getParams(),
-                    pageField,
-                    pageValue.toString(),
-                    usePlaceholderReplacement);
-            processPageMap(
-                    this.httpParameter.getParams(),
-                    pageInfo.getPageCursorFieldName(),
-                    pageInfo.getCursor(),
-                    usePlaceholderReplacement);
+            if (usePlaceholderReplacement && rawParams != null) {
+                // Rebuild params from the raw template on every pagination iteration. Re-using the
+                // already-mutated params map would drop the ${pageField} placeholder after the
+                // first
+                // call, so the page index would never advance (causing an infinite loop, see
+                // #11759).
+                this.httpParameter.setParams(
+                        rebuildFromTemplate(rawParams, pageInfo, pageField, pageValue));
+            } else {
+                processPageMap(
+                        this.httpParameter.getParams(),
+                        pageField,
+                        pageValue.toString(),
+                        usePlaceholderReplacement);
+                processPageMap(
+                        this.httpParameter.getParams(),
+                        pageInfo.getPageCursorFieldName(),
+                        pageInfo.getCursor(),
+                        usePlaceholderReplacement);
+            }
         }
 
         // 2. param in body
@@ -313,6 +350,32 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * @param pageValue The page value to replace the placeholder with
      * @return The string with placeholder replaced, or null if no placeholder found
      */
+    /**
+     * Rebuilds a params/headers map from its untouched template, substituting the page-field and
+     * cursor placeholders for the current page. Entries without a placeholder are copied as-is.
+     */
+    private Map<String, String> rebuildFromTemplate(
+            Map<String, String> template, PageInfo pageInfo, String pageField, Long pageValue) {
+        Map<String, String> rebuilt = new HashMap<>();
+        for (Map.Entry<String, String> entry : template.entrySet()) {
+            String value = entry.getValue();
+            String replaced = replacePlaceholder(value, pageField, pageValue);
+            if (replaced == null) {
+                replaced = value;
+            }
+            if (pageInfo.getPageCursorFieldName() != null && pageInfo.getCursor() != null) {
+                String cursorReplaced =
+                        replacePlaceholder(
+                                replaced, pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
+                if (cursorReplaced != null) {
+                    replaced = cursorReplaced;
+                }
+            }
+            rebuilt.put(entry.getKey(), replaced);
+        }
+        return rebuilt;
+    }
+
     private String replacePlaceholder(String value, String pageField, Object pageValue) {
         if (value == null || pageField == null || !value.contains("${" + pageField + "}")) {
             return value;
