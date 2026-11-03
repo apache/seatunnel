@@ -52,13 +52,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | FLOAT | DECIMAL(38, 18) |
 | NUMBER(precision <= 9, scale == 0) | INT |
 | NUMBER(9 < precision <= 18, scale == 0) | BIGINT |
-| NUMBER(18 < precision, scale == 0) | DECIMAL(38, 0) |
-| NUMBER(scale != 0) | DECIMAL(38, 18) |
+| NUMBER(18 < precision < 38, scale == 0) | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0) | DECIMAL(38, 0) |
+| NUMBER(scale > 0) | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0) | 规范化为 `DECIMAL(precision - scale, 0)`；启用 decimal narrowing 时为 `LONG`/`INT`/`BOOLEAN`。未指定 precision/scale 时默认按 38/18 处理。 |
 | BINARY_DOUBLE | DOUBLE |
 | BINARY_FLOAT<br/>REAL | FLOAT |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING |
 | DATE | TIMESTAMP |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE | TIMESTAMP |
+| TIMESTAMP | TIMESTAMP |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE | TIMESTAMP_TZ |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE | BYTES |
 
 ## 源选项

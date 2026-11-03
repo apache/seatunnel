@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE | DATE |
 | TIME | TIME |
 | DATETIME<br/>TIMESTAMP | TIMESTAMP |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n) | BYTES |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR | BYTES |
 | GEOMETRY<br/>UNKNOWN | 暂不支持 |
 
 ## 源选项
@@ -69,7 +69,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver | String | 是 | - | 用于连接到远程数据源的 jdbc 类名，如果您使用 Vertica，值为 `com.vertica.jdbc.Driver`。 |
 | username | String | 否 | - | 连接实例用户名 |
 | password | String | 否 | - | 连接实例密码 |
-| query | String | 是 | - | 查询语句 |
+| query | String | 否 | - | 查询语句。未配置 `table_path` 和 `table_list` 时必填。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
 | partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型，仅支持数值类型主键，只能配置一列。 |
 | partition_lower_bound | String | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |

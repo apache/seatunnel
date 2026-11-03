@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |---------------|------------------|
 | BIT(1)<br/>TINYINT(1) | BOOLEAN |
 | TINYINT | BYTE |
-| TINYINT<br/>TINYINT UNSIGNED | SMALLINT |
+| TINYINT UNSIGNED<br/>SMALLINT | SMALLINT |
 | SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | BIGINT |
 | BIGINT UNSIGNED | DECIMAL(20,0) |
@@ -55,7 +55,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM | STRING |
 | DATE | DATE |
 | TIME | TIME |
-| DATETIME<br/>TIMESTAMP | TIMESTAMP |
+| DATETIME | TIMESTAMP |
+| TIMESTAMP | TIMESTAMP_TZ |
 | TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES |
 
 ### Oracle 模式
@@ -65,14 +66,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | Integer | DECIMAL(38,0) |
 | Number(p), p <= 9 | INT |
 | Number(p), p <= 18 | BIGINT |
-| Number(p), p > 18 | DECIMAL(38,18) |
-| Number(p,s) | DECIMAL(p,s) |
+| Number(p), 18 < p < 38 | DECIMAL(p,0) |
+| Number(p), p >= 38 | DECIMAL(38,0) |
+| Number(p,s), s > 0 | DECIMAL(p, min(s, 18)) |
+| Number(p,s), s < 0 | 规范化为 `DECIMAL(p - s, 0)`（启用 decimal narrowing 时为收窄类型）。 |
 | Float | DECIMAL(38,18) |
 | REAL<br/> BINARY_FLOAT | FLOAT |
 | BINARY_DOUBLE | DOUBLE |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>VARCHAR2<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>LONG<br/>XML<br/>ROWID | STRING |
 | DATE | TIMESTAMP |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE | TIMESTAMP |
+| TIMESTAMP | TIMESTAMP |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE | TIMESTAMP_TZ |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE | BYTES |
 | UNKNOWN | 暂不支持 |
 
