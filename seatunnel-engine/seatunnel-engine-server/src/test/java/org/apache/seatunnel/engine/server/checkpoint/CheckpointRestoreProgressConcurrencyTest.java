@@ -55,6 +55,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -413,6 +414,33 @@ class CheckpointRestoreProgressConcurrencyTest {
         assertTrue(coordinator.getRestoreProgressTracking().get());
         assertFalse(coordinator.getRestoreProgressStalled().get());
         assertEquals(0, coordinator.getRestoreStalledTimestamp().get());
+    }
+
+    /**
+     * Cancellation passes its initial isDone guard, then the fail-fast timeout wins the future and
+     * persists FAILED before the cancellation continues. The cancellation must not overwrite the
+     * persisted FAILED status with CANCELED, and its returned future must report FAILED.
+     */
+    @Test
+    void cancelLosingToFailFastDoesNotOverwriteFailedStatus() {
+        AtomicBoolean timeoutInjected = new AtomicBoolean(false);
+        doAnswer(
+                        invocation -> {
+                            if (timeoutInjected.compareAndSet(false, true)) {
+                                callbacks.get(0).run();
+                            }
+                            return invocation.callRealMethod();
+                        })
+                .when(coordinator)
+                .cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
+
+        CheckpointCoordinatorState cancelResult = coordinator.cancelCheckpoint().join();
+
+        assertTrue(timeoutInjected.get());
+        assertEquals(
+                CheckpointCoordinatorStatus.FAILED, cancelResult.getCheckpointCoordinatorStatus());
+        assertEquals(CheckpointCoordinatorStatus.FAILED, states.get("checkpoint_state_1_1"));
+        verify(pipeline, times(1)).handleCheckpointError();
     }
 
     @Test

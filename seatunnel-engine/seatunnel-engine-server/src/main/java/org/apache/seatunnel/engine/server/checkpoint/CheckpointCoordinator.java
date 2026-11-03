@@ -225,8 +225,21 @@ public class CheckpointCoordinator {
 
     private volatile ScheduledFuture<?> restoreProgressTimeoutFuture;
 
-    // Serializes diagnostic state; never acquire the coordinator monitor while holding this lock.
+    /**
+     * Serializes the restore-progress diagnostic state and the restore-timeout terminal claim.
+     *
+     * <p>Lock order: the coordinator monitor and the checkpoint {@code lock} may be held before
+     * acquiring this lock, never after it. Code holding this lock must therefore not call
+     * synchronized coordinator methods (for example {@code updateStatus}); it persists status
+     * through {@code persistStatus} instead.
+     */
     private final Object restoreProgressLock = new Object();
+
+    /**
+     * Identifies the current diagnostic window. It is bumped (under {@link #restoreProgressLock})
+     * every time a window is cancelled, rescheduled or reset, so a timeout callback or delayed
+     * cleanup that captured an older value is ignored instead of failing a newer restore.
+     */
     private long restoreProgressGeneration;
 
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
@@ -1629,6 +1642,12 @@ public class CheckpointCoordinator {
         }
     }
 
+    /**
+     * Opens phase 1 (all tasks reaching READY_START) of the restore-progress diagnosis, or phase 2
+     * (first completed checkpoint) directly when the tasks were already started. Each phase gets
+     * its own timeout window, and a stall is reported at most once per restore. Clears all
+     * diagnostics when checkpointing is disabled. Initial job startup never calls this method.
+     */
     private void startRestoreProgressTracking(boolean alreadyStarted) {
         synchronized (restoreProgressLock) {
             if (!coordinatorConfig.isCheckpointEnable()) {
@@ -1676,6 +1695,10 @@ public class CheckpointCoordinator {
         }
     }
 
+    /**
+     * Moves the diagnosis from phase 1 to phase 2 once, replacing the readiness window with a new
+     * full window for the first post-restore checkpoint.
+     */
     private void markAllTasksReadyAfterRestore() {
         synchronized (restoreProgressLock) {
             if (restoreProgressTracking.get()
@@ -1693,6 +1716,11 @@ public class CheckpointCoordinator {
         }
     }
 
+    /**
+     * Ends the diagnosis successfully on the first checkpoint completed after the restore. The
+     * caller holds the coordinator monitor; this method only takes {@link #restoreProgressLock},
+     * which matches the documented lock order.
+     */
     private void markPostRestoreCheckpointProgress(CompletedCheckpoint completedCheckpoint) {
         synchronized (restoreProgressLock) {
             if (!restoreProgressTracking.get()) {
@@ -1715,6 +1743,13 @@ public class CheckpointCoordinator {
         }
     }
 
+    /**
+     * Timer callback for the window identified by {@code generation}. In warning mode it logs the
+     * diagnosis once and stops tracking. In fail-fast mode it hands the failure to the pipeline
+     * state machine, which re-validates the window through {@code failRestoreProgressIfCurrent}
+     * before the pipeline is moved to CANCELING; the pending checkpoints of that window are then
+     * cleaned with the same generation so a newer restore is never cleared.
+     */
     private void handleRestoreProgressTimeout(long generation) {
         String diagnosis;
         long stalledAt = Instant.now().toEpochMilli();
@@ -1781,6 +1816,11 @@ public class CheckpointCoordinator {
     /**
      * Called while the pipeline state machine excludes a concurrent restore. Do not acquire the
      * coordinator monitor or checkpoint lock here: checkpoint completion can need the pipeline.
+     *
+     * <p>Terminal ownership: the FAILED status is persisted only after this call wins the
+     * coordinator future, and both happen under {@link #restoreProgressLock}. {@link
+     * #cancelCheckpoint()} re-checks the future under the same lock, so whichever of the two
+     * completes the future is also the only one that writes the terminal status.
      */
     private boolean failRestoreProgressIfCurrent(
             long generation, String diagnosis, long stalledAt) {
@@ -1858,10 +1898,17 @@ public class CheckpointCoordinator {
             return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
         }
         cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
-        updateStatus(CheckpointCoordinatorStatus.CANCELED);
-        CheckpointCoordinatorState checkpointCoordinatorState =
-                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.CANCELED, null);
-        checkpointCoordinatorFuture.complete(checkpointCoordinatorState);
+        // A restore-progress fail-fast can win the future after the check above. Re-check under
+        // the lock that owns that terminal claim so CANCELED never overwrites a persisted FAILED.
+        // persistStatus is used instead of updateStatus because the coordinator monitor must not
+        // be acquired while holding restoreProgressLock.
+        synchronized (restoreProgressLock) {
+            if (!checkpointCoordinatorFuture.isDone()) {
+                persistStatus(CheckpointCoordinatorStatus.CANCELED);
+                checkpointCoordinatorFuture.complete(
+                        new CheckpointCoordinatorState(CheckpointCoordinatorStatus.CANCELED, null));
+            }
+        }
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
     }
 
