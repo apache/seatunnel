@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -52,6 +53,11 @@ class FollowerRunningJobsFilterTest
         try {
             SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
             seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
+            // This follower only exposes its NodeEngine to JobInfoService; REST would contend for
+            // the same test HTTP port as the master on Windows CI.
+            HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+            httpConfig.setEnabled(false);
+            httpConfig.setEnableHttps(false);
 
             Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
             hazelcastConfig.setClusterName(instance.getConfig().getClusterName());

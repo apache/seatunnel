@@ -78,6 +78,11 @@ public class EngineStateStoreLogicalMetricExports extends AbstractCollector {
                         "engine_state_store_finished_job_cleanup_total",
                         "Cleanup total for finished job state stores",
                         storeLabelNames);
+        CounterMetricFamily finishedJobMonitoringDroppedRecords =
+                new CounterMetricFamily(
+                        "engine_state_store_finished_job_monitoring_dropped_total",
+                        "Monitoring records dropped after bounded outbox capacity was exhausted",
+                        commonLabelNames);
         GaugeMetricFamily connectorJarTrackedJars =
                 new GaugeMetricFamily(
                         "engine_state_store_connector_jar_tracked_jars",
@@ -98,6 +103,7 @@ public class EngineStateStoreLogicalMetricExports extends AbstractCollector {
                     checkpointMonitorRetainedHistoryEntries,
                     finishedJobRecords,
                     finishedJobCleanupTotal,
+                    finishedJobMonitoringDroppedRecords,
                     connectorJarTrackedJars,
                     connectorJarTotalReferences);
         }
@@ -143,6 +149,10 @@ public class EngineStateStoreLogicalMetricExports extends AbstractCollector {
                     addStoreMetrics(
                             finishedJobCleanupTotal,
                             jobHistoryService.getFinishedJobCleanupTotals());
+                    addMetric(
+                            finishedJobMonitoringDroppedRecords,
+                            jobHistoryService.getDroppedJobMonitoringRecords(),
+                            labelValues(BACKEND));
                 });
 
         runSafely(
@@ -174,6 +184,7 @@ public class EngineStateStoreLogicalMetricExports extends AbstractCollector {
                 checkpointMonitorRetainedHistoryEntries,
                 finishedJobRecords,
                 finishedJobCleanupTotal,
+                finishedJobMonitoringDroppedRecords,
                 connectorJarTrackedJars,
                 connectorJarTotalReferences);
     }

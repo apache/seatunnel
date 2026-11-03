@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.JobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.LoggersServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
@@ -74,6 +75,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_CHEC
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGGERS;
@@ -222,6 +224,7 @@ public class JettyService {
         ServletHolder workerResourceHolder =
                 new ServletHolder(new WorkerResourceServlet(nodeEngine));
         ServletHolder jobInfoHolder = new ServletHolder(new JobInfoServlet(nodeEngine));
+        ServletHolder jobsHolder = new ServletHolder(new JobsServlet(nodeEngine));
         ServletHolder threadDumpHolder = new ServletHolder(new ThreadDumpServlet(nodeEngine));
 
         ServletHolder submitJobHolder = new ServletHolder(new SubmitJobServlet(nodeEngine));
@@ -262,6 +265,7 @@ public class JettyService {
                 systemMonitoringHolder, convertUrlToPath(REST_URL_SYSTEM_MONITORING_INFORMATION));
         context.addServlet(workerResourceHolder, convertUrlToPath(REST_URL_WORKER_RESOURCES));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
+        context.addServlet(jobsHolder, convertUrlToPath(REST_URL_JOBS));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
         context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
         // Bound the upload: the whole part is buffered by Jetty and then read into a String, so an
