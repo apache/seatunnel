@@ -53,7 +53,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -316,10 +315,17 @@ public class OracleDialect implements JdbcDialect {
                     "ASCII string range splitting is only validated for the Oracle dialect");
         }
         if (table.getTablePath() == null
-                || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())
-                || StringUtils.isBlank(table.getTablePath().getDatabaseName())) {
+                || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())) {
             return StringRangeSplitDecision.unsafe(
                     "missing physical table path for Oracle string range split validation");
+        }
+        // Oracle paths are parsed schema-first, so the owner of the scanned table is the schema
+        // component; the database component is the service name and never an object owner. An
+        // unqualified table is resolved by Oracle through CURRENT_SCHEMA or synonyms, which this
+        // validation cannot pin to one ALL_TAB_COLUMNS row, so it fails closed.
+        if (StringUtils.isBlank(table.getTablePath().getSchemaName())) {
+            return StringRangeSplitDecision.unsafe(
+                    "Oracle string range split validation requires a schema-qualified table path");
         }
         if (sampleSize <= 0) {
             return StringRangeSplitDecision.unsafe("sample size must be greater than zero");
@@ -463,6 +469,13 @@ public class OracleDialect implements JdbcDialect {
      * split key would be silently skipped by every split. Only a column declared NOT NULL is
      * accepted; a nullable column fails closed here so that an explicit range strategy is rejected
      * and auto falls back, mirroring the collation and encoding checks.
+     *
+     * <p>The metadata row must describe the exact object that the split SQL reads. That SQL quotes
+     * every identifier through {@link #quoteIdentifier(String)}, which makes Oracle compare names
+     * case-sensitively: the owner is used verbatim and the table and column names go through the
+     * configured field identifier rule. The lookup binds the same names instead of upper-casing
+     * them, otherwise a different upper-case object could vouch for the collation and nullability
+     * of a quoted mixed-case target.
      */
     private StringRangeSplitDecision validateStringRangeSplitColumnMetadata(
             Connection connection, JdbcSourceTable table, String columnName) throws SQLException {
@@ -471,9 +484,9 @@ public class OracleDialect implements JdbcDialect {
                 "SELECT COLLATION, NULLABLE FROM ALL_TAB_COLUMNS "
                         + "WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tablePath.getDatabaseName().toUpperCase(Locale.ROOT));
-            statement.setString(2, tablePath.getTableName().toUpperCase(Locale.ROOT));
-            statement.setString(3, columnName.toUpperCase(Locale.ROOT));
+            statement.setString(1, tablePath.getSchemaName());
+            statement.setString(2, getFieldIde(tablePath.getTableName(), fieldIde));
+            statement.setString(3, getFieldIde(columnName, fieldIde));
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return StringRangeSplitDecision.unsafe(

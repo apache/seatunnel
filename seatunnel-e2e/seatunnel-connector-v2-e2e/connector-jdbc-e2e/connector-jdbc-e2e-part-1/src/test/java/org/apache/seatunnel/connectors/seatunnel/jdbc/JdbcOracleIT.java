@@ -21,13 +21,22 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.FixedChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
@@ -46,6 +55,7 @@ import org.testcontainers.utility.MountableFile;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -54,9 +64,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -74,6 +88,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
+    private static final String STRING_RANGE_TABLE = "E2E_STRING_RANGE_SPLIT";
+    private static final int STRING_RANGE_ROWS = 300;
+    private static final int STRING_RANGE_PARTITIONS = 4;
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
                     "/jdbc_oracle_source_to_sink.conf",
@@ -171,6 +188,147 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                         + " where INTEGER_COL = 1")
                         .build();
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+    }
+
+    /**
+     * Runs Oracle String range splitting against a real database through the production table
+     * resolution path: a schema-qualified {@code table_path} is resolved by the Oracle catalog,
+     * validated against the real session, encoding and ALL_TAB_COLUMNS metadata, split by key
+     * range, and every split is read back through the reader-side session check.
+     *
+     * <p>It fails if validation looks up a different object than the split SQL reads (the
+     * schema-qualified path would then be rejected), if range boundaries drop or duplicate rows, or
+     * if a nullable split column is accepted by an explicit range strategy instead of being
+     * rejected, and AUTO stops falling back to a hash split that still reads every row.
+     */
+    @Test
+    public void testStringRangeSplitReadsEverySchemaQualifiedRow() throws Exception {
+        String qualifiedTable = SCHEMA + "." + STRING_RANGE_TABLE;
+        try (Statement statement = connection.createStatement()) {
+            // ORDER_KEY is NOT NULL and therefore eligible for range splitting; NULLABLE_KEY holds
+            // the same values but is declared nullable, so only its metadata differs.
+            statement.execute(
+                    "CREATE TABLE "
+                            + qualifiedTable
+                            + " (ORDER_KEY VARCHAR2(4) NOT NULL PRIMARY KEY,"
+                            + " NULLABLE_KEY VARCHAR2(4))");
+            try {
+                Set<String> expectedKeys = new HashSet<>();
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + qualifiedTable
+                                        + " (ORDER_KEY, NULLABLE_KEY) VALUES (?, ?)")) {
+                    for (int i = 0; i < STRING_RANGE_ROWS; i++) {
+                        String key = String.format("K%03d", i);
+                        expectedKeys.add(key);
+                        insert.setString(1, key);
+                        insert.setString(2, key);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+                // The shared IT connection disables auto-commit; the splitter reads through its
+                // own connection and must see the inserted rows.
+                connection.commit();
+
+                List<JdbcSourceSplit> rangeSplits = new ArrayList<>();
+                Assertions.assertEquals(
+                        expectedKeys,
+                        readAllStringSplitKeys("range", qualifiedTable, "ORDER_KEY", rangeSplits));
+                Assertions.assertTrue(rangeSplits.size() > 1, "expected several range splits");
+                for (JdbcSourceSplit split : rangeSplits) {
+                    Assertions.assertFalse(split.getSplitStart() instanceof Integer);
+                }
+
+                JdbcConnectorException rejected =
+                        Assertions.assertThrows(
+                                JdbcConnectorException.class,
+                                () ->
+                                        readAllStringSplitKeys(
+                                                "range",
+                                                qualifiedTable,
+                                                "NULLABLE_KEY",
+                                                new ArrayList<>()));
+                Assertions.assertTrue(
+                        rejected.getMessage().contains("NULLABLE_KEY is nullable"),
+                        rejected.getMessage());
+
+                List<JdbcSourceSplit> autoSplits = new ArrayList<>();
+                Assertions.assertEquals(
+                        expectedKeys,
+                        readAllStringSplitKeys("auto", qualifiedTable, "NULLABLE_KEY", autoSplits));
+                Assertions.assertEquals(STRING_RANGE_PARTITIONS, autoSplits.size());
+                for (JdbcSourceSplit split : autoSplits) {
+                    Assertions.assertTrue(split.getSplitStart() instanceof Integer);
+                }
+            } finally {
+                statement.execute("DROP TABLE " + qualifiedTable);
+            }
+        }
+    }
+
+    /**
+     * Resolves {@code tablePath} through the Oracle catalog exactly as the Jdbc source does, then
+     * reads every generated split and returns the split column values. Each value must be read
+     * once; a duplicate means two splits overlap.
+     */
+    private Set<String> readAllStringSplitKeys(
+            String strategy,
+            String tablePath,
+            String partitionColumn,
+            List<JdbcSourceSplit> generatedSplits)
+            throws Exception {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        JdbcSourceTableConfig tableConfig =
+                JdbcSourceTableConfig.builder()
+                        .tablePath(tablePath)
+                        .partitionColumn(partitionColumn)
+                        .partitionNumber(STRING_RANGE_PARTITIONS)
+                        .useSelectCount(false)
+                        .skipAnalyze(true)
+                        .useRegex(false)
+                        .build();
+        Map<TablePath, JdbcSourceTable> tables =
+                JdbcCatalogUtils.getTables(
+                        JdbcConnectionConfig.builder()
+                                .url(jdbcUrl)
+                                .driverName(jdbcCase.getDriverClass())
+                                .username(jdbcCase.getUserName())
+                                .password(jdbcCase.getPassword())
+                                .build(),
+                        Collections.singletonList(tableConfig),
+                        MultiTableFailurePolicy.FAIL_FAST);
+        Assertions.assertEquals(1, tables.size());
+        JdbcSourceTable sourceTable = tables.values().iterator().next();
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", jdbcUrl);
+        configMap.put("driver", jdbcCase.getDriverClass());
+        configMap.put("username", jdbcCase.getUserName());
+        configMap.put("password", jdbcCase.getPassword());
+        configMap.put("table_path", tablePath);
+        configMap.put("partition_column", partitionColumn);
+        configMap.put("split.string-strategy", strategy);
+
+        Set<String> keys = new HashSet<>();
+        try (FixedChunkSplitter splitter =
+                new FixedChunkSplitter(JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap)))) {
+            Collection<JdbcSourceSplit> splits = splitter.generateSplits(sourceTable);
+            generatedSplits.addAll(splits);
+            for (JdbcSourceSplit split : splits) {
+                try (PreparedStatement splitStatement =
+                                splitter.generateSplitStatement(
+                                        split, sourceTable.getCatalogTable().getTableSchema());
+                        ResultSet resultSet = splitStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        String key = resultSet.getString(partitionColumn);
+                        Assertions.assertTrue(keys.add(key), "duplicated split key: " + key);
+                    }
+                }
+            }
+        }
+        return keys;
     }
 
     /**

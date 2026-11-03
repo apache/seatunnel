@@ -235,6 +235,50 @@ public class OracleDialectStringRangeSplitTest {
     }
 
     @Test
+    public void testColumnMetadataLookupBindsTheExactObjectReadBySplitSql() throws SQLException {
+        Connection connection = mock(Connection.class);
+        Statement nlsStatement = mock(Statement.class);
+        Statement sampleStatement = mock(Statement.class);
+        ResultSet nlsResultSet = binaryNlsResultSet();
+        ResultSet sampleResultSet = mock(ResultSet.class);
+        when(connection.createStatement()).thenReturn(nlsStatement, sampleStatement);
+        when(nlsStatement.executeQuery(anyString())).thenReturn(nlsResultSet);
+        when(sampleStatement.executeQuery(anyString())).thenReturn(sampleResultSet);
+        when(sampleResultSet.next()).thenReturn(true, false);
+        when(sampleResultSet.getString(1)).thenReturn("A000");
+        PreparedStatement columnStatement = stubSafeOracleRangeMetadata(connection);
+        // The database component is the Oracle service name and differs from the owner; the
+        // mixed-case names are quoted by the split SQL and therefore must not be upper-cased.
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(new OracleDialect().parse("ORCLPDB1.App_Owner.Orders"))
+                        .build();
+
+        StringRangeSplitDecision decision =
+                new OracleDialect().validateStringRangeSplit(connection, table, "Order_Id", 1);
+
+        assertTrue(decision.isSafe());
+        verify(columnStatement).setString(1, "App_Owner");
+        verify(columnStatement).setString(2, "Orders");
+        verify(columnStatement).setString(3, "Order_Id");
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(sampleStatement).executeQuery(sqlCaptor.capture());
+        assertTrue(sqlCaptor.getValue().contains("FROM \"App_Owner\".\"Orders\""));
+    }
+
+    @Test
+    public void testRejectsTablePathWithoutSchema() throws SQLException {
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(new OracleDialect().parse("ORDERS")).build();
+
+        StringRangeSplitDecision decision =
+                new OracleDialect().validateStringRangeSplit(null, table, "ORDER_ID", 1);
+
+        assertFalse(decision.isSafe());
+        assertTrue(decision.getReason().contains("schema-qualified table path"));
+    }
+
+    @Test
     public void testDerivedOracleDialectDoesNotAdvertiseRangeSplitSupport() throws SQLException {
         OracleDialect dialect = new DerivedOracleDialect();
 
@@ -242,7 +286,8 @@ public class OracleDialectStringRangeSplitTest {
         assertFalse(dialect.validateStringRangeSplitSession(null).isSafe());
     }
 
-    private void stubSafeOracleRangeMetadata(Connection connection) throws SQLException {
+    private PreparedStatement stubSafeOracleRangeMetadata(Connection connection)
+            throws SQLException {
         PreparedStatement collationStatement = mock(PreparedStatement.class);
         ResultSet collationResultSet = mock(ResultSet.class);
         PreparedStatement encodingStatement = mock(PreparedStatement.class);
@@ -254,6 +299,7 @@ public class OracleDialectStringRangeSplitTest {
         when(collationResultSet.next()).thenReturn(true);
         when(collationResultSet.getString(1)).thenReturn("BINARY");
         when(collationResultSet.getString(2)).thenReturn("N");
+        return collationStatement;
     }
 
     private void stubAsciiCompatibleEncoding(
@@ -272,8 +318,12 @@ public class OracleDialectStringRangeSplitTest {
         return resultSet;
     }
 
+    /**
+     * Builds the table the same way a configured {@code table_path = "APP.ORDERS"} is parsed:
+     * Oracle parsing is schema-first, so APP is the schema (owner) and the database is unset.
+     */
     private JdbcSourceTable physicalTable() {
-        return JdbcSourceTable.builder().tablePath(TablePath.of("APP", "ORDERS")).build();
+        return JdbcSourceTable.builder().tablePath(new OracleDialect().parse("APP.ORDERS")).build();
     }
 
     private static final class DerivedOracleDialect extends OracleDialect {}
