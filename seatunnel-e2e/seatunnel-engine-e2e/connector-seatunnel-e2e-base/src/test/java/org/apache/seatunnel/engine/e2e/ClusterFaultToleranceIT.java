@@ -30,6 +30,10 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
+import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -51,6 +55,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -740,6 +745,180 @@ public class ClusterFaultToleranceIT {
         }
     }
 
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/12385">#12385</a>,
+     * fixed by <a href="https://github.com/apache/seatunnel/pull/12387">#12387</a>: after a master
+     * switch, a normally submitted streaming job must restore its pipeline from its own latest
+     * completed checkpoint. Before the fix {@code CheckpointManager} loaded a checkpoint only when
+     * {@code restoreSourceJobId != null}, so the new master's {@code CheckpointCoordinator} started
+     * without state and the restored pipeline re-read every source split from the beginning.
+     *
+     * <p>{@link #testStreamJobRestoreIn2NodeMasterDown()} cannot catch this because it only asserts
+     * a lower bound on the output, which a full replay also satisfies, and the checkpoint id checks
+     * in {@code CheckpointCoordinatorFailoverIT} still pass because the id counter lives in an
+     * IMap.
+     *
+     * <p>The job is submitted while the master is the only member, so every task runs on it and the
+     * whole pipeline must be redeployed and restored on the second node. The master is shut down
+     * after at least half of the rows have been committed, which also proves that a checkpoint has
+     * completed. Restoring from that checkpoint keeps the output within one FakeSource split per
+     * reader of the total, while a replay from zero adds all rows again and exceeds that bound.
+     */
+    @Test
+    public void testStreamJobRestoreFromOwnCheckpointAfterMasterDown() throws Exception {
+        String testCaseName = "testStreamJobRestoreFromOwnCheckpointAfterMasterDown";
+        String testClusterName =
+                "ClusterFaultToleranceIT_testStreamJobRestoreFromOwnCheckpointAfterMasterDown";
+        long testRowNumber = 1000;
+        int testParallelism = 6;
+        long totalRows = testRowNumber * testParallelism;
+        // cluster_batch_fake_to_localfile_template.conf uses split.num = 5, so a split holds
+        // row.num / 5 rows. Allow at most one replayed split per reader after the restore.
+        long maxRowsAfterCheckpointRestore = totalRows + (testRowNumber / 5) * testParallelism;
+        // Each reader reads its 5 splits with split.read-interval = 3000 ms and the job
+        // checkpoints every 5000 ms, so a full replay is committed well within this window.
+        long replayWindowMillis = 40_000L;
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        try {
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            // Deploy every task on the master before the second node joins.
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            Awaitility.await()
+                    .atMost(120000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Assertions.assertTrue(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                >= totalRows / 2);
+                                Assertions.assertNotNull(
+                                        latestCompletedCheckpoint(finalNode, jobId),
+                                        "A checkpoint must complete before the master is shut"
+                                                + " down");
+                            });
+            CompletableFuture<JobStatus> waitForCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            // shutdown master node, which runs all tasks of the job
+            node1.shutdown();
+            node1 = null;
+            long masterDownMillis = System.currentTimeMillis();
+
+            // A checkpoint completed after the master is gone can only come from the pipeline
+            // restored on node2, because a checkpoint needs the acknowledgement of every task.
+            HazelcastInstanceImpl newMaster = node2;
+            AtomicLong firstRestoredCheckpointMillis = new AtomicLong();
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                CheckpointInfo checkpoint =
+                                        latestCompletedCheckpoint(newMaster, jobId);
+                                Assertions.assertNotNull(checkpoint);
+                                Assertions.assertNotNull(checkpoint.getCompletedTimestamp());
+                                Assertions.assertTrue(
+                                        checkpoint.getCompletedTimestamp() >= masterDownMillis);
+                                firstRestoredCheckpointMillis.set(
+                                        checkpoint.getCompletedTimestamp());
+                            });
+            // Keep the restored job running long enough for a replay from zero to be committed.
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                CheckpointInfo checkpoint =
+                                        latestCompletedCheckpoint(newMaster, jobId);
+                                Assertions.assertNotNull(checkpoint);
+                                Assertions.assertNotNull(checkpoint.getCompletedTimestamp());
+                                Assertions.assertTrue(
+                                        checkpoint.getCompletedTimestamp()
+                                                >= firstRestoredCheckpointMillis.get()
+                                                        + replayWindowMillis);
+                            });
+
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(), totalRows, testRowNumber, 300_000L);
+            long lineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            Assertions.assertTrue(
+                    lineNumberFromDir <= maxRowsAfterCheckpointRestore,
+                    String.format(
+                            "Expected the job to resume from its latest checkpoint after the"
+                                    + " master switch with at most %d rows, but found %d rows,"
+                                    + " which means the sources were replayed from the beginning",
+                            maxRowsAfterCheckpointRestore, lineNumberFromDir));
+
+            clientJobProxy.cancelJob();
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(waitForCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, waitForCompletableFuture.get());
+                            });
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (node1 != null) {
+                node1.shutdown();
+            }
+
+            if (node2 != null) {
+                node2.shutdown();
+            }
+        }
+    }
+
     @Test
     @Disabled
     public void testFor() throws Exception {
@@ -1267,5 +1446,23 @@ public class ClusterFaultToleranceIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Reads the latest completed checkpoint of pipeline 1 from the checkpoint overview, which the
+     * active master publishes only after the checkpoint has been written to checkpoint storage.
+     */
+    private static CheckpointInfo latestCompletedCheckpoint(
+            HazelcastInstanceImpl node, long jobId) {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        CheckpointOverview overview =
+                server.getEngineContext()
+                        .getStateStores()
+                        .auxiliary()
+                        .checkpointOverviewStateStore()
+                        .get(jobId);
+        PipelineCheckpointOverview pipeline =
+                overview == null ? null : overview.getPipelines().get(1);
+        return pipeline == null ? null : pipeline.getLatestCompleted();
     }
 }
