@@ -281,10 +281,7 @@ public class MultipleTableJobConfigParser {
             if (isStartWithSavePoint
                     && pipelineCheckpoints != null
                     && !pipelineCheckpoints.isEmpty()) {
-                Preconditions.checkState(
-                        sourceConfigs.size() == pipelineCheckpoints.size(),
-                        "The number of source configurations and pipeline checkpoints must be"
-                                + " equal.");
+                validatePipelineCheckpointsBelongToSources(sourceConfigs);
             }
             for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
                 Config sourceConfig = sourceConfigs.get(configIndex);
@@ -1637,28 +1634,70 @@ public class MultipleTableJobConfigParser {
         return pluginJarPaths;
     }
 
-    private ChangeStreamTableSourceCheckpoint getSourceCheckpoint(
+    /**
+     * Rejects restored pipeline checkpoints that do not belong to the configured sources.
+     *
+     * <p>Ordinary jobs keep one source per pipeline, but a dynamic lookup keeps its fact and
+     * dimension sources in one pipeline, so the number of pipeline checkpoints can be smaller than
+     * the number of sources and the two counts can no longer be compared. The equivalent guard is
+     * split in two: every pipeline checkpoint must contain at least one configured source action
+     * (checked here, so a checkpoint of a different topology still fails before any source is
+     * created), and every configured source must match exactly one checkpointed action across all
+     * pipelines (checked per source in {@link #getSourceCheckpoint(int, String)}).
+     */
+    private void validatePipelineCheckpointsBelongToSources(List<? extends Config> sourceConfigs) {
+        List<String> sourceActionNames = new ArrayList<>();
+        for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
+            sourceActionNames.add(
+                    JobConfigParser.createSourceActionName(
+                            configIndex, getFactoryId(sourceConfigs.get(configIndex))));
+        }
+        for (JobPipelineCheckpointData pipelineCheckpointData : pipelineCheckpoints) {
+            Set<String> checkpointKeys = pipelineCheckpointData.getTaskStates().keySet();
+            boolean containsConfiguredSource =
+                    checkpointKeys.stream()
+                            .anyMatch(key -> sourceActionNames.stream().anyMatch(key::contains));
+            Preconditions.checkState(
+                    containsConfiguredSource,
+                    String.format(
+                            "The pipeline checkpoint %d contains none of the configured sources %s,"
+                                    + " checkpoint keys %s.",
+                            pipelineCheckpointData.getPipelineId(),
+                            sourceActionNames,
+                            checkpointKeys));
+        }
+    }
+
+    /**
+     * Returns the restored state of one configured source.
+     *
+     * <p>The source is identified by its action name, which encodes the source config index and
+     * factory ID, and is searched across all pipeline checkpoints rather than by pipeline position:
+     * a dynamic lookup pipeline carries two sources, so pipeline {@code i + 1} is not necessarily
+     * the pipeline of source {@code i}. Exactly one checkpointed action must match, otherwise the
+     * checkpoint does not belong to this job definition.
+     */
+    @VisibleForTesting
+    protected ChangeStreamTableSourceCheckpoint getSourceCheckpoint(
             int sourceConfigIndex, String sourceFactoryId) {
         String sourceActionName =
                 JobConfigParser.createSourceActionName(sourceConfigIndex, sourceFactoryId);
-        JobPipelineCheckpointData pipelineCheckpointData =
-                pipelineCheckpoints.get(sourceConfigIndex);
-        Preconditions.checkArgument(
-                pipelineCheckpointData.getPipelineId() == sourceConfigIndex + 1,
-                String.format(
-                        "The pipeline id in the checkpoint data is %d, but the config index is %d.",
-                        pipelineCheckpointData.getPipelineId(), sourceConfigIndex + 1));
-
         List<JobPipelineCheckpointData.ActionState> sourceCheckpointData =
-                pipelineCheckpointData.getTaskStates().entrySet().stream()
+                pipelineCheckpoints.stream()
+                        .flatMap(pipeline -> pipeline.getTaskStates().entrySet().stream())
                         .filter(entry -> entry.getKey().contains(sourceActionName))
-                        .map(e -> e.getValue())
+                        .map(Map.Entry::getValue)
                         .collect(Collectors.toList());
         Preconditions.checkArgument(
                 sourceCheckpointData.size() == 1,
                 String.format(
-                        "The source action name %s is not found in the checkpoint keys %s.",
-                        sourceActionName, pipelineCheckpointData.getTaskStates().keySet()));
+                        "The source action name %s must match exactly one checkpointed action, but"
+                                + " matched %d in the checkpoint keys %s.",
+                        sourceActionName,
+                        sourceCheckpointData.size(),
+                        pipelineCheckpoints.stream()
+                                .map(pipeline -> pipeline.getTaskStates().keySet())
+                                .collect(Collectors.toList())));
 
         byte[] coordinatorState = sourceCheckpointData.get(0).getCoordinatorState().get(0);
         List<List<byte[]>> subtaskState =

@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -41,6 +42,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceCheckpoint;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -55,6 +57,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
@@ -69,9 +72,11 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -864,21 +869,146 @@ public class MultipleTableJobConfigParserTest {
         }
     }
 
+    /**
+     * Regression for restoring a dynamic lookup job from its own checkpoint.
+     *
+     * <p>The fact and dimension sources share one pipeline, so the engine exports one pipeline
+     * checkpoint for two source configs. The parser used to require one pipeline per source and to
+     * take source {@code i} from pipeline {@code i + 1}, failing with "The number of source
+     * configurations and pipeline checkpoints must be equal." before any source was restored. Each
+     * source must instead get its own state from the shared pipeline, and a pipeline checkpoint
+     * that contains none of the configured sources must still be rejected.
+     */
+    @Test
+    public void testDynamicLookupRestoreResolvesBothSourcesFromOnePipelineCheckpoint() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        Config config =
+                dynamicLookupConfig(
+                        list("fact_id"),
+                        list("dimension_id"),
+                        list("FACT_SOURCE_GATE_V1"),
+                        list("ORDERED_BOOTSTRAP_V1"),
+                        "LEFT",
+                        list(
+                                "fact.fact_id as lookup_id",
+                                "dimension.dimension_name as customer_name"),
+                        "512mb",
+                        "512mb");
+        CatalogTable factTable =
+                catalogTable("fact_table", column("fact_id", BasicType.INT_TYPE, false));
+        CatalogTable dimensionTable =
+                catalogTable(
+                        "dimension_table",
+                        column("dimension_id", BasicType.INT_TYPE, false),
+                        column("dimension_name", BasicType.STRING_TYPE, false));
+        Map<String, JobPipelineCheckpointData.ActionState> taskStates = new HashMap<>();
+        taskStates.put("Source[0]-FakeSource", actionState((byte) 1, (byte) 11));
+        taskStates.put("Source[1]-FakeSource", actionState((byte) 2, (byte) 22));
+        taskStates.put("lookup_test", actionState((byte) 3, (byte) 33));
+        JobPipelineCheckpointData lookupPipeline =
+                JobPipelineCheckpointData.builder().pipelineId(1).taskStates(taskStates).build();
+        Map<String, ChangeStreamTableSourceCheckpoint> restoredSources = new HashMap<>();
+
+        dynamicLookupParser(
+                        config,
+                        factTable,
+                        Collections.singleton("FACT_SOURCE_GATE_V1"),
+                        dimensionTable,
+                        Collections.singleton("ORDERED_BOOTSTRAP_V1"),
+                        Collections.singletonList(lookupPipeline),
+                        restoredSources)
+                .parse(null);
+
+        Assertions.assertEquals(2, restoredSources.size());
+        Assertions.assertArrayEquals(
+                new byte[] {1}, restoredSources.get("fact").getEnumeratorState());
+        Assertions.assertArrayEquals(
+                new byte[] {11}, restoredSources.get("fact").getSplits().get(0).get(0));
+        Assertions.assertArrayEquals(
+                new byte[] {2}, restoredSources.get("dimension").getEnumeratorState());
+        Assertions.assertArrayEquals(
+                new byte[] {22}, restoredSources.get("dimension").getSplits().get(0).get(0));
+
+        Map<String, JobPipelineCheckpointData.ActionState> foreignStates = new HashMap<>();
+        foreignStates.put("Source[0]-OtherSource", actionState((byte) 4, (byte) 44));
+        JobPipelineCheckpointData foreignPipeline =
+                JobPipelineCheckpointData.builder().pipelineId(2).taskStates(foreignStates).build();
+        IllegalStateException error =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                config,
+                                                factTable,
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                dimensionTable,
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"),
+                                                Arrays.asList(lookupPipeline, foreignPipeline),
+                                                new HashMap<>())
+                                        .parse(null));
+        Assertions.assertTrue(
+                error.getMessage()
+                        .contains("The pipeline checkpoint 2 contains none of the configured"),
+                error.getMessage());
+    }
+
+    private static JobPipelineCheckpointData.ActionState actionState(
+            byte coordinatorState, byte subtaskState) {
+        return new JobPipelineCheckpointData.ActionState(
+                Collections.singletonList(new byte[] {coordinatorState}),
+                Collections.singletonList(
+                        new JobPipelineCheckpointData.ActionSubtaskState(
+                                0, Collections.singletonList(new byte[] {subtaskState}))));
+    }
+
     private static MultipleTableJobConfigParser dynamicLookupParser(
             Config config,
             CatalogTable factCatalogTable,
             Set<String> factCapabilities,
             CatalogTable dimensionCatalogTable,
             Set<String> dimensionCapabilities) {
+        return dynamicLookupParser(
+                config,
+                factCatalogTable,
+                factCapabilities,
+                dimensionCatalogTable,
+                dimensionCapabilities,
+                Collections.emptyList(),
+                null);
+    }
+
+    /**
+     * Same fixture as the 5-argument overload, optionally started in restore mode. When {@code
+     * pipelineCheckpoints} is not empty the parser restores from them, and each source's resolved
+     * checkpoint is recorded in {@code restoredSources} by plugin_output.
+     */
+    private static MultipleTableJobConfigParser dynamicLookupParser(
+            Config config,
+            CatalogTable factCatalogTable,
+            Set<String> factCapabilities,
+            CatalogTable dimensionCatalogTable,
+            Set<String> dimensionCapabilities,
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            Map<String, ChangeStreamTableSourceCheckpoint> restoredSources) {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());
-        return new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig) {
+        return new MultipleTableJobConfigParser(
+                config,
+                new IdGenerator(),
+                jobConfig,
+                Collections.emptyList(),
+                !pipelineCheckpoints.isEmpty(),
+                pipelineCheckpoints,
+                new MetadataConfig()) {
             @Override
             public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
                     int configIndex, Config sourceConfig, ClassLoader classLoader) {
                 String outputId =
                         ReadonlyConfig.fromConfig(sourceConfig)
                                 .get(ConnectorCommonOptions.PLUGIN_OUTPUT);
+                if (restoredSources != null) {
+                    restoredSources.put(outputId, getSourceCheckpoint(configIndex, "FakeSource"));
+                }
                 CatalogTable catalogTable;
                 Set<String> capabilities;
                 if ("fact".equals(outputId)) {
