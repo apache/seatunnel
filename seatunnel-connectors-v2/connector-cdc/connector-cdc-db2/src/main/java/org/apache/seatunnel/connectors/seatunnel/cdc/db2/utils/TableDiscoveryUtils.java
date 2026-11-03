@@ -113,9 +113,10 @@ public class TableDiscoveryUtils {
     }
 
     /**
-     * Folds unquoted schema/table names before catalog lookup and Debezium filtering. The database
-     * is part of the SeaTunnel table identity and retains its configured spelling. Captured
-     * metadata and the existing quoted-name path retain their case-sensitive spelling.
+     * Folds unquoted schema/table names to uppercase, the spelling DB2 gives unquoted identifiers.
+     * The database is part of the SeaTunnel table identity and retains its configured spelling.
+     * Double quotes are not interpreted by the catalog lookup or the capture filter, so a name that
+     * contains a quote character is returned unchanged rather than partially folded.
      */
     public static String normalizeConfiguredTableName(String configuredTable) {
         if (configuredTable.contains("\"")) {
@@ -130,20 +131,20 @@ public class TableDiscoveryUtils {
      * Resolves the spelling that catalog lookup, capture filtering and SeaTunnel table identity
      * share for one configured table.
      *
-     * <p>DB2 folds unquoted identifiers to uppercase, so the folded name wins whenever such an
-     * object exists. Releases up to 3.0.0 passed the configured text through unchanged, which let
-     * an unquoted lowercase name match an object created with quoted lowercase identifiers; that
-     * spelling is kept when only it exists, so those jobs keep working after an upgrade. When
-     * neither exists the folded name is returned and the existing lookups fail fast with it. Quoted
-     * names and names that folding leaves unchanged never consult {@code tableExists}.
+     * <p>Releases up to 3.0.0 passed the configured text through unchanged. The configured spelling
+     * therefore wins whenever an object with exactly that spelling exists, so an upgraded or
+     * restored job keeps selecting the same table even when an object with the folded spelling
+     * exists as well. Only when the configured spelling does not exist is the DB2 folded
+     * (uppercase) spelling used, which lets an unquoted lowercase name select an ordinary uppercase
+     * object; if neither exists the folded name is returned and the existing lookups fail fast with
+     * it. Names that folding leaves unchanged, including names containing quotes, never consult
+     * {@code tableExists}.
      */
     public static String resolveConfiguredTableName(
             String configuredTable, Predicate<TablePath> tableExists) {
         String foldedTable = normalizeConfiguredTableName(configuredTable);
-        if (foldedTable.equals(configuredTable) || tableExists.test(TablePath.of(foldedTable))) {
-            return foldedTable;
-        }
-        if (tableExists.test(TablePath.of(configuredTable))) {
+        if (foldedTable.equals(configuredTable)
+                || tableExists.test(TablePath.of(configuredTable))) {
             return configuredTable;
         }
         return foldedTable;

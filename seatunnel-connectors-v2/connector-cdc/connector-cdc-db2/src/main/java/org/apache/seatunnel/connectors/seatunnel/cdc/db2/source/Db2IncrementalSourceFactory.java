@@ -149,9 +149,10 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
      *
      * <p>The catalog is opened only when folding would change at least one unquoted name. That
      * keeps uppercase and quoted configurations on the previous single-connection path, while
-     * lowercase unquoted names get one additional short-lived connection to decide between the
-     * folded spelling and the configured spelling. Without a DB2 catalog factory the names are
-     * folded unconditionally, which is the behavior before this fallback existed.
+     * lowercase unquoted names get one additional short-lived connection to check whether the
+     * configured spelling exists; it is kept when it does and folded otherwise. Without a DB2
+     * catalog factory no configured spelling can be confirmed, so the names are folded
+     * unconditionally.
      */
     static ReadonlyConfig resolveDb2Options(ReadonlyConfig options, ClassLoader classLoader) {
         boolean foldingChangesAnyName =
@@ -178,7 +179,8 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
                 FactoryUtil.createOptionalCatalog(
                         DatabaseIdentifier.DB_2, options, classLoader, DatabaseIdentifier.DB_2);
         if (!optionalCatalog.isPresent()) {
-            return normalizeDb2Options(options, tablePath -> true);
+            // No catalog can confirm the configured spelling, so every changed name is folded.
+            return normalizeDb2Options(options, tablePath -> false);
         }
         try (Catalog catalog = optionalCatalog.get()) {
             catalog.open();

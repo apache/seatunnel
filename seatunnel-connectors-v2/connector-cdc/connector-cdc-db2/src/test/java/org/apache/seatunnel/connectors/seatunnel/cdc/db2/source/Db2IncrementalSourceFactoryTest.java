@@ -39,6 +39,7 @@ import io.debezium.relational.TableId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -172,7 +173,8 @@ class Db2IncrementalSourceFactoryTest {
         ReadonlyConfig original = ReadonlyConfig.fromMap(raw);
 
         ReadonlyConfig normalized =
-                Db2IncrementalSourceFactory.normalizeDb2Options(original, tablePath -> true);
+                Db2IncrementalSourceFactory.normalizeDb2Options(
+                        original, Db2IncrementalSourceFactoryTest::isFoldedPath);
         JdbcSourceTableConfig table =
                 normalized.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0);
 
@@ -196,6 +198,16 @@ class Db2IncrementalSourceFactoryTest {
                 Collections.singletonList("e2e.db2inst1.customers"),
                 original.get(ConnectorCommonOptions.TABLE_NAMES));
         Assertions.assertEquals("e2e.db2inst1.customers", tableConfig.get("table"));
+
+        // When both spellings exist the configured object keeps its identity in both options.
+        ReadonlyConfig bothExist =
+                Db2IncrementalSourceFactory.normalizeDb2Options(original, tablePath -> true);
+        Assertions.assertEquals(
+                Collections.singletonList("e2e.db2inst1.customers"),
+                bothExist.get(ConnectorCommonOptions.TABLE_NAMES));
+        Assertions.assertEquals(
+                "e2e.db2inst1.customers",
+                bothExist.get(Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG).get(0).getTable());
     }
 
     @Test
@@ -264,7 +276,8 @@ class Db2IncrementalSourceFactoryTest {
         Db2SourceConfigFactory factory = new Db2SourceConfigFactory();
         factory.fromReadonlyConfig(
                 Db2IncrementalSourceFactory.normalizeDb2Options(
-                        ReadonlyConfig.fromMap(raw), tablePath -> true));
+                        ReadonlyConfig.fromMap(raw),
+                        Db2IncrementalSourceFactoryTest::isFoldedPath));
         factory.hostname("localhost").port(50000).databaseList("e2e");
         Db2SourceConfig config = factory.create(0);
 
@@ -278,5 +291,16 @@ class Db2IncrementalSourceFactoryTest {
                         .isIncluded(new TableId("", "DB2INST1", "ORDERS")));
         Assertions.assertTrue(config.isExactlyOnce());
         Assertions.assertFalse(config.isEnableConcurrentRead());
+    }
+
+    /**
+     * Simulates a DB2 catalog that only contains ordinary objects, whose schema and table names DB2
+     * stores in the folded uppercase spelling.
+     */
+    private static boolean isFoldedPath(TablePath tablePath) {
+        return tablePath.getSchemaName().equals(tablePath.getSchemaName().toUpperCase(Locale.ROOT))
+                && tablePath
+                        .getTableName()
+                        .equals(tablePath.getTableName().toUpperCase(Locale.ROOT));
     }
 }

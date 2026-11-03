@@ -104,9 +104,10 @@ class TableDiscoveryUtilsTest {
 
     /**
      * A table created with quoted lowercase identifiers and configured unquoted in lowercase was
-     * captured before folding existed. The resolver must keep that spelling when only the lowercase
-     * object exists, prefer the folded object when it exists, and startup validation must accept
-     * the lowercase capture metadata for the lowercase configuration.
+     * captured before folding existed. The resolver must keep that spelling whenever the lowercase
+     * object exists, including when an uppercase object exists as well, fold only when the
+     * configured spelling does not exist, and startup validation must accept the lowercase capture
+     * metadata for the lowercase configuration.
      */
     @Test
     void shouldKeepCapturingLowercaseCreatedObjectConfiguredUnquoted() {
@@ -117,13 +118,18 @@ class TableDiscoveryUtilsTest {
                 "e2e.db2inst1.customers",
                 TableDiscoveryUtils.resolveConfiguredTableName(
                         "e2e.db2inst1.customers", lowercaseCustomers::equals));
+        // Both spellings exist: the configured object selected by releases up to 3.0.0 must win.
         Assertions.assertEquals(
-                "e2e.DB2INST1.CUSTOMERS",
+                "e2e.db2inst1.customers",
                 TableDiscoveryUtils.resolveConfiguredTableName(
                         "e2e.db2inst1.customers",
                         tablePath ->
                                 tablePath.equals(lowercaseCustomers)
                                         || tablePath.equals(uppercaseCustomers)));
+        Assertions.assertEquals(
+                "e2e.DB2INST1.CUSTOMERS",
+                TableDiscoveryUtils.resolveConfiguredTableName(
+                        "e2e.db2inst1.customers", uppercaseCustomers::equals));
         Assertions.assertEquals(
                 "e2e.DB2INST1.CUSTOMERS",
                 TableDiscoveryUtils.resolveConfiguredTableName(
