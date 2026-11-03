@@ -165,7 +165,7 @@ class FlinkLineageSupportTest {
     }
 
     @Test
-    void shouldReportStatisticsOnlyForAttachedExecutionResult() {
+    void shouldDetectAttachedExecutionResult() {
         JobExecutionResult attached =
                 new JobExecutionResult(new JobID(), 1L, Collections.emptyMap());
         DetachedJobExecutionResult detached = new DetachedJobExecutionResult(new JobID());

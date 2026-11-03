@@ -121,10 +121,9 @@ class LineageJobStatusHookTest {
     }
 
     /**
-     * An attached client reports the successful terminal event itself, carrying the output
-     * statistics this hook cannot read. Only the successful callback is handed over: a failed or
-     * cancelled job resolves the client's result future exceptionally, so the client reports
-     * nothing and the hook stays the only source of those events.
+     * An attached client reports the successful terminal event itself. Only the successful callback
+     * is handed over: a failed or cancelled job resolves the client's result future exceptionally,
+     * so the client reports nothing and the hook stays the only source of those events.
      */
     @Test
     void leavesTheSuccessfulTerminalEventToAnAttachedClient() throws Throwable {

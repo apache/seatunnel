@@ -47,7 +47,7 @@ final class FlinkLineageHooks {
     }
 
     /**
-     * Registers the JobManager-side status hook and the client-side statistics listener.
+     * Registers the JobManager-side status hook and the client-side terminal-event listener.
      *
      * @param streamGraph the graph the hook is attached to
      * @param environment the environment the result listener is registered on

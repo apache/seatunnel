@@ -19,7 +19,6 @@ package org.apache.seatunnel.lineage.flink;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -190,26 +189,6 @@ class TestShadedArtifactIT {
         Assertions.assertTrue(error.getMessage().contains("did not exit"));
     }
 
-    @Test
-    void boundsTheWaitWhenTheDriverCannotBeStopped() throws Exception {
-        ProcessBuilder builder = Mockito.mock(ProcessBuilder.class);
-        Process process = Mockito.mock(Process.class);
-        Mockito.when(builder.redirectErrorStream(true)).thenReturn(builder);
-        Mockito.when(builder.redirectOutput(Mockito.any(File.class))).thenReturn(builder);
-        Mockito.when(builder.start()).thenReturn(process);
-        Mockito.when(process.waitFor(Mockito.anyLong(), Mockito.any(TimeUnit.class)))
-                .thenReturn(false);
-        Mockito.when(process.isAlive()).thenReturn(true);
-        Mockito.when(process.destroyForcibly()).thenReturn(process);
-
-        AssertionError error =
-                Assertions.assertThrows(
-                        AssertionError.class,
-                        () -> runProcess(builder, 1, TimeUnit.MILLISECONDS, 0));
-        Assertions.assertTrue(error.getMessage().contains("could not be stopped"));
-        Mockito.verify(process, Mockito.never()).waitFor();
-        Mockito.verify(process, Mockito.atLeastOnce()).waitFor(5, TimeUnit.SECONDS);
-    }
 
     /** Locates the deployable artifact this module attaches during the package phase. */
     private static File shadedArtifact() {

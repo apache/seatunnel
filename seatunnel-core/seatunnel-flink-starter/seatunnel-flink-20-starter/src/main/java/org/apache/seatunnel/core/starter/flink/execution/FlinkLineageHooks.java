@@ -161,11 +161,10 @@ final class FlinkLineageHooks {
                 if (!FlinkLineageSupport.isAttachedJobExecutionResult(result, executionError)) {
                     return;
                 }
-                // Job-wide counters cannot be attributed safely to a particular output dataset.
+                // Job-wide counters cannot be attributed safely to a particular output dataset, so
+                // this attached completion is statistics-free. An attached submission silences the
+                // JobManager hook; skipping here would leave the run with no terminal event.
                 String flinkJobId = result.getJobID() == null ? null : result.getJobID().toString();
-                // Emitted even without statistics: an attached submission silences the JobManager
-                // hook, so skipping here would leave the run with no terminal event at all rather
-                // than one that is merely missing its row counts.
                 emit(LineageEventType.COMPLETE, flinkJobId);
             } catch (Throwable error) {
                 LOGGER.warn("Failed to emit Flink completion", error);

@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Emits one event, run by {@link TestShadedArtifactIT} in a JVM whose only class path entries are
@@ -41,7 +42,7 @@ public final class ShadedArtifactDriver {
 
     public static void main(String[] args) throws Exception {
         if ("hang".equals(args[0])) {
-            new java.util.concurrent.CountDownLatch(1).await();
+            new CountDownLatch(1).await();
         }
         Map<String, Object> options = new LinkedHashMap<>();
         options.put(LineageConfig.ENABLED, true);

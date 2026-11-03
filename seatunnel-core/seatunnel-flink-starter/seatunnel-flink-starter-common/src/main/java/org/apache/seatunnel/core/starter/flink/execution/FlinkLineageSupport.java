@@ -271,7 +271,7 @@ public final class FlinkLineageSupport {
                 || message.contains(NoClassDefFoundError.class.getName() + ": " + internalName);
     }
 
-    /** Returns whether a completed result is attached and safe to use for output statistics. */
+    /** Returns whether a completed result came from an attached client execution. */
     public static boolean isAttachedJobExecutionResult(
             JobExecutionResult result, Throwable executionError) {
         try {
