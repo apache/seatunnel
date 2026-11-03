@@ -951,6 +951,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                     .partitionNumber(4)
                                     .build();
 
+                    List<JdbcSourceSplit> rootSplits;
                     List<String> rootBounds;
                     List<String> turkishBounds;
                     Map<String, Integer> readCounts = new HashMap<>();
@@ -960,7 +961,8 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                     Locale format = Locale.getDefault(Locale.Category.FORMAT);
                     try {
                         Locale.setDefault(Locale.ROOT);
-                        rootBounds = splitBounds(splitter, jdbcSourceTable);
+                        rootSplits = new ArrayList<>(splitter.generateSplits(jdbcSourceTable));
+                        rootBounds = splitBounds(rootSplits);
 
                         Locale.setDefault(new Locale("tr", "TR"));
                         Collection<JdbcSourceSplit> turkishSplits =
@@ -987,15 +989,13 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                             rootBounds,
                             turkishBounds,
                             "split bounds depend on the JVM default locale");
-                    for (int i = 0; i < rootBounds.size() - 1; i++) {
-                        String interiorBound = rootBounds.get(i);
-                        Assertions.assertEquals(
-                                interiorBound.toLowerCase(Locale.ROOT),
-                                interiorBound,
-                                "interior bound "
-                                        + interiorBound
-                                        + " is not folded to the case insensitive sequence, so"
-                                        + " this fixture no longer exercises the lower-casing path");
+                    for (int i = 0; i < rootSplits.size(); i++) {
+                        if (i > 0) {
+                            assertFoldedBound(rootSplits.get(i).getSplitStart());
+                        }
+                        if (i < rootSplits.size() - 1) {
+                            assertFoldedBound(rootSplits.get(i).getSplitEnd());
+                        }
                     }
                     Assertions.assertTrue(
                             splitCount > 1, "expected more than one split, got " + splitCount);
@@ -1027,5 +1027,14 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             bounds.add(split.getSplitStart() + ".." + split.getSplitEnd());
         }
         return bounds;
+    }
+
+    private static void assertFoldedBound(Object bound) {
+        Assertions.assertNotNull(bound, "generated interior bound must not be null");
+        String text = bound.toString();
+        Assertions.assertEquals(
+                text.toLowerCase(Locale.ROOT),
+                text,
+                "interior bound " + text + " is not folded to the case insensitive sequence");
     }
 }
