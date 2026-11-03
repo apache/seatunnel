@@ -1348,8 +1348,11 @@ public class CoordinatorService {
 
         // JobMaster.run can release connector jar references from its finally block, so keep the
         // package service available through the bounded coordinator-executor termination wait.
+        // Only the cleanup timer is stopped here; the reference is intentionally retained because
+        // an upload admitted by the master/active check before demotion may still read it from
+        // the separate upload executor. New callers are rejected by that check, and the next
+        // activation replaces this reference.
         ConnectorPackageService packageService = connectorPackageService;
-        connectorPackageService = null;
         if (packageService != null) {
             packageService.close();
         }

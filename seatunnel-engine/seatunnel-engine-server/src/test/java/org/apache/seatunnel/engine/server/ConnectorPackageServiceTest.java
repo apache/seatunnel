@@ -162,7 +162,10 @@ public class ConnectorPackageServiceTest {
                     instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
             Assertions.assertTrue(server1.isMasterNode());
-            Assertions.assertNotNull(server1.getConnectorPackageService());
+            // Captured as an in-flight upload would after passing the master/active check.
+            CoordinatorService coordinatorService1 = server1.getCoordinatorService();
+            ConnectorPackageService packageService1 = server1.getConnectorPackageService();
+            Assertions.assertNotNull(packageService1);
             Assertions.assertThrows(
                     SeaTunnelEngineException.class, server2::getConnectorPackageService);
             await().atMost(5000, TimeUnit.MILLISECONDS)
@@ -188,6 +191,9 @@ public class ConnectorPackageServiceTest {
                             });
             Assertions.assertThrows(
                     SeaTunnelEngineException.class, server1::getConnectorPackageService);
+            // Demotion must not turn an already admitted upload into a storage-not-enabled error.
+            Assertions.assertSame(
+                    packageService1, coordinatorService1.getConnectorPackageService());
             await().atMost(5000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
