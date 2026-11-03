@@ -69,6 +69,28 @@ class SourceAssignmentTrackerTest {
     }
 
     @Test
+    void shouldReleaseUncheckpointedAssignmentInEitherResponseOrder() {
+        SourceAssignmentTracker tracker = new SourceAssignmentTracker(10, 16_384L, false);
+        recordAssignment(tracker, "command-1", 1L, 0, "attempt-1");
+        recordAssignment(tracker, "command-2", 2L, 0, "attempt-1");
+
+        // COMMAND_APPLIED overtakes the admission response.
+        tracker.markApplied("command-1", "attempt-1", Arrays.asList("split-1", "split-2"));
+        Assertions.assertTrue(tracker.contains("command-1"));
+        tracker.markAdmitted("command-1", "attempt-1");
+        Assertions.assertFalse(tracker.contains("command-1"));
+
+        // Admission response first, then COMMAND_APPLIED.
+        tracker.markAdmitted("command-2", "attempt-1");
+        tracker.markApplied("command-2", "attempt-1", Arrays.asList("split-1", "split-2"));
+        Assertions.assertFalse(tracker.contains("command-2"));
+
+        Assertions.assertEquals(0, tracker.size());
+        Assertions.assertEquals(0L, tracker.trackedBytes());
+        Assertions.assertEquals(2L, tracker.compactedEntries());
+    }
+
+    @Test
     void restoreShouldNotClaimCoordinatorOwnerThread() throws Exception {
         SourceAssignmentTracker source = new SourceAssignmentTracker(10, 16_384L);
         recordAssignment(source, "command-1", 1L, 0, "attempt-1");

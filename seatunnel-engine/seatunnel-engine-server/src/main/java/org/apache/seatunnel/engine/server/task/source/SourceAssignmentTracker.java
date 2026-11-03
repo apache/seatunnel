@@ -152,6 +152,14 @@ public final class SourceAssignmentTracker {
     public void markAdmitted(String commandId, String targetAttemptId) {
         checkOwner();
         Entry entry = requireEntry(commandId);
+        if (!checkpointEnabled && entry.state == SourceAssignmentState.APPLIED) {
+            // The Reader's application proof and this transport response travel on independent
+            // RPC paths. When the proof arrived first, markApplied kept the entry for this
+            // response; both facts are now known, so the entry can be released.
+            entries.remove(commandId);
+            removeAccounting(entry);
+            return;
+        }
         if (entry.state.isBefore(SourceAssignmentState.ADMITTED)) {
             transition(entry, SourceAssignmentState.ADMITTED);
         }
@@ -168,7 +176,9 @@ public final class SourceAssignmentTracker {
      * dies.
      *
      * <p>When the job runs without checkpoints there is no later checkpoint to prove inclusion, so
-     * the entry is released here instead of accumulating for the lifetime of the job.
+     * the entry is released once both its admission response and this application proof have been
+     * consumed, in whichever order they arrive, instead of accumulating for the lifetime of the
+     * job.
      *
      * @param commandId ledger key of the assignment
      * @param targetAttemptId Reader attempt reporting application; a stale attempt is ignored
@@ -185,10 +195,13 @@ public final class SourceAssignmentTracker {
             throw new IllegalStateException(
                     "Reader applied proof does not match tracked Source assignment " + commandId);
         }
+        boolean admitted = !entry.state.isBefore(SourceAssignmentState.ADMITTED);
         if (entry.state.isBefore(SourceAssignmentState.APPLIED)) {
             transition(entry, SourceAssignmentState.APPLIED);
         }
-        if (!checkpointEnabled) {
+        // Without checkpoints, release only after the admission response has also been consumed;
+        // otherwise the still outstanding response would find no entry in markAdmitted.
+        if (!checkpointEnabled && admitted) {
             entries.remove(commandId);
             removeAccounting(entry);
         }
