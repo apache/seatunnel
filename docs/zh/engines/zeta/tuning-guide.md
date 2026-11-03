@@ -20,11 +20,11 @@ SeaTunnel Engine 是基于 [JVM](https://zh.wikipedia.org/wiki/Java%E8%99%9A%E6%
 ##### 排查流程
 
 1. 检查 JVM 堆内存实时占用
-   使用 `jmap` 命令查看 JVM 堆内存使用情况, 其中 `<pid>` 是 SeaTunnel Engine 进程的 PID。
+   使用 `jcmd` 命令查看 JVM 堆内存使用情况, 其中 `<pid>` 是 SeaTunnel Engine 进程的 PID。`jcmd <pid> GC.heap_info` 在 JDK 8 及以上均可用（`jmap -heap` 在 JDK 9+ 已移除）。
    ```bash
-   jmap -heap <pid>
+   jcmd <pid> GC.heap_info
    ```
-   输出结果示例：
+   输出结果示例（JDK 8 主机上 `jmap -heap` 风格的输出，仅供参考）：
    ```shell
     Attaching to process ID 2111950, please wait...
     Debugger attached successfully.

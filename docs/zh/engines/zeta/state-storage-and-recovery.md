@@ -130,7 +130,7 @@ SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。引�
 
 | IMap 名称 | 内容 |
 |---|---|
-| `engine_runningJobInfo` | 已提交运行作业的信息（作业 ID、作业名称、指标快照）|
+| `engine_runningJobInfo` | 已提交作业的信息与初始化元数据（作业 ID、作业名称等；指标在作业完成后存于 `engine_finishedJobMetrics`）|
 | `engine_runningJobState` | 运行中作业和流水线的状态机当前状态 |
 | `engine_stateTimestamps` | 作业 / 流水线状态流转的时间戳 |
 | `engine_finishedJobState` | 已完成、已取消或失败作业的终态 |
@@ -188,7 +188,8 @@ region 文件里，因此只要作业持续运行，这些文件就会不断增�
 - 在 Master 节点上监控 namespace 目录：
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace
+du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace（本地文件存储，即 fs.defaultFS 以 file:/// 开头时）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
 ```
 
 **不要**按作业选择性地删除 MapStore 文件：并不存在按作业划分的文件，手工删除文件可能损坏下次
@@ -254,7 +255,8 @@ HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**�
 流转历史增长，长期运行的集群建议规划数 GB 空间，并使用以下命令持续监控：
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # 替换为你配置的 MapStore namespace
+du -sh /tmp/seatunnel/imap/   # 替换为你配置的 MapStore namespace（本地文件存储场景）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
 ```
 
 ---
@@ -298,7 +300,8 @@ ls -lh /tmp/seatunnel/checkpoint/
 **诊断**：
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace
+du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace（本地文件存储，即 fs.defaultFS 以 file:/// 开头时）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
 ```
 
 **可能根因**：

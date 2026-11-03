@@ -139,7 +139,7 @@ logical maps used by the engine are:
 
 | IMap Name | Content |
 |---|---|
-| `engine_runningJobInfo` | Submitted running job information (job id, job name, metrics snapshot) |
+| `engine_runningJobInfo` | Submitted job information and initialization metadata (job id, job name, etc.; metrics live in `engine_finishedJobMetrics` after completion) |
 | `engine_runningJobState` | Current state machine status of running jobs and pipelines |
 | `engine_stateTimestamps` | Timestamps of job/pipeline state transitions |
 | `engine_finishedJobState` | Terminal state for completed, canceled, or failed jobs |
@@ -201,7 +201,8 @@ while jobs keep running.
 - Monitor the namespace directory on the master node:
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml
+du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml (local file storage, i.e. fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
 ```
 
 Do not delete MapStore files selectively: there are no job-scoped files to pick out, and removing
@@ -315,7 +316,8 @@ state is rotated out.
 **Diagnosis**:
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml
+du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml (local file storage, i.e. fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
 ```
 
 **Root cause candidates**:

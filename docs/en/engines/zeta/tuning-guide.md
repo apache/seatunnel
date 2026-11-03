@@ -20,11 +20,11 @@ If the SeaTunnel Engine cluster responds slowly or hangs, it may be due to insuf
 ##### Troubleshooting Process
 
 1. Check JVM heap memory usage in real time
-   Use the `jmap` command to check JVM heap memory usage, where `<pid>` is the PID of the SeaTunnel Engine process.
+   Use the `jcmd` command to check JVM heap memory usage, where `<pid>` is the PID of the SeaTunnel Engine process. `jcmd <pid> GC.heap_info` works on JDK 8 and later (`jmap -heap` was removed in JDK 9+).
    ```bash
-   jmap -heap <pid>
+   jcmd <pid> GC.heap_info
    ```
-   Example output:
+   Example output from a JDK 8 host (`jmap -heap` style, shown for reference):
    ```shell
     Attaching to process ID 2111950, please wait...
     Debugger attached successfully.
