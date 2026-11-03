@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -62,7 +63,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
@@ -192,7 +192,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                         .map(ActionSubtaskState::getState)
                         .flatMap(Collection::stream)
                         .filter(Objects::nonNull)
-                        .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
+                        .map(bytes -> deserializeState(enumeratorStateSerializer, bytes))
                         .findFirst();
         if (state.isPresent()) {
             this.enumerator =
@@ -204,6 +204,27 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
+    }
+
+    /**
+     * Deserializes a split that a reader hands back during restore. Like {@link
+     * #getSplitSerializer()}, it waits until the enumerator itself has been restored.
+     *
+     * @param split the split bytes stored in the reader's checkpoint state
+     * @return the restored split
+     * @throws StateRestoreException if the split cannot be read
+     */
+    public SplitT restoreSplit(byte[] split) throws ExecutionException, InterruptedException {
+        return deserializeState(getSplitSerializer(), split);
+    }
+
+    private <T> T deserializeState(Serializer<T> serializer, byte[] bytes) {
+        return StateRestoreException.deserialize(
+                serializer,
+                bytes,
+                source.getName(),
+                source.getSource().getPluginName(),
+                taskLocation);
     }
 
     public Serializer<SplitT> getSplitSerializer() throws ExecutionException, InterruptedException {
