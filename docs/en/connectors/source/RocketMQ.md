@@ -104,7 +104,7 @@ entry can set its own `tags` filter.
 
 Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
-`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. Each `tables_configs` entry is parsed independently and is not merged with the top-level options: `schema`, `format`, `field.delimiter`, `ignore_parse_errors`, and `tags` must be set on each entry that needs them, and top-level values of these options are ignored in multi-table mode. Only consumer-level options (`name.srv.addr`, ACL options, `consumer.group`, `batch.size`, `consumer.poll.timeout.millis`, `commit.on.checkpoint`) and the `start.mode` fallback come from the top level.
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. Each `tables_configs` item is parsed independently: `schema`, `format`, `tags`, and `ignore_parse_errors` must be set on the item itself — unset ones fall back to the option defaults (`json` / `false`), not to the job-level values. Only `start.mode` (with `start.mode.timestamp`/`start.mode.offsets`) inherits the top-level value when an item does not set it.
 
 When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
 
@@ -292,7 +292,7 @@ Use the `tables_configs` configuration array. Each item defines its own `topics`
 
 ### Which starting offset modes are supported?
 
-RocketMQ source supports starting from earliest offsets (`CONSUME_FROM_FIRST_OFFSET`), latest offsets (`CONSUME_FROM_LAST_OFFSET`), or timestamp-based offsets (`CONSUME_FROM_TIMESTAMP`) using the `start.mode` parameter.
+RocketMQ source supports five `start.mode` values: `CONSUME_FROM_GROUP_OFFSETS` (the default), `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_TIMESTAMP`, and `CONSUME_FROM_SPECIFIC_OFFSETS`. See the `start.mode` option description above for details.
 
 ### How is fault tolerance achieved during job failover?
 
