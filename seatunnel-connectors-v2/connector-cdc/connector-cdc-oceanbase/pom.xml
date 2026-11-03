@@ -41,17 +41,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
             <version>${project.version}</version>
-            <!-- connector-cdc-base provides these (with its patched Serializable TableId). -->
-            <exclusions>
-                <exclusion>
-                    <groupId>io.debezium</groupId>
-                    <artifactId>debezium-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.debezium</groupId>
-                    <artifactId>debezium-api</artifactId>
-                </exclusion>
-            </exclusions>
+            <!--
+                Keep debezium-core and debezium-api: connector-cdc-base declares Debezium as
+                provided, so this jar must ship the stock Debezium runtime itself. The
+                connector-cdc parent shade filter drops the stock classes that connector-cdc-base
+                patches (including the Serializable TableId), so they are not shadowed.
+            -->
         </dependency>
     </dependencies>
 
