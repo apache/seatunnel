@@ -765,7 +765,8 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
 
     private void applyBarrier(Barrier barrier) throws Exception {
         if (barrier.prepareClose(readerLocation)) {
-            lifecycle.gracefulClose();
+            // A savepoint stop is transient; keep it out of the persisted lifecycle state.
+            lifecycle.gracefulCloseForBarrier();
         }
         bindSchemaCheckpointIfNeeded(barrier);
         if (!barrier.snapshot()) {
@@ -798,7 +799,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                             appliedCommandWatermark,
                             appliedCommandGaps,
                             noMoreSplitsGeneration,
-                            lifecycle.snapshot(),
+                            lifecycle.checkpointSnapshot(),
                             new ArrayList<>(checkpointOwnedSplitIds),
                             connectorStates);
             byte[] serialized = ManagedReaderCheckpointStateSerializer.serialize(checkpointState);

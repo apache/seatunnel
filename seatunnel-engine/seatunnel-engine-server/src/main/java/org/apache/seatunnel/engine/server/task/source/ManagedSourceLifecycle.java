@@ -37,6 +37,15 @@ public final class ManagedSourceLifecycle {
     private boolean restoreDraining;
     private Throwable failure;
 
+    /**
+     * Lifecycle state from just before a checkpoint barrier stopped a running reader (stop with
+     * savepoint). That stop is transient: a job restored from the savepoint must keep reading, so
+     * the checkpoint persists this state instead of the DRAINING state caused by the barrier.
+     * Genuine end of input closes the reader before the barrier and is therefore still persisted.
+     * Null when no barrier has stopped this reader.
+     */
+    private Snapshot stateBeforeBarrierClose;
+
     public void startRestore() {
         requireMain(ManagedSourceLifecycleState.CREATED);
         mainState = ManagedSourceLifecycleState.RESTORING;
@@ -157,6 +166,27 @@ public final class ManagedSourceLifecycle {
         } else {
             closeLatched = true;
         }
+    }
+
+    /**
+     * Gracefully closes the reader because a checkpoint barrier requested it, remembering the
+     * pre-close state so {@link #checkpointSnapshot()} does not persist the transient stop.
+     */
+    public void gracefulCloseForBarrier() {
+        if (stateBeforeBarrierClose == null
+                && mainState == ManagedSourceLifecycleState.RUNNING
+                && !closeLatched) {
+            stateBeforeBarrierClose = snapshot();
+        }
+        gracefulClose();
+    }
+
+    /**
+     * Returns the lifecycle state to persist in a checkpoint. A stop requested by a barrier is not
+     * persisted; any other state, including draining after end of input, is.
+     */
+    public Snapshot checkpointSnapshot() {
+        return stateBeforeBarrierClose != null ? stateBeforeBarrierClose : snapshot();
     }
 
     public void cancel() {

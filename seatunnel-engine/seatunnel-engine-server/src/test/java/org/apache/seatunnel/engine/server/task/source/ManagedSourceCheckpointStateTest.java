@@ -85,6 +85,30 @@ class ManagedSourceCheckpointStateTest {
     }
 
     @Test
+    void shouldResumeRunningAfterRestoringSavepointStop() {
+        ManagedSourceLifecycle stopped = runningLifecycle();
+        stopped.gracefulCloseForBarrier();
+        Assertions.assertTrue(stopped.isDraining());
+
+        ManagedSourceLifecycle restored = new ManagedSourceLifecycle();
+        restored.restoreSnapshot(stopped.checkpointSnapshot());
+        restored.finishRestore();
+        Assertions.assertEquals(ManagedSourceLifecycleState.RUNNING, restored.getMainState());
+        Assertions.assertTrue(restored.canPoll());
+
+        // Draining after genuine end of input must still survive the same barrier.
+        ManagedSourceLifecycle finished = runningLifecycle();
+        finished.gracefulClose();
+        finished.gracefulCloseForBarrier();
+        ManagedSourceLifecycle restoredFinished = new ManagedSourceLifecycle();
+        restoredFinished.restoreSnapshot(finished.checkpointSnapshot());
+        restoredFinished.finishRestore();
+        Assertions.assertEquals(
+                ManagedSourceLifecycleState.DRAINING, restoredFinished.getMainState());
+        Assertions.assertFalse(restoredFinished.canPoll());
+    }
+
+    @Test
     void shouldRoundTripAndChecksumReaderCheckpointState() throws Exception {
         ManagedReaderCheckpointState state =
                 new ManagedReaderCheckpointState(
