@@ -117,6 +117,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
      * value: an admission thread can never observe the epoch without its matching attempt.
      */
     private volatile CoordinatorFence coordinatorFence = CoordinatorFence.NONE;
+
     private long appliedCommandWatermark;
     private final SortedSet<Long> appliedCommandGaps = new TreeSet<>();
     private long noMoreSplitsGeneration;
