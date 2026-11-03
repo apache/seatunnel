@@ -599,8 +599,10 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     }
 
     private void checkActivePoll() {
-        boolean wakeUp = false;
-        Thread threadToInterrupt = null;
+        // Delivery happens while holding pollWatchdogLock. pollManagedReader clears the active
+        // generation under the same lock, so a wakeup or interrupt selected for poll N cannot be
+        // delivered after poll N has ended and can never reach poll N+1 or an unrelated task turn
+        // that the pooled owner thread runs afterwards. ManagedSourceReader#wakeUp must not block.
         synchronized (pollWatchdogLock) {
             if (closed || activePollGeneration == 0L || activePollStartedNanos == 0L) {
                 return;
@@ -610,7 +612,11 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
             if (elapsedNanos >= hardBudgetNanos && wakeupPollGeneration != activePollGeneration) {
                 wakeupPollGeneration = activePollGeneration;
                 metrics.recordWakeup();
-                wakeUp = true;
+                try {
+                    reader.wakeUp();
+                } catch (Throwable wakeupFailure) {
+                    asynchronousFailure.compareAndSet(null, wakeupFailure);
+                }
             }
             long cancellationNanos =
                     Duration.ofMillis(config.getPollCancellationTimeoutMillis()).toNanos();
@@ -623,18 +629,11 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                         null,
                         new IllegalStateException(
                                 "Managed Source poll exceeded cancellation timeout"));
-                threadToInterrupt = ownerThread;
+                Thread threadToInterrupt = ownerThread;
+                if (threadToInterrupt != null) {
+                    threadToInterrupt.interrupt();
+                }
             }
-        }
-        if (wakeUp) {
-            try {
-                reader.wakeUp();
-            } catch (Throwable wakeupFailure) {
-                asynchronousFailure.compareAndSet(null, wakeupFailure);
-            }
-        }
-        if (threadToInterrupt != null) {
-            threadToInterrupt.interrupt();
         }
     }
 
