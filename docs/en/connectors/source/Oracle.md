@@ -52,8 +52,10 @@ Read external data source data through JDBC.
 | FLOAT                                                                                                    | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                                       | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                                                  | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                                       | DECIMAL(precision, 0) |
-| NUMBER(scale != 0)                                                                                       | DECIMAL(precision, scale) |
+| NUMBER(18 < precision < 38, scale == 0)                                                                  | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0)                                                                      | DECIMAL(38, 0)      |
+| NUMBER(scale > 0)                                                                                       | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                                        | Normalized to `DECIMAL(precision - scale, 0)`, or `LONG`/`INT`/`BOOLEAN` when decimal narrowing applies. Missing precision/scale default to 38/18. |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
@@ -159,11 +161,11 @@ The inverse of the sampling rate used in the sample sharding strategy. For examp
 
 The column name for split data.
 
-#### partition_upper_bound [String]
+#### partition_upper_bound [string]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [String]
+#### partition_lower_bound [string]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 

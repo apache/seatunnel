@@ -183,11 +183,13 @@ Opengauss CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源表名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源表名称。 |
+| RowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+
+元数据字段的键名区分大小写，必须按照上表原样书写。
 
 示例：
 

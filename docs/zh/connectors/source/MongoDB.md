@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 描述
 
 MongoDB 源连接器从 MongoDB 集合中读取文档，并把每个 BSON 文档转换为 SeaTunnel 行记录。
-它同时支持**批**和**流**两种作业模式，并通过 `partition.split-key` 把集合按取值范围切分为多个
+它以**批处理**（有界）方式运行，并通过 `partition.split-key` 把集合按取值范围切分为多个
 split，实现并行读取。
 
 在不扫描整张集合的前提下，可以缩小读取范围并控制返回字段：
@@ -31,8 +31,8 @@ split，实现并行读取。
 - 使用 `match.projection` 控制结果中返回的字段。
 - 使用 `flat.sync-string` 把整篇文档作为一条 JSON `STRING` 列读入，跳过固定 schema 的定义。
 
-在流模式下，连接器读取已分配的 split，并通过 checkpoint 跟踪读取位置；任务重启后会从上次提交
-的游标继续读取。
+连接器会通过 checkpoint 跟踪 split 的读取进度，任务重启后会从上次提交的 split 继续读取，
+而不需要重新扫描整张集合。
 
 ## 支持的数据源信息
 
@@ -370,6 +370,54 @@ sink {
   "c_date": { "$date": { "$numberLong": "1686614400000" } },
   "c_decimal": { "$numberDecimal": "683265300" },
   "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+}
+```
+
+### 基于分区键的并行读取
+
+要在大型集合上加速扫描，可以设置分区键 `partition.split-key` 和目标分片大小 `partition.split-size`，
+连接器会按分区键顺序读取文档，并将每个分片交给并行的读取任务。`fetch.size` 控制每次往返服务端返回的文档数，
+需要和分区大小一起调优。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### 从副本集或分片集群读取
+
+连接器接受任意标准 MongoDB URI。副本集场景使用 `replicaSet=xxx`；如果凭据存储在非默认的 auth 数据库，
+追加 `authSource=admin`。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
 }
 ```
 
