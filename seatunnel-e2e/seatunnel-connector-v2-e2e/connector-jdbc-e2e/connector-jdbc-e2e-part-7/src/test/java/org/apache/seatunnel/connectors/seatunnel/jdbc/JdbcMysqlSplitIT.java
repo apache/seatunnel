@@ -875,21 +875,17 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /**
-     * The charset_based string splitter encodes MIN/MAX of the partition column into a number and
-     * decodes the interior boundaries back to strings. With a Turkish default locale a bare
-     * {@code toLowerCase()} turns the {@code I} of {@code I1} into a dotless {@code ı} ({@code
-     * U+0131}); {@code CollationBasedSplitter#encodeStringToNumericRange} maps any character that is
-     * not in the collation sequence to index 0, the same index as the padding character, so the
-     * encoded range collapses and every interior boundary decodes to a string that starts with the
-     * {@code U+0001} placeholder instead of {@code i}.
-     *
-     * <p>Asserting on the rows that come back cannot see that difference: the first split still
-     * starts at the literal MIN, the last one still ends at the literal MAX, so every row is still
-     * read exactly once - the boundaries just move. This test therefore compares the generated
-     * split boundaries under {@link Locale#ROOT} and under {@code tr-TR}, and keeps the row identity
-     * check as an extra guard.
-     */
+    // The charset_based string splitter encodes MIN/MAX of the partition column into a number and
+    // decodes the interior boundaries back to strings. Under tr-TR a bare toLowerCase() turns the
+    // I of "I1" into a dotless i (U+0131), and CollationBasedSplitter#charToIndex maps any
+    // character outside the collation sequence to index 0 - the same index as the padding
+    // character - so the encoded range collapses and every interior bound decodes to a string that
+    // starts with the U+0001 placeholder instead of "i".
+    //
+    // Asserting on the rows read cannot see that: the first split still starts at the literal MIN
+    // and the last still ends at the literal MAX, so every row is read exactly once and only the
+    // boundaries move. This test therefore compares the generated boundaries under Locale.ROOT and
+    // under tr-TR, and keeps the row identity check as an extra guard.
     @Test
     public void testFixedStringSplitBoundsAreLocaleIndependent() throws Exception {
         String tableName = "fixed_string_locale";
@@ -1020,8 +1016,8 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private static List<String> splitBounds(
-            FixedChunkSplitter splitter, JdbcSourceTable table) throws Exception {
+    private static List<String> splitBounds(FixedChunkSplitter splitter, JdbcSourceTable table)
+            throws Exception {
         return splitBounds(splitter.generateSplits(table));
     }
 
