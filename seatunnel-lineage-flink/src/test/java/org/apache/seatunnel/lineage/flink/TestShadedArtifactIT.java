@@ -189,7 +189,6 @@ class TestShadedArtifactIT {
         Assertions.assertTrue(error.getMessage().contains("did not exit"));
     }
 
-
     /** Locates the deployable artifact this module attaches during the package phase. */
     private static File shadedArtifact() {
         File[] candidates =
