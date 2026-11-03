@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.catalog;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -165,6 +166,12 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                         SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                 "c_byte_row", "{c = byte}");
         Assertions.assertEquals(BasicType.BYTE_TYPE, byteRow.getFieldType(0));
+
+        SeaTunnelRowType varbinaryRow =
+                (SeaTunnelRowType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_varbinary_row", "{c = varbinary}");
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, varbinaryRow.getFieldType(0));
     }
 
     @Test

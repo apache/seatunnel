@@ -46,6 +46,7 @@ public class CastFunction {
     public static final String BYTE = "BYTE";
     public static final String BYTES = "BYTES";
     public static final String BINARY = "BINARY";
+    public static final String VARBINARY = "VARBINARY";
     public static final String DOUBLE = "DOUBLE";
     public static final String FLOAT = "FLOAT";
     public static final String TIMESTAMP = "TIMESTAMP";
@@ -135,6 +136,7 @@ public class CastFunction {
                 break;
             case BYTES:
             case BINARY:
+            case VARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
             case TIMESTAMP_TZ:
                 if (TIMESTAMP_TZ_CAST_TYPES.contains(originType)) {

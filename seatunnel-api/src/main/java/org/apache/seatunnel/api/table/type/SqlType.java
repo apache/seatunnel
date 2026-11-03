@@ -42,5 +42,6 @@ public enum SqlType {
     BFLOAT16_VECTOR,
     SPARSE_FLOAT_VECTOR,
     ROW,
-    MULTIPLE_ROW;
+    MULTIPLE_ROW,
+    VARBINARY;
 }
