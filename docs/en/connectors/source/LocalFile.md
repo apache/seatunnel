@@ -269,7 +269,7 @@ default `\n`
 
 ### parse_partition_from_path [boolean]
 
-Control whether parse the partition keys and values from file path
+Control whether to parse partition keys and values from the file path. For JSON files, schema `defaultValue` values are supported only when `parse_partition_from_path = false`. The default `true` selects the merge-partition read path, which intentionally does not apply schema defaults, even when a file path contains no partition fields. Set this option to `false` if JSON schema defaults are required; partition fields will then not be parsed from the file path.
 
 For example if you read a file from path `file://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
 

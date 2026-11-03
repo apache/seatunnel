@@ -136,7 +136,7 @@ columns = [
 
 > **How `defaultValue` is applied when deserializing JSON-formatted data**
 >
-> For connectors that deserialize payloads with the **JSON format** (for example the Kafka source with `format = json`), a configured `defaultValue` is applied **when the field is missing from the JSON message or is explicitly `null`**, and the value is normalized to the column type by the deserializer. A field that is present with a real value keeps that value. If no `defaultValue` is configured, missing or `null` fields stay `null` (backward compatible).
+> In supported JSON deserialization paths that build a `JsonDeserializationSchema` from a `CatalogTable`, a configured `defaultValue` is applied when a field is missing from the JSON message or is explicitly `null`; the deserializer normalizes the value to the column type. A field present with a non-null value keeps that value. A configured default is applied before the missing-field check and therefore satisfies `failOnMissingField` for that field. Without a configured `defaultValue`, explicit `null` remains `null`, and a missing field still follows `failOnMissingField`.
 >
 > ```hocon
 > schema {
@@ -149,7 +149,9 @@ columns = [
 >
 > With the schema above, the JSON message `{"GROUPID": 5}` produces `GROUPID = 5, status = "PENDING"`, and `{}` produces `GROUPID = 0, status = "PENDING"`.
 >
-> Note: `defaultValue` takes precedence over `failOnMissingField` — when a default is configured, it is applied before the missing-field check, while an explicit JSON `null` is never treated as a missing field.
+> Temporal default tokens are supported for their matching column types: `CURRENT_DATE` for `DATE`, `CURRENT_TIME` for `TIME`, and `CURRENT_TIMESTAMP` for `TIMESTAMP` or `TIMESTAMP_TZ`. Token matching is case-insensitive. The token is evaluated for each record where the field is missing or `null`, using the worker's local clock and system time zone; it is not evaluated when the schema or deserializer is constructed. For a `STRING` column, the same text is a literal string, not a temporal token. Other literal defaults continue to be converted to the declared column type, and invalid literals continue to fail fast.
+>
+> For LocalFile JSON, schema defaults are supported only when `parse_partition_from_path = false`. The default `true` selects the merge-partition path, which does not apply schema defaults even when the file path has no partition fields. See [LocalFile `parse_partition_from_path`](../../connectors/source/LocalFile.md#parse_partition_from_path-boolean).
 
 #### What type supported at now
 

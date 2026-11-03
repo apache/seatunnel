@@ -269,7 +269,7 @@ PDF 特有的解析行为如下：
 
 ### parse_partition_from_path [boolean]
 
-控制是否从文件路径解析分区键和值
+控制是否从文件路径解析分区键和值。对于 JSON 文件，仅当 `parse_partition_from_path = false` 时才支持 schema 中的 `defaultValue`。默认值 `true` 会选择 merge-partition 读取路径，该路径有意不应用 schema 默认值，即使文件路径中没有分区字段也一样。如果需要 JSON schema 默认值，请将此选项设为 `false`；此时不会再从文件路径解析分区字段。
 
 例如，如果您从路径 `file://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件
 

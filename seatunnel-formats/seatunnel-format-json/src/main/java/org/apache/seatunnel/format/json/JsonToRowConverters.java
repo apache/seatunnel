@@ -40,10 +40,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
@@ -81,7 +83,7 @@ public class JsonToRowConverters implements Serializable {
     private final boolean ignoreParseErrors;
 
     /** Optional column metadata used to apply defaultValue when a field is missing or null. */
-    private Column[] columns;
+    private final Column[] columns;
 
     /**
      * Cached date/timestamp formatters per field name. Transient because it may be populated at
@@ -92,15 +94,57 @@ public class JsonToRowConverters implements Serializable {
     public transient Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
-        this.failOnMissingField = failOnMissingField;
-        this.ignoreParseErrors = ignoreParseErrors;
+        this(failOnMissingField, ignoreParseErrors, null);
     }
 
+    /**
+     * Creates converters with optional physical-column metadata positionally aligned with the row
+     * type. A {@code null} metadata array disables column defaults.
+     */
     public JsonToRowConverters(
             boolean failOnMissingField, boolean ignoreParseErrors, Column[] columns) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
-        this.columns = columns;
+        this.columns = columns == null ? null : columns.clone();
+    }
+
+    /** Returns the current instant for dynamic temporal defaults; never cached across records. */
+    static Instant currentInstant() {
+        return Instant.now();
+    }
+
+    private static boolean isDynamicTemporalDefault(Object defaultValue, SqlType sqlType) {
+        if (!(defaultValue instanceof String)) {
+            return false;
+        }
+        String token = ((String) defaultValue).trim();
+        switch (sqlType) {
+            case DATE:
+                return "CURRENT_DATE".equalsIgnoreCase(token);
+            case TIME:
+                return "CURRENT_TIME".equalsIgnoreCase(token);
+            case TIMESTAMP:
+            case TIMESTAMP_TZ:
+                return "CURRENT_TIMESTAMP".equalsIgnoreCase(token);
+            default:
+                return false;
+        }
+    }
+
+    private static Object currentTemporalDefault(SqlType sqlType) {
+        Instant now = currentInstant();
+        switch (sqlType) {
+            case DATE:
+                return now.atZone(ZoneId.systemDefault()).toLocalDate();
+            case TIME:
+                return now.atZone(ZoneId.systemDefault()).toLocalTime();
+            case TIMESTAMP:
+                return LocalDateTime.ofInstant(now, ZoneId.systemDefault());
+            case TIMESTAMP_TZ:
+                return OffsetDateTime.ofInstant(now, ZoneId.systemDefault());
+            default:
+                throw new IllegalArgumentException("Not a temporal default type: " + sqlType);
+        }
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -301,16 +345,37 @@ public class JsonToRowConverters implements Serializable {
 
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
+            if (dateFormatter == null) {
+                throw CommonError.formatDateError(dateStr, fieldName);
+            }
             if (fieldName != null) {
                 fieldFormatterMap.put(fieldName, dateFormatter);
             }
         }
 
-        if (dateFormatter == null) {
-            throw CommonError.formatDateError(dateStr, fieldName);
-        }
+        return parseDateWithFormatterRefresh(dateStr, fieldName, dateFormatter)
+                .query(TemporalQueries.localDate());
+    }
 
-        return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
+    /**
+     * Re-resolves the cached formatter when the current date text uses another supported format.
+     */
+    private TemporalAccessor parseDateWithFormatterRefresh(
+            String dateStr, String fieldName, DateTimeFormatter dateFormatter) {
+        try {
+            return dateFormatter.parse(dateStr);
+        } catch (DateTimeParseException parseException) {
+            if (StringUtils.isBlank(fieldName)) {
+                throw parseException;
+            }
+
+            DateTimeFormatter refreshedFormatter = DateUtils.matchDateFormatter(dateStr);
+            if (refreshedFormatter == null) {
+                throw CommonError.formatDateError(dateStr, fieldName);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(dateStr);
+        }
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
@@ -449,23 +514,20 @@ public class JsonToRowConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
-
-        // Pre-convert each column default once at converter construction so the hot path
-        // does not repeat toJsonNode/conversion per record, and misconfigured defaults
-        // fail fast at job start instead of at first record. The unwrapped converter is
-        // used so a bad default always fails at construction, regardless of
-        // ignoreParseErrors. Only known-immutable types are pre-converted and cached;
-        // everything else (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, and any future type not
-        // explicitly listed) keeps its JsonNode and is converted per record so no
-        // single mutable instance is ever shared across rows.
         final Object[] defaultValues = new Object[fieldNames.length];
         final JsonNode[] defaultNodes = new JsonNode[fieldNames.length];
+        final SqlType[] dynamicTemporalTypes = new SqlType[fieldNames.length];
+
         if (columns != null) {
             for (int i = 0; i < fieldNames.length && i < columns.length; i++) {
                 Object defaultValue = columns[i].getDefaultValue();
                 if (defaultValue != null) {
-                    JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
                     SqlType sqlType = rowType.getFieldType(i).getSqlType();
+                    if (isDynamicTemporalDefault(defaultValue, sqlType)) {
+                        dynamicTemporalTypes[i] = sqlType;
+                        continue;
+                    }
+                    JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
                     try {
                         if (isImmutableType(sqlType)) {
                             defaultValues[i] =
@@ -519,7 +581,8 @@ public class JsonToRowConverters implements Serializable {
                                         field,
                                         i,
                                         defaultValues,
-                                        defaultNodes);
+                                        defaultNodes,
+                                        dynamicTemporalTypes);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -539,8 +602,7 @@ public class JsonToRowConverters implements Serializable {
      * <p>Only types whose converted Java representation is genuinely immutable belong here.
      * Anything not explicitly listed (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, or a future type) is
      * treated as mutable and re-converted per record, so no single instance is ever shared across
-     * rows. An exhaustive switch without a default keeps the compiler/reviewer from silently
-     * missing a new type.
+     * rows. The default branch safely opts unlisted types out of caching.
      */
     private boolean isImmutableType(SqlType sqlType) {
         switch (sqlType) {
@@ -624,11 +686,15 @@ public class JsonToRowConverters implements Serializable {
             JsonNode field,
             int fieldIndex,
             Object[] defaultValues,
-            JsonNode[] defaultNodes) {
+            JsonNode[] defaultNodes,
+            SqlType[] dynamicTemporalTypes) {
         if (field == null || field.isNull()) {
-            // Apply defaultValue if available (for both missing fields and explicit nulls).
-            // Mutable types (ARRAY/MAP/BYTES) are converted per record so no single
-            // instance is shared across rows; immutable scalars use the pre-converted value.
+            // Apply defaultValue if available for both missing fields and explicit nulls.
+            if (dynamicTemporalTypes != null
+                    && fieldIndex < dynamicTemporalTypes.length
+                    && dynamicTemporalTypes[fieldIndex] != null) {
+                return currentTemporalDefault(dynamicTemporalTypes[fieldIndex]);
+            }
             if (defaultNodes != null
                     && fieldIndex < defaultNodes.length
                     && defaultNodes[fieldIndex] != null) {

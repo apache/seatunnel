@@ -30,12 +30,14 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -44,16 +46,24 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 
 /** Test for defaultValue support in JsonDeserializationSchema. */
 public class JsonDefaultValueTest {
@@ -287,6 +297,239 @@ public class JsonDefaultValueTest {
         assertEquals(200L, rowWithValue.getField(1));
         assertEquals(2.5f, rowWithValue.getField(2));
         assertEquals(0, new BigDecimal("99.99").compareTo((BigDecimal) rowWithValue.getField(3)));
+    }
+
+    @Test
+    public void testDynamicTemporalDefaultsAreEvaluatedPerRecord() throws IOException {
+        Instant first = Instant.parse("2024-01-15T10:20:30.123456789Z");
+        Instant second = Instant.parse("2025-07-20T18:40:50.987654321Z");
+        AtomicReference<Instant> now = new AtomicReference<>(first);
+        try (MockedStatic<JsonToRowConverters> clock =
+                mockStatic(JsonToRowConverters.class, CALLS_REAL_METHODS)) {
+            clock.when(JsonToRowConverters::currentInstant).thenAnswer(invocation -> now.get());
+            clock.clearInvocations();
+            JsonDeserializationSchema deserializer = createDynamicTemporalDefaultSchema();
+            clock.verify(JsonToRowConverters::currentInstant, times(0));
+
+            assertDynamicTemporalDefaults(deserializer.deserialize("{}"), first);
+            now.set(second);
+            assertDynamicTemporalDefaults(
+                    deserializer.deserialize(
+                            "{\"current_date\":null,\"current_time\":null,"
+                                    + "\"current_timestamp\":null,\"current_timestamp_tz\":null,"
+                                    + "\"date_literal\":null,\"time_literal\":null,\"timestamp_literal\":null}"),
+                    second);
+            clock.verify(JsonToRowConverters::currentInstant, times(8));
+
+            clock.clearInvocations();
+            SeaTunnelRow provided =
+                    deserializer.deserialize(
+                            "{\"current_date\":\"1999-01-02\",\"current_time\":\"03:04:05\","
+                                    + "\"current_timestamp\":\"1999-01-02 03:04:05\","
+                                    + "\"current_timestamp_tz\":\"1999-01-02T03:04:05+05:30\"}");
+            Assertions.assertArrayEquals(
+                    new Object[] {
+                        LocalDate.of(1999, 1, 2),
+                        LocalTime.of(3, 4, 5),
+                        LocalDateTime.of(1999, 1, 2, 3, 4, 5),
+                        OffsetDateTime.parse("1999-01-02T03:04:05+05:30"),
+                        "CURRENT_DATE",
+                        "CURRENT_TIME",
+                        "CURRENT_TIMESTAMP"
+                    },
+                    provided.getFields());
+            clock.verify(JsonToRowConverters::currentInstant, times(0));
+        }
+    }
+
+    @Test
+    public void testDynamicTemporalDefaultsRemainDynamicAfterSerialization() throws Exception {
+        Instant first = Instant.parse("2024-01-15T10:20:30.123456789Z");
+        Instant second = Instant.parse("2025-07-20T18:40:50.987654321Z");
+        AtomicReference<Instant> now = new AtomicReference<>(first);
+        try (MockedStatic<JsonToRowConverters> clock =
+                mockStatic(JsonToRowConverters.class, CALLS_REAL_METHODS)) {
+            clock.when(JsonToRowConverters::currentInstant).thenAnswer(invocation -> now.get());
+            JsonDeserializationSchema deserializer = createDynamicTemporalDefaultSchema();
+            assertDynamicTemporalDefaults(deserializer.deserialize("{}"), first);
+            clock.clearInvocations();
+
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+                output.writeObject(deserializer);
+            }
+            JsonDeserializationSchema restored;
+            try (ObjectInputStream input =
+                    new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+                restored = (JsonDeserializationSchema) input.readObject();
+            }
+            clock.verify(JsonToRowConverters::currentInstant, times(0));
+
+            now.set(second);
+            assertDynamicTemporalDefaults(restored.deserialize("{}"), second);
+            clock.verify(JsonToRowConverters::currentInstant, times(4));
+        }
+    }
+
+    @Test
+    public void testInvalidTemporalDefaultsFailAtConstruction() {
+        SeaTunnelDataType<?>[] types =
+                new SeaTunnelDataType<?>[] {
+                    LocalTimeType.LOCAL_DATE_TYPE,
+                    LocalTimeType.LOCAL_TIME_TYPE,
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                    LocalTimeType.OFFSET_DATE_TIME_TYPE
+                };
+        String[][] invalidDefaults =
+                new String[][] {
+                    {"CURRENT_TIME", "CURRENT_TIMESTAMP", "not-a-date"},
+                    {"CURRENT_DATE", "CURRENT_TIMESTAMP", "not-a-time"},
+                    {"CURRENT_DATE", "CURRENT_TIME", "not-a-timestamp"},
+                    {"CURRENT_DATE", "CURRENT_TIME", "not-an-offset-timestamp"}
+                };
+        for (int i = 0; i < types.length; i++) {
+            for (String defaultValue : invalidDefaults[i]) {
+                SeaTunnelDataType<?> type = types[i];
+                CatalogTable table =
+                        CatalogTable.of(
+                                TableIdentifier.of("test", TablePath.of("test.test_table")),
+                                TableSchema.builder()
+                                        .column(
+                                                PhysicalColumn.of(
+                                                        "value",
+                                                        type,
+                                                        (Long) null,
+                                                        false,
+                                                        defaultValue,
+                                                        null))
+                                        .build(),
+                                new HashMap<>(),
+                                new ArrayList<>(),
+                                "test table");
+                for (boolean ignoreParseErrors : new boolean[] {false, true}) {
+                    Assertions.assertThrows(
+                            RuntimeException.class,
+                            () -> new JsonDeserializationSchema(table, false, ignoreParseErrors),
+                            "Invalid temporal default must fail at construction: " + defaultValue);
+                }
+            }
+        }
+    }
+
+    private static JsonDeserializationSchema createDynamicTemporalDefaultSchema() {
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "current_date",
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            (Long) null,
+                            false,
+                            "current_date",
+                            null),
+                    PhysicalColumn.of(
+                            "current_time",
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            (Long) null,
+                            false,
+                            "cUrReNt_TiMe",
+                            null),
+                    PhysicalColumn.of(
+                            "current_timestamp",
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            (Long) null,
+                            false,
+                            "current_timestamp",
+                            null),
+                    PhysicalColumn.of(
+                            "current_timestamp_tz",
+                            LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                            (Long) null,
+                            false,
+                            "CuRrEnT_TiMeStAmP",
+                            null),
+                    PhysicalColumn.of(
+                            "date_literal",
+                            BasicType.STRING_TYPE,
+                            (Long) null,
+                            false,
+                            "CURRENT_DATE",
+                            null),
+                    PhysicalColumn.of(
+                            "time_literal",
+                            BasicType.STRING_TYPE,
+                            (Long) null,
+                            false,
+                            "CURRENT_TIME",
+                            null),
+                    PhysicalColumn.of(
+                            "timestamp_literal",
+                            BasicType.STRING_TYPE,
+                            (Long) null,
+                            false,
+                            "CURRENT_TIMESTAMP",
+                            null)
+                };
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test_table")),
+                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test table");
+        return new JsonDeserializationSchema(table, false, false);
+    }
+
+    private static void assertDynamicTemporalDefaults(SeaTunnelRow row, Instant now) {
+        ZoneId zone = ZoneId.systemDefault();
+        Assertions.assertArrayEquals(
+                new Object[] {
+                    now.atZone(zone).toLocalDate(),
+                    now.atZone(zone).toLocalTime(),
+                    LocalDateTime.ofInstant(now, zone),
+                    OffsetDateTime.ofInstant(now, zone),
+                    "CURRENT_DATE",
+                    "CURRENT_TIME",
+                    "CURRENT_TIMESTAMP"
+                },
+                row.getFields());
+    }
+
+    @Test
+    public void testDateDefaultFormatterDoesNotRejectAnotherSupportedFormat() throws IOException {
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "birthday",
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            (Long) null,
+                            false,
+                            "2024-01-01",
+                            null)
+                };
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test_table")),
+                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test table");
+        for (boolean ignoreParseErrors : new boolean[] {false, true}) {
+            JsonDeserializationSchema deserializer =
+                    new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
+
+            assertEquals(LocalDate.of(2024, 1, 1), deserializer.deserialize("{}").getField(0));
+            String[] dates = {"2024.06.20", "2024-06-21", "2024/06/22", "2024.06.23"};
+            for (int i = 0; i < dates.length; i++) {
+                assertEquals(
+                        LocalDate.of(2024, 6, 20 + i),
+                        deserializer
+                                .deserialize("{\"birthday\":\"" + dates[i] + "\"}")
+                                .getField(0));
+            }
+            assertEquals(
+                    LocalDate.of(2024, 1, 1),
+                    deserializer.deserialize("{\"birthday\":null}").getField(0));
+        }
     }
 
     @Test

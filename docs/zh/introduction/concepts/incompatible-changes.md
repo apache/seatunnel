@@ -627,6 +627,15 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
+- **破坏性变更：`schema.columns[].defaultValue` 现在会应用到缺失或显式为 `null` 的 JSON 字段**
+  - **影响范围**：`seatunnel-format-json` 中使用 `CatalogTable` 构造 `JsonDeserializationSchema` 的反序列化路径。包装器仅在采用此路径时受影响；仅使用 `SeaTunnelRowType` 构造反序列化器的 JSON 包装器不在影响范围内。
+  - **变更说明**：这些路径此前忽略 `schema.columns[].defaultValue`，缺失字段或显式为 `null` 的字段都会解析为 `null`。现在配置的默认值会应用于这两种情况，并归一化为列类型；存在且非空的字段保留原值。配置的默认值会在缺失字段检查前应用，因此该字段不会触发 `failOnMissingField`。未配置默认值时，显式 `null` 仍为 `null`，缺失字段继续遵循 `failOnMissingField`。无效的字面默认值会在 schema 构造阶段失败。
+  - **时间类型默认值**：`DATE` 支持不区分大小写的 token `CURRENT_DATE`，`TIME` 支持 `CURRENT_TIME`，`TIMESTAMP` 和 `TIMESTAMP_TZ` 支持 `CURRENT_TIMESTAMP`。对于每条缺失或为 `null` 的记录，匹配的 token 使用 worker 本地时钟和系统时区求值，而不是在 schema 或反序列化器构造时求值。对于 `STRING` 列，相同文本会作为字面字符串，而不是 token。
+  - **CDC 稀疏 before image**：Canal 和 Maxwell CDC 使用不带 catalog 默认值的反序列化器处理稀疏 `old`/`before` image。显式为 `null` 的 before 值仍为 `null`；省略的未变更字段会从完整的 `data` image 复制，而不是填入 schema 默认值。
+  - **LocalFile JSON**：只有设置 `parse_partition_from_path = false` 时才支持 schema 默认值。默认值 `true` 会选择 merge-partition 路径，该路径有意不应用 schema 默认值，即使文件路径中没有分区字段也一样。
+  - **影响**：已配置默认值的 source schema 现在会在匹配的 JSON 字段缺失或显式为 `null` 时输出默认值，而不再输出 `null`。仅为生成 sink save-mode DDL 默认值而在 source 中设置默认值的作业也会受到影响。
+  - **迁移指南**：如果作业必须为缺失或显式为 `null` 的 source 字段保留 `null`，请从 source schema 移除 `defaultValue`，或将其移到 sink 侧 schema。对于 LocalFile JSON，如需使用 schema 默认值，请设置 `parse_partition_from_path = false`；该选项也将不再从路径解析分区字段。(#11632)
+
 ### 引擎行为变更
 
 - **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
@@ -660,11 +669,4 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
 ### 依赖升级
-
-### JSON 格式
-
-- **破坏性变更：`schema.columns[].defaultValue` 现在会应用到缺失或显式为 `null` 的 JSON 字段**
-  - **受影响组件**：`seatunnel-format-json`——所有直接或通过格式包装器从 `CatalogTable` 创建 `JsonDeserializationSchema` 的连接器。仅从 `SeaTunnelRowType` 构造反序列化器的路径不受影响，包括 File 连接器的 merge-partition 模式；该模式的分区列在读取时从文件路径解析，无法通过 catalog table 表达。
-  - **描述**：此前 JSON 反序列化器会忽略 `schema.columns[].defaultValue`：JSON 消息中缺失或显式为 `null` 的字段都会被解析为 `null`。现在，当列配置了 `defaultValue` 时，该默认值会在字段缺失和显式为 `null` 两种情况下被应用（并归一化为列类型）。字段存在且有真实值时会保留该值；未配置默认值的列保持原有的 `null` 行为。
-  - **影响**：source schema 已声明 `defaultValue` 的任务——包括仅为了让 sink 的 save-mode DDL 生成正确的列默认值而设置该配置的任务——升级后对于缺失或显式为 `null` 的 JSON 字段将输出默认值而非 `null`。如果需要保留 `null`（例如"值尚未确定"的语义），请从 source schema 中移除 `defaultValue`，或将其移到 sink 侧 schema。`failOnMissingField` 仍只对真正缺失的字段抛出异常；显式为 `null` 且配置了默认值的字段会应用默认值。(#11632)
 

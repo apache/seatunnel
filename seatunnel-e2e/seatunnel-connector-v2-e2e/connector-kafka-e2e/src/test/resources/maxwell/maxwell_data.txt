@@ -7,6 +7,7 @@
 {"database":"maxwell_eal7e6","table":"products","type":"insert","ts":1699253290,"xid":246,"xoffset":6,"data":{"id":107,"name":"rocks","description":"box of assorted rocks","weight":"5.3"}}
 {"database":"maxwell_eal7e6","table":"products","type":"insert","ts":1699253290,"xid":246,"xoffset":7,"data":{"id":108,"name":"jacket","description":"water resistent black wind breaker","weight":"0.1"}}
 {"database":"maxwell_eal7e6","table":"products","type":"insert","ts":1699253290,"xid":246,"commit":true,"data":{"id":109,"name":"spare tire","description":"24 inch spare tire","weight":"22.2"}}
+{"database":"maxwell_eal7e6","table":"products","type":"update","ts":1699253290,"xid":247,"commit":true,"data":{"id":102,"name":"car battery","description":"12V car battery","weight":"8.1"},"old":{"weight":null}}
 {"database":"maxwell_eal7e6","table":"products","type":"update","ts":1699253290,"xid":248,"commit":true,"data":{"id":101,"name":"scooter","description":"Small 2-wheel scooter","weight":"4.56"},"old":{"weight":"3.14"}}
 {"database":"maxwell_eal7e6","table":"products","type":"update","ts":1699253290,"xid":250,"commit":true,"data":{"id":107,"name":"rocks","description":"box of assorted rocks","weight":"7.88"},"old":{"weight":"5.3"}}
 {"database":"maxwell_eal7e6","table":"products","type":"delete","ts":1699253290,"xid":252,"commit":true,"data":{"id":109,"name":"spare tire","description":"24 inch spare tire","weight":"22.2"}}
