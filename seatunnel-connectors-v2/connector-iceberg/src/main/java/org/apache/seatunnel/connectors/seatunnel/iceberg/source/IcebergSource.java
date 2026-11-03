@@ -162,8 +162,20 @@ public class IcebergSource
                 checkpointState);
     }
 
+    /**
+     * Declares the managed coordinator capability for streaming reads only.
+     *
+     * <p>The bounded path uses {@link IcebergBatchSplitEnumerator}, whose {@code run()} loads the
+     * catalog tables and plans every split synchronously on the managed coordinator event loop,
+     * which violates the async enumerator contract. Bounded (or not yet configured) jobs therefore
+     * stay legacy, so enabling the managed runtime fails their deployment instead of blocking
+     * barriers and control callbacks behind catalog planning.
+     */
     @Override
     public ManagedSourceCapability getManagedSourceCapability() {
+        if (jobContext == null || Boundedness.BOUNDED.equals(getBoundedness())) {
+            return ManagedSourceCapability.legacy();
+        }
         return ManagedSourceCapability.builder()
                 .supportsManagedCoordinator(true)
                 .usesSourceEvents(false)

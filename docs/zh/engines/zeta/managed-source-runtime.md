@@ -79,7 +79,7 @@ seatunnel:
 |---|---|
 | FakeSource | 受管 Reader poll、availability、split state 与 checkpoint 顺序 |
 | Kafka | 后台 fetcher 隔离、异步 commit 回调、split discovery 与 assignment |
-| Iceberg | 通过 coordinator scheduler 执行阻塞式流发现 |
+| Iceberg（仅流模式） | 通过 coordinator scheduler 执行阻塞式流发现。批模式同步规划 split，未通过认证，开启该功能时会在部署阶段失败 |
 
 仅开启功能并不足以启用受管通道。连接器未声明兼容 capability 时，部署会直接失败。
 

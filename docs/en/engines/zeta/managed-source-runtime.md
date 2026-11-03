@@ -86,7 +86,7 @@ The initial certification pilots are:
 |---|---|
 | FakeSource | Managed Reader polling, availability, split state, and checkpoint ordering |
 | Kafka | Background fetcher confinement, async commit completion, split discovery, and assignment |
-| Iceberg | Blocking streaming discovery through the coordinator scheduler |
+| Iceberg (streaming only) | Blocking streaming discovery through the coordinator scheduler. Batch reads plan splits synchronously and are not certified, so they fail deployment while the feature is enabled |
 
 Enabling the feature is not sufficient by itself. A connector without a compatible capability
 causes deployment to fail.
