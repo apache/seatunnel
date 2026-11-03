@@ -83,6 +83,10 @@ seatunnel:
 
 仅开启功能并不足以启用受管通道。连接器未声明兼容 capability 时，部署会直接失败。
 
+受管通道要求每个 Source task 固定由一个 owner 线程执行。`task_execution_thread_share_mode` 为 `ALL`
+时，协作式 worker 线程池可能在不同线程上执行同一 task 的连续轮次，因此部署会直接失败。请使用
+`OFF`（默认值）或 `PART`。
+
 ## 安全配置
 
 所有 byte 配置使用原始字节数，duration 配置使用毫秒。

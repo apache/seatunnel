@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.common.runtime.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,23 @@ class ManagedSourceRuntimeSelectorTest {
 
         Assertions.assertEquals(
                 ManagedSourceRuntimeMode.MANAGED_READER_AND_COORDINATOR, selection.getMode());
+    }
+
+    @Test
+    void shouldRejectManagedLaneWhenAllTaskThreadsAreShared() {
+        ManagedSourceRuntimeSelection managed =
+                new ManagedSourceRuntimeSelection(
+                        ManagedSourceRuntimeMode.MANAGED_READER, 1, 1, "digest");
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        ManagedSourceRuntimeSelector.requireOwnedTaskThread(
+                                managed, ThreadShareMode.ALL, "FakeSource"));
+        ManagedSourceRuntimeSelector.requireOwnedTaskThread(
+                managed, ThreadShareMode.PART, "FakeSource");
+        ManagedSourceRuntimeSelector.requireOwnedTaskThread(
+                ManagedSourceRuntimeSelection.legacy(), ThreadShareMode.ALL, "FakeSource");
     }
 
     @Test

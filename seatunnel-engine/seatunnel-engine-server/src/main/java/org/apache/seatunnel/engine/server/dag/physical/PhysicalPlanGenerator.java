@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeMode;
 import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
@@ -138,6 +139,7 @@ public class PhysicalPlanGenerator {
 
     private final ObservabilityConfig observabilityConfig;
     private final ManagedSourceRuntimeConfig managedSourceRuntimeConfig;
+    private final ThreadShareMode taskExecutionThreadShareMode;
     private final Map<SourceAction<?, ?, ?>, ManagedSourceRuntimeSelection>
             managedSourceSelections = new HashMap<>();
 
@@ -168,6 +170,7 @@ public class PhysicalPlanGenerator {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.queueType = queueType;
         this.managedSourceRuntimeConfig = engineConfig.getManagedSourceRuntimeConfig();
+        this.taskExecutionThreadShareMode = engineConfig.getTaskExecutionThreadShareMode();
         this.observabilityConfig =
                 ObservabilityConfig.fromEnvOptions(
                         jobImmutableInformation.getJobConfig().getEnvOptions());
@@ -623,6 +626,8 @@ public class PhysicalPlanGenerator {
                                     .withCheckpointEnabled(
                                             JobCheckpointUtils.isCheckpointEnabled(
                                                     jobImmutableInformation.getJobConfig()));
+                    ManagedSourceRuntimeSelector.requireOwnedTaskThread(
+                            selection, taskExecutionThreadShareMode, action.getName());
                     // The execution lane is decided once, here, and then persisted with the
                     // physical plan. Log it so operators can tell from the job log which lane a
                     // Source actually entered instead of inferring it from the cluster config.

@@ -91,6 +91,10 @@ The initial certification pilots are:
 Enabling the feature is not sufficient by itself. A connector without a compatible capability
 causes deployment to fail.
 
+The managed lane requires each Source task to keep one owner thread. It is rejected at deployment
+when `task_execution_thread_share_mode` is `ALL`, because that mode lets the cooperative worker
+pool run consecutive turns of one task on different threads. Use `OFF` (the default) or `PART`.
+
 ## Safety Configuration
 
 Byte values are raw bytes and duration values are milliseconds.

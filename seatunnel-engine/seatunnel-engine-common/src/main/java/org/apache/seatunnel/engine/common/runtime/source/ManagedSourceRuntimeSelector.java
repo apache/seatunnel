@@ -20,11 +20,41 @@ package org.apache.seatunnel.engine.common.runtime.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 /** Selects the Source execution lane once, before task deployment. */
 public final class ManagedSourceRuntimeSelector {
 
     private ManagedSourceRuntimeSelector() {}
+
+    /**
+     * Rejects a managed lane when task threads are shared with {@link ThreadShareMode#ALL}.
+     *
+     * <p>In that mode the cooperative worker pool may run consecutive turns of one task on
+     * different Java threads, while the managed reader, coordinator, scheduler and assignment
+     * tracker bind their event-loop owner to the first thread that runs them. Failing at plan time
+     * gives a clear deployment error instead of an owner-thread violation on a later turn. Legacy
+     * lanes are unaffected.
+     *
+     * @param selection lane selected for the Source
+     * @param threadShareMode task execution thread share mode of the engine
+     * @param sourceName Source action name used in the error message
+     */
+    public static void requireOwnedTaskThread(
+            ManagedSourceRuntimeSelection selection,
+            ThreadShareMode threadShareMode,
+            String sourceName) {
+        if (selection.getMode() != ManagedSourceRuntimeMode.LEGACY
+                && threadShareMode == ThreadShareMode.ALL) {
+            throw new IllegalStateException(
+                    "Source "
+                            + sourceName
+                            + " selected the managed Source runtime lane "
+                            + selection.getMode()
+                            + ", which is not supported with task_execution_thread_share_mode=ALL;"
+                            + " use OFF or PART, or disable managed-source-runtime");
+        }
+    }
 
     public static ManagedSourceRuntimeSelection select(
             SeaTunnelSource<?, ?, ?> source, ManagedSourceRuntimeConfig config) {
