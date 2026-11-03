@@ -17,18 +17,142 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ConfigBuilderTest {
+
+    /**
+     * Every starter loads a job config through {@code ConfigBuilder.of(path, variables)}, which
+     * rebuilds the config after substituting user variables. That rebuild must keep option keys
+     * literal: a regex key such as {@code ^t_nova_.*$}, used by {@code
+     * multi_table_config.primary_keys}, is not a valid HOCON path, so rebuilding the map with
+     * {@code ConfigFactory.parseMap} rejected the whole config with {@code ConfigException.BadPath}
+     * (see #12491).
+     */
+    @Test
+    public void testOfPreservesLiteralRegexOptionKeys(@TempDir Path tempDir) throws IOException {
+        Path conf = writeMultiTableConfigConf(tempDir);
+
+        // The starters pass null when no -i variable is given.
+        assertLoadedConfig(conf, ConfigBuilder.of(conf, null), "jdbc:mysql://${db_host}/sink");
+
+        // A -i variable is substituted, and must not disturb the shape of the config.
+        assertLoadedConfig(
+                conf,
+                ConfigBuilder.of(conf, Arrays.asList("db_host=localhost:3306")),
+                "jdbc:mysql://localhost:3306/sink");
+    }
+
+    private static void assertLoadedConfig(Path conf, Config config, String expectedUrl) {
+        Assertions.assertEquals(expectedUrl, config.getConfigList("sink").get(0).getString("url"));
+
+        // Ordinary dotted keys keep the shape the file parser produced, so nothing changes for the
+        // options that already worked.
+        Assertions.assertEquals(
+                ConfigFactory.parseFile(conf.toFile()).getConfig("env").root().unwrapped(),
+                config.getConfig("env").root().unwrapped());
+
+        // The regex key survives as one literal key, instead of being rejected as an invalid path
+        // expression.
+        Map<?, ?> primaryKeys =
+                config.getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi_table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), primaryKeys.get("^t_nova_.*$"));
+    }
+
+    private static Path writeMultiTableConfigConf(Path tempDir) throws IOException {
+        Path conf = tempDir.resolve("multi_table_config.conf");
+        Files.write(
+                conf,
+                Arrays.asList(
+                        "env {",
+                        "  job.mode = \"BATCH\"",
+                        "}",
+                        "source {",
+                        "  FakeSource {",
+                        "    plugin_output = \"fake\"",
+                        "  }",
+                        "}",
+                        "sink {",
+                        "  Jdbc {",
+                        "    url = \"jdbc:mysql://${db_host}/sink\"",
+                        "    multi_table_config {",
+                        "      primary_keys {",
+                        "        \"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"]",
+                        "      }",
+                        "    }",
+                        "  }",
+                        "}"));
+        return conf;
+    }
+
+    /**
+     * The REST submit-job API parses its JSON body into a map and passes it to {@code
+     * ConfigBuilder#of(Map)}. That entry point must keep option keys literal as well, otherwise a
+     * JSON body carrying {@code multi_table_config.primary_keys} regex keys is rejected with {@code
+     * ConfigException.BadPath} before the connector is created.
+     */
+    @Test
+    public void testOfMapPreservesLiteralRegexOptionKeys() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^t_nova_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        Map<String, Object> jdbcOptions = new LinkedHashMap<>();
+        jdbcOptions.put("plugin_name", "Jdbc");
+        jdbcOptions.put("url", "jdbc:mysql://localhost:3306/sink");
+        jdbcOptions.put("multi_table_config", multiTableConfig);
+        Map<String, Object> fakeSource = new LinkedHashMap<>();
+        fakeSource.put("plugin_name", "FakeSource");
+        fakeSource.put("plugin_output", "fake");
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("job.mode", "BATCH");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("env", env);
+        config.put("source", Collections.singletonList(fakeSource));
+        config.put("sink", Collections.singletonList(jdbcOptions));
+
+        Config parsed = ConfigBuilder.of(config);
+        // The REST path continues with the shade rebuild in JobInfoService.
+        Config loaded = ConfigShadeUtils.decryptConfig(parsed);
+
+        Map<?, ?> resolvedPrimaryKeys =
+                loaded.getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi_table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"),
+                resolvedPrimaryKeys.get("^t_nova_.*$"));
+        // Dotted option keys keep the literal shape they had before this change.
+        Assertions.assertEquals(
+                Collections.singletonMap("job.mode", "BATCH"),
+                loaded.getConfig("env").root().unwrapped());
+    }
 
     @Test
     public void testConfigDesensitizationSort() {
