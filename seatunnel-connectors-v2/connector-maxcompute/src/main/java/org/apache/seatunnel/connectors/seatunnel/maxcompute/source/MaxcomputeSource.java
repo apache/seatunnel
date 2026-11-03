@@ -79,7 +79,8 @@ public class MaxcomputeSource
                     new SourceTableInfo(
                             catalogTable,
                             readonlyConfig.get(MaxcomputeSourceOptions.PARTITION_SPEC),
-                            readonlyConfig.get(MaxcomputeSourceOptions.SPLIT_ROW)));
+                            readonlyConfig.get(MaxcomputeSourceOptions.SPLIT_ROW),
+                            readonlyConfig.get(MaxcomputeSourceOptions.IGNORE_MISSING_PARTITION)));
         } else {
             try (MaxComputeCatalog catalog = new MaxComputeCatalog("maxcompute", readonlyConfig)) {
                 catalog.open();
@@ -113,6 +114,14 @@ public class MaxcomputeSource
                                         .orElse(
                                                 readonlyConfig.get(
                                                         MaxcomputeSourceOptions.PARTITION_SPEC));
+                        boolean ignoreMissingPartition =
+                                subReadonlyConfig
+                                        .getOptional(
+                                                MaxcomputeSourceOptions.IGNORE_MISSING_PARTITION)
+                                        .orElse(
+                                                readonlyConfig.get(
+                                                        MaxcomputeSourceOptions
+                                                                .IGNORE_MISSING_PARTITION));
 
                         if (subReadonlyConfig
                                 .getOptional(ConnectorCommonOptions.SCHEMA)
@@ -129,7 +138,8 @@ public class MaxcomputeSource
                                             catalogTable,
                                             partitionSpec,
                                             subReadonlyConfig.get(
-                                                    MaxcomputeSourceOptions.SPLIT_ROW)));
+                                                    MaxcomputeSourceOptions.SPLIT_ROW),
+                                            ignoreMissingPartition));
                         } else {
                             Integer splitRow =
                                     subReadonlyConfig
@@ -145,7 +155,8 @@ public class MaxcomputeSource
                                                     subReadonlyConfig.get(
                                                             MaxcomputeSourceOptions.READ_COLUMNS)),
                                             partitionSpec,
-                                            splitRow));
+                                            splitRow,
+                                            ignoreMissingPartition));
                         }
                     }
                 } else {
@@ -164,7 +175,9 @@ public class MaxcomputeSource
                                             readonlyConfig.get(
                                                     MaxcomputeSourceOptions.READ_COLUMNS)),
                                     readonlyConfig.get(MaxcomputeSourceOptions.PARTITION_SPEC),
-                                    readonlyConfig.get(MaxcomputeSourceOptions.SPLIT_ROW)));
+                                    readonlyConfig.get(MaxcomputeSourceOptions.SPLIT_ROW),
+                                    readonlyConfig.get(
+                                            MaxcomputeSourceOptions.IGNORE_MISSING_PARTITION)));
                 }
             }
         }

@@ -29,4 +29,12 @@ public class MaxcomputeSourceOptions extends MaxcomputeBaseOptions {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The read columns of the table");
+
+    public static final Option<Boolean> IGNORE_MISSING_PARTITION =
+            Options.key("ignore_missing_partition")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to ignore missing partition error when reading partitioned table. "
+                                    + "If set to true and the specified partition does not exist, the partition is treated as empty (0 records) instead of failing.");
 }

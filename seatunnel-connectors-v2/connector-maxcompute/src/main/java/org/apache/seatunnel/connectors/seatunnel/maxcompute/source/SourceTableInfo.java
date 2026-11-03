@@ -28,10 +28,20 @@ public class SourceTableInfo implements Serializable {
     private final CatalogTable catalogTable;
     private final String partitionSpec;
     private final Integer splitRow;
+    private final boolean ignoreMissingPartition;
 
     public SourceTableInfo(CatalogTable catalogTable, String partitionSpec, Integer splitRow) {
+        this(catalogTable, partitionSpec, splitRow, false);
+    }
+
+    public SourceTableInfo(
+            CatalogTable catalogTable,
+            String partitionSpec,
+            Integer splitRow,
+            boolean ignoreMissingPartition) {
         this.catalogTable = catalogTable;
         this.partitionSpec = partitionSpec;
         this.splitRow = splitRow;
+        this.ignoreMissingPartition = ignoreMissingPartition;
     }
 }

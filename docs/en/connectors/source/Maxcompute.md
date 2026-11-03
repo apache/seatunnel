@@ -37,6 +37,7 @@ for parallel reads.
 | table_name      | string | yes when `table_list` is not set  | -             | Target MaxCompute table name, for example `fake`.                                                                   |
 | schema_name     | string | no                                | -             | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema. |
 | partition_spec  | string | no                                | -             | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                     |
+| ignore_missing_partition | boolean | no                       | false         | Whether to ignore missing partition error when reading partitioned table. If `true`, missing partition is treated as empty. |
 | split_row       | int    | no                                | 10000         | Number of rows per split.                                                                                            |
 | read_columns    | Array  | no                                | -             | Columns to read. When not set, all columns are read, for example `["col1", "col2"]`.                                |
 | table_list      | Array  | no                                | -             | List of tables to read. Use this instead of `table_name` to read multiple MaxCompute tables in one job.              |
@@ -83,6 +84,12 @@ Your MaxCompute endpoint, starting with `http`. This option is required and must
 ### partition_spec [string]
 
 `partition_spec` This spec of Maxcompute partition table eg:ds='20220101'.
+
+### ignore_missing_partition [boolean]
+
+`ignore_missing_partition` Whether to ignore missing partition error when reading partitioned table. Default `false`.
+
+When set to `true`, if the partition specified by `partition_spec` does not exist in MaxCompute, the connector will log a warning, treat the partition as empty (0 records), and complete the job cleanly instead of throwing a `READER_OPERATION_FAILED` error. Can also be configured per-table in `table_list`.
 
 ### schema_name [string]
 

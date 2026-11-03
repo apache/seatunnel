@@ -183,5 +183,15 @@ public class MaxcomputeSourceFactoryTest {
                                 ConfigValidator.of(ReadonlyConfig.fromMap(config))
                                         .validate(new MaxcomputeSourceFactory().optionRule()));
         Assertions.assertTrue(error.getMessage().contains(MaxcomputeSourceOptions.ENDPOINT.key()));
+
+    @Test
+    void optionRuleRegistersIgnoreMissingPartition() {
+        Set<String> optionalKeys = new HashSet<>();
+        for (Option<?> option : new MaxcomputeSourceFactory().optionRule().getOptionalOptions()) {
+            optionalKeys.add(option.key());
+        }
+        Assertions.assertTrue(
+                optionalKeys.contains("ignore_missing_partition"),
+                "ignore_missing_partition not registered");
     }
 }

@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBas
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import com.aliyun.credentials.provider.DefaultCredentialsProvider;
+import com.aliyun.odps.NoSuchObjectException;
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
@@ -191,6 +192,7 @@ public class MaxcomputeUtil {
                         buildDownloadSession(
                                 tunnel,
                                 tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
                                 tablePath.getTableName(),
                                 partition);
             } else {
@@ -198,6 +200,7 @@ public class MaxcomputeUtil {
                         buildDownloadSession(
                                 tunnel,
                                 tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
                                 tablePath.getTableName(),
                                 null);
             }
@@ -206,6 +209,52 @@ public class MaxcomputeUtil {
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
         }
         return session;
+    }
+
+    public static boolean hasPartition(
+            ReadonlyConfig readonlyConfig, TablePath tablePath, String partitionSpec) {
+        if (StringUtils.isEmpty(partitionSpec)) {
+            return true;
+        }
+        Odps odps = getOdps(readonlyConfig);
+        return hasPartition(odps, tablePath, partitionSpec);
+    }
+
+    public static boolean hasPartition(Odps odps, TablePath tablePath, String partitionSpec) {
+        if (StringUtils.isEmpty(partitionSpec)) {
+            return true;
+        }
+        try {
+            String effectiveSchema =
+                    StringUtils.isNotEmpty(tablePath.getSchemaName())
+                            ? tablePath.getSchemaName()
+                            : odps.getCurrentSchema();
+            Table odpsTable =
+                    StringUtils.isNotEmpty(effectiveSchema)
+                            ? odps.tables()
+                                    .get(
+                                            tablePath.getDatabaseName(),
+                                            effectiveSchema,
+                                            tablePath.getTableName())
+                            : odps.tables()
+                                    .get(tablePath.getDatabaseName(), tablePath.getTableName());
+            PartitionSpec spec = new PartitionSpec(partitionSpec);
+            return odpsTable.hasPartition(spec);
+        } catch (NoSuchObjectException e) {
+            log.warn(
+                    "Partition '{}' or table '{}' does not exist in MaxCompute: {}",
+                    partitionSpec,
+                    tablePath,
+                    e.getMessage());
+            return false;
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                    String.format(
+                            "Failed to check partition existence for table %s with partition spec '%s', error: %s",
+                            tablePath, partitionSpec, e.getMessage()),
+                    e);
+        }
     }
 
     public static Table parseTable(Odps odps, String projectName, String tableName) {
@@ -224,12 +273,26 @@ public class MaxcomputeUtil {
     }
 
     private static TableTunnel.DownloadSession buildDownloadSession(
-            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            TableTunnel tunnel,
+            String projectName,
+            String schemaName,
+            String tableName,
+            PartitionSpec partitionSpec)
             throws TunnelException {
+        String effectiveSchema =
+                StringUtils.isNotEmpty(schemaName)
+                        ? schemaName
+                        : tunnel.getConfig().getOdps().getCurrentSchema();
         return tunnel.buildDownloadSession(projectName, tableName)
-                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
+                .setSchemaName(effectiveSchema)
                 .setPartitionSpec(partitionSpec)
                 .build();
+    }
+
+    private static TableTunnel.DownloadSession buildDownloadSession(
+            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            throws TunnelException {
+        return buildDownloadSession(tunnel, projectName, null, tableName, partitionSpec);
     }
 
     /**

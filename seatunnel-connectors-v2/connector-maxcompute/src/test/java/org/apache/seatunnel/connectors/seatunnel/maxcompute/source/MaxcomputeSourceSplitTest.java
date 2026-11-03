@@ -168,4 +168,39 @@ public class MaxcomputeSourceSplitTest {
 
         Assertions.assertEquals(22, splits.size(), "Should have exactly 22 splits total");
     }
+
+    @Test
+    public void testComputeSplitsWithEmptyOrMissingPartitionTable() {
+        int numReaders = 3;
+        TablePath tablePath1 = TablePath.of("test_db", "test_schema", "test_table_normal");
+        TablePath tablePath2 =
+                TablePath.of("test_db", "test_schema", "test_table_missing_partition");
+
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
+        tableRecordCounts.put(tablePath1, 20000L);
+        tableRecordCounts.put(tablePath2, 0L);
+
+        CatalogTable catalogTable1 = mock(CatalogTable.class);
+        when(catalogTable1.getTablePath()).thenReturn(tablePath1);
+        CatalogTable catalogTable2 = mock(CatalogTable.class);
+        when(catalogTable2.getTablePath()).thenReturn(tablePath2);
+
+        SourceTableInfo tableInfo1 = new SourceTableInfo(catalogTable1, null, 10000);
+        SourceTableInfo tableInfo2 =
+                new SourceTableInfo(catalogTable2, "ds='2025-01-08'", 10000, true);
+
+        List<SourceTableInfo> tableInfos = new ArrayList<>();
+        tableInfos.add(tableInfo1);
+        tableInfos.add(tableInfo2);
+
+        Set<MaxcomputeSourceSplit> splits =
+                MaxcomputeSourceSplitEnumerator.computeSplits(
+                        numReaders, tableInfos, tableRecordCounts);
+
+        // table1 has 2 splits, table2 has 0 splits -> total 2 splits
+        Assertions.assertEquals(2, splits.size());
+        for (MaxcomputeSourceSplit split : splits) {
+            Assertions.assertEquals(tablePath1, split.getTablePath());
+        }
+    }
 }

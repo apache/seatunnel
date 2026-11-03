@@ -51,6 +51,7 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
                         MaxcomputeSourceOptions.ACCESS_KEY,
                         MaxcomputeSourceOptions.STS_TOKEN,
                         MaxcomputeSourceOptions.PARTITION_SPEC,
+                        MaxcomputeSourceOptions.IGNORE_MISSING_PARTITION,
                         MaxcomputeSourceOptions.SPLIT_ROW,
                         MaxcomputeSourceOptions.SCHEMA_NAME,
                         ConnectorCommonOptions.SCHEMA,
