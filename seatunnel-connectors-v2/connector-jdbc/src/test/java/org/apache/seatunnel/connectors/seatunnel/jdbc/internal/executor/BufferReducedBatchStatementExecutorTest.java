@@ -164,6 +164,32 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         Assertions.assertEquals(1, deletes.get(0).getArity());
     }
 
+    @Test
+    void testCompositeKeyWithNullComponentIsNotReduced() throws SQLException {
+        List<SeaTunnelRow> upserts = new ArrayList<>();
+        // Composite key (code, name): only rows whose whole key is non-null are reduced
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                new BufferReducedBatchStatementExecutor(
+                        new RecordingExecutor(upserts),
+                        new RecordingExecutor(new ArrayList<>()),
+                        row -> new SeaTunnelRow(new Object[] {row.getField(1), row.getField(2)}),
+                        Function.identity());
+
+        executor.addToBatch(row(RowKind.INSERT, 1, 7, null));
+        executor.addToBatch(row(RowKind.INSERT, 2, 7, null));
+        executor.addToBatch(row(RowKind.INSERT, 3, 7, "a"));
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 4, 7, "a"));
+        executor.executeBatch();
+
+        Assertions.assertEquals(3, upserts.size());
+        Assertions.assertEquals(
+                Arrays.asList(1, 2, 4),
+                Arrays.asList(
+                        upserts.get(0).getField(0),
+                        upserts.get(1).getField(0),
+                        upserts.get(2).getField(0)));
+    }
+
     /** Executor keyed by the second field (a nullable unique key column). */
     private static JdbcBatchStatementExecutor<SeaTunnelRow> newKeyedExecutor(
             List<SeaTunnelRow> upserts, List<SeaTunnelRow> deletes) {
