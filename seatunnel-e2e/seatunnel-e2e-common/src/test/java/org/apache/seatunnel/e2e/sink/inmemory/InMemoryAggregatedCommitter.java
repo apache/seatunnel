@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class InMemoryAggregatedCommitter
         implements SinkAggregatedCommitter<InMemoryCommitInfo, InMemoryAggregatedCommitInfo>,
@@ -33,6 +34,18 @@ public class InMemoryAggregatedCommitter
     private static final List<String> events = new ArrayList<>();
     private static final List<InMemoryMultiTableResourceManager> resourceManagers =
             new ArrayList<>();
+
+    /**
+     * Records every {@code commit} and {@code restoreCommit} call as {@code "<method>:<size>"},
+     * where size is the number of aggregated commit infos handed to this table's committer.
+     *
+     * <p>Kept separate from {@link #events}, whose exact contents existing multi-table tests
+     * assert: Zeta calls {@code restoreCommit} with an empty list on every fresh task start, so
+     * mixing these entries into {@link #events} would break those assertions. Thread-safe because
+     * commits arrive on engine task threads while the test thread reads and clears it.
+     */
+    private static final List<String> commitEvents = new CopyOnWriteArrayList<>();
+
     private ReadonlyConfig config;
 
     public InMemoryAggregatedCommitter(ReadonlyConfig config) {
@@ -41,6 +54,10 @@ public class InMemoryAggregatedCommitter
 
     public static List<String> getEvents() {
         return events;
+    }
+
+    public static List<String> getCommitEvents() {
+        return commitEvents;
     }
 
     public static List<InMemoryMultiTableResourceManager> getResourceManagers() {
@@ -68,10 +85,30 @@ public class InMemoryAggregatedCommitter
     @Override
     public List<InMemoryAggregatedCommitInfo> commit(
             List<InMemoryAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        commitEvents.add("commit:" + aggregatedCommitInfo.size());
         if (config.get(InMemorySinkFactory.THROW_EXCEPTION_OF_COMMITTER)) {
             throw new IOException("commit failed");
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * Records that the engine's restore path reached this per-table committer, then behaves exactly
+     * like the inherited default by delegating to {@link #commit(List)}, so every existing test
+     * using this sink keeps its behavior.
+     *
+     * <p>Regression guard for apache/seatunnel#12805 (fixed by #12807): {@code
+     * MultiTableSinkAggregatedCommitter} did not override {@code restoreCommit}, so a restored
+     * checkpoint was routed to each table's {@code commit} instead (JDBC XA then failed with
+     * XAER_NOTA). Before this override this test sink used the default {@code restoreCommit ->
+     * commit}, which made the two routes indistinguishable end to end; only the mocked {@code
+     * MultiTableSinkAggregatedCommitterTest} covered the routing.
+     */
+    @Override
+    public List<InMemoryAggregatedCommitInfo> restoreCommit(
+            List<InMemoryAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        commitEvents.add("restoreCommit:" + aggregatedCommitInfo.size());
+        return commit(aggregatedCommitInfo);
     }
 
     @Override
