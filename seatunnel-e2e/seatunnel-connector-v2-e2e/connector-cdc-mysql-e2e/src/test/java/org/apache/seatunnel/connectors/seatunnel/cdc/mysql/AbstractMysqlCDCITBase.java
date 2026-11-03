@@ -1310,10 +1310,14 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         newlyAddedWildcardSourceTable)),
                                         query(
                                                 "SELECT description FROM sink.source_products WHERE id = 101")));
+        // Debezium replaces every character that is invalid in an Avro schema name with '_' and
+        // fails the connector when two different tables map to the same replacement. The two
+        // unsafe names therefore need distinct sanitized forms (..._semicolon_bad and
+        // ..._backtick_bad); otherwise Debezium stops before SeaTunnel identifier admission runs.
         List<String> rejectedNames =
                 Arrays.asList(
-                        newlyAddedWildcardSourceTable + ";bad",
-                        newlyAddedWildcardSourceTable + "`bad");
+                        newlyAddedWildcardSourceTable + "_semicolon;bad",
+                        newlyAddedWildcardSourceTable + "_backtick`bad");
         try {
             for (String name : rejectedNames) {
                 String quoted = "`" + name.replace("`", "``") + "`";
