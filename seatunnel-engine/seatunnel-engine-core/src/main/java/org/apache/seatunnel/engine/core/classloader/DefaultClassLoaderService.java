@@ -43,7 +43,15 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, ClassLoader>> classLoaderCache;
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
+
+    /**
+     * Removes static library references (MongoDB buffer pool pruner, Hadoop comparator and codec
+     * registries) to a job class loader once its last reference is released, so the loader can be
+     * garbage collected. Null when disabled through {@link #SKIP_RELEASED_REFERENCE_CLEANUP}; then
+     * loaders are released without this cleanup, as before the cleaner existed.
+     */
     private final ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner;
+
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
 
     /**

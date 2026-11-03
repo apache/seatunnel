@@ -79,12 +79,24 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 final class ReleasedClassLoaderReferenceCleaner {
 
+    /**
+     * MongoDB driver buffer pool whose static {@code DEFAULT} instance starts a pruner thread that
+     * keeps the job class loader reachable.
+     */
     static final String MONGO_BUFFER_POOL_CLASS =
             "com.mongodb.internal.connection.PowerOfTwoBufferPool";
 
+    /**
+     * Hadoop class whose static {@code comparators} registry is keyed by job classes and whose
+     * cached comparators hold a {@code Configuration} referencing the job class loader.
+     */
     static final String HADOOP_WRITABLE_COMPARATOR_CLASS =
             "org.apache.hadoop.io.WritableComparator";
 
+    /**
+     * Hadoop class whose static pools listed in {@link #CODEC_POOL_FIELDS} are keyed by codec
+     * class.
+     */
     static final String HADOOP_CODEC_POOL_CLASS = "org.apache.hadoop.io.compress.CodecPool";
 
     /**
@@ -105,8 +117,18 @@ final class ReleasedClassLoaderReferenceCleaner {
      */
     private static final Method FIND_LOADED_CLASS = resolveFindLoadedClass();
 
+    /**
+     * Library class names this instance cleans. Production uses the real names above; tests inject
+     * fixture class names so the steps run without the third-party jars. They are only ever
+     * resolved through the released loader, never through the engine class path, because the
+     * libraries usually live in connector jars that the engine does not see.
+     */
     private final String mongoBufferPoolClass;
+
+    /** See {@link #mongoBufferPoolClass}; the Hadoop {@code WritableComparator} class name. */
     private final String writableComparatorClass;
+
+    /** See {@link #mongoBufferPoolClass}; the Hadoop {@code CodecPool} class name. */
     private final String codecPoolClass;
 
     /**
@@ -373,6 +395,12 @@ final class ReleasedClassLoaderReferenceCleaner {
         return (Class<?>) FIND_LOADED_CLASS.invoke(loader, className);
     }
 
+    /**
+     * Resolves {@code ClassLoader.findLoadedClass} once at class initialization. Returns null and
+     * logs a single WARN when the module system denies access, so {@link #findLoadedClass} falls
+     * back to resolving the class: that keeps the leak fixed at the price of possibly loading the
+     * pool class into a loader that never used it, rather than skipping the cleanup.
+     */
     private static Method resolveFindLoadedClass() {
         try {
             Method findLoadedClass =
@@ -389,6 +417,12 @@ final class ReleasedClassLoaderReferenceCleaner {
         }
     }
 
+    /**
+     * Ownership guard of every registry step: an entry is removed only when its key is a class
+     * defined by exactly the released loader. Classes defined by an ancestor (for example a
+     * parent-first Hadoop class shared by all jobs) or by another job's loader stay registered,
+     * because removing them would affect jobs that are still running.
+     */
     private static boolean isDefinedBy(Object classKey, ClassLoader loader) {
         return classKey instanceof Class && ((Class<?>) classKey).getClassLoader() == loader;
     }

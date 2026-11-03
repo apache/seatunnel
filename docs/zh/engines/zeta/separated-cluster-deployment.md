@@ -229,6 +229,8 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
+当 `classloader-cache-mode` 为 `false` 时，作业结束后会释放作业的类加载器。此时 SeaTunnel 还会清除 MongoDB 驱动（buffer pool pruner）和 Hadoop（`WritableComparator` 与 `CodecPool` 注册表）在静态状态中持有的引用，否则这些引用会使已释放的类加载器及其 Metaspace 无法回收。只会清除属于已释放类加载器的条目。如果该清理在某个库版本上出现异常，可以在启动 SeaTunnel 服务进程时设置环境变量 `CLASSLOADER_SERVICE_SKIP_RELEASED_REFERENCE_CLEANUP=true` 关闭它。关闭后，非缓存模式下由这些引用导致的 Metaspace 增长问题会重新出现。
+
 ### 4.6 IMap持久化配置(该参数在Worker节点无效)
 
 :::tip
