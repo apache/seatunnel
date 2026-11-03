@@ -21,8 +21,11 @@ import org.apache.seatunnel.common.constants.EngineType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -31,18 +34,65 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Checks starter selection and the legacy versus raw-argument launcher protocols. */
+@ResourceLock(Resources.SYSTEM_PROPERTIES)
 class SparkStarterTest {
+
+    private static final List<String> STARTER_PROPERTIES =
+            Arrays.asList(
+                    SparkStarter.STARTER_JAR_NAME_PROPERTY,
+                    SparkStarter.STARTER_SHELL_NAME_PROPERTY,
+                    SparkStarter.ARGS_FILE_PROPERTY);
+
+    private final Map<String, String> originalProperties = new HashMap<>();
 
     @TempDir Path tempDir;
 
+    @BeforeEach
+    void saveStarterProperties() {
+        for (String property : STARTER_PROPERTIES) {
+            originalProperties.put(property, System.getProperty(property));
+            System.clearProperty(property);
+        }
+    }
+
     @AfterEach
-    void clearStarterJarName() {
-        System.clearProperty(SparkStarter.STARTER_JAR_NAME_PROPERTY);
-        System.clearProperty(SparkStarter.STARTER_SHELL_NAME_PROPERTY);
-        System.clearProperty(SparkStarter.ARGS_FILE_PROPERTY);
+    void restoreStarterProperties() {
+        originalProperties.forEach(
+                (property, value) -> {
+                    if (value == null) {
+                        System.clearProperty(property);
+                    } else {
+                        System.setProperty(property, value);
+                    }
+                });
+    }
+
+    @Test
+    void cleanupRestoresAbsentEmptyAndNonemptyProperties() {
+        for (String initialValue : new String[] {null, "", "pre-existing value"}) {
+            for (String property : STARTER_PROPERTIES) {
+                if (initialValue == null) {
+                    System.clearProperty(property);
+                } else {
+                    System.setProperty(property, initialValue);
+                }
+            }
+            SparkStarterTest fixture = new SparkStarterTest();
+            fixture.saveStarterProperties();
+            for (String property : STARTER_PROPERTIES) {
+                Assertions.assertNull(System.getProperty(property));
+                System.setProperty(property, "test override");
+            }
+            fixture.restoreStarterProperties();
+            for (String property : STARTER_PROPERTIES) {
+                Assertions.assertEquals(initialValue, System.getProperty(property), property);
+            }
+        }
     }
 
     @Test

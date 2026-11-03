@@ -31,6 +31,7 @@ import org.apache.seatunnel.translation.spark.sink.SeaTunnelBatchWrite;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
+import org.apache.spark.SparkContext$;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -45,6 +46,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +66,8 @@ import java.util.Optional;
  *
  * <p>This does not cover streaming through the public starter or checkpoint restore.
  */
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 public class Spark35BatchWriteTest {
 
     @TempDir Path tempDir;
@@ -75,10 +81,40 @@ public class Spark35BatchWriteTest {
     }
 
     @Test
+    public void microBatchDoesNotBorrowOrStopAnExistingContext() throws Exception {
+        Assumptions.assumeFalse(
+                System.getProperty("os.name").startsWith("Windows"),
+                "Spark's local file stream requires Hadoop native libraries on Windows");
+        Assertions.assertTrue(SparkContext$.MODULE$.getActive().isEmpty());
+        SparkSession existing =
+                SparkSession.builder()
+                        .master("local[2]")
+                        .appName("spark35-existing-context")
+                        .config("spark.driver.host", "127.0.0.1")
+                        .config("spark.driver.bindAddress", "127.0.0.1")
+                        .config("spark.ui.enabled", "false")
+                        .getOrCreate();
+        try {
+            Assertions.assertThrows(
+                    IllegalStateException.class,
+                    this::boundedMicroBatchCommitsRowsThroughStreamingAdapter,
+                    () -> "Existing context stopped: " + existing.sparkContext().isStopped());
+            Assertions.assertFalse(existing.sparkContext().isStopped());
+            Assertions.assertEquals(1, existing.range(1).count());
+        } finally {
+            existing.close();
+        }
+    }
+
+    @Test
     public void boundedMicroBatchCommitsRowsThroughStreamingAdapter() throws Exception {
         Assumptions.assumeFalse(
                 System.getProperty("os.name").startsWith("Windows"),
                 "Spark's local file stream requires Hadoop native libraries on Windows");
+        if (SparkContext$.MODULE$.getActive().isDefined()) {
+            throw new IllegalStateException(
+                    "The micro-batch fixture requires its own SparkContext");
+        }
         Path input = Files.createDirectory(tempDir.resolve("input"));
         Files.write(
                 input.resolve("rows.json"),
