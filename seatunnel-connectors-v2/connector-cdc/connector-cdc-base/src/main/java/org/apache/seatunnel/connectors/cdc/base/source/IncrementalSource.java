@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.MetadataColumn;
 import org.apache.seatunnel.api.table.catalog.MetadataSchema;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -59,6 +58,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -449,17 +449,22 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
      * not configured or no longer exists. The checkpointed table set is authoritative on this path,
      * so such a table would still be split and read, while the readers no longer capture or convert
      * it, and the job would fail again on every restart from the same checkpoint. Tables whose
-     * splits are all finished are not read again and are not checked. The match ignores case and
-     * the qualifiers that the checkpointed id lacks, so a table is only rejected when it is
-     * certainly not configured.
+     * splits are all finished are not read again and are not checked.
+     *
+     * <p>A table is configured when its id equals the id of a configured table, built as the
+     * dialects build the table map their readers look tables up in ({@link
+     * CatalogTableUtils#convertTables}). That lookup is exact, so the check does not fold case: a
+     * checkpointed {@code public.Orders} does not match a configured {@code public.orders}, which
+     * is another table in a case-sensitive database such as PostgreSQL.
      */
     private void checkUnfinishedTablesAreConfigured(SnapshotPhaseState snapshotState) {
         if (catalogTables == null || catalogTables.isEmpty()) {
             return;
         }
+        Set<TableId> configuredTables = CatalogTableUtils.convertTables(catalogTables).keySet();
         List<String> unconfiguredTables =
                 getUnfinishedTables(snapshotState).stream()
-                        .filter(tableId -> !isConfiguredTable(tableId))
+                        .filter(tableId -> !configuredTables.contains(tableId))
                         .map(TableId::toString)
                         .sorted()
                         .collect(Collectors.toList());
@@ -489,27 +494,6 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 .map(SnapshotSplit::getTableId)
                 .forEach(unfinishedTables::add);
         return unfinishedTables;
-    }
-
-    private boolean isConfiguredTable(TableId tableId) {
-        return catalogTables.stream()
-                .map(CatalogTable::getTablePath)
-                .anyMatch(
-                        tablePath ->
-                                tablePath.getTableName().equalsIgnoreCase(tableId.table())
-                                        && qualifierIsConfigured(tableId.catalog(), tablePath)
-                                        && qualifierIsConfigured(tableId.schema(), tablePath));
-    }
-
-    /**
-     * Whether a catalog or schema of a checkpointed table id is also a qualifier of the configured
-     * table path. The position is not compared, because connectors map database and schema to the
-     * catalog and schema of a {@link TableId} differently.
-     */
-    private static boolean qualifierIsConfigured(String qualifier, TablePath tablePath) {
-        return qualifier == null
-                || qualifier.equalsIgnoreCase(tablePath.getDatabaseName())
-                || qualifier.equalsIgnoreCase(tablePath.getSchemaName());
     }
 
     private static Set<TableId> getCheckpointCapturedTables(SnapshotPhaseState snapshotState) {

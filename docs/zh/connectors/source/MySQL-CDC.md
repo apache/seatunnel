@@ -533,7 +533,7 @@ source {
 
 该模式不会进入持续 binlog 流式读取，因此与除 `never` 外的 `stop.mode` 以及 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 选项互斥；同时配置这些选项会在启动时报错。`exactly_once` 仍可用于快照阶段的有界回填，但不会启动持续 binlog 流式读取。
 
-`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。需要修改读取的表时，请提交新作业。
+`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。只有数据库名和表名（包括大小写）完全相同时，checkpoint 中的表才与配置的表匹配。需要修改读取的表时，请提交新作业。
 
 并发写入下的一致性取决于 `exactly_once`：
 

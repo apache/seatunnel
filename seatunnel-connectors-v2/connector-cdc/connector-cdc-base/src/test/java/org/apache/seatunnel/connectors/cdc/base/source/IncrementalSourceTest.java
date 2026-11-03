@@ -168,22 +168,47 @@ class IncrementalSourceTest {
 
     @Test
     void testSnapshotOnlyRestoreAcceptsConfiguredTables() throws Exception {
-        // Configured names may differ in case, carry a schema the checkpointed id lacks, or have
-        // the same three parts as the id of a PostgreSQL table
+        // The id of a MySQL table (database.table) and of a PostgreSQL table
+        // (database.schema.table), as the dialects discover them and key their table maps
         SnapshotPhaseState checkpointState =
                 snapshotOnlyState(
                         Collections.emptyMap(),
                         Collections.emptyMap(),
                         TableId.parse("db.a"),
+                        TableId.parse("db.public.Orders"));
+        TestIncrementalSource source =
+                snapshotOnlySource(
+                        catalogTable(TablePath.of("db", "a")),
+                        catalogTable(TablePath.of("db", "public", "Orders")));
+
+        Assertions.assertNotNull(source.restoreEnumerator(enumeratorContext(), checkpointState));
+    }
+
+    @Test
+    void testSnapshotOnlyRestoreRejectsTableThatDiffersInCase() {
+        // public."Orders" and public.orders are two tables in PostgreSQL. The readers look a
+        // checkpointed table up by its exact id, so a configured name that differs in case, or
+        // lacks a qualifier of the id, does not match it.
+        SnapshotPhaseState checkpointState =
+                snapshotOnlyState(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        TableId.parse("db.public.Orders"),
                         TableId.parse("db.b"),
                         TableId.parse("db.public.c"));
         TestIncrementalSource source =
                 snapshotOnlySource(
-                        catalogTable(TablePath.of("DB", "A")),
-                        catalogTable(TablePath.of("db", "public", "b")),
-                        catalogTable(TablePath.of("db", "public", "c")));
+                        catalogTable(TablePath.of("db", "public", "orders")),
+                        catalogTable(TablePath.of("DB", "B")),
+                        catalogTable(TablePath.of("db", "c")));
 
-        Assertions.assertNotNull(source.restoreEnumerator(enumeratorContext(), checkpointState));
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> source.restoreEnumerator(enumeratorContext(), checkpointState));
+        Assertions.assertTrue(
+                exception.getMessage().contains("[db.b, db.public.Orders, db.public.c]"),
+                exception.getMessage());
     }
 
     @Test
