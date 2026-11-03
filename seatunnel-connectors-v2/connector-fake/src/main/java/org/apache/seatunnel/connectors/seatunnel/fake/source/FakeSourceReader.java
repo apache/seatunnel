@@ -256,6 +256,18 @@ public class FakeSourceReader implements ManagedSourceReader<SeaTunnelRow, FakeS
     public void addSplits(List<FakeSourceSplit> splits) {
         log.debug("reader {} add splits {}", context.getIndexOfSubtask(), splits);
         for (FakeSourceSplit split : splits) {
+            if (split.getRowNum() < 0) {
+                // A negative row number is the legacy-lane custom-row progress marker written by
+                // pollNext (see encodeCustomRowStartIndex). It must survive restore unchanged;
+                // normalizing it to a fresh split would re-emit the already emitted custom rows.
+                this.splits.add(
+                        new FakeSourceSplit(
+                                split.getTableId(),
+                                split.getSplitId(),
+                                split.getRowNum(),
+                                split.getRowNum()));
+                continue;
+            }
             FakeDataGenerator generator = fakeDataGeneratorMap.get(split.getTableId());
             int totalRows = split.getTotalRowNum();
             int remainingRows = split.getRowNum();
