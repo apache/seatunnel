@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -137,43 +138,57 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                 "precondition: all snapshot rows seeded");
         List<List<Object>> firstCompletedSplitIds = snapshotIds.subList(0, 3);
 
+        // Only the Zeta container submits and cancels a job by id. A Flink container is not shared
+        // and is removed after the test, which stops a job that is still running.
+        String jobId =
+                container.identifier().getEngineType() == EngineType.SEATUNNEL
+                        ? String.valueOf(JobIdGenerator.newJobId())
+                        : null;
         CompletableFuture<Container.ExecResult> jobFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
                             try {
-                                return container.executeJob("/mysqlcdc_snapshot_only.conf");
+                                return jobId == null
+                                        ? container.executeJob("/mysqlcdc_snapshot_only.conf")
+                                        : container.executeJob(
+                                                "/mysqlcdc_snapshot_only.conf", jobId);
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
                         });
 
-        // Wait until the first snapshot splits are visible while many later splits are still
-        // outstanding. Mutating only these completed ranges avoids racing with snapshot reads and
-        // leaves a stable window to detect an accidental transition into incremental streaming.
-        await().atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertFalse(
-                                    jobFuture.isDone(),
-                                    "snapshot-only job finished before the runtime mutation check");
-                            List<List<Object>> sinkIds = query(idQuery(MYSQL_DATABASE, SINK_TABLE));
-                            Assertions.assertTrue(sinkIds.containsAll(firstCompletedSplitIds));
-                            Assertions.assertTrue(
-                                    sinkIds.size() < snapshotIds.size(),
-                                    "runtime mutation must happen before all snapshot splits finish");
-                        });
-
-        // Produce a binlog change for an already emitted snapshot range while other snapshot
-        // splits are still running. A snapshot-only job must not start an incremental reader
-        // afterward. Do not change the primary key here because moving a row into a pending split
-        // would make it part of that split's later snapshot read.
-        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 2");
-
         Container.ExecResult execResult;
         try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait snapshot-only job exit failed", e);
+            // Wait until the first snapshot splits are visible while many later splits are still
+            // outstanding. Mutating only these completed ranges avoids racing with snapshot reads
+            // and leaves a window to detect an accidental transition into incremental streaming.
+            await().atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        "snapshot-only job finished before the runtime mutation check");
+                                List<List<Object>> sinkIds =
+                                        query(idQuery(MYSQL_DATABASE, SINK_TABLE));
+                                Assertions.assertTrue(sinkIds.containsAll(firstCompletedSplitIds));
+                                Assertions.assertTrue(
+                                        sinkIds.size() < snapshotIds.size(),
+                                        "runtime mutation must happen before all snapshot splits finish");
+                            });
+
+            // Produce a binlog change for an already emitted snapshot range while other snapshot
+            // splits are still running. A snapshot-only job must not start an incremental reader
+            // afterward. Do not change the primary key here because moving a row into a pending
+            // split would make it part of that split's later snapshot read.
+            executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 2");
+
+            try {
+                execResult = jobFuture.get(120, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException("Wait snapshot-only job exit failed", e);
+            }
+        } finally {
+            cancelIfRunning(container, jobId, jobFuture);
         }
         Assertions.assertEquals(
                 0,
@@ -185,6 +200,32 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                 snapshotIds,
                 query(idQuery(MYSQL_DATABASE, SINK_TABLE)),
                 "snapshot-only must not consume binlog changes while the snapshot job is running");
+    }
+
+    /**
+     * Stops the job when the test leaves before it finished, so that a failed assertion does not
+     * leave it running against the shared database. A job without an id is left to the removal of
+     * its container. A failure to cancel is only logged, so that it does not hide the failure that
+     * ended the test.
+     */
+    private void cancelIfRunning(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        if (jobId == null || jobFuture.isDone()) {
+            return;
+        }
+        try {
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            if (cancelResult.getExitCode() != 0) {
+                log.warn("Cancel job {} failed: {}", jobId, cancelResult.getStderr());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Cancel job {} was interrupted", jobId, e);
+        } catch (Exception e) {
+            log.warn("Cancel job {} failed", jobId, e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
