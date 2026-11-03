@@ -23,6 +23,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -41,6 +43,9 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSink;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
@@ -56,6 +61,7 @@ import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -78,6 +84,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.KafkaContainer;
@@ -2339,6 +2346,122 @@ public class KafkaIT extends AbstractKafkaIT {
                         });
     }
 
+    @Test
+    public void shouldKeepFreshWriterTransactionInitializationBounded() throws Exception {
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String topic = "bounded_fresh_writer_transactions_" + suffix;
+        String transactionPrefix = "bounded-fresh-writer-" + suffix;
+        createKafkaTopic(topic);
+
+        KafkaSink sink = createExactlyOnceSink(topic, transactionPrefix);
+        DefaultSinkWriterContext context = new DefaultSinkWriterContext("bounded-writer", 0, 1);
+        String expectedTransactionId = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> writer =
+                    sink.createWriter(context);
+            try {
+                String transactionId = writer.prepareCommit().orElseThrow().getTransactionId();
+                if (expectedTransactionId == null) {
+                    expectedTransactionId = transactionId;
+                } else {
+                    Assertions.assertEquals(
+                            expectedTransactionId,
+                            transactionId,
+                            "A stateless retry must reuse sequence one");
+                }
+            } finally {
+                writer.close();
+            }
+        }
+
+        String writerPrefix =
+                expectedTransactionId.substring(0, expectedTransactionId.lastIndexOf('-'));
+        String expectedId = expectedTransactionId;
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(30))
+                    .untilAsserted(
+                            () -> {
+                                Set<String> initializedIds =
+                                        adminClient.listTransactions().all().get(30, SECONDS)
+                                                .stream()
+                                                .map(TransactionListing::transactionalId)
+                                                .filter(id -> id.startsWith(writerPrefix + "-"))
+                                                .collect(Collectors.toSet());
+                                Assertions.assertEquals(
+                                        Collections.singleton(expectedId),
+                                        initializedIds,
+                                        "Repeated fresh writers must not initialize an ever-growing ID history");
+                            });
+        }
+    }
+
+    @Test
+    public void shouldFenceAbandonedBrokerTransactionDuringRestore() throws Exception {
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String topic = "restore_fences_abandoned_transaction_" + suffix;
+        String transactionPrefix = "restore-fencing-" + suffix;
+        String abandonedValue = "abandoned-" + suffix;
+        String visibleValue = "visible-after-abort-" + suffix;
+        createKafkaTopic(topic);
+
+        KafkaSink sink = createExactlyOnceSink(topic, transactionPrefix);
+        DefaultSinkWriterContext context = new DefaultSinkWriterContext("restore-fencing", 0, 1);
+        List<KafkaSinkState> state;
+        SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> original =
+                sink.createWriter(context);
+        try {
+            state = original.snapshotState(1L);
+        } finally {
+            original.close();
+        }
+
+        String savedTransactionId = state.get(0).getTransactionId();
+        String savedWriterPrefix =
+                savedTransactionId.substring(0, savedTransactionId.lastIndexOf('-'));
+        String abandonedTransactionId = savedWriterPrefix + "-2";
+        Properties transactionalProperties =
+                transactionalProducerProperties(abandonedTransactionId);
+        try (KafkaProducer<byte[], byte[]> abandonedProducer =
+                new KafkaProducer<>(transactionalProperties)) {
+            abandonedProducer.initTransactions();
+            abandonedProducer.beginTransaction();
+            abandonedProducer
+                    .send(
+                            new ProducerRecord<>(
+                                    topic, null, abandonedValue.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+            abandonedProducer.flush();
+
+            producer.send(
+                            new ProducerRecord<>(
+                                    topic, null, visibleValue.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+            Assertions.assertFalse(
+                    getKafkaConsumerListData(topic, 0L).contains(visibleValue),
+                    "The open transaction must hold back later read_committed data before restore");
+
+            SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restored =
+                    sink.restoreWriter(context, state);
+            try {
+                Awaitility.await()
+                        .atMost(Duration.ofSeconds(30))
+                        .untilAsserted(
+                                () -> {
+                                    List<String> visible = getKafkaConsumerListData(topic, 0L);
+                                    Assertions.assertTrue(
+                                            visible.contains(visibleValue),
+                                            "Restore cleanup must advance the last stable offset");
+                                    Assertions.assertFalse(
+                                            visible.contains(abandonedValue),
+                                            "The abandoned transactional record must remain invisible");
+                                });
+            } finally {
+                restored.close();
+            }
+        }
+    }
+
     @TestTemplate
     public void testKafkaToKafkaExactlyOnceOnBatch(TestContainer container)
             throws InterruptedException, IOException {
@@ -2408,6 +2531,31 @@ public class KafkaIT extends AbstractKafkaIT {
         } catch (ExecutionException e) {
             throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
         }
+    }
+
+    private KafkaSink createExactlyOnceSink(String topic, String transactionPrefix) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bootstrap.servers", kafkaContainer.getBootstrapServers());
+        config.put("topic", topic);
+        config.put("format", "text");
+        config.put("semantics", "EXACTLY_ONCE");
+        config.put("transaction_prefix", transactionPrefix);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        return new KafkaSink(ReadonlyConfig.fromMap(config), table);
+    }
+
+    private Properties transactionalProducerProperties(String transactionId) {
+        Properties properties = new Properties();
+        properties.put(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        properties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+        return properties;
     }
 
     private boolean checkData(

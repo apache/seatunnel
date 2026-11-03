@@ -13,9 +13,13 @@
 
 ### Kafka Sink：Writer 独立的事务 ID
 
-使用 `semantics = EXACTLY_ONCE` 时，事务 ID 从 `<transaction_prefix>-<checkpoint>` 改为包含不透明 Writer 命名空间和连续事务序号的 `<transaction_prefix>-<writer>-<sequence>`。对于同一恢复点的重试，Writer 部分会按确定性规则保持稳定，但不保证等于当前 subtask 索引。有状态恢复会推进一个独立于引擎 checkpoint 计数器的内部命名空间修订号，因此后续调整并行度时不会重新生成仍分配给其他 Writer 的命名空间。这样既防止共享配置前缀的并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。配置项和 checkpoint 序列化格式保持不变。
+使用 `semantics = EXACTLY_ONCE` 时，事务 ID 从 `<transaction_prefix>-<checkpoint>` 改为包含不透明 Writer 命名空间和连续事务序号的 `<transaction_prefix>-<writer>-<sequence>`。对于同一恢复点的重试，Writer 部分会按确定性规则保持稳定，但不保证等于当前 subtask 索引。有状态恢复会推进一个独立于引擎 checkpoint 计数器的内部命名空间修订号，因此后续调整并行度时不会重新生成仍分配给其他 Writer 的命名空间。这样既防止共享配置前缀的并行 Writer 触发 `ProducerFencedException`，也让有状态重试能够连续清理后续事务而不出现序号空洞。配置项和 checkpoint 序列化格式保持不变。
 
-如果 Kafka 事务 ID 的 ACL 或监控规则依赖旧的 ID 格式，请相应调整。恢复前应停止旧的作业实例。使用升级后的 SeaTunnel 根据作业配置重新生成执行图，再恢复保留的 checkpoint 或 savepoint 状态；旧版本序列化的执行图与新增的 Sink 级命名空间字段不兼容。恢复或调整并行度时，会清理 checkpoint 分配给当前 Writer 的所有未完成事务命名空间，包括本次变更之前的 ID。首次恢复期间应保留对旧事务 ID 的访问权限，并为每个并发作业使用不同的配置前缀。
+如果 Kafka 事务 ID 的 ACL 或监控规则依赖旧的 ID 格式，请相应调整。恢复前应停止旧的作业实例。使用升级后的 SeaTunnel 根据作业配置重新生成执行图，再恢复保留的 checkpoint 或 savepoint 状态；旧版本序列化的执行图与新增的 Sink 级命名空间字段不兼容。恢复或调整并行度时，会清理 checkpoint 分配给当前 Writer 的所有未完成事务命名空间，包括本次变更之前的 ID。没有保留 checkpoint 状态的 Writer 只能识别并 fence 序号 1 的事务；之后遗留的事务无法由恢复状态定位，并可能阻塞 `read_committed` 消费者，直到 `transaction.timeout.ms` 到期。首次有状态恢复期间应保留对旧事务 ID 的访问权限，并为每个并发作业使用不同的配置前缀。
+
+### Spark Sink：Writer 索引改用稳定的分区 ID
+
+在 Spark 2.4 和 3.3 上，`SinkWriter.Context#getIndexOfSubtask()` 现在返回稳定的 Spark `partitionId`，而不是每次重试都会变化的 `taskId`。所有使用 Writer 索引生成外部标识、事务标签、客户端 ID 或输出路径的 Spark Sink 都会受到影响，包括 Kafka、JDBC XA、Doris、SelectDB、MQTT、File、Paimon、NATS JetStream 和 HugeGraph。同一分区的重试现在会复用该分区的标识，而不再获得新的任务尝试标识。请检查依赖“每次 Spark 任务重试都会生成新标识”的外部清理或幂等策略；本次变更没有重命名或移除任何配置项。
 
 ### JDBC MySQL：DATETIME 写入保留本地日期和时间字段
 

@@ -95,7 +95,13 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
 
-同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加一个不透明的 Writer 命名空间和连续的事务序号，生成 Kafka 事务 ID（`<prefix>-<writer>-<sequence>`），既避免并行 Writer 触发 `ProducerFencedException`，也让重试能够连续清理后续事务而不出现序号空洞。对于同一恢复点的重试，Writer 部分会按确定性规则保持稳定，但不保证等于当前 subtask 索引。在 Zeta 和 Flink 上进行恢复或调整并行度时，每个 Writer 会先清理恢复状态分配给它的所有未完成事务命名空间，再推进其中一个已分配的 Writer 专属命名空间的恢复修订号后开始新事务。该修订号独立于引擎的 checkpoint 计数器：同一恢复点的重试会得到相同命名空间，后续恢复则会再次推进修订号。没有状态的 Writer 使用不带修订号的当前索引基础命名空间。恢复 Writer 专属状态时会推进已采用基础命名空间的修订号；仅恢复旧格式状态时则使用当前 Writer 索引对应的唯一基础命名空间，因此两种情况都不会与无状态的同级 Writer 重叠。恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务；checkpoint 状态格式保持不变。从使用旧事务 ID 格式的版本升级时，请先停止旧作业，再使用升级后的 SeaTunnel 根据作业配置重新生成执行图，并恢复保留的 checkpoint 或 savepoint 状态；不要复用旧版本序列化的执行图。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。
+同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加一个不透明的 Writer 命名空间和连续的事务序号，生成 Kafka 事务 ID（`<prefix>-<writer>-<sequence>`），从而避免并行 Writer 触发 `ProducerFencedException`。对于同一恢复点的重试，Writer 部分会按确定性规则保持稳定，但不保证等于当前 subtask 索引。
+
+在 Zeta 和 Flink 上进行有状态恢复或调整并行度时，每个 Writer 会先清理恢复状态分配给它的所有未完成事务命名空间，再推进其中一个已分配的 Writer 专属命名空间的恢复修订号后开始新事务。该修订号独立于引擎的 checkpoint 计数器：同一恢复点的重试会得到相同命名空间，后续恢复则会再次推进修订号。没有状态的 Writer 使用不带修订号的当前索引基础命名空间，并在打开序号 1 的事务时对同一 ID 的旧尝试进行 fencing；它不会扫描该命名空间的全部历史。如果此类 Writer 在任何 checkpoint 状态被保留之前遗留了更高序号的事务，则没有 checkpoint 能标识该事务，`read_committed` 消费者可能会一直阻塞到 Kafka 的 `transaction.timeout.ms` 到期。恢复 Writer 专属状态时会推进已采用基础命名空间的修订号；仅恢复旧格式状态时则使用当前 Writer 索引对应的唯一基础命名空间，因此两种情况都不会与无状态的同级 Writer 重叠。
+
+恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务；checkpoint 状态格式保持不变。从使用旧事务 ID 格式的版本升级时，请先停止旧作业，再使用升级后的 SeaTunnel 根据作业配置重新生成执行图，并恢复保留的 checkpoint 或 savepoint 状态；不要复用旧版本序列化的执行图。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。
+
+在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。
 
 ### 分区关键字段
 

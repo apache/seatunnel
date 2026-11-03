@@ -436,21 +436,31 @@ class KafkaSinkWriterTest {
     }
 
     @Test
-    void shouldFenceEveryStatelessWriterTransactionAfterScaleUpRetry() {
+    void shouldNotWalkStatelessWriterTransactionHistory() {
         List<String> initializedIds = new ArrayList<>();
         String writerPrefix = freshWriterPrefix(PREFIX, 2);
-        Set<String> unfinishedIds = Set.of(writerPrefix + "-1", writerPrefix + "-2");
+        Set<String> historicalIds =
+                Set.of(
+                        writerPrefix + "-1",
+                        writerPrefix + "-2",
+                        writerPrefix + "-3",
+                        writerPrefix + "-4");
 
         try (MockedConstruction<KafkaInternalProducer> producers =
-                        mockProducers(initializedIds, unfinishedIds);
-                TestWriter writer = writer(2, 3, Collections.emptyList())) {
-            Assertions.assertTrue(initializedIds.containsAll(unfinishedIds));
-            Assertions.assertTrue(
-                    initializedIds.contains(writerPrefix + "-3"),
-                    "Recovery must probe the first unused contiguous transaction ID");
-            Assertions.assertEquals(
-                    writerPrefix + "-1", writer.prepareCommit().get().getTransactionId());
+                mockProducers(initializedIds, historicalIds)) {
+            for (int attempt = 0; attempt < 3; attempt++) {
+                try (TestWriter writer = writer(2, 3, Collections.emptyList())) {
+                    Assertions.assertEquals(
+                            writerPrefix + "-1",
+                            writer.prepareCommit().orElseThrow().getTransactionId());
+                }
+            }
         }
+
+        Assertions.assertEquals(
+                List.of(writerPrefix + "-1", writerPrefix + "-1", writerPrefix + "-1"),
+                initializedIds,
+                "A fresh writer must fence sequence one without scanning or extending history");
     }
 
     @Test

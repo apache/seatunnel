@@ -318,12 +318,23 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     /**
      * Fences every unfinished transaction namespace assigned to this writer by the engine's state
-     * redistribution, plus this writer's current namespace. Transaction sequences are contiguous,
-     * so probing until the first unused ID also covers transactions opened by a failed attempt
-     * after its last completed checkpoint.
+     * redistribution, plus the deterministic output namespace of a stateful recovery. Transaction
+     * sequences are contiguous, so probing until the first unused ID also covers transactions
+     * opened by a failed attempt after its last completed checkpoint.
+     *
+     * <p>A fresh writer has no retained sequence from which cleanup can start. Scanning from one
+     * would revisit its complete history whenever an engine recreates stateless writers (notably
+     * every Spark micro-batch), and initializing the first unused ID would make that history grow
+     * once more on every construction. The normal {@link KafkaTransactionSender#beginTransaction}
+     * call below still initializes sequence one and fences an earlier attempt that used that ID.
+     * Later abandoned IDs without checkpoint state remain subject to Kafka's transaction timeout,
+     * matching the pre-existing stateless recovery boundary.
      */
     private void abortRestoredTransactions(
             KafkaTransactionSender<byte[], byte[]> transactionSender, RestorePlan restorePlan) {
+        if (restorePlan.restoredTransactions.isEmpty()) {
+            return;
+        }
         Map<String, Long> nextSequenceByPrefix = new LinkedHashMap<>();
         for (RestoredTransaction transaction : restorePlan.restoredTransactions) {
             nextSequenceByPrefix.merge(
