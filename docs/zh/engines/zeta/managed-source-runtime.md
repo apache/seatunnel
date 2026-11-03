@@ -70,8 +70,12 @@ seatunnel:
       runtime-protocol-version: 1
 ```
 
-通道选择会冻结在 physical plan 中，并写入 checkpoint 元数据。配置热更新不会切换运行中作业
-的执行通道。
+通道选择发生在构建 physical plan 时，依据的是当时 master 的引擎配置。运行中的作业保持原通道，
+但每次作业恢复、master failover 或从 savepoint 重新提交时，都会从 logical DAG 重建 physical plan，
+并按当前配置和连接器 capability 重新选择通道。checkpoint 元数据中的通道信息只用于校验恢复：
+如果新选出的通道、协议版本或 capability digest 与 checkpoint 不一致，恢复会直接失败，而不会自动
+切回原通道。只要作业还可能从其 checkpoint 恢复，所有节点的 `managed-source-runtime` 配置就必须
+保持一致。
 
 首批认证试点为：
 
@@ -200,7 +204,8 @@ assignment 不出现无界增长。Reader 与 coordinator 全量认证时必须�
 
 不要把受管 checkpoint 恢复到 Legacy 通道。需要可恢复回滚时，应维持同一受管 selection 直到灰度
 作业 drain 完成，或者从更早的兼容 Legacy checkpoint、savepoint 或初始 source position 启动。
-运行中作业及其持久化 physical plan 的 failover，不会因为集群功能开关变化而自动切换通道。
+修改集群功能开关不会迁移运行中的作业，但下一次恢复或 failover 会重新选择通道，并拒绝另一通道
+写入的 checkpoint（两个方向都如此）。在恢复原配置之前，该作业无法从这些 checkpoint 恢复。
 
 协议版本 1 明确拒绝任意自定义 `SourceEvent` payload。依赖该能力的连接器必须继续留在 Legacy
 通道，直到引擎提供版本化 event codec。因此每个受管 capability 都必须显式声明

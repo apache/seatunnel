@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta managed Source runtime: checkpoints are bound to the selected lane
+
+- **Affected jobs**: jobs restored, failed over, or resubmitted from a savepoint after
+  `seatunnel.engine.managed-source-runtime.enabled` (or a connector's managed capability) changed.
+- **Behavior change**: the Source lane is selected again from the current configuration whenever the
+  physical plan is rebuilt. A checkpoint written by the managed lane cannot be restored into the
+  legacy lane and vice versa; the restore fails instead of switching lanes automatically.
+- **Migration**: keep the managed runtime configuration unchanged on every node while a job may
+  restore from its checkpoints. To change lanes, stop the job and start it from a fresh source
+  position, or restore an earlier checkpoint written by the target lane. See
+  [Managed Source Runtime](../../engines/zeta/managed-source-runtime.md).
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

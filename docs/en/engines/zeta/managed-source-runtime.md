@@ -77,8 +77,14 @@ seatunnel:
       runtime-protocol-version: 1
 ```
 
-Lane selection is frozen in the physical plan and persisted in checkpoint metadata. Configuration
-reload does not switch a running job between lanes.
+Lane selection is made when the physical plan is built, from the engine configuration of the master
+at that moment. A running job keeps its lane, but the plan is rebuilt from the logical DAG on every
+job restore, master failover, and resubmission from a savepoint, and selection then runs again with
+the current configuration and connector capability. Checkpoint metadata records the lane only to
+validate a restore: if the newly selected lane, protocol, or capability digest differs from the
+checkpoint, the restore fails instead of switching the job back to the old lane. Keep
+`managed-source-runtime` identical on every node for as long as a job may restore from its
+checkpoints.
 
 The initial certification pilots are:
 
@@ -213,8 +219,10 @@ Reader-and-coordinator certification must satisfy the operation-thread criterion
 
 Do not restore a managed checkpoint into the legacy lane. For a recoverable rollback, keep the same
 managed selection until the canary is drained, or restart from an earlier compatible legacy
-checkpoint or fresh source position. Running jobs and failover from their persisted physical plan
-do not switch lanes merely because the cluster feature flag changes.
+checkpoint or fresh source position. Changing the cluster feature flag does not move a running job,
+but the next restore or failover selects the lane again and rejects a checkpoint written by the
+other lane, in either direction. The job then cannot recover from that checkpoint until the
+previous configuration is restored.
 
 Protocol version 1 intentionally rejects arbitrary custom `SourceEvent` payloads. Such connectors
 must remain on the legacy lane until a versioned event codec is introduced. Every managed
