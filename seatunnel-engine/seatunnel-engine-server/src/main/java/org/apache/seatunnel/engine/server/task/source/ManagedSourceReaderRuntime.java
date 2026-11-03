@@ -111,8 +111,12 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     private final List<byte[]> stagedRestoredSplitStates = new ArrayList<>();
     private final Set<String> stagedRestoredAssignmentSplitIds = new LinkedHashSet<>();
 
-    private String coordinatorEpoch = "";
-    private String coordinatorAttemptId = "";
+    /**
+     * Coordinator epoch and attempt accepted by the epoch handshake. Written once by the owner loop
+     * and read by command admission threads, so the pair is published as one immutable volatile
+     * value: an admission thread can never observe the epoch without its matching attempt.
+     */
+    private volatile CoordinatorFence coordinatorFence = CoordinatorFence.NONE;
     private long appliedCommandWatermark;
     private final SortedSet<Long> appliedCommandGaps = new TreeSet<>();
     private long noMoreSplitsGeneration;
@@ -133,7 +137,11 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     private long wakeupPollGeneration;
     private long cancelledPollGeneration;
     private boolean registrationAccepted;
-    private boolean closed;
+    /**
+     * Terminal flag written by close() on the owner loop and read by admission and watchdog
+     * threads; volatile so those threads observe close without relying on an unrelated lock.
+     */
+    private volatile boolean closed;
 
     public ManagedSourceReaderRuntime(
             SeaTunnelTask task,
@@ -253,9 +261,10 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                     "Managed Source reader attempt mismatch");
         }
         boolean epochStart = command.getKind() == SourceCommandKind.READER_EPOCH_START;
+        CoordinatorFence fence = coordinatorFence;
         if (!epochStart
-                && (!coordinatorEpoch.equals(command.getCoordinatorEpoch())
-                        || !coordinatorAttemptId.equals(command.getSenderAttemptId()))) {
+                && (!fence.epoch.equals(command.getCoordinatorEpoch())
+                        || !fence.attemptId.equals(command.getSenderAttemptId()))) {
             return ack(
                     SourceCommandAdmissionStatus.STALE_TARGET,
                     command,
@@ -270,6 +279,14 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
         }
 
         synchronized (admissionLock) {
+            // close() publishes closed before draining the mailbox under this lock; re-checking
+            // here keeps a command from being admitted after that drain.
+            if (closed) {
+                return ack(
+                        SourceCommandAdmissionStatus.TERMINAL_REJECTED,
+                        command,
+                        "Managed Source reader is closing");
+            }
             boolean reserved = command.usesReservedCapacity();
             if (!hasLocalCapacity(reserved)) {
                 return ack(
@@ -737,14 +754,15 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     }
 
     private void applyEpochStart(SourceCommandEnvelope command) {
-        if (!coordinatorEpoch.isEmpty()
-                && (!coordinatorEpoch.equals(command.getCoordinatorEpoch())
-                        || !coordinatorAttemptId.equals(command.getSenderAttemptId()))) {
+        CoordinatorFence current = coordinatorFence;
+        if (!current.epoch.isEmpty()
+                && (!current.epoch.equals(command.getCoordinatorEpoch())
+                        || !current.attemptId.equals(command.getSenderAttemptId()))) {
             throw new IllegalStateException(
                     "Managed Source reader received a second coordinator epoch");
         }
-        coordinatorEpoch = command.getCoordinatorEpoch();
-        coordinatorAttemptId = command.getSenderAttemptId();
+        coordinatorFence =
+                new CoordinatorFence(command.getCoordinatorEpoch(), command.getSenderAttemptId());
         registrationAccepted = true;
         if (lifecycle.getMainState() == ManagedSourceLifecycleState.RESTORING) {
             lifecycle.finishRestore();
@@ -794,7 +812,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                             selection.getConnectorStateVersion(),
                             selection.getCapabilityDigest(),
                             readerAttemptId,
-                            coordinatorEpoch,
+                            coordinatorFence.epoch,
                             appliedCommandWatermark,
                             appliedCommandGaps,
                             noMoreSplitsGeneration,
@@ -1073,7 +1091,8 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
             byte[] payload,
             CheckedRunnable acceptedCallback) {
         checkOwner();
-        if (coordinatorEpoch.isEmpty() || coordinatorAttemptId.isEmpty()) {
+        CoordinatorFence fence = coordinatorFence;
+        if (fence.epoch.isEmpty() || fence.attemptId.isEmpty()) {
             throw new IllegalStateException(
                     "Managed Source reader cannot send commands before epoch handshake");
         }
@@ -1084,9 +1103,9 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                 SourceCommandEnvelope.create(
                         readerLocation.getJobId(),
                         coordinatorLocation.getTaskID(),
-                        coordinatorEpoch,
+                        fence.epoch,
                         readerAttemptId,
-                        coordinatorAttemptId,
+                        fence.attemptId,
                         nextOutboundSequence++,
                         kind,
                         durability,
@@ -1531,6 +1550,19 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
             return ThreadLocalRandom.current().nextBoolean() ? candidate : upperBound;
         }
         return ThreadLocalRandom.current().nextLong(lowerBound, upperBound + 1L);
+    }
+
+    /** Immutable coordinator epoch and attempt pair; see {@link #coordinatorFence}. */
+    private static final class CoordinatorFence {
+        private static final CoordinatorFence NONE = new CoordinatorFence("", "");
+
+        private final String epoch;
+        private final String attemptId;
+
+        private CoordinatorFence(String epoch, String attemptId) {
+            this.epoch = epoch;
+            this.attemptId = attemptId;
+        }
     }
 
     private static final class ControlEvent {
