@@ -71,6 +71,9 @@ public class ExcelCellUtils implements Serializable {
             Collections.unmodifiableSet(
                     EnumSet.of(SqlType.TINYINT, SqlType.SMALLINT, SqlType.INT, SqlType.BIGINT));
 
+    /** The smallest magnitude whose integer part does not fit in 15 significant digits. */
+    private static final double FIFTEEN_DIGIT_INTEGER_LIMIT = 1e15;
+
     private DateTimeFormatter dateFormatter;
     private DateTimeFormatter dateTimeFormatter;
     private DateTimeFormatter timeFormatter;
@@ -130,11 +133,13 @@ public class ExcelCellUtils implements Serializable {
      * Returns the text a stored number is read from into a column of the given type. An integer
      * column reads a fractional number as Excel's 15-significant-digit text, so a formula result
      * stored as {@code 7.999999999999999} reads as {@code 8}, as it did before numbers were read
-     * from their stored value; a whole number keeps all its digits.
+     * from their stored value. A whole number keeps all its digits. So does a fractional number
+     * with a magnitude of {@code 1e15} or more, because 15 digits would round its integer part:
+     * {@code 1234567890123456.5} reads as {@code 1234567890123456}.
      */
     public static String numberText(double value, SqlType sqlType) {
         if (INTEGER_SQL_TYPES.contains(sqlType)
-                && Double.isFinite(value)
+                && Math.abs(value) < FIFTEEN_DIGIT_INTEGER_LIMIT
                 && value != Math.rint(value)) {
             return NumberToTextConverter.toText(value);
         }

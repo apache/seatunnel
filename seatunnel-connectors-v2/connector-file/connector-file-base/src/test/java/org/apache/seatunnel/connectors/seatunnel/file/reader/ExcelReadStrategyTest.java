@@ -751,6 +751,10 @@ public class ExcelReadStrategyTest {
             // A whole number with 16 digits, one more than Excel shows
             Row wholeNumber = sheet.createRow(5);
             wholeNumber.createCell(0).setCellValue(1234567890123456L);
+            // A fractional number whose integer part has 16 digits is truncated, not rounded to
+            // the 15 digits Excel shows (1234567890123460)
+            Row largeFraction = sheet.createRow(6);
+            largeFraction.createCell(0).setCellValue(1234567890123456.5);
             // EasyExcel reads the cached formula result, so store it
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
             workbook.write(output);
@@ -766,7 +770,7 @@ public class ExcelReadStrategyTest {
 
         List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
 
-        Assertions.assertEquals(5, rows.size());
+        Assertions.assertEquals(6, rows.size());
         for (int i = 0; i < 2; i++) {
             // 7.999999999999999 is shown as 8 and not truncated to 7
             Assertions.assertEquals(8L, rows.get(i).getField(0), "c_bigint row " + i);
@@ -784,6 +788,7 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(new BigDecimal("9.876543210987654"), rows.get(3).getField(1));
         Assertions.assertEquals(9.876543210987654, rows.get(3).getField(2));
         Assertions.assertEquals(1234567890123456L, rows.get(4).getField(0));
+        Assertions.assertEquals(1234567890123456L, rows.get(5).getField(0));
     }
 
     @ParameterizedTest
