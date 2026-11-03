@@ -263,6 +263,8 @@ network:
 ]
 ```
 
+> 健康检查超时或失败的成员会被报告为只含 `host`、`port` 和 `error` 的对象；健康成员还会额外包含 `isMaster` 及上面示例中的连接信息。
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -582,6 +584,9 @@ network:
 ```json
 [
   {
+    "isMaster": "true",
+    "host": "localhost",
+    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",

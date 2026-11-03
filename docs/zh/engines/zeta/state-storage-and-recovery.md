@@ -49,7 +49,7 @@ seatunnel:
       interval: 300000             # 两次 Checkpoint 间隔（毫秒）
       timeout: 60000               # Checkpoint 完成超时（毫秒）
       min-pause: 100               # 上一次 Checkpoint 结束到下一次开始之间的最小间隔（毫秒）
-      monitor-history-size: 10     # 监控保留的最近 Checkpoint 数量
+      monitor-history-size: 10     # 监控保留的最近 Checkpoint 数量（默认 32）
       storage:
         type: hdfs                 # hdfs | localfile（已废弃）
         plugin-config:

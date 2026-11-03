@@ -167,6 +167,8 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 
 #### 第一步：确定慢操作发生的时间点
 
+> 日志文件名取决于节点角色：默认的 master-and-worker 部署写入 `seatunnel-engine-server.log`，master/worker 分离部署分别写入 `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`。请按部署形态调整下述路径。
+
 ```bash
 # 检查慢操作日志的频率和时间
 grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50

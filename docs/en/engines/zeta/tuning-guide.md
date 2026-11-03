@@ -167,6 +167,8 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 #### Step 1: Identify when slow operations occur
 
+> Log file names depend on the node role: the default master-and-worker deployment writes `seatunnel-engine-server.log`, while separated deployments write `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`. Adjust the paths below accordingly.
+
 ```bash
 # Check the slow operation log frequency and timing
 grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50

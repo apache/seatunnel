@@ -51,7 +51,7 @@ seatunnel:
       interval: 300000             # milliseconds between checkpoints
       timeout: 60000               # checkpoint completion timeout (ms)
       min-pause: 100               # minimum pause (ms) between the end of one checkpoint and the start of the next
-      monitor-history-size: 10     # number of recent checkpoints kept for monitoring
+      monitor-history-size: 10     # number of recent checkpoints kept for monitoring (default 32)
       storage:
         type: hdfs                 # hdfs | localfile (deprecated)
         plugin-config:

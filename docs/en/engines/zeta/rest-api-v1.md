@@ -264,6 +264,8 @@ None.
 ]
 ```
 
+> A member that times out or fails health checking is reported as an object that carries only `host`, `port` and `error`; healthy members additionally include `isMaster` and the connection details shown above.
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -587,6 +589,9 @@ When we can't get the job info, the response contains only the requested `jobId`
 ```json
 [
   {
+    "isMaster": "true",
+    "host": "localhost",
+    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
