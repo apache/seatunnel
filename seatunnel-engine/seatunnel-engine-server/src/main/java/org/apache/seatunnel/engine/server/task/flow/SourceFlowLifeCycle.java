@@ -382,13 +382,30 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws Exception if polling or schema-change triggering fails
      */
     public void collect() throws Exception {
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
         if (isManagedReaderRuntime()) {
-            if (!managedReaderRuntime.runOneTurn()) {
+            long startNs = metricsEnabled ? System.nanoTime() : 0L;
+            boolean progressed = managedReaderRuntime.runOneTurn();
+            // Keep the established read/idle counters meaningful on the managed lane: a turn that
+            // made progress (records polled or an ordered control event applied) counts as read
+            // time, a turn without progress plus the following idle wait counts as idle time, the
+            // same boundary the legacy lane uses for empty polls.
+            if (metricsEnabled) {
+                long turnCostNs = System.nanoTime() - startNs;
+                if (progressed) {
+                    sourceReadNs.inc(turnCostNs);
+                } else {
+                    sourceIdleNs.inc(
+                            turnCostNs
+                                    + TimeUnit.MILLISECONDS.toNanos(
+                                            managedSourceRuntimeConfig.getIdleWaitMillis()));
+                }
+            }
+            if (!progressed) {
                 Thread.sleep(managedSourceRuntimeConfig.getIdleWaitMillis());
             }
             return;
         }
-        boolean metricsEnabled = sourceRuntimeMetrics != null;
         if (!prepareClose) {
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
