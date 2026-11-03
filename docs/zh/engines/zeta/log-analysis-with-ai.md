@@ -46,8 +46,8 @@ SeaTunnel 默认将进程日志写入 `$SEATUNNEL_HOME/logs`。集群启动脚�
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log   # seatunnel-engine-server.log (hybrid) / -master.log / -worker.log (separated) \
-  "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
+# seatunnel-engine-server.log（hybrid）；seatunnel-engine-master.log / -worker.log（分离部署）
+grep -hF "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log > job.log
 ```
 
 如果启用了按作业路由，请检查 `job-<job-id>.log`。在多节点 Zeta 集群中，需要同时收集 Master 和执行该作业的 Worker 日志。当前 Master 还提供以下 REST 接口：

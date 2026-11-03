@@ -55,8 +55,8 @@ When logs are mixed, use the `ST-JID` value to select one job. For example:
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log   # seatunnel-engine-server.log (hybrid) / -master.log / -worker.log (separated) \
-  "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
+# seatunnel-engine-server.log (hybrid); seatunnel-engine-master.log / -worker.log (separated)
+grep -hF "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log > job.log
 ```
 
 If per-job routing is enabled, inspect `job-<job-id>.log`. In a multi-node Zeta cluster, collect

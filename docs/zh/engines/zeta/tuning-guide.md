@@ -173,7 +173,7 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 ```bash
 # 检查慢操作日志的频率和时间
 grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
-# seatunnel-engine-server.log on the default hybrid deployment; -master.log / -worker.log when roles are separated
+# 默认的 master-and-worker 部署写入 seatunnel-engine-server.log；master/worker 分离部署分别写入 -master.log / -worker.log
 ```
 
 将时间戳与以下事件关联：
