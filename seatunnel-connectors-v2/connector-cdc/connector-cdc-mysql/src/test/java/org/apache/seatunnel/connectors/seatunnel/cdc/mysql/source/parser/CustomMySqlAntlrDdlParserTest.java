@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.debezium.antlr.AntlrDdlParserListener;
+import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
 import io.debezium.ddl.parser.mysql.generated.MySqlParserBaseListener;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -88,18 +89,21 @@ public class CustomMySqlAntlrDdlParserTest {
 
     /**
      * The Debezium 1.9.8 grammar has no VECTOR token, so without the lexer retyping these
-     * statements fail to parse. Names that only spell "vector" must stay names, or valid DDL on
-     * non-vector tables would break.
+     * statements fail to parse. Comments between VECTOR and its dimension or attributes are valid
+     * MySQL and must be skipped the way the grammar skips them. Names that only spell "vector" must
+     * stay names, or valid DDL on non-vector tables would break. CREATE is checked through the base
+     * parser, whose listener populates table metadata; the custom parser only handles ALTER.
      */
     @Test
     void testParseVectorColumnTypeWithoutCapturingVectorNames() {
-        CustomMySqlAntlrDdlParser parser = new CustomMySqlAntlrDdlParser(null);
+        MySqlAntlrDdlParser parser = new MySqlAntlrDdlParser();
         parser.setCurrentDatabase("test_db");
         Tables tables = new Tables();
 
         parser.parse(
-                "CREATE TABLE vector (id INT PRIMARY KEY, vector VECTOR(3) NOT NULL,"
-                        + " f_bare VECTOR DEFAULT NULL, `f_quoted` vector(8) COMMENT 'c')",
+                "CREATE TABLE vector (id INT PRIMARY KEY, vector VECTOR /* dimension */ (3) NOT NULL,"
+                        + " f_bare VECTOR -- no dimension\n DEFAULT NULL,"
+                        + " `f_quoted` vector(8) COMMENT 'c')",
                 tables);
         Table vectorTable = tables.forTable(new TableId("test_db", null, "vector"));
         Assertions.assertEquals("VECTOR", vectorTable.columnWithName("vector").typeName());
@@ -124,7 +128,9 @@ public class CustomMySqlAntlrDdlParserTest {
                 new CustomMySqlAntlrDdlParser(factory.create(0).getDbzConnectorConfig());
         parser.setCurrentDatabase("test_db");
 
-        parser.parse("ALTER TABLE products ADD COLUMN f_vector VECTOR(4)", new Tables());
+        parser.parse(
+                "ALTER TABLE products ADD COLUMN f_vector VECTOR /* dimension */ (4)",
+                new Tables());
 
         List<AlterTableColumnEvent> events = parser.getAndClearParsedColumnEvents();
         Assertions.assertEquals(1, events.size());

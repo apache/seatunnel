@@ -98,21 +98,24 @@ public class Mysql9_0CDCIT extends AbstractMysqlCDCITBase {
                         + VECTOR_SOURCE_TABLE
                         + " VALUES (1, STRING_TO_VECTOR('[1.5,2.5]'), NULL)");
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_vector.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Void> job =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/mysqlcdc_to_mysql_with_vector.conf");
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
         await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        Arrays.asList(Arrays.asList("1", "0000C03F00002040", null)),
-                                        queryVectorHex(VECTOR_SINK_TABLE)));
+                        () -> {
+                            assertJobStillRunning(job);
+                            Assertions.assertEquals(
+                                    Arrays.asList(Arrays.asList("1", "0000C03F00002040", null)),
+                                    queryVectorHex(VECTOR_SINK_TABLE));
+                        });
 
         executeSql(
                 "INSERT INTO "
@@ -124,15 +127,28 @@ public class Mysql9_0CDCIT extends AbstractMysqlCDCITBase {
                         + " SET f_vector = STRING_TO_VECTOR('[2.5,2.5]') WHERE id = 1");
         await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        Arrays.asList(
-                                                Arrays.asList("1", "0000204000002040", null),
-                                                Arrays.asList(
-                                                        "2",
-                                                        "000020400000C03F",
-                                                        "0000C03F00002040")),
-                                        queryVectorHex(VECTOR_SINK_TABLE)));
+                        () -> {
+                            assertJobStillRunning(job);
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            Arrays.asList("1", "0000204000002040", null),
+                                            Arrays.asList(
+                                                    "2", "000020400000C03F", "0000C03F00002040")),
+                                    queryVectorHex(VECTOR_SINK_TABLE));
+                        });
+    }
+
+    /**
+     * A streaming job never finishes on its own, so a done future means it failed or stopped early.
+     * Throwing a non-assertion exception ends the bounded wait at once with the job's cause instead
+     * of letting it poll the sink until the timeout.
+     */
+    private static void assertJobStillRunning(CompletableFuture<Void> job) {
+        if (job.isDone()) {
+            throw new IllegalStateException(
+                    "VECTOR CDC job ended before the sink caught up",
+                    job.handle((ignored, error) -> error).join());
+        }
     }
 
     private void executeSql(String sql) throws SQLException {
