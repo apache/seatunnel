@@ -758,14 +758,9 @@ public class PhysicalPlanGenerator {
         List<Flow> flows = new ArrayList<>();
         Map<Long, TaskLocation> sourceLocationsByAction = new HashMap<>();
         long factSourceActionId =
-                inputEdges.stream()
-                        .filter(edge -> edge.getTargetInputPort() == DynamicLookupAction.FACT_INPUT)
-                        .map(edge -> edge.getLeftVertex().getAction().getId())
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Missing dynamic lookup fact source action"));
+                resolveDynamicLookupSourceActionId(inputEdges, DynamicLookupAction.FACT_INPUT);
+        long dimensionSourceActionId =
+                resolveDynamicLookupSourceActionId(inputEdges, DynamicLookupAction.DIMENSION_INPUT);
 
         for (PortAwareExecutionEdge inputEdge : inputEdges) {
             SourceAction<?, ?, ?> sourceAction =
@@ -795,7 +790,7 @@ public class PhysicalPlanGenerator {
                                             inputQueues,
                                             factGateCommandQueue,
                                             factSourceActionId,
-                                            lookupAction.getDimensionSourceActionId());
+                                            dimensionSourceActionId);
                                     TaskLocation taskLocation =
                                             new TaskLocation(
                                                     taskGroupLocation,
@@ -967,6 +962,35 @@ public class PhysicalPlanGenerator {
                             .collect(Collectors.toList());
             validateDynamicLookupInputEdges(lookupAction, inputEdges);
         }
+    }
+
+    /**
+     * Resolves the execution-plan ID of the source action wired to one lookup input port.
+     *
+     * <p>{@code ExecutionPlanGenerator} allocates new action IDs in edge order, while {@link
+     * DynamicLookupAction} intentionally keeps the logical fact/dimension IDs it was built with.
+     * The two numbering spaces can differ (for example logical fact=1, dimension=2, lookup=3
+     * becomes execution fact=1, lookup=2, dimension=3), so the source roles that decide the fact
+     * gate and the dimension COMPLETE marker must be read from the actual port edge, never from the
+     * lookup action's logical IDs. Using the logical ID leaves the dimension role unset, the
+     * bootstrap marker is never emitted and the fact gate never opens.
+     *
+     * @param inputEdges port-aware edges entering one lookup vertex
+     * @param inputPort {@link DynamicLookupAction#FACT_INPUT} or {@link
+     *     DynamicLookupAction#DIMENSION_INPUT}
+     * @return execution action ID of the source feeding that port
+     */
+    static long resolveDynamicLookupSourceActionId(
+            List<PortAwareExecutionEdge> inputEdges, int inputPort) {
+        return inputEdges.stream()
+                .filter(edge -> edge.getTargetInputPort() == inputPort)
+                .map(edge -> edge.getLeftVertex().getAction().getId())
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "Missing dynamic lookup source action for input port "
+                                                + inputPort));
     }
 
     /** Validates deployment safety, including plans that did not pass through the job parser. */
