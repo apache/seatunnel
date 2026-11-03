@@ -409,6 +409,11 @@ activemq:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-activemq/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(activemq)/**'
+jms:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-jms/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(jms)/**'
 
 qdrant:
   - all:
