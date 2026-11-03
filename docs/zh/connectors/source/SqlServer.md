@@ -65,7 +65,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | CHAR / NCHAR / VARCHAR / NTEXT / NVARCHAR / TEXT / XML | STRING |
 | DATE | DATE |
 | TIME(s) | TIME(s) |
-| DATETIME / DATETIME2 / DATETIMEOFFSET / SMALLDATETIME | TIMESTAMP(s) |
+| DATETIME / DATETIME2 / SMALLDATETIME | TIMESTAMP(s) |
+| DATETIMEOFFSET(s) | TIMESTAMP_TZ(s) |
 | BINARY / VARBINARY / IMAGE | BYTES |
 
 ## 数据源参数
@@ -143,11 +144,11 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 用于分割数据的列名。
 
-#### partition_upper_bound [String]
+#### partition_upper_bound [string]
 
 `partition_column` 扫描的最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。
 
-#### partition_lower_bound [String]
+#### partition_lower_bound [string]
 
 `partition_column` 扫描的最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。
 
