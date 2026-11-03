@@ -17,13 +17,18 @@
 
 package io.debezium.connector.mysql.antlr;
 
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import com.mysql.cj.CharsetMapping;
 import io.debezium.antlr.AntlrDdlParser;
 import io.debezium.antlr.AntlrDdlParserListener;
+import io.debezium.antlr.CaseChangingCharStream;
 import io.debezium.antlr.DataTypeResolver;
 import io.debezium.antlr.DataTypeResolver.DataTypeEntry;
 import io.debezium.connector.mysql.MySqlSystemVariables;
@@ -38,11 +43,13 @@ import io.debezium.relational.ColumnEditor;
 import io.debezium.relational.SystemVariables;
 import io.debezium.relational.TableEditor;
 import io.debezium.relational.TableId;
+import io.debezium.relational.Tables;
 import io.debezium.relational.Tables.TableFilter;
 
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -55,14 +62,19 @@ import java.util.stream.Collectors;
  * these columns are emitted as the type default (for example 0). Debezium 2.x avoids it by not
  * promoting such a unique key at all ({@code parseUniqueIndexColumnNames}).
  *
- * <p>{@link #parsePrimaryIndexColumnNames} is the only modified method: only a real primary key
- * marks its columns NOT NULL. Re-apply this change, or drop this copy, when upgrading Debezium.
+ * <p>{@link #parsePrimaryIndexColumnNames} is modified: only a real primary key marks its columns
+ * NOT NULL. {@link #parse} and {@link #createNewLexerInstance} are added for the MySQL 9.0 {@code
+ * VECTOR} type, see {@link MySqlVectorTypeLexer}. Re-apply these changes, or drop this copy, when
+ * upgrading Debezium.
  *
  * @author Roman Kuchár <kucharrom@gmail.com>.
  */
 public class MySqlAntlrDdlParser extends AntlrDdlParser<MySqlLexer, MySqlParser> {
 
     private final ConcurrentMap<String, String> charsetNameForDatabase = new ConcurrentHashMap<>();
+    /** Set by {@link #parse} for one statement; parser instances are not shared between threads. */
+    private boolean useVectorTypeLexer;
+
     private final MySqlValueConverters converters;
     private final TableFilter tableFilter;
 
@@ -100,9 +112,32 @@ public class MySqlAntlrDdlParser extends AntlrDdlParser<MySqlLexer, MySqlParser>
         return new MySqlAntlrDdlParserListener(this);
     }
 
+    /**
+     * Parses with Debezium's own lexer unless the statement can only be MySQL 9.0 VECTOR DDL.
+     *
+     * <p>{@link MySqlVectorTypeLexer} recognises the type by token position, which cannot be
+     * complete. To keep every statement that parses today on exactly today's path, on every MySQL
+     * version, the VECTOR lexer is used only when the text mentions {@code vector} and the original
+     * lexer fails with a syntax error. The check stops before the tree walk, so it has no side
+     * effect on {@code databaseTables}; a failing statement is then parsed once more, as before.
+     */
+    @Override
+    public void parse(String ddlContent, Tables databaseTables) {
+        useVectorTypeLexer =
+                ddlContent.toUpperCase(Locale.ROOT).contains("VECTOR")
+                        && hasSyntaxErrorWithoutVectorType(ddlContent);
+        try {
+            super.parse(ddlContent, databaseTables);
+        } finally {
+            useVectorTypeLexer = false;
+        }
+    }
+
     @Override
     protected MySqlLexer createNewLexerInstance(CharStream charStreams) {
-        return new MySqlVectorTypeLexer(charStreams);
+        return useVectorTypeLexer
+                ? new MySqlVectorTypeLexer(charStreams)
+                : new MySqlLexer(charStreams);
     }
 
     @Override
@@ -553,5 +588,31 @@ public class MySqlAntlrDdlParser extends AntlrDdlParser<MySqlLexer, MySqlParser>
             }
         }
         return charsetName;
+    }
+
+    private boolean hasSyntaxErrorWithoutVectorType(String ddlContent) {
+        MySqlLexer lexer =
+                new MySqlLexer(
+                        new CaseChangingCharStream(
+                                CharStreams.fromString(ddlContent), isGrammarInUpperCase()));
+        lexer.removeErrorListeners();
+        MySqlParser parser = new MySqlParser(new CommonTokenStream(lexer));
+        parser.removeErrorListeners();
+        boolean[] syntaxError = {false};
+        parser.addErrorListener(
+                new BaseErrorListener() {
+                    @Override
+                    public void syntaxError(
+                            Recognizer<?, ?> recognizer,
+                            Object offendingSymbol,
+                            int line,
+                            int charPositionInLine,
+                            String msg,
+                            RecognitionException e) {
+                        syntaxError[0] = true;
+                    }
+                });
+        parseTree(parser);
+        return syntaxError[0];
     }
 }

@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                                        | DATE                                                                                                                                            |
 | TIME(s)                                                                                     | TIME(s)                                                                                                                                         |
 | DATETIME<br/>TIMESTAMP(s)                                                                   | TIMESTAMP(s)                                                                                                                                    |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                           |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY<br/>VECTOR | BYTES                                                                                                                                           |
 
 ## 数据源参数
 

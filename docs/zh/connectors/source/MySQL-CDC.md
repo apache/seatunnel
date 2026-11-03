@@ -180,6 +180,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
 | BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY<br/>VECTOR | BYTES         |
 
+> `VECTOR`（MySQL 9.0+）以 `BYTES` 形式输出，内容为存储的原始值：小端序 4 字节浮点数，每个维度 4 字节，不会转换为 SeaTunnel 的浮点向量类型。
+
 ## 配置参数选项
 
 | 参数名称                                      | 类型       | 是否必须 | 默认值     | 描述                                                                                                                                                                                                                                           |

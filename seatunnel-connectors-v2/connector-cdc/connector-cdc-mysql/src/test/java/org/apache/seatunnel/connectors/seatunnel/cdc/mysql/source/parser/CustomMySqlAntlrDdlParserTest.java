@@ -113,8 +113,32 @@ public class CustomMySqlAntlrDdlParserTest {
         Assertions.assertEquals(8, vectorTable.columnWithName("f_quoted").length());
 
         parser.parse("CREATE TABLE names (vector INT, name VARCHAR(8), KEY vector (name))", tables);
+        Assertions.assertEquals(
+                "INT",
+                tables.forTable(new TableId("test_db", null, "names"))
+                        .columnWithName("vector")
+                        .typeName());
+
+        // Valid DDL on any MySQL version that uses vector only as a name, in expressions and
+        // after clause keywords, must keep parsing and keep the column an INT.
+        parser.parse("ALTER TABLE names ADD COLUMN doubled INT AS (vector * 2)", tables);
+        parser.parse("ALTER TABLE names ADD CONSTRAINT ck CHECK (vector > 0)", tables);
+        parser.parse("ALTER TABLE names ORDER BY vector", tables);
+        parser.parse("CREATE DATABASE vector", tables);
         Table namesTable = tables.forTable(new TableId("test_db", null, "names"));
         Assertions.assertEquals("INT", namesTable.columnWithName("vector").typeName());
+        Assertions.assertEquals("INT", namesTable.columnWithName("doubled").typeName());
+        parser.parse("ALTER TABLE names ADD COLUMN extra INT, DROP vector", tables);
+        namesTable = tables.forTable(new TableId("test_db", null, "names"));
+        Assertions.assertNull(namesTable.columnWithName("vector"));
+        Assertions.assertEquals("INT", namesTable.columnWithName("extra").typeName());
+
+        // A VECTOR column next to a column named vector that is used in an expression.
+        parser.parse("CREATE TABLE mixed (vector INT, v VECTOR(2), CHECK (vector > 0))", tables);
+        Table mixedTable = tables.forTable(new TableId("test_db", null, "mixed"));
+        Assertions.assertEquals("INT", mixedTable.columnWithName("vector").typeName());
+        Assertions.assertEquals("VECTOR", mixedTable.columnWithName("v").typeName());
+        Assertions.assertEquals(2, mixedTable.columnWithName("v").length());
     }
 
     /** ALTER must deliver the stored byte length, not the dimension the DDL declares. */

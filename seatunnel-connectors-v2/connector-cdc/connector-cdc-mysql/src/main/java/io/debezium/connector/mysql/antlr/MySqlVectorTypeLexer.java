@@ -40,8 +40,14 @@ import java.util.Set;
  * carrying {@link java.sql.Types#VARBINARY}, which is how the value is delivered.
  *
  * <p>Retyping must not touch identifiers that merely happen to be named {@code vector}, such as a
- * column, table or index. It is limited to CREATE and ALTER statements, before any SELECT, and to a
- * token that follows a column name and is followed by a token that can end a column type.
+ * column, table, index or database, or a column used in an expression. It is therefore positive:
+ * {@code vector} is retyped only in CREATE and ALTER statements, before any SELECT, when it stands
+ * where a column definition puts its type, and when the next token can end a column type. The
+ * positions are {@code ( name VECTOR}, {@code , name VECTOR}, {@code ADD name VECTOR}, {@code
+ * [ADD|MODIFY] COLUMN name VECTOR} and {@code CHANGE [COLUMN] old_name new_name VECTOR}.
+ *
+ * <p>{@link MySqlAntlrDdlParser#parse} only uses this lexer for a statement that fails to parse
+ * without it, so the position rules can never change how valid pre-9.0 DDL is parsed.
  *
  * <p>The following token is found with this lexer's own rules, so whitespace, block comments, line
  * comments and executable comments between {@code VECTOR} and its dimension or attributes are
@@ -51,31 +57,38 @@ public class MySqlVectorTypeLexer extends MySqlLexer {
 
     private static final String VECTOR = "VECTOR";
 
-    /** Tokens after which {@code vector} is a name being declared or referenced, never a type. */
-    private static final Set<Integer> NAME_PREDECESSORS =
+    /** Tokens directly before the column name of a column definition, other than CHANGE. */
+    private static final Set<Integer> COLUMN_NAME_PREDECESSORS =
+            new HashSet<>(Arrays.asList(LR_BRACKET, COMMA, ADD, COLUMN, MODIFY));
+
+    /**
+     * Keywords that start an index, key, constraint, partition or alter clause. They are words but
+     * never a column name in the positions above (the reserved ones cannot be unquoted names at
+     * all), so {@code KEY vector (a)}, {@code , DROP vector} or {@code (LIKE vector)} keep {@code
+     * vector} as a name. Any other keyword counts as a name, because MySQL accepts many keywords as
+     * unquoted column names, for example {@code data VECTOR(3)}.
+     */
+    private static final Set<Integer> NON_NAME_KEYWORDS =
             new HashSet<>(
                     Arrays.asList(
-                            Token.INVALID_TYPE,
-                            LR_BRACKET,
-                            COMMA,
                             COLUMN,
-                            DROP,
-                            TO,
-                            AS,
-                            TABLE,
-                            EXISTS,
-                            REFERENCES,
-                            ON,
-                            INDEX,
                             KEY,
+                            INDEX,
                             UNIQUE,
+                            PRIMARY,
+                            FOREIGN,
                             FULLTEXT,
                             SPATIAL,
                             CONSTRAINT,
+                            CHECK,
+                            PARTITION,
+                            TO,
+                            AS,
                             LIKE,
-                            MODIFY,
+                            ADD,
+                            ALTER,
                             CHANGE,
-                            AFTER,
+                            DROP,
                             RENAME));
 
     /**
@@ -107,16 +120,20 @@ public class MySqlVectorTypeLexer extends MySqlLexer {
      * statementFirstTokenType is the first such token after the start or after a SEMI, and selects
      * the statements in which VECTOR may be a type (CREATE, ALTER). selectSeen turns retyping off
      * for the rest of the statement, since a SELECT (view or CREATE ... AS SELECT) only references
-     * names. previousTokenType is the last such token and tells a column name (ID, quoted ID or a
-     * keyword used as a name) apart from a position where vector can only be a name. A SEMI resets
-     * all three, so a multi-statement string is classified per statement.
+     * names. recentTokenTypes and recentTokenIsName hold the last four such tokens, most recent at
+     * index 0, which is enough to recognise the longest position, CHANGE COLUMN old new VECTOR. A
+     * SEMI resets everything, so a multi-statement string is classified per statement.
      */
+    private static final int RECENT_TOKENS = 4;
+
     private int statementFirstTokenType = Token.INVALID_TYPE;
-    private int previousTokenType = Token.INVALID_TYPE;
     private boolean selectSeen;
+    private final int[] recentTokenTypes = new int[RECENT_TOKENS];
+    private final boolean[] recentTokenIsName = new boolean[RECENT_TOKENS];
 
     public MySqlVectorTypeLexer(CharStream input) {
         super(input);
+        resetStatement();
     }
 
     @Override
@@ -137,23 +154,71 @@ public class MySqlVectorTypeLexer extends MySqlLexer {
                 && VECTOR.equalsIgnoreCase(token.getText())
                 && (statementFirstTokenType == CREATE || statementFirstTokenType == ALTER)
                 && !selectSeen
-                && !NAME_PREDECESSORS.contains(previousTokenType)
+                && followsColumnName()
                 && COLUMN_TYPE_FOLLOWERS.contains(peekDefaultChannelToken().getType());
+    }
+
+    /**
+     * True when the previous tokens are a column name in one of the column definition positions.
+     */
+    private boolean followsColumnName() {
+        if (!recentTokenIsName[0]) {
+            return false;
+        }
+        if (COLUMN_NAME_PREDECESSORS.contains(recentTokenTypes[1])) {
+            return true;
+        }
+        // CHANGE [COLUMN] old_name new_name VECTOR
+        return recentTokenIsName[1]
+                && (recentTokenTypes[2] == CHANGE
+                        || (recentTokenTypes[2] == COLUMN && recentTokenTypes[3] == CHANGE));
     }
 
     private void trackStatement(Token token) {
         int tokenType = token.getType();
         if (tokenType == SEMI) {
-            statementFirstTokenType = Token.INVALID_TYPE;
-            previousTokenType = Token.INVALID_TYPE;
-            selectSeen = false;
+            resetStatement();
             return;
         }
         if (statementFirstTokenType == Token.INVALID_TYPE) {
             statementFirstTokenType = tokenType;
         }
         selectSeen = selectSeen || tokenType == SELECT;
-        previousTokenType = tokenType;
+        System.arraycopy(recentTokenTypes, 0, recentTokenTypes, 1, RECENT_TOKENS - 1);
+        System.arraycopy(recentTokenIsName, 0, recentTokenIsName, 1, RECENT_TOKENS - 1);
+        recentTokenTypes[0] = tokenType;
+        recentTokenIsName[0] = isName(token);
+    }
+
+    private void resetStatement() {
+        statementFirstTokenType = Token.INVALID_TYPE;
+        selectSeen = false;
+        Arrays.fill(recentTokenTypes, Token.INVALID_TYPE);
+        Arrays.fill(recentTokenIsName, false);
+    }
+
+    /**
+     * An identifier, a back-quoted identifier, or a keyword that MySQL accepts as a column name.
+     */
+    private static boolean isName(Token token) {
+        int tokenType = token.getType();
+        if (tokenType == ID || tokenType == REVERSE_QUOTE_ID) {
+            return true;
+        }
+        if (NON_NAME_KEYWORDS.contains(tokenType)) {
+            return false;
+        }
+        String text = token.getText();
+        if (text.isEmpty() || !Character.isLetter(text.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '_') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

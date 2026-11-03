@@ -181,6 +181,8 @@ When an initial consistent snapshot is made for large databases, your establishe
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
 | BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY<br/>VECTOR | BYTES               |
 
+> `VECTOR` (MySQL 9.0+) is delivered as `BYTES` holding the stored value: little-endian 4-byte floats, 4 bytes per dimension. It is not converted to a SeaTunnel float vector type.
+
 ## Source Options
 
 | Name                                      | Type     | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
