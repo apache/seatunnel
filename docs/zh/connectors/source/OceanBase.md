@@ -68,7 +68,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | Number(p), p <= 18 | BIGINT |
 | Number(p), 18 < p < 38 | DECIMAL(p,0) |
 | Number(p), p >= 38 | DECIMAL(38,0) |
-| Number(p,s) | DECIMAL(p,s) |
+| Number(p,s), s > 0 | DECIMAL(p, min(s, 18)) |
+| Number(p,s), s < 0 | 规范化为 `DECIMAL(p - s, 0)`（启用 decimal narrowing 时为收窄类型）。 |
 | Float | DECIMAL(38,18) |
 | REAL<br/> BINARY_FLOAT | FLOAT |
 | BINARY_DOUBLE | DOUBLE |

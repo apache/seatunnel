@@ -54,7 +54,8 @@ Read external data source data through JDBC.
 | NUMBER(9 < precision <= 18, scale == 0)                                                                  | BIGINT              |
 | NUMBER(18 < precision < 38, scale == 0)                                                                  | DECIMAL(precision, 0) |
 | NUMBER(precision >= 38, scale == 0)                                                                      | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                                       | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale > 0)                                                                                       | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                                        | Normalized to `DECIMAL(precision - scale, 0)`, or `LONG`/`INT`/`BOOLEAN` when decimal narrowing applies. Missing precision/scale default to 38/18. |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |

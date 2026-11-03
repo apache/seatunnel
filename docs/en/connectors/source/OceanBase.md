@@ -68,7 +68,8 @@ Read OceanBase data through JDBC. OceanBase can run in MySQL-compatible mode or 
 | Number(p), p <= 18                                                                                  | BIGINT              |
 | Number(p), 18 < p < 38                                                                              | DECIMAL(p,0)        |
 | Number(p), p >= 38                                                                                  | DECIMAL(38,0)       |
-| Number(p,s)                                                                                         | DECIMAL(p,s)        |
+| Number(p,s), s > 0                                                                                  | DECIMAL(p, min(s, 18)) |
+| Number(p,s), s < 0                                                                                  | Normalized to `DECIMAL(p - s, 0)` (or narrowed types when decimal narrowing applies). |
 | Float                                                                                               | DECIMAL(38,18)      |
 | REAL<br/> BINARY_FLOAT                                                                              | FLOAT               |
 | BINARY_DOUBLE                                                                                       | DOUBLE              |
