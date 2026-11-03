@@ -26,17 +26,17 @@ The target table must already exist. The connector writes each row as a DynamoDB
 
 | name                | type   | required | default value | description                                      |
 |---------------------|--------|----------|---------------|--------------------------------------------------|
-| url                 | string | yes      | -             | DynamoDB endpoint URL.                           |
-| region              | string | yes      | -             | AWS region of the DynamoDB service.              |
+| url                 | string | yes      | -             | DynamoDB endpoint URL. For local testing, use `http://127.0.0.1:8000`. |
+| region              | string | yes      | -             | AWS region of the DynamoDB service, for example `us-east-1`. |
 | access_key_id       | string | yes      | -             | AWS access key ID.                               |
 | secret_access_key   | string | yes      | -             | AWS secret access key.                           |
-| table               | string | yes      | -             | DynamoDB table name to write to.                 |
-| batch_size          | int    | no       | 25            | Records buffered for one batch write request.    |
+| table               | string | yes      | -             | DynamoDB table name to write to. Used as the per-row target only when the upstream row does not carry a table id; otherwise the row's table id is preferred. |
+| batch_size          | int    | no       | 25            | Records buffered for one DynamoDB batch write request. DynamoDB accepts at most 25 write requests in one batch write call, so do not set this above `25`. |
 | multi_table_sink_replica | int | no       | 1             | Sink writer replicas for each table.             |
-| max_retries         | int    | no       | 10            | Retries for unprocessed items. Must be at least `0`. |
+| max_retries         | int    | no       | 10            | Retries for unprocessed items returned by DynamoDB. Must be at least `0`. |
 | retry_base_delay_ms | long   | no       | 100           | Initial retry backoff delay in milliseconds.     |
-| retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds.     |
-| common-options      | object | no       | -             | Sink plugin common parameters.                   |
+| retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds (exponential). |
+| common-options      | object | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [string]
 

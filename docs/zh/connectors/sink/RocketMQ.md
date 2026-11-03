@@ -1,8 +1,12 @@
 import ChangeLog from '../changelog/connector-rocketmq.md';
 
-# RocketMQ
+# RocketMQ 目标连接器
 
-> RocketMQ Sink 连接器
+> RocketMQ 目标连接器
+
+## 描述
+
+将 SeaTunnel 数据行写入 Apache RocketMQ topic。该 Sink 支持 JSON 和文本消息体、消息 tag、同步发送、按字段选择分区，以及在 `exactly.once = true` 时使用事务消息保证精确一次写入。
 
 ## 支持的 Apache RocketMQ 版本
 
@@ -16,13 +20,13 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## 主要特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
-
-将 SeaTunnel 数据行写入 Apache RocketMQ topic。该 Sink 支持 JSON 和文本消息体、消息 tag、同步发送、按字段选择分区，以及在 `exactly.once = true` 时使用事务消息保证精确一次写入。
+每个上游数据行都会被序列化为一条 RocketMQ 消息。Sink 不会按行类型分支处理，因此 `INSERT`、`UPDATE_AFTER` 和 `DELETE` 行都会按所配置的格式发送（文本格式使用配置的字段分隔符）；目前不执行 tombstone 或空消息体的特殊处理。
 
 ## Sink 参数
 

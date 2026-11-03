@@ -1,32 +1,35 @@
 import ChangeLog from '../changelog/connector-kudu.md';
 
-# Kudu
+# Kudu 源连接器
 
 > Kudu 源连接器
 
-## 支持 Kudu 版本
+## 描述
+
+用于从 Apache Kudu 读取数据。连接器会把表扫描编译成 Kudu 的 scan token，多个 reader 可以并行扫描同一张表的不同 key range，并支持谓词和列裁剪下沉到 Kudu。
+
+连接器为批处理作业提供至少一次（at-least-once）语义，不读取 Kudu 变更日志流。
+
+## 支持的 Kudu 版本
 
 - 1.11.1/1.12.0/1.13.0/1.14.0/1.15.0
 
-## 支持这些引擎
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 关键特性
+## 主要特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [列裁剪](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
-
-用于从 Kudu 读取数据。
-
-测试的 kudu 版本是 1.11.1。
+测试通过的 Kudu 版本为 1.11.1。
 
 ## 数据类型映射
 
@@ -48,17 +51,17 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 | 参数名                                       | 类型     | 必须 | 默认值                                            | 描述                                                                                                                                                                                               |
 |-------------------------------------------|--------|----|------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| kudu_masters                              | String | 是  | -                                              | Kudu master 地址。用 ',' 分隔，例如 '192.168.88.110:7051'。                                                                                                                                                |
+| kudu_masters | String | 是 | - | Kudu master 地址列表，多个地址使用逗号分隔，例如 `192.168.88.110:7051`。 |
 | table_name                                | String | 当未配置 `table_list` 时必填 | -                                              | Kudu 表名。该参数与 `table_list` 二选一。                                                                                                                                                                                       |
-| client_worker_count                       | Int    | 否  | 2 * Runtime.getRuntime().availableProcessors() | Kudu worker 数量。默认值是当前 CPU 核心数的两倍。                                                                                                                                                                |
-| client_default_operation_timeout_ms       | Long   | 否  | 30000                                          | Kudu 普通操作超时时间。                                                                                                                                                                                   |
-| client_default_admin_operation_timeout_ms | Long   | 否  | 30000                                          | Kudu 管理操作超时时间。                                                                                                                                                                                   |
-| enable_kerberos                           | Bool   | 否  | false                                          | Kerberos principal 启用。                                                                                                                                                                           |
-| kerberos_principal                        | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos principal。keytab 文件必须在每个 worker 节点都可访问。                                                                                                                                                          |
-| kerberos_keytab                           | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos keytab 路径，文件必须在每个 worker 节点都可访问。                                                                                                                                                             |
-| kerberos_krb5conf                         | String | 否  | -                                              | Kerberos krb5 conf。注意所有 zeta 节点都需要有此文件。                                                                                                                                                          |
-| scan_token_query_timeout                  | Long   | 否  | 30000                                          | 连接扫描令牌的超时时间。如果未设置，将与 operationTimeout 相同。                                                                                                                                                        |
-| scan_token_batch_size_bytes               | Int    | 否  | 1024 * 1024                                    | Kudu 扫描字节数。一次读取的最大字节数，默认为 1MB。                                                                                                                                                                   |
+| client_worker_count | Int | 否 | 2 * Runtime.getRuntime().availableProcessors() | Kudu 客户端工作线程数，默认是 JVM 可用 CPU 核数的两倍。 |
+| client_default_operation_timeout_ms | Long | 否 | 30000 | Kudu 操作的默认超时时间，单位毫秒。 |
+| client_default_admin_operation_timeout_ms | Long | 否 | 30000 | Kudu 管理操作的默认超时时间，单位毫秒。 |
+| enable_kerberos | Bool | 否 | false | 是否为 Kudu 客户端启用 Kerberos 认证。设为 `true` 时，必须同时配置 `kerberos_principal` 和 `kerberos_keytab`。 |
+| kerberos_principal | String | 当 `enable_kerberos = true` 时必填 | - | Kudu 客户端使用的 Kerberos principal。对应 keytab 必须可供每个运行连接器的 worker 节点访问。 |
+| kerberos_keytab | String | 当 `enable_kerberos = true` 时必填 | - | Kudu 客户端使用的 Kerberos keytab 路径，文件必须可供每个运行连接器的 worker 节点访问。 |
+| kerberos_krb5conf | String | 否 | - | Kerberos `krb5.conf` 路径。配置后，文件必须可供每个运行连接器的 Zeta 节点访问。 |
+| scan_token_query_timeout | Long | 否 | 30000 | 连接 scan token 的超时时间，单位毫秒，默认值为 `30000`。此选项与 `client_default_operation_timeout_ms` 独立，修改其中一个不会改变另一个。 |
+| scan_token_batch_size_bytes | Int | 否 | 1024 * 1024 | 单个 Kudu scan token 每批返回的最大字节数，默认 1 MiB。 |
 | use_regex                                 | Bool   | 否  | false                                          | 控制 `table_name` 的正则匹配。当设置为 `true` 时，`table_name` 将被视为正则表达式模式，可以匹配多张表。当设置为 `false` 或未指定时，`table_name` 将被视为精确表名（不进行正则匹配）。                                                                          |
 | filter                                    | String | 否  | -                                              | Kudu 扫描过滤表达式，例如 id > 100 AND id < 200。                                                                                                                                                           |
 | schema                                    | Map    | 否  | -                                              | SeaTunnel Schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                             |
