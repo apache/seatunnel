@@ -379,6 +379,12 @@ public class MultipleTableJobConfigParser {
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
+    /**
+     * Best-effort dataset extraction for a connector action. Ordinary extractor failures are logged
+     * and become an empty list so lineage never blocks job parsing; {@link VirtualMachineError} is
+     * rethrown. Runs for every source/sink even when reporting is disabled because the client path
+     * cannot read server cluster lineage settings.
+     */
     private List<LineageDataset> extractLineageDatasets(String factoryId, ReadonlyConfig config) {
         try {
             return LineageDatasetFactory.fromConnectorOptions(factoryId, config.getSourceMap());

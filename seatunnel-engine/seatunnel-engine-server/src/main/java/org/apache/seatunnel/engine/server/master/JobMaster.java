@@ -1296,11 +1296,12 @@ public class JobMaster {
     /**
      * Runs a lineage emission off the calling thread.
      *
-     * <p>Emission performs a blocking HTTP request whose worst case is {@code timeoutMs} times one
-     * more than {@code retryTimes}. Its two call sites are a completed checkpoint and a job state
-     * transition, both of which hold engine state that must not wait on an unreachable lineage
-     * receiver, so the send is handed to the dedicated lineage emission executor instead of the
-     * shared coordinator pool.
+     * <p>Emission performs a blocking HTTP request. {@code timeoutMs} is applied as per-phase
+     * inactivity limits rather than one wall-clock deadline for the whole send; retries and backoff
+     * add further delay, so {@code (retryTimes + 1) * timeoutMs} is not a hard total abort bound.
+     * Its two call sites are a completed checkpoint and a job state transition, both of which hold
+     * engine state that must not wait on an unreachable lineage receiver, so the send is handed to
+     * the dedicated lineage emission executor instead of the shared coordinator pool.
      *
      * <p>Emissions are queued and drained one at a time rather than submitted independently because
      * OpenLineage runs are ordered: a COMPLETE that overtakes its own START, or a heartbeat that
