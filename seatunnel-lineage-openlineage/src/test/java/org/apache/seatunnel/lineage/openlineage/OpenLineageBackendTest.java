@@ -51,7 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -284,15 +284,30 @@ class OpenLineageBackendTest {
         LineageConfig config =
                 LineageConfig.resolve(options, Collections.emptyMap(), Collections.emptyMap());
 
-        long startedAt = System.nanoTime();
-        String logs = capturedWarnings(() -> new OpenLineageBackend().emit(config, minimalEvent()));
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+        RecordingBackend backend = new RecordingBackend();
+        String logs = capturedWarnings(() -> backend.emit(config, minimalEvent()));
 
-        // The retried path sleeps up to 100ms per attempt, so 5000 retries cannot fit in here.
-        assertTrue(
-                elapsedMs < 5000,
-                "a configuration error must not be retried, it took " + elapsedMs + "ms");
+        assertEquals(1, backend.sendOnceCalls.get(), "configuration errors must validate once");
+        assertEquals(0, backend.backoffSleeps.get(), "configuration errors must not back off");
         assertTrue(logs.contains(LineageConfig.URL), logs);
+    }
+
+    /** Counts send/backoff boundaries without relying on wall-clock speed. */
+    private static final class RecordingBackend extends OpenLineageBackend {
+        private final AtomicInteger sendOnceCalls = new AtomicInteger();
+        private final AtomicInteger backoffSleeps = new AtomicInteger();
+
+        @Override
+        void sendOnce(LineageConfig config, String payload) throws IOException {
+            sendOnceCalls.incrementAndGet();
+            super.sendOnce(config, payload);
+        }
+
+        @Override
+        void sleepBeforeRetry(int attempt) throws InterruptedException {
+            backoffSleeps.incrementAndGet();
+            super.sleepBeforeRetry(attempt);
+        }
     }
 
     /** Runs the body with the backend's warnings captured, and returns them joined. */

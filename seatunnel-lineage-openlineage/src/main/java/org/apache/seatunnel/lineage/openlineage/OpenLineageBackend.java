@@ -40,7 +40,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 /** HTTP LineageBackend using the project's fixed Apache HttpClient 4.x transport. */
-public final class OpenLineageBackend implements LineageBackend {
+public class OpenLineageBackend implements LineageBackend {
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenLineageBackend.class);
 
     /**
@@ -119,7 +119,7 @@ public final class OpenLineageBackend implements LineageBackend {
                 failure = e;
                 if (attempt < config.retryTimes()) {
                     try {
-                        Thread.sleep(Math.min(100L, 10L * (attempt + 1)));
+                        sleepBeforeRetry(attempt);
                     } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                         throw interrupted;
@@ -128,6 +128,14 @@ public final class OpenLineageBackend implements LineageBackend {
             }
         }
         throw failure;
+    }
+
+    /**
+     * Backoff between delivery attempts. Package-visible so tests can assert configuration errors
+     * skip retry sleep without relying on wall-clock timing.
+     */
+    void sleepBeforeRetry(int attempt) throws InterruptedException {
+        Thread.sleep(Math.min(100L, 10L * (attempt + 1)));
     }
 
     private static String endpointSummary(String endpoint) {
@@ -149,7 +157,12 @@ public final class OpenLineageBackend implements LineageBackend {
         }
     }
 
-    private void sendOnce(LineageConfig config, String payload) throws IOException {
+    /**
+     * Performs one HTTP POST. Package-visible so tests can count validation attempts. {@code
+     * timeoutMs} is applied as Apache HttpClient per-phase inactivity timeouts, not a total request
+     * deadline.
+     */
+    void sendOnce(LineageConfig config, String payload) throws IOException {
         if (config.url() == null || config.url().trim().isEmpty()) {
             throw new IllegalArgumentException("openlineage_url must be configured when enabled");
         }
