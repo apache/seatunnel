@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
@@ -32,7 +31,7 @@ public final class GaussDBSourceConfigFactory extends PostgresSourceConfigFactor
     private static final long serialVersionUID = 1L;
 
     @Override
-    public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
+    public PostgresSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         Map<String, Object> debeziumConfig = new LinkedHashMap<>(config.getSourceMap());
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(

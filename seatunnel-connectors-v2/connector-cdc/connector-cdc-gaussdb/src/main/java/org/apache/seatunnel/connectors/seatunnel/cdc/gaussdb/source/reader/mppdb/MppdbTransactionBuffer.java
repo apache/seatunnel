@@ -40,6 +40,9 @@ import java.util.function.LongSupplier;
 @Slf4j
 public final class MppdbTransactionBuffer {
 
+    // User-facing option name reported when the row budget is exceeded.
+    private static final String MAX_BUFFERED_CHANGES_OPTION = "max-buffered-changes";
+
     // Warn every five minutes while an unfinished transaction prevents prefix release.
     private static final long STALL_WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
@@ -57,6 +60,15 @@ public final class MppdbTransactionBuffer {
     // Number of DML records held across open and blocked committed transactions.
     private long bufferedChanges;
 
+    /**
+     * Upper bound for {@link #bufferedChanges}. Rows must stay in memory until their COMMIT and
+     * every earlier transaction are decoded, so neither the per-read batch size nor the downstream
+     * event queue applies backpressure here. Exceeding this bound fails the task instead of
+     * exhausting the shared worker heap; nothing is dropped and the slot is not advanced, so a
+     * restart replays from the last completed checkpoint.
+     */
+    private final long maxBufferedChanges;
+
     /** Transactions indexed by the non-zero id carried by text and SQL-fallback records. */
     private final Map<Long, PendingTransaction> transactionsById = new HashMap<>();
 
@@ -66,13 +78,26 @@ public final class MppdbTransactionBuffer {
     /** Active transaction whose binary records do not expose an id until COMMIT. */
     private PendingTransaction anonymousTransaction;
 
-    // Creates a task-owned buffer with a monotonic diagnostic clock.
-    public MppdbTransactionBuffer() {
-        this(System::nanoTime);
+    /**
+     * Creates a task-owned buffer with a monotonic diagnostic clock.
+     *
+     * @param maxBufferedChanges maximum DML records retained before the task fails
+     */
+    public MppdbTransactionBuffer(long maxBufferedChanges) {
+        this(maxBufferedChanges, System::nanoTime);
     }
 
-    // Supplies a monotonic clock for deterministic warning-boundary tests.
-    public MppdbTransactionBuffer(LongSupplier nanoClock) {
+    /**
+     * Supplies a monotonic clock for deterministic warning-boundary tests.
+     *
+     * @param maxBufferedChanges maximum DML records retained before the task fails
+     * @param nanoClock monotonic clock used only for stall diagnostics
+     */
+    public MppdbTransactionBuffer(long maxBufferedChanges, LongSupplier nanoClock) {
+        if (maxBufferedChanges < 1) {
+            throw new IllegalArgumentException("maxBufferedChanges must be positive");
+        }
+        this.maxBufferedChanges = maxBufferedChanges;
         this.nanoClock = nanoClock;
     }
 
@@ -93,9 +118,13 @@ public final class MppdbTransactionBuffer {
             case INSERT:
             case UPDATE:
             case DELETE:
-                transactionForData(change.getTransactionId()).changes.add(change);
-                bufferedChanges++;
-                break;
+                {
+                    PendingTransaction transaction = transactionForData(change.getTransactionId());
+                    ensureCapacity(transaction);
+                    transaction.changes.add(change);
+                    bufferedChanges++;
+                    break;
+                }
             default:
                 throw new IllegalArgumentException(
                         "Unsupported mppdb transaction record " + change.getType());
@@ -130,6 +159,37 @@ public final class MppdbTransactionBuffer {
                 transactionOrder.size(),
                 bufferedChanges);
         return true;
+    }
+
+    /**
+     * Fails before retaining another row once the configured budget is reached.
+     *
+     * <p>Blocking reads would not help: the COMMIT that releases memory may still be unread. The
+     * message carries only counts and transaction ids, never row values.
+     */
+    private void ensureCapacity(PendingTransaction target) {
+        if (bufferedChanges < maxBufferedChanges) {
+            return;
+        }
+        PendingTransaction oldest = transactionOrder.peekFirst();
+        throw new IllegalStateException(
+                String.format(
+                        "GaussDB mppdb_decoding buffered %d uncommitted or prefix-blocked row "
+                                + "changes, reaching the configured limit %d (option '%s'). "
+                                + "Current transaction %d holds %d rows; oldest unreleased "
+                                + "transaction %d; %d transactions buffered. Rows are retained "
+                                + "until their transaction and all earlier transactions commit. "
+                                + "No rows were dropped and the replication slot was not "
+                                + "advanced; increase the limit together with worker heap, or "
+                                + "split the source transaction, then restore from the last "
+                                + "checkpoint.",
+                        bufferedChanges,
+                        maxBufferedChanges,
+                        MAX_BUFFERED_CHANGES_OPTION,
+                        target.transactionId,
+                        target.changes.size(),
+                        oldest == null ? 0 : oldest.transactionId,
+                        transactionOrder.size()));
     }
 
     /** Starts a named or binary anonymous transaction. */

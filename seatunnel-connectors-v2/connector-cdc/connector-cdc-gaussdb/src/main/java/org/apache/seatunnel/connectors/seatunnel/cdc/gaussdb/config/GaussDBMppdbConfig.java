@@ -54,6 +54,9 @@ public final class GaussDBMppdbConfig implements Serializable {
     /** Whether the server groups decoded records into batches. */
     private final boolean sendingBatch;
 
+    /** Row-change budget for the in-memory transaction buffer of the mppdb reader. */
+    private final int maxBufferedChanges;
+
     /** Creates and validates a runtime configuration from connector options. */
     public GaussDBMppdbConfig(ReadonlyConfig config) {
         this.pluginName =
@@ -71,6 +74,7 @@ public final class GaussDBMppdbConfig implements Serializable {
                         .trim()
                         .toLowerCase(Locale.ROOT);
         this.sendingBatch = config.get(GaussDBIncrementalSourceOptions.SENDING_BATCH);
+        this.maxBufferedChanges = config.get(GaussDBIncrementalSourceOptions.MAX_BUFFERED_CHANGES);
         validate();
     }
 
@@ -95,6 +99,9 @@ public final class GaussDBMppdbConfig implements Serializable {
         }
         if (parallelDecodeNum < 1 || parallelDecodeNum > 20) {
             throw new IllegalArgumentException("parallel-decode-num must be between 1 and 20");
+        }
+        if (maxBufferedChanges < 1) {
+            throw new IllegalArgumentException("max-buffered-changes must be positive");
         }
         if (!("b".equals(decodeStyle) || "j".equals(decodeStyle) || "t".equals(decodeStyle))) {
             throw new IllegalArgumentException("decode-style must be one of b, j, or t");

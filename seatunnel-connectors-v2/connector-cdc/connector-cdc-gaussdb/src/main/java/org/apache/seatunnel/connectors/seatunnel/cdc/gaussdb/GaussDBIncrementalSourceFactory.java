@@ -85,6 +85,7 @@ public class GaussDBIncrementalSourceFactory extends BaseChangeStreamTableSource
                         GaussDBIncrementalSourceOptions.PARALLEL_DECODE_NUM,
                         GaussDBIncrementalSourceOptions.DECODE_STYLE,
                         GaussDBIncrementalSourceOptions.SENDING_BATCH,
+                        GaussDBIncrementalSourceOptions.MAX_BUFFERED_CHANGES,
                         PostgresIncrementalSourceOptions.SCHEMA_NAME,
                         PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,

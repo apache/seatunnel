@@ -53,6 +53,8 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 
 When an unfinished transaction blocks checkpoint progress for five minutes, the reader logs a warning with its transaction id, age, buffered transaction count, and buffered row count. The warning repeats at most once every five minutes per reader, including while no new WAL arrives. Inspect long-running source transactions and COMMIT delivery. This diagnostic does not limit buffer memory, discard rows, or advance checkpoint acknowledgements.
 
+Buffer memory is bounded by `max-buffered-changes`, counted across all open and prefix-blocked transactions of one reader. When the limit is reached the task fails with the limit, the current transaction id and the buffered counts; no row is dropped and the slot is not acknowledged past the last completed checkpoint. Because recovery replays the same WAL, a transaction larger than the limit fails again: raise the limit together with the worker heap, or split the source transaction, before restoring the job.
+
 ## Source Options
 
 | Name | Type | Required | Default | Description |
@@ -75,6 +77,7 @@ When an unfinished transaction blocks checkpoint progress for five minutes, the 
 | parallel-decode-num | Integer | No | 1 | Number of GaussDB server-side decoder threads for `mppdb_decoding`. The valid range is 1 through 20. A value greater than 1 enables parallel decoding. |
 | decode-style | String | No | b | Parallel `mppdb_decoding` output style: `b` for binary, `j` for JSON, or `t` for TEXT. Effective only when `parallel-decode-num` is greater than 1. |
 | sending-batch | Boolean | No | false | Whether parallel `mppdb_decoding` sends accumulated records in batches. Effective only when `parallel-decode-num` is greater than 1. |
+| max-buffered-changes | Integer | No | 100000 | Maximum `mppdb_decoding` row changes held in reader memory until their transaction and all earlier transactions commit. When exceeded, the task fails without dropping rows or advancing the slot. |
 | require-replica-identity-full | Boolean | No | true | Require captured tables to use `REPLICA IDENTITY FULL`. Set to `false` only when incomplete previous values for UPDATE and DELETE are acceptable. |
 | schema-changes.enabled | Boolean | No | false | Enable schema evolution events. This requires a compatible plugin such as `pgoutput`; `mppdb_decoding` does not emit the required `RELATION` messages. |
 | server-time-zone | String | No | UTC | Session time zone of the database server. |
@@ -128,7 +131,7 @@ GaussDB CDC exposes metadata fields that can be used by the `Metadata` transform
 | database | STRING | Source database name. |
 | table | STRING | Source table name. |
 | rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
+| ts_ms | LONG | Source event timestamp in milliseconds. With `mppdb_decoding`, this is the time the reader released the committed transaction, not the database commit time, so it understates lag for backlogged changes. |
 | delay | LONG | Delay between event time and processing time in milliseconds. |
 
 ## Changelog

@@ -158,7 +158,9 @@ public final class GaussDBDialect extends PostgresDialect {
         } catch (SQLException e) {
             throw new SeaTunnelException("Error checking GaussDB captured tables", e);
         }
-        walFetchTask = new GaussDBWalFetchTask(sourceSplit.asIncrementalSplit());
+        walFetchTask =
+                new GaussDBWalFetchTask(
+                        sourceSplit.asIncrementalSplit(), mppdbConfig.getMaxBufferedChanges());
         return walFetchTask;
     }
 

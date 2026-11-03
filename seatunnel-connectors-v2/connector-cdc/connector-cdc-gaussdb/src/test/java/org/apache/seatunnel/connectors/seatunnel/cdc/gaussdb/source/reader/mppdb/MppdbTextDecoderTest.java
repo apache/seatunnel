@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppd
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -105,6 +106,36 @@ class MppdbTextDecoderTest {
         Assertions.assertEquals("new value", change.getNewColumns().get(2).getValue());
     }
 
+    /** Verifies tuple marker words inside quoted values do not split an UPDATE record. */
+    @Test
+    void testDecodeTextUpdateWithMarkerWordsInQuotedValues() {
+        String text =
+                "table public t1 UPDATE: old-key: id[integer]:1 note[text]:'new-tuple: it''s old' "
+                        + "new-tuple: id[integer]:1 note[text]:'OLD-KEY: after'";
+
+        MppdbWalChange change = decoder.decodeRecord(210L, 46L, text);
+
+        Assertions.assertEquals(2, change.getOldColumns().size());
+        Assertions.assertEquals("new-tuple: it's old", change.getOldColumns().get(1).getValue());
+        Assertions.assertEquals(2, change.getNewColumns().size());
+        Assertions.assertEquals("OLD-KEY: after", change.getNewColumns().get(1).getValue());
+    }
+
+    /** Verifies decoder failures never echo row values into exception messages or causes. */
+    @Test
+    void testDecoderErrorsDoNotExposeRowValues() {
+        String sentinel = "SECRET_SENTINEL_42";
+        String invalidColumns =
+                "table public t1 UPDATE: old-key: note[text]:'"
+                        + sentinel
+                        + "' new-tuple: unparsable "
+                        + sentinel;
+        String invalidJson = "{\"table_name\": " + sentinel;
+
+        assertRedacted(sentinel, () -> decoder.decodeRecord(1L, 1L, invalidColumns));
+        assertRedacted(sentinel, () -> decoder.decodeRecord(1L, 1L, invalidJson));
+    }
+
     /** Verifies length-framed parallel textual batches. */
     @Test
     void testDecodeFramedJsonBatch() {
@@ -140,6 +171,14 @@ class MppdbTextDecoderTest {
                 IllegalArgumentException.class, () -> decoder.decodeRecord(1L, 1L, invalidJson));
         Assertions.assertThrows(
                 IllegalArgumentException.class, () -> decoder.decodeBatch(truncated.array()));
+    }
+
+    /** Asserts a decoder failure and its causes omit the given row value. */
+    private void assertRedacted(String sentinel, Executable decode) {
+        Throwable failure = Assertions.assertThrows(IllegalArgumentException.class, decode);
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            Assertions.assertFalse(String.valueOf(current.getMessage()).contains(sentinel));
+        }
     }
 
     /** Encodes one length-prefixed textual frame for tests. */

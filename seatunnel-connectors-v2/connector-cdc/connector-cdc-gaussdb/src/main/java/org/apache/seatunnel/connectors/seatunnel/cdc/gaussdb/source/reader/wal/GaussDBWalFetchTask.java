@@ -56,14 +56,20 @@ public final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
     private Long acknowledgedLsn;
 
     /** Transaction assembler preventing records and checkpoints from crossing an open COMMIT. */
-    private final MppdbTransactionBuffer transactionBuffer = new MppdbTransactionBuffer();
+    private final MppdbTransactionBuffer transactionBuffer;
 
     /** Largest contiguous committed LSN released to the SeaTunnel source reader. */
     private long lastCompletedLsn;
 
-    /** Creates an incremental fetch task for one stream split. */
-    public GaussDBWalFetchTask(IncrementalSplit split) {
+    /**
+     * Creates an incremental fetch task for one stream split.
+     *
+     * @param split incremental split to stream
+     * @param maxBufferedChanges row budget for transactions that are not yet releasable
+     */
+    public GaussDBWalFetchTask(IncrementalSplit split, int maxBufferedChanges) {
         this.split = split;
+        this.transactionBuffer = new MppdbTransactionBuffer(maxBufferedChanges);
     }
 
     /** Starts the checkpoint-aware polling loop and dispatches normalized SourceRecords. */

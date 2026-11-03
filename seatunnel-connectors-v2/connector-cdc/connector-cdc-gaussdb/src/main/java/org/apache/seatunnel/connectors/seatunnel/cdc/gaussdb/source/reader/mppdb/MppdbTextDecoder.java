@@ -161,7 +161,14 @@ final class MppdbTextDecoder {
         try {
             root = OBJECT_MAPPER.readTree(data);
         } catch (IOException e) {
-            throw malformed("invalid JSON record", e);
+            // The parser message and its source snippet echo row values, so neither the message
+            // nor the cause is propagated into job failure logs.
+            throw malformed(
+                    "invalid JSON record ("
+                            + e.getClass().getSimpleName()
+                            + ", "
+                            + data.length()
+                            + " chars)");
         }
         String qualifiedTable = requiredText(root, "table_name");
         TableId tableId = TableId.parse(qualifiedTable, false);
@@ -191,7 +198,7 @@ final class MppdbTextDecoder {
     private MppdbWalChange decodeTextChange(long lsn, long transactionId, String data) {
         Matcher changeMatcher = TEXT_CHANGE_PATTERN.matcher(data);
         if (!changeMatcher.matches()) {
-            throw malformed("unsupported text record: " + data);
+            throw malformed("unsupported text record (" + data.length() + " chars)");
         }
         MppdbWalChange.Type type = parseDataChangeType(changeMatcher.group(3));
         String tupleData = changeMatcher.group(4).trim();
@@ -202,21 +209,28 @@ final class MppdbTextDecoder {
         } else if (type == MppdbWalChange.Type.DELETE) {
             oldColumns = parseTextColumns(removeOptionalPrefix(tupleData, "old-key:"));
         } else {
-            String normalized = tupleData.toLowerCase(Locale.ROOT);
-            int oldStart = normalized.indexOf("old-key:");
-            int newStart = normalized.indexOf("new-tuple:");
+            // Markers inside quoted values or identifiers are row data, not tuple boundaries.
+            int oldStart = indexOfUnquoted(tupleData, "old-key:");
+            int newStart = indexOfUnquoted(tupleData, "new-tuple:");
             if (newStart < 0) {
-                throw malformed("UPDATE text record does not contain new-tuple: " + tupleData);
+                throw malformed(
+                        "UPDATE text record does not contain new-tuple ("
+                                + tupleData.length()
+                                + " chars)");
             }
             if (oldStart >= 0) {
                 if (oldStart > newStart || !tupleData.substring(0, oldStart).trim().isEmpty()) {
-                    throw malformed("invalid UPDATE tuple order: " + tupleData);
+                    throw malformed(
+                            "invalid UPDATE tuple order: old-key at offset "
+                                    + oldStart
+                                    + ", new-tuple at offset "
+                                    + newStart);
                 }
                 oldColumns =
                         parseTextColumns(
                                 tupleData.substring(oldStart + "old-key:".length(), newStart));
             } else if (!tupleData.substring(0, newStart).trim().isEmpty()) {
-                throw malformed("invalid UPDATE tuple prefix: " + tupleData);
+                throw malformed("invalid UPDATE tuple prefix before offset " + newStart);
             }
             newColumns = parseTextColumns(tupleData.substring(newStart + "new-tuple:".length()));
             if (newColumns.isEmpty()) {
@@ -246,7 +260,7 @@ final class MppdbTextDecoder {
         int consumed = 0;
         while (columnMatcher.find()) {
             if (!columnsText.substring(consumed, columnMatcher.start()).trim().isEmpty()) {
-                throw malformed("could not parse text columns: " + columnsText);
+                throw unparsableColumns(consumed, columnsText.length());
             }
             String quotedValue = columnMatcher.group(3);
             String rawValue = quotedValue == null ? columnMatcher.group(4) : quotedValue;
@@ -261,9 +275,41 @@ final class MppdbTextDecoder {
             consumed = columnMatcher.end();
         }
         if (columns.isEmpty() || !columnsText.substring(consumed).trim().isEmpty()) {
-            throw malformed("could not parse text columns: " + columnsText);
+            throw unparsableColumns(consumed, columnsText.length());
         }
         return columns;
+    }
+
+    /** Reports a column parsing failure by position only, because the text holds row values. */
+    private IllegalArgumentException unparsableColumns(int offset, int length) {
+        return malformed(
+                "could not parse text columns at offset " + offset + " of " + length + " chars");
+    }
+
+    /**
+     * Finds a tuple marker outside single-quoted literals and double-quoted identifiers.
+     *
+     * <p>A doubled quote closes and immediately reopens the quoted section, so escaped quotes need
+     * no special handling.
+     */
+    private static int indexOfUnquoted(String text, String marker) {
+        boolean inLiteral = false;
+        boolean inIdentifier = false;
+        for (int index = 0; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (inLiteral) {
+                inLiteral = current != '\'';
+            } else if (inIdentifier) {
+                inIdentifier = current != '"';
+            } else if (current == '\'') {
+                inLiteral = true;
+            } else if (current == '"') {
+                inIdentifier = true;
+            } else if (text.regionMatches(true, index, marker, 0, marker.length())) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     /** Removes a tuple label accepted by GaussDB examples when it is present. */

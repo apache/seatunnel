@@ -72,5 +72,16 @@ public final class GaussDBIncrementalSourceOptions extends JdbcSourceOptions {
                     .withDescription(
                             "Whether mppdb_decoding sends accumulated batches. This option is effective when parallel-decode-num is greater than 1.");
 
+    /**
+     * Maximum mppdb row changes retained while waiting for their transaction and every earlier
+     * transaction to commit. The reader fails fast at this bound instead of exhausting worker heap.
+     */
+    public static final Option<Integer> MAX_BUFFERED_CHANGES =
+            Options.key("max-buffered-changes")
+                    .intType()
+                    .defaultValue(100000)
+                    .withDescription(
+                            "Maximum mppdb_decoding row changes held in memory until their transaction and all earlier transactions commit. When exceeded, the task fails without dropping rows or advancing the slot; raise it together with worker heap for larger transactions.");
+
     private GaussDBIncrementalSourceOptions() {}
 }

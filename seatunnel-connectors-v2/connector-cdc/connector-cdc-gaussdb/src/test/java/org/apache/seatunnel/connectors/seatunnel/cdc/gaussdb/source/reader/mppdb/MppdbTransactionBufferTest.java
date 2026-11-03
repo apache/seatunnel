@@ -30,10 +30,13 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Tests transaction-boundary and parallel-order guarantees of the mppdb WAL buffer. */
 class MppdbTransactionBufferTest {
 
+    /** Budget large enough that ordering tests never reach the capacity guard. */
+    private static final long UNBOUNDED = Long.MAX_VALUE;
+
     /** Verifies DML remains unavailable until the matching COMMIT is decoded. */
     @Test
     void testReleaseOnlyAfterCommit() {
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED);
 
         Assertions.assertTrue(buffer.add(change(10, 7, MppdbWalChange.Type.BEGIN)).isEmpty());
         Assertions.assertTrue(buffer.add(change(11, 7, MppdbWalChange.Type.INSERT)).isEmpty());
@@ -49,7 +52,7 @@ class MppdbTransactionBufferTest {
     /** Verifies a later parallel COMMIT cannot pass an unfinished earlier transaction. */
     @Test
     void testReleaseContiguousCommittedPrefix() {
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED);
         buffer.add(change(20, 1, MppdbWalChange.Type.BEGIN));
         buffer.add(change(21, 2, MppdbWalChange.Type.BEGIN));
         buffer.add(change(22, 1, MppdbWalChange.Type.INSERT));
@@ -68,7 +71,7 @@ class MppdbTransactionBufferTest {
     /** Verifies binary records inherit the transaction id first exposed by COMMIT. */
     @Test
     void testAnonymousBinaryTransaction() {
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED);
         buffer.add(change(30, 0, MppdbWalChange.Type.BEGIN));
         buffer.add(change(31, 0, MppdbWalChange.Type.DELETE));
 
@@ -84,7 +87,7 @@ class MppdbTransactionBufferTest {
     /** Verifies anonymous DML fails instead of being guessed across parallel transactions. */
     @Test
     void testRejectAmbiguousAnonymousDml() {
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED);
         buffer.add(change(40, 1, MppdbWalChange.Type.BEGIN));
         buffer.add(change(41, 2, MppdbWalChange.Type.BEGIN));
 
@@ -99,7 +102,7 @@ class MppdbTransactionBufferTest {
     @Test
     void testStalledPrefixWarningDoesNotChangeReleaseOrder() {
         AtomicLong now = new AtomicLong();
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(now::get);
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED, now::get);
         Assertions.assertFalse(buffer.warnIfStalled());
         buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
         buffer.add(change(11, 2, MppdbWalChange.Type.BEGIN));
@@ -134,7 +137,7 @@ class MppdbTransactionBufferTest {
     @Test
     void testStallWarningCooldownSurvivesHeadChange() {
         AtomicLong now = new AtomicLong();
-        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(now::get);
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(UNBOUNDED, now::get);
         buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
         buffer.add(change(11, 2, MppdbWalChange.Type.BEGIN));
         now.set(TimeUnit.MINUTES.toNanos(5));
@@ -145,6 +148,51 @@ class MppdbTransactionBufferTest {
         Assertions.assertFalse(buffer.warnIfStalled());
         now.incrementAndGet();
         Assertions.assertTrue(buffer.warnIfStalled());
+    }
+
+    /** Verifies one oversized transaction fails before its next row is retained. */
+    @Test
+    void testRejectTransactionLargerThanBudget() {
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(2);
+        buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(11, 1, MppdbWalChange.Type.INSERT));
+        buffer.add(change(12, 1, MppdbWalChange.Type.INSERT));
+
+        IllegalStateException failure =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> buffer.add(change(13, 1, MppdbWalChange.Type.INSERT)));
+        Assertions.assertTrue(failure.getMessage().contains("max-buffered-changes"));
+    }
+
+    /**
+     * Verifies the budget counts rows blocked behind an open head transaction and is freed again
+     * once the prefix is released.
+     */
+    @Test
+    void testBudgetCountsBlockedPrefixAndFreesOnRelease() {
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(2);
+        buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(11, 1, MppdbWalChange.Type.INSERT));
+        buffer.add(change(12, 2, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(13, 2, MppdbWalChange.Type.INSERT));
+        Assertions.assertTrue(buffer.add(change(14, 2, MppdbWalChange.Type.COMMIT)).isEmpty());
+        buffer.add(change(15, 3, MppdbWalChange.Type.BEGIN));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> buffer.add(change(16, 3, MppdbWalChange.Type.INSERT)));
+
+        MppdbTransactionBuffer released = new MppdbTransactionBuffer(2);
+        released.add(change(20, 1, MppdbWalChange.Type.BEGIN));
+        released.add(change(21, 1, MppdbWalChange.Type.INSERT));
+        released.add(change(22, 1, MppdbWalChange.Type.INSERT));
+        Assertions.assertEquals(1, released.add(change(23, 1, MppdbWalChange.Type.COMMIT)).size());
+        released.add(change(24, 2, MppdbWalChange.Type.BEGIN));
+        released.add(change(25, 2, MppdbWalChange.Type.INSERT));
+        released.add(change(26, 2, MppdbWalChange.Type.INSERT));
+        List<MppdbTransactionBuffer.CommittedTransaction> committed =
+                released.add(change(27, 2, MppdbWalChange.Type.COMMIT));
+        Assertions.assertEquals(2, committed.get(0).getChanges().size());
     }
 
     /** Creates a minimal transaction or row record for buffer tests. */

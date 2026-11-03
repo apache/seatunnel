@@ -53,6 +53,8 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 
 当未完成的事务阻塞 checkpoint 进度达到五分钟时，读取器会记录警告，包含事务 ID、等待时间、缓存事务数和缓存行数。每个读取器的警告最多每五分钟重复一次，即使没有新的 WAL 到达也会检查。请排查源端长事务和 COMMIT 消息是否正常到达。该诊断不会限制缓存内存、丢弃数据或推进 checkpoint 确认位置。
 
+缓存内存由 `max-buffered-changes` 限制，按单个读取器内所有未提交及被前序事务阻塞的事务累计计数。达到上限时任务失败，并报告上限、当前事务 ID 和缓存数量；不会丢弃任何行，复制槽也不会确认到最后一次完成的 checkpoint 之后。由于恢复会重放相同的 WAL，超过上限的单个事务会再次失败：请在恢复作业前同时调大该上限和 Worker 堆内存，或拆分源端事务。
+
 ## 源端可选项
 
 | Name | Type | Required | Default | Description |
@@ -75,6 +77,7 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 | parallel-decode-num | 整型 | 否 | 1 | `mppdb_decoding` 在 GaussDB 服务端使用的解码线程数。有效范围为 1 到 20；大于 1 时启用并行解码。 |
 | decode-style | 字符串 | 否 | b | 并行 `mppdb_decoding` 输出格式：`b` 表示二进制，`j` 表示 JSON，`t` 表示 TEXT。仅在 `parallel-decode-num` 大于 1 时生效。 |
 | sending-batch | 布尔 | 否 | false | 并行 `mppdb_decoding` 是否批量发送累积的记录。仅在 `parallel-decode-num` 大于 1 时生效。 |
+| max-buffered-changes | 整型 | 否 | 100000 | `mppdb_decoding` 在事务及其之前所有事务提交前，读取器内存中最多缓存的行变更数。超过后任务失败，不会丢弃数据，也不会推进复制槽。 |
 | require-replica-identity-full | 布尔 | 否 | true | 要求采集表使用 `REPLICA IDENTITY FULL`。只有在 UPDATE 和 DELETE 的变更前数据不完整也可以接受时，才应设置为 `false`。 |
 | schema-changes.enabled | 布尔 | 否 | false | 启用 Schema 演进事件。该功能需要 `pgoutput` 等兼容插件；`mppdb_decoding` 不会输出所需的 `RELATION` 消息。 |
 | server-time-zone | 字符串 | 否 | UTC | 数据库服务器会话时区。 |
@@ -128,7 +131,7 @@ GaussDB CDC 暴露以下元数据字段，可配合 `Metadata` transform 使用�
 | database | STRING | 源端数据库名称。 |
 | table | STRING | 源端表名。 |
 | rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源端事件时间戳，单位为毫秒。 |
+| ts_ms | LONG | 源端事件时间戳，单位为毫秒。使用 `mppdb_decoding` 时，该值为读取器释放已提交事务的时间，而非数据库提交时间，因此积压变更的延迟会被低估。 |
 | delay | LONG | 事件时间与处理时间之间的延迟，单位为毫秒。 |
 
 ## Changelog
