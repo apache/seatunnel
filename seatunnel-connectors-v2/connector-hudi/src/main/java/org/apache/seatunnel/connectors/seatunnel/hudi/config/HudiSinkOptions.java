@@ -62,6 +62,20 @@ public class HudiSinkOptions {
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data save mode");
 
+    public static Option<HudiSemantics> SEMANTICS =
+            Options.key("semantics")
+                    .enumType(HudiSemantics.class)
+                    .defaultValue(HudiSemantics.AT_LEAST_ONCE)
+                    .withDescription(
+                            "The write semantics of the sink, AT_LEAST_ONCE or EXACTLY_ONCE, "
+                                    + "default AT_LEAST_ONCE. "
+                                    + "AT_LEAST_ONCE commits every flushed batch immediately, the data is visible "
+                                    + "as soon as it is flushed, but a retried job can commit duplicated records. "
+                                    + "EXACTLY_ONCE writes the records into a Hudi instant and commits the instant "
+                                    + "only after the checkpoint that contains it completes, which gives exactly-once "
+                                    + "semantics, the trade-off is that the data is visible only after a checkpoint "
+                                    + "completes. EXACTLY_ONCE requires the checkpoint to be enabled.");
+
     public static Option<String> TABLE_NAME =
             Options.key("table_name")
                     .stringType()
