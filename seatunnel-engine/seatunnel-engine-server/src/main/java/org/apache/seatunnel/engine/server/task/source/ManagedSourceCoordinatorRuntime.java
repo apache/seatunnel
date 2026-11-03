@@ -1189,6 +1189,15 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
                 && reader.inFlightCommand.getKind() == SourceCommandKind.NO_MORE_SPLITS) {
             pendingApplicationAcks.remove(reader.inFlightCommand.getCommandId());
         }
+        // Retry bookkeeping belongs to one transport attempt towards this Reader attempt. Replay
+        // to a replacement Reader reuses the logical command id, so stale entries would hand the
+        // new delivery an already elapsed retry deadline.
+        reader.pendingOutbound.stream()
+                .map(SourceCommandEnvelope::getCommandId)
+                .forEach(this::clearTransportRetryState);
+        if (reader.inFlightCommand != null) {
+            clearTransportRetryState(reader.inFlightCommand.getCommandId());
+        }
         if (reader.outboundBytes > 0) {
             outboundMemoryBudget.release(reader.outboundBytes);
         }
@@ -1204,6 +1213,11 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
         reader.outboundBytes = 0L;
         reader.normalOutboundCommands = 0;
         reader.normalOutboundBytes = 0L;
+    }
+
+    private void clearTransportRetryState(String commandId) {
+        transportRetries.remove(commandId);
+        transportFirstAttemptNanos.remove(commandId);
     }
 
     private void handleTransportResult(
