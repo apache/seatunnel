@@ -142,7 +142,7 @@ class PaimonFlinkBucketRoutingTest {
         try (Fixture fixture = new Fixture(1, 1)) {
             JobClient client = fixture.submit(writers, changesAfterCheckpoint, true, sourceWriters);
             try {
-                fixture.awaitRows(client);
+                fixture.awaitRows(client, sourceWriters);
                 assertTrue(fixture.progress.completedInitial.containsKey(0));
                 assertEquals(sourceWriters, fixture.progress.completedInitial.size());
                 fixture.assertRows();
@@ -371,6 +371,10 @@ class PaimonFlinkBucketRoutingTest {
         }
 
         private void awaitRows(JobClient client) throws Exception {
+            awaitRows(client, 0);
+        }
+
+        private void awaitRows(JobClient client, int expectedCompletedSources) throws Exception {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
             while (System.nanoTime() < deadline) {
                 if (client.getJobExecutionResult().isDone()) {
@@ -384,7 +388,9 @@ class PaimonFlinkBucketRoutingTest {
                             expectedRows(entry.getKey())
                                     .equals(readRows(entry.getValue(), entry.getKey()));
                 }
-                if (complete) {
+                if (complete
+                        && (expectedCompletedSources == 0
+                                || progress.completedInitial.size() == expectedCompletedSources)) {
                     return;
                 }
                 TimeUnit.MILLISECONDS.sleep(50);

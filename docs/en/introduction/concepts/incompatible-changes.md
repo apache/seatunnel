@@ -795,17 +795,7 @@ or state format migration is required.
   - **Migration Guide**: Set `multi_table_sink_replica = 1`, separate fixed and non-fixed bucket
     sink definitions, and merge source streams before one sink when they target the same physical
     table.
-- **Behavior change: part of the engine startup log output changes**
-  - **Affected component**: `seatunnel-engine-server` (`SeaTunnelServer`,
-    `AbstractResourceManager`, `StandaloneResourceManager`); only log-based monitoring is affected.
-  - **Description**: The `SeaTunnel server start...`, `Init ResourceManager` and `initWorker... `
-    lines are no longer written. Worker synchronisation now logs
-    `Synchronizing existing worker profiles`, and the standalone resource manager logs
-    `Init standalone ResourceManager`.
-  - **Impact**: Alerting or log parsing that matches the old text stops matching; runtime behaviour
-    and the cluster lifecycle are unchanged.
-  - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
-    of the exact text.
+
 ### Transform Changes
 
 - DataValidator transform: In `row_error_handle_way = ROUTE_TO_TABLE` mode, the routed error row `table_id` now includes the upstream database/schema prefix (for example, `db1.ffp` / `db1.schema1.ffp` instead of `ffp`).

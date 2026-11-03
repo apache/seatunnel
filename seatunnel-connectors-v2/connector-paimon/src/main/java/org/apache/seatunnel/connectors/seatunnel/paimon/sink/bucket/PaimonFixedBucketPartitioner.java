@@ -27,7 +27,12 @@ import org.apache.paimon.table.sink.FixedBucketWriteSelector;
 
 import java.util.Optional;
 
-/** Routes records for a fixed-bucket Paimon table to their unique writer owner. */
+/**
+ * Routes records for a fixed-bucket Paimon table to their unique writer owner. The source row type
+ * and target table schema are snapshots captured during sink initialization. The caller must supply
+ * the positive writer count resolved for that sink. Rebuild the partitioner if either schema or the
+ * writer count changes; an existing instance does not adapt to schema changes or rescaling.
+ */
 public class PaimonFixedBucketPartitioner implements SinkDataPartitioner<SeaTunnelRow> {
 
     private static final long serialVersionUID = 1L;
