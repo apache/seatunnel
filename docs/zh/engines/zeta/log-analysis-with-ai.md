@@ -46,7 +46,7 @@ SeaTunnel 默认将进程日志写入 `$SEATUNNEL_HOME/logs`。集群启动脚�
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-master.log" \
+grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log   # seatunnel-engine-server.log (hybrid) / -master.log / -worker.log (separated) \
   "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
 ```
 

@@ -55,7 +55,7 @@ When logs are mixed, use the `ST-JID` value to select one job. For example:
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-master.log" \
+grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log   # seatunnel-engine-server.log (hybrid) / -master.log / -worker.log (separated) \
   "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
 ```
 

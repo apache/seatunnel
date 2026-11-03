@@ -271,7 +271,8 @@ namespace disk usage grows with the state transition history; plan a few GB per 
 cluster and monitor it with:
 
 ```bash
-du -sh /tmp/seatunnel/imap/   # your configured MapStore namespace
+du -sh /tmp/seatunnel/imap/   # local file storage (fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
 ```
 
 ---

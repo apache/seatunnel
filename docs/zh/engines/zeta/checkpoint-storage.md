@@ -309,7 +309,7 @@ seatunnel:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
-          // 如果您使用kerberos，您可以这样配置:
+          # 如果您使用kerberos，您可以这样配置:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
 ```
