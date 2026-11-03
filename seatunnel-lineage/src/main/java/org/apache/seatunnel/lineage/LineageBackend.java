@@ -26,10 +26,12 @@ public interface LineageBackend {
     /**
      * Emits one already-built lineage event.
      *
-     * <p>May block the calling thread synchronously; an implementation that retries against {@code
-     * config.timeoutMs()} and {@code config.retryTimes()} can block for up to {@code (retryTimes +
-     * 1) * timeoutMs} in the worst case (a receiver that neither responds nor refuses the
-     * connection). Callers on a latency-sensitive thread should account for that bound.
+     * <p>May block the calling thread synchronously. HTTP implementations typically apply {@code
+     * config.timeoutMs()} as per-phase inactivity limits (connection request, connect, and socket
+     * read), not as one wall-clock deadline for the whole send. Retries and backoff sleeps add
+     * further delay, so {@code (retryTimes + 1) * timeoutMs} is not a hard total abort bound.
+     * Callers on a latency-sensitive thread should isolate delivery and treat these settings as
+     * best-effort limits.
      */
     void emit(LineageConfig config, LineageEvent event) throws Exception;
 }
