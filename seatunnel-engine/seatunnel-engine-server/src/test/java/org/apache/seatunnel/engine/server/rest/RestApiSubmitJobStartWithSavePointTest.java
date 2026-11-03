@@ -78,6 +78,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
     private static final String SOURCE_FACTORY_ID = "FakeSource";
     private static final String TEST_JOB_NAME = "test";
     private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
+    // The two members can share HttpConfig; each needs its own HTTP listener port.
+    private static final int HTTP_PORT_COUNT = 2;
 
     private HazelcastInstanceImpl masterInstance;
     private HazelcastInstanceImpl workerInstance;
@@ -94,7 +96,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
         checkpointDir = Files.createTempDirectory(clusterName + "_checkpoint_");
 
         SeaTunnelConfig masterConfig = createSeaTunnelConfig(clusterName, 20000, false);
-        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, 23000, true);
+        int workerHttpPort = TestUtils.getAvailablePort(HTTP_PORT_COUNT);
+        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, workerHttpPort, true);
 
         masterInstance = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig);
         workerInstance = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig);
@@ -564,7 +567,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
         if (enableRest) {
             httpConfig.setPort(httpPort);
             httpConfig.setEnableDynamicPort(true);
-            httpConfig.setPortRange(2000);
+            // Jetty includes the upper endpoint of the range.
+            httpConfig.setPortRange(HTTP_PORT_COUNT - 1);
         }
 
         if (checkpointDir != null) {
