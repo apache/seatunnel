@@ -5,6 +5,19 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### MySQL-CDC: checkpoints with runtime-registered tables cannot be downgraded
+
+- **Affected jobs**: MySQL-CDC jobs that set `scan.binlog.newly-added-table.enabled = true` and
+  register tables created after the job started (for example, a JDBC sink with
+  `table = "${database_name}_${table_name}"`).
+- **Behavior change**: `MultiTableState` checkpoints now also carry the runtime-registered table
+  metadata and writer state. Old-format checkpoints still restore, with an empty runtime-table list.
+  A checkpoint that already contains runtime-registered tables cannot be restored by a version
+  without this feature.
+- **Migration**: jobs that keep the option disabled (the default) are unaffected. Before enabling
+  it, keep a pre-upgrade checkpoint or savepoint and enough binlog retention to replay from it if
+  a rollback is needed. See [MySQL CDC](../../connectors/source/MySQL-CDC.md).
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

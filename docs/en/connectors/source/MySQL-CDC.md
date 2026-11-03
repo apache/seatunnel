@@ -268,6 +268,7 @@ source {
 sink {
   Jdbc {
     url = "jdbc:mysql://localhost:3306/sink"
+    driver = "com.mysql.cj.jdbc.Driver"
     username = "sink_writer"
     password = "******"
     database = "sink"
