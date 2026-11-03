@@ -21,6 +21,8 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -31,7 +33,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /** Non-secret lifecycle metadata on the durable owner Job, protected by namespace RBAC. */
-@lombok.extern.slf4j.Slf4j
+@Slf4j
 public final class HaApplicationState {
     public static final String ENABLED = "seatunnel.apache.org/ha";
     public static final String INTENT = "seatunnel.apache.org/submission";

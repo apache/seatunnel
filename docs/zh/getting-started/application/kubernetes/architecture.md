@@ -128,7 +128,8 @@ owner 不再是仅观察元数据的进程，它接收作业配置、所需环�
 - 首次提交等待两个 Master 和固定数量 Worker。Master 替换不会重新提交作业，也不会补充 Worker。
   原生接管保留相同作业 ID。
 - 提交意图通过 owner UID 和 resourceVersion 记录一次。提交确认丢失时只观察原有作业 ID，不能重提。
-  `UNKNOWABLE`、连接异常或历史记录缺失均不表示成功；原生恢复无法完成时可能需要显式取消应用。
+  `UNKNOWABLE`、连接异常或历史记录缺失均不表示成功。原生恢复无法完成时，owner 和剩余 Worker
+  可能一直运行，必须通过 application `cancel` 释放；未知状态不能触发自动重新提交。
 - 原生 `FINISHED`/`SAVEPOINT_DONE`、`FAILED`、`CANCELED` 先持久化，再清理计算资源。
   API 删除失败会重试，清理同时校验 owner UID 和资源 UID，只删除本应用生成的资源。
   用户 PVC 和引用配置不删除；生成的挂载配置保留至 owner Job TTL。
@@ -144,11 +145,49 @@ Kubernetes 在配置 TTL 到期后回收其依赖，显式取消可以提前删�
 两个 Master 不提供 quorum 或分区写入 fencing。严格网络分区保护、同时丢失两个 Master、
 Worker 补充、弹性扩缩、YARN HA 和连接器 fencing 均不在范围内。
 
+### 原生恢复依赖
+
+Application HA 使用未修改的 Zeta 原生引擎，并继承其恢复限制；构建和运行不依赖独立的实验性引擎分支。
+Pod 丢失和恢复测试并不能证明所有终态回调重放、checkpoint 计数器或存储读取竞争、旧执行轮次报告、
+接管初始化时序都安全。
+
+相关引擎工作由 [#12558](https://github.com/apache/seatunnel/issues/12558) 和
+[#12117](https://github.com/apache/seatunnel/issues/12117) 单独跟踪，只覆盖部分 checkpoint 状态协调和
+coordinator 生命周期隔离问题，未覆盖上述全部恢复场景。如果在本功能支持的路径中复现引擎正确性缺陷，
+必须通过独立引擎修复解决后才能声明该路径安全；仅调整部署的范围并不免除此要求。
+
 ### HA 权限
 
-提交端需要创建 Job、StatefulSet、Pod、Service 及生成的 Secret/ConfigMap，并具备现有回滚权限。
-仅 owner 需要读取/patch 自己的 Job、读取/list Pod/StatefulSet/Service，以及删除自身计算资源和
-Service 的权限。RBAC 限定 namespace，不需要集群级权限。
+提交端和 owner 使用独立的 namespace 级身份；Master 和 Worker 不得获得 owner Role 或 Kubernetes API
+令牌，无需集群级权限。HA 集成测试使用以下同一份权限清单：
+
+- [提交端 Role](../../../../en/getting-started/application/kubernetes/ha-submitter-role.yaml)：
+  Job `create/get/patch/delete`、Pod `create/list/delete/deletecollection`、StatefulSet `create`、
+  Service `create/get`，以及生成的 Secret/ConfigMap `create`。Pod 删除权限用于 owner 缺失时的取消清理。
+  HA 部署部分失败时按 UID 删除已确认的 owner Job，由 Kubernetes 回收其依赖，因此回滚无需子资源
+  `get/delete` 权限。
+  引用对象的 Secret/ConfigMap `get` 是可选的校验权限，建议通过 `resourceNames` 限定到需校验的对象；
+  缺少此权限时只发出警告，由 Kubernetes 校验挂载。
+- [owner Role](../../../../en/getting-started/application/kubernetes/ha-owner-role.yaml)：
+  Job `get/patch`、Pod `list/delete`、StatefulSet `get/delete`、Service `list/delete`。
+  owner 不创建 Worker，也不通过 API 读取 Secret/ConfigMap；所需文件通过 Pod 挂载提供。
+
+单 Master 和 HA application 的 `cancel` 都先读取 owner Job，因此调用方除了 `delete` 还需要 Job `get`。
+读取被拒绝时取消操作失败，不退回无 UID 校验的删除。HA `retrieve` 还需要 Service `get` 以发现 ClusterIP。
+
+管理员在提交前应用并绑定 Role，根据目标部署替换 `seatunnel-apps`、`SUBMITTER` 和 owner ServiceAccount：
+
+```bash
+kubectl -n seatunnel-apps apply -f ha-submitter-role.yaml -f ha-owner-role.yaml
+kubectl -n seatunnel-apps create rolebinding seatunnel-submitter \
+  --role=seatunnel-application-submitter --user=SUBMITTER
+kubectl -n seatunnel-apps create serviceaccount application
+kubectl -n seatunnel-apps create rolebinding seatunnel-owner \
+  --role=application --serviceaccount=seatunnel-apps:application
+```
+
+设置 `kubernetes.service-account = application` 使用该 owner 身份。上述 Role 不授予 RBAC 管理或用户 PVC
+创建权限，这些资源仍由管理员负责。
 
 ### 验收
 

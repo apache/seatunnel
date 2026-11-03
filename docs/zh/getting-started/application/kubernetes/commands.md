@@ -50,6 +50,8 @@ Status: RUNNING
 
 ## cancel
 
+调用方除了 `delete` 还需要 Job `get`，单 Master 取消也适用；参见 [HA 权限](architecture.md#ha-权限)。
+
 单 Master 和 HA application 的 `cancel` 删除 owner Job，自有 Pod、Service、Secret 和 ConfigMap 通过 owner reference 回收，引用的用户资源保持不变。HA 使用 UID 前置条件；单 Master 在 owner Job 缺失时仍保留优雅清理行为。删除请求被接受后命令输出 `Cancellation requested`。同一客户端 handle 返回 `CANCELED`；删除后新 handle 返回 `UNKNOWN`。可以用 `kubectl` 确认 Pod 已经消失。如果 API 调用失败，请在 API 恢复后重试 `cancel`。若通过原生引擎而非 application 命令取消，终态 Job 可以保留至 TTL 到期。
 
 ## 用 kubectl 排查

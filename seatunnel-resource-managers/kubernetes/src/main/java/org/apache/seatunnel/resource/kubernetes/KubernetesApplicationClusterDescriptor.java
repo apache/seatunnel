@@ -104,7 +104,10 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         if (parameters.isHaEnabled()) {
             KubernetesHaClient.require(api);
         }
-        String id = KubernetesResourceIdentity.newId(specification.getName());
+        String id =
+                parameters.isHaEnabled()
+                        ? KubernetesResourceIdentity.newHaId(specification.getName())
+                        : KubernetesResourceIdentity.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         validateUserManagedResources(parameters, id);
         List<KubernetesResource<?>> application = assembleApplication(id, mainClass, parameters);

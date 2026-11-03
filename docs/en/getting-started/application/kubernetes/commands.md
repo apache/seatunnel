@@ -55,6 +55,8 @@ reached, while the default `0` keeps waiting indefinitely; `--wait-interval` set
 
 ## cancel
 
+The caller needs Job `get` as well as `delete`, including single-master cancellation; see [HA permissions](architecture.md#ha-permissions).
+
 For single-master and HA applications, `cancel` deletes the owner Job. Owned Pods, Services, Secrets and ConfigMaps are garbage-collected through owner references; referenced user resources are preserved. HA uses a UID precondition, and single-master mode retains graceful cleanup when the owner Job is missing. The command reports `Cancellation requested` once deletion is accepted. The same client handle reports `CANCELED`; a fresh handle sees `UNKNOWN` after deletion. Use `kubectl` to confirm that the Pods are gone. If an API call fails, retry `cancel` after the outage is resolved. Cancellation through the native engine instead of the application command can leave a terminal Job until its retention TTL.
 
 ## Inspecting in Kubernetes

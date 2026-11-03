@@ -137,7 +137,8 @@ Masters and workers do not mount Kubernetes API tokens; only the owner needs in-
 - Submission intent is recorded once using the owner UID and resource version. A lost submit
   acknowledgement is ambiguous: observe the existing job ID, never execute it again. Native
   `UNKNOWABLE`, a transport error or missing history is not a terminal success. If native recovery
-  cannot recover the job, explicit application cancellation can be required.
+  cannot recover the job, the owner and remaining workers can keep running indefinitely. Run
+  application `cancel` to release them; an unknown status never permits automatic resubmission.
 - Native `FINISHED`/`SAVEPOINT_DONE`, `FAILED` and `CANCELED` results are persisted before cleanup.
   Cleanup retries API deletion failures and removes only generated resources owned by the observed
   owner UID, with individual resource UID preconditions. User PVCs and referenced configuration
@@ -158,12 +159,55 @@ budgets and sink correctness are unchanged. Two masters do not provide quorum or
 writers. Strict network-partition protection, simultaneous loss of both masters, worker replacement,
 autoscaling, YARN HA and connector fencing are outside this feature.
 
+### Native recovery dependency
+
+Application HA uses the unchanged native Zeta engine and inherits its recovery limitations; no
+separate experimental engine branch is required to build or run it. The Pod-loss and restore
+checks do not establish safety for every terminal-callback replay, checkpoint-counter or storage
+read race, stale-attempt report, or takeover-initialization interleaving.
+
+Related engine work is tracked separately in [#12558](https://github.com/apache/seatunnel/issues/12558)
+and [#12117](https://github.com/apache/seatunnel/issues/12117). These cover parts of checkpoint-state
+coordination and coordinator lifecycle separation, not all the recovery cases above. An engine
+correctness defect reproduced on this feature's supported path must be resolved independently
+before that path can be considered safe; the deployment-only scope does not waive that requirement.
+
 ### HA permissions
 
-The submitter needs `create` for Jobs, StatefulSets, Pods, Services and generated Secrets/ConfigMaps,
-plus the existing rollback permissions. Only the owner needs in-cluster `get`/`patch` for its Job,
-`get`/`list` for Pods/StatefulSets/Services, and `delete` for owned compute and Services. RBAC remains
-namespace scoped; no cluster-scoped permissions are required.
+Use separate namespace-scoped identities for the submitter and the owner; masters and workers
+must not receive the owner Role or a Kubernetes API token. No cluster-scoped permissions are needed.
+The following manifests are also used by the HA integration tests:
+
+- [Submitter Role](./ha-submitter-role.yaml): Job `create/get/patch/delete`, Pod
+  `create/list/delete/deletecollection`, StatefulSet `create`, Service `create/get`, and generated
+  Secret/ConfigMap `create`. The Pod deletion permissions retain cancellation cleanup when the
+  owner is absent. Partial HA deployment rollback deletes the acknowledged owner Job by UID;
+  Kubernetes garbage collection removes its dependents, so child `get/delete` permissions are not
+  required for that rollback. Secret/ConfigMap `get` is optional for validating referenced objects; add it
+  with `resourceNames` limited to the references to validate. Without it, validation warns and
+  leaves mount validation to Kubernetes.
+- [Owner Role](./ha-owner-role.yaml): Job `get/patch`, Pod `list/delete`, StatefulSet `get/delete`,
+  and Service `list/delete`. The owner does not create workers or read Secrets/ConfigMaps through
+  the API; required files are mounted into its Pod.
+
+Both single-master and HA application `cancel` first read the owner Job, so the caller needs Job
+`get` as well as `delete`. A forbidden read fails cancellation instead of falling back to an
+unscoped delete. HA `retrieve` also needs Service `get` to discover the ClusterIP endpoint.
+
+An administrator applies and binds these Roles before submission, replacing `seatunnel-apps`,
+`SUBMITTER` and the owner ServiceAccount name for the target deployment:
+
+```bash
+kubectl -n seatunnel-apps apply -f ha-submitter-role.yaml -f ha-owner-role.yaml
+kubectl -n seatunnel-apps create rolebinding seatunnel-submitter \
+  --role=seatunnel-application-submitter --user=SUBMITTER
+kubectl -n seatunnel-apps create serviceaccount application
+kubectl -n seatunnel-apps create rolebinding seatunnel-owner \
+  --role=application --serviceaccount=seatunnel-apps:application
+```
+
+Set `kubernetes.service-account = application` to use that owner identity. These Roles do not grant
+permission to manage RBAC or provision user PVCs; administrators retain those responsibilities.
 
 ### Acceptance checks
 

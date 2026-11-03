@@ -740,11 +740,27 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run resource managers integration tests
         run: |
-          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false \
+          # Select provider tests only; dependencies in the reactor still skip their unit suites.
+          ./mvnw -T 1 -B verify -DskipUT=false -DskipIT=false \
+            '-Dtest=org.apache.seatunnel.resource.kubernetes.**.*Test' \
+            -Dsurefire.failIfNoSpecifiedTests=false \
             -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates \
             -pl :seatunnel-resource-managers-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: require Kubernetes provider unit test execution
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          reports = pathlib.Path('seatunnel-resource-managers/kubernetes/target/surefire-reports')
+          suites = [ET.parse(path).getroot() for path in reports.glob('TEST-*.xml')]
+          executed = sum(int(s.get('tests', 0)) - int(s.get('skipped', 0)) for s in suites)
+          assert executed > 0, 'Kubernetes provider unit tests did not execute'
+          assert all(int(s.get('failures', 0)) == 0 and int(s.get('errors', 0)) == 0 for s in suites)
+          print(f'Kubernetes provider unit tests executed: {executed}')
+          PY
       - name: Upload test reports
         if: failure()
         uses: ./.github/actions/upload-test-reports

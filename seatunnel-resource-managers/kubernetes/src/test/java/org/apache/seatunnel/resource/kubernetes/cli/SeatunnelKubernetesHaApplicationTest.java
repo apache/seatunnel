@@ -36,11 +36,13 @@ import org.junit.jupiter.api.Test;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -338,6 +340,105 @@ class SeatunnelKubernetesHaApplicationTest {
         assertThrows(
                 KubernetesClientException.class,
                 () -> HaApplicationState.recordRunning(api, owner("1", "requested", null)));
+        verify(api, never()).deleteHaResources(any());
+    }
+
+    @Test
+    void terminalCleanupRetriesAnUnavailableOwnerRead() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob completed = owner("1", "requested", "SUCCEEDED");
+        when(api.getJob("app"))
+                .thenReturn(completed)
+                .thenThrow(new KubernetesClientException(503, "API temporarily unavailable"))
+                .thenReturn(completed);
+        when(api.listPods(any())).thenReturn(Collections.emptyList());
+        SeatunnelKubernetesHaApplication.NativeJob job =
+                mock(SeatunnelKubernetesHaApplication.NativeJob.class);
+        SeatunnelKubernetesHaApplication.runApplication(
+                api, "app", "uid", "immutable-spec", parameters().getSpecification(), job);
+        verify(job, never()).submit();
+        verify(api).deleteHaResources(completed);
+        assertEquals(ApplicationStatus.SUCCEEDED, HaApplicationState.terminal(completed));
+    }
+
+    @Test
+    void terminalCleanupBacksOffAcrossReadAndDeleteFailures() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob completed = owner("1", "requested", "SUCCEEDED");
+        AtomicInteger reads = new AtomicInteger();
+        when(api.getJob("app"))
+                .thenAnswer(
+                        call -> {
+                            if (reads.incrementAndGet() <= 3) {
+                                throw new KubernetesClientException(503, "API unavailable");
+                            }
+                            return completed;
+                        });
+        AtomicInteger deletes = new AtomicInteger();
+        doAnswer(
+                        call -> {
+                            if (deletes.incrementAndGet() <= 4) {
+                                throw new KubernetesClientException(403, "permission revoked");
+                            }
+                            return null;
+                        })
+                .when(api)
+                .deleteHaResources(completed);
+        when(api.listPods(any())).thenReturn(Collections.emptyList());
+        List<Long> delays = new ArrayList<>();
+        SeatunnelKubernetesHaApplication.finish(
+                api, "app", "uid", "immutable-spec", 17, delays::add);
+        assertEquals(List.of(1L, 2L, 4L, 8L, 16L, 30L, 30L), delays);
+        verify(api, times(5)).deleteHaResources(completed);
+        assertEquals(ApplicationStatus.SUCCEEDED, HaApplicationState.terminal(completed));
+    }
+
+    @Test
+    void terminalCleanupDoesNotRetryReplacedMissingOrNonterminalOwners() {
+        for (String state : List.of("replaced", "missing", "nonterminal")) {
+            KubernetesHaClient api = mock(KubernetesHaClient.class);
+            KubernetesJob current = owner("1", "requested", "SUCCEEDED");
+            if ("replaced".equals(state)) {
+                current.getInternalResource().getMetadata().setUid("replacement");
+            } else if ("nonterminal".equals(state)) {
+                current.getInternalResource()
+                        .getMetadata()
+                        .getAnnotations()
+                        .put(HaApplicationState.STATUS, "RUNNING");
+            }
+            if ("missing".equals(state)) {
+                when(api.getJob("app"))
+                        .thenThrow(new KubernetesClientException(404, "owner deleted"));
+            } else {
+                when(api.getJob("app")).thenReturn(current);
+            }
+            List<Long> delays = new ArrayList<>();
+            assertThrows(
+                    RuntimeException.class,
+                    () ->
+                            SeatunnelKubernetesHaApplication.finish(
+                                    api, "app", "uid", "immutable-spec", 17, delays::add));
+            assertTrue(delays.isEmpty());
+            verify(api, never()).deleteHaResources(any());
+        }
+    }
+
+    @Test
+    void terminalCleanupPropagatesInterruptedRetryWithoutDeletingCompute() {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        when(api.getJob("app")).thenThrow(new KubernetesClientException(503, "API unavailable"));
+        assertThrows(
+                InterruptedException.class,
+                () ->
+                        SeatunnelKubernetesHaApplication.finish(
+                                api,
+                                "app",
+                                "uid",
+                                "immutable-spec",
+                                17,
+                                seconds -> {
+                                    throw new InterruptedException("stop cleanup");
+                                }));
         verify(api, never()).deleteHaResources(any());
     }
 

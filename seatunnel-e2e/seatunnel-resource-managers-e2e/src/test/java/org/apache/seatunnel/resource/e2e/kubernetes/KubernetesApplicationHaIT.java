@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.resource.kubernetes.KubernetesApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import io.kubernetes.client.Exec;
+import io.kubernetes.client.custom.Quantity;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.apis.RbacAuthorizationV1Api;
 import io.kubernetes.client.openapi.models.V1Container;
@@ -39,9 +45,15 @@ import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim;
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaimVolumeSource;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1ResourceQuota;
+import io.kubernetes.client.openapi.models.V1ResourceQuotaSpec;
 import io.kubernetes.client.openapi.models.V1Role;
+import io.kubernetes.client.openapi.models.V1RoleBinding;
+import io.kubernetes.client.openapi.models.V1RoleRef;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V1ServiceAccount;
+import io.kubernetes.client.openapi.models.V1Subject;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 import io.kubernetes.client.util.Yaml;
@@ -49,6 +61,8 @@ import io.kubernetes.client.util.Yaml;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -66,9 +80,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Provider deployment through the unchanged native Zeta client, election and recovery paths. */
@@ -79,9 +96,22 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
     private String pvcUid;
     private String secretUid;
     private String runtimeUid;
+    private V1Role legacyRole;
 
     @Override
     protected void startScenarioFixtures() throws Exception {
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        legacyRole = rbac.readNamespacedRole("application", namespace, null);
+        // Exercise the documented owner Role, without legacy worker-creation permissions.
+        V1Role ownerRole =
+                Yaml.loadAs(
+                        Paths.get(
+                                        PROJECT_ROOT_PATH,
+                                        "docs/en/getting-started/application/kubernetes/ha-owner-role.yaml")
+                                .toFile(),
+                        V1Role.class);
+        ownerRole.getMetadata().setResourceVersion(legacyRole.getMetadata().getResourceVersion());
+        rbac.replaceNamespacedRole("application", namespace, ownerRole, null, null, null, null);
         V1PersistentVolumeClaim claim =
                 Yaml.loadAs(suiteFile("checkpoints-pvc.yaml"), V1PersistentVolumeClaim.class);
         claim.getMetadata().setName(CLAIM);
@@ -161,11 +191,155 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
 
     @Override
     protected void stopScenarioFixtures() throws Exception {
-        core.deleteNamespacedPod(INSPECTOR, namespace, null, null, 0, null, "Background", null);
-        core.deleteNamespacedSecret(
-                "ha-user-secret", namespace, null, null, null, null, "Background", null);
-        core.deleteNamespacedPersistentVolumeClaim(
-                CLAIM, namespace, null, null, null, null, "Background", null);
+        try {
+            core.deleteNamespacedPod(INSPECTOR, namespace, null, null, 0, null, "Background", null);
+            core.deleteNamespacedSecret(
+                    "ha-user-secret", namespace, null, null, null, null, "Background", null);
+            core.deleteNamespacedPersistentVolumeClaim(
+                    CLAIM, namespace, null, null, null, null, "Background", null);
+        } finally {
+            if (legacyRole != null) {
+                RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+                legacyRole
+                        .getMetadata()
+                        .setResourceVersion(
+                                rbac.readNamespacedRole("application", namespace, null)
+                                        .getMetadata()
+                                        .getResourceVersion());
+                rbac.replaceNamespacedRole(
+                        "application", namespace, legacyRole, null, null, null, null);
+            }
+        }
+    }
+
+    @Test
+    void documentedRolesCanSubmitRetrieveAndCancel() throws Exception {
+        String account = "ha-submitter";
+        core.createNamespacedServiceAccount(
+                namespace,
+                new V1ServiceAccount().metadata(new V1ObjectMeta().name(account)),
+                null,
+                null,
+                null,
+                null);
+        RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
+        V1Role role =
+                Yaml.loadAs(
+                        Paths.get(
+                                        PROJECT_ROOT_PATH,
+                                        "docs/en/getting-started/application/kubernetes/ha-submitter-role.yaml")
+                                .toFile(),
+                        V1Role.class);
+        rbac.createNamespacedRole(namespace, role, null, null, null, null);
+        rbac.createNamespacedRoleBinding(
+                namespace,
+                new V1RoleBinding()
+                        .metadata(new V1ObjectMeta().name(account))
+                        .roleRef(
+                                new V1RoleRef()
+                                        .apiGroup("rbac.authorization.k8s.io")
+                                        .kind("Role")
+                                        .name(role.getMetadata().getName()))
+                        .subjects(
+                                Collections.singletonList(
+                                        new V1Subject()
+                                                .kind("ServiceAccount")
+                                                .name(account)
+                                                .namespace(namespace))),
+                null,
+                null,
+                null,
+                null);
+        Path credentials = serviceAccountKubeconfig(account);
+        try {
+            Map<String, String> options = new HashMap<>(haOptions());
+            options.put(KubernetesOptions.KUBE_CONFIG.key(), credentials.toString());
+            ApplicationSpecification specification =
+                    SeatunnelApplicationConfig.parse(
+                            scenarioFile("ha", "job.conf").toPath(), options);
+            try (ClusterDescriptor<String> submitter =
+                            new KubernetesApplicationClusterDescriptorFactory().create(options);
+                    KubernetesApplicationClient application =
+                            deployApplication(specification, options)) {
+                try {
+                    awaitProgress(application, specification.getJobId(), -1);
+                    assertEquals(
+                            ApplicationStatus.RUNNING,
+                            submitter.getApplicationStatus(application.getClusterId()));
+                    assertNotNull(submitter.retrieve(application.getClusterId()));
+                    submitter.cancelApplication(application.getClusterId());
+                    Awaitility.await()
+                            .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                            .untilAsserted(() -> assertAllResourcesRemoved(application));
+                    assertUserResourcesPreserved();
+                } catch (Exception | AssertionError failure) {
+                    recordApplicationDiagnostics(application, null);
+                    throw failure;
+                } finally {
+                    cancelAndAwait(application);
+                }
+            }
+            assertRestrictedSubmissionRollback(options, specification);
+        } finally {
+            Files.deleteIfExists(credentials);
+        }
+    }
+
+    private void assertRestrictedSubmissionRollback(
+            Map<String, String> options, ApplicationSpecification specification) throws Exception {
+        String quota = "ha-submitter-rollback";
+        core.createNamespacedResourceQuota(
+                namespace,
+                new V1ResourceQuota()
+                        .metadata(new V1ObjectMeta().name(quota))
+                        .spec(
+                                new V1ResourceQuotaSpec()
+                                        .hard(
+                                                Collections.singletonMap(
+                                                        "count/statefulsets.apps",
+                                                        new Quantity("0")))),
+                null,
+                null,
+                null,
+                null);
+        try {
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(
+                            () -> {
+                                V1ResourceQuota current =
+                                        core.readNamespacedResourceQuota(quota, namespace, null);
+                                return current.getStatus() != null
+                                        && current.getStatus().getHard() != null;
+                            });
+            try (ClusterDescriptor<String> submitter =
+                    new KubernetesApplicationClusterDescriptorFactory().create(options)) {
+                // Services and mounted configuration precede the StatefulSet. A quota rejection
+                // therefore exercises rollback after partial creation with the documented Role.
+                KubernetesClientException rejected =
+                        assertThrows(
+                                KubernetesClientException.class,
+                                () -> submitter.deployApplication(specification));
+                assertEquals(403, rejected.getCode());
+                assertTrue(rejected.getCause().getMessage().contains("exceeded quota"));
+                assertEquals(0, rejected.getCause().getSuppressed().length);
+                Matcher identity =
+                        Pattern.compile(
+                                        "Kubernetes application deployment failed for ([a-z0-9-]+) \\(HTTP 403\\)")
+                                .matcher(rejected.getMessage());
+                assertTrue(identity.matches(), "The rejected application identity is required");
+                try (KubernetesClient observer =
+                                KubernetesClientFactory.create(haOptions(), false);
+                        KubernetesApplicationClient failed =
+                                new KubernetesApplicationClient(observer, identity.group(1))) {
+                    awaitHaClean(failed);
+                    assertUserResourcesPreserved();
+                }
+            }
+        } finally {
+            core.deleteNamespacedResourceQuota(
+                    quota, namespace, null, null, 0, null, "Background", null);
+        }
     }
 
     @ParameterizedTest
@@ -366,6 +540,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 .filter(rule -> rule.getApiGroups().contains("apps"))
                 .forEach(rule -> rule.setVerbs(Collections.singletonList("get")));
         Map<String, String> options = new HashMap<>(haOptions());
+        options.put("application.name", "daily-order-sync-mysql-to-clickhouse");
         ApplicationSpecification identity =
                 SeatunnelApplicationConfig.parse(scenarioFile("ha", "job.conf").toPath(), options);
         options.put("application.job-id", Long.toString(identity.getJobId()));

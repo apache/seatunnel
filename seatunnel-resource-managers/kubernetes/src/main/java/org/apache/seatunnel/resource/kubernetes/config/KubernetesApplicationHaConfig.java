@@ -46,7 +46,9 @@ public final class KubernetesApplicationHaConfig {
         SeatunnelApplicationConfig.configure(
                 config, clusterName, worker ? addresses.get(0) : null, slots);
         config.getEngineConfig().setBackupCount(backups);
+        // Materialize the default map so future native maps inherit the same backup policy.
         config.getHazelcastConfig().getMapConfig("default");
+        // Exactly two masters retain one synchronous copy; async replicas cannot replace it.
         config.getHazelcastConfig()
                 .getMapConfigs()
                 .values()

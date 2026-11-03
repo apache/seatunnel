@@ -66,11 +66,13 @@ import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
+import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.Yaml;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -176,6 +178,62 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Returns one of the files a scenario keeps under {@code test/resources/kubernetes/<name>}. */
     protected static File scenarioFile(String scenario, String name) {
         return getResourcesFile("/kubernetes/" + scenario + "/" + name);
+    }
+
+    /** Creates short-lived, token-only credentials while retaining the disposable cluster's CA. */
+    protected static Path serviceAccountKubeconfig(String serviceAccount) throws Exception {
+        Container.ExecResult issued =
+                execInCluster(
+                        "kubectl",
+                        "create",
+                        "token",
+                        serviceAccount,
+                        "--namespace=" + namespace,
+                        "--duration=1h");
+        assertEquals(0, issued.getExitCode(), "Cannot issue the fixture ServiceAccount token");
+        KubeConfig cluster;
+        try (Reader input = Files.newBufferedReader(kubeconfig, StandardCharsets.UTF_8)) {
+            cluster = KubeConfig.loadKubeConfig(input);
+        }
+        Map<String, Object> configuration = new HashMap<>();
+        configuration.put("apiVersion", "v1");
+        configuration.put("kind", "Config");
+        configuration.put("current-context", "fixture");
+        configuration.put(
+                "clusters",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "cluster",
+                                Map.of(
+                                        "server", cluster.getServer(),
+                                        "certificate-authority-data",
+                                                cluster.getCertificateAuthorityData()))));
+        configuration.put(
+                "users",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "user",
+                                Map.of("token", issued.getStdout().trim()))));
+        configuration.put(
+                "contexts",
+                Collections.singletonList(
+                        Map.of(
+                                "name",
+                                "fixture",
+                                "context",
+                                Map.of("cluster", "fixture", "user", "fixture"))));
+        Path credentials = Files.createTempFile("kubernetes-application-rbac-", ".yaml");
+        try {
+            Files.writeString(credentials, Yaml.dump(configuration), StandardCharsets.UTF_8);
+            return credentials;
+        } catch (Exception failure) {
+            Files.deleteIfExists(credentials);
+            throw failure;
+        }
     }
 
     /** Runs one command inside the disposable cluster for scenario-level fault injection. */

@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationHaConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
@@ -174,6 +175,8 @@ public final class SeatunnelKubernetesHaApplication {
                             protected MultipleTableJobConfigParser getJobConfigParser() {
                                 // Preserve Application Mode's explicit-restore contract while
                                 // loading the native checkpoint payload exactly once for parsing.
+                                // Reuse this environment's protected id generator and plugin set
+                                // so preparation and execute share one native graph identity.
                                 List<JobPipelineCheckpointData> checkpoints =
                                         restoreCheckpoints(jobs, specification.getRestoreJobId());
                                 return new MultipleTableJobConfigParser(
@@ -382,18 +385,59 @@ public final class SeatunnelKubernetesHaApplication {
     private static void finish(
             KubernetesHaClient api, String id, String uid, String encoded, long jobId)
             throws Exception {
+        finish(api, id, uid, encoded, jobId, TimeUnit.SECONDS::sleep);
+    }
+
+    @FunctionalInterface
+    interface RetryWait {
+        void sleep(long seconds) throws InterruptedException;
+    }
+
+    static void finish(
+            KubernetesHaClient api,
+            String id,
+            String uid,
+            String encoded,
+            long jobId,
+            RetryWait wait)
+            throws Exception {
+        long retrySeconds = 1;
         while (true) {
-            KubernetesJob owner = HaApplicationState.validated(api.getJob(id), uid, encoded, jobId);
+            KubernetesJob owner;
+            try {
+                owner = api.getJob(id);
+            } catch (KubernetesClientException unavailable) {
+                // An absent owner cannot authorize cleanup; other API failures may recover.
+                if (unavailable.getCode() == 404) {
+                    throw unavailable;
+                }
+                retrySeconds = awaitCleanupRetry(id, retrySeconds, unavailable, wait);
+                continue;
+            }
+            // Identity changes and nonterminal state are safety failures, not retryable outages.
+            HaApplicationState.validated(owner, uid, encoded, jobId);
+            if (HaApplicationState.terminal(owner) == null) {
+                throw new IllegalStateException("Nonterminal application cannot release compute");
+            }
             try {
                 HaApplicationState.finalizeResources(api, owner);
                 return;
             } catch (RuntimeException unavailable) {
-                log.warn(
-                        "Terminal cleanup will retry for application {}: {}",
-                        id,
-                        unavailable.getClass().getSimpleName());
-                TimeUnit.SECONDS.sleep(1);
+                retrySeconds = awaitCleanupRetry(id, retrySeconds, unavailable, wait);
             }
         }
+    }
+
+    private static long awaitCleanupRetry(
+            String id, long seconds, RuntimeException failure, RetryWait wait)
+            throws InterruptedException {
+        log.warn(
+                "Terminal cleanup will retry in {}s for application {}: {}",
+                seconds,
+                id,
+                failure.getClass().getSimpleName());
+        wait.sleep(seconds);
+        // Bound API/log traffic during an outage without turning unknown native work terminal.
+        return Math.min(30, seconds * 2);
     }
 }
