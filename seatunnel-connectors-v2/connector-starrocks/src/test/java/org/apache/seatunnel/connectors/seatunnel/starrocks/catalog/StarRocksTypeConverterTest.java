@@ -340,6 +340,7 @@ public class StarRocksTypeConverterTest {
         Column column = converter.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
+        Assertions.assertEquals(StarRocksTypeConverter.MAX_STRING_LENGTH, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 

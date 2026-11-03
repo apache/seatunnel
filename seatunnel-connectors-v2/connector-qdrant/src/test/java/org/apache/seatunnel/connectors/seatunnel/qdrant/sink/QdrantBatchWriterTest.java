@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.qdrant.sink;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.exception.QdrantConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,7 +37,13 @@ class QdrantBatchWriterTest {
                 Assertions.assertThrows(
                         QdrantConnectorException.class,
                         () -> QdrantBatchWriter.buildPayload(BasicType.JSON_TYPE, "{\"a\":1}"));
-        Assertions.assertTrue(exception.getMessage().contains("JSON"), exception.getMessage());
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("does not support the JSON logical type"),
+                exception.getMessage());
+        Assertions.assertTrue(
+                exception.getMessage().contains("handle_json_as_string"), exception.getMessage());
         // The legacy STRING path is unchanged, which is also what handle_json_as_string restores.
         Assertions.assertEquals(
                 "{\"a\":1}",

@@ -305,6 +305,7 @@ public class DorisTypeConvertorV1Test {
         Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -316,6 +317,7 @@ public class DorisTypeConvertorV1Test {
         column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 

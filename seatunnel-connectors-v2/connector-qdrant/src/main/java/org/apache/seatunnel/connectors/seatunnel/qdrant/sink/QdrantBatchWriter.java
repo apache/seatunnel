@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.exception.QdrantConnectorException;
@@ -171,8 +172,11 @@ public class QdrantBatchWriter {
             case JSON:
                 // No payload mapping exists for the JSON logical type yet. Falling through to the
                 // null branch would silently drop the column, so reject the field explicitly.
+                // The structured CommonErrorCode.UNSUPPORTED_DATA_TYPE needs identifier, dataType
+                // and field parameters that are not available here, so the free-form code is used
+                // to keep the actionable migration message intact.
                 throw new QdrantConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "Qdrant sink does not support the JSON logical type as a payload field. "
                                 + "Convert the field to STRING upstream (for example `CAST(field AS VARCHAR)` "
                                 + "in a Calcite Transform) or enable `handle_json_as_string` on the source.");

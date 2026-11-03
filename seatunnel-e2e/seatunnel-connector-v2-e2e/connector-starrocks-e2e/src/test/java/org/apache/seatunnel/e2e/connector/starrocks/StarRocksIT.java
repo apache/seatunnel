@@ -343,7 +343,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     /**
      * Verifies native JSON fields fail explicitly when StarRocks Stream Load uses CSV.
      *
-     * <p>This protects the format contract from silently writing quoted JSON text.
+     * <p>This protects the format contract from silently writing quoted JSON text. The sink rejects
+     * the combination when it is created, so the diagnostic must name the table, the JSON column
+     * and the format option instead of coming from the later serializer guard.
      */
     @TestTemplate
     public void testNativeJsonRejectsCsvStreamLoad(TestContainer container)
@@ -353,8 +355,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertNotEquals(0, execResult.getExitCode(), execResult.getStderr());
         String failureOutput = execResult.getStderr() + container.getServerLogs();
         Assertions.assertTrue(
-                failureOutput.contains("Native JSON columns require JSON Stream Load format"),
+                failureOutput.contains(
+                        "StarRocks sink table test.json_csv_rejected has native JSON column(s) [payload]"),
                 failureOutput);
+        Assertions.assertTrue(
+                failureOutput.contains("starrocks.config.format = \"JSON\""), failureOutput);
     }
 
     /**

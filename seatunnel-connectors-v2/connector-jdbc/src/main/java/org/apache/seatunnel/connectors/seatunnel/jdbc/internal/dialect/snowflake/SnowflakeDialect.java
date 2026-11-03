@@ -57,22 +57,33 @@ public class SnowflakeDialect implements JdbcDialect {
 
     /**
      * Wraps JSON parameters with PARSE_JSON so JSON text is stored as a structured VARIANT value.
+     *
+     * <p>Snowflake rejects semi-structured expressions such as PARSE_JSON inside a VALUES clause,
+     * so a schema with JSON fields uses the INSERT ... SELECT form instead. A schema without JSON
+     * fields keeps the standard INSERT ... VALUES statement unchanged. Both forms bind the fields
+     * in the same order.
      */
     @Override
     public String getInsertIntoStatement(
             String database, String tableName, TableSchema tableSchema) {
         String[] fieldNames = tableSchema.getFieldNames();
+        boolean hasJsonField =
+                Arrays.stream(fieldNames)
+                        .anyMatch(fieldName -> isJsonField(tableSchema, fieldName));
+        if (!hasJsonField) {
+            return getInsertIntoStatement(database, tableName, fieldNames);
+        }
         String columns =
                 Arrays.stream(fieldNames)
                         .map(this::quoteIdentifier)
                         .collect(Collectors.joining(", "));
-        String placeholders =
+        String selectExpressions =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> parameterExpression(tableSchema, fieldName))
                         .collect(Collectors.joining(", "));
         return String.format(
-                "INSERT INTO %s (%s) VALUES (%s)",
-                tableIdentifier(database, tableName), columns, placeholders);
+                "INSERT INTO %s (%s) SELECT %s",
+                tableIdentifier(database, tableName), columns, selectExpressions);
     }
 
     /** Wraps JSON parameters with PARSE_JSON in both update values and conditions. */
@@ -141,9 +152,13 @@ public class SnowflakeDialect implements JdbcDialect {
 
     /** Returns the Snowflake bind expression for a field. */
     private String parameterExpression(TableSchema tableSchema, String fieldName) {
-        return tableSchema.getColumn(fieldName).getDataType().getSqlType() == SqlType.JSON
+        return isJsonField(tableSchema, fieldName)
                 ? "PARSE_JSON(:" + fieldName + ")"
                 : ":" + fieldName;
+    }
+
+    private boolean isJsonField(TableSchema tableSchema, String fieldName) {
+        return tableSchema.getColumn(fieldName).getDataType().getSqlType() == SqlType.JSON;
     }
 
     @Override

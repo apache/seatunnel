@@ -159,6 +159,9 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 break;
             case SR_JSON:
                 builder.dataType(BasicType.JSON_TYPE);
+                // Keep the length metadata the former STRING mapping exposed, so a JSON column
+                // cast back to STRING keeps the previous column definition.
+                builder.columnLength(MAX_STRING_LENGTH);
                 break;
             case SR_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);

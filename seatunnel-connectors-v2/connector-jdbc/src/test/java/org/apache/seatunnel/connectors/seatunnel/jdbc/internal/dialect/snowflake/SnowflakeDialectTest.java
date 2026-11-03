@@ -61,7 +61,7 @@ class SnowflakeDialectTest {
         Assertions.assertDoesNotThrow(
                 () ->
                         dialect.validateUserDefinedQuery(
-                                "INSERT INTO t (id, payload) VALUES (?, parse_json(?))",
+                                "INSERT INTO t (id, payload) SELECT ?, parse_json(?)",
                                 schemaWithJson));
         TableSchema schemaWithoutJson =
                 TableSchema.builder()

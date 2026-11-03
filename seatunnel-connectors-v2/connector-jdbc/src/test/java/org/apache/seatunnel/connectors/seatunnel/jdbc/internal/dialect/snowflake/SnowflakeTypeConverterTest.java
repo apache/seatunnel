@@ -78,8 +78,33 @@ public class SnowflakeTypeConverterTest {
                 new SnowflakeDialect().getInsertIntoStatement("database", "events", tableSchema);
 
         Assertions.assertEquals(
-                "INSERT INTO database.events (id, payload) VALUES (:id, PARSE_JSON(:payload))",
+                "INSERT INTO database.events (id, payload) SELECT :id, PARSE_JSON(:payload)",
                 insertSql);
+    }
+
+    /** Verifies a schema without JSON fields keeps the standard INSERT ... VALUES statement. */
+    @Test
+    public void testInsertWithoutJsonKeepsValuesClause() {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.INT_TYPE, (Long) null, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name",
+                                        BasicType.STRING_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+
+        String insertSql =
+                new SnowflakeDialect().getInsertIntoStatement("database", "events", tableSchema);
+
+        Assertions.assertEquals(
+                "INSERT INTO database.events (id, name) VALUES (:id, :name)", insertSql);
     }
 
     /** Verifies Snowflake updates parse JSON parameters into structured VARIANT values. */

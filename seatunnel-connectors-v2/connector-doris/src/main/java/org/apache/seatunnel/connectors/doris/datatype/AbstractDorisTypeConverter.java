@@ -200,6 +200,9 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
             case DORIS_JSON:
             case DORIS_JSONB:
                 builder.dataType(BasicType.JSON_TYPE);
+                // Keep the length metadata the former STRING mapping exposed, so the
+                // handle_json_as_string projection restores exactly the previous column.
+                builder.columnLength(MAX_STRING_LENGTH);
                 break;
             case DORIS_IPV4:
                 builder.dataType(BasicType.STRING_TYPE);
