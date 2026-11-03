@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.e2e.emptycommit.EmptyCommitInfoSink;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -95,6 +96,19 @@ public class SinkAggregatedCommitterTaskCheckpointCacheLeakIT {
 
     private static final int SAMPLE_COUNT = 20;
     private static final long SAMPLE_INTERVAL_MILLIS = 500L;
+
+    private static final String EMPTY_COMMIT_INFO_JOB_CONFIG_FILE =
+            "streaming_fake_to_empty_commit_info_aggregated_sink.conf";
+
+    /**
+     * Completed checkpoints without commit info the empty-checkpoint test waits for. Pre-fix, the
+     * barrier counter would hold about this many entries, ten times {@link
+     * #MAX_BOUNDED_CACHE_SIZE}.
+     */
+    private static final int EMPTY_CHECKPOINTS_TO_COMPLETE = 30;
+
+    /** Generous budget for 30 checkpoints at a 1-second interval on a slow CI runner. */
+    private static final long EMPTY_CHECKPOINTS_TIMEOUT_SECONDS = 180L;
 
     @Test
     public void testCommitInfoCacheStaysBoundedAcrossManyCheckpoints() throws Exception {
@@ -219,6 +233,147 @@ public class SinkAggregatedCommitterTaskCheckpointCacheLeakIT {
                 masterNode.shutdown();
             }
         }
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/12256">#12256</a>,
+     * fixed by <a href="https://github.com/apache/seatunnel/pull/12260">#12260</a> ("[Fix][Zeta]
+     * Clean empty checkpoint barrier counters").
+     *
+     * <p>Before that fix, {@code SinkAggregatedCommitterTask#notifyCheckpointComplete} removed a
+     * checkpoint's {@code checkpointBarrierCounter} entry only while iterating {@code
+     * checkpointCommitInfoMap}. A checkpoint whose writers produced no commit info never gets a
+     * {@code checkpointCommitInfoMap} entry, so its barrier counter was never removed and a
+     * long-running streaming job leaked one entry per such checkpoint forever.
+     *
+     * <p>{@link #testCommitInfoCacheStaysBoundedAcrossManyCheckpoints()} cannot catch this: its
+     * LocalFile writers always return commit info from {@code prepareCommit}, so every checkpoint
+     * has a {@code checkpointCommitInfoMap} entry and the old removal path still runs. This test
+     * uses {@link EmptyCommitInfoSink}, which has an aggregated committer (so a committer task is
+     * deployed and counts barriers) but whose writers always return {@code Optional.empty()}. It
+     * waits for {@value #EMPTY_CHECKPOINTS_TO_COMPLETE} real checkpoints to complete, sampling the
+     * map throughout. Pre-fix, {@code checkpointBarrierCounter} grows by one per checkpoint and
+     * exceeds {@link #MAX_BOUNDED_CACHE_SIZE} after a few seconds.
+     */
+    @Test
+    public void testCheckpointBarrierCounterStaysBoundedAcrossEmptyCheckpoints() throws Exception {
+        String testClusterName =
+                "SinkAggregatedCommitterTaskCheckpointCacheLeakIT_"
+                        + "testCheckpointBarrierCounterStaysBoundedAcrossEmptyCheckpoints";
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalWorkerNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            EmptyCommitInfoSink.COMPLETED_COMMITS.set(0);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(
+                    "sinkAggregatedCommitterTaskCheckpointCacheLeakIT_"
+                            + "testCheckpointBarrierCounterStaysBoundedAcrossEmptyCheckpoints");
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            TestUtils.getResource(EMPTY_COMMIT_INFO_JOB_CONFIG_FILE),
+                            jobConfig,
+                            masterNodeConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+            SeaTunnelServer workerServer =
+                    workerNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            SinkAggregatedCommitterTask<?, ?> committerTask =
+                    awaitSinkAggregatedCommitterTask(workerServer.getTaskExecutionService());
+
+            Map<?, ?> checkpointBarrierCounter =
+                    readMapField(committerTask, "checkpointBarrierCounter");
+            Map<?, ?> commitInfoCache = readMapField(committerTask, "commitInfoCache");
+            Map<?, ?> checkpointCommitInfoMap =
+                    readMapField(committerTask, "checkpointCommitInfoMap");
+
+            long deadline =
+                    System.currentTimeMillis()
+                            + TimeUnit.SECONDS.toMillis(EMPTY_CHECKPOINTS_TIMEOUT_SECONDS);
+            while (EmptyCommitInfoSink.COMPLETED_COMMITS.get() < EMPTY_CHECKPOINTS_TO_COMPLETE
+                    && System.currentTimeMillis() < deadline) {
+                Assertions.assertEquals(
+                        JobStatus.RUNNING,
+                        clientJobProxy.getJobStatus(),
+                        "Job must still be RUNNING while sampling checkpoint barrier counters");
+                // Guards the premise of this test: every checkpoint must be an empty one,
+                // otherwise the pre-fix removal path through checkpointCommitInfoMap would run.
+                Assertions.assertTrue(
+                        commitInfoCache.isEmpty() && checkpointCommitInfoMap.isEmpty(),
+                        "EmptyCommitInfoSink writers must never produce commit info");
+                int checkpointBarrierCounterSize = checkpointBarrierCounter.size();
+                Assertions.assertTrue(
+                        checkpointBarrierCounterSize <= MAX_BOUNDED_CACHE_SIZE,
+                        String.format(
+                                "checkpointBarrierCounter grew to %d entries after %d completed "
+                                        + "checkpoints without commit info; completed empty "
+                                        + "checkpoints are no longer removed (#12256)",
+                                checkpointBarrierCounterSize,
+                                EmptyCommitInfoSink.COMPLETED_COMMITS.get()));
+                Thread.sleep(SAMPLE_INTERVAL_MILLIS);
+            }
+
+            Assertions.assertTrue(
+                    EmptyCommitInfoSink.COMPLETED_COMMITS.get() >= EMPTY_CHECKPOINTS_TO_COMPLETE,
+                    String.format(
+                            "Only %d checkpoints completed within %ds, expected at least %d",
+                            EmptyCommitInfoSink.COMPLETED_COMMITS.get(),
+                            EMPTY_CHECKPOINTS_TIMEOUT_SECONDS,
+                            EMPTY_CHECKPOINTS_TO_COMPLETE));
+            Assertions.assertTrue(
+                    checkpointBarrierCounter.size() <= MAX_BOUNDED_CACHE_SIZE,
+                    String.format(
+                            "checkpointBarrierCounter holds %d entries after %d completed "
+                                    + "checkpoints without commit info",
+                            checkpointBarrierCounter.size(),
+                            EmptyCommitInfoSink.COMPLETED_COMMITS.get()));
+
+            clientJobProxy.cancelJob();
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+        }
+    }
+
+    /** Reads a live map field of the committer task, as {@code SinkAggregatedCommitterTaskTest}. */
+    private static Map<?, ?> readMapField(
+            SinkAggregatedCommitterTask<?, ?> committerTask, String fieldName) throws Exception {
+        Field field = SinkAggregatedCommitterTask.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (Map<?, ?>) field.get(committerTask);
     }
 
     /**
