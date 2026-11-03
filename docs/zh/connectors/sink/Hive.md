@@ -162,7 +162,7 @@ Kerberos 的 keytab 文件路径
 
 ### save_mode_create_template [字符串]
 
-我们使用模板来自动创建 Hive 表，它将根据上游数据类型和模式类型创建相应的建表语句，默认模板可以根据情况进行修改。可用的模板变量：${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}。
+我们使用模板来自动创建 Hive 表，它将根据上游数据类型和模式类型创建相应的建表语句，默认模板可以根据情况进行修改。可用的模板变量：${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}。
 
 **默认值**: 当未指定时，使用默认的 PARQUET 非分区表模板：
 ```sql
