@@ -17,8 +17,20 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /** Generator label for stream load. */
 public class LabelGenerator {
+    /**
+     * Non-2PC labels must be unique across every sub-sink of a job. The millisecond timestamp alone
+     * is not enough because sub-sinks of a multi-table sink can generate a label in the same
+     * millisecond (for example, while a checkpoint walks all sub-writers), and Doris rejects a
+     * reused label with LABEL_ALREADY_EXISTS. All sub-sinks of a job share the connector class
+     * loader, so a process-wide sequence disambiguates them. 2PC labels stay deterministic because
+     * they are used by checkpoint-id based abort/recovery.
+     */
+    private static final AtomicLong LABEL_SEQUENCE = new AtomicLong();
+
     private final String labelPrefix;
     private final boolean enable2PC;
 
@@ -30,6 +42,10 @@ public class LabelGenerator {
     public String generateLabel(long chkId) {
         return enable2PC
                 ? labelPrefix + "_" + chkId
-                : labelPrefix + "_" + System.currentTimeMillis();
+                : labelPrefix
+                        + "_"
+                        + System.currentTimeMillis()
+                        + "_"
+                        + Long.toString(LABEL_SEQUENCE.getAndIncrement(), 36);
     }
 }
