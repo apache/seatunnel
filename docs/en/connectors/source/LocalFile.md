@@ -84,6 +84,8 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| markdown_rag_metadata_enabled | boolean | no    | false                                |
+| pdf_rag_metadata_enabled   | boolean | no       | false                                |
 | discovery_mode             | string  | no       | once                                 |
 | scan_interval              | string  | no       | 10S |
 | start_mode                 | string  | no       | earliest                             |

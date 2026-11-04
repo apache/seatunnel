@@ -84,6 +84,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | null_format                | string  | 否    | -                   |
 | binary_chunk_size          | int     | 否    | 1024                |
 | binary_complete_file_mode  | boolean | 否    | false               |
+| markdown_rag_metadata_enabled | boolean | 否 | false               |
+| pdf_rag_metadata_enabled   | boolean | 否    | false               |
 | discovery_mode             | string  | 否    | once                |
 | scan_interval              | string  | 否    | 10S |
 | start_mode                 | string  | 否    | earliest            |

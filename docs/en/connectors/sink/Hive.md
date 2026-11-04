@@ -55,7 +55,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | overwrite                             | boolean | no       | false          | Replace existing data before commit. Equivalent to `data_save_mode = "DROP_DATA"`. |
 | data_save_mode                        | enum    | no       | APPEND_DATA    | How to handle existing data before writing. `APPEND_DATA` (default), `DROP_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`. |
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
-| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`. |
+| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`, `${current_timestamp}`. |
 | common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### table_name [string]
@@ -168,7 +168,7 @@ Option values:
 
 ### save_mode_create_template [string]
 
-We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
+We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}.
 
 **Default value**: When not specified, uses a default PARQUET non-partitioned table template:
 ```sql

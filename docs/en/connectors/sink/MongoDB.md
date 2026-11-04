@@ -74,7 +74,6 @@ The following table lists the field data type mapping from SeaTunnel data type t
 
 | SeaTunnel Data Type | MongoDB BSON Type |
 |---------------------|-------------------|
-| STRING              | ObjectId          |
 | STRING              | String            |
 | BOOLEAN             | Boolean           |
 | BINARY              | Binary            |
@@ -97,6 +96,9 @@ The following table lists the field data type mapping from SeaTunnel data type t
 >    midnight of that day; a SeaTunnel `Timestamp` keeps its time-of-day.
 > 2. When using the `DECIMAL` type in SeaTunnel, the maximum range cannot exceed 34 digits. Use
 >    `decimal(34, 18)` to stay within the supported precision and scale.
+> 3. SeaTunnel `STRING` values are always written as BSON `String`. They are not converted to
+>    `ObjectId` on write — even for the `_id` field. To work with Extended JSON values, encode the
+>    value as `{"_value": <extended-json>}` (see the source `Data Type Mapping` section).
 
 ## Sink Options
 
