@@ -471,6 +471,7 @@ class KafkaSinkWriterTest {
                 CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
         KafkaSink sink = new KafkaSink(config, catalogTable);
         SinkWriter.Context context = context(2, 3);
+        when(context.getIndexOfSubtask()).thenReturn(99);
         String abandonedTransactionId;
 
         try (MockedConstruction<KafkaInternalProducer> producers =
@@ -486,6 +487,7 @@ class KafkaSinkWriterTest {
 
         DefaultSerializer<KafkaSink> sinkSerializer = new DefaultSerializer<>();
         KafkaSink retrySink = sinkSerializer.deserialize(sinkSerializer.serialize(sink));
+        when(context.getIndexOfSubtask()).thenReturn(100);
         List<String> initializedIds = new ArrayList<>();
         try (MockedConstruction<KafkaInternalProducer> producers =
                 mockProducers(initializedIds, Collections.singleton(abandonedTransactionId))) {
@@ -583,6 +585,7 @@ class KafkaSinkWriterTest {
     private static SinkWriter.Context context(int index, int parallelism) {
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         when(context.getIndexOfSubtask()).thenReturn(index);
+        when(context.getStableSubtaskIndex()).thenReturn(index);
         when(context.getNumberOfParallelSubtasks()).thenReturn(parallelism);
         return context;
     }

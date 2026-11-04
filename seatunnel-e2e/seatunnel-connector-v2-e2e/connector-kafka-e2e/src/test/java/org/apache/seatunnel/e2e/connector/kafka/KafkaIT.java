@@ -2397,6 +2397,69 @@ public class KafkaIT extends AbstractKafkaIT {
     }
 
     @Test
+    public void shouldFenceAbandonedAttemptWithStableIndex() throws Exception {
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String topic = "stable_index_retry_" + suffix;
+        createKafkaTopic(topic);
+        KafkaSink sink = createExactlyOnceSink(topic, "stable-index-" + suffix);
+        SinkWriter.Context firstContext =
+                new DefaultSinkWriterContext("retry", 99, 1) {
+                    @Override
+                    public int getStableSubtaskIndex() {
+                        return 0;
+                    }
+                };
+        SinkWriter.Context retryContext =
+                new DefaultSinkWriterContext("retry", 100, 1) {
+                    @Override
+                    public int getStableSubtaskIndex() {
+                        return 0;
+                    }
+                };
+        String abandonedId;
+        SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> first =
+                sink.createWriter(firstContext);
+        try {
+            abandonedId = first.prepareCommit().orElseThrow().getTransactionId();
+        } finally {
+            first.close();
+        }
+        String abandonedValue = "abandoned-" + suffix;
+        String visibleValue = "visible-" + suffix;
+        try (KafkaProducer<byte[], byte[]> abandoned =
+                new KafkaProducer<>(transactionalProducerProperties(abandonedId))) {
+            abandoned.initTransactions();
+            abandoned.beginTransaction();
+            abandoned
+                    .send(
+                            new ProducerRecord<>(
+                                    topic, abandonedValue.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+            producer.send(
+                            new ProducerRecord<>(
+                                    topic, visibleValue.getBytes(StandardCharsets.UTF_8)))
+                    .get();
+            Assertions.assertFalse(getKafkaConsumerListData(topic, 0L).contains(visibleValue));
+            SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> retry =
+                    sink.createWriter(retryContext);
+            try {
+                Assertions.assertEquals(
+                        abandonedId, retry.prepareCommit().orElseThrow().getTransactionId());
+                Awaitility.await()
+                        .atMost(Duration.ofSeconds(30))
+                        .untilAsserted(
+                                () -> {
+                                    List<String> visible = getKafkaConsumerListData(topic, 0L);
+                                    Assertions.assertTrue(visible.contains(visibleValue));
+                                    Assertions.assertFalse(visible.contains(abandonedValue));
+                                });
+            } finally {
+                retry.close();
+            }
+        }
+    }
+
+    @Test
     public void shouldFenceAbandonedBrokerTransactionDuringRestore() throws Exception {
         String suffix = Long.toUnsignedString(System.nanoTime());
         String topic = "restore_fences_abandoned_transaction_" + suffix;

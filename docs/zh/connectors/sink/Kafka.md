@@ -101,7 +101,7 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务；checkpoint 状态格式保持不变。从使用旧事务 ID 格式的版本升级时，请先停止旧作业，再使用升级后的 SeaTunnel 根据作业配置重新生成执行图，并恢复保留的 checkpoint 或 savepoint 状态；不要复用旧版本序列化的执行图。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。
 
-在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。
+在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。 Kafka 使用稳定的分区索引，其他 Sink 保留原有的任务尝试索引。稳定索引会在不同流式 epoch 之间复用，不能作为唯一批次标识。
 
 ### 分区关键字段
 

@@ -18,9 +18,9 @@ With `semantics = EXACTLY_ONCE`, transactional IDs now include an opaque writer 
 
 Update Kafka transactional-ID ACLs or monitoring rules that depend on the old ID shape. Stop the previous job attempt before restoration. With the upgraded SeaTunnel version, rebuild the execution graph from the job configuration and restore the retained checkpoint or savepoint state; an execution graph serialized by the older version is not compatible with the new sink-level namespace fields. Recovery and rescaling fence every unfinished writer namespace assigned by the checkpoint, including IDs written before this change. A writer with no retained checkpoint state can only identify and fence its first transaction; an abandoned later transaction remains invisible to recovery and can block `read_committed` consumers until `transaction.timeout.ms` expires. Keep access to the legacy transactional IDs during the first stateful recovery, and keep a distinct configured prefix for every concurrent job.
 
-### Spark sinks: writer indexes use stable partition IDs
+### Spark Kafka sink: stable retry identity
 
-On Spark 2.4 and 3.3, `SinkWriter.Context#getIndexOfSubtask()` now returns the stable Spark `partitionId` instead of the retry-specific `taskId`. This affects every Spark sink that derives an external identifier, transaction label, client ID, or output path from the writer index, including Kafka, JDBC XA, Doris, SelectDB, MQTT, File, Paimon, NATS JetStream, and HugeGraph. A retry of the same partition now reuses that partition's identifier instead of receiving a new task-attempt identifier. Review any external cleanup or idempotency policy that assumed a new identifier on every Spark task retry; no configuration option is renamed or removed.
+On Spark 2.4 and 3.3, the Kafka sink uses the stable Spark `partitionId` through `SinkWriter.Context#getStableSubtaskIndex()` so a retry fences the previous attempt's transaction. `getIndexOfSubtask()` retains the historical task-attempt index for other sinks, including Doris and SelectDB, whose labels can outlive a micro-batch. The stable index is reused across streaming epochs and is not a unique batch identifier. Keep `spark.speculation=false` for exactly-once Kafka sinks. Configuration options and checkpoint serialization are unchanged.
 
 ### JDBC MySQL: DATETIME writes preserve local date/time fields
 

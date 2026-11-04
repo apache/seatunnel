@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,6 +29,9 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.doris.sink.DorisSink;
+import org.apache.seatunnel.connectors.doris.sink.writer.DorisStreamLoad;
+import org.apache.seatunnel.connectors.doris.sink.writer.LabelGenerator;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkDataWriterFactory;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
@@ -41,12 +47,17 @@ import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 
+import java.io.Closeable;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.spark.sql.types.DataTypes.BooleanType;
@@ -61,15 +72,92 @@ import static org.apache.spark.sql.types.DataTypes.ShortType;
 import static org.apache.spark.sql.types.DataTypes.StringType;
 import static org.apache.spark.sql.types.DataTypes.TimestampType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class SparkSinkTest {
 
+    @Test
+    public void shouldUseDistinctDorisLabelsAcrossStreamingEpochs() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable("doris", "test", null, "epochs", rowType);
+        DorisSink sink =
+                spy(
+                        new DorisSink(
+                                ReadonlyConfig.fromMap(
+                                        Map.of(
+                                                "fenodes",
+                                                "localhost:8030",
+                                                "username",
+                                                "root",
+                                                "password",
+                                                "",
+                                                "database",
+                                                "test",
+                                                "table",
+                                                "epochs",
+                                                "sink.enable-2pc",
+                                                true,
+                                                "doris.config",
+                                                Map.of("format", "json"))),
+                                table));
+        sink.setJobContext(new JobContext(13060L));
+        List<SinkWriter<?, ?, ?>> writers = new ArrayList<>();
+        doAnswer(
+                        invocation -> {
+                            SinkWriter<?, ?, ?> writer =
+                                    (SinkWriter<?, ?, ?>) invocation.callRealMethod();
+                            writers.add(writer);
+                            return writer;
+                        })
+                .when(sink)
+                .createWriter(any());
+        List<String> labels = new ArrayList<>();
+        List<Closeable> clients = new ArrayList<>();
+        // Mock only the HTTP boundary; construct the production Doris writer and label generator.
+        try (MockedConstruction<DorisStreamLoad> loads =
+                mockConstruction(
+                        DorisStreamLoad.class,
+                        (load, context) -> {
+                            labels.add(
+                                    ((LabelGenerator) context.arguments().get(3))
+                                            .generateLabel(1L));
+                            clients.add((Closeable) context.arguments().get(4));
+                        })) {
+            SeaTunnelSparkDataWriterFactory<?, ?> factory =
+                    new SeaTunnelSparkDataWriterFactory<>(
+                            sink, new CatalogTable[] {table}, "13060", 1);
+            factory.createWriter(0, 99L, 0L);
+            factory.createWriter(0, 100L, 1L);
+            assertEquals(2, labels.size());
+            assertNotEquals(
+                    labels.get(0),
+                    labels.get(1),
+                    "A completed Doris label must not be reused in the next epoch");
+        } finally {
+            for (SinkWriter<?, ?, ?> writer : writers) {
+                writer.close();
+            }
+            for (Closeable client : clients) {
+                client.close();
+            }
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Test
-    public void shouldUseStablePartitionIdForSinkWriterContext() throws Exception {
+    public void shouldSeparateTaskIdentityFromStablePartitionAcrossRetriesAndEpochs()
+            throws Exception {
         SeaTunnelSink<SeaTunnelRow, Object, Object, Object> sink = mock(SeaTunnelSink.class);
         SinkWriter<SeaTunnelRow, Object, Object> writer = mock(SinkWriter.class);
         when(sink.createWriter(org.mockito.ArgumentMatchers.any())).thenReturn(writer);
@@ -84,12 +172,22 @@ public class SparkSinkTest {
                         sink, new CatalogTable[] {catalogTable}, "job-id", 4);
 
         factory.createWriter(2, 99L);
+        factory.createWriter(2, 100L, 0L);
+        factory.createWriter(2, 101L, 0L);
+        factory.createWriter(2, 102L, 1L);
+        factory.createWriter(3, 103L, 1L);
 
         ArgumentCaptor<SinkWriter.Context> contextCaptor =
                 ArgumentCaptor.forClass(SinkWriter.Context.class);
-        verify(sink).createWriter(contextCaptor.capture());
-        assertEquals(2, contextCaptor.getValue().getIndexOfSubtask());
-        assertEquals(4, contextCaptor.getValue().getNumberOfParallelSubtasks());
+        verify(sink, times(5)).createWriter(contextCaptor.capture());
+        DefaultSerializer<SinkWriter.Context> serializer = new DefaultSerializer<>();
+        for (int i = 0; i < 5; i++) {
+            SinkWriter.Context context = contextCaptor.getAllValues().get(i);
+            context = serializer.deserialize(serializer.serialize(context));
+            assertEquals(99 + i, context.getIndexOfSubtask());
+            assertEquals(i == 4 ? 3 : 2, context.getStableSubtaskIndex());
+            assertEquals(4, context.getNumberOfParallelSubtasks());
+        }
     }
 
     @Test

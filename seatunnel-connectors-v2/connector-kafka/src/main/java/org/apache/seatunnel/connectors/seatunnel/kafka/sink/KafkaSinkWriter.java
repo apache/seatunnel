@@ -101,9 +101,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         this.transactionPrefix = transactionPrefix;
 
         String newWriterNamespace =
-                generateWriterNamespace(writerNamespaceGeneration, context.getIndexOfSubtask());
+                generateWriterNamespace(writerNamespaceGeneration, context.getStableSubtaskIndex());
         RestorePlan restorePlan =
-                restoreState(kafkaStates, newWriterNamespace, context.getIndexOfSubtask());
+                restoreState(kafkaStates, newWriterNamespace, context.getStableSubtaskIndex());
         this.writerTransactionPrefix = restorePlan.writerTransactionPrefix;
         this.currentTransactionSequence = restorePlan.nextTransactionSequence;
         this.seaTunnelRowSerializer = KafkaSinkSerializer.create(pluginConfig, seaTunnelRowType);

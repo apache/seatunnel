@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.translation.spark.sink.writer;
 
-import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
+import org.apache.seatunnel.translation.spark.sink.SparkSinkWriterContext;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
@@ -65,8 +65,9 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                // partitionId is stable across task attempts; taskId changes on every retry.
-                new DefaultSinkWriterContext(jobId, partitionId, parallelism);
+                // Preserve task-based identifiers for existing sinks; Kafka uses the stable
+                // partition index.
+                new SparkSinkWriterContext(jobId, partitionId, taskId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

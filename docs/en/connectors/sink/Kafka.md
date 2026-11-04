@@ -105,7 +105,7 @@ On Zeta and Flink, during stateful recovery or rescaling, each writer cleans eve
 
 Recovery also fences legacy shared IDs when restoring an older checkpoint; the checkpoint state format is unchanged. When upgrading from a version that used the legacy ID format, stop the old job, build a new execution graph from the job configuration with the upgraded SeaTunnel version, and restore the retained checkpoint or savepoint state; do not reuse an execution graph serialized by the older version. If Kafka transactional-ID ACLs restrict the old `<prefix>-<checkpoint>` pattern, update them to allow the writer-specific IDs and retain access to old IDs while restoring older checkpoints.
 
-On Spark, exactly-once Kafka sinks require `spark.speculation=false` (the Spark default) because concurrent attempts for the same partition share a writer namespace.
+On Spark, exactly-once Kafka sinks require `spark.speculation=false` (the Spark default) because concurrent attempts for the same partition share a writer namespace. Kafka uses the stable partition index; other sinks retain their historical task-attempt indexes. The stable index is reused across streaming epochs and is not a unique batch identifier.
 
 ### Partition Key Fields
 
