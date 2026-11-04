@@ -104,7 +104,6 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | sort_files_by_modification_time | boolean | 否 | false | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。 |
 | metalake_type | string | 否 | `gravitino` | Metalake 服务类型，目前支持 `gravitino`。 |
 | common-options | | 否 | - | 参见 [Source 通用配置](../common-options/source-common-options.md)。 |
-| metalake_type | string | 否 | gravitino | Metalake 服务类型，目前支持 `gravitino`。 |
 
 ## 示例
 

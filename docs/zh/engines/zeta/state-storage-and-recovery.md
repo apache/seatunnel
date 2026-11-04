@@ -171,18 +171,22 @@ map:
     map-store:
       enabled: true
       initial-mode: EAGER
-      class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
       properties:
-        type: hdfs                  # 后端文件系统：hdfs（默认）| s3 | oss | gcs
+        type: hdfs                  # IMap 文件存储工厂标识，无论后端为何都保持 hdfs
+        storage.type: hdfs          # 后端文件系统：hdfs（默认）| s3 | oss | gcs
         namespace: /seatunnel-imap  # IMap 文件根路径（默认 /seatunnel-imap）
         clusterName: seatunnel      # 必填，用于集群隔离的路径段
-        businessName: seatunnel     # 必填，用于区分业务数据
-        fs.defaultFS: hdfs://localhost:9000   # type 为 hdfs 时必填
+        fs.defaultFS: hdfs://localhost:9000   # storage.type 为 hdfs 时必填
 ```
 
 注意：`engine_runningJobMetrics` 不会被持久化——运行时指标快照属于辅助观测状态。
 
-IMap 文件写入 `<namespace>/<clusterName>/<businessName>/` 目录。
+IMap 文件写入 `<namespace>/<clusterName>/<businessName>/` 目录。上面的 `engine_*` 通配符配置
+必须使用 `factory-class-name` 指定 `FileMapStoreFactory`：该工厂会把每个 IMap 的 `businessName`
+设为映射名称，使每个引擎 IMap 落在各自独立的目录中。若改用 `class-name` 指定 `FileMapStore`
+并配置单一固定的 `businessName`，所有引擎 IMap 会共享同一目录，整集群重启恢复时不同映射的
+数据可能互相混淆或覆盖。
 
 ### IMap、MapStore 与 Checkpoint 的关系
 
@@ -203,8 +207,12 @@ IMap / MapStore  <────────────────────�
 `<namespace>/<clusterName>/<businessName>/` 目录下的 WAL 文件，并周期性地将其归档为紧凑的 ORC 文件。
 WAL 用于保证 IMap 数据在进程崩溃时的耐久性；WAL 没有面向用户的压缩阈值或刷新间隔配置项。
 
-**已完成作业**的 WAL 文件，可以在作业历史已过期且确认不会再从该作业恢复后删除。
-**不要**在作业运行期间手动删除 IMap 存储文件。
+WAL 文件**不是**按作业组织的。所有引擎 IMap 共享
+`<namespace>/<clusterName>/<businessName>/` 根目录，每条条目的写入、过期和删除都以追加记录的方式
+写入同一批文件（删除是墓碑记录，读取时跳过）。因此不存在可以安全删除的"某作业专属"WAL 文件子集：
+删除部分文件可能丢弃其他作业仍需保留的条目，或丢失墓碑导致下次加载时旧值复活。
+唯一安全的手动删除方式是整库重置——停止集群、备份 `<namespace>/<clusterName>/<businessName>/`，
+并接受该存储中持久化的**全部**状态被丢弃。**不要**在集群运行期间手动删除 IMap 存储文件。
 
 ---
 
@@ -322,7 +330,7 @@ du -sh <namespace>/<clusterName>/<businessName>/
 
 **可能根因**：
 
-- `engine_runningJobMetrics` 与已完成作业条目的增长速度快于 `history-job-expire-minutes` 的清理速度
+- 已完成作业条目的增长速度快于 `history-job-expire-minutes` 的清理速度；`engine_runningJobMetrics` 不会被持久化（见第 3 节），属于内存中的运行时指标，不会导致磁盘增长
 - IMap 存储文件在两次归档之间为追加写，长期运行作业的频繁小量更新会推高磁盘占用
 
 **修复**：
@@ -334,7 +342,9 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
-作业过期后，对应的 IMap 条目会被移除，存储文件可在维护窗口内压缩或删除（手动删除后需重启引擎以触发重载）。
+作业过期后，对应的 IMap 条目会从 IMap 中移除，但其记录（包括删除墓碑）仍保留在存储文件中，
+且没有面向用户的压缩机制。如确需回收该目录空间，只能按整库重置处理：停止集群、备份
+`<namespace>/<clusterName>/<businessName>/` 后删除整个目录，并接受该存储中的全部持久化状态在下次启动时丢失。
 
 ---
 
@@ -362,7 +372,8 @@ seatunnel:
 - [ ] 确认该作业 ID 未被任何监控或告警规则引用
 - [ ] Checkpoint 存储：递归删除 `<namespace>/<job-id>/`
 - [ ] Savepoint：递归删除 `<namespace>/savepoint/<job-id>/`
-- [ ] MapStore / WAL：手动删除后重启引擎以触发重载
+- [ ] MapStore / WAL：无法按作业删除；只能通过整库重置
+  `<namespace>/<clusterName>/<businessName>/` 回收空间（停止集群、完成备份、接受该存储中全部状态丢弃）
 
 ---
 

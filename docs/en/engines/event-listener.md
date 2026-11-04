@@ -263,7 +263,7 @@ public class CustomMultiEventHandler implements EventHandler {
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
         log.info("Column added to table | Table: {}, Column: {}, Time: {}",
-            event.getTableIdentifier().getTablePath(), event.getColumn(), event.getCreatedTime());
+            event.getTablePath(), event.getColumn(), event.getCreatedTime());
         // Handle table structure change logic
     }
 

@@ -114,7 +114,6 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | sort_files_by_modification_time | boolean | no | false | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | metalake_type | string | no | `gravitino` | The type of metalake service, currently supports `gravitino`. |
 | common-options | | no | - | See [Source Common Options](../common-options/source-common-options.md). |
-| metalake_type | string | no | gravitino | The type of metalake service, currently supports `gravitino`. |
 
 ## Example
 

@@ -179,19 +179,23 @@ map:
     map-store:
       enabled: true
       initial-mode: EAGER
-      class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
       properties:
-        type: hdfs                  # backend filesystem: hdfs (default) | s3 | oss | gcs
+        type: hdfs                  # IMap file storage factory identifier, keep hdfs for all backends
+        storage.type: hdfs          # backend filesystem: hdfs (default) | s3 | oss | gcs
         namespace: /seatunnel-imap  # root path for IMap files (default /seatunnel-imap)
         clusterName: seatunnel      # required, used for cluster isolation in the path
-        businessName: seatunnel     # required, used to distinguish business data
-        fs.defaultFS: hdfs://localhost:9000   # required when type is hdfs
+        fs.defaultFS: hdfs://localhost:9000   # required when storage.type is hdfs
 ```
 
 Note that `engine_runningJobMetrics` is intentionally not persisted: runtime metrics snapshots
 are auxiliary observability state.
 
-IMap files are written under `<namespace>/<clusterName>/<businessName>/`.
+IMap files are written under `<namespace>/<clusterName>/<businessName>/`. The wildcard entry above
+must use `factory-class-name` with `FileMapStoreFactory`: the factory sets each IMap's `businessName`
+to the map name, so every engine map persists under its own directory. Using `class-name` with
+`FileMapStore` and a single fixed `businessName` instead would make all engine maps share one
+directory, and a full-cluster reload could mix or overwrite entries of different maps.
 
 ### Relationship between IMap, MapStore, and Checkpoint
 
@@ -213,9 +217,14 @@ files under `<namespace>/<clusterName>/<businessName>/` and periodically archive
 compact ORC files. The WAL guarantees IMap durability against process crashes; there is no
 user-tunable compaction or flush-interval option for it.
 
-WAL files for **finished jobs** can be removed once the job's history has expired and you are
-certain the job will not be restored. Do not manually delete IMap storage files while jobs are
-running.
+WAL files are **not** organized per job. All engine maps share the
+`<namespace>/<clusterName>/<businessName>/` root, and every entry update, expiration, and deletion
+is appended as a record to the same files (a deletion is a tombstone that readers skip on load).
+There is no job-specific subset of WAL files that can be deleted safely: removing files can
+discard other jobs' retained entries or drop tombstones, which resurrects older values on the
+next load. The only safe manual deletion is a whole-store reset — stop the cluster, back up
+`<namespace>/<clusterName>/<businessName>/`, and accept that **all** state persisted in that store
+is discarded. Never delete IMap storage files while the cluster is running.
 
 ---
 
@@ -337,8 +346,9 @@ du -sh <namespace>/<clusterName>/<businessName>/
 
 **Root cause candidates**:
 
-- `engine_runningJobMetrics` and finished-job entries accumulate faster than
-  `history-job-expire-minutes` removes them
+- Finished-job entries accumulate faster than `history-job-expire-minutes` removes them.
+  `engine_runningJobMetrics` is intentionally not persisted (see section 3): it is in-memory
+  runtime metrics and does not grow IMap storage
 - IMap storage files are append-only between archive cycles, so frequent small updates of
   long-running jobs increase disk usage
 
@@ -351,9 +361,11 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
-After jobs expire, the corresponding IMap entries are removed and the storage files can be
-compacted or removed during a maintenance window (restart the engine after manual deletion to
-trigger a clean reload).
+After jobs expire, the corresponding IMap entries are removed from the IMap, but their records —
+including deletion tombstones — stay in the storage files, and there is no user-managed
+compaction. If the directory must be reclaimed, treat it as a whole-store reset: stop the
+cluster, back up `<namespace>/<clusterName>/<businessName>/`, delete that entire directory, and
+accept that all persisted state in that store is discarded on the next start.
 
 ---
 
@@ -382,7 +394,9 @@ Before deleting any state directory:
 - [ ] Confirm the job ID is not referenced in any monitoring or alerting rule
 - [ ] For checkpoint storage: delete `<namespace>/<job-id>/` recursively
 - [ ] For savepoint: delete `<namespace>/savepoint/<job-id>/` recursively
-- [ ] For MapStore/WAL: restart the engine after manual deletion to trigger reload
+- [ ] For MapStore/WAL: no per-job deletion is possible; reclaim space only via a whole-store
+  reset of `<namespace>/<clusterName>/<businessName>/` (cluster stopped, backed up, and all state
+  in the store accepted as discarded)
 
 ---
 

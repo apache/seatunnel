@@ -41,7 +41,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | fs.s3a.endpoint                  | string  | yes      | -                                                         | The endpoint of the S3 file system, for example `https://s3.amazonaws.com`.                                                                                                                                             |
 | fs.s3a.aws.credentials.provider  | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider     | The implementation class of the S3A credentials provider. When set to `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`, `access_key` and `secret_key` are required.                                              |
 | secret_key                       | string  | no       | -                                                         | The secret key of the S3 file system. Required when `fs.s3a.aws.credentials.provider` is `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`. See [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html).  |
-| hadoop_s3_properties             | map     | no       | -                                                         | Additional Hadoop S3A/Hadoop-AWS options. Use this to set things like `fs.s3a.aws.credentials.provider`. See [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html).              |
+| hadoop_s3_properties             | map     | no       | -                                                         | Additional Hadoop S3A/Hadoop-AWS options. `fs.s3a.aws.credentials.provider` and `fs.s3a.endpoint` are read from the top level and overwrite any value set here, so set them as top-level options. See [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html). |
 | file_name_expression             | string  | no       | "${transactionId}"                                        | File name expression appended under `path`. Use `${now}` or `${uuid}` to inject timestamp or UUID. When `is_enable_transaction = true`, `${transactionId}_` is automatically prepended.                                  |
 | file_format_type                 | string  | no       | csv                                                       | File format written to S3. Supported values: `text`, `csv`, `parquet`, `orc`, `json`. The final file name ends with the corresponding suffix (e.g. `txt` for text).                                                       |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                              | Time format used to resolve `${now}` inside `file_name_expression`. See [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html) for the full syntax.                          |
@@ -112,9 +112,11 @@ If you need to add a other option, you could add it here and refer to this [Hado
 
 ```
 hadoop_s3_properties {
-  "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  "fs.s3a.buffer.dir" = "/data/st_test/s3a"
  }
 ```
+
+Please note: `fs.s3a.aws.credentials.provider` and `fs.s3a.endpoint` are read from the top level of the connector config and overwrite any value set in `hadoop_s3_properties`, so configure them as top-level options, as shown in the examples below. `fs.s3a.endpoint` is not declared in the connector's option rule yet, so a job config pre-check may report it as an unknown key even though it is read at runtime.
 
 ### file_name_expression [string]
 
@@ -206,6 +208,8 @@ For text file format
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
     path="/seatunnel/text"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -213,9 +217,6 @@ For text file format
     file_format_type = "text"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```
@@ -233,6 +234,8 @@ For parquet file format
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
     path="/seatunnel/parquet"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -240,9 +243,6 @@ For parquet file format
     file_format_type = "parquet"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```
@@ -260,6 +260,8 @@ For orc file format
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
     path="/seatunnel/orc"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -267,9 +269,6 @@ For orc file format
     file_format_type = "orc"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```

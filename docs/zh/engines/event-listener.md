@@ -261,7 +261,7 @@ public class CustomMultiEventHandler implements EventHandler {
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
         log.info("表添加列 | 表: {}, 列: {}, 时间: {}",
-            event.getTableIdentifier().getTablePath(), event.getColumn(), event.getCreatedTime());
+            event.getTablePath(), event.getColumn(), event.getCreatedTime());
         // 处理表结构变更逻辑
     }
 
