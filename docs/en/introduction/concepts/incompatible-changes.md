@@ -5,6 +5,29 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Flink sinks: reconcile restored commits and fail unresolved commits
+
+Restored sink transactions now use the aggregated committer's idempotent `restoreCommit`
+path. A final batch containing both restored and newly finished transactions is reconciled
+as one recovery batch. Batches containing only fresh transactions continue to use `commit`.
+
+An aggregated commit that returns unresolved transactions now fails the task instead of
+acknowledging them or repeatedly retrying them at end of input. Recovery follows the Flink
+restart strategy and the last completed checkpoint. For bounded jobs without a recoverable
+checkpoint, the job fails rather than reporting success with missing output. Fix the sink
+failure before restarting; no new configuration option is required.
+
+Mixed multi-table JDBC XA recovery requires table-owned prepared-transaction cleanup
+(#13109). Recovery cannot distinguish a transaction already resolved from one incorrectly
+rolled back by a peer table. The generic Flink adapter does not repair that cleanup bug;
+apply the ownership fix before rolling out this recovery path.
+
+Flink 1.13 and 1.15–1.18 retain their existing committable format and operator identities.
+Flink 1.20 reads existing version-0 committable state but writes version 1, which includes the
+checkpoint id. Savepoints containing version-1 committables cannot be restored by older
+SeaTunnel versions. Retain a pre-upgrade savepoint if rollback is required; do not use a
+post-upgrade savepoint to roll back.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection

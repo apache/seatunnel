@@ -121,15 +121,15 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         if (pending != null) {
             pending.forEach(this::markRecovered);
         }
-        return pending == null ? Collections.emptyList() : pending;
+        failIfPending(pending);
+        return Collections.emptyList();
     }
 
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
-        boolean replay = !committables.isEmpty() && committables.get(0).isRecovered();
-        if (committables.stream().anyMatch(wrapper -> wrapper.isRecovered() != replay)) {
-            throw new IOException("Cannot combine restored and live committables");
-        }
+        // Flink can restore a partially completed end-of-input batch and add live transactions
+        // from the remaining writers. Reconcile the entire aggregate through the idempotent path.
+        boolean replay = committables.stream().anyMatch(CommitWrapper::isRecovered);
         GlobalCommT combined =
                 aggregatedCommitter.combine(
                         committables.stream()
@@ -167,7 +167,18 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         }
         replay.forEach(value -> recovered.remove(new IdentityReference<>(value, null)));
         replayRetry.forEach(this::markRecovered);
-        return pending;
+        failIfPending(pending);
+        return Collections.emptyList();
+    }
+
+    private void failIfPending(List<GlobalCommT> pending) throws IOException {
+        if (pending != null && !pending.isEmpty()) {
+            // Flink 1.15 retries pending global committables in a tight loop at end of input.
+            // Fail instead: recovery replays checkpointed work through restoreCommit, without
+            // acknowledging unresolved transactions or spinning indefinitely on permanent errors.
+            throw new IOException(
+                    "Aggregated commit has unresolved transactions; recovery is required");
+        }
     }
 
     @Override

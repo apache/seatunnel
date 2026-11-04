@@ -48,8 +48,14 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
 
     public static <I, C, S, G> Sink<I> wrap(FlinkSink<I, C, S, G> sink) {
         Sink<I> delegate = SinkV1Adapter.wrap(new RecoverableLegacySink<>(sink));
-        if (delegate instanceof StatefulSink && delegate instanceof WithPostCommitTopology) {
-            return new RecoveryAwareSink<>(delegate);
+        if (delegate instanceof WithPostCommitTopology) {
+            if (delegate instanceof StatefulSink) {
+                return new RecoveryAwareSink<>(delegate);
+            }
+            // SinkV1Adapter exposes aggregate-only sinks without StatefulSink, even when the
+            // legacy sink offers writer state. Preserve that capability and operator-state shape.
+            return new CommittingRecoveryAwareSink<>(
+                    (WithPostCommitTopology<I, CommitWrapper<C>>) delegate);
         }
         return delegate;
     }
@@ -79,6 +85,36 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
 
     public void addPostCommitTopology(DataStream<CommittableMessage<CommitWrapper<CommT>>> stream) {
         committing.addPostCommitTopology(new RecoveryDataStream<>(stream));
+    }
+
+    private static final class CommittingRecoveryAwareSink<I, C>
+            implements WithPostCommitTopology<I, CommitWrapper<C>> {
+        private final WithPostCommitTopology<I, CommitWrapper<C>> delegate;
+
+        private CommittingRecoveryAwareSink(WithPostCommitTopology<I, CommitWrapper<C>> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public PrecommittingSinkWriter<I, CommitWrapper<C>> createWriter(Sink.InitContext context)
+                throws IOException {
+            return delegate.createWriter(context);
+        }
+
+        @Override
+        public Committer<CommitWrapper<C>> createCommitter() throws IOException {
+            return delegate.createCommitter();
+        }
+
+        @Override
+        public SimpleVersionedSerializer<CommitWrapper<C>> getCommittableSerializer() {
+            return delegate.getCommittableSerializer();
+        }
+
+        @Override
+        public void addPostCommitTopology(DataStream<CommittableMessage<CommitWrapper<C>>> stream) {
+            delegate.addPostCommitTopology(new RecoveryDataStream<>(stream));
+        }
     }
 
     static final class RecoveryDataStream<T>

@@ -37,19 +37,20 @@ class FlinkGlobalCommitterTest {
         List<String> pending = Collections.singletonList("retry");
         when(delegate.restoreCommit(restored)).thenReturn(pending);
         FlinkGlobalCommitter<String, String> committer = new FlinkGlobalCommitter<>(delegate);
-        Assertions.assertEquals(pending, committer.filterRecoveredCommittables(restored));
+        Assertions.assertThrows(
+                java.io.IOException.class, () -> committer.filterRecoveredCommittables(restored));
         verify(delegate).restoreCommit(restored);
         committer.close();
     }
 
     @Test
-    void testLiveCommitRetainsPendingRetries() throws Exception {
+    void testLiveCommitFailsWithoutAcknowledgingPendingRetries() throws Exception {
         SinkAggregatedCommitter<String, String> delegate = mock(SinkAggregatedCommitter.class);
         List<String> batch = Collections.singletonList("prepared");
         List<String> pending = Collections.singletonList("retry");
         when(delegate.commit(batch)).thenReturn(pending);
         FlinkGlobalCommitter<String, String> committer = new FlinkGlobalCommitter<>(delegate);
-        Assertions.assertEquals(pending, committer.commit(batch));
+        Assertions.assertThrows(java.io.IOException.class, () -> committer.commit(batch));
         committer.close();
     }
 
@@ -66,9 +67,9 @@ class FlinkGlobalCommitterTest {
         String combined = committer.combine(Collections.singletonList(wrapper));
         when(delegate.restoreCommit(Collections.singletonList(combined)))
                 .thenReturn(Collections.singletonList("retry"));
-        Assertions.assertEquals(
-                Collections.singletonList("retry"),
-                committer.commit(Collections.singletonList(combined)));
+        Assertions.assertThrows(
+                java.io.IOException.class,
+                () -> committer.commit(Collections.singletonList(combined)));
         committer.commit(Collections.singletonList("retry"));
         verify(delegate).restoreCommit(Collections.singletonList("retry"));
         org.mockito.Mockito.verify(delegate, org.mockito.Mockito.never())
@@ -98,15 +99,16 @@ class FlinkGlobalCommitterTest {
     }
 
     @Test
-    void testMixedAndReusedAggregateFailClosed() throws Exception {
+    void testMixedAggregateUsesRecoveryAndReusedLiveAggregateFailsClosed() throws Exception {
         SinkAggregatedCommitter<String, String> delegate = mock(SinkAggregatedCommitter.class);
         FlinkGlobalCommitter<String, String> committer = new FlinkGlobalCommitter<>(delegate);
         CommitWrapper<String> restored = new CommitWrapper<>("restored");
         restored.markRecovered();
         CommitWrapper<String> live = new CommitWrapper<>("live");
-        Assertions.assertThrows(
-                java.io.IOException.class,
-                () -> committer.combine(java.util.Arrays.asList(restored, live)));
+        when(delegate.combine(java.util.Arrays.asList("restored", "live"))).thenReturn("mixed");
+        String mixed = committer.combine(java.util.Arrays.asList(restored, live));
+        committer.commit(Collections.singletonList(mixed));
+        verify(delegate).restoreCommit(Collections.singletonList("mixed"));
         String reused = new String("combined");
         when(delegate.combine(org.mockito.ArgumentMatchers.anyList())).thenReturn(reused);
         committer.combine(Collections.singletonList(restored));
@@ -143,7 +145,9 @@ class FlinkGlobalCommitterTest {
         String retry = new String("retry");
         when(delegate.restoreCommit(Collections.singletonList("saved")))
                 .thenReturn(Collections.singletonList(retry));
-        committer.filterRecoveredCommittables(Collections.singletonList("saved"));
+        Assertions.assertThrows(
+                java.io.IOException.class,
+                () -> committer.filterRecoveredCommittables(Collections.singletonList("saved")));
         String equalLive = new String("retry");
         committer.commit(java.util.Arrays.asList(retry, equalLive));
         verify(delegate).restoreCommit(Collections.singletonList(retry));

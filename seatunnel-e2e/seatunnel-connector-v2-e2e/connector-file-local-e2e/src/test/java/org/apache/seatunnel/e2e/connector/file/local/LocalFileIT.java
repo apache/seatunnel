@@ -372,7 +372,13 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
                         container);
 
-                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                Container.ExecResult create =
+                        container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                Assertions.assertEquals(0, create.getExitCode(), create.getStderr());
+                // Fixture setup runs as root; engine workers may run as a different user.
+                Container.ExecResult permissions =
+                        container.execInContainer("chmod", "1777", "/tmp/fake_empty");
+                Assertions.assertEquals(0, permissions.getExitCode(), permissions.getStderr());
             };
 
     @TestTemplate
