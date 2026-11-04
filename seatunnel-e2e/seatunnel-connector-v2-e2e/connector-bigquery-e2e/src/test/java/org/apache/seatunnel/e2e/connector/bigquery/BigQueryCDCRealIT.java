@@ -112,8 +112,11 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
     private static final String BATCH_RESTORE_CONF = "/fake_to_bigquery_batch_real_restore.conf";
     private static final long BATCH_RESTORE_ROW_COUNT = 60L;
     private static final int BATCH_RESTORE_TIMEOUT_SECONDS = 300;
-    // Shorter than checkpoint.interval in the job config, so rows appended after the last
-    // completed checkpoint are still unflushed in the buffered stream when the job is cancelled.
+    private static final long BATCH_RESTORE_CHECKPOINT_INTERVAL_MILLIS = 10_000L;
+    // Longer than a restored job runs, so that job never completes a checkpoint of its own.
+    private static final long NO_CHECKPOINT_INTERVAL_MILLIS = 3_600_000L;
+    // Shorter than the checkpoint interval, so rows appended after the last completed checkpoint
+    // are still unflushed in the buffered stream when the job is cancelled.
     private static final int UNCHECKPOINTED_APPEND_SECONDS = 4;
 
     private String projectId;
@@ -347,18 +350,66 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
                     "Cancelling and restoring a job are only implemented by the SeaTunnel test container")
     public void testBatchModeRestoreAfterUncheckpointedAppends(TestContainer container)
             throws Exception {
-        tableId =
-                TableId.of(
-                        projectId,
-                        datasetId,
-                        "seatunnel_batch_restore_" + UUID.randomUUID().toString().replace("-", ""));
         createBatchRestoreTable();
+        String jobId = runBatchRestoreJobUntilCancelled(container);
+
+        assertRestoredJobWritesEveryRowOnce(container, jobId);
+    }
+
+    /**
+     * Restores one checkpoint twice. The first restored job finalizes the buffered stream recorded
+     * in that checkpoint and is cancelled without completing a checkpoint of its own. The second
+     * restored job retires the same stream again, so FlushRows and FinalizeWriteStream reach a
+     * stream that is already finalized. The real service must answer in a way the sink accepts, and
+     * every row must still become visible exactly once.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Cancelling and restoring a job are only implemented by the SeaTunnel test container")
+    public void testBatchModeRestoreOfAlreadyFinalizedStream(TestContainer container)
+            throws Exception {
+        createBatchRestoreTable();
+        String jobId = runBatchRestoreJobUntilCancelled(container);
+
+        String firstRestoredJobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> firstRestoredRun =
+                restoreBatchJob(
+                        container, jobId, firstRestoredJobId, NO_CHECKPOINT_INTERVAL_MILLIS);
+        await().atMost(BATCH_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(
+                        () ->
+                                countStreamRetirements(container) >= 1
+                                        && "RUNNING"
+                                                .equals(
+                                                        container.getJobStatus(
+                                                                firstRestoredJobId)));
+        cancelBatchJob(container, firstRestoredJobId, firstRestoredRun);
+
+        assertRestoredJobWritesEveryRowOnce(container, jobId);
+
+        long retirements = countStreamRetirements(container);
+        Assertions.assertTrue(
+                retirements >= 2,
+                "The second restored job must retire the finalized stream again, but "
+                        + retirements
+                        + " retirements were logged");
+    }
+
+    /**
+     * Runs the batch restore job past its first completed checkpoint and cancels it while rows are
+     * being appended after that checkpoint.
+     *
+     * @return the id of the cancelled job
+     */
+    private String runBatchRestoreJobUntilCancelled(TestContainer container) throws Exception {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
-        String[] variables = {
-            "bigquery_project_id=" + projectId,
-            "bigquery_dataset_id=" + datasetId,
-            "bigquery_table_id=" + tableId.getTable()
-        };
+        String[] variables =
+                batchRestoreVariables(BATCH_RESTORE_CHECKPOINT_INTERVAL_MILLIS)
+                        .toArray(new String[0]);
 
         CompletableFuture<Container.ExecResult> firstRun =
                 CompletableFuture.supplyAsync(
@@ -374,12 +425,7 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
                 .until(() -> container.getCompletedCheckpointCount(jobId) > 0);
         TimeUnit.SECONDS.sleep(UNCHECKPOINTED_APPEND_SECONDS);
 
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-        await().atMost(2, TimeUnit.MINUTES)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .until(() -> "CANCELED".equals(container.getJobStatus(jobId)));
-        firstRun.get(2, TimeUnit.MINUTES);
+        cancelBatchJob(container, jobId, firstRun);
 
         long rowsBeforeRestore = countRows();
         Assertions.assertTrue(
@@ -388,22 +434,19 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
                         + " but "
                         + rowsBeforeRestore
                         + " rows were visible");
+        return jobId;
+    }
 
+    private void assertRestoredJobWritesEveryRowOnce(TestContainer container, String sourceJobId)
+            throws Exception {
         // A job restored from a checkpoint runs under a new job id.
         String restoredJobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> restoredRun =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.restoreJobWithCheckpoint(
-                                        BATCH_RESTORE_CONF,
-                                        jobId,
-                                        restoredJobId,
-                                        Arrays.asList(variables));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
+                restoreBatchJob(
+                        container,
+                        sourceJobId,
+                        restoredJobId,
+                        BATCH_RESTORE_CHECKPOINT_INTERVAL_MILLIS);
         try {
             await().atMost(BATCH_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(2, TimeUnit.SECONDS)
@@ -425,7 +468,60 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
         }
     }
 
+    private CompletableFuture<Container.ExecResult> restoreBatchJob(
+            TestContainer container,
+            String sourceJobId,
+            String restoredJobId,
+            long checkpointIntervalMillis) {
+        List<String> variables = batchRestoreVariables(checkpointIntervalMillis);
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.restoreJobWithCheckpoint(
+                                BATCH_RESTORE_CONF, sourceJobId, restoredJobId, variables);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private void cancelBatchJob(
+            TestContainer container, String jobId, CompletableFuture<Container.ExecResult> run)
+            throws Exception {
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> "CANCELED".equals(container.getJobStatus(jobId)));
+        run.get(2, TimeUnit.MINUTES);
+    }
+
+    private List<String> batchRestoreVariables(long checkpointIntervalMillis) {
+        return Arrays.asList(
+                "bigquery_project_id=" + projectId,
+                "bigquery_dataset_id=" + datasetId,
+                "bigquery_table_id=" + tableId.getTable(),
+                "checkpoint_interval=" + checkpointIntervalMillis);
+    }
+
+    /** Counts how often a stream of the current table was retired, whatever BigQuery answered. */
+    private long countStreamRetirements(TestContainer container) {
+        String streamsOfTable = "/tables/" + tableId.getTable() + "/streams/";
+        return Arrays.stream(container.getServerLogs().split("\n"))
+                .filter(line -> line.contains(streamsOfTable))
+                .filter(
+                        line ->
+                                line.contains("Finalized restored Buffered write stream")
+                                        || line.contains("was already finalized"))
+                .count();
+    }
+
     private void createBatchRestoreTable() throws InterruptedException {
+        tableId =
+                TableId.of(
+                        projectId,
+                        datasetId,
+                        "seatunnel_batch_restore_" + UUID.randomUUID().toString().replace("-", ""));
         String sql =
                 String.format(
                         "CREATE TABLE `%s.%s.%s` (id INT64, name STRING) OPTIONS ("
