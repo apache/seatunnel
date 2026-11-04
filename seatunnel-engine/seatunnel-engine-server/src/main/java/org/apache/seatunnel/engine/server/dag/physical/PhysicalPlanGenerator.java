@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -268,6 +269,9 @@ public class PhysicalPlanGenerator {
                                     sinkAggregatedCommitter;
                             ClassLoader appClassLoader =
                                     Thread.currentThread().getContextClassLoader();
+                            // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute
+                            // paths.
+                            PathResolver.resolvePathEnv(sinkAction.getJarUrls());
                             try {
                                 ClassLoader classLoader =
                                         classLoaderService.getClassLoader(
