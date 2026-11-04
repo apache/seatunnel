@@ -108,6 +108,25 @@ public class IcebergFilesCommitter implements Serializable {
         }
     }
 
+    /**
+     * Returns the indexes of the groups of a checkpoint that already reached the table, so that a
+     * restore commits only the missing ones.
+     *
+     * <ul>
+     *   <li>A non-positive checkpoint id cannot be matched against snapshot summaries, so each
+     *       group is checked by looking for its file paths in the head snapshot.
+     *   <li>A positive checkpoint id is matched against {@link #SNAPSHOT_PROPERTY_CHECKPOINT_ID}
+     *       while walking back from the head of the selected branch (or main), and the group index
+     *       is read from {@link #SNAPSHOT_PROPERTY_COMMIT_GROUP}. The walk stops early once every
+     *       group has been found.
+     *   <li>A snapshot with this checkpoint id but no group index was written as a single,
+     *       ungrouped snapshot (for example before this checkpoint was split into groups), so the
+     *       whole checkpoint is treated as committed.
+     * </ul>
+     *
+     * <p>Group indexes are only meaningful because {@code planCommits} builds the same groups, in
+     * the same order, from the results persisted in the checkpoint state.
+     */
     private Set<Integer> committedGroups(long checkpointId, List<List<WriteResult>> groups) {
         Set<Integer> committed = new HashSet<>();
         if (checkpointId <= 0) {
