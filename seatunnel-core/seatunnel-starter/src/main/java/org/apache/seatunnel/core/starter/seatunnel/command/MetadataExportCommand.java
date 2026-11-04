@@ -416,6 +416,11 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         return exportCondition(condition, true);
     }
 
+    /**
+     * Exports the full standalone condition chain when {@code includeNext} is true. Otherwise,
+     * exports only the current atom; the enclosing expression node owns {@code operator} and {@code
+     * next}.
+     */
     private ObjectNode exportCondition(Condition<?> condition, boolean includeNext) {
         if (condition == null) {
             return null;

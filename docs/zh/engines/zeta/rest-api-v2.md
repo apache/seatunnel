@@ -99,6 +99,8 @@ seatunnel:
 
 #### 响应
 
+REST 元数据与 CLI 元数据导出中的条件规则使用平铺链，由表达式节点持有 `operator` 和 `next`；解析时 `AND` 优先于 `OR`（例如 `A OR B AND C` 表示 `A OR (B AND C)`），不能简单地从左到右分组。
+
 ```json
 {
   "engineType": "seatunnel",
