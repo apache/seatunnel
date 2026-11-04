@@ -8,11 +8,16 @@ TableMerge transform plugin for merge sharding-tables.
 
 ## Options
 
-|   name   | type   | required | default value | Description               |
-|:--------:|--------|----------|---------------|---------------------------|
-| database | string | no       |               | Specify new database name |
-|  schema  | string | no       |               | Specify new schema name   |
-|  table   | string | yes      |               | Specify new table name    |
+|        name        | type   | required |    default value     | Description                                                                                    |
+|:------------------:|--------|----------|----------------------|------------------------------------------------------------------------------------------------|
+|      database      | string | no       |                      | Specify new database name                                                                      |
+|       schema       | string | no       |                      | Specify new schema name                                                                        |
+|       table        | string | yes      |                      | Specify new table name                                                                         |
+| table_match_regex  | string | no       | `.*`                 | Regex of the table paths that the transform level rule applies to.                              |
+|  table_transform   | array  | no       | -                    | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                          |
+|  rule_match_mode   | string | no       | `FIRST_MATCH`        | How multiple `table_transform` entries with the same `table_path` are evaluated.                 |
+
+Tables that match neither `table_match_regex` nor a `table_transform` entry are passed through unchanged. In the example below, `source.shop` does not match `source.user_.*`, so it keeps its original name while `source.user_1` and `source.user_2` are merged into `user_db.user_all`.
 
 ## Examples
 

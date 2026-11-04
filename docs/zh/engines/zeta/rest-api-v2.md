@@ -258,7 +258,7 @@ seatunnel:
 ```
 
 **注意:**
-- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当你使用`dynamic-slot`时, 返回结果中的`unassignedSlot`将始终为0, 因为动态slot是按需创建的, 不会预先注册; `totalSlot`反映的是当前已被任务占用的slot数量. 设置`dynamic-slot: false`使用固定slot后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
 - 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>

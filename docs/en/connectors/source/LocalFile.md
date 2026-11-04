@@ -651,6 +651,10 @@ When enabled, files will be sorted by their modification time (newest first). Th
 - Reading files with evolving schemas and you want schema inference to use the latest file
 - You need to process files in chronological order
 
+### metalake_type [string]
+
+The type of metalake service, currently supports `gravitino`.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
