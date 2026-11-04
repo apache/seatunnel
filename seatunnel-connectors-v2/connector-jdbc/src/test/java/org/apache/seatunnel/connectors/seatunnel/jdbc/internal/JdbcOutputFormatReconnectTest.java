@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
@@ -96,6 +97,100 @@ public class JdbcOutputFormatReconnectTest {
         Assertions.assertEquals(1, executor.closeStatementsCalls);
         Mockito.verify(provider).reestablishConnection();
         Mockito.verify(provider, Mockito.never()).isConnectionValid();
+    }
+
+    @Test
+    public void testFlushRetryShouldReconnectWhenBindingFailsBecauseStatementHasBeenClosed()
+            throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.reestablishConnection()).thenReturn(connection);
+
+        int[] prepareStatementsCalls = new int[1];
+        int[] executeBatchCalls = new int[1];
+        int[] closeStatementsCalls = new int[1];
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                new JdbcBatchStatementExecutor<SeaTunnelRow>() {
+                    @Override
+                    public void prepareStatements(Connection ignored) {
+                        prepareStatementsCalls[0]++;
+                    }
+
+                    @Override
+                    public void addToBatch(SeaTunnelRow record) {}
+
+                    @Override
+                    public void executeBatch() {
+                        executeBatchCalls[0]++;
+                        if (executeBatchCalls[0] == 1) {
+                            throw new JdbcConnectorException(
+                                    JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
+                                    "error field:id",
+                                    new SQLException("This statement has been closed."));
+                        }
+                    }
+
+                    @Override
+                    public void closeStatements() {
+                        closeStatementsCalls[0]++;
+                    }
+                };
+
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        outputFormat.flush();
+
+        Assertions.assertEquals(2, prepareStatementsCalls[0]);
+        Assertions.assertEquals(2, executeBatchCalls[0]);
+        Assertions.assertEquals(1, closeStatementsCalls[0]);
+        Mockito.verify(provider).reestablishConnection();
+    }
+
+    @Test
+    public void testFlushShouldNotReconnectWhenBindingFailsWithADataError() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+
+        int[] executeBatchCalls = new int[1];
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                new JdbcBatchStatementExecutor<SeaTunnelRow>() {
+                    @Override
+                    public void prepareStatements(Connection ignored) {}
+
+                    @Override
+                    public void addToBatch(SeaTunnelRow record) {}
+
+                    @Override
+                    public void executeBatch() {
+                        executeBatchCalls[0]++;
+                        throw new JdbcConnectorException(
+                                JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
+                                "error field:id",
+                                new SQLException("invalid integer", "22003"));
+                    }
+
+                    @Override
+                    public void closeStatements() {}
+                };
+
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        JdbcConnectorException failure =
+                Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+
+        Assertions.assertEquals("22003", ((SQLException) failure.getCause()).getSQLState());
+        Assertions.assertEquals(1, executeBatchCalls[0]);
+        Mockito.verify(provider, Mockito.never()).reestablishConnection();
     }
 
     @Test

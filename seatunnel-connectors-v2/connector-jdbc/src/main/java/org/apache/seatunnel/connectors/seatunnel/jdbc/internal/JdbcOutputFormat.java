@@ -327,7 +327,25 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     protected void attemptFlush() throws SQLException {
-        jdbcStatementExecutor.executeBatch();
+        try {
+            jdbcStatementExecutor.executeBatch();
+        } catch (JdbcConnectorException exception) {
+            // Row binding wraps a closed statement as a connector exception. Flush retry
+            // only catches SQLException, so surface the original connection failure.
+            SQLException connectionFailure = closedConnectionFailure(exception);
+            if (connectionFailure == null) {
+                throw exception;
+            }
+            throw connectionFailure;
+        }
+    }
+
+    private SQLException closedConnectionFailure(Throwable failure) {
+        List<SQLException> sqlExceptions = findSqlExceptions(failure);
+        if (sqlExceptions.isEmpty() || !isConnectionLost(sqlExceptions)) {
+            return null;
+        }
+        return sqlExceptions.get(0);
     }
 
     /**
@@ -672,8 +690,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
         String normalizedMessage = message.toLowerCase(Locale.ROOT);
         // SQL Server may report a closed statement handle without using "closed".
+        // PostgreSQL reports "This statement has been closed."
         return normalizedMessage.contains("statement closed")
                 || normalizedMessage.contains("statement is closed")
+                || normalizedMessage.contains("has been closed")
                 || normalizedMessage.contains("statement handle is not executing")
                 || normalizedMessage.contains("statement handle is closed");
     }
