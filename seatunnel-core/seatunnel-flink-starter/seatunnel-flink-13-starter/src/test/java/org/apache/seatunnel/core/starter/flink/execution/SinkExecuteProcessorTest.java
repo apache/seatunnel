@@ -50,6 +50,7 @@ class SinkExecuteProcessorTest {
     private String originalSeatunnelHome;
     private DeployMode originalDeployMode;
     private ClassLoader originalClassLoader;
+    private URLClassLoader pluginClassLoader;
 
     @BeforeEach
     void setUp() {
@@ -59,15 +60,17 @@ class SinkExecuteProcessorTest {
         Common.setSeaTunnelHome(seatunnelHome.toString());
         Common.setDeployMode(DeployMode.CLIENT);
         // The processor adds the plugin jars to the context class loader.
-        Thread.currentThread()
-                .setContextClassLoader(new URLClassLoader(new URL[0], originalClassLoader));
+        pluginClassLoader = new URLClassLoader(new URL[0], originalClassLoader);
+        Thread.currentThread().setContextClassLoader(pluginClassLoader);
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         Thread.currentThread().setContextClassLoader(originalClassLoader);
         Common.setSeaTunnelHome(originalSeatunnelHome);
         Common.setDeployMode(originalDeployMode);
+        // An open loader keeps the jars locked on Windows, and @TempDir then cannot delete them.
+        pluginClassLoader.close();
     }
 
     @Test
