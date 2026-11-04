@@ -50,6 +50,28 @@ import java.sql.Statement;
 import java.util.Properties;
 import java.util.UUID;
 
+/**
+ * Opt-in source validation against an existing licensed Ingres instance and user-supplied
+ * iijdbc.jar. Requires Docker, built E2E artifacts and a JDBC URL reachable from both the JVM and
+ * Zeta container. The account needs CREATE TABLE, INSERT, SELECT, DROP TABLE and metadata access
+ * for the owner.
+ *
+ * <p>Set INGRES_E2E=true, RUN_ENGINES=zeta, INGRES_E2E_URL, INGRES_E2E_USER, INGRES_E2E_PASSWORD,
+ * INGRES_E2E_OWNER (stored case, no quotes or dots), and INGRES_E2E_DRIVER_JAR (absolute local
+ * path). Keep credentials in environment variables. From the repository root, run:
+ *
+ * <pre>
+ * ./mvnw -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-7 -am \
+ *   -DskipUT -DskipIT=false -Dit.test=JdbcIngresIT -Dfailsafe.failIfNoSpecifiedTests=false verify
+ * </pre>
+ *
+ * <p>The fixture checks INTEGER, a quoted VARCHAR column, NULL and DECIMAL(10,2). Cleanup drops
+ * only its random st_ingres_* table; after forced termination, remove that table manually. Each
+ * complete job config is copied with mode 0600 and removed in finally. No driver is bundled. Record
+ * actual server/driver versions when running; no version has been verified yet. A skipped test does
+ * not establish compatibility. Sink execution, native upsert, Ingres-specific types, CDC, catalog
+ * and connector-managed schema creation are outside this test's scope.
+ */
 @EnabledIfEnvironmentVariable(named = "INGRES_E2E", matches = "(?i)true")
 @DisabledOnContainer(
         value = {},

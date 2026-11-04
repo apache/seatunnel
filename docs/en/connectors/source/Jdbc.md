@@ -605,13 +605,34 @@ The database is selected by the JDBC URL. Write the actual identifier names with
 their case. For names containing a dot, use a custom `query` with explicit SQL quoting instead
 of `table_path`.
 
+
+#### Type mapping
+
+The Ingres source reuses GenericTypeMapper and GenericTypeConverter. Mapping is based on the JDBC type code reported by the driver, not on the native Ingres type name. The following table describes the implemented conversion, not a verified server/driver compatibility matrix.
+
+| JDBC type reported by the driver | SeaTunnel type |
+| --- | --- |
+| BOOLEAN; BIT with length <= 1 or unspecified | BOOLEAN |
+| BIT with length > 1 | BYTES |
+| TINYINT / SMALLINT / INTEGER / BIGINT | TINYINT / SMALLINT / INT / BIGINT |
+| REAL / FLOAT | FLOAT |
+| DOUBLE | DOUBLE |
+| NUMERIC | DECIMAL(p,s); DECIMAL(38,18) if precision is missing or non-positive |
+| DECIMAL | DECIMAL(p,s), with missing scale treated as 0; DECIMAL(38,18) if p > 38 |
+| CHAR, VARCHAR, LONGVARCHAR, NCHAR, NVARCHAR, LONGNVARCHAR, CLOB, NCLOB, DATALINK, SQLXML | STRING |
+| BINARY, VARBINARY, LONGVARBINARY, BLOB | BYTES |
+| DATE / TIME / TIMESTAMP | DATE / TIME / TIMESTAMP |
+| NULL | NULL |
+
+Native INGRESDATE, MONEY and interval types have no Ingres-specific mapping. Their driver metadata and runtime behavior remain unverified. JDBC types not listed above, including timezone-aware temporal types, have no mapping in this converter. DECIMAL requires positive precision. This table describes source conversion only; sink execution and automatic schema creation are not validated.
+
 This dialect reuses the generic JDBC type mapping and row conversion for standard JDBC types.
 Ingres-specific types such as `INGRESDATE`, `MONEY`, and intervals are not covered. String keys
 use a single split because an Ingres hash/range splitting implementation is not provided.
 The dialect does not add a catalog, schema creation, CDC, or native upsert SQL.
 
 The opt-in `JdbcIngresIT` test in `connector-jdbc-e2e-part-7` requires a licensed Ingres instance
-and a user-supplied driver. See that module's `README-ingres.md` for the validation procedure;
+and a user-supplied driver. See that module's `JdbcIngresIT` for the validation procedure;
 offline dialect tests alone do not establish compatibility with a particular server/driver version.
 
 ## Troubleshooting

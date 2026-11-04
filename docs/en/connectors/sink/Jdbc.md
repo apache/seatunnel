@@ -277,6 +277,9 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 
 #### Ingres
 
+For the driver-reported JDBC-to-SeaTunnel type mapping and its validation limits, see [Ingres source type mapping](../source/Jdbc.md#type-mapping). This is not a validated reverse mapping for sink table creation.
+
+
 Ingres support targets source reads; real-server validation is pending. Sink jobs also select this shared dialect for `jdbc:ingres:`, but sink execution and `${schema_name}` target routing have not been validated. This does not establish Ingres sink support.
 
 Use `owner.table` with the exact stored case; `field_ide` changes columns only. For generated sink SQL, `database` is not included in the table identifier: the JDBC URL selects the database and `table = "owner.table"` supplies the owner. `database` remains required when `generate_sink_sql = true`.

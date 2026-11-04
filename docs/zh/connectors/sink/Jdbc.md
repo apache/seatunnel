@@ -276,6 +276,9 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 #### Ingres
 
+驱动报告的 JDBC 类型到 SeaTunnel 类型的对应关系及验证范围见 [Ingres Source 类型映射](../source/Jdbc.md#类型映射)。此表不是已经验证的 Sink 自动建表反向映射。
+
+
 Ingres 支持以 Source 读取为目标，真实服务器验证仍待完成。使用 `jdbc:ingres:` 的 Sink 也会选中该共享方言，但 Sink 执行和 `${schema_name}` 目标路由尚未验证，不能据此认定已支持 Ingres Sink。
 
 `owner.table` 应使用实际存储的大小写，`field_ide` 仅修改列名。生成 Sink SQL 时，`database` 不加入表标识符：数据库由 JDBC URL 选择，`table = "owner.table"` 提供 owner。当 `generate_sink_sql = true` 时，`database` 仍为必填配置。

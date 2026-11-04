@@ -559,12 +559,33 @@ source {
 生成的 SQL 会分别为所有者和表名添加双引号，并保留大小写。
 如果名称本身包含点号，请使用带有显式 SQL 引用的自定义 `query`，而不是 `table_path`。
 
+
+#### 类型映射
+
+Ingres Source 复用 GenericTypeMapper 和 GenericTypeConverter，依据驱动报告的 JDBC 类型码转换，而非直接根据 Ingres 原生类型名转换。下表描述代码实现，不代表已经过真实服务器和驱动验证的兼容性矩阵。
+
+| 驱动报告的 JDBC 类型 | SeaTunnel 类型 |
+| --- | --- |
+| BOOLEAN; BIT 长度 <= 1 或未指定 | BOOLEAN |
+| BIT 长度 > 1 | BYTES |
+| TINYINT / SMALLINT / INTEGER / BIGINT | TINYINT / SMALLINT / INT / BIGINT |
+| REAL / FLOAT | FLOAT |
+| DOUBLE | DOUBLE |
+| NUMERIC | DECIMAL(p,s); DECIMAL(38,18) 精度缺失或非正数时使用 |
+| DECIMAL | DECIMAL(p,s), 缺失标度按 0 处理; DECIMAL(38,18) p > 38 时使用 |
+| CHAR, VARCHAR, LONGVARCHAR, NCHAR, NVARCHAR, LONGNVARCHAR, CLOB, NCLOB, DATALINK, SQLXML | STRING |
+| BINARY, VARBINARY, LONGVARBINARY, BLOB | BYTES |
+| DATE / TIME / TIMESTAMP | DATE / TIME / TIMESTAMP |
+| NULL | NULL |
+
+INGRESDATE、MONEY 和 interval 没有专用映射，其驱动元数据及运行行为尚未验证。表中未列出的 JDBC 类型（包括带时区的时间类型）在该转换器中没有映射。DECIMAL 要求精度为正数。此表仅描述 Source 转换，不代表已验证 Sink 执行或自动建表。
+
 此方言复用通用 JDBC 类型映射和行转换，仅覆盖标准 JDBC 类型，未覆盖 `INGRESDATE`、
 `MONEY` 和 interval 等 Ingres 专有类型。由于尚未实现 Ingres 字符串哈希或范围分片，
 字符串键使用单个分片。此方言不添加 catalog、建表能力、CDC 或原生 upsert SQL。
 
 `connector-jdbc-e2e-part-7` 中的 `JdbcIngresIT` 是需要手动启用的测试，要求提供已获许可的
-Ingres 实例和自行获取的驱动。验证步骤见该模块的 `README-ingres.md`；
+Ingres 实例和自行获取的驱动。验证步骤见该模块的 `JdbcIngresIT`；
 仅通过离线方言测试并不能证明特定服务端与驱动版本的兼容性。
 
 ## 故障排查
