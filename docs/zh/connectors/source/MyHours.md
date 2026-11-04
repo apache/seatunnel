@@ -10,19 +10,30 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## 描述
+
+My Hours Source 提供通过共享 HTTP 请求和重试逻辑读取 My Hours REST 接口的配置。
+
+:::caution 认证限制
+
+当前邮箱/密码认证会发送配置的数据请求，而不是携带凭据的登录请求。下方数据 URL 模板仅用于说明配置结构，不能完成该登录流程。实际使用前需要单独修复连接器认证并完成验证；当前也不支持自动刷新访问令牌。
+
+:::
+
 ## 关键特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
+:::tip
 
-用于通过 My Hours REST API 读取数据。连接器会先使用配置的 `email` 和 `password` 登录获取访问令牌，
-然后在后续请求中自动携带该令牌。
+在流模式下，连接器会反复请求配置的接口。可以用 `poll_interval_millis` 控制请求间隔。
+
+:::
 
 ## 支持的数据源信息
 
@@ -31,7 +42,7 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 | 数据源 | 支持的版本 | 依赖 |
 |--------|-----------|------|
-| My Hours | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel) |
+| My Hours | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-myhours) |
 
 ## 源选项
 
@@ -54,9 +65,9 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 | retry_backoff_multiplier_ms   | Int     | 否   | 100    | 重试退避倍数，单位毫秒。                                                                            |
 | retry_backoff_max_ms          | Int     | 否   | 10000  | 最大重试退避时间，单位毫秒。                                                                        |
 | json_filed_missed_return_null | Boolean | 否   | false  | 配置的 JSON 字段缺失时返回 `null`。                                                                |
-| common-options                |         | 否   | -      | 源插件通用参数。                                                                                   |
+| common-options                |         | 否   | -      | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                  |
 
-## 如何创建 My Hours 数据同步作业
+## 配置参考（当前认证流程受限）
 
 ```hocon
 env {
@@ -110,6 +121,16 @@ sink {
 ```
 
 ## 参数解释
+
+### 认证
+
+配置要求提供 `email` 和 `password`，但当前实现存在本页开头说明的认证限制，也不支持自动刷新访问令牌。
+
+### 请求范围与轮询限制
+
+每次配置的请求只读取一份 HTTP 响应。当前连接器不支持自动分页：`pageing` 不会推进页码，也不会跟随下一页链接或游标。需要多页数据时，请在 API 请求中指定某一页，或在连接器外编排多次请求。
+
+流模式会重复发送配置的请求，可能再次输出相同的行。连接器不会把 API 游标保存到 checkpoint 来实现增量恢复，因此重复轮询和重启都可能产生重复数据。
 
 ### format
 
