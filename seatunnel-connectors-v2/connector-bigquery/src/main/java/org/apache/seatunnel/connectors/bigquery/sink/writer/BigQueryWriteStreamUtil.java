@@ -56,9 +56,10 @@ public class BigQueryWriteStreamUtil {
             response = client.flushRows(request);
         } catch (RuntimeException e) {
             if (isStreamFinalized(e)) {
-                log.info(
-                        "BigQuery buffered stream {} was flushed and finalized by an earlier restore",
-                        streamName);
+                log.warn(
+                        "BigQuery buffered stream {} was flushed and finalized by an earlier restore, skipping flush to offset {}",
+                        streamName,
+                        flushOffset);
                 return;
             }
             throw e;
