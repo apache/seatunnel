@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
   在一次 pollNext 调用中读取分割中的所有数据。读取哪些分割将保存在快照中。
 
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
