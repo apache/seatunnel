@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,6 +44,7 @@ import java.util.Map;
 public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Object>>
         implements Serializable, Closeable {
     private final String tableId;
+    private final Map<String, Object> metadata;
     private final Collector<SeaTunnelRow> output;
     private int cellCount;
 
@@ -86,6 +88,31 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             SeaTunnelRowType seaTunnelRowType,
             int[] indexes,
             boolean useHeaderLine) {
+        this(
+                tableId,
+                output,
+                excelCellUtils,
+                seaTunnelRowType,
+                indexes,
+                useHeaderLine,
+                Collections.emptyMap());
+    }
+
+    /**
+     * Creates a row listener with per-file metadata without changing column selection.
+     *
+     * <p>Existing overloads retain their projection settings and leave row options unset when no
+     * file metadata is supplied.
+     */
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType,
+            int[] indexes,
+            boolean useHeaderLine,
+            Map<String, Object> metadata) {
+        this.metadata = metadata;
         this.tableId = tableId;
         this.output = output;
         this.excelCellUtils = excelCellUtils;
@@ -146,6 +173,9 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             }
         }
         seaTunnelRow.setTableId(tableId);
+        if (!metadata.isEmpty()) {
+            seaTunnelRow.getOptions().putAll(metadata);
+        }
         output.collect(seaTunnelRow);
     }
 

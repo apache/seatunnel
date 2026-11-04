@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.io.IOUtils;
 
@@ -159,7 +160,9 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                                 logicalSourceUri,
                                 logicalDocumentId,
                                 MarkdownKnowledgeSyncMetadata.toLowerHex(documentDigest.digest()));
-        collectMarkdownRows(markdown, path, logicalMetadata, output);
+        Map<String, Object> fileMetadata =
+                buildFileMetadata(new FileSourceSplit(tableId, path), path);
+        collectMarkdownRows(markdown, path, logicalMetadata, tableId, fileMetadata, output);
     }
 
     /**
@@ -184,7 +187,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                             MarkdownKnowledgeSyncMetadata.buildDocumentId(logicalSourceUri),
                             sourceDocumentHash);
         }
-        collectMarkdownRows(markdown, sourcePath, logicalMetadata, output);
+        collectMarkdownRows(markdown, sourcePath, logicalMetadata, null, null, output);
     }
 
     private void validateConvertedMarkdown(
@@ -211,6 +214,8 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
             String markdown,
             String sourcePath,
             LogicalDocumentMetadata logicalMetadata,
+            String tableId,
+            Map<String, Object> fileMetadata,
             Collector<SeaTunnelRow> output) {
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
@@ -232,6 +237,10 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                 logicalMetadata);
 
         for (SeaTunnelRow row : rows) {
+            if (fileMetadata != null) {
+                // Preserve logical document metadata already attached by the Markdown producer.
+                applyRowMetadata(row, tableId, fileMetadata);
+            }
             output.collect(row);
         }
     }

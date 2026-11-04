@@ -31,6 +31,11 @@ The Metadata transform plugin is used to extract metadata information from data 
 | BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
 | BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
+| FilePath   | string | File path or archive entry path of the current record. | File source connectors |
+| FileCreateTime | long | File creation time in epoch milliseconds. Falls back to modification time when the filesystem does not expose creation time. | File source connectors |
+| FileUpdateTime | long | File modification time in epoch milliseconds. | File source connectors |
+| FileSize   | long   | File size in bytes. For archive reads, this is the outer archive file size. | File source connectors |
+| FileType   | string | File extension without the trailing dot. Empty when the file has no extension. | File source connectors |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ## Connector-Declared Metadata Fields
@@ -83,11 +88,12 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
-5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
-6. **Markdown RAG compatibility**: With `markdown_rag_metadata_enabled=true`, Markdown declares and emits logical `SourceUri`, `DocumentId`, `DocumentHash`, and `ChunkHash` in addition to its existing physical `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash` columns. The physical names, order, values, formulas, and routing behavior are unchanged.
-7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. The generic Markdown bridge removes the complete query and fragment from hierarchical remote URIs; a source whose identity depends on a query must provide a stable, non-sensitive path.
-8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
-9. **Projection collisions**: An output name cannot duplicate an existing physical field. Because enabled Markdown already contains physical `source_uri` and `document_id`, project the logical values to aliases such as `ks_source_uri` and `ks_document_id`.
+5. **File metadata fields**: `FileCreateTime` may fall back to `FileUpdateTime` on filesystems that do not provide creation time. `FileType` is derived from the file name or archive entry suffix.
+6. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
+7. **Markdown RAG compatibility**: With `markdown_rag_metadata_enabled=true`, Markdown declares and emits logical `SourceUri`, `DocumentId`, `DocumentHash`, and `ChunkHash` in addition to its existing physical `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash` columns. The physical names, order, values, formulas, and routing behavior are unchanged.
+8. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. The generic Markdown bridge removes the complete query and fragment from hierarchical remote URIs; a source whose identity depends on a query must provide a stable, non-sensitive path.
+9. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
+10. **Projection collisions**: An output name cannot duplicate an existing physical field. Because enabled Markdown already contains physical `source_uri` and `document_id`, project the logical values to aliases such as `ks_source_uri` and `ks_document_id`.
 
 ### Markdown Source Bridge
 
@@ -129,6 +135,7 @@ transform {
 ```
 
 `ChunkHash` is valid for the immediate Markdown row only. If a downstream transform changes `text` or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before sending rows to a lifecycle sink. This bridge is producer integration only; it does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 
 ## Options
 

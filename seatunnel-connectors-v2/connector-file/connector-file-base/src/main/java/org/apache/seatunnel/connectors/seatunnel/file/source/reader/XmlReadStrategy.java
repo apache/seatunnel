@@ -125,6 +125,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         SAXReader saxReader = createSecureSaxReader(split.getFilePath());
         Document document;
         try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
@@ -185,7 +186,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                                 }
                             }
 
-                            seaTunnelRow.setTableId(split.getTableId());
+                            applyRowMetadata(seaTunnelRow, split.getTableId(), metadata);
                             output.collect(seaTunnelRow);
                         });
     }

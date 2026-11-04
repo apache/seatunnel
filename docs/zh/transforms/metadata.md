@@ -31,6 +31,11 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | BinlogPos  | long   | Binlog 字节偏移量。快照行返回 `null`。 | 仅 MySQL-CDC |
 | BinlogRow  | int    | Binlog 事件中的行索引（从 0 开始）。快照行返回 `null`。 | 仅 MySQL-CDC |
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
+| FilePath   | string | 当前记录所属的文件路径或压缩包内条目路径。 | 文件源连接器 |
+| FileCreateTime | long | 文件创建时间（毫秒时间戳）。当底层文件系统不提供创建时间时，会回退为修改时间。 | 文件源连接器 |
+| FileUpdateTime | long | 文件修改时间（毫秒时间戳）。 | 文件源连接器 |
+| FileSize   | long   | 文件大小（字节）。读取压缩包时，这里表示外层压缩包文件大小。 | 文件源连接器 |
+| FileType   | string | 文件扩展名（不含 `.`）。没有扩展名时返回空字符串。 | 文件源连接器 |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
 ## 连接器声明的元数据字段
@@ -83,11 +88,12 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
-5. **Knowledge Sync 投影需要显式配置**：Knowledge Sync 元数据字段只有在 `metadata_fields` 中配置、输入表 metadata schema 中声明了对应 Key，并且行 options 中存在对应值时才会被投影。该转换读取的是逻辑行元数据，不会读取同名的已有物理列。
-6. **兼容 Markdown RAG 物理字段**：当 `markdown_rag_metadata_enabled=true` 时，Markdown 除现有物理列 `source_uri`、`document_id`、`chunk_id`、`chunk_index`、`content_hash` 外，还会声明并输出逻辑 `SourceUri`、`DocumentId`、`DocumentHash`、`ChunkHash`。物理字段的名称、顺序、值、公式和路由行为均保持不变。
-7. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。通用 Markdown bridge 会移除分层远程 URI 的完整 query 和 fragment；如果来源身份依赖 query，则必须提供稳定且不敏感的 path。
-8. **Knowledge Sync 可空语义**：`DocumentId` 用于标识每个文档生命周期事件。声明 `Deleted` 后，producer 必须为普通行写入 `false`，为文档 tombstone 写入 `true`，不能使用 `null`。普通 chunk 行必须包含 `ChunkId`、`ChunkHash` 和 `ChunkIndex`；紧凑的文档 tombstone 可以将这些 chunk 字段留为 `null`。
-9. **投影冲突**：输出字段名不能与已有物理字段重复。启用 Markdown RAG metadata 后已经存在物理 `source_uri` 和 `document_id`，因此应把逻辑值投影为 `ks_source_uri`、`ks_document_id` 等别名。
+5. **文件元数据字段**：`FileCreateTime` 在不支持创建时间的文件系统上可能回退为 `FileUpdateTime`。`FileType` 来自文件名或压缩包内条目的后缀。
+6. **Knowledge Sync 投影需要显式配置**：Knowledge Sync 元数据字段只有在 `metadata_fields` 中配置、输入表 metadata schema 中声明了对应 Key，并且行 options 中存在对应值时才会被投影。该转换读取的是逻辑行元数据，不会读取同名的已有物理列。
+7. **兼容 Markdown RAG 物理字段**：当 `markdown_rag_metadata_enabled=true` 时，Markdown 除现有物理列 `source_uri`、`document_id`、`chunk_id`、`chunk_index`、`content_hash` 外，还会声明并输出逻辑 `SourceUri`、`DocumentId`、`DocumentHash`、`ChunkHash`。物理字段的名称、顺序、值、公式和路由行为均保持不变。
+8. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。通用 Markdown bridge 会移除分层远程 URI 的完整 query 和 fragment；如果来源身份依赖 query，则必须提供稳定且不敏感的 path。
+9. **Knowledge Sync 可空语义**：`DocumentId` 用于标识每个文档生命周期事件。声明 `Deleted` 后，producer 必须为普通行写入 `false`，为文档 tombstone 写入 `true`，不能使用 `null`。普通 chunk 行必须包含 `ChunkId`、`ChunkHash` 和 `ChunkIndex`；紧凑的文档 tombstone 可以将这些 chunk 字段留为 `null`。
+10. **投影冲突**：输出字段名不能与已有物理字段重复。启用 Markdown RAG metadata 后已经存在物理 `source_uri` 和 `document_id`，因此应把逻辑值投影为 `ks_source_uri`、`ks_document_id` 等别名。
 
 ### Markdown Source Bridge
 
@@ -129,6 +135,7 @@ transform {
 ```
 
 `ChunkHash` 只对 Markdown 直接输出的当前行有效。如果下游 transform 修改 `text` 或把一行展开为多个 chunk，则必须在把行发送到 lifecycle sink 前重新计算最终 `ChunkHash`、`ChunkId` 和 `ChunkIndex`。该 bridge 仅完成 producer 集成，不实现增量比较、writer affinity、过期 chunk 删除或 tombstone。
+
 
 ## 配置选项
 

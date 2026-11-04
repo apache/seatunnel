@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
 
@@ -36,6 +37,7 @@ import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -72,7 +74,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
     public GenericRow parcel(SeaTunnelRow seaTunnelRow) {
         SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
         int arity = rowType.getTotalFields();
-        Object[] fields = new Object[arity + 2];
+        Object[] fields = new Object[arity + 3];
         fields[0] = seaTunnelRow.getRowKind().toByteValue();
         fields[1] = seaTunnelRow.getTableId();
         for (int i = 0; i < indexes.length; i++) {
@@ -81,6 +83,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                 fields[indexes[i] + 2] = fieldValue;
             }
         }
+        fields[fields.length - 1] = serializeOptions(seaTunnelRow);
         return new GenericRow(fields);
     }
 
@@ -202,6 +205,10 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
         seaTunnelRow.setTableId(tableId);
+        byte[] optionBytes = (byte[]) engineRow.get(rowType.getTotalFields() + 2);
+        if (optionBytes != null && optionBytes.length > 0) {
+            seaTunnelRow.setOptions(SerializationUtils.deserialize(optionBytes));
+        }
         return seaTunnelRow;
     }
 
@@ -300,5 +307,17 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
             newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
         }
         return newArray;
+    }
+    /**
+     * Stores row options in the schema's trailing binary slot, after kind, table ID and data
+     * fields. Metadata stays attached through Spark conversion while an absent options map remains
+     * null.
+     */
+    private static byte[] serializeOptions(SeaTunnelRow row) {
+        Map<String, Object> options = row.getOptionsOrNull();
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        return SerializationUtils.serialize((Serializable) options);
     }
 }

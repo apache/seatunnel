@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -81,7 +82,17 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(75, tempCollector.getRows().size());
         Assertions.assertEquals(
                 DEFAULT_FIELD_NAMES.length, tempCollector.getRows().get(0).getArity());
-        Assertions.assertNull(tempCollector.getRows().get(0).getOptionsOrNull());
+        Map<String, Object> fileOptions = tempCollector.getRows().get(0).getOptions();
+        Assertions.assertEquals(5, fileOptions.size());
+        Assertions.assertEquals(path, fileOptions.get(CommonOptions.FILE_PATH.getName()));
+        Assertions.assertEquals("md", fileOptions.get(CommonOptions.FILE_TYPE.getName()));
+        Assertions.assertEquals(
+                Files.size(Paths.get(path)), fileOptions.get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals(
+                Files.getLastModifiedTime(Paths.get(path)).toMillis(),
+                fileOptions.get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertFalse(
+                fileOptions.containsKey(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
 
         Assertions.assertEquals("Heading_1", tempCollector.getRows().get(0).getField(0));
         Assertions.assertEquals("Heading", tempCollector.getRows().get(0).getField(1));
@@ -419,6 +430,11 @@ class MarkdownReadStrategyTest {
         String expectedDocumentHash = sha256Hex(documentBytes);
         for (SeaTunnelRow row : collector.getRows()) {
             Map<String, Object> options = row.getOptions();
+            // File metadata must coexist with the independently generated document/chunk identity.
+            Assertions.assertEquals(
+                    markdownFile.toString(), options.get(CommonOptions.FILE_PATH.getName()));
+            Assertions.assertEquals(
+                    Files.size(markdownFile), options.get(CommonOptions.FILE_SIZE.getName()));
             Assertions.assertEquals(
                     markdownFile.toString(),
                     options.get(KnowledgeSyncMetadataField.SOURCE_URI.getName()));
