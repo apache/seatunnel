@@ -60,7 +60,7 @@ Using `"|"` without escaping is a common mistake. As a regular expression it is 
 
 The name of the input field to split. The value is converted with `toString()` before splitting, so fields of other types are accepted as well.
 
-The field must exist in the input table. Otherwise the job fails with `TRANSFORM_COMMON-01: The input field 'name' of 'Split' transform not found in upstream schema`.
+The field must exist in the input table. Otherwise the job fails with error code `TRANSFORM_COMMON-01`: `The input field 'name' of 'Split' transform not found in upstream schema`.
 
 ### output_fields [Array&lt;String&gt;]
 

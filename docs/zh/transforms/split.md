@@ -60,7 +60,7 @@ Split 转换用于把一个输入字段拆分为多个输出字段。输入值�
 
 需要拆分的输入字段名称。拆分前会先通过 `toString()` 转换，因此其他类型的字段也可以使用。
 
-该字段必须存在于输入表中，否则作业会因 `TRANSFORM_COMMON-01: The input field 'name' of 'Split' transform not found in upstream schema` 错误而失败。
+该字段必须存在于输入表中，否则作业会因错误码 `TRANSFORM_COMMON-01` 失败：`The input field 'name' of 'Split' transform not found in upstream schema`。
 
 ### output_fields [Array&lt;String&gt;]
 
