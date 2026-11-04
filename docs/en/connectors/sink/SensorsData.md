@@ -4,7 +4,13 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 
 > SensorsData sink connector
 
-## Support Those Engines
+## Description
+
+The SensorsData sink uses the SensorsData SDK to send SeaTunnel rows as SensorsData records. It
+supports user events, user detail records, and item records. Use `consumer = "console"` when you
+want to print the converted records locally instead of sending them to the SensorsData server.
+
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -14,12 +20,8 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-
-## Description
-
-The SensorsData sink uses the SensorsData SDK to send SeaTunnel rows as SensorsData records. It
-supports user events, user detail records, and item records. Use `consumer = "console"` when you
-want to print the converted records locally instead of sending them to the SensorsData server.
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Sink Options
 
