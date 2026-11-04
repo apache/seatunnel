@@ -182,6 +182,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         CatalogTable finalCatalogTable = catalogTable;
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
+        // check config
+        JdbcSinkConfigChecker.check(options);
         return () ->
                 new JdbcSink(
                         options,
@@ -238,6 +240,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
+                        JdbcSinkOptions.USE_SQLSERVER_BULK_COPY,
                         JdbcSinkOptions.COMPATIBLE_MODE,
                         JdbcSinkOptions.ENABLE_UPSERT,
                         JdbcSinkOptions.FIELD_IDE,

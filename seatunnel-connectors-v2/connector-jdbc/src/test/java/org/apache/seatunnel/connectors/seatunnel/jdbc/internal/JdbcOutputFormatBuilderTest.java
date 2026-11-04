@@ -40,7 +40,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -132,6 +136,48 @@ public class JdbcOutputFormatBuilderTest {
 
         Assertions.assertEquals("databasewith.dot", database.getValue());
         Assertions.assertEquals("dbo.tableName", table.getValue());
+    }
+
+    @Test
+    public void testBulkCopyResolvesExplicitAndDefaultSchema() throws Exception {
+        for (String table : Arrays.asList("target", "dbo.target")) {
+            Connection connection = Mockito.mock(Connection.class);
+            Statement statement = Mockito.mock(Statement.class);
+            ResultSet result = Mockito.mock(ResultSet.class);
+            ResultSetMetaData metadata = Mockito.mock(ResultSetMetaData.class);
+            Mockito.when(connection.createStatement()).thenReturn(statement);
+            Mockito.when(statement.executeQuery(Mockito.anyString())).thenReturn(result);
+            Mockito.when(result.getMetaData()).thenReturn(metadata);
+            Mockito.when(metadata.getColumnName(1)).thenReturn("ID");
+            SimpleJdbcConnectionProvider provider =
+                    Mockito.mock(SimpleJdbcConnectionProvider.class);
+            Mockito.when(provider.getConnection()).thenReturn(connection);
+            JdbcSinkConfig config =
+                    JdbcSinkConfig.builder()
+                            .database("databasewith.dot")
+                            .table(table)
+                            .useSqlserverBulkCopy(true)
+                            .jdbcConnectionConfig(JdbcConnectionConfig.builder().build())
+                            .build();
+            JdbcOutputFormat format =
+                    new JdbcOutputFormatBuilder(
+                                    new SqlServerDialect(),
+                                    provider,
+                                    config,
+                                    oracleAppendValuesTableSchema(),
+                                    null)
+                            .build();
+            format.open();
+            String expectedTable =
+                    table.contains(".")
+                            ? "[databasewith.dot].[dbo].[target]"
+                            : "[databasewith.dot]..[target]";
+            Mockito.verify(statement)
+                    .executeQuery("SELECT [ID] FROM " + expectedTable + " WHERE 1=0");
+            Mockito.verify(result).close();
+            Mockito.verify(statement).close();
+            format.close();
+        }
     }
 
     @Test

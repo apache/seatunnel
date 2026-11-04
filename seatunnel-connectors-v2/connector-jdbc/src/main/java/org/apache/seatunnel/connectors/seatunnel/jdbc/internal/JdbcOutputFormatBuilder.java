@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNam
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.InsertOrUpdateBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SqlserverBulkCopyBatchStatementExecutor;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +83,16 @@ public class JdbcOutputFormatBuilder {
                             createCopyInBufferStatementExecutor(
                                     createCopyInBatchStatementExecutor(
                                             dialect, table, tableSchema));
+        } else if (jdbcSinkConfig.isUseSqlserverBulkCopy()) {
+            statementExecutorFactory =
+                    () ->
+                            createSqlserverBulkCopyInBufferStatementExecutor(
+                                    table.contains(".")
+                                            ? dialect.tableIdentifier(database, table)
+                                            : dialect.quoteDatabaseIdentifier(database)
+                                                    + ".."
+                                                    + dialect.quoteIdentifier(table),
+                                    tableSchema.getColumns());
         } else if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             statementExecutorFactory =
                     () ->
@@ -242,6 +253,12 @@ public class JdbcOutputFormatBuilder {
             CopyManagerBatchStatementExecutor copyManagerBatchStatementExecutor) {
         return new BufferedBatchStatementExecutor(
                 copyManagerBatchStatementExecutor, Function.identity());
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow>
+            createSqlserverBulkCopyInBufferStatementExecutor(
+                    String schemaTableName, List<Column> columns) {
+        return new SqlserverBulkCopyBatchStatementExecutor(schemaTableName, columns);
     }
 
     private static CopyManagerBatchStatementExecutor createCopyInBatchStatementExecutor(

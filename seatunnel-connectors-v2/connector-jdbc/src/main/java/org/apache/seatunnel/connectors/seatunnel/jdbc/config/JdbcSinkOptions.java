@@ -127,6 +127,12 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    public static final Option<Boolean> USE_SQLSERVER_BULK_COPY =
+            Options.key("use_sqlserver_bulk_copy")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support bulk copy in statement (sqlserver)");
+
     public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
             Options.key("oracle_insert_mode")
                     .enumType(JdbcSinkConfig.OracleInsertMode.class)
