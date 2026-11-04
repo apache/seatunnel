@@ -29,7 +29,7 @@ public class HiveSinkOptions extends HiveBaseOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "Use the orc.compress property of an existing ORC table when compress_codec is not explicitly configured. "
+                            "Use orc.compress for an existing ORC table or parquet.compression for an existing Parquet table when compress_codec is not explicitly configured. "
                                     + "Missing or blank table properties retain the default compression codec.");
 
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =

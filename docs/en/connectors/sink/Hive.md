@@ -41,8 +41,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
 | metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
-| compress_codec                        | string  | no       | none           | Explicit output compression codec. ORC supports `NONE`, `SNAPPY`, `ZLIB`, `LZ4` and `LZO`. Defaults to `none`; see `use_table_compression` to inherit compression from an existing ORC table. |
-| use_table_compression                 | boolean | no       | false          | Inherit `orc.compress` from an existing ORC table when no explicit codec is configured. |
+| compress_codec                        | string  | no       | none           | Explicit output compression codec. ORC supports `NONE`, `SNAPPY`, `ZLIB`, `LZ4` and `LZO`. Defaults to `none`; see `use_table_compression` to inherit compression from an existing ORC or Parquet table. |
+| use_table_compression                 | boolean | no       | false          | Inherit `orc.compress` or `parquet.compression` from an existing table when no explicit codec is configured. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
 | hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
@@ -61,24 +61,28 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### use_table_compression [boolean]
 
-Default: `false`. Enable this option to inherit `orc.compress` from the metastore when preparing an **existing ORC table**. It does not change automatic table creation, non-ORC tables, or table metadata.
+Default: `false`. Enable this option to inherit compression from an **existing ORC or Parquet table** when the sink is initialized. The property is `orc.compress` for ORC and `parquet.compression` for Parquet. Table metadata is not modified.
 
-For non-ORC tables, `use_table_compression` is ignored: no table compression property is inherited or validated. If the table does not exist when the sink is initialized and follows the automatic table-creation path, inheritance is also skipped, including `orc.compress` declared in `save_mode_create_template`. In both cases, enabling this option alone does not cause the job to fail; explicit `compress_codec` handling, existing defaults, and normal configuration validation and table-creation errors still apply.
+Priority: explicit `compress_codec` (including `NONE`) > the format-specific table property when enabled > the existing default `NONE`. Values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Parquet accepts `NONE`, `UNCOMPRESSED` (an alias for `NONE`), `SNAPPY`, `GZIP`, `LZO`, `LZ4`, `BROTLI` and `ZSTD`. Inherited `ZLIB` is rejected for Parquet because it maps to uncompressed output. Unknown or incompatible inherited codecs fail during sink initialization; explicit codecs retain their existing validation behavior. Native codec dependencies and downstream readers must support the chosen codec.
 
-Priority: explicit `compress_codec` (including `NONE`) > table `orc.compress` when enabled > the existing default `NONE`. Table values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Unknown values or codecs without a supported ORC mapping fail during sink initialization instead of silently writing uncompressed files. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using that table property. Downstream readers must support the selected codec.
+Other formats are skipped without validating either property. When the table does not exist at initialization and follows automatic creation, inheritance is also skipped, including properties in `save_mode_create_template`. Enabling this option alone does not cause these skip cases to fail; explicit codec handling and normal configuration/table-creation validation still apply.
 
-For an existing table created with `TBLPROPERTIES ('orc.compress'='SNAPPY')`:
+ORC behavior remains unchanged: codecs without a supported ORC mapping are rejected. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using it.
+
+For an existing table created with `STORED AS PARQUET TBLPROPERTIES ('parquet.compression'='SNAPPY')`:
 
 ```hocon
 sink {
   Hive {
-    table_name = "default.existing_orc_table"
+    table_name = "default.existing_parquet_table"
     metastore_uri = "thrift://metastore:9083"
     use_table_compression = true
     # Optional: compress_codec = "NONE" overrides the table property.
   }
 }
 ```
+
+The same option applies to an existing ORC table with `TBLPROPERTIES ('orc.compress'='SNAPPY')`.
 
 ### table_name [string]
 
