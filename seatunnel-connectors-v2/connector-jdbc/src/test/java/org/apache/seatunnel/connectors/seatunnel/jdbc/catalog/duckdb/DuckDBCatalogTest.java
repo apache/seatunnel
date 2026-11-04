@@ -193,29 +193,33 @@ public class DuckDBCatalogTest {
         TablePath tablePath = getMainTablePath(TABLE_NAME);
         insertRow();
         Assertions.assertTrue(hasData(tablePath));
-        Connection connection = catalog.getConnection(jdbcUrl);
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s", quoteTable(tablePath)));
-        }
-        Assertions.assertFalse(hasData(tablePath));
+        catalog.truncateTable(tablePath, false);
+        Assertions.assertFalse(catalog.isExistsData(tablePath));
     }
 
     @Test
     @Order(7)
+    public void testIsExistsData() throws Exception {
+        TablePath tablePath = getMainTablePath(TABLE_NAME);
+        insertRow();
+        Assertions.assertTrue(catalog.isExistsData(tablePath));
+        catalog.truncateTable(tablePath, false);
+        Assertions.assertFalse(catalog.isExistsData(tablePath));
+    }
+
+    @Test
+    @Order(8)
     public void testDropTable() throws Exception {
         TablePath tablePath = getMainTablePath(TABLE_NAME);
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
-        Connection connection = catalog.getConnection(jdbcUrl);
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("DROP TABLE %s", quoteTable(tablePath)));
-            statement.execute(String.format("DROP TABLE %s", quoteTable(copyPath)));
-        }
+        catalog.dropTable(tablePath, false);
+        catalog.dropTable(copyPath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
         Assertions.assertFalse(catalog.tableExists(copyPath));
     }
 
     @Test
-    @Order(8)
+    @Order(9)
     public void testMetadataLookupWithApostrophes() throws Exception {
         TablePath tablePath = TablePath.of(DATABASE_NAME, "odd'schema", "odd'table");
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
@@ -306,7 +310,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
-    @Order(8)
+    @Order(10)
     public void testBitAndLongEnumLabelUseUnboundedSinkTypes() throws Exception {
         String label = String.join("", Collections.nCopies(400, "m"));
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
