@@ -1908,11 +1908,6 @@ public class CoordinatorService {
     }
 
     public JobDAGInfo getJobInfo(long jobId) {
-        JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
-        if (jobInfo != null) {
-            return jobInfo;
-        }
-
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster != null) {
             return runningJobMaster.getJobDAGInfo();
@@ -1926,6 +1921,11 @@ public class CoordinatorService {
         JobInfo runningJobInfo = runningJobInfoIMap.get(jobId);
         if (runningJobInfo != null) {
             return restoreJobDAGInfo(runningJobInfo);
+        }
+
+        JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
+        if (jobInfo != null) {
+            return jobInfo;
         }
 
         throw new JobNotFoundException(String.format("Job %s not found", jobId));
