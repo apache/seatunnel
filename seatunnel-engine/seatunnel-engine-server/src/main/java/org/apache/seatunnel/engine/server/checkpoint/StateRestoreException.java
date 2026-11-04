@@ -46,7 +46,7 @@ public class StateRestoreException extends SeaTunnelEngineException {
      * @param serializer the connector's serializer for this kind of state
      * @param bytes the state bytes stored in the checkpoint
      * @param actionName the name of the action that owns the state
-     * @param pluginName the connector plugin name, used to point at its upgrade notes
+     * @param pluginName the connector plugin name, so the user knows which connector to look up
      * @param location the task that restores the state
      * @return the restored state
      * @throws StateRestoreException if the serializer cannot read the bytes
@@ -62,9 +62,11 @@ public class StateRestoreException extends SeaTunnelEngineException {
         } catch (Exception e) {
             throw new StateRestoreException(
                     String.format(
-                            "Cannot restore state of action '%s' (job %d, pipeline %d): state"
-                                    + " produced by version unknown is not readable by this"
-                                    + " connector. See the upgrade notes for %s. Cause: %s",
+                            "Cannot restore state of action '%s' (job %d, pipeline %d): the state"
+                                    + " could not be deserialized, possibly because it was"
+                                    + " produced by an incompatible connector version (version"
+                                    + " unknown). If you upgraded, check the Incompatible Changes"
+                                    + " document for %s. Cause: %s",
                             actionName,
                             location.getJobId(),
                             location.getPipelineId(),
@@ -76,8 +78,8 @@ public class StateRestoreException extends SeaTunnelEngineException {
 
     /**
      * Returns the connector name of a sink for the restore error message. The engine wraps sinks in
-     * a {@link MultiTableSink}, whose own plugin name does not tell the user which connector's
-     * upgrade notes to read, so the names of the wrapped sinks are used instead.
+     * a {@link MultiTableSink}, whose own plugin name does not tell the user which connector to
+     * look up, so the names of the wrapped sinks are used instead.
      *
      * @param sink the sink of the action that restores its state
      * @return the plugin names of the wrapped sinks, or the sink's own plugin name

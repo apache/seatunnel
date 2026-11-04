@@ -105,8 +105,10 @@ public class StateRestoreExceptionTest {
                                         + job
                                         + ", pipeline "
                                         + pipeline
-                                        + "): state produced by version unknown is not readable"
-                                        + " by this connector. See the upgrade notes for "
+                                        + "): the state could not be deserialized, possibly"
+                                        + " because it was produced by an incompatible connector"
+                                        + " version (version unknown). If you upgraded, check the"
+                                        + " Incompatible Changes document for "
                                         + pluginName
                                         + ". Cause: "
                                         + SerializationException.class.getName()
