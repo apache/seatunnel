@@ -29,7 +29,7 @@ Split 转换用于把一个输入字段拆分为多个输出字段。输入值�
 | output_fields     | Array&lt;String&gt; | 是    | -             | 输出字段的名称，按顺序排列。列表不能为空。                                |
 | table_match_regex | String         | 否    | `.*`          | 转换级别规则所适用的表路径的正则表达式。                                     |
 | table_transform   | Array&lt;Map&gt;    | 否    | -             | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
-| rule_match_mode   | String         | 否    | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
+| rule_match_mode   | String         | 否    | `FIRST_MATCH`（未显式设置时，重复的 `table_path` 条目会被拒绝） | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -              | 否    | -             | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 
 :::info
@@ -52,7 +52,7 @@ Split 转换用于把一个输入字段拆分为多个输出字段。输入值�
 
 :::caution
 
-不转义直接使用 `"|"` 是常见错误。作为正则表达式它表示空分支，结果会在每个字符之间拆分，而不是按竖线拆分。
+不转义直接使用 `"|"` 是常见错误。作为正则表达式它表示空分支，拆分会在字符边界发生。当 `output_fields = [first_name, last_name]` 时，`Joy|Ding` 会拆成 `J` 和 `oy|Ding`，而不是 `Joy` 和 `Ding`。
 
 :::
 
@@ -60,7 +60,7 @@ Split 转换用于把一个输入字段拆分为多个输出字段。输入值�
 
 需要拆分的输入字段名称。拆分前会先通过 `toString()` 转换，因此其他类型的字段也可以使用。
 
-该字段必须存在于输入表中，否则作业会因 "cannot find input field" 错误而失败。
+该字段必须存在于输入表中，否则作业会因 `TRANSFORM_COMMON-01: The input field 'name' of 'Split' transform not found in upstream schema` 错误而失败。
 
 ### output_fields [Array&lt;String&gt;]
 

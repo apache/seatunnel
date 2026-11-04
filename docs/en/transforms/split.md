@@ -29,7 +29,7 @@ The Split transform splits one input field into several output fields. The input
 | output_fields     | Array&lt;String&gt; | yes      | -             | Names of the output fields, in order. The list must not be empty.                                    |
 | table_match_regex | String             | no       | `.*`          | Regex of the table paths that the transform level rule applies to.                                   |
 | table_transform   | Array&lt;Map&gt;    | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
-| rule_match_mode   | String             | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
+| rule_match_mode   | String             | no       | `FIRST_MATCH` (duplicate `table_path` entries are rejected unless set explicitly) | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -             | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
 :::info
@@ -52,7 +52,7 @@ Because the value is a regular expression, metacharacters must be escaped when t
 
 :::caution
 
-Using `"|"` without escaping is a common mistake. As a regular expression it is an empty alternative, so the value is split between every character instead of on the pipe character.
+Using `"|"` without escaping is a common mistake. As a regular expression it is an empty alternative, so the split happens at character boundaries. With `output_fields = [first_name, last_name]`, `Joy|Ding` becomes `J` and `oy|Ding` instead of `Joy` and `Ding`.
 
 :::
 
@@ -60,7 +60,7 @@ Using `"|"` without escaping is a common mistake. As a regular expression it is 
 
 The name of the input field to split. The value is converted with `toString()` before splitting, so fields of other types are accepted as well.
 
-The field must exist in the input table. Otherwise the job fails with a "cannot find input field" error.
+The field must exist in the input table. Otherwise the job fails with `TRANSFORM_COMMON-01: The input field 'name' of 'Split' transform not found in upstream schema`.
 
 ### output_fields [Array&lt;String&gt;]
 
