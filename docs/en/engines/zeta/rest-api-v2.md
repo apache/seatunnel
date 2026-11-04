@@ -104,7 +104,7 @@ Please refer [security](security.md)
 
 #### Responses
 
-Conditional rules in REST metadata and the CLI metadata export use a flat chain whose expression nodes own `operator` and `next`; interpret `AND` before `OR` (for example, `A OR B AND C` means `A OR (B AND C)`), not from left to right.
+Conditional required options and nested condition rules in REST metadata and the CLI metadata export use a flat chain whose expression nodes own `operator` and `next`; interpret `AND` before `OR` (for example, `A OR B AND C` means `A OR (B AND C)`), not from left to right. Standalone `valueConstraints[].conditionTree` chains carry `operator` and `next` on the condition nodes themselves and use the same precedence.
 
 ```json
 {
