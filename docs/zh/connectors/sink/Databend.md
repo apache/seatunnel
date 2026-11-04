@@ -168,6 +168,7 @@ sink {
 
 `conflict_key` 用来指定合并更新/删除事件的主键列。只有当 DELETE 事件需要删除
 Databend 中的数据时，才需要设置 `enable_delete = true`。
+如果主键已存在，INSERT 事件会像更新事件一样更新该行。
 如果不配置 `conflict_key`，sink 会按普通批量插入方式写入。
 
 下面的端到端示例将 CDC 行类型（`INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER`、`DELETE`）

@@ -4,6 +4,14 @@
 
 ## dev
 
+### Databend Sink：应用主键最新的 CDC 事件
+
+- **影响范围**：CDC 模式（设置了 `conflict_key`）下的 Databend Sink。
+- **行为变化**：以前如果 INSERT 事件的主键已存在于目标表，该事件会被忽略，目标行保留旧值。现在它会像更新事件一样覆盖该行。
+  这也包括 `enable_delete = false` 丢弃 DELETE 后的重新插入，以及在已有表上重新运行快照。当同一 writer 中同一主键的多个事件进入
+  同一次合并时，现在总是最新事件生效；以前同一毫秒内的事件可能使该行保留旧值，或删除已重新插入的行。
+- **迁移方式**：无需修改配置。依赖 INSERT 不改变已有行的作业，需要在 Sink 之前过滤这些事件。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
