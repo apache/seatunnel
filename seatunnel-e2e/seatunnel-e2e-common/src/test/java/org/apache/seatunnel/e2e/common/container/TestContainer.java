@@ -81,6 +81,12 @@ public interface TestContainer extends TestResource {
         throw new UnsupportedOperationException("Not implemented");
     }
 
+    default Container.ExecResult restoreJobWithCheckpoint(
+            String confFile, String sourceJobId, String restoreJobId, List<String> variables)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
     default Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");
     }

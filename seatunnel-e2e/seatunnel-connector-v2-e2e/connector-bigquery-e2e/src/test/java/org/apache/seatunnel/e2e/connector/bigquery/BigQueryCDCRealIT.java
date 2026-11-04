@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -73,10 +74,12 @@ import java.util.stream.StreamSupport;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Runs BigQuery CDC and ADD COLUMN schema evolution against the real BigQuery service.
+ * Runs BigQuery CDC and ADD COLUMN schema evolution, and the batch-mode restore from a checkpoint,
+ * against the real BigQuery service.
  *
  * <p>This test is opt-in because it requires GCP credentials, creates billable BigQuery jobs, and
- * cannot be verified correctly by goccy/bigquery-emulator.
+ * cannot be verified correctly by goccy/bigquery-emulator. The emulator ignores append offsets and
+ * inserts the buffered rows again on every FlushRows call.
  *
  * <p>Set {@code BIGQUERY_E2E_REAL=true}, {@code BIGQUERY_E2E_PROJECT_ID}, {@code
  * BIGQUERY_E2E_DATASET_ID}, and {@code GOOGLE_APPLICATION_CREDENTIALS}. The dataset must already
@@ -106,6 +109,12 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
             Pattern.compile("[a-z][a-z0-9-]{4,28}[a-z0-9]");
     private static final Pattern DATASET_ID_PATTERN = Pattern.compile("[A-Za-z0-9_]+");
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static final String BATCH_RESTORE_CONF = "/fake_to_bigquery_batch_real_restore.conf";
+    private static final long BATCH_RESTORE_ROW_COUNT = 60L;
+    private static final int BATCH_RESTORE_TIMEOUT_SECONDS = 300;
+    // Shorter than checkpoint.interval in the job config, so rows appended after the last
+    // completed checkpoint are still unflushed in the buffered stream when the job is cancelled.
+    private static final int UNCHECKPOINTED_APPEND_SECONDS = 4;
 
     private String projectId;
     private String datasetId;
@@ -323,6 +332,119 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
                             rethrowJobFailure(jobFuture);
                             Assertions.assertEquals(evolvedRows, queryRows(true));
                         });
+    }
+
+    /**
+     * Cancels a batch-mode job after rows were appended past its last completed checkpoint, then
+     * restores the job from that checkpoint. The rows left unflushed in the old buffered stream
+     * must stay invisible, and the replay must make every remaining row visible exactly once.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Cancelling and restoring a job are only implemented by the SeaTunnel test container")
+    public void testBatchModeRestoreAfterUncheckpointedAppends(TestContainer container)
+            throws Exception {
+        tableId =
+                TableId.of(
+                        projectId,
+                        datasetId,
+                        "seatunnel_batch_restore_" + UUID.randomUUID().toString().replace("-", ""));
+        createBatchRestoreTable();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String[] variables = {
+            "bigquery_project_id=" + projectId,
+            "bigquery_dataset_id=" + datasetId,
+            "bigquery_table_id=" + tableId.getTable()
+        };
+
+        CompletableFuture<Container.ExecResult> firstRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(BATCH_RESTORE_CONF, jobId, variables);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(INITIAL_SNAPSHOT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> container.getCompletedCheckpointCount(jobId) > 0);
+        TimeUnit.SECONDS.sleep(UNCHECKPOINTED_APPEND_SECONDS);
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> "CANCELED".equals(container.getJobStatus(jobId)));
+        firstRun.get(2, TimeUnit.MINUTES);
+
+        long rowsBeforeRestore = countRows();
+        Assertions.assertTrue(
+                rowsBeforeRestore > 0 && rowsBeforeRestore < BATCH_RESTORE_ROW_COUNT,
+                "The job must be cancelled after the first commit and before every row is written,"
+                        + " but "
+                        + rowsBeforeRestore
+                        + " rows were visible");
+
+        // A job restored from a checkpoint runs under a new job id.
+        String restoredJobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> restoredRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJobWithCheckpoint(
+                                        BATCH_RESTORE_CONF,
+                                        jobId,
+                                        restoredJobId,
+                                        Arrays.asList(variables));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        try {
+            await().atMost(BATCH_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertEquals(BATCH_RESTORE_ROW_COUNT, countRows()));
+
+            // Later checkpoints flush the same offsets again, which must not add rows.
+            long checkpointsAtFullCount = container.getCompletedCheckpointCount(restoredJobId);
+            await().atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    container.getCompletedCheckpointCount(restoredJobId)
+                                            > checkpointsAtFullCount);
+            Assertions.assertEquals(BATCH_RESTORE_ROW_COUNT, countRows());
+        } finally {
+            container.cancelJob(restoredJobId);
+            restoredRun.get(2, TimeUnit.MINUTES);
+        }
+    }
+
+    private void createBatchRestoreTable() throws InterruptedException {
+        String sql =
+                String.format(
+                        "CREATE TABLE `%s.%s.%s` (id INT64, name STRING) OPTIONS ("
+                                + "expiration_timestamp = "
+                                + "TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)"
+                                + ")",
+                        projectId, datasetId, tableId.getTable());
+        bigQuery.query(QueryJobConfiguration.of(sql));
+    }
+
+    private long countRows() throws InterruptedException {
+        String query =
+                String.format(
+                        "SELECT COUNT(*) FROM `%s.%s.%s`",
+                        projectId, datasetId, tableId.getTable());
+        TableResult result =
+                bigQuery.query(
+                        QueryJobConfiguration.newBuilder(query).setUseQueryCache(false).build());
+        return result.iterateAll().iterator().next().get(0).getLongValue();
     }
 
     private void createBigQueryTable() throws InterruptedException {
